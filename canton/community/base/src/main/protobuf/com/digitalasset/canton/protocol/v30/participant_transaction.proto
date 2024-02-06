@@ -65,7 +65,6 @@ message Informee {
 
   string party = 1;
   int32 weight = 2; // optional: only set if party is confirming
-  com.digitalasset.canton.protocol.v30.TrustLevel required_trust_level = 3;
 }
 
 // EncryptedViewMessage

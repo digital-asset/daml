@@ -60,7 +60,8 @@ private[transfer] sealed abstract case class TransferOutValidationTransferringPa
   }
 
   private def checkVetted(stakeholders: Set[LfPartyId], templateId: LfTemplateId)(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     TransferKnownAndVetted(
       stakeholders,

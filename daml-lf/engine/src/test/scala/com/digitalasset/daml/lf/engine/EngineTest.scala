@@ -18,7 +18,6 @@ import com.daml.lf.transaction.{
   Normalization,
   ReplayMismatch,
   SubmittedTransaction,
-  Util,
   Validation,
   VersionedTransaction,
   Transaction => Tx,
@@ -401,7 +400,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                   (Some[Ref.Name]("k"), ValueInt64(43)),
                 ),
               ),
-              basicUseSharedKeys,
             )
           )
         )
@@ -661,7 +659,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicUseSharedKeys,
               )
             )
           )
@@ -709,7 +706,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicUseSharedKeys,
               )
             )
           )
@@ -739,7 +735,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -749,7 +745,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
@@ -767,12 +763,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(
-              usedDisclosedContract.templateId,
-              usedContractKey,
-              Set(alice),
-              basicUseSharedKeys,
-            )
+            .assertBuild(usedDisclosedContract.templateId, usedContractKey, Set(alice))
         ),
         version = transactionVersion,
       )
@@ -1582,7 +1573,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1592,7 +1583,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
         templateId = templateId,
@@ -1610,7 +1601,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, usedContractKey, Set(alice), basicUseSharedKeys)
+            .assertBuild(templateId, usedContractKey, Set(alice))
         ),
         version = transactionVersion,
       )
@@ -2438,7 +2429,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
-  val basicUseSharedKeys: Boolean = Util.sharedKey(basicTestsPkg.languageVersion)
+  val basicUseSharedKeys: Boolean = true
 
   val party: Ref.IdString.Party = Party.assertFromString("Party")
   val alice: Ref.IdString.Party = Party.assertFromString("Alice")
@@ -2500,7 +2491,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       GlobalKey.assertBuild(
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-        basicUseSharedKeys,
       ),
       Set(alice),
     )

@@ -1600,7 +1600,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
-          assertSince(LV.Features.exerciseByKey, "exerciseByKey")
           val exerciseByKey = lfUpdate.getExerciseByKey
           val templateId = decodeTypeConName(exerciseByKey.getTemplate)
           val choice = getInternedName(exerciseByKey.getChoiceInternedStr)
@@ -2041,11 +2040,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(TIMESTAMP_TO_TEXT, BTimestampToText),
       BuiltinFunctionInfo(PARTY_TO_TEXT, BPartyToText),
       BuiltinFunctionInfo(TEXT_TO_TEXT, BTextToText),
-      BuiltinFunctionInfo(
-        CONTRACT_ID_TO_TEXT,
-        BContractIdToText,
-        minVersion = contractIdTextConversions,
-      ),
+      BuiltinFunctionInfo(CONTRACT_ID_TO_TEXT, BContractIdToText),
       BuiltinFunctionInfo(PARTY_TO_QUOTED_TEXT, BPartyToQuotedText, maxVersion = Some(exceptions)),
       BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),

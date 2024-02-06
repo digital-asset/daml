@@ -62,3 +62,7 @@ and ensure that the release notes and documentation has been included as part of
 
 * User-defined instances of the class `SetField` enable the use of with-syntax
   for field update, i.e. `rec with field = newValue`
+
+* Removed support for "template-let" syntax, previously deprecated in Daml 2.8.0.
+  See [Template-local Definitions (Deprecated)](https://docs.daml.com/daml/reference/templates.html#template-local-definitions-deprecated)
+  for migration guidance.

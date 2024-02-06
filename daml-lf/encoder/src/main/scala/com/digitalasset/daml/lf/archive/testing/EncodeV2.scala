@@ -414,7 +414,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           }
           builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
-          assertSince(LV.Features.exerciseByKey, "exerciseByKey")
           val b = PLF.Update.ExerciseByKey.newBuilder()
           b.setTemplate(templateId)
           b.setChoiceInternedStr(stringsTable.insert(choice))

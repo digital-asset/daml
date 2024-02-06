@@ -112,7 +112,10 @@ final case class ClosedEnvelope private (
   def verifySignatures(
       snapshot: SyncCryptoApi,
       sender: Member,
-  )(implicit ec: ExecutionContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, SignatureCheckError, Unit] = {
     NonEmpty
       .from(signatures)
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
@@ -213,7 +216,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       sender: Member,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
     snapshot.verifySignatures(hash, sender, signatures)
   }

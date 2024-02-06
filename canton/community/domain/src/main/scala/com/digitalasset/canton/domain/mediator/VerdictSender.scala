@@ -225,6 +225,8 @@ private[mediator] class DefaultVerdictSender(
   private def informeesByParticipantAndWithGroupAddressing(
       informees: List[LfPartyId],
       topologySnapshot: TopologySnapshot,
+  )(implicit
+      traceContext: TraceContext
   ): Future[(Map[ParticipantId, Set[LfPartyId]], Set[LfPartyId])] =
     for {
       partiesWithGroupAddressing <- topologySnapshot.partiesWithGroupAddressing(informees)

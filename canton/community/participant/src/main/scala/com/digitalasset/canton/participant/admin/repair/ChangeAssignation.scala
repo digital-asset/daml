@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.participant.admin.repair
 
-import cats.data.{EitherT, OptionT}
-import cats.syntax.foldable.*
+import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.lf.data.Bytes
@@ -154,14 +153,19 @@ private final class ChangeAssignation(
   private def atLeastOneHostedStakeholderAtTarget(
       contractId: LfContractId,
       stakeholders: Set[LfPartyId],
-  )(implicit executionContext: ExecutionContext): EitherT[Future, String, Unit] =
-    OptionT(
-      stakeholders.toSeq
-        .findM(hostsParty(repairTarget.domain.topologySnapshot, participantId))
-    ).map(_.discard)
-      .toRight(
-        show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target domain asOf=${repairTarget.domain.topologySnapshot.timestamp}"
-      )
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, String, Unit] = {
+    EitherT(hostsParties(repairTarget.domain.topologySnapshot, stakeholders, participantId).map {
+      hosted =>
+        Either.cond(
+          hosted.nonEmpty,
+          (),
+          show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target domain asOf=${repairTarget.domain.topologySnapshot.timestamp}",
+        )
+    })
+  }
 
   private def readContractsFromSource(
       contractIdsWithTransferCounters: List[
@@ -306,14 +310,18 @@ private final class ChangeAssignation(
       repair: RepairRequest,
       contracts: List[SerializableContract],
       participantId: ParticipantId,
-  )(implicit executionContext: ExecutionContext): Future[Set[LfPartyId]] =
-    contracts
-      .flatMap(_.metadata.stakeholders)
-      .distinct
-      .parTraverseFilter(party =>
-        hostsParty(repair.domain.topologySnapshot, participantId)(party).map(Option.when(_)(party))
-      )
-      .map(_.toSet)
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): Future[Set[LfPartyId]] = {
+    hostsParties(
+      repair.domain.topologySnapshot,
+      contracts
+        .flatMap(_.metadata.stakeholders)
+        .toSet,
+      participantId,
+    )
+  }
 
   private def insertMany(repair: RepairRequest, events: List[TimestampedEvent])(implicit
       executionContext: ExecutionContext,

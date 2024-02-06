@@ -188,8 +188,7 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
       participant <- ParticipantId
         .fromProtoPrimitive(request.participant, "participant")
       permission <- ParticipantPermission.fromProtoEnum(request.permission)
-      trustLevel <- TrustLevel.fromProtoEnum(request.trustLevel)
-    } yield ParticipantState(side, domain, participant, permission, trustLevel)
+    } yield ParticipantState(side, domain, participant, permission)
     process(request.authorization, item.leftMap(ProtoDeserializationFailure.Wrap(_)))
   }
 

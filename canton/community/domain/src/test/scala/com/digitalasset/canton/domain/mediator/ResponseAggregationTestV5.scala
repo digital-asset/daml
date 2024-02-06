@@ -5,8 +5,8 @@ package com.digitalasset.canton.domain.mediator
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{HashOps, Salt, Signature, TestHash, TestSalt}
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex.Direction
 import com.digitalasset.canton.data.*
@@ -21,7 +21,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, LfPartyId}
@@ -46,30 +45,21 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
     def salt(i: Int): Salt = TestSalt.generateSalt(i)
 
     val domainId = DefaultTestIdentities.domainId
-    val mediator = MediatorRef(DefaultTestIdentities.mediator)
+    val mediator = MediatorRef(DefaultTestIdentities.mediatorIdX)
     val participantId = DefaultTestIdentities.participant1
 
     val aliceParty = LfPartyId.assertFromString("alice")
     val alice = ConfirmingParty(
       aliceParty,
       PositiveInt.tryCreate(3),
-      TrustLevel.Ordinary,
-    )
-    val aliceVip = ConfirmingParty(
-      aliceParty,
-      PositiveInt.tryCreate(3),
-      TrustLevel.Vip,
     )
     val bob = ConfirmingParty(
       LfPartyId.assertFromString("bob"),
       PositiveInt.tryCreate(2),
-      TrustLevel.Ordinary,
     )
-    val bobVip =
-      ConfirmingParty(LfPartyId.assertFromString("bob"), PositiveInt.tryCreate(2), TrustLevel.Vip)
     val charlie = PlainInformee(LfPartyId.assertFromString("charlie"))
     val dave =
-      ConfirmingParty(LfPartyId.assertFromString("dave"), PositiveInt.one, TrustLevel.Ordinary)
+      ConfirmingParty(LfPartyId.assertFromString("dave"), PositiveInt.one)
     val solo = ParticipantId("solo")
     val uno = ParticipantId("uno")
     val duo = ParticipantId("duo")
@@ -107,22 +97,8 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         testedProtocolVersion,
       )
 
-    val viewVip =
-      TransactionView.tryCreate(hashOps)(
-        ViewCommonData.create(hashOps)(
-          Set(aliceVip, bobVip, charlie),
-          NonNegativeInt.tryCreate(4),
-          salt(54171),
-          testedProtocolVersion,
-        ),
-        b(9),
-        emptySubviews,
-        testedProtocolVersion,
-      )
-
     val view1Position = ViewPosition(List(MerkleSeqIndex(List.empty)))
     val view2Position = ViewPosition(List(MerkleSeqIndex(List.empty), MerkleSeqIndex(List.empty)))
-    val viewVipPosition = ViewPosition(List(MerkleSeqIndex(List.empty)))
 
     val requestId = RequestId(CantonTimestamp.Epoch)
 
@@ -189,7 +165,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       val someOtherRootHash = RootHash(TestHash.digest(12345))
 
       val topologySnapshot: TopologySnapshot = mock[TopologySnapshot]
-      when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]]))
+      when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
         .thenAnswer((parties: Set[LfPartyId]) =>
           Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
         )
@@ -248,8 +224,12 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         result shouldBe None
       }
 
-      when(topologySnapshot.canConfirm(eqTo(solo), any[LfPartyId], any[TrustLevel]))
-        .thenReturn(Future.successful(true))
+      when(
+        topologySnapshot.canConfirm(eqTo(solo), any[Set[LfPartyId]])(anyTraceContext)
+      )
+        .thenAnswer { (participantId: ParticipantId, parties: Set[LfPartyId]) =>
+          Future.successful(parties)
+        }
 
       describe("rejection") {
         val changeTs1 = requestId.unwrap.plusSeconds(1)
@@ -528,16 +508,26 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       val view2Position = ViewPosition(List(MerkleSeqIndex(List(Direction.Right))))
 
       val topologySnapshot: TopologySnapshot = mock[TopologySnapshot]
-      when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]]))
+      when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
         .thenAnswer((parties: Set[LfPartyId]) =>
           Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
         )
-      when(topologySnapshot.canConfirm(eqTo(solo), eqTo(bob.party), any[TrustLevel]))
-        .thenReturn(Future.successful(true))
-      when(topologySnapshot.canConfirm(eqTo(solo), eqTo(dave.party), any[TrustLevel]))
-        .thenReturn(Future.successful(true))
-      when(topologySnapshot.canConfirm(eqTo(solo), eqTo(alice.party), any[TrustLevel]))
-        .thenReturn(Future.successful(false))
+
+      when(
+        topologySnapshot.canConfirm(any[ParticipantId], any[Set[LfPartyId]])(
+          anyTraceContext
+        )
+      )
+        .thenAnswer { (participantId: ParticipantId, parties: Set[LfPartyId]) =>
+          if (participantId != solo)
+            Future.failed(new IllegalArgumentException(s"unexpected participant: $participantId"))
+          Future.successful(parties.flatMap {
+            case `bob`.party => Set(bob.party)
+            case `dave`.party => Set(dave.party)
+            case `alice`.party => Set.empty
+            case otherwise => throw new IllegalArgumentException(s"unexpected party: $otherwise")
+          })
+        }
 
       val sut = ResponseAggregation
         .fromRequest(
@@ -658,154 +648,6 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       }
     }
 
-    describe("under the VIP policy") {
-      val commonMetadata = CommonMetadata
-        .create(hashOps, testedProtocolVersion)(
-          ConfirmationPolicy.Vip,
-          domainId,
-          mediator,
-          salt(5417),
-          new UUID(0L, 0L),
-        )
-      val fullInformeeTree = FullInformeeTree.tryCreate(
-        GenTransactionTree.tryCreate(hashOps)(
-          submitterMetadata,
-          commonMetadata,
-          b(2),
-          MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(viewVip :: Nil),
-        ),
-        testedProtocolVersion,
-      )
-      val informeeMessage =
-        InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
-      val rootHash = informeeMessage.rootHash
-      val nonVip = ParticipantId("notAVip")
-
-      val topologySnapshotVip: TopologySnapshot = mock[TopologySnapshot]
-      when(topologySnapshotVip.consortiumThresholds(any[Set[LfPartyId]]))
-        .thenAnswer((parties: Set[LfPartyId]) =>
-          Future.successful(parties.map(x => x -> PositiveInt.one).toMap)
-        )
-      when(topologySnapshotVip.canConfirm(eqTo(solo), eqTo(alice.party), eqTo(TrustLevel.Vip)))
-        .thenReturn(Future.successful(true))
-      when(topologySnapshotVip.canConfirm(eqTo(solo), eqTo(bob.party), eqTo(TrustLevel.Vip)))
-        .thenReturn(Future.successful(false))
-      when(topologySnapshotVip.canConfirm(eqTo(solo), eqTo(bob.party), eqTo(TrustLevel.Ordinary)))
-        .thenReturn(Future.successful(true))
-      when(topologySnapshotVip.canConfirm(eqTo(nonVip), any[LfPartyId], eqTo(TrustLevel.Vip)))
-        .thenReturn(Future.successful(false))
-      when(
-        topologySnapshotVip.canConfirm(eqTo(nonVip), any[LfPartyId], eqTo(TrustLevel.Ordinary))
-      )
-        .thenReturn(Future.successful(true))
-
-      val sut = ResponseAggregation
-        .fromRequest(
-          requestId,
-          informeeMessage,
-          topologySnapshotVip,
-        )
-        .futureValue
-      val initialState =
-        Map(
-          viewVipPosition -> ViewState(
-            pendingConfirmingParties = Set(aliceVip, bobVip),
-            consortiumVoting = Map(
-              alice.party -> ConsortiumVotingState(),
-              bob.party -> ConsortiumVotingState(),
-            ),
-            distanceToThreshold = viewVip.viewCommonData.tryUnwrap.threshold.unwrap,
-            rejections = Nil,
-          )
-        )
-
-      it("should have all pending confirming parties listed") {
-        sut.state shouldBe Right(initialState)
-      }
-
-      it("should reject non-VIP responses") {
-        val response =
-          mkResponse(
-            viewVipPosition,
-            LocalApprove(testedProtocolVersion),
-            Set(alice.party, bob.party),
-            rootHash,
-          )
-
-        val responseTs = requestId.unwrap.plusSeconds(1)
-        loggerFactory.assertLogs(
-          sut
-            .validateAndProgress(responseTs, response, topologySnapshotVip)
-            .futureValue shouldBe None,
-          _.shouldBeCantonError(
-            MediatorError.MalformedMessage,
-            _ shouldBe show"Received an unauthorized mediator response at $responseTs by $solo for request $requestId on behalf of Set(bob). Discarding response...",
-          ),
-        )
-      }
-
-      it("should ignore malformed non-VIP responses") {
-        val rejectMsg = "malformed request"
-        val reject =
-          LocalReject.MalformedRejects.Payloads.Reject(rejectMsg)(localVerdictProtocolVersion)
-        val response =
-          MediatorResponse.tryCreate(
-            requestId,
-            nonVip,
-            None,
-            reject,
-            None,
-            Set.empty,
-            domainId,
-            testedProtocolVersion,
-          )
-        val result = loggerFactory.assertLogs(
-          valueOrFail(
-            sut
-              .validateAndProgress(requestId.unwrap.plusSeconds(1), response, topologySnapshotVip)
-              .futureValue
-          )(s"$nonVip responds Malformed"),
-          _.shouldBeCantonError(
-            LocalReject.MalformedRejects.Payloads,
-            _ shouldBe s"Rejected transaction due to malformed payload within views $rejectMsg",
-            _ should (contain("reportedBy" -> s"$nonVip") and contain(
-              "requestId" -> requestId.toString
-            )),
-          ),
-        )
-        result.state shouldBe Right(initialState)
-      }
-
-      it("should accept VIP responses") {
-        val changeTs = requestId.unwrap.plusSeconds(1)
-        val response = mkResponse(
-          viewVipPosition,
-          LocalApprove(testedProtocolVersion),
-          Set(alice.party),
-          rootHash,
-        )
-        val result = valueOrFail(
-          sut.validateAndProgress(changeTs, response, topologySnapshotVip).futureValue
-        )("solo confirms with VIP trust level for alice")
-
-        result.version shouldBe changeTs
-        result.state shouldBe
-          Right(
-            Map(
-              viewVipPosition -> ViewState(
-                Set(bobVip),
-                Map(
-                  alice.party -> ConsortiumVotingState(approvals = Set(solo)),
-                  bob.party -> ConsortiumVotingState(),
-                ),
-                1,
-                Nil,
-              )
-            )
-          )
-      }
-    }
-
     describe("consortium state") {
       it("should work for threshold = 1") {
         ConsortiumVotingState(approvals = Set(solo)).isApproved shouldBe (true)
@@ -885,7 +727,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       val rootHash = informeeMessage.rootHash
 
       val topologySnapshot: TopologySnapshot = mock[TopologySnapshot]
-      when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]]))
+      when(topologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
         .thenAnswer((parties: Set[LfPartyId]) =>
           Future.successful(
             Map(
@@ -925,8 +767,14 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         )
       }
 
-      when(topologySnapshot.canConfirm(any[ParticipantId], any[LfPartyId], any[TrustLevel]))
-        .thenReturn(Future.successful(true))
+      when(
+        topologySnapshot.canConfirm(any[ParticipantId], any[Set[LfPartyId]])(
+          anyTraceContext
+        )
+      )
+        .thenAnswer { (participantId: ParticipantId, parties: Set[LfPartyId]) =>
+          Future.successful(parties)
+        }
 
       describe("should prevent response stuffing") {
         describe("for reject by Bob with 3 votes from the same participant") {

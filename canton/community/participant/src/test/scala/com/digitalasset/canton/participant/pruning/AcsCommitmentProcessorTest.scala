@@ -163,7 +163,10 @@ sealed trait AcsCommitmentProcessorBaseTest
   ): SyncCryptoClient[DomainSnapshotSyncCryptoApi] = {
     val topologyWithPermissions =
       topology.fmap(_.map(p => (p, ParticipantPermission.Submission)).toMap)
-    TestingTopology().withReversedTopology(topologyWithPermissions).build().forOwnerAndDomain(owner)
+    TestingTopologyX()
+      .withReversedTopology(topologyWithPermissions)
+      .build()
+      .forOwnerAndDomain(owner)
   }
 
   protected def changesAtToc(

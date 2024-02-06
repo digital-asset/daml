@@ -302,7 +302,7 @@ class GrpcLedgerClient(
             Left(
               ScriptLedgerClient.SubmitFailure(
                 StatusProto.toStatusRuntimeException(GoogleStatus.toJavaProto(status)),
-                Some(GrpcErrorParser.convertStatusRuntimeException(status, languageVersionLookup)),
+                Some(GrpcErrorParser.convertStatusRuntimeException(status)),
               )
             )
           )

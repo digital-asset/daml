@@ -57,9 +57,7 @@ final class GeneratorsTransaction(
     domain <- Arbitrary.arbitrary[DomainId]
     participant <- Arbitrary.arbitrary[ParticipantId]
     permission <- Arbitrary.arbitrary[ParticipantPermission]
-    trustLevel <-
-      if (permission.canConfirm) Gen.oneOf(trustLevels) else Gen.const(TrustLevel.Ordinary)
-  } yield ParticipantState(side, domain, participant, permission, trustLevel))
+  } yield ParticipantState(side, domain, participant, permission))
 
   implicit val topologyStateUpdateMappingArb: Arbitrary[TopologyStateUpdateMapping] = genArbitrary
   implicit val topologyStateUpdateElementArb: Arbitrary[TopologyStateUpdateElement] = genArbitrary

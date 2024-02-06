@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,7 +32,10 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[Informee]]]) {
   /** Derive a recipient tree that mirrors the given hierarchy of witnesses. */
   def toRecipients(
       topology: PartyTopologySnapshotClient
-  )(implicit ec: ExecutionContext): EitherT[Future, InvalidWitnesses, Recipients] =
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[Future, InvalidWitnesses, Recipients] =
     for {
       recipientsList <- unwrap.forgetNE.foldLeftM(Seq.empty[RecipientsTree]) {
         (children, informees) =>

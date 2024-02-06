@@ -78,7 +78,7 @@ abstract class SequencerApiTest
   def createClock(): Clock = new SimClock(loggerFactory = loggerFactory)
 
   def domainId: DomainId = DefaultTestIdentities.domainId
-  def mediatorId: MediatorId = DefaultTestIdentities.mediator
+  def mediatorId: MediatorId = DefaultTestIdentities.mediatorIdX
   def topologyClientMember: Member = DefaultTestIdentities.sequencerId
 
   def createSequencer(crypto: DomainSyncCryptoClient)(implicit

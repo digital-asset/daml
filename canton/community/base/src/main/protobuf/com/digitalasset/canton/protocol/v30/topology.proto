@@ -275,12 +275,6 @@ message EnumsX {
     Remove = 1;
   }
 
-  enum TrustLevelX {
-    MissingTrustLevel = 0;
-    Ordinary = 1;
-    Vip = 2;
-  }
-
   // enum indicating the participant permission level
   enum ParticipantPermissionX {
     MissingParticipantPermission = 0;
@@ -391,16 +385,13 @@ message ParticipantDomainPermissionX {
   // the permission level of the participant on this domain (usually submission)
   EnumsX.ParticipantPermissionX permission = 3;
 
-  // the trust level of the participant on this domain
-  EnumsX.TrustLevelX trust_level = 4;
-
   // optional individual limits for this participant
-  ParticipantDomainLimits limits = 5;
+  ParticipantDomainLimits limits = 4;
 
   // optional earliest time when participant can log in (again)
   // used to temporarily disable participants
   // TODO(#14049) implement participant deny list
-  google.protobuf.Timestamp login_after = 6;
+  google.protobuf.Timestamp login_after = 5;
 }
 
 // the optional hosting limits for a party on a given domain

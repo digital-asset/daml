@@ -447,7 +447,7 @@ class StoreBasedTopologySnapshot(
       fetchParticipantStates: Seq[ParticipantId] => Future[
         Map[ParticipantId, ParticipantAttributes]
       ],
-  ): Future[PartyInfo] =
+  )(implicit traceContext: TraceContext): Future[PartyInfo] =
     loadBatchActiveParticipantsOf(Seq(party), fetchParticipantStates).map(
       _.getOrElse(party, PartyInfo.EmptyPartyInfo)
     )
@@ -457,7 +457,7 @@ class StoreBasedTopologySnapshot(
       fetchParticipantStates: Seq[ParticipantId] => Future[
         Map[ParticipantId, ParticipantAttributes]
       ],
-  ): Future[Map[PartyId, PartyInfo]] = {
+  )(implicit traceContext: TraceContext): Future[Map[PartyId, PartyInfo]] = {
     def update(
         party: PartyId,
         mp: Map[PartyId, PartyAggregation],
@@ -500,7 +500,7 @@ class StoreBasedTopologySnapshot(
             val participantState =
               participantStateMap.getOrElse(
                 participantId,
-                ParticipantAttributes(ParticipantPermission.Disabled, TrustLevel.Ordinary, None),
+                ParticipantAttributes(ParticipantPermission.Disabled, None),
               )
             // using the lowest permission available
             val reducedPerm = ParticipantPermission.lowerOf(
@@ -511,7 +511,7 @@ class StoreBasedTopologySnapshot(
                   participantState.permission,
                 ),
             )
-            (participantId, ParticipantAttributes(reducedPerm, participantState.trustLevel, None))
+            (participantId, ParticipantAttributes(reducedPerm, None))
           }
           // filter out in-active
           .filter(_._2.permission.isActive)
@@ -527,7 +527,7 @@ class StoreBasedTopologySnapshot(
     }
   }
 
-  override def allKeys(owner: Member): Future[KeyCollection] =
+  override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
     findTransactions(
       asOfInclusive = false,
       includeSecondary = false,
@@ -539,19 +539,27 @@ class StoreBasedTopologySnapshot(
         case TopologyStateUpdateElement(_, OwnerToKeyMapping(foundOwner, key))
             if foundOwner.code == owner.code =>
           key
-      }.foldLeft(KeyCollection(Seq(), Seq()))((acc, key) => acc.addTo(key)))
+      }.foldLeft(KeyCollection(Seq(), Seq()))((acc, key) => acc.add(key)))
       .map { collection =>
         // add initialisation keys if necessary
         if (collection.signingKeys.isEmpty) {
           initKeys
             .get(owner)
-            .fold(collection)(_.foldLeft(collection)((acc, elem) => acc.addTo(elem)))
+            .fold(collection)(_.foldLeft(collection)((acc, elem) => acc.add(elem)))
         } else {
           collection
         }
       }
 
-  override def participants(): Future[Seq[(ParticipantId, ParticipantPermission)]] =
+  override def allKeys(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, KeyCollection]] = throw new NotImplementedError(
+    "programming error: allKeysForMembers called on canton 2.x code path."
+  )
+
+  override def participants()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[(ParticipantId, ParticipantPermission)]] =
     findTransactions(
       asOfInclusive = false,
       includeSecondary = false,
@@ -574,13 +582,13 @@ class StoreBasedTopologySnapshot(
 
   override def loadParticipantStates(
       participants: Seq[ParticipantId]
-  ): Future[Map[ParticipantId, ParticipantAttributes]] = {
+  )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]] = {
     def merge(
         current: (Option[ParticipantAttributes], Option[ParticipantAttributes]),
         ps: ParticipantState,
     ): (Option[ParticipantAttributes], Option[ParticipantAttributes]) = {
       val (from, to) = current
-      val rel = ParticipantAttributes(ps.permission, ps.trustLevel, None)
+      val rel = ParticipantAttributes(ps.permission, None)
 
       def mix(cur: Option[ParticipantAttributes]) = Some(cur.getOrElse(rel).merge(rel))
 
@@ -621,7 +629,6 @@ class StoreBasedTopologySnapshot(
                 Some(
                   ParticipantAttributes(
                     ParticipantPermission.lowerOf(lft.permission, rght.permission),
-                    lft.trustLevel,
                     None,
                   )
                 )
@@ -633,17 +640,12 @@ class StoreBasedTopologySnapshot(
     }
   }
 
-  override def findParticipantState(
-      participantId: ParticipantId
-  ): Future[Option[ParticipantAttributes]] =
-    loadParticipantStates(Seq(participantId)).map(_.get(participantId))
-
   /** Returns a list of all known parties on this domain */
   override def inspectKeys(
       filterOwner: String,
       filterOwnerType: Option[MemberCode],
       limit: Int,
-  ): Future[Map[Member, KeyCollection]] = {
+  )(implicit traceContext: TraceContext): Future[Map[Member, KeyCollection]] = {
     store
       .inspect(
         stateStore = useStateTxs,
@@ -668,7 +670,7 @@ class StoreBasedTopologySnapshot(
             (
               owner,
               keys.foldLeft(KeyCollection.empty) { case (col, (_, publicKey)) =>
-                col.addTo(publicKey)
+                col.add(publicKey)
               },
             )
           }
@@ -681,13 +683,13 @@ class StoreBasedTopologySnapshot(
       filterParty: String,
       filterParticipant: String,
       limit: Int,
-  ): Future[Set[PartyId]] =
+  )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
     store.inspectKnownParties(timestamp, filterParty, filterParticipant, limit)
 
   override private[client] def loadUnvettedPackagesOrDependencies(
       participant: ParticipantId,
       packageId: PackageId,
-  ): EitherT[Future, PackageId, Set[PackageId]] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, PackageId, Set[PackageId]] = {
 
     val vettedET = EitherT.right[PackageId](
       findTransactions(
@@ -726,60 +728,65 @@ class StoreBasedTopologySnapshot(
     * for singular mediators each one must be wrapped into its own group with threshold = 1
     * group index in 2.0 topology management is not used and the order of output does not need to be stable
     */
-  override def mediatorGroups(): Future[Seq[MediatorGroup]] = findTransactions(
-    asOfInclusive = false,
-    includeSecondary = false,
-    types = Seq(DomainTopologyTransactionType.MediatorDomainState),
-    filterUid = None,
-    filterNamespace = None,
-  ).map { res =>
-    ArraySeq
-      .from(
-        res.toTopologyState
-          .foldLeft(Map.empty[MediatorId, (Boolean, Boolean)]) {
-            case (acc, TopologyStateUpdateElement(_, MediatorDomainState(side, _, mediator))) =>
-              acc + (mediator -> RequestSide
-                .accumulateSide(acc.getOrElse(mediator, (false, false)), side))
-            case (acc, _) => acc
-          }
-          .filter { case (_, (lft, rght)) =>
-            lft && rght
-          }
-          .keys
-      )
-      .zipWithIndex
-      .map { case (id, index) =>
-        MediatorGroup(
-          index = NonNegativeInt.tryCreate(index),
-          Seq(id),
-          Seq.empty,
-          threshold = PositiveInt.one,
+  override def mediatorGroups()(implicit traceContext: TraceContext): Future[Seq[MediatorGroup]] =
+    findTransactions(
+      asOfInclusive = false,
+      includeSecondary = false,
+      types = Seq(DomainTopologyTransactionType.MediatorDomainState),
+      filterUid = None,
+      filterNamespace = None,
+    ).map { res =>
+      ArraySeq
+        .from(
+          res.toTopologyState
+            .foldLeft(Map.empty[MediatorId, (Boolean, Boolean)]) {
+              case (acc, TopologyStateUpdateElement(_, MediatorDomainState(side, _, mediator))) =>
+                acc + (mediator -> RequestSide
+                  .accumulateSide(acc.getOrElse(mediator, (false, false)), side))
+              case (acc, _) => acc
+            }
+            .filter { case (_, (lft, rght)) =>
+              lft && rght
+            }
+            .keys
         )
-      }
-  }
+        .zipWithIndex
+        .map { case (id, index) =>
+          MediatorGroup(
+            index = NonNegativeInt.tryCreate(index),
+            Seq(id),
+            Seq.empty,
+            threshold = PositiveInt.one,
+          )
+        }
+    }
 
   /** returns the current sequencer group if known
     * TODO(#14048): Decide whether it is advantageous e.g. for testing to expose a sequencer-group on daml 2.*
     *   perhaps we cook up a SequencerId based on the domainId assuming that the sequencer (or sequencers all with the
     *   same sequencerId) is/are active
     */
-  override def sequencerGroup(): Future[Option[SequencerGroup]] = Future.failed(
+  override def sequencerGroup()(implicit
+      traceContext: TraceContext
+  ): Future[Option[SequencerGroup]] = Future.failed(
     new UnsupportedOperationException(
       "SequencerGroup lookup not supported by StoreBasedDomainTopologyClient. This is a coding bug."
     )
   )
 
-  override def allMembers(): Future[Set[Member]] = Future.failed(
-    new UnsupportedOperationException(
-      "Lookup of all members is not supported by StoredBasedDomainTopologyClient. This is a coding bug."
+  override def allMembers()(implicit traceContext: TraceContext): Future[Set[Member]] =
+    Future.failed(
+      new UnsupportedOperationException(
+        "Lookup of all members is not supported by StoredBasedDomainTopologyClient. This is a coding bug."
+      )
     )
-  )
 
-  override def isMemberKnown(member: Member): Future[Boolean] = Future.failed(
-    new UnsupportedOperationException(
-      "Lookup of members via isMemberKnown is not supported by StoredBasedDomainTopologyClient. This is a coding bug."
+  override def isMemberKnown(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
+    Future.failed(
+      new UnsupportedOperationException(
+        "Lookup of members via isMemberKnown is not supported by StoredBasedDomainTopologyClient. This is a coding bug."
+      )
     )
-  )
 
   override def findDynamicDomainParameters()(implicit
       traceContext: TraceContext
@@ -853,7 +860,7 @@ class StoreBasedTopologySnapshot(
 
   override def trafficControlStatus(
       members: Seq[Member]
-  ): Future[Map[Member, Option[MemberTrafficControlState]]] = {
+  )(implicit traceContext: TraceContext): Future[Map[Member, Option[MemberTrafficControlState]]] = {
     // Non-X topology management does not support traffic control transactions
     Future.successful(members.map(_ -> None).toMap)
   }
@@ -864,7 +871,7 @@ class StoreBasedTopologySnapshot(
    */
   override def authorityOf(
       parties: Set[LfPartyId]
-  ): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
+  )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
     Future.successful(
       PartyTopologySnapshotClient.AuthorityOfResponse(
         parties.map(partyId => partyId -> nonConsortiumPartyDelegation(partyId)).toMap

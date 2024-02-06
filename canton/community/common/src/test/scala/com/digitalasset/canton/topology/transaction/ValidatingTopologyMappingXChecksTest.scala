@@ -249,7 +249,6 @@ class ValidatingTopologyMappingXChecksTest
               domainId,
               participant1,
               ParticipantPermissionX.Submission,
-              TrustLevelX.Ordinary,
               None,
               None,
             )

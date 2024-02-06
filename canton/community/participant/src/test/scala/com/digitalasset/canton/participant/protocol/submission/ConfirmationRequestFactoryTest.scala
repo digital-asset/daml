@@ -9,18 +9,15 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.{CachingConfigs, LoggingConfig}
-import com.digitalasset.canton.crypto.SyncCryptoError.KeyNotAvailable
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.*
-import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
-  FailedToSignViewMessage,
-  UnableToDetermineParticipant,
-}
+import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.UnableToDetermineParticipant
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
   ContractLookupError,
   SerializableContractOfId,
@@ -75,7 +72,7 @@ class ConfirmationRequestFactoryTest
   ): DomainSnapshotSyncCryptoApi = {
 
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
-    TestingTopology()
+    TestingTopologyX()
       .withReversedTopology(map)
       .withDomains(domain)
       .withKeyPurposes(keyPurposes)
@@ -237,7 +234,7 @@ class ConfirmationRequestFactoryTest
   def expectedConfirmationRequest(
       example: ExampleTransaction,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
-  ): ConfirmationRequest = {
+  )(implicit traceContext: TraceContext): ConfirmationRequest = {
     val cryptoPureApi = cryptoSnapshot.pureCrypto
     val viewEncryptionScheme = cryptoPureApi.defaultSymmetricKeyScheme
 
@@ -294,7 +291,7 @@ class ConfirmationRequestFactoryTest
 
         val ec: ExecutionContext = executorService
         val recipients = witnesses
-          .toRecipients(cryptoSnapshot.ipsSnapshot)(ec)
+          .toRecipients(cryptoSnapshot.ipsSnapshot)(ec, traceContext)
           .value
           .futureValue
           .value
@@ -387,7 +384,7 @@ class ConfirmationRequestFactoryTest
           factory
             .createConfirmationRequest(
               example.wellFormedUnsuffixedTransaction,
-              ConfirmationPolicy.Vip,
+              ConfirmationPolicy.Signatory,
               submitterInfo,
               workflowId,
               example.keyResolver,
@@ -420,7 +417,7 @@ class ConfirmationRequestFactoryTest
           factory
             .createConfirmationRequest(
               singleFetch.wellFormedUnsuffixedTransaction,
-              ConfirmationPolicy.Vip,
+              ConfirmationPolicy.Signatory,
               submitterInfo,
               workflowId,
               singleFetch.keyResolver,
@@ -462,7 +459,7 @@ class ConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Vip,
+            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -498,7 +495,7 @@ class ConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Vip,
+            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -531,7 +528,7 @@ class ConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Vip,
+            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -561,7 +558,7 @@ class ConfirmationRequestFactoryTest
         factory
           .createConfirmationRequest(
             singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Vip,
+            ConfirmationPolicy.Signatory,
             submitterInfo,
             workflowId,
             singleFetch.keyResolver,
@@ -586,37 +583,56 @@ class ConfirmationRequestFactoryTest
       }
     }
 
-    "participants have no public keys" must {
+    "participants" when {
+      def runNoKeyTest(name: String, availableKeys: Set[KeyPurpose]): Unit = {
+        name must {
+          "be rejected" in {
+            val noKeyCryptoSnapshot =
+              createCryptoSnapshot(defaultTopology, keyPurposes = availableKeys)
+            val factory = confirmationRequestFactory(Right(singleFetch.transactionTree))
 
-      val noKeyCryptoSnapshot = createCryptoSnapshot(defaultTopology, keyPurposes = Set.empty)
+            loggerFactory.assertLoggedWarningsAndErrorsSeq(
+              factory
+                .createConfirmationRequest(
+                  singleFetch.wellFormedUnsuffixedTransaction,
+                  ConfirmationPolicy.Signatory,
+                  submitterInfo,
+                  workflowId,
+                  singleFetch.keyResolver,
+                  mediator,
+                  noKeyCryptoSnapshot,
+                  new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
+                  contractInstanceOfId,
+                  Some(testKeySeed),
+                  maxSequencingTime,
+                  testedProtocolVersion,
+                )
+                .value
+                .map {
+                  case Left(ParticipantAuthorizationError(message)) =>
+                    message shouldBe s"$submittingParticipant does not host $submitter or is not active."
+                  case otherwise =>
+                    fail(
+                      s"should have failed with a participant authorization error, but returned result: $otherwise"
+                    )
+                },
+              LogEntry.assertLogSeq(
+                Seq.empty,
+                mayContain = Seq(
+                  _.warningMessage should include(
+                    "has a domain trust certificate, but no keys on domain"
+                  )
+                ),
+              ),
+            )
 
-      "be rejected" in {
-        val factory = confirmationRequestFactory(Right(singleFetch.transactionTree))
-
-        factory
-          .createConfirmationRequest(
-            singleFetch.wellFormedUnsuffixedTransaction,
-            ConfirmationPolicy.Vip,
-            submitterInfo,
-            workflowId,
-            singleFetch.keyResolver,
-            mediator,
-            noKeyCryptoSnapshot,
-            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCache),
-            contractInstanceOfId,
-            Some(testKeySeed),
-            maxSequencingTime,
-            testedProtocolVersion,
-          )
-          .value
-          .map {
-            case Left(EncryptedViewMessageCreationError(viewErr)) =>
-              viewErr should matchPattern {
-                case FailedToSignViewMessage(KeyNotAvailable(_, _, _, _)) =>
-              }
-            case _ => fail("should have failed with a view message creation error")
           }
+        }
       }
+
+      runNoKeyTest("they have no public keys", availableKeys = Set.empty)
+      runNoKeyTest("they have no public signing keys", availableKeys = Set(KeyPurpose.Encryption))
+      runNoKeyTest("they have no public encryption keys", availableKeys = Set(KeyPurpose.Signing))
     }
   }
 }

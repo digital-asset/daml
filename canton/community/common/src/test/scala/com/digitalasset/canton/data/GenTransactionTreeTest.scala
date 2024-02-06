@@ -551,13 +551,13 @@ class GenTransactionTreeTest
       }
 
       val topology = mock[PartyTopologySnapshotClient]
-      when(topology.activeParticipantsOfParties(any[Seq[LfPartyId]]))
+      when(topology.activeParticipantsOfParties(any[List[LfPartyId]])(anyTraceContext))
         .thenAnswer[Seq[LfPartyId]] { parties =>
           Future.successful(topologyMap.collect {
             case (party, map) if parties.contains(party) => (party, map.keySet)
           })
         }
-      when(topology.partiesWithGroupAddressing(any[List[LfPartyId]]))
+      when(topology.partiesWithGroupAddressing(any[Seq[LfPartyId]])(anyTraceContext))
         // parties 3 and 6 will use group addressing
         .thenReturn(Future.successful(Set(party(3), party(6))))
 

@@ -17,10 +17,12 @@ final case class KeyCollection(
 
   def hasBothKeys(): Boolean = signingKeys.nonEmpty && encryptionKeys.nonEmpty
 
-  def addTo(key: PublicKey): KeyCollection = (key: @unchecked) match {
+  def add(key: PublicKey): KeyCollection = (key: @unchecked) match {
     case sigKey: SigningPublicKey => copy(signingKeys = signingKeys :+ sigKey)
     case encKey: EncryptionPublicKey => copy(encryptionKeys = encryptionKeys :+ encKey)
   }
+
+  def addAll(keys: Seq[PublicKey]): KeyCollection = keys.foldLeft(this)(_.add(_))
 
   def removeFrom(key: PublicKey): KeyCollection =
     (key: @unchecked) match {

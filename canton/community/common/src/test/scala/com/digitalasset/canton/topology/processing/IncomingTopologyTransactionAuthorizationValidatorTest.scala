@@ -115,7 +115,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
             wrongDomain,
             pid,
             ParticipantPermission.Submission,
-            TrustLevel.Ordinary,
           ),
           Factory.SigningKeys.key1,
         )
@@ -359,7 +358,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTest
         val store = mkStore()
         val validator = mk(store)
         import Factory.*
-        import Factory.SigningKeys.*
+        import Factory.SigningKeys.{ec as _, *}
         // scenario: we have id1ak4_k2 previously loaded. now we get a removal on k2. we need to ensure that
         // nothing can be added by k4
         val Rns1k2_k1 = revert(ns1k2_k1)

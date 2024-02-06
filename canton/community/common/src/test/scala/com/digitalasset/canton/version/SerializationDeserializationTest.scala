@@ -61,13 +61,13 @@ class SerializationDeserializationTest
     )
 
     import generatorsData.*
-    import generatorsTransferData.*
     import generatorsMessages.*
+    import generatorsTransferData.*
     import generatorsVerdict.*
     import generatorsLocalVerdict.*
+    import generatorsProtocol.*
     import generatorsProtocolSeq.*
     import generatorsTransaction.*
-    import generatorsProtocol.*
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
@@ -108,12 +108,10 @@ class SerializationDeserializationTest
         testMemoizedProtocolVersionedWithCtx(TransferOutCommonData, TestHash)
         testMemoizedProtocolVersionedWithCtx(TransferOutView, TestHash)
 
-        Seq(ConfirmationPolicy.Vip, ConfirmationPolicy.Signatory).map { confirmationPolicy =>
-          testMemoizedProtocolVersionedWithCtx(
-            ViewCommonData,
-            (TestHash, confirmationPolicy),
-          )
-        }
+        testMemoizedProtocolVersionedWithCtx(
+          ViewCommonData,
+          (TestHash, ConfirmationPolicy.Signatory),
+        )
 
         testMemoizedProtocolVersionedWithCtx(
           SignedTopologyTransaction,

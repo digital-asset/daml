@@ -123,6 +123,8 @@ class RecipientsValidator[I](
   private def computeInformeeParticipantsOfPositionAndParty(
       inputs: Seq[I],
       snapshot: PartyTopologySnapshotClient,
+  )(implicit
+      traceContext: TraceContext
   ): Future[Map[List[MerklePathElement], Map[LfPartyId, Set[ParticipantId]]]] =
     inputs
       .parTraverse { input =>

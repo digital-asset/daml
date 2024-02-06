@@ -99,7 +99,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     )
   }
 
-  private val identityFactory = TestingTopology()
+  private val identityFactory = TestingTopologyX()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))

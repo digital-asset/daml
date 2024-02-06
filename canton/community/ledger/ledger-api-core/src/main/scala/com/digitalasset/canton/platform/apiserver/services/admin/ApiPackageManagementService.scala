@@ -8,7 +8,7 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
-import com.daml.lf.validation.{CouldNotResolveUpgradedPackageId, TypecheckUpgrades, UpgradeError, Upgrading}
+import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError, Upgrading}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
@@ -199,7 +199,7 @@ private[apiserver] final class ApiPackageManagementService private (
           _ = logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
           _ <- typecheckUpgrades(optUpgradingDar, optUpgradedDar).recoverWith {
               case err: UpgradeError =>
-                logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.message}")
+                logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.getMessage}")
                 Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
               case NonFatal(err) =>
                 logger.info(s"Typechecking upgrades failed with unknown error.")

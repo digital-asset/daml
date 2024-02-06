@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
 
 /** A party that must be informed about the view.
@@ -28,8 +27,6 @@ sealed trait Informee extends Product with Serializable with PrettyPrinting {
     */
   def weight: NonNegativeInt
 
-  def requiredTrustLevel: TrustLevel
-
   /** Yields an informee resulting from adding `delta` to `weight`.
     *
     * If the new weight is zero, the resulting informee will be a plain informee;
@@ -44,11 +41,10 @@ sealed trait Informee extends Product with Serializable with PrettyPrinting {
     v30.Informee(
       party = party,
       weight = weight.unwrap,
-      requiredTrustLevel = requiredTrustLevel.toProtoEnum,
     )
 
   override def pretty: Pretty[Informee] =
-    prettyOfString(inst => show"${inst.party}*${inst.weight} $requiredTrustLevel")
+    prettyOfString(inst => show"${inst.party}*${inst.weight}")
 }
 
 object Informee {
@@ -56,23 +52,21 @@ object Informee {
   def create(
       party: LfPartyId,
       weight: NonNegativeInt,
-      requiredTrustLevel: TrustLevel,
   ): Informee =
     if (weight == NonNegativeInt.zero) PlainInformee(party)
-    else ConfirmingParty(party, PositiveInt.tryCreate(weight.unwrap), requiredTrustLevel)
+    else ConfirmingParty(party, PositiveInt.tryCreate(weight.unwrap))
 
   private[data] def fromProtoV30(informeeP: v30.Informee): ParsingResult[Informee] = {
-    val v30.Informee(partyP, weightP, requiredTrustLevelP) = informeeP
+    val v30.Informee(partyP, weightP) = informeeP
     for {
       party <- LfPartyId
         .fromString(partyP)
         .leftMap(ProtoDeserializationError.ValueDeserializationError("party", _))
-      requiredTrustLevel <- TrustLevel.fromProtoEnum(requiredTrustLevelP)
 
       weight <- NonNegativeInt
         .create(weightP)
         .leftMap(err => ProtoDeserializationError.InvariantViolation(err.message))
-    } yield Informee.create(party, weight, requiredTrustLevel)
+    } yield Informee.create(party, weight)
   }
 }
 
@@ -83,7 +77,6 @@ object Informee {
 final case class ConfirmingParty(
     party: LfPartyId,
     partyWeight: PositiveInt,
-    requiredTrustLevel: TrustLevel,
 ) extends Informee {
 
   val weight: NonNegativeInt = partyWeight.toNonNegative
@@ -98,9 +91,7 @@ final case class ConfirmingParty(
 final case class PlainInformee(party: LfPartyId) extends Informee {
   override val weight: NonNegativeInt = NonNegativeInt.zero
 
-  override val requiredTrustLevel: TrustLevel = TrustLevel.Ordinary
-
   def withAdditionalWeight(delta: NonNegativeInt): Informee =
     if (delta == NonNegativeInt.zero) this
-    else ConfirmingParty(party, PositiveInt.tryCreate(delta.unwrap), requiredTrustLevel)
+    else ConfirmingParty(party, PositiveInt.tryCreate(delta.unwrap))
 }

@@ -383,7 +383,7 @@ class TransactionSpec
         ).map(s => {
           val node = create(cid(s))
           GlobalKey
-            .assertBuild(node.templateId, V.ValueText(cid(s).coid), Util.sharedKey(node.version))
+            .assertBuild(node.templateId, V.ValueText(cid(s).coid))
         }).toSet
 
       builder.build().contractKeys shouldBe expectedResults
@@ -394,9 +394,8 @@ class TransactionSpec
     import Transaction._
     val dummyBuilder = new TxBuilder()
     val parties = List("Alice")
-    val useSharedKeys = Util.sharedKey(TransactionVersion.StableVersions.max)
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k), useSharedKeys)
+    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k))
     def create(s: V.ContractId, k: String) = dummyBuilder
       .create(
         id = s,
@@ -712,7 +711,6 @@ class TransactionSpec
       val (cid3, create3) = create(builder, parties, Some("key2"))
       val (_, create4) = create(builder, parties, Some("key2"))
       val (_, create5) = create(builder, parties, Some("key3"))
-      val sharedKeys = Util.sharedKey(create0.version)
       builder.add(create0)
       builder.add(exercise(builder, create0, parties, false))
       builder.add(create1)
@@ -726,7 +724,7 @@ class TransactionSpec
       builder.add(exercise(builder, create3, parties, true), rollback)
       builder.add(create4, rollback)
 
-      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s), sharedKeys)
+      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s))
       builder.build().updatedContractKeys shouldBe
         Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
     }

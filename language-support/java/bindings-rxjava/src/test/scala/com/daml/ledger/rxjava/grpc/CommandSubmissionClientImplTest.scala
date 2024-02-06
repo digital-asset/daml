@@ -3,13 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import com.daml.ledger.javaapi.data.{
-  Command,
-  CommandsSubmissionV2,
-  CreateCommand,
-  DamlRecord,
-  Identifier,
-}
+import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import org.scalatest.OptionValues
@@ -48,27 +42,10 @@ class CommandSubmissionClientImplTest
       sequence(stuck, success),
       timeout = Optional.of(Duration.of(5, ChronoUnit.SECONDS)),
     ) { (client, _) =>
-      val commands = genCommands(List.empty)
       val domainId = UUID.randomUUID().toString
 
-      val params = CommandsSubmissionV2
-        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
-        .withActAs(commands.getParty)
-        .pipe(p =>
-          if (commands.getMinLedgerTimeAbsolute.isPresent)
-            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getMinLedgerTimeRelative.isPresent)
-            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getDeduplicationTime.isPresent)
-            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
-          else p
-        )
+      val params = genCommands(List.empty, Some(domainId))
+        .withActAs("party")
 
       withClue("The first command should be stuck") {
         expectDeadlineExceeded(
@@ -93,28 +70,10 @@ class CommandSubmissionClientImplTest
 
   it should "send a commands to the ledger" in {
     ledgerServices.withCommandSubmissionClient(alwaysSucceed) { (client, serviceImpl) =>
-      val commands = genCommands(List.empty)
       val domainId = UUID.randomUUID().toString
 
-      val params = CommandsSubmissionV2
-        .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
-        .withWorkflowId(commands.getWorkflowId)
-        .withActAs(commands.getParty)
-        .pipe(p =>
-          if (commands.getMinLedgerTimeAbsolute.isPresent)
-            p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getMinLedgerTimeRelative.isPresent)
-            p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
-          else p
-        )
-        .pipe(p =>
-          if (commands.getDeduplicationTime.isPresent)
-            p.withDeduplicationDuration(commands.getDeduplicationTime.get())
-          else p
-        )
+      val params = genCommands(List.empty, Some(domainId))
+        .withActAs("party")
 
       client
         .submit(params)
@@ -124,27 +83,26 @@ class CommandSubmissionClientImplTest
       val receivedCommands = serviceImpl.getSubmittedRequest.value.getCommands
 
       receivedCommands.domainId shouldBe domainId
-      receivedCommands.applicationId shouldBe commands.getApplicationId
-      receivedCommands.workflowId shouldBe commands.getWorkflowId
-      receivedCommands.commandId shouldBe commands.getCommandId
+      receivedCommands.applicationId shouldBe params.getApplicationId
+      receivedCommands.workflowId shouldBe params.getWorkflowId.get()
+      receivedCommands.commandId shouldBe params.getCommandId
       receivedCommands.minLedgerTimeAbs.map(
         _.seconds
-      ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+      ) shouldBe params.getMinLedgerTimeAbs.asScala
         .map(_.getEpochSecond)
       receivedCommands.minLedgerTimeAbs.map(
         _.nanos
-      ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+      ) shouldBe params.getMinLedgerTimeAbs.asScala
         .map(_.getNano)
       receivedCommands.minLedgerTimeRel.map(
         _.seconds
-      ) shouldBe commands.getMinLedgerTimeRelative.asScala
+      ) shouldBe params.getMinLedgerTimeRel.asScala
         .map(_.getSeconds)
       receivedCommands.minLedgerTimeRel.map(
         _.nanos
-      ) shouldBe commands.getMinLedgerTimeRelative.asScala
+      ) shouldBe params.getMinLedgerTimeRel.asScala
         .map(_.getNano)
-      receivedCommands.party shouldBe commands.getParty
-      receivedCommands.commands.size shouldBe commands.getCommands.size()
+      receivedCommands.commands.size shouldBe params.getCommands.size()
     }
   }
 
@@ -163,27 +121,10 @@ class CommandSubmissionClientImplTest
     val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
     val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
     val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-    val commands = genCommands(List[Command](command), Option(someParty))
     val domainId = UUID.randomUUID().toString
 
-    val params = CommandsSubmissionV2
-      .create(commands.getApplicationId, commands.getCommandId, domainId, commands.getCommands)
-      .withActAs(commands.getParty)
-      .pipe(p =>
-        if (commands.getMinLedgerTimeAbsolute.isPresent)
-          p.withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute.get())
-        else p
-      )
-      .pipe(p =>
-        if (commands.getMinLedgerTimeRelative.isPresent)
-          p.withMinLedgerTimeRel(commands.getMinLedgerTimeRelative.get())
-        else p
-      )
-      .pipe(p =>
-        if (commands.getDeduplicationTime.isPresent)
-          p.withDeduplicationDuration(commands.getDeduplicationTime.get())
-        else p
-      )
+    val params = genCommands(List[Command](command), Some(domainId))
+      .withActAs(someParty)
       .pipe(p => accessToken.fold(p)(p.withAccessToken))
 
     client
