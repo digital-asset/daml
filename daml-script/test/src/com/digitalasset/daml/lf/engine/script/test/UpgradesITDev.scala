@@ -155,6 +155,11 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
          |  - daml-prim
          |  - daml-stdlib
          |${deps.map("  - " + _).mkString("\n")}
+         |data-dependencies:
+         |${darFiles.map("  - " + _).mkString("\n")}
+         |module-prefixes:
+         |  upgrades-my-templates-1.0.0: V1
+         |  upgrades-my-templates-2.0.0: V2
          |""".stripMargin
     Files.write(dir.resolve("daml.yaml"), fileContent.getBytes(StandardCharsets.UTF_8))
   }
