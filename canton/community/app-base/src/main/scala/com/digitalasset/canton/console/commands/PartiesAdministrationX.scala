@@ -274,7 +274,7 @@ class ParticipantPartiesAdministrationGroupX(
             // sync with ledger-api server if this node is connected to at least one domain
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
               retryE(
-                runner.ledger_api_v2.parties.list().map(_.party).contains(partyId),
+                runner.ledger_api.parties.list().map(_.party).contains(partyId),
                 show"The party $partyId never appeared on the ledger API server",
               )
             else Right(())
@@ -353,7 +353,7 @@ class ParticipantPartiesAdministrationGroupX(
       party: PartyId,
       modifier: PartyDetails => PartyDetails,
   ): PartyDetails = {
-    runner.ledger_api_v2.parties.update(
+    runner.ledger_api.parties.update(
       party = party,
       modifier = modifier,
     )

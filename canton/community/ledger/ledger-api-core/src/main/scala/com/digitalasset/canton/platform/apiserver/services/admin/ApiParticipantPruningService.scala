@@ -22,6 +22,7 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexParticipantPruningService,
   LedgerEndService,
 }
+import com.digitalasset.canton.ledger.participant.state.v2.ReadService
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -39,6 +40,7 @@ import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.protobuf.StatusProto
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -49,6 +51,7 @@ import scala.jdk.FutureConverters.CompletionStageOps
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
     writeBackend: state.WriteParticipantPruningService,
+    readService: ReadService,
     metrics: Metrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -80,9 +83,10 @@ final class ApiParticipantPruningService private (
       t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
       submissionId =>
         withEnrichedLoggingContext(logging.submissionId(submissionId)) { implicit loggingContext =>
+          implicit val tc: TraceContext = loggingContext.traceContext
           logger.info(
             s"Pruning up to ${request.pruneUpTo}, ${loggingContext.serializeFiltered("submissionId")}."
-          )(loggingContext.traceContext)
+          )
           (for {
 
             pruneUpTo <- validateRequest(request)(
@@ -92,6 +96,7 @@ final class ApiParticipantPruningService private (
 
             // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
             // systems back in sync by reissuing the prune request at the currently specified or later offset.
+            _ = logger.debug("Pruning write service")
             _ <- Tracked.future(
               metrics.services.pruning.pruneCommandStarted,
               metrics.services.pruning.pruneCommandCompleted,
@@ -100,12 +105,20 @@ final class ApiParticipantPruningService private (
               ),
             )(MetricsContext(("phase", "underlyingLedger")))
 
+            _ = logger.debug("Getting incomplete reassignments")
+            incompletReassignmentOffsets <- readService.incompleteReassignmentOffsets(
+              validAt = pruneUpTo,
+              stakeholders = Set.empty, // getting all incomplete reassignments
+            )
+
+            _ = logger.debug("Pruning Ledger API Server")
             pruneResponse <- Tracked.future(
               metrics.services.pruning.pruneCommandStarted,
               metrics.services.pruning.pruneCommandCompleted,
               pruneLedgerApiServerIndex(
                 pruneUpTo,
                 request.pruneAllDivulgedContracts,
+                incompletReassignmentOffsets,
               )(loggingContext),
             )(MetricsContext(("phase", "ledgerApiServerIndex")))
 
@@ -155,10 +168,11 @@ final class ApiParticipantPruningService private (
   private def pruneLedgerApiServerIndex(
       pruneUpTo: Offset,
       pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiString} inclusively.")
     readBackend
-      .prune(pruneUpTo, pruneAllDivulgedContracts)
+      .prune(pruneUpTo, pruneAllDivulgedContracts, incompletReassignmentOffsets)
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo.toApiString} inclusively.")
         PruneResponse()
@@ -228,12 +242,20 @@ object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
       writeBackend: state.WriteParticipantPruningService,
+      readService: state.ReadService,
       metrics: Metrics,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
   ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
-    new ApiParticipantPruningService(readBackend, writeBackend, metrics, telemetry, loggerFactory)
+    new ApiParticipantPruningService(
+      readBackend,
+      writeBackend,
+      readService,
+      metrics,
+      telemetry,
+      loggerFactory,
+    )
 
 }

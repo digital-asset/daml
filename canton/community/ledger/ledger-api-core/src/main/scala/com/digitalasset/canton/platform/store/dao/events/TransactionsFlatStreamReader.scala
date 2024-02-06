@@ -72,7 +72,6 @@ class TransactionsFlatStreamReader(
       queryRange: EventsRange,
       filteringConstraints: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
@@ -91,7 +90,6 @@ class TransactionsFlatStreamReader(
       queryRange,
       filteringConstraints,
       eventProjectionProperties,
-      multiDomainEnabled,
     )
       .wireTap(_ match {
         case (_, getTransactionsResponse) =>
@@ -114,7 +112,6 @@ class TransactionsFlatStreamReader(
       queryRange: EventsRange,
       filteringConstraints: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
@@ -129,11 +126,9 @@ class TransactionsFlatStreamReader(
     val decomposedFilters = FilterUtils.decomposeFilters(filteringConstraints).toVector
     val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
-      // The ids for flat transactions are retrieved from two separate id tables.
-      // To account for that we assign a half of the working memory to each table.
-      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / (
-        if (multiDomainEnabled) 4 else 2
-      ),
+      // The ids for flat transactions are retrieved from 4 separate id tables: (create, archive, assign, unassign)
+      // To account for that we assign a quarter of the working memory to each table.
+      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / 4,
       numOfDecomposedFilters = decomposedFilters.size,
       numOfPagesInIdPageBuffer = maxPagesPerIdPagesBuffer,
       loggerFactory = loggerFactory,
@@ -250,37 +245,33 @@ class TransactionsFlatStreamReader(
         responses.map { case (offset, response) => ApiOffset.assertFromString(offset) -> response }
       }
 
-    if (multiDomainEnabled) {
-      reassignmentStreamReader
-        .streamReassignments(
-          ReassignmentStreamQueryParams(
-            queryRange = queryRange,
-            filteringConstraints = filteringConstraints,
-            eventProjectionProperties = eventProjectionProperties,
-            payloadQueriesLimiter = payloadQueriesLimiter,
-            deserializationQueriesLimiter = deserializationQueriesLimiter,
-            idPageSizing = idPageSizing,
-            decomposedFilters = decomposedFilters,
-            maxParallelIdAssignQueries = maxParallelIdAssignQueries,
-            maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
-            maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
-            maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
-            maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
-            maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
-            deserializationProcessingParallelism = transactionsProcessingParallelism,
-          )
+    reassignmentStreamReader
+      .streamReassignments(
+        ReassignmentStreamQueryParams(
+          queryRange = queryRange,
+          filteringConstraints = filteringConstraints,
+          eventProjectionProperties = eventProjectionProperties,
+          payloadQueriesLimiter = payloadQueriesLimiter,
+          deserializationQueriesLimiter = deserializationQueriesLimiter,
+          idPageSizing = idPageSizing,
+          decomposedFilters = decomposedFilters,
+          maxParallelIdAssignQueries = maxParallelIdAssignQueries,
+          maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
+          maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
+          maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
+          maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
+          maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
+          deserializationProcessingParallelism = transactionsProcessingParallelism,
         )
-        .map { case (offset, reassignment) =>
-          offset -> GetUpdatesResponse(
-            GetUpdatesResponse.Update.Reassignment(reassignment)
-          )
-        }
-        .mergeSorted(sourceOfTransactions)(
-          Ordering.by(_._1)
+      )
+      .map { case (offset, reassignment) =>
+        offset -> GetUpdatesResponse(
+          GetUpdatesResponse.Update.Reassignment(reassignment)
         )
-    } else {
-      sourceOfTransactions
-    }
+      }
+      .mergeSorted(sourceOfTransactions)(
+        Ordering.by(_._1)
+      )
   }
 
   private def deserializeLfValues(

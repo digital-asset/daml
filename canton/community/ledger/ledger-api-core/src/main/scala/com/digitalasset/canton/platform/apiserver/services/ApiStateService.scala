@@ -86,7 +86,6 @@ final class ApiStateService(
               filter = filters,
               verbose = request.verbose,
               activeAtO = activeAtO,
-              multiDomainEnabled = true,
             )
         }
       }

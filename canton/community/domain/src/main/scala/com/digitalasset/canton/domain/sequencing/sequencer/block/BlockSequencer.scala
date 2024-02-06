@@ -61,6 +61,7 @@ import org.apache.pekko.stream.scaladsl.{Keep, Merge, Sink, Source}
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.chaining.*
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -421,8 +422,19 @@ class BlockSequencer(
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
     store
       .readStateForBlockContainingTimestamp(timestamp)
-      .map(_.toSequencerSnapshot(protocolVersion))
-      .leftMap(_ => s"Provided timestamp $timestamp is not linked to a block")
+      .bimap(
+        _ => s"Provided timestamp $timestamp is not linked to a block",
+        blockEphemeralState =>
+          blockEphemeralState
+            .toSequencerSnapshot(protocolVersion)
+            .tap(snapshot =>
+              if (logger.underlying.isDebugEnabled()) {
+                logger.debug(
+                  s"Snapshot for timestamp $timestamp: $snapshot with ephemeral state: $blockEphemeralState"
+                )
+              }
+            ),
+      )
 
   override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
     store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))

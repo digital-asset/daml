@@ -413,7 +413,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        domainId = Some("x::domain1"),
+        domainId = "x::domain1",
         driverMetadata = Some(someDriverMetadataBytes),
       ),
       dtoCreate(
@@ -421,7 +421,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        domainId = Some("x::domain1"),
+        domainId = "x::domain1",
         driverMetadata = Some(someDriverMetadataBytes),
       ),
       dtoExercise(
@@ -429,7 +429,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = Some("x::domain2"),
+        domainId = "x::domain2",
       ),
       dtoUnassign(
         offset = offset(4),
@@ -442,7 +442,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = Some("x::domain1"),
+        domainId = "x::domain1",
       ),
       dtoUnassign(
         offset = offset(11),
@@ -574,7 +574,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 4L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = Some("x::domain2"),
+        domainId = "x::domain2",
       ),
       dtoUnassign(
         offset = offset(5),
@@ -587,7 +587,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = Some("x::domain1"),
+        domainId = "x::domain1",
       ),
       dtoUnassign(
         offset = offset(11),
@@ -701,7 +701,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        domainId = Some("x::domain1"),
+        domainId = "x::domain1",
         driverMetadata = Some(someDriverMetadataBytes),
       ),
       dtoCreate(
@@ -709,7 +709,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        domainId = Some("x::domain1"),
+        domainId = "x::domain1",
         driverMetadata = Some(someDriverMetadataBytes),
       ),
       dtoExercise(
@@ -717,7 +717,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = Some("x::domain2"),
+        domainId = "x::domain2",
       ),
       dtoUnassign(
         offset = offset(4),
@@ -742,7 +742,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = Some("x::domain1"),
+        domainId = "x::domain1",
       ),
       dtoUnassign(
         offset = offset(11),

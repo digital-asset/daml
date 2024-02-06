@@ -90,6 +90,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     create_key_value_compression = None,
     event_sequential_id = 0,
     driver_metadata = None,
+    domain_id = "x::sourcedomain",
     trace_context = serializableTraceContext,
   )
 
@@ -118,6 +119,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
+    domain_id = "",
     trace_context = serializableTraceContext,
   )
 

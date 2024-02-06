@@ -48,7 +48,6 @@ object JdbcIndexer {
       executionContext: ExecutionContext,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
-      multiDomainEnabled: Boolean,
       dataSourceProperties: DataSourceProperties,
       highAvailability: HaConfig,
   )(implicit materializer: Materializer) {
@@ -109,7 +108,6 @@ object JdbcIndexer {
           stringInterningView = inMemoryState.stringInterningView,
           tracer = tracer,
           loggerFactory = loggerFactory,
-          multiDomainEnabled = multiDomainEnabled,
         ),
         meteringAggregator = new MeteringAggregator.Owner(
           meteringStore = meteringStoreBackend,

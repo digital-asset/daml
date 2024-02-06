@@ -55,7 +55,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   }
 
   private[this] val dar =
-    TestModels.com_daml_ledger_test_ModelTestDar_2_1_path
+    TestModels.com_daml_ledger_test_ModelTestDar_path
       .pipe(TestResourceUtils.resourceFileFromJar)
       .pipe(DarParser.assertReadArchiveFromFile(_))
 

@@ -35,7 +35,6 @@ final class IndexerServiceOwner(
     executionContext: ExecutionContext,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    multiDomainEnabled: Boolean,
     startupMode: IndexerStartupMode,
     dataSourceProperties: DataSourceProperties,
     highAvailability: HaConfig,
@@ -61,7 +60,6 @@ final class IndexerServiceOwner(
       executionContext,
       tracer,
       loggerFactory,
-      multiDomainEnabled,
       dataSourceProperties,
       highAvailability,
     )

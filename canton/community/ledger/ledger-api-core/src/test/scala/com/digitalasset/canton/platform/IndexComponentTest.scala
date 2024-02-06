@@ -107,7 +107,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          multiDomainEnabled = multiDomainEnabled,
           startupMode = DefaultIndexerStartupMode,
           dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(
             indexerConfig.ingestionParallelism.unwrap

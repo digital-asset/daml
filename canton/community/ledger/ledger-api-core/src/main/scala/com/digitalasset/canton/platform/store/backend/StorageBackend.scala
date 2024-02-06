@@ -32,7 +32,6 @@ import com.digitalasset.canton.platform.store.backend.common.{
   TransactionStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
-import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.platform.store.entries.{
   ConfigurationEntry,
   PackageLedgerEntry,
@@ -275,7 +274,11 @@ trait EventStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+  def pruneEvents(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
+  )(implicit
       connection: Connection,
       traceContext: TraceContext,
   ): Unit
@@ -284,12 +287,6 @@ trait EventStorageBackend {
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Boolean
-
-  def activeContractCreateEventBatch(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
-      endInclusive: Long,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
 
   def activeContractCreateEventBatchV2(
       eventSequentialIds: Iterable[Long],
@@ -359,7 +356,7 @@ object EventStorageBackend {
       ledgerEffectiveTime: Timestamp,
       commandId: String,
       workflowId: String,
-      domainId: Option[String],
+      domainId: String,
       traceContext: Option[Array[Byte]],
       event: E,
   )

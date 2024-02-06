@@ -297,7 +297,6 @@ object BufferedStreamsReaderSpec {
             startExclusive: Offset,
             endInclusive: Offset,
             filter: Object,
-            multiDomainEnabled: Boolean,
         )(implicit
             loggingContext: LoggingContextWithTrace
         ): Source[(Offset, String), NotUsed] = fail("Unexpected call to fetch from persistence")
@@ -327,7 +326,6 @@ object BufferedStreamsReaderSpec {
             persistenceFetchArgs = persistenceFetchArgs,
             bufferFilter = bufferSliceFilter,
             toApiResponse = tx => Future.successful(tx.transactionId),
-            multiDomainEnabled = false,
           )
           .runWith(Sink.foreach(streamElements.addOne))
           .futureValue
@@ -343,7 +341,6 @@ object BufferedStreamsReaderSpec {
               startExclusive: Offset,
               endInclusive: Offset,
               filter: Object,
-              multiDomainEnabled: Boolean,
           )(implicit
               loggingContext: LoggingContextWithTrace
           ): Source[(Offset, String), NotUsed] =
@@ -368,7 +365,6 @@ object BufferedStreamsReaderSpec {
             startExclusive: Offset,
             endInclusive: Offset,
             filter: Object,
-            multiDomainEnabled: Boolean,
         )(implicit
             loggingContext: LoggingContextWithTrace
         ): Source[(Offset, String), NotUsed] = {
@@ -435,7 +431,6 @@ object BufferedStreamsReaderSpec {
             persistenceFetchArgs = new Object, // Not used
             bufferFilter = noFilterBufferSlice, // Do not filter
             toApiResponse = tx => Future.successful(tx.transactionId),
-            false,
           )
           .async
           .mapAsync(1) { idx =>

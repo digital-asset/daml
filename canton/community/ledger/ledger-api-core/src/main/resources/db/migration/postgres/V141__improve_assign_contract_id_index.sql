@@ -1,0 +1,2 @@
+DROP INDEX participant_events_assign_event_contract_id;
+CREATE INDEX participant_events_assign_event_contract_id ON participant_events_assign (contract_id, event_sequential_id);

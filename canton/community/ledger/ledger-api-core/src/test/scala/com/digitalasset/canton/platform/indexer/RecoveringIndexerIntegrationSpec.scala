@@ -274,7 +274,6 @@ class RecoveringIndexerIntegrationSpec
         executionContext = servicesExecutionContext,
         tracer = tracer,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = false,
         startupMode = MigrateAndStart,
         dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(
           indexerConfig.ingestionParallelism.unwrap

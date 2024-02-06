@@ -63,7 +63,6 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
       persistenceFetchArgs: PERSISTENCE_FETCH_ARGS,
       bufferFilter: Traced[TransactionLogUpdate] => Option[BUFFER_OUT],
       toApiResponse: BUFFER_OUT => Future[API_RESPONSE],
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, API_RESPONSE), NotUsed] = {
@@ -108,7 +107,6 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
                     startExclusive = scannedToInclusive,
                     endInclusive = bufferedStartExclusive,
                     filter = persistenceFetchArgs,
-                    multiDomainEnabled = multiDomainEnabled,
                   )(loggingContext)
                     .concat(toApiResponseStream(slice))
                 Some(endInclusive -> sourceFromBuffer)
@@ -133,7 +131,6 @@ private[platform] object BufferedStreamsReader {
         startExclusive: Offset,
         endInclusive: Offset,
         filter: FILTER,
-        multiDomainEnabled: Boolean,
     )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, API_RESPONSE), NotUsed]
   }
 }

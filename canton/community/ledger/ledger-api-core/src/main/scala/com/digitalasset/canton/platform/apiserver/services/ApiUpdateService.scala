@@ -90,7 +90,7 @@ final class ApiUpdateService(
               }
               logger.trace(s"Update request: $req.")
               transactionsService
-                .transactions(req.startExclusive, req.endInclusive, req.filter, req.verbose, true)
+                .transactions(req.startExclusive, req.endInclusive, req.filter, req.verbose)
                 .via(logger.enrichedDebugStream("Responding with updates.", updatesLoggable))
                 .via(logger.logErrorsOnStream)
                 .via(StreamMetrics.countElements(metrics.lapi.streams.updates))
@@ -144,7 +144,6 @@ final class ApiUpdateService(
                   req.endInclusive,
                   req.filter,
                   req.verbose,
-                  true,
                 )
                 .via(logger.enrichedDebugStream("Responding with update trees.", updatesLoggable))
                 .via(logger.logErrorsOnStream)

@@ -89,11 +89,10 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     Timed.source(
       metrics.services.index.transactions,
-      delegate.transactions(begin, endAt, filter, verbose, multiDomainEnabled),
+      delegate.transactions(begin, endAt, filter, verbose),
     )
 
   override def transactionTrees(
@@ -101,11 +100,10 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     Timed.source(
       metrics.services.index.transactionTrees,
-      delegate.transactionTrees(begin, endAt, filter, verbose, multiDomainEnabled),
+      delegate.transactionTrees(begin, endAt, filter, verbose),
     )
 
   override def getTransactionById(
@@ -130,11 +128,10 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       filter: domain.TransactionFilter,
       verbose: Boolean,
       activeAtO: Option[Offset],
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose, activeAtO, multiDomainEnabled),
+      delegate.getActiveContracts(filter, verbose, activeAtO),
     )
 
   override def lookupActiveContract(
@@ -201,10 +198,11 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
   override def prune(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     Timed.future(
       metrics.services.index.prune,
-      delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
+      delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets),
     )
 
   override def getCompletions(

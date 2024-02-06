@@ -91,7 +91,6 @@ class IndexerBenchmark extends NamedLogging {
           servicesExecutionContext,
           tracer,
           loggerFactory,
-          multiDomainEnabled = false,
           dataSourceProperties,
           highAvailability,
         )
