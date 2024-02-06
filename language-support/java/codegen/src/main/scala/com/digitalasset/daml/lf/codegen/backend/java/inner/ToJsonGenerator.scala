@@ -132,6 +132,7 @@ private[inner] object ToJsonGenerator {
       .methodBuilder("keyJsonEncoder")
       .addModifiers(Modifier.PUBLIC)
       .returns(classOf[JsonLfEncoder])
+      .addAnnotation(classOf[Override])
       .addStatement("return this.key.map($L).orElse(null)", encoderOf(keyDamlType))
       .build()
 
