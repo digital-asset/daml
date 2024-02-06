@@ -22,14 +22,14 @@ load(
 
 [
     genrule(
-        name = "script-test-v{}".format(major),
+        name = "script{scriptVersion}-test-v{major}".format(scriptVersion = scriptVersion, major = major),
         srcs =
             glob(["**/*.daml"]) + [
-                "//daml-script/daml:daml-script-{}.dar".format(target),
+                "//daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar".format(scriptVersion = scriptVersion, target = target),
                 "//docs:source/daml-script/template-root/src/ScriptExample.daml",
                 "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
-        outs = ["script-test-v{}.dar".format(major)],
+        outs = ["script{scriptVersion}-test-v{major}.dar".format(scriptVersion = scriptVersion, major = major)],
         cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -50,31 +50,33 @@ initializeFixed = do
   let parties = LedgerParties{{..}}
   initialize parties
 EOF
-      cp -L $(location //daml-script/daml:daml-script-{target}.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
-name: script-test
+name: script{scriptVersion}-test
 source: daml
 version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script-{target}.dar
+  - daml{scriptVersion}-script-{target}.dar
 build-options:
   - --target={target}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-v{major}.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script{scriptVersion}-test-v{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
             major = major,
             sdk = sdk_version,
             target = target,
+            scriptVersion = scriptVersion,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
     for major in LF_MAJOR_VERSIONS
     for target in [lf_version_default_or_latest(major)]
+    for scriptVersion in ["", "3"]
 ]
 
 [
@@ -357,8 +359,9 @@ da_scala_test_suite(
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
     ] + [
-        ":script-test-v{}.dar".format(major)
+        ":script{scriptVersion}-test-v{major}.dar".format(scriptVersion = scriptVersion, major = major)
         for major in LF_MAJOR_VERSIONS
+        for scriptVersion in ["", "3"]
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
