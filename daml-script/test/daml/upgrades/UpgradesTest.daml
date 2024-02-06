@@ -64,6 +64,15 @@ brokenScript act = do
       unsafeVetDarOnParticipant v2DarName $ Some participant1
       sleep $ seconds 1
 
+-- withUnvettedDar : Text -> Optional ParticipantName -> Script a -> Script a
+-- withUnvettedDar darName participant act = do
+--   unvetDarOnParticipant darName participant
+--   res <- tryToEither (\() -> liftFailedCommandToException act)
+--   vetDarOnParticipant darName participant
+--   case res of
+--     Left e -> throwAnyException e
+--     Right r -> r
+
 broken : (Text, Script ()) -> (Text, Script ())
 broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
 
@@ -364,8 +373,8 @@ inferredV1ChoiceV1ContractWithoutV2 = do
   unvetDarOnParticipant v2DarName participant0
   unvetDarOnParticipant v2DarName participant1
   choiceTest @V1.ValidUpgrade V1.ValidUpgrade (V1.UpgradedChoice "v1 to v1") False (V1.UpgradedChoiceReturn "v1 to v1:V1")
-  vetDarOnParticipant v2DarName participant0
   vetDarOnParticipant v2DarName participant1
+  vetDarOnParticipant v2DarName participant0
 
 explicitV1ChoiceV2Contract : Script ()
 explicitV1ChoiceV2Contract =
