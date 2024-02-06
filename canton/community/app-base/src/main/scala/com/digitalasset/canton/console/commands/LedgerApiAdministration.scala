@@ -28,7 +28,6 @@ import com.daml.ledger.api.v2.transaction.{
   TransactionTree as TransactionTreeV2,
 }
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterV2
-import com.daml.ledger.javaapi.data.ReassignmentV2
 import com.daml.ledger.{javaapi as javab}
 import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
@@ -93,6 +92,7 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
+import com.daml.ledger.javaapi.data.Reassignment
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
@@ -1897,7 +1897,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId: String = UUID.randomUUID().toString,
             waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-        ): ReassignmentV2 =
+        ): Reassignment =
           ledger_api.commands
             .submit_unassign(
               submitter,
@@ -1912,7 +1912,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
             .reassignment
             .pipe(Reassignment.toJavaProto)
-            .pipe(ReassignmentV2.fromProto)
+            .pipe(Reassignment.fromProto)
 
         @Help.Summary(
           "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise",
@@ -1936,7 +1936,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId: String = UUID.randomUUID().toString,
             waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-        ): ReassignmentV2 =
+        ): Reassignment =
           ledger_api.commands
             .submit_assign(
               submitter,
@@ -1951,7 +1951,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
             .reassignment
             .pipe(Reassignment.toJavaProto)
-            .pipe(ReassignmentV2.fromProto)
+            .pipe(Reassignment.fromProto)
       }
 
       @Help.Summary("Read from update stream (Java bindings)", FeatureFlag.Testing)
@@ -1992,7 +1992,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               case reassignment: ReassignmentWrapper =>
                 reassignment.reassignment
                   .pipe(Reassignment.toJavaProto)
-                  .pipe(ReassignmentV2.fromProto)
+                  .pipe(Reassignment.fromProto)
                   .pipe(new javab.data.GetUpdateTreesResponseV2(_))
             }
         )
@@ -2032,7 +2032,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               case reassignment: ReassignmentWrapper =>
                 reassignment.reassignment
                   .pipe(Reassignment.toJavaProto)
-                  .pipe(ReassignmentV2.fromProto)
+                  .pipe(Reassignment.fromProto)
                   .pipe(new javab.data.GetUpdatesResponseV2(_))
             }
         )
@@ -2080,7 +2080,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               case reassignment: ReassignmentWrapper =>
                 reassignment.reassignment
                   .pipe(Reassignment.toJavaProto)
-                  .pipe(ReassignmentV2.fromProto)
+                  .pipe(Reassignment.fromProto)
                   .pipe(new javab.data.GetUpdatesResponseV2(_))
             }
         )
