@@ -758,7 +758,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        agreementText = "", // to be removed
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = Some(
@@ -1596,7 +1595,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        agreementText = "", // to be removed
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = Some(
@@ -1650,7 +1648,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = getPackageName(basicTestsPkg),
         templateId = usedDisclosedContract.templateId,
         arg = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        agreementText = "", // to be removed
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,

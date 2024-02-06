@@ -490,7 +490,6 @@ object TransactionCoder {
           packageName = pkgName,
           templateId = tmplId,
           arg = arg,
-          agreementText = "", // to be removed
           signatories = signatories,
           stakeholders = stakeholders,
           keyOpt = keyOpt,

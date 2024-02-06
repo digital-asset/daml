@@ -66,7 +66,6 @@ trait TestNodeBuilder {
         if (transactionVersion < TransactionVersion.minUpgrade) None else Some(packageName),
       templateId = templateId,
       arg = argument,
-      agreementText = "", // to be removed
       signatories = signatories ++ maintainers,
       stakeholders = signatories ++ observers ++ maintainers,
       keyOpt = keyOpt,
