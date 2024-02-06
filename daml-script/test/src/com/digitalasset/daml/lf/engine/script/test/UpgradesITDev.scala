@@ -30,6 +30,8 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v2.dar")),
   )
 
+  lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.dev.dar")
+
   lazy val testFiles: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
@@ -167,8 +169,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       )
       .flatten
     damlFiles.foreach { file => Files.copy(file, dir.resolve(testFiles.relativize(file))) }
-    // TODO[SW] Can't pass `daml3-script` here like this, need to bring in the full path via bazel to the dar.
-    // Currently causes the build to fail.
-    (buildDar(dir, "daml-upgrades-test", 1, dars.map(_.toString) :+ "daml3-script"), dars, dir)
+    (buildDar(dir, "daml-upgrades-test", 1, dars.map(_.toString) :+ damlScriptDar.toString), dars, dir)
   }
 }
