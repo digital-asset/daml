@@ -52,13 +52,13 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
   ): EitherT[Future, Error, Boolean]
 
   protected def handleVerifyActiveResponse(
-      response: v30.SequencerConnect.VerifyActive.Response
+      response: v30.SequencerConnect.VerifyActiveResponse
   ): Either[Error, Boolean] = response.value match {
-    case v30.SequencerConnect.VerifyActive.Response.Value.Success(success) =>
+    case v30.SequencerConnect.VerifyActiveResponse.Value.Success(success) =>
       Right(success.isActive)
-    case v30.SequencerConnect.VerifyActive.Response.Value.Failure(failure) =>
+    case v30.SequencerConnect.VerifyActiveResponse.Value.Failure(failure) =>
       Left(Error.DeserializationFailure(failure.reason))
-    case v30.SequencerConnect.VerifyActive.Response.Value.Empty =>
+    case v30.SequencerConnect.VerifyActiveResponse.Value.Empty =>
       Left(Error.InvalidResponse("Missing response from VerifyActive"))
   }
 }

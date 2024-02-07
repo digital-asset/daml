@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.processing
 
 import cats.Apply
+import cats.instances.list.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
@@ -228,13 +229,15 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
     def mk(
         store: InMemoryTopologyStoreX[TopologyStoreId] =
-          new InMemoryTopologyStoreX(DomainStore(Factory.domainId1), loggerFactory, timeouts)
+          new InMemoryTopologyStoreX(DomainStore(Factory.domainId1), loggerFactory, timeouts),
+        validationIsFinal: Boolean = true,
     ) = {
       val validator =
         new IncomingTopologyTransactionAuthorizationValidatorX(
           Factory.cryptoApi.crypto.pureCrypto,
           store,
           Some(Factory.domainId1),
+          validationIsFinal = validationIsFinal,
           loggerFactory,
         )
       validator
@@ -767,6 +770,75 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
     }
 
+    def checkProposalFlatAfterValidation(validationIsFinal: Boolean, expectProposal: Boolean) = {
+      val store =
+        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+      val validator = mk(store, validationIsFinal)
+      import Factory.*
+      import SigningKeys.{ec as _, *}
+
+      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8))
+      val dns_2_owners = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(dns_id, PositiveInt.two, NonEmpty(Set, ns1, ns8))
+          .value,
+        NonEmpty(Set, key1, key8),
+        serial = PositiveInt.one,
+      )
+      val decentralizedNamespaceWithThreeOwners = List(ns1k1_k1, ns8k8_k8, dns_2_owners)
+
+      for {
+        _ <- store.update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Set.empty,
+          removeTxs = Set.empty,
+          additions = decentralizedNamespaceWithThreeOwners.map(
+            ValidatedTopologyTransactionX(_)
+          ),
+        )
+
+        pkgTx = TopologyTransactionX(
+          TopologyChangeOpX.Replace,
+          serial = PositiveInt.one,
+          VettedPackagesX(
+            ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+            None,
+            Seq.empty,
+          ),
+          BaseTest.testedProtocolVersion,
+        )
+        result_packageVetting <- validator
+          .validateAndUpdateHeadAuthState(
+            ts(1),
+            transactionsToValidate = List(
+              // Setting isProposal=true despite having enough keys.
+              // This simulates processing a proposal with the signature of a node,
+              // that got merged with another proposal already in the store.
+              mkTrans(pkgTx, signingKeys = NonEmpty(Set, key1, key8), isProposal = true)
+            ),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = false,
+          )
+
+      } yield {
+        val validatedPkgTx = result_packageVetting._2.loneElement
+
+        validatedPkgTx.rejectionReason shouldBe None
+        withClue("package transaction is proposal")(
+          validatedPkgTx.transaction.isProposal shouldBe expectProposal
+        )
+      }
+    }
+
+    "change the proposal status when the validation is final" in {
+      checkProposalFlatAfterValidation(validationIsFinal = true, expectProposal = false)
+    }
+
+    "not change the proposal status when the validation is not final" in {
+      checkProposalFlatAfterValidation(validationIsFinal = false, expectProposal = true)
+    }
+
     "respect the threshold of decentralized namespaces" in {
       val store =
         new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
@@ -778,10 +850,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       val dns = mkAddMultiKey(
         DecentralizedNamespaceDefinitionX
           .create(dns_id, PositiveInt.tryCreate(3), NonEmpty(Set, ns1, ns8, ns9))
-          .fold(
-            err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 1: $err"),
-            identity,
-          ),
+          .value,
         NonEmpty(Set, key1, key8, key9),
         serial = PositiveInt.one,
       )
@@ -812,8 +881,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
               mkTrans(
                 pkgTx,
                 isProposal = isProposal,
-                signingKeys =
-                  NonEmpty.from(signingKeys.toSet).getOrElse(sys.error("empty signing keys")),
+                signingKeys = NonEmpty.from(signingKeys.toSet).value,
               )
             ),
             transactionsInStore = Map.empty,
@@ -821,7 +889,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           )(freshTraceContext)
           .map(_._2.loneElement)
       }
-      import cats.instances.list.*
 
       for {
         _ <- store.update(

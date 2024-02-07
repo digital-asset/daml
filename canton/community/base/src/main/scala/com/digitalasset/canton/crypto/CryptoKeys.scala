@@ -278,22 +278,22 @@ object CryptoKeyFormat {
 
   case object Tink extends CryptoKeyFormat {
     override val name: String = "Tink"
-    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Tink
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_TINK
   }
 
   case object Der extends CryptoKeyFormat {
     override val name: String = "DER"
-    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Der
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER
   }
 
   case object Raw extends CryptoKeyFormat {
     override val name: String = "Raw"
-    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Raw
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_RAW
   }
 
   case object Symbolic extends CryptoKeyFormat {
     override val name: String = "Symbolic"
-    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.Symbolic
+    override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_SYMBOLIC
   }
 
   def fromProtoEnum(
@@ -301,14 +301,14 @@ object CryptoKeyFormat {
       formatP: v30.CryptoKeyFormat,
   ): ParsingResult[CryptoKeyFormat] =
     formatP match {
-      case v30.CryptoKeyFormat.MissingCryptoKeyFormat =>
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.CryptoKeyFormat.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.CryptoKeyFormat.Tink => Right(CryptoKeyFormat.Tink)
-      case v30.CryptoKeyFormat.Der => Right(CryptoKeyFormat.Der)
-      case v30.CryptoKeyFormat.Raw => Right(CryptoKeyFormat.Raw)
-      case v30.CryptoKeyFormat.Symbolic => Right(CryptoKeyFormat.Symbolic)
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_TINK => Right(CryptoKeyFormat.Tink)
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER => Right(CryptoKeyFormat.Der)
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_RAW => Right(CryptoKeyFormat.Raw)
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_SYMBOLIC => Right(CryptoKeyFormat.Symbolic)
     }
 }
 
@@ -326,7 +326,7 @@ sealed trait KeyPurpose extends Product with Serializable with PrettyPrinting {
 
 object KeyPurpose {
 
-  val all = Set(Signing, Encryption)
+  val All: Set[KeyPurpose] = Set(Signing, Encryption)
 
   implicit val setParameterKeyPurpose: SetParameter[KeyPurpose] = (k, pp) => pp.setByte(k.id)
   implicit val getResultKeyPurpose: GetResult[KeyPurpose] = GetResult { r =>
@@ -340,13 +340,13 @@ object KeyPurpose {
   case object Signing extends KeyPurpose {
     override val name: String = "signing"
     override val id: Byte = 0
-    override def toProtoEnum: v30.KeyPurpose = v30.KeyPurpose.SigningKeyPurpose
+    override def toProtoEnum: v30.KeyPurpose = v30.KeyPurpose.KEY_PURPOSE_SIGNING
   }
 
   case object Encryption extends KeyPurpose {
     override val name: String = "encryption"
     override val id: Byte = 1
-    override def toProtoEnum: v30.KeyPurpose = v30.KeyPurpose.EncryptionKeyPurpose
+    override def toProtoEnum: v30.KeyPurpose = v30.KeyPurpose.KEY_PURPOSE_ENCRYPTION
   }
 
   def fromProtoEnum(
@@ -354,11 +354,12 @@ object KeyPurpose {
       purposeP: v30.KeyPurpose,
   ): ParsingResult[KeyPurpose] =
     purposeP match {
-      case v30.KeyPurpose.UnknownKeyPurpose => Left(ProtoDeserializationError.FieldNotSet(field))
+      case v30.KeyPurpose.KEY_PURPOSE_UNSPECIFIED =>
+        Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.KeyPurpose.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.KeyPurpose.SigningKeyPurpose => Right(Signing)
-      case v30.KeyPurpose.EncryptionKeyPurpose => Right(Encryption)
+      case v30.KeyPurpose.KEY_PURPOSE_SIGNING => Right(Signing)
+      case v30.KeyPurpose.KEY_PURPOSE_ENCRYPTION => Right(Encryption)
     }
 }
 

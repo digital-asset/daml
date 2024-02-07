@@ -111,7 +111,6 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         maxQueueSize = 10000,
         maxBatchSize = 50,
         parallelism = 5,
-        multiDomainEnabled = false,
         loggerFactory = loggerFactory,
       )
     } yield JdbcLedgerDao.write(

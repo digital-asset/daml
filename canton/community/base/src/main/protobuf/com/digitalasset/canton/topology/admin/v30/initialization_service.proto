@@ -6,13 +6,12 @@ syntax = "proto3";
 package com.digitalasset.canton.topology.admin.v30;
 
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 /**
  * The node identity initialization service
  */
-service IdentityInitializationServiceX {
+service IdentityInitializationXService {
   /**
    * Initialize the node with the unique identifier (can and must be done once)
    *
@@ -32,12 +31,12 @@ service IdentityInitializationServiceX {
   /**
    * Returns the id of the node (or empty if not initialized)
    */
-  rpc GetId(google.protobuf.Empty) returns (GetIdResponse);
+  rpc GetId(GetIdRequest) returns (GetIdResponse);
 
   /**
    * Returns the current time of the node (used for testing with static time)
    */
-  rpc CurrentTime(google.protobuf.Empty) returns (google.protobuf.Timestamp);
+  rpc CurrentTime(CurrentTimeRequest) returns (CurrentTimeResponse);
 }
 
 message InitIdRequest {
@@ -55,5 +54,13 @@ message GetIdResponse {
 message GetOnboardingTransactionsRequest {}
 
 message GetOnboardingTransactionsResponse {
-  com.digitalasset.canton.protocol.v30.TopologyTransactions transactions = 1;
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions transactions = 1;
+}
+
+message GetIdRequest {}
+
+message CurrentTimeRequest {}
+
+message CurrentTimeResponse {
+  google.protobuf.Timestamp current_time = 1;
 }

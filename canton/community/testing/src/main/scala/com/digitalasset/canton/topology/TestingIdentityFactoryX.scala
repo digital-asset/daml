@@ -98,7 +98,7 @@ final case class TestingTopologyX(
     ),
     participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
     packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
-    keyPurposes: Set[KeyPurpose] = KeyPurpose.all,
+    keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
     domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] = List(
       DomainParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch,

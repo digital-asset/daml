@@ -6,31 +6,18 @@ package com.digitalasset.canton.participant.sync
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.ledger.participant.state.v2.Update
 import com.digitalasset.canton.participant.admin.workflows.java.canton
-import com.digitalasset.canton.participant.protocol.ProcessingSteps.RequestType
 import com.digitalasset.canton.protocol.LedgerTransactionNodeStatistics
 
 final class EventTranslationStrategy(
-    multiDomainLedgerAPIEnabled: Boolean,
-    excludeInfrastructureTransactions: Boolean,
+    excludeInfrastructureTransactions: Boolean
 ) {
 
   def translate(e: LedgerSyncEvent): Option[Update] =
     e match {
-      case e: LedgerSyncEvent.TransferredOut =>
-        if (multiDomainLedgerAPIEnabled) e.toDamlUpdate else None
-      case e: LedgerSyncEvent.TransferredIn =>
-        val transferInUpdate = if (multiDomainLedgerAPIEnabled) e.toDamlUpdate else None
-
-        transferInUpdate.orElse(e.asTransactionAccepted)
-      case e: LedgerSyncEvent.CommandRejected =>
-        e.kind match {
-          case RequestType.TransferIn | RequestType.TransferOut =>
-            if (multiDomainLedgerAPIEnabled) e.toDamlUpdate else None
-          case RequestType.Transaction =>
-            e.toDamlUpdate
-        }
-      case e: LedgerSyncEvent.TransactionAccepted =>
-        augmentTransactionStatistics(e).toDamlUpdate
+      case e: LedgerSyncEvent.TransferredOut => e.toDamlUpdate
+      case e: LedgerSyncEvent.TransferredIn => e.toDamlUpdate.orElse(e.asTransactionAccepted)
+      case e: LedgerSyncEvent.CommandRejected => e.toDamlUpdate
+      case e: LedgerSyncEvent.TransactionAccepted => augmentTransactionStatistics(e).toDamlUpdate
       case e => e.toDamlUpdate
     }
 

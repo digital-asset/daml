@@ -10,6 +10,7 @@ import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.domain.api.v30.SequencerConnect
 import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
 import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.lifecycle.Lifecycle
@@ -61,7 +62,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     with NamedLogging {
 
   private val sequencerConnectServiceClient = new SequencerConnectServiceStub(channel)
-  protected val sequencerServiceClient = clientAuth(
+  protected val sequencerServiceClient: SequencerServiceStub = clientAuth(
     new SequencerServiceStub(channel, options = callOptions)
   )
   private val noLoggingShutdownErrorsLogPolicy: GrpcError => TracedLogger => TraceContext => Unit =
@@ -86,7 +87,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     for {
       responseP <- CantonGrpcUtil
         .sendGrpcRequest(sequencerConnectServiceClient, "sequencer")(
-          _.handshake(request.toProtoV30),
+          _.handshake(SequencerConnect.HandshakeRequest(Some(request.toProtoV30))),
           requestDescription = "handshake",
           logger = logger,
           retryPolicy =
@@ -99,7 +100,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         )
         .leftMap(err => HandshakeRequestError(err.toString, err.retry))
       response <- HandshakeResponse
-        .fromProtoV30(responseP)
+        .fromProtoV30(responseP.getHandshakeResponse)
         // if deserialization failed it likely means we have a version conflict on the handshake itself
         .leftMap(err =>
           HandshakeRequestError(s"Deserialization of response failed: $err", retryable = false)
@@ -119,7 +120,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       "send-async-versioned",
       request.content.messageId,
       timeout,
-      SendAsyncResponse.fromSendAsyncSignedResponseProto,
+      SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncVersionedResponseProto,
     )
   }
 
@@ -133,7 +134,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     "send-async-unauthenticated-versioned",
     request.messageId,
     timeout,
-    SendAsyncResponse.fromSendAsyncResponseProto,
+    SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncUnauthenticatedVersionedResponseProto,
   )
 
   private def sendInternal[Resp](
@@ -141,7 +142,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       endpoint: String,
       messageId: MessageId,
       timeout: Duration,
-      fromResponseProto: Resp => ParsingResult[SendAsyncResponse],
+      fromResponseProto: Resp => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     // sends are at-most-once so we cannot retry when unavailable as we don't know if the request has been accepted
     val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
@@ -162,7 +163,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   private def fromResponse[Proto](
       p: Proto,
-      deserializer: Proto => ParsingResult[SendAsyncResponse],
+      deserializer: Proto => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
   ) = {
     for {
       response <- deserializer(p)
@@ -270,7 +271,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     logger.debug(s"Acknowledging timestamp: $timestamp")
     CantonGrpcUtil
       .sendGrpcRequest(sequencerServiceClient, "sequencer")(
-        _.acknowledgeSigned(requestP),
+        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(Some(requestP))),
         requestDescription = s"acknowledge-signed/$timestamp",
         timeout = timeouts.network.duration,
         logger = logger,

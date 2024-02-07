@@ -3,9 +3,9 @@
 
 syntax = "proto3";
 
-package daml.platform.apiserver;
+package daml.platform.v1;
 
-option java_package = "com.daml.platform.apiserver";
+option java_package = "com.daml.platform.v1";
 
 // Describes the payload of a page token for listing users.
 // Not intended to be handled directly by clients and should be presented to them as an opaque string.

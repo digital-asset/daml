@@ -15,6 +15,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
+import com.digitalasset.canton.topology
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction
 import com.digitalasset.canton.version.*
@@ -38,9 +39,9 @@ object AddRemoveChangeOp {
       protoOp: v30.TopologyChangeOp
   ): ParsingResult[AddRemoveChangeOp] =
     protoOp match {
-      case v30.TopologyChangeOp.Add => Right(TopologyChangeOp.Add)
-      case v30.TopologyChangeOp.Remove => Right(TopologyChangeOp.Remove)
-      case v30.TopologyChangeOp.Replace =>
+      case v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_UNSPECIFIED => Right(TopologyChangeOp.Add)
+      case v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE => Right(TopologyChangeOp.Remove)
+      case v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE =>
         Left(InvariantViolation("Replace op is not allowed here"))
       case v30.TopologyChangeOp.Unrecognized(x) => Left(UnrecognizedEnum(protoOp.name, x))
     }
@@ -49,11 +50,13 @@ object AddRemoveChangeOp {
 object TopologyChangeOp {
   sealed trait Positive extends TopologyChangeOp
 
-  final case object Add extends AddRemoveChangeOp(v30.TopologyChangeOp.Add) with Positive
-  final case object Remove extends AddRemoveChangeOp(v30.TopologyChangeOp.Remove)
+  final case object Add
+      extends AddRemoveChangeOp(v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_UNSPECIFIED)
+      with Positive
+  final case object Remove extends AddRemoveChangeOp(v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE)
 
   final case object Replace extends TopologyChangeOp with Positive {
-    def toProto: v30.TopologyChangeOp = v30.TopologyChangeOp.Replace
+    def toProto: v30.TopologyChangeOp = v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE
   }
 
   type Add = Add.type
@@ -114,9 +117,9 @@ object TopologyChangeOp {
       protoOp: v30.TopologyChangeOp
   ): ParsingResult[TopologyChangeOp] =
     protoOp match {
-      case v30.TopologyChangeOp.Add => Right(Add)
-      case v30.TopologyChangeOp.Remove => Right(Remove)
-      case v30.TopologyChangeOp.Replace => Right(Replace)
+      case v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_UNSPECIFIED => Right(Add)
+      case v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE => Right(Remove)
+      case v30.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE => Right(Replace)
       case v30.TopologyChangeOp.Unrecognized(x) => Left(UnrecognizedEnum(protoOp.name, x))
     }
 
@@ -242,12 +245,13 @@ object TopologyTransaction
     ]] {
   override val name: String = "TopologyTransaction"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransaction)(
-      supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+  val supportedProtoVersions: topology.transaction.TopologyTransaction.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransaction)(
+        supportedProtoVersionMemoized(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   private def fromProtoV30(
       protocolVersionValidation: ProtocolVersionValidation,
@@ -422,7 +426,7 @@ final case class DomainGovernanceTransaction private (
     ],
     override val deserializedFrom: Option[ByteString] = None,
 ) extends TopologyTransaction[TopologyChangeOp.Replace] {
-  val op = TopologyChangeOp.Replace
+  val op: TopologyChangeOp.Replace = TopologyChangeOp.Replace
 
   private def toDomainGovernanceTransactionProtoV1: v30.DomainGovernanceTransaction = {
     val mappingP = element.mapping match {

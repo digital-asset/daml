@@ -28,10 +28,10 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
   def grpcAdminCommandRunner: GrpcAdminCommandRunner
   protected implicit val statusEncoder: Encoder[Status]
 
-  protected def getStatusForNode[S <: NodeStatus.Status](
+  private def getStatusForNode[S <: NodeStatus.Status](
       nodeName: String,
       nodeConfig: LocalNodeConfig,
-      deserializer: v30.NodeStatus.Status => ParsingResult[S],
+      deserializer: v30.StatusResponse.Status => ParsingResult[S],
   ): NodeStatus[S] = {
     grpcAdminCommandRunner
       .runCommand(
@@ -47,7 +47,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
 
   protected def statusMap[S <: NodeStatus.Status](
       nodes: Map[String, LocalNodeConfig],
-      deserializer: v30.NodeStatus.Status => ParsingResult[S],
+      deserializer: v30.StatusResponse.Status => ParsingResult[S],
   ): Map[String, () => NodeStatus[S]] = {
     nodes.map { case (nodeName, nodeConfig) =>
       nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, deserializer))

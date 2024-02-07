@@ -104,6 +104,7 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     val pureCrypto: CryptoPureApi,
     val store: TopologyStoreX[TopologyStoreId],
     domainId: Option[DomainId],
+    validationIsFinal: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -229,7 +230,14 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
     val acceptMissingAuthorizers =
       toValidate.isProposal && !expectFullAuthorization && hasMissingAuthorizers
 
-    val finalTransaction = toValidate.copy(isProposal = !isFullyAuthorized)
+    // if the result of this validation is final (when processing transactions for the authorized store
+    // or sequenced transactions from the domain) we set the proposal flag according to whether the transaction
+    // is fully authorized or not.
+    // This must not be done when preliminarily validating transactions via the DomainTopologyManager, because
+    // the validation outcome might change when validating the transaction again after it has been sequenced.
+    val finalTransaction =
+      if (validationIsFinal) toValidate.copy(isProposal = !isFullyAuthorized)
+      else toValidate
 
     // Either the transaction is fully authorized or the request allows partial authorization
     if (isFullyAuthorized || acceptMissingAuthorizers) {

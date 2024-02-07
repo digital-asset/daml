@@ -399,7 +399,6 @@ object MutableCacheBackedContractStoreSpec {
     GlobalKey.assertBuild(
       Identifier.assertFromString(s"some:template:$desc"),
       ValueText(desc),
-      shared = true,
     )
 
   private def offset(idx: Long) = Offset.fromByteArray(BigInt(idx).toByteArray)

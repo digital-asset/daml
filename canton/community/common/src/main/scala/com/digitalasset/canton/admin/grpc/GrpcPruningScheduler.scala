@@ -100,7 +100,7 @@ trait GrpcPruningScheduler {
     } yield v30.GetSchedule.Response(scheduleWithRetention.map(_.toProtoV30))
   }
 
-  protected def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit
+  private def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit
       traceContext: TraceContext
   ): Future[T] = f
     .leftMap(err => ProtoDeserializationFailure.Wrap(err).asGrpcError)

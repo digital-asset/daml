@@ -12,7 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.Refer
   BlockCounter,
   CounterDiscriminator,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v0 as proto
+import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}

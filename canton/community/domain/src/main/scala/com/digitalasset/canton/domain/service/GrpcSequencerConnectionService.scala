@@ -35,7 +35,6 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import com.digitalasset.canton.util.{EitherTUtil, retry}
-import com.google.protobuf.empty.Empty
 import io.grpc.{Status, StatusException}
 import monocle.Lens
 import org.apache.pekko.stream.Materializer
@@ -66,14 +65,14 @@ class GrpcSequencerConnectionService(
         }
     )
 
-  override def setConnection(request: v30.SetConnectionRequest): Future[Empty] =
+  override def setConnection(request: v30.SetConnectionRequest): Future[v30.SetConnectionResponse] =
     EitherTUtil.toFuture(for {
       existing <- getConnection
       requestedReplacement <- parseConnection(request)
       _ <- validateReplacement(existing, requestedReplacement)
       _ <- setConnection(requestedReplacement)
         .leftMap(error => Status.FAILED_PRECONDITION.withDescription(error).asException())
-    } yield Empty())
+    } yield v30.SetConnectionResponse())
 
   private def getConnection: EitherT[Future, StatusException, SequencerConnections] =
     fetchConnection()

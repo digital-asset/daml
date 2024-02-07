@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v0;
+package com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1;
 
 message TracedBlockOrderingRequest {
   string traceparent = 1;

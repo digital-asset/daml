@@ -8,9 +8,9 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionX.GenericStoredTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
@@ -65,9 +65,9 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   }
 
   def filter(
-      pred: SignedTopologyTransactionX[Op, M] => Boolean
+      pred: StoredTopologyTransactionX[Op, M] => Boolean
   ): StoredTopologyTransactionsX[Op, M] =
-    StoredTopologyTransactionsX(result.filter(stored => pred(stored.transaction)))
+    StoredTopologyTransactionsX(result.filter(stored => pred(stored)))
 
   def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] =
     StoredTopologyTransactionsX(

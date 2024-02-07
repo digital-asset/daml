@@ -67,7 +67,7 @@ class ConfirmationRequestFactoryTest
   private def createCryptoSnapshot(
       partyToParticipant: Map[ParticipantId, Seq[LfPartyId]],
       permission: ParticipantPermission = Submission,
-      keyPurposes: Set[KeyPurpose] = KeyPurpose.all,
+      keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
       encKeyTag: Option[String] = None,
   ): DomainSnapshotSyncCryptoApi = {
 

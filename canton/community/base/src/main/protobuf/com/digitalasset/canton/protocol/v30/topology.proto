@@ -11,15 +11,15 @@ import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 enum TopologyChangeOp {
-  Add = 0;
-  Remove = 1;
-  Replace = 2;
+  TOPOLOGY_CHANGE_OP_ADD_UNSPECIFIED = 0;
+  TOPOLOGY_CHANGE_OP_REMOVE = 1;
+  TOPOLOGY_CHANGE_OP_REPLACE = 2;
 }
 
 enum TrustLevel {
-  MissingTrustLevel = 0;
-  Ordinary = 1;
-  Vip = 2;
+  TRUST_LEVEL_UNSPECIFIED = 0;
+  TRUST_LEVEL_ORDINARY = 1;
+  TRUST_LEVEL_VIP = 2;
 }
 
 message ParticipantState {
@@ -32,19 +32,19 @@ message ParticipantState {
 
 // enum indicating the participant permission level
 enum ParticipantPermission {
-  MissingParticipantPermission = 0;
+  PARTICIPANT_PERMISSION_UNSPECIFIED = 0;
 
   // participant is active, can submit transactions
-  Submission = 1;
+  PARTICIPANT_PERMISSION_SUBMISSION = 1;
 
   // participant is passive, can only confirm transactions
-  Confirmation = 2;
+  PARTICIPANT_PERMISSION_CONFIRMATION = 2;
 
   // participant is passive, can only observe transactions
-  Observation = 3;
+  PARTICIPANT_PERMISSION_OBSERVATION = 3;
 
   // participant is disabled and can not be addressed
-  Disabled = 4;
+  PARTICIPANT_PERMISSION_DISABLED = 4;
 }
 
 /**
@@ -57,10 +57,10 @@ enum ParticipantPermission {
  * {Both, From_Party -> To_Participant} is split into {From, From_Party -> To_Participant} + {To, From_Party -> To_Participant}
  */
 enum RequestSide {
-  MissingRequestSide = 0;
-  Both = 1;
-  From = 2;
-  To = 3;
+  REQUEST_SIDE_UNSPECIFIED = 0;
+  REQUEST_SIDE_BOTH = 1;
+  REQUEST_SIDE_FROM = 2;
+  REQUEST_SIDE_TO = 3;
 }
 
 // mapping that maps a party to a participant
@@ -221,22 +221,22 @@ message RegisterTopologyTransactionResponse {
 
   message Result {
     enum State {
-      MISSING_STATE = 0;
+      STATE_UNSPECIFIED = 0;
 
       // the request failed with an error message
-      FAILED = 2;
+      STATE_FAILED = 2;
 
       // the request has been automatically rejected.
-      REJECTED = 3;
+      STATE_REJECTED = 3;
 
       // the request has been accepted by the domain topology manager
-      ACCEPTED = 4;
+      STATE_ACCEPTED = 4;
 
       // the request is a duplicate (i.e. yields an topology state element that already exists)
-      DUPLICATE = 5;
+      STATE_DUPLICATE = 5;
 
       // the request is obsolete (i.e. a Remove to a topology mapping that does not exist on the server)
-      OBSOLETE = 6;
+      STATE_OBSOLETE = 6;
     }
 
     State state = 1;
@@ -267,26 +267,25 @@ message DomainTopologyTransactionMessage {
 
 message EnumsX {
   enum TopologyChangeOpX {
-    // TODO(#14048) should that be REPLACE instead of Replace?
     // Adds a new or replaces an existing mapping
-    Replace = 0;
+    TOPOLOGY_CHANGE_OP_X_REPLACE_UNSPECIFIED = 0;
 
     // Remove an existing mapping
-    Remove = 1;
+    TOPOLOGY_CHANGE_OP_X_REMOVE = 1;
   }
 
   // enum indicating the participant permission level
   enum ParticipantPermissionX {
-    MissingParticipantPermission = 0;
+    PARTICIPANT_PERMISSION_X_UNSPECIFIED = 0;
 
     // participant is active, can submit transactions
-    Submission = 1;
+    PARTICIPANT_PERMISSION_X_SUBMISSION = 1;
 
     // participant is passive, can only confirm transactions
-    Confirmation = 2;
+    PARTICIPANT_PERMISSION_X_CONFIRMATION = 2;
 
     // participant is passive, can only observe transactions
-    Observation = 3;
+    PARTICIPANT_PERMISSION_X_OBSERVATION = 3;
   }
 }
 

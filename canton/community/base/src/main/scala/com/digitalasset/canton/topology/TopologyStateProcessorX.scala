@@ -77,6 +77,9 @@ class TopologyStateProcessorX(
       pureCrypto,
       store,
       None,
+      // if transactions are put directly into a store (ie there is no outbox queue)
+      // then the authorization validation is final.
+      validationIsFinal = outboxQueue.isEmpty,
       loggerFactory.append("role", "incoming"),
     )
 

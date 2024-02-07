@@ -143,7 +143,6 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
             key = LfGlobalKey.assertBuild(
               defaultTemplateId,
               Value.ValueInt64(0),
-              true,
             ),
             maintainers = maintainers,
           )

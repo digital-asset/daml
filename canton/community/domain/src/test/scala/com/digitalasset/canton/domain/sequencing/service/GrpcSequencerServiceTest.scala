@@ -232,24 +232,28 @@ class GrpcSequencerServiceTest
         versionedRequest: ByteString,
         versionedSignedRequest: ByteString,
         authenticated: Boolean,
-    )(implicit env: Environment): Future[ParsingResult[SendAsyncResponse]] = {
+    )(implicit
+        env: Environment
+    ): Future[ParsingResult[SendAsyncUnauthenticatedVersionedResponse]] = {
       import env.*
 
       if (!authenticated) {
         val requestP = v30.SendAsyncUnauthenticatedVersionedRequest(versionedRequest)
         val response = service.sendAsyncUnauthenticatedVersioned(requestP)
-        response.map(SendAsyncResponse.fromSendAsyncResponseProto)
+        response.map(
+          SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncUnauthenticatedVersionedResponseProto
+        )
       } else {
         val requestP = v30.SendAsyncVersionedRequest(versionedSignedRequest)
         val response = service.sendAsyncVersioned(requestP)
 
-        response.map(SendAsyncResponse.fromSendAsyncSignedResponseProto)
+        response.map(SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncVersionedResponseProto)
       }
     }
 
     def send(request: SubmissionRequest, authenticated: Boolean)(implicit
         env: Environment
-    ): Future[ParsingResult[SendAsyncResponse]] = {
+    ): Future[ParsingResult[SendAsyncUnauthenticatedVersionedResponse]] = {
       val signedRequest = signedSubmissionReq(request)
       sendProto(
         request.toByteString,
@@ -474,7 +478,8 @@ class GrpcSequencerServiceTest
 
       responseF
         .map { responseP =>
-          val response = SendAsyncResponse.fromSendAsyncResponseProto(responseP)
+          val response = SendAsyncUnauthenticatedVersionedResponse
+            .fromSendAsyncUnauthenticatedVersionedResponseProto(responseP)
           response.value.error shouldBe None
         }
     }
@@ -521,7 +526,7 @@ class GrpcSequencerServiceTest
     def multipleMediatorTestCase(
         mediator1: RecipientsTree,
         mediator2: RecipientsTree,
-    ): (FixtureParam => Future[Assertion]) = { _ =>
+    ): FixtureParam => Future[Assertion] = { _ =>
       val differentEnvelopes = Batch.fromClosed(
         testedProtocolVersion,
         ClosedEnvelope.create(
@@ -958,8 +963,10 @@ class GrpcSequencerServiceTest
       } else
         env.service.acknowledge(request.toProtoV30)
 
-    def signedAcknowledgeReq(requestP: v30.AcknowledgeRequest): protocolV30.SignedContent =
-      signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toProtoV30
+    def signedAcknowledgeReq(requestP: v30.AcknowledgeRequest): v30.AcknowledgeSignedRequest =
+      v30.AcknowledgeSignedRequest(
+        Some(signedContent(VersionedMessage(requestP.toByteString, 0).toByteString).toProtoV30)
+      )
 
     name should {
       if (useSignedAck) {
@@ -1000,7 +1007,7 @@ class GrpcSequencerServiceTest
 
   "downloadTopologyStateForInit" should {
     "stream batches of topology transactions" in { env =>
-      val observer = new MockStreamObserver[v30.TopologyStateForInitResponse]()
+      val observer = new MockStreamObserver[v30.DownloadTopologyStateForInitResponse]()
       env.service.downloadTopologyStateForInit(
         TopologyStateForInitRequest(participant, testedProtocolVersion).toProtoV30,
         observer,
@@ -1011,7 +1018,7 @@ class GrpcSequencerServiceTest
         observer.items.lastOption shouldBe Some(StreamComplete)
       }
       val parsed = observer.items.toSeq.map {
-        case StreamNext(response: v30.TopologyStateForInitResponse) =>
+        case StreamNext(response: v30.DownloadTopologyStateForInitResponse) =>
           StreamNext(
             TopologyStateForInitResponse
               .fromProtoV30(response)
@@ -1027,7 +1034,7 @@ class GrpcSequencerServiceTest
               StreamComplete,
             )
             if Seq(batch1, batch2, batch3).forall(
-              _.topologyTransactions.value.result.size == env.maxItemsInTopologyBatch
+              _.topologyTransactions.value.result.sizeIs == env.maxItemsInTopologyBatch
             ) =>
       }
     }

@@ -566,7 +566,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 Versioned(
                   unusedTxVersion,
                   GlobalKeyWithMaintainers
-                    .assertBuild(disclosedContract.templateId, value, maintainers, shared = true),
+                    .assertBuild(disclosedContract.templateId, value, maintainers),
                 )
             },
         ),

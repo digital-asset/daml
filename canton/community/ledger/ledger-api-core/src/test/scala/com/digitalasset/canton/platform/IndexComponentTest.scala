@@ -54,8 +54,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
   // if we would need multi-db, polimorphism can come here, look for JdbcLedgerDaoBackend
   private val jdbcUrl = s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase};db_close_delay=-1"
 
-  private val multiDomainEnabled = true
-
   private val testServicesRef: AtomicReference[TestServices] = new AtomicReference()
 
   private def testServices: TestServices =
@@ -94,7 +92,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          multiDomainEnabled = multiDomainEnabled,
         )
         _indexerHealth <- new IndexerServiceOwner(
           participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),
@@ -136,7 +133,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           maxQueueSize = 10000,
           maxBatchSize = 50,
           parallelism = 5,
-          multiDomainEnabled = multiDomainEnabled,
           loggerFactory = loggerFactory,
         )
         indexService <- new IndexServiceOwner(

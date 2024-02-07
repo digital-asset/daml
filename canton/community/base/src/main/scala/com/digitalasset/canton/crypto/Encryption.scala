@@ -205,7 +205,7 @@ object EncryptionKeyScheme {
     override val name: String = "ECIES-P256_HMAC256_AES128-GCM"
     override val supportDeterministicEncryption: Boolean = false
     override def toProtoEnum: v30.EncryptionKeyScheme =
-      v30.EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm
+      v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HKDF_HMAC_SHA256_AES128GCM
   }
 
   /* This hybrid scheme from JCE/Bouncy Castle is intended to be used to encrypt the key for the view payload data
@@ -217,14 +217,14 @@ object EncryptionKeyScheme {
     override val name: String = "ECIES-P256_HMAC256_AES128-CBC"
     override val supportDeterministicEncryption: Boolean = true
     override def toProtoEnum: v30.EncryptionKeyScheme =
-      v30.EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc
+      v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HMAC_SHA256A_ES128CBC
   }
 
   case object Rsa2048OaepSha256 extends EncryptionKeyScheme {
     override val name: String = "RSA2048-OAEP-SHA256"
     override val supportDeterministicEncryption: Boolean = true
     override def toProtoEnum: v30.EncryptionKeyScheme =
-      v30.EncryptionKeyScheme.Rsa2048OaepSha256
+      v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256
   }
 
   val allSchemes: NonEmpty[Set[EncryptionKeyScheme]] = NonEmpty.mk(
@@ -239,15 +239,15 @@ object EncryptionKeyScheme {
       schemeP: v30.EncryptionKeyScheme,
   ): ParsingResult[EncryptionKeyScheme] =
     schemeP match {
-      case v30.EncryptionKeyScheme.MissingEncryptionKeyScheme =>
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.EncryptionKeyScheme.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HKDF_HMAC_SHA256_AES128GCM =>
         Right(EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm)
-      case v30.EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HMAC_SHA256A_ES128CBC =>
         Right(EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc)
-      case v30.EncryptionKeyScheme.Rsa2048OaepSha256 =>
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 =>
         Right(EncryptionKeyScheme.Rsa2048OaepSha256)
     }
 }
@@ -268,7 +268,8 @@ object SymmetricKeyScheme {
   /** AES with 128bit key in GCM */
   case object Aes128Gcm extends SymmetricKeyScheme {
     override def name: String = "AES128-GCM"
-    override def toProtoEnum: v30.SymmetricKeyScheme = v30.SymmetricKeyScheme.Aes128Gcm
+    override def toProtoEnum: v30.SymmetricKeyScheme =
+      v30.SymmetricKeyScheme.SYMMETRIC_KEY_SCHEME_AES128GCM
     override def keySizeInBytes: Int = 16
   }
 
@@ -277,11 +278,12 @@ object SymmetricKeyScheme {
       schemeP: v30.SymmetricKeyScheme,
   ): ParsingResult[SymmetricKeyScheme] =
     schemeP match {
-      case v30.SymmetricKeyScheme.MissingSymmetricKeyScheme =>
+      case v30.SymmetricKeyScheme.SYMMETRIC_KEY_SCHEME_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.SymmetricKeyScheme.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.SymmetricKeyScheme.Aes128Gcm => Right(SymmetricKeyScheme.Aes128Gcm)
+      case v30.SymmetricKeyScheme.SYMMETRIC_KEY_SCHEME_AES128GCM =>
+        Right(SymmetricKeyScheme.Aes128Gcm)
     }
 }
 

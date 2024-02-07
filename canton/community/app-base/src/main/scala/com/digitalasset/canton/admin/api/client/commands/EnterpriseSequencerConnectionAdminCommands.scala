@@ -7,7 +7,6 @@ import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.sequencing.SequencerConnections
-import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -51,18 +50,19 @@ object EnterpriseSequencerConnectionAdminCommands {
   final case class SetConnection(connections: SequencerConnections)
       extends BaseSequencerConnectionAdminCommand[
         v30.SetConnectionRequest,
-        Empty,
+        v30.SetConnectionResponse,
         Unit,
       ] {
     override def submitRequest(
         service: v30.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub,
         request: v30.SetConnectionRequest,
-    ): Future[Empty] = service.setConnection(request)
+    ): Future[v30.SetConnectionResponse] = service.setConnection(request)
 
     override def createRequest(): Either[String, v30.SetConnectionRequest] = Right(
       v30.SetConnectionRequest(Some(connections.toProtoV30))
     )
 
-    override def handleResponse(response: Empty): Either[String, Unit] = Right(())
+    override def handleResponse(response: v30.SetConnectionResponse): Either[String, Unit] =
+      Either.unit
   }
 }

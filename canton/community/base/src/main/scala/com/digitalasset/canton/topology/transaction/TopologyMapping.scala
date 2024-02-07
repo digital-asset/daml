@@ -15,7 +15,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
+import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError, topology}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -145,7 +145,8 @@ final case class IdentifierDelegation(identifier: UniqueIdentifier, target: Sign
 
   override def dbType: DomainTopologyTransactionType = IdentifierDelegation.dbType
 
-  override def requiredAuth: RequiredAuth = RequiredAuth.Ns(identifier.namespace, false)
+  override def requiredAuth: RequiredAuth =
+    RequiredAuth.Ns(identifier.namespace, rootDelegation = false)
 
 }
 
@@ -282,12 +283,13 @@ final case class LegalIdentityClaim private (
 object LegalIdentityClaim extends HasMemoizedProtocolVersionedWrapperCompanion[LegalIdentityClaim] {
   override val name: String = "LegalIdentityClaim"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.LegalIdentityClaim)(
-      supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+  val supportedProtoVersions: topology.transaction.LegalIdentityClaim.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.LegalIdentityClaim)(
+        supportedProtoVersionMemoized(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   def create(
       uid: UniqueIdentifier,
@@ -357,17 +359,17 @@ sealed trait RequestSide {
 object RequestSide {
 
   case object From extends RequestSide {
-    val toProtoEnum = v30.RequestSide.From
+    val toProtoEnum: v30.RequestSide = v30.RequestSide.REQUEST_SIDE_FROM
     override def requiredAuth(left: UniqueIdentifier, right: UniqueIdentifier): RequiredAuth =
       RequiredAuth.Uid(Seq(left))
   }
   case object To extends RequestSide {
-    val toProtoEnum = v30.RequestSide.To
+    val toProtoEnum: v30.RequestSide = v30.RequestSide.REQUEST_SIDE_TO
     override def requiredAuth(left: UniqueIdentifier, right: UniqueIdentifier): RequiredAuth =
       RequiredAuth.Uid(Seq(right))
   }
   case object Both extends RequestSide {
-    val toProtoEnum = v30.RequestSide.Both
+    val toProtoEnum: v30.RequestSide = v30.RequestSide.REQUEST_SIDE_BOTH
     override def requiredAuth(left: UniqueIdentifier, right: UniqueIdentifier): RequiredAuth =
       RequiredAuth.Uid(Seq(left, right))
   }
@@ -382,10 +384,10 @@ object RequestSide {
 
   def fromProtoEnum(side: v30.RequestSide): ParsingResult[RequestSide] =
     side match {
-      case v30.RequestSide.Both => Right(RequestSide.Both)
-      case v30.RequestSide.From => Right(RequestSide.From)
-      case v30.RequestSide.To => Right(RequestSide.To)
-      case v30.RequestSide.MissingRequestSide => Left(FieldNotSet(side.name))
+      case v30.RequestSide.REQUEST_SIDE_BOTH => Right(RequestSide.Both)
+      case v30.RequestSide.REQUEST_SIDE_FROM => Right(RequestSide.From)
+      case v30.RequestSide.REQUEST_SIDE_TO => Right(RequestSide.To)
+      case v30.RequestSide.REQUEST_SIDE_UNSPECIFIED => Left(FieldNotSet(side.name))
       case v30.RequestSide.Unrecognized(x) => Left(UnrecognizedEnum(side.name, x))
     }
 

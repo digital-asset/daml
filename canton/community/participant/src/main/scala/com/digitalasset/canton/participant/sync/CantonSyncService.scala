@@ -159,7 +159,6 @@ class CantonSyncService(
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
     skipRecipientsCheck: Boolean,
-    multiDomainLedgerAPIEnabled: Boolean,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -183,8 +182,7 @@ class CantonSyncService(
       .getOrElse(throw new RuntimeException("Max deduplication duration is not available"))
 
   val eventTranslationStrategy = new EventTranslationStrategy(
-    multiDomainLedgerAPIEnabled = multiDomainLedgerAPIEnabled,
-    excludeInfrastructureTransactions = parameters.excludeInfrastructureTransactions,
+    excludeInfrastructureTransactions = parameters.excludeInfrastructureTransactions
   )
 
   type ConnectionListener = Traced[DomainId] => Unit
@@ -1659,7 +1657,6 @@ object CantonSyncService {
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
-        multiDomainLedgerAPIEnabled: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1690,7 +1687,6 @@ object CantonSyncService {
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         skipRecipientsCheck: Boolean,
-        multiDomainLedgerAPIEnabled: Boolean,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1724,7 +1720,6 @@ object CantonSyncService {
         futureSupervisor,
         loggerFactory,
         skipRecipientsCheck = skipRecipientsCheck,
-        multiDomainLedgerAPIEnabled: Boolean,
       )
   }
 }

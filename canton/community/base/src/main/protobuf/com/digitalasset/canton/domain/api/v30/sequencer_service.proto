@@ -8,7 +8,6 @@ package com.digitalasset.canton.domain.api.v30;
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
@@ -27,14 +26,14 @@ service SequencerService {
   // submission requests in multi-writer architectures where writers don't fully trust each other.
   //
   // Used in protocol version 5 or higher
-  rpc SendAsyncVersioned(SendAsyncVersionedRequest) returns (SendAsyncSignedResponse);
+  rpc SendAsyncVersioned(SendAsyncVersionedRequest) returns (SendAsyncVersionedResponse);
 
   // Submit a send request to the sequencer for sequencing asynchronously exactly like SendAsyncVersioned, except that this
   // meant to be used only by unauthenticated members for very specific operations that do not require authentication
   // such as requesting that a participant's topology data gets accepted by the topology manager
   //
   // Used in protocol version 5 or higher
-  rpc SendAsyncUnauthenticatedVersioned(SendAsyncUnauthenticatedVersionedRequest) returns (SendAsyncResponse);
+  rpc SendAsyncUnauthenticatedVersioned(SendAsyncUnauthenticatedVersionedRequest) returns (SendAsyncUnauthenticatedVersionedResponse);
 
   // Establishes a stream with the server to receive sequenced events from the domain after the given
   // counter. The delivered events will have a sequential counter and monotonically increasing timestamp.
@@ -59,7 +58,7 @@ service SequencerService {
   // There is no requirement for every event to be individually acknowledged, and in fact callers are encouraged to
   // only periodically record acknowledgements (at an interval of minutes is expected to be more than sufficient for
   // pruning).
-  rpc Acknowledge(AcknowledgeRequest) returns (google.protobuf.Empty);
+  rpc Acknowledge(AcknowledgeRequest) returns (AcknowledgeResponse);
 
   // Newer version of acknowledgements.
   // To be active for protocol versions >= 4.
@@ -73,11 +72,11 @@ service SequencerService {
   // There is no requirement for every event to be individually acknowledged, and in fact callers are encouraged to
   // only periodically record acknowledgements (at an interval of minutes is expected to be more than sufficient for
   // pruning).
-  rpc AcknowledgeSigned(com.digitalasset.canton.protocol.v30.SignedContent) returns (google.protobuf.Empty);
+  rpc AcknowledgeSigned(AcknowledgeSignedRequest) returns (AcknowledgeSignedResponse);
 
   // Download the topology state for a member up to including the topology transaction that made the member
   // known on the domain.
-  rpc DownloadTopologyStateForInit(TopologyStateForInitRequest) returns (stream TopologyStateForInitResponse);
+  rpc DownloadTopologyStateForInit(DownloadTopologyStateForInitRequest) returns (stream DownloadTopologyStateForInitResponse);
 }
 
 message SendAsyncVersionedRequest {
@@ -90,7 +89,7 @@ message SendAsyncUnauthenticatedVersionedRequest {
   bytes submission_request = 1;
 }
 
-message SendAsyncResponse {
+message SendAsyncUnauthenticatedVersionedResponse {
   Error error = 1; // Defined iff the response is an error.
 
   message Error {
@@ -121,7 +120,7 @@ message SendAsyncResponse {
 }
 
 // Changes compared to SendAsyncResponse: added `Internal` and `Generic`. Note: `Generic` is not used yet, it is introduced for upgradability purposes.
-message SendAsyncSignedResponse {
+message SendAsyncVersionedResponse {
   Error error = 1; // Defined iff the response is an error.
 
   message Error {
@@ -208,14 +207,22 @@ message AcknowledgeRequest {
   google.protobuf.Timestamp timestamp = 2;
 }
 
-message TopologyStateForInitRequest {
+message AcknowledgeResponse {}
+
+message AcknowledgeSignedRequest {
+  com.digitalasset.canton.protocol.v30.SignedContent signed_content = 1;
+}
+
+message AcknowledgeSignedResponse {}
+
+message DownloadTopologyStateForInitRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   string member = 1;
 }
 
-message TopologyStateForInitResponse {
-  com.digitalasset.canton.protocol.v30.TopologyTransactions topology_transactions = 1;
+message DownloadTopologyStateForInitResponse {
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_transactions = 1;
 }
 
 message SequencedEventTrafficState {

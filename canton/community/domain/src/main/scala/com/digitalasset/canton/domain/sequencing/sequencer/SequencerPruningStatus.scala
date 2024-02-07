@@ -174,7 +174,7 @@ object SequencerMemberStatus {
 object SequencerPruningStatus {
 
   /** Sentinel value to use for Sequencers that don't yet support the status endpoint */
-  lazy val Unimplemented =
+  lazy val Unimplemented: SequencerPruningStatus =
     SequencerPruningStatus(CantonTimestamp.MinValue, CantonTimestamp.MinValue, members = Seq.empty)
 
   def fromProtoV30(

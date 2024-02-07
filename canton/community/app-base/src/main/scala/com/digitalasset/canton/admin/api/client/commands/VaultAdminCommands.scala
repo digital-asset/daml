@@ -11,12 +11,12 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
 import com.digitalasset.canton.crypto.admin.v30
+import com.digitalasset.canton.crypto.admin.v30.ListPublicKeysRequest
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc.VaultServiceStub
 import com.digitalasset.canton.crypto.{PublicKeyWithName, v30 as cryptoproto, *}
 import com.digitalasset.canton.util.{EitherUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
-import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -30,36 +30,33 @@ object VaultAdminCommands {
       v30.VaultServiceGrpc.stub(channel)
   }
 
-  abstract class ListKeys[R, T](
-      filterFingerprint: String,
-      filterName: String,
-      filterPurpose: Set[KeyPurpose] = Set.empty,
-  ) extends BaseVaultAdminCommand[v30.ListKeysRequest, R, Seq[T]] {
-
-    override def createRequest(): Either[String, v30.ListKeysRequest] =
-      Right(
-        v30.ListKeysRequest(
-          filterFingerprint = filterFingerprint,
-          filterName = filterName,
-          filterPurpose = filterPurpose.map(_.toProtoEnum).toSeq,
-        )
-      )
-  }
-
   // list keys in my key vault
   final case class ListMyKeys(
       filterFingerprint: String,
       filterName: String,
       filterPurpose: Set[KeyPurpose] = Set.empty,
-  ) extends ListKeys[v30.ListMyKeysResponse, PrivateKeyMetadata](
-        filterFingerprint,
-        filterName,
-        filterPurpose,
-      ) {
+  ) extends BaseVaultAdminCommand[
+        v30.ListMyKeysRequest,
+        v30.ListMyKeysResponse,
+        Seq[PrivateKeyMetadata],
+      ] {
+
+    override def createRequest(): Either[String, v30.ListMyKeysRequest] =
+      Right(
+        v30.ListMyKeysRequest(
+          Some(
+            v30.ListKeysFilters(
+              fingerprint = filterFingerprint,
+              name = filterName,
+              purpose = filterPurpose.map(_.toProtoEnum).toSeq,
+            )
+          )
+        )
+      )
 
     override def submitRequest(
         service: VaultServiceStub,
-        request: v30.ListKeysRequest,
+        request: v30.ListMyKeysRequest,
     ): Future[v30.ListMyKeysResponse] =
       service.listMyKeys(request)
 
@@ -74,20 +71,33 @@ object VaultAdminCommands {
       filterFingerprint: String,
       filterName: String,
       filterPurpose: Set[KeyPurpose] = Set.empty,
-  ) extends ListKeys[v30.ListKeysResponse, PublicKeyWithName](
-        filterFingerprint,
-        filterName,
-        filterPurpose,
-      ) {
+  ) extends BaseVaultAdminCommand[
+        v30.ListPublicKeysRequest,
+        v30.ListPublicKeysResponse,
+        Seq[PublicKeyWithName],
+      ] {
+
+    override def createRequest(): Either[String, ListPublicKeysRequest] =
+      Right(
+        v30.ListPublicKeysRequest(
+          Some(
+            v30.ListKeysFilters(
+              fingerprint = filterFingerprint,
+              name = filterName,
+              purpose = filterPurpose.map(_.toProtoEnum).toSeq,
+            )
+          )
+        )
+      )
 
     override def submitRequest(
         service: VaultServiceStub,
-        request: v30.ListKeysRequest,
-    ): Future[v30.ListKeysResponse] =
+        request: v30.ListPublicKeysRequest,
+    ): Future[v30.ListPublicKeysResponse] =
       service.listPublicKeys(request)
 
     override def handleResponse(
-        response: v30.ListKeysResponse
+        response: v30.ListPublicKeysResponse
     ): Either[String, Seq[PublicKeyWithName]] =
       response.publicKeys.traverse(PublicKeyWithName.fromProto30).leftMap(_.toString)
   }
@@ -131,7 +141,7 @@ object VaultAdminCommands {
         v30.GenerateSigningKeyRequest(
           name = name,
           keyScheme = scheme.fold[cryptoproto.SigningKeyScheme](
-            cryptoproto.SigningKeyScheme.MissingSigningKeyScheme
+            cryptoproto.SigningKeyScheme.SIGNING_KEY_SCHEME_UNSPECIFIED
           )(_.toProtoEnum),
         )
       )
@@ -167,7 +177,7 @@ object VaultAdminCommands {
         v30.GenerateEncryptionKeyRequest(
           name = name,
           keyScheme = scheme.fold[cryptoproto.EncryptionKeyScheme](
-            cryptoproto.EncryptionKeyScheme.MissingEncryptionKeyScheme
+            cryptoproto.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_UNSPECIFIED
           )(_.toProtoEnum),
         )
       )
@@ -256,7 +266,7 @@ object VaultAdminCommands {
   final case class RotateWrapperKey(newWrapperKeyId: String)
       extends BaseVaultAdminCommand[
         v30.RotateWrapperKeyRequest,
-        Empty,
+        v30.RotateWrapperKeyResponse,
         Unit,
       ] {
 
@@ -270,11 +280,12 @@ object VaultAdminCommands {
     override def submitRequest(
         service: VaultServiceStub,
         request: v30.RotateWrapperKeyRequest,
-    ): Future[Empty] = {
+    ): Future[v30.RotateWrapperKeyResponse] = {
       service.rotateWrapperKey(request)
     }
 
-    override def handleResponse(response: Empty): Either[String, Unit] = Right(())
+    override def handleResponse(response: v30.RotateWrapperKeyResponse): Either[String, Unit] =
+      Right(())
 
   }
 

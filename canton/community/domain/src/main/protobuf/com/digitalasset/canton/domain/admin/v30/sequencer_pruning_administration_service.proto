@@ -11,7 +11,7 @@ import "google/protobuf/timestamp.proto";
 // administration service for enterprise feature supporting sequencer instances
 service SequencerPruningAdministrationService {
   // Remove data from the Sequencer
-  rpc Prune(Pruning.Request) returns (Pruning.Response);
+  rpc Prune(SequencerPruning.PruneRequest) returns (SequencerPruning.PruneResponse);
 
   // Enable automatic pruning using the specified schedule parameters
   // The following errors may occur on the SetSchedule or Update commands:
@@ -37,12 +37,12 @@ service SequencerPruningAdministrationService {
   rpc LocatePruningTimestamp(com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp.Request) returns (com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp.Response);
 }
 
-message Pruning {
-  message Request {
+message SequencerPruning {
+  message PruneRequest {
     google.protobuf.Timestamp timestamp = 1;
   }
 
-  message Response {
+  message PruneResponse {
     // description of what was removed
     string details = 1;
   }

@@ -207,5 +207,5 @@ message ListAllRequest {
 }
 
 message ListAllResponse {
-  com.digitalasset.canton.protocol.v30.TopologyTransactions result = 1;
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1;
 }

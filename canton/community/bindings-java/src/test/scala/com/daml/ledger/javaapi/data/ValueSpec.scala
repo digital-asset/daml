@@ -4,7 +4,7 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.v1.ValueOuterClass.Value.SumCase
-import com.daml.ledger.javaapi.data.Generators.*
+import com.daml.ledger.javaapi.data.GeneratorsV2.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

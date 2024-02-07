@@ -39,6 +39,7 @@ final case class BaseResult(
     store: TopologyStore,
     validFrom: Instant,
     validUntil: Option[Instant],
+    sequenced: Instant,
     operation: TopologyChangeOpX,
     transactionHash: ByteString,
     serial: PositiveInt,
@@ -51,6 +52,8 @@ object BaseResult {
       protoValidFrom <- ProtoConverter.required("valid_from", value.validFrom)
       validFrom <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoValidFrom)
       validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
+      protoSequenced <- ProtoConverter.required("sequencer", value.sequenced)
+      sequenced <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoSequenced)
       operation <- TopologyChangeOpX.fromProtoV30(value.operation)
       serial <- PositiveInt
         .create(value.serial)
@@ -71,6 +74,7 @@ object BaseResult {
       store,
       validFrom,
       validUntil,
+      sequenced,
       operation,
       value.transactionHash,
       serial,
@@ -85,7 +89,7 @@ final case class ListNamespaceDelegationResult(
 
 object ListNamespaceDelegationResult {
   def fromProtoV30(
-      value: v30.ListNamespaceDelegationResult.Result
+      value: v30.ListNamespaceDelegationResponse.Result
   ): ParsingResult[ListNamespaceDelegationResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -102,7 +106,7 @@ final case class ListDecentralizedNamespaceDefinitionResult(
 
 object ListDecentralizedNamespaceDefinitionResult {
   def fromProtoV30(
-      value: v30.ListDecentralizedNamespaceDefinitionResult.Result
+      value: v30.ListDecentralizedNamespaceDefinitionResponse.Result
   ): ParsingResult[ListDecentralizedNamespaceDefinitionResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -119,7 +123,7 @@ final case class ListIdentifierDelegationResult(
 
 object ListIdentifierDelegationResult {
   def fromProtoV30(
-      value: v30.ListIdentifierDelegationResult.Result
+      value: v30.ListIdentifierDelegationResponse.Result
   ): ParsingResult[ListIdentifierDelegationResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -136,7 +140,7 @@ final case class ListOwnerToKeyMappingResult(
 
 object ListOwnerToKeyMappingResult {
   def fromProtoV30(
-      value: v30.ListOwnerToKeyMappingResult.Result
+      value: v30.ListOwnerToKeyMappingResponse.Result
   ): ParsingResult[ListOwnerToKeyMappingResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -153,7 +157,7 @@ final case class ListDomainTrustCertificateResult(
 
 object ListDomainTrustCertificateResult {
   def fromProtoV30(
-      value: v30.ListDomainTrustCertificateResult.Result
+      value: v30.ListDomainTrustCertificateResponse.Result
   ): ParsingResult[ListDomainTrustCertificateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -170,7 +174,7 @@ final case class ListParticipantDomainPermissionResult(
 
 object ListParticipantDomainPermissionResult {
   def fromProtoV30(
-      value: v30.ListParticipantDomainPermissionResult.Result
+      value: v30.ListParticipantDomainPermissionResponse.Result
   ): ParsingResult[ListParticipantDomainPermissionResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -187,7 +191,7 @@ final case class ListPartyHostingLimitsResult(
 
 object ListPartyHostingLimitsResult {
   def fromProtoV30(
-      value: v30.ListPartyHostingLimitsResult.Result
+      value: v30.ListPartyHostingLimitsResponse.Result
   ): ParsingResult[ListPartyHostingLimitsResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -204,7 +208,7 @@ final case class ListVettedPackagesResult(
 
 object ListVettedPackagesResult {
   def fromProtoV30(
-      value: v30.ListVettedPackagesResult.Result
+      value: v30.ListVettedPackagesResponse.Result
   ): ParsingResult[ListVettedPackagesResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -221,7 +225,7 @@ final case class ListPartyToParticipantResult(
 
 object ListPartyToParticipantResult {
   def fromProtoV30(
-      value: v30.ListPartyToParticipantResult.Result
+      value: v30.ListPartyToParticipantResponse.Result
   ): ParsingResult[ListPartyToParticipantResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -238,7 +242,7 @@ final case class ListAuthorityOfResult(
 
 object ListAuthorityOfResult {
   def fromProtoV30(
-      value: v30.ListAuthorityOfResult.Result
+      value: v30.ListAuthorityOfResponse.Result
   ): ParsingResult[ListAuthorityOfResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -255,7 +259,7 @@ final case class ListDomainParametersStateResult(
 
 object ListDomainParametersStateResult {
   def fromProtoV30(
-      value: v30.ListDomainParametersStateResult.Result
+      value: v30.ListDomainParametersStateResponse.Result
   ): ParsingResult[ListDomainParametersStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -272,7 +276,7 @@ final case class ListMediatorDomainStateResult(
 
 object ListMediatorDomainStateResult {
   def fromProtoV30(
-      value: v30.ListMediatorDomainStateResult.Result
+      value: v30.ListMediatorDomainStateResponse.Result
   ): ParsingResult[ListMediatorDomainStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -289,7 +293,7 @@ final case class ListSequencerDomainStateResult(
 
 object ListSequencerDomainStateResult {
   def fromProtoV30(
-      value: v30.ListSequencerDomainStateResult.Result
+      value: v30.ListSequencerDomainStateResponse.Result
   ): ParsingResult[ListSequencerDomainStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -306,7 +310,7 @@ final case class ListPurgeTopologyTransactionXResult(
 
 object ListPurgeTopologyTransactionXResult {
   def fromProtoV30(
-      value: v30.ListPurgeTopologyTransactionXResult.Result
+      value: v30.ListPurgeTopologyTransactionXResponse.Result
   ): ParsingResult[ListPurgeTopologyTransactionXResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
@@ -323,7 +327,7 @@ final case class ListTrafficStateResult(
 
 object ListTrafficStateResult {
   def fromProtoV30(
-      value: v30.ListTrafficStateResult.Result
+      value: v30.ListTrafficStateResponse.Result
   ): ParsingResult[ListTrafficStateResult] =
     for {
       context <- ProtoConverter.parseRequired(BaseResult.fromProtoV30, "context", value.context)

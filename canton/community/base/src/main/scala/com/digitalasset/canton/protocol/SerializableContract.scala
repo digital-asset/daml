@@ -12,6 +12,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
@@ -48,7 +49,8 @@ case class SerializableContract(
 
   def contractInstance: LfContractInst = rawContractInstance.contractInstance
 
-  override protected def companionObj = SerializableContract
+  override protected def companionObj: HasVersionedMessageCompanionCommon[SerializableContract] =
+    SerializableContract
 
   def toProtoV30: v30.SerializableContract =
     v30.SerializableContract(
@@ -130,7 +132,7 @@ object SerializableContract
     val driverContractMetadataBytes = disclosedContract.driverMetadata.toByteArray
 
     for {
-      disclosedContractIdVersion <- CantonContractIdVersion
+      _disclosedContractIdVersion <- CantonContractIdVersion
         .ensureCantonContractId(disclosedContract.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
       salt <- {

@@ -67,6 +67,7 @@ class PackageService(
       val findIface = typesig.PackageSignature.findInterface(Function unlift lookupIf)
       diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
     }
+
   }
 
   private class StateCache private () {

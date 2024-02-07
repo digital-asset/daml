@@ -174,7 +174,7 @@ class DefaultMediatorEventDeduplicator(
         val expireAfter = previousUsagesNE.map(_.expireAfter).max1
         val rejection = MediatorError.MalformedMessage.Reject(
           s"The request uuid ($uuid) must not be used until $expireAfter.",
-          v30.MediatorRejection.Code.NonUniqueRequestUuid,
+          v30.MediatorRejection.Code.CODE_NON_UNIQUE_REQUEST_UUID,
         )
         rejection.report()
 

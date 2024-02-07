@@ -20,7 +20,6 @@ import com.digitalasset.canton.domain.mediator.admin.gprc.{
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.DomainId
-import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -66,7 +65,7 @@ object EnterpriseMediatorAdministrationCommands {
         service: v30.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub,
         request: v30.InitializeMediatorRequest,
     ): Future[v30.InitializeMediatorResponse] =
-      service.initialize(request)
+      service.initializeMediator(request)
     override def handleResponse(
         response: v30.InitializeMediatorResponse
     ): Either[String, Unit] =
@@ -78,20 +77,25 @@ object EnterpriseMediatorAdministrationCommands {
   }
 
   final case class Prune(timestamp: CantonTimestamp)
-      extends GrpcAdminCommand[v30.MediatorPruningRequest, Empty, Unit] {
+      extends GrpcAdminCommand[
+        v30.MediatorPruning.PruneRequest,
+        v30.MediatorPruning.PruneResponse,
+        Unit,
+      ] {
     override type Svc =
       v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub
     override def createService(
         channel: ManagedChannel
     ): v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub =
       v30.MediatorAdministrationServiceGrpc.stub(channel)
-    override def createRequest(): Either[String, v30.MediatorPruningRequest] =
-      Right(v30.MediatorPruningRequest(timestamp.toProtoPrimitive.some))
+    override def createRequest(): Either[String, v30.MediatorPruning.PruneRequest] =
+      Right(v30.MediatorPruning.PruneRequest(timestamp.toProtoPrimitive.some))
     override def submitRequest(
         service: v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
-        request: v30.MediatorPruningRequest,
-    ): Future[Empty] = service.prune(request)
-    override def handleResponse(response: Empty): Either[String, Unit] = Right(())
+        request: v30.MediatorPruning.PruneRequest,
+    ): Future[v30.MediatorPruning.PruneResponse] = service.prune(request)
+    override def handleResponse(response: v30.MediatorPruning.PruneResponse): Either[String, Unit] =
+      Right(())
 
     // all pruning commands will potentially take a long time
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
