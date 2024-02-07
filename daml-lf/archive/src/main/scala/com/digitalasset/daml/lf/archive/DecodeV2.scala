@@ -1222,7 +1222,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TO_ANY =>
-          assertSince(LV.Features.anyType, "Expr.ToAny")
           decodeType(lfExpr.getToAny.getType) { typ =>
             decodeExpr(lfExpr.getToAny.getExpr, definition) { expr =>
               Ret(EToAny(typ, expr))
@@ -1230,7 +1229,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.FROM_ANY =>
-          assertSince(LV.Features.anyType, "Expr.FromAny")
           decodeType(lfExpr.getFromAny.getType) { typ =>
             decodeExpr(lfExpr.getFromAny.getExpr, definition) { expr =>
               Ret(EFromAny(typ, expr))
@@ -1892,7 +1890,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(GENMAP, BTGenMap),
       BuiltinTypeInfo(ARROW, BTArrow),
       BuiltinTypeInfo(NUMERIC, BTNumeric),
-      BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
+      BuiltinTypeInfo(ANY, BTAny),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep),
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = bigNumeric),
