@@ -64,8 +64,10 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
         })
     } yield {
       val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log").mkString
-      cantonLog should include (s"Package $testPackageV1Id does not upgrade anything")
-      cantonLog should include (s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id")
+      cantonLog should include(s"Package $testPackageV1Id does not upgrade anything")
+      cantonLog should include(
+        s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
+      )
       uploadV1Result match {
         case Some(err) =>
           fail(s"Uploading first package $testPackageV1Id failed with message: $err");
@@ -75,20 +77,24 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
         case Some(failureMessage) => {
-          cantonLog should include (s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$failureMessage")
+          cantonLog should include(
+            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$failureMessage"
+          )
           uploadV2Result match {
             case None => fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
             case Some(err) => {
               val msg = err.toString
-              msg should include ("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
-              msg should include ("The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade")
+              msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
+              msg should include(
+                "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
+              )
             }
           }
         }
 
         // If a failure is not expected, look for a success message
         case None => {
-          cantonLog should include (s"Typechecking upgrades for $testPackageV2Id succeeded.")
+          cantonLog should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
           uploadV2Result match {
             case None => succeed;
             case Some(err) => {
