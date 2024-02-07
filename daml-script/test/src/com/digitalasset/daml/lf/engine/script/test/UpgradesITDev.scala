@@ -4,15 +4,23 @@
 package com.daml.lf.engine.script
 package test
 
+import io.circe._
+import io.circe.yaml
+import java.io.FileInputStream
 import java.nio.file.{Files, Path, Paths}
 import java.nio.charset.StandardCharsets
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
+import com.google.protobuf.ByteString
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scala.concurrent.Future
+import scala.sys.process._
+import scala.util.matching.Regex
+import scala.collection.mutable.Map
 
 class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
 
@@ -39,13 +47,22 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
-    // "run successfully" in {
     testCases.foreach { testCase =>
       testCase.name in {
         for {
+          // Build dars
+          (testDarPath, deps) <- Future { buildTestCaseDar(testCase) }
+
+          // Upload dars
+          ledgerClient <- defaultLedgerClient()
+          _ <- Future.traverse(deps) { dep =>
+            ledgerClient.packageManagementClient.uploadDarFile(
+              ByteString.readFrom(new FileInputStream(dep.path.toFile))
+            )
+          }
+
+          // Run tests
           clients <- scriptClients(provideAdminPorts = true)
-          testDarPath = buildTestCaseDar(testCase)
-          //   // TODO[SW] Upload `dars` to the participant, using CantonFixtures defaultLedgerClient
           testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
           _ <- run(
             clients,
@@ -57,11 +74,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       }
     }
   }
-
-  import io.circe._
-  import io.circe.yaml
-  import scala.util.matching.Regex
-  import scala.sys.process._
 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   private val damlc = requiredResource(s"compiler/damlc/damlc$exe")
@@ -189,12 +201,13 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     Files.write(dir.resolve("daml.yaml"), fileContent.getBytes(StandardCharsets.UTF_8))
   }
 
-  def buildTestCaseDar(testCase: TestCase): Path = {
+  def buildTestCaseDar(testCase: TestCase): (Path, Seq[DataDep]) = {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
     val dars = testCase.pkgDefs.flatMap(buildPackages(_, testCaseRoot))
     Files.copy(testCase.damlPath, testCasePkg.resolve(testCase.damlRelPath))
-    buildDar(testCasePkg, testCase.name, 1, dars)
+    val testDar = buildDar(testCasePkg, testCase.name, 1, dars)
+    (testDar, dars)
   }
 
   case class TestCase(
@@ -204,7 +217,29 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       pkgDefs: Seq[PackageDefinition],
   )
 
-  def getTestCases(testFileDir: Path): Seq[TestCase] =
+  // Ensures no package name is defined twice across all test files
+  def getTestCases(testFileDir: Path): Seq[TestCase] = {
+    val cases = getTestCasesUnsafe(testFileDir)
+    val packageNameDefiners = Map[String, Seq[String]]()
+    for {
+      c <- cases
+      pkg <- c.pkgDefs
+    } packageNameDefiners.updateWith(pkg.name) {
+      case None => Some(Seq(c.name))
+      case Some(names) => Some(names :+ c.name)
+    }
+    packageNameDefiners.foreach {
+      case (packageName, caseNames) if (caseNames.length > 1) =>
+        throw new IllegalArgumentException(
+          s"Package with name $packageName is defined multiple times within the following case(s): ${caseNames.distinct
+              .mkString(",")}"
+        )
+      case _ =>
+    }
+    cases
+  }
+
+  def getTestCasesUnsafe(testFileDir: Path): Seq[TestCase] =
     testFileDir.toFile.listFiles(_.getName.endsWith(".daml")).toSeq.map { testFile =>
       val damlPath = testFile.toPath
       val damlRelPath = testFileDir.relativize(damlPath)
