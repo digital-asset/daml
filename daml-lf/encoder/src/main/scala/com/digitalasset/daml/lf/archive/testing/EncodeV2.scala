@@ -870,11 +870,9 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       b.setControllers(choice.controllers)
       choice.choiceObservers match {
         case Some(value) =>
-          assertSince(LV.Features.choiceObservers, "TemplateChoice.observer")
           b.setObservers(value)
-        case None if languageVersion >= LV.Features.choiceObservers =>
+        case None =>
           b.setObservers(ENil(AstUtil.TParty))
-        case _ =>
       }
       choice.choiceAuthorizers match {
         case Some(value) =>

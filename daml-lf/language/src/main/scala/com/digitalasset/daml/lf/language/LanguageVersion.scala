@@ -52,7 +52,6 @@ object LanguageVersion {
     val anyType = v2_1
     val typeRep = v2_1
     val packageMetadata = v2_1
-    val choiceObservers = v2_1
     val bigNumeric = v2_1
     val exceptions = v2_1
     val packageUpgrades = v2_1
