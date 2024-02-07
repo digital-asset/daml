@@ -406,6 +406,12 @@ da_scala_test_suite(
     ],
 )
 
+filegroup(
+    name = "upgrade-test-files",
+    srcs = glob(["daml/upgrades/*.daml"]),
+    visibility = ["__pkg__"],
+)
+
 da_scala_test_suite(
     name = "test-dev",
     srcs = glob(
@@ -421,11 +427,10 @@ da_scala_test_suite(
         ":coin-v3-{}.dar".format(lf),
         ":script-test-{}.dar".format(lf),
     ] for lf in LF_DEV_VERSIONS] for dep in deps] + [
-        ":daml/upgrades",
+        ":upgrade-test-files",
         ":script-test-no-ledger.dar",
         ":upgrades-my-templates-v1.dar",
         ":upgrades-my-templates-v2.dar",
-        ":upgrades-test.dar",
         "//compiler/damlc",
         "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",
