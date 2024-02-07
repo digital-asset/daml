@@ -176,13 +176,35 @@ private[apiserver] final class ApiPackageManagementService private (
     .map(_.flatten)
   }
 
-  private def typecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], optDar2: Option[(Ref.PackageId, Ast.Package)]): Future[Unit] = {
+  def strictTypecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], pkgId2: Ref.PackageId, optPkg2: Option[Ast.Package])(implicit
+                                                                                                                      loggingContext: LoggingContextWithTrace
+  ): Future[Unit] = {
+    optDar1 match {
+      case None =>
+        Future.unit
+
+      case Some((pkgId1, pkg1)) =>
+        logger.info(s"Package $pkgId1 claims to upgrade package id $pkgId2")
+        Future.fromTry(TypecheckUpgrades.typecheckUpgrades((pkgId1, pkg1), pkgId2, optPkg2)).recoverWith {
+          case err: UpgradeError =>
+            logger.info(s"Typechecking upgrades for $pkgId1 failed with following message: ${err.getMessage}")
+            Future.failed(Validation.handleUpgradeError(pkgId1, pkgId2, err).asGrpcError)
+          case NonFatal(err) =>
+            logger.info(s"Typechecking upgrades failed with unknown error.")
+            Future.failed(InternalError.Unhandled(err).asGrpcError)
+        }
+    }
+  }
+
+  def typecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], optDar2: Option[(Ref.PackageId, Ast.Package)])(implicit
+                                                                                                                      loggingContext: LoggingContextWithTrace
+  ): Future[Unit] = {
     (optDar1, optDar2) match {
       case (None, _) | (_, None) =>
         Future.unit
 
       case (Some((pkgId1, pkg1)), Some((pkgId2, pkg2))) =>
-        Future.fromTry(TypecheckUpgrades.typecheckUpgrades((pkgId1, pkg1), pkgId2, Some(pkg2)))
+        strictTypecheckUpgrades(Some((pkgId1, pkg1)), pkgId2, Some(pkg2))
     }
   }
 
@@ -196,15 +218,7 @@ private[apiserver] final class ApiPackageManagementService private (
       case Some(upgradedPackageId) =>
         for {
           optUpgradedDar <- lookupDar(upgradedPackageId)
-          _ = logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
-          _ <- typecheckUpgrades(optUpgradingDar, optUpgradedDar).recoverWith {
-              case err: UpgradeError =>
-                logger.info(s"Typechecking upgrades for $upgradingPackageId failed with following message: ${err.getMessage}")
-                Future.failed(Validation.handleUpgradeError(upgradingPackageId, upgradedPackageId, err).asGrpcError)
-              case NonFatal(err) =>
-                logger.info(s"Typechecking upgrades failed with unknown error.")
-                Future.failed(InternalError.Unhandled(err).asGrpcError)
-            }
+          _ <- strictTypecheckUpgrades(optUpgradingDar, upgradedPackageId, optUpgradedDar.map(_._2))
           optMaximalDar <- maximalVersionedDar(upgradingDar.main)
           _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar)
           optMinimalDar <- minimalVersionedDar(upgradingDar.main)
