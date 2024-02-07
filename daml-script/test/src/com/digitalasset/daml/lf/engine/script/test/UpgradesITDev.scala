@@ -32,24 +32,33 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.dev.dar")
 
-  lazy val testFiles: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
+  lazy val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
+
+  lazy val testFiles: Seq[Path] = {
+    testFileDir.toFile.listFiles(_.getName.endsWith(".daml")).toSeq.map(_.toPath)
+  }
+
+  lazy val tempDir: Path = Files.createTempDirectory("upgrades-it-dev")
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
-    "run successfully" in {
-      for {
-        clients <- scriptClients(provideAdminPorts = true)
-        (testDarPath, dars, tmpDir) = buildTestingDar(testFiles)
-        // TODO[SW] Upload `dars` to the participant, using CantonFixtures defaultLedgerClient
-        testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
-        _ <- run(
-          clients,
-          QualifiedName.assertFromString("UpgradesTest:main"),
-          dar = testDar,
-          enableContractUpgrading = true,
-        )
-        // _ = Files.delete(tmpDir)
-      } yield succeed
+    // "run successfully" in {
+    testFiles.foreach { testFile =>
+      val testName = testFileDir.relativize(testFile).toString.stripSuffix(".daml")
+      (s"test file '${testName}'") in {
+        for {
+          clients <- scriptClients(provideAdminPorts = true)
+          testDarPath = buildTestingDar(testFileDir, testName, testFile)
+          //   // TODO[SW] Upload `dars` to the participant, using CantonFixtures defaultLedgerClient
+          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
+          _ <- run(
+            clients,
+            QualifiedName.assertFromString(s"${testName}:main"),
+            dar = testDar,
+            enableContractUpgrading = true,
+          )
+        } yield succeed
+      }
     }
   }
 
@@ -123,10 +132,10 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       dir: Path,
       name: String,
       version: Int,
-      deps: Seq[String] = Seq.empty,
+      dataDeps: Seq[(Path, String, String)] = Seq.empty,
       opts: Seq[String] = Seq.empty,
   ): Path = {
-    writeDamlYaml(dir, name, version, deps)
+    writeDamlYaml(dir, name, version, dataDeps)
     (Seq(
       damlc.toString,
       "build",
@@ -136,15 +145,24 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     dir.resolve(s".daml/dist/${name}-$version.0.0.dar")
   }
 
-  def buildPackages(p: PackageDefinition, tmpDir: Path): Seq[Path] = {
+  def buildPackages(p: PackageDefinition, tmpDir: Path): Seq[(Path, String, String)] = {
     val dir = tmpDir.resolve("daml-package-" + p.name)
     buildModules(p, dir)
-    (1 to p.versions).toSeq.map(version =>
-      buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=$version"))
-    )
+    (1 to p.versions).toSeq.map { version =>
+      (
+        buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}")),
+        s"${p.name}-${version}.0.0",
+        s"V${version}",
+      )
+    }
   }
 
-  def writeDamlYaml(dir: Path, name: String, version: Int, deps: Seq[String] = Seq.empty) = {
+  def writeDamlYaml(
+      dir: Path,
+      name: String,
+      version: Int,
+      dataDeps: Seq[(Path, String, String)] = Seq.empty,
+  ) = {
     val fileContent =
       s"""sdk-version: 0.0.0
          |build-options: [--target=2.dev]
@@ -154,26 +172,29 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
          |dependencies:
          |  - daml-prim
          |  - daml-stdlib
-         |${deps.map("  - " + _).mkString("\n")}
+         |  - ${damlScriptDar.toString}
          |data-dependencies:
          |${darFiles.map("  - " + _).mkString("\n")}
+         |${dataDeps.map(d => "  - " + d._1.toString).mkString("\n")}
          |module-prefixes:
          |  upgrades-my-templates-1.0.0: V1
          |  upgrades-my-templates-2.0.0: V2
+         |${dataDeps.map(d => s"  ${d._2}: ${d._3}").mkString("\n")}
          |""".stripMargin
     Files.write(dir.resolve("daml.yaml"), fileContent.getBytes(StandardCharsets.UTF_8))
   }
 
-  // Iterates all test files, builds all upgrade data packages, then builds test dar depending on those.
-  def buildTestingDar(testFiles: Path): (Path, Seq[Path], Path) = {
-    val damlFiles = testFiles.toFile.listFiles(_.getName.endsWith(".daml")).toSeq.map(_.toPath)
-    val dir = Files.createTempDirectory("daml-upgrades-test")
-    val dars = damlFiles
-      .map(file =>
-        readPackageDefinitions(Files.readString(file)).map(buildPackages(_, dir)).flatten
-      )
-      .flatten
-    damlFiles.foreach { file => Files.copy(file, dir.resolve(testFiles.relativize(file))) }
-    (buildDar(dir, "daml-upgrades-test", 1, dars.map(_.toString) :+ damlScriptDar.toString), dars, dir)
+  // For a given test file, builds all upgrade data packages, then builds test dar depending on those.
+  def buildTestingDar(testFileDir: Path, testName: String, testFile: Path): Path = {
+    val projName = s"daml-upgrades-test-$testName"
+    val testRoot = Files.createDirectory(tempDir.resolve(projName))
+    val testProj = Files.createDirectory(testRoot.resolve("proj"))
+    val dars =
+      for {
+        pkgDef <- readPackageDefinitions(Files.readString(testFile))
+        dar <- buildPackages(pkgDef, testRoot)
+      } yield dar
+    Files.copy(testFile, testProj.resolve(testFileDir.relativize(testFile)))
+    buildDar(testProj, projName, 1, dars)
   }
 }

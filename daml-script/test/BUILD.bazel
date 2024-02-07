@@ -427,8 +427,8 @@ da_scala_test_suite(
         ":coin-v3-{}.dar".format(lf),
         ":script-test-{}.dar".format(lf),
     ] for lf in LF_DEV_VERSIONS] for dep in deps] + [
-        ":upgrade-test-files",
         ":script-test-no-ledger.dar",
+        ":upgrade-test-files",
         ":upgrades-my-templates-v1.dar",
         ":upgrades-my-templates-v2.dar",
         "//compiler/damlc",

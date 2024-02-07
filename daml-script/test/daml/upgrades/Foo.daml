@@ -1,0 +1,26 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{- PACKAGE
+name: my-pkg
+versions: 2
+modules:
+  - name: Lib
+    contents: |
+      x : Text
+      V1(x = "V1")
+      V2(x = "V2")
+-}
+
+module Foo where
+
+import DA.Assert
+import Daml.Script
+import qualified V1.Lib
+import qualified V2.Lib
+
+main : Script ()
+main = do
+  V1.Lib.x === "V1"
+  V2.Lib.x === "V2"
+  pure ()
