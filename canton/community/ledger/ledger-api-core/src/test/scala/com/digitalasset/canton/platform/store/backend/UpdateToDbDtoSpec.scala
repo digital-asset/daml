@@ -13,7 +13,7 @@ import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.value.Value
 import com.daml.metrics.api.MetricsContext
-import com.daml.platform.index.index.StatusDetails
+import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationDuration,
@@ -309,7 +309,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
           GlobalKey
-            .assertBuild(contractTemplate, keyValue, shared = true)
+            .assertBuild(contractTemplate, keyValue)
             .hash
             .bytes
             .toHexString

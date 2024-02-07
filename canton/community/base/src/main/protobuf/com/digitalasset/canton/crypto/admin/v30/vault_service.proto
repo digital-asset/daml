@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.crypto.admin.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "google/protobuf/empty.proto";
 
 /**
  * Vault service providing programmatic access to locally stored keys and certificates
@@ -34,7 +33,7 @@ service VaultService {
    * @param ListMyKeysRequest: request with optional fingerprint filter
    * @return: all serialized keys and metadata that have the fingerprint filter as a substring in their fingerprint
    */
-  rpc ListMyKeys(ListKeysRequest) returns (ListMyKeysResponse);
+  rpc ListMyKeys(ListMyKeysRequest) returns (ListMyKeysResponse);
 
   /**
    * Generates a new public / private key pair for signing.
@@ -78,12 +77,12 @@ service VaultService {
    * Any public key returned here can be referenced in topology transaction building
    * by fingerprint.
    */
-  rpc ListPublicKeys(ListKeysRequest) returns (ListKeysResponse);
+  rpc ListPublicKeys(ListPublicKeysRequest) returns (ListPublicKeysResponse);
 
   /**
    * Changes the wrapper key that is used to encrypt private keys when stored
    */
-  rpc RotateWrapperKey(RotateWrapperKeyRequest) returns (google.protobuf.Empty);
+  rpc RotateWrapperKey(RotateWrapperKeyRequest) returns (RotateWrapperKeyResponse);
 
   rpc GetWrapperKeyId(GetWrapperKeyIdRequest) returns (GetWrapperKeyIdResponse);
 
@@ -111,7 +110,7 @@ message GenerateCertificateResponse {
 }
 
 message ListCertificateRequest {
-  string filterUid = 1;
+  string filter_uid = 1;
 }
 
 message ListCertificateResponse {
@@ -142,13 +141,21 @@ message ImportPublicKeyResponse {
   string fingerprint = 1;
 }
 
-message ListKeysRequest {
+message ListKeysFilters {
   // the substring that needs to match a given fingerprint
-  string filter_fingerprint = 1;
+  string fingerprint = 1;
   // the substring to filter the name
-  string filter_name = 2;
+  string name = 2;
   // filter on public key purpose
-  repeated com.digitalasset.canton.crypto.v30.KeyPurpose filter_purpose = 3;
+  repeated com.digitalasset.canton.crypto.v30.KeyPurpose purpose = 3;
+}
+
+message ListMyKeysRequest {
+  ListKeysFilters filters = 1;
+}
+
+message ListPublicKeysRequest {
+  ListKeysFilters filters = 1;
 }
 
 message PrivateKeyMetadata {
@@ -162,7 +169,7 @@ message ListMyKeysResponse {
   repeated PrivateKeyMetadata private_keys_metadata = 1;
 }
 
-message ListKeysResponse {
+message ListPublicKeysResponse {
   repeated com.digitalasset.canton.crypto.v30.PublicKeyWithName public_keys = 1;
 }
 
@@ -213,6 +220,8 @@ message RegisterKmsEncryptionKeyResponse {
 message RotateWrapperKeyRequest {
   string new_wrapper_key_id = 1;
 }
+
+message RotateWrapperKeyResponse {}
 
 message GetWrapperKeyIdRequest {}
 

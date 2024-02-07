@@ -150,7 +150,7 @@ class TopologyAdministrationGroupX(
       instance.topology.transactions
         .list()
         .collectOfMapping(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
-        .filter(_.mapping.namespace == instance.id.uid.namespace)
+        .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
         .writeToFile(file)
     }
 
@@ -234,7 +234,7 @@ class TopologyAdministrationGroupX(
     ): Option[StoredTopologyTransactionX[TopologyChangeOpX, M]] = {
       val latestAuthorized = list(filterStore = filterStore)
         .collectOfMapping[M]
-        .filter(_.mapping.uniqueKey == mappingHash)
+        .filter(_.transaction.mapping.uniqueKey == mappingHash)
         .result
       val latestProposal =
         if (includeProposals)

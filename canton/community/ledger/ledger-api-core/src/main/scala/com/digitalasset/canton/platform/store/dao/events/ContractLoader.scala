@@ -130,7 +130,6 @@ object ContractLoader {
       maxQueueSize: Int,
       maxBatchSize: Int,
       parallelism: Int,
-      multiDomainEnabled: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       materializer: Materializer,
@@ -170,23 +169,22 @@ object ContractLoader {
             def additionalContractsF(
                 archivedContracts: Map[ContractId, RawArchivedContract],
                 createdContracts: Map[ContractId, RawCreatedContract],
-            ): Future[Map[ContractId, RawCreatedContract]] =
-              if (multiDomainEnabled) {
-                val notFoundContractIds = contractIds.view
-                  .filterNot(archivedContracts.contains)
-                  .filterNot(createdContracts.contains)
-                  .toSeq
-                if (notFoundContractIds.isEmpty) Future.successful(Map.empty)
-                else
-                  dbDispatcher.executeSql(metrics.index.db.lookupAssignedContractsDbMetrics)(
-                    // The latestValidAtOffset is not used here as an upper bound for the lookup,
-                    // since the ContractStateCache only tracks creation and archival, therefore the
-                    // index is not moving ahead in case of assignment. This in corner cases would mean
-                    // that the index is behind of some assignments.
-                    // Instead the query is constrained by the ledgerEndCache.
-                    contractStorageBackend.assignedContracts(notFoundContractIds)
-                  )(usedLoggingContext)
-              } else Future.successful(Map.empty)
+            ): Future[Map[ContractId, RawCreatedContract]] = {
+              val notFoundContractIds = contractIds.view
+                .filterNot(archivedContracts.contains)
+                .filterNot(createdContracts.contains)
+                .toSeq
+              if (notFoundContractIds.isEmpty) Future.successful(Map.empty)
+              else
+                dbDispatcher.executeSql(metrics.index.db.lookupAssignedContractsDbMetrics)(
+                  // The latestValidAtOffset is not used here as an upper bound for the lookup,
+                  // since the ContractStateCache only tracks creation and archival, therefore the
+                  // index is not moving ahead in case of assignment. This in corner cases would mean
+                  // that the index is behind of some assignments.
+                  // Instead the query is constrained by the ledgerEndCache.
+                  contractStorageBackend.assignedContracts(notFoundContractIds)
+                )(usedLoggingContext)
+            }
             for {
               archivedContracts <- archivedContractsF
               createdContracts <- createdContractsF

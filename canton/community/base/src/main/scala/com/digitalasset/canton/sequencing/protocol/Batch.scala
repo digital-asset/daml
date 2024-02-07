@@ -60,7 +60,7 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
     val batch = v30.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV30))
     val compressed = ByteStringUtil.compressGzip(batch.toByteString)
     v30.CompressedBatch(
-      algorithm = v30.CompressedBatch.CompressionAlgorithm.Gzip,
+      algorithm = v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_GZIP,
       compressedBatch = compressed,
     )
   }
@@ -138,8 +138,9 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
       maxRequestSize: Option[NonNegativeInt],
   ): ParsingResult[ByteString] = {
     algorithm match {
-      case v30.CompressedBatch.CompressionAlgorithm.None => Right(compressed)
-      case v30.CompressedBatch.CompressionAlgorithm.Gzip =>
+      case v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_UNSPECIFIED =>
+        Right(compressed)
+      case v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_GZIP =>
         ByteStringUtil
           .decompressGzip(compressed, maxBytesLimit = maxRequestSize.map(_.unwrap))
           .leftMap(_.toProtoDeserializationError)

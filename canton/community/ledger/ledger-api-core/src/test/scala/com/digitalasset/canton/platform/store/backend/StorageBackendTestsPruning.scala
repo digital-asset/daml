@@ -522,6 +522,21 @@ private[backend] trait StorageBackendTestsPruning
         TxMeta("00000008"),
       ),
     )
+    // Prune at the end, but following unassign is incomplete
+    // (the following archive can be pruned, but the following incomplete unassign and the create cannot, to be able to look up create event for the incomplete unassigned)
+    pruneEventsSql(offset(8), pruneAllDivulgedContracts = true, Vector(offset(8)))
+    assertIndexDbDataSql(
+      create = Vector(EventCreate(1)),
+      createFilterStakeholder = Vector(
+        FilterCreateStakeholder(1, 2),
+        FilterCreateStakeholder(1, 3),
+      ),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      unassign = Vector(EventUnassign(7)),
+      unassignFilter = Vector(
+        FilterUnassign(7, 2)
+      ),
+    )
     // Prune at the end (to verify that additional events are related)
     pruneEventsSql(offset(8), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql()
@@ -749,11 +764,11 @@ private[backend] trait StorageBackendTestsPruning
       eventSequentialId = 8,
       hashCidString = "#2",
     )
-    val archiveLaterThanPruning = archive(
+    val archiveBeforeEnd = archive(
       offsetInt = 10,
       eventSequentialId = 9,
     )
-    val unassignLaterThanPruning = unassign(
+    val unassignBeforeEnd = unassign(
       offsetInt = 11,
       eventSequentialId = 10,
     )
@@ -771,8 +786,8 @@ private[backend] trait StorageBackendTestsPruning
           archiveDifferentCidEarlierThanPruning,
           unassignDifferentDomainEarlierThanPruning,
           unassignDifferentCidEarlierThanPruning,
-          archiveLaterThanPruning,
-          unassignLaterThanPruning,
+          archiveBeforeEnd,
+          unassignBeforeEnd,
         ).flatten,
         _,
       )
@@ -899,6 +914,24 @@ private[backend] trait StorageBackendTestsPruning
       consumingFilterStakeholder = Vector(
         FilterConsumingStakeholder(9, 3)
       ),
+      unassign = Vector(
+        EventUnassign(10)
+      ),
+      unassignFilter = Vector(
+        FilterUnassign(10, 3)
+      ),
+      txMeta = Vector.empty,
+    )
+    // Prune at the end, but with setting the following unassign incomplete
+    // (the following archive can be pruned, but the following unassign and the assign can't, to be able to look up create event for the incomplete unassigned)
+    pruneEventsSql(
+      offset(11),
+      pruneAllDivulgedContracts = true,
+      Vector(offset(11), offset(1000), offset(1001)),
+    )
+    assertIndexDbDataSql(
+      assign = Vector(EventAssign(4)),
+      assignFilter = Vector(FilterAssign(4, 3)),
       unassign = Vector(
         EventUnassign(10)
       ),

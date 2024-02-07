@@ -6,15 +6,13 @@ package com.digitalasset.canton
 import better.files.File.RandomAccessMode
 import com.digitalasset.canton.UniquePortGenerator.retryLock
 import com.digitalasset.canton.concurrent.Threading
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
 
 import java.nio.channels.FileLock
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.concurrent.{Await, Future, blocking}
 
-class UniquePortGeneratorTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
+class UniquePortGeneratorTest extends AnyFlatSpec with BaseTest with HasExecutionContext {
   behavior of "UniquePortGenerator"
 
   var lock: Option[FileLock] = None
@@ -24,8 +22,6 @@ class UniquePortGeneratorTest extends AnyFlatSpec with Matchers with BeforeAndAf
       lock = Some(retryLock(100, 100) {
         blocking(synchronized(f.lock()))
       })
-
-      import ExecutionContext.Implicits.*
 
       val lockReleaseFuture = Future {
         Threading.sleep(1000)

@@ -11,5 +11,15 @@ import "com/digitalasset/canton/protocol/v30/sequencing.proto";
 // Should typically only be exposed to the domain node and not all clients
 service SequencerVersionService {
   // Perform a handshake with the initialization service to ensure that the client and server are using compatible versions
-  rpc Handshake(com.digitalasset.canton.protocol.v30.Handshake.Request) returns (com.digitalasset.canton.protocol.v30.Handshake.Response);
+  rpc Handshake(SequencerVersion.HandshakeRequest) returns (SequencerVersion.HandshakeResponse);
+}
+
+message SequencerVersion {
+  message HandshakeRequest {
+    com.digitalasset.canton.protocol.v30.Handshake.Request handshake_request = 1;
+  }
+
+  message HandshakeResponse {
+    com.digitalasset.canton.protocol.v30.Handshake.Response handshake_response = 1;
+  }
 }

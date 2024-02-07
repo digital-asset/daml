@@ -21,8 +21,8 @@ final case class TopologyStateForInitRequest(member: Member)(
   @transient override protected lazy val companionObj: TopologyStateForInitRequest.type =
     TopologyStateForInitRequest
 
-  def toProtoV30: v30.TopologyStateForInitRequest =
-    v30.TopologyStateForInitRequest(member.toProtoPrimitive)
+  def toProtoV30: v30.DownloadTopologyStateForInitRequest =
+    v30.DownloadTopologyStateForInitRequest(member.toProtoPrimitive)
 }
 
 object TopologyStateForInitRequest
@@ -31,7 +31,7 @@ object TopologyStateForInitRequest
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v30.TopologyStateForInitRequest
+      v30.DownloadTopologyStateForInitRequest
     )(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -45,9 +45,9 @@ object TopologyStateForInitRequest
     TopologyStateForInitRequest(member)(protocolVersionRepresentativeFor(protocolVersion))
 
   def fromProtoV30(
-      topologyStateForInitRequestP: v30.TopologyStateForInitRequest
+      topologyStateForInitRequestP: v30.DownloadTopologyStateForInitRequest
   ): ParsingResult[TopologyStateForInitRequest] = {
-    val v30.TopologyStateForInitRequest(memberP) = topologyStateForInitRequestP
+    val v30.DownloadTopologyStateForInitRequest(memberP) = topologyStateForInitRequestP
     for {
       member <- Member.fromProtoPrimitive(memberP, "member")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))

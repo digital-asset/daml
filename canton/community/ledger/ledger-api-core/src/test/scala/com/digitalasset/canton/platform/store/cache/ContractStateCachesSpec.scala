@@ -173,7 +173,6 @@ class ContractStateCachesSpec
     GlobalKey.assertBuild(
       Identifier.assertFromString(s"some:template:name"),
       ValueInt64(id.toLong),
-      shared = true,
     )
 
   private def contract(id: Int): Contract = {

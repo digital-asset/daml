@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.protocol.v30;
+package com.digitalasset.canton.topology.admin.v30;
 
 import "google/protobuf/timestamp.proto";
 

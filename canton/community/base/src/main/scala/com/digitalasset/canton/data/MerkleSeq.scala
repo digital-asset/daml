@@ -20,6 +20,7 @@ import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
+import com.digitalasset.canton.version.v1.UntypedVersionedMessage
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec

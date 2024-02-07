@@ -22,25 +22,25 @@ message LocalVerdict {
 
 message LocalReject {
   enum Code {
-    MissingCode = 0;
-    LockedContracts = 1;
-    LockedKeys = 2;
-    InactiveContracts = 3;
-    DuplicateKey = 4;
-    CreatesExistingContract = 5;
-    LedgerTime = 6;
-    SubmissionTime = 7;
-    LocalTimeout = 8;
-    MalformedPayloads = 9;
-    MalformedModel = 10;
-    MalformedConfirmationPolicy = 11;
-    BadRootHashMessage = 12;
-    TransferOutActivenessCheck = 13;
-    TransferInAlreadyCompleted = 14;
-    TransferInAlreadyActive = 15;
-    TransferInAlreadyArchived = 16;
-    TransferInLocked = 17;
-    InconsistentKey = 18;
+    CODE_UNSPECIFIED = 0;
+    CODE_LOCKED_CONTRACTS = 1;
+    CODE_LOCKED_KEYS = 2;
+    CODE_INACTIVE_CONTRACTS = 3;
+    CODE_DUPLICATE_KEY = 4;
+    CODE_CREATES_EXISTING_CONTRACT = 5;
+    CODE_LEDGER_TIME = 6;
+    CODE_SUBMISSION_TIME = 7;
+    CODE_LOCAL_TIMEOUT = 8;
+    CODE_MALFORMED_PAYLOADS = 9;
+    CODE_MALFORMED_MODEL = 10;
+    CODE_MALFORMED_CONFIRMATION_POLICY = 11;
+    CODE_BAD_ROOT_HASH_MESSAGE = 12;
+    CODE_TRANSFER_OUT_ACTIVENESS_CHECK = 13;
+    CODE_TRANSFER_IN_ALREADY_COMPLETED = 14;
+    CODE_TRANSFER_IN_ALREADY_ACTIVE = 15;
+    CODE_TRANSFER_IN_ALREADY_ARCHIVED = 16;
+    CODE_TRANSFER_IN_LOCKED = 17;
+    CODE_INCONSISTENT_KEY = 18;
   }
 
   // cause_prefix + details constitute the cause of the rejection.

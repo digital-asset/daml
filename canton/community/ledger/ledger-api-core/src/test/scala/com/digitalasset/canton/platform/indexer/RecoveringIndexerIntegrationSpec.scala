@@ -261,7 +261,6 @@ class RecoveringIndexerIntegrationSpec
             parallelExecutionContext,
             tracer,
             loggerFactory,
-            multiDomainEnabled = false,
           )
       _ <- new IndexerServiceOwner(
         readService = participantState._1,

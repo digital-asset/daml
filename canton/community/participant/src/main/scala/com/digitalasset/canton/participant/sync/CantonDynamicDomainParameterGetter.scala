@@ -32,7 +32,7 @@ class CantonDynamicDomainParameterGetter(
   ): EitherT[Future, String, NonNegativeFiniteDuration] = {
     def getToleranceForDomain(
         domainId: DomainId,
-        warnOnUsingDefault: Boolean = true,
+        warnOnUsingDefault: Boolean,
     ): EitherT[Future, String, NonNegativeFiniteDuration] =
       for {
         topoClient <- EitherT.fromOption[Future](
@@ -53,7 +53,7 @@ class CantonDynamicDomainParameterGetter(
       } yield params.ledgerTimeRecordTimeTolerance
 
     domainIdO match {
-      case Some(domainId) => getToleranceForDomain(domainId)
+      case Some(domainId) => getToleranceForDomain(domainId, warnOnUsingDefault = true)
 
       case None =>
         // TODO(i15313):

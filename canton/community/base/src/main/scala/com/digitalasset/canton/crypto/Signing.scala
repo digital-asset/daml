@@ -191,7 +191,7 @@ sealed trait SignatureFormat extends Product with Serializable {
 
 object SignatureFormat {
   case object Raw extends SignatureFormat {
-    override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.RawSignatureFormat
+    override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_RAW
   }
 
   def fromProtoEnum(
@@ -199,11 +199,11 @@ object SignatureFormat {
       formatP: v30.SignatureFormat,
   ): ParsingResult[SignatureFormat] =
     formatP match {
-      case v30.SignatureFormat.MissingSignatureFormat =>
+      case v30.SignatureFormat.SIGNATURE_FORMAT_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.SignatureFormat.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.SignatureFormat.RawSignatureFormat => Right(SignatureFormat.Raw)
+      case v30.SignatureFormat.SIGNATURE_FORMAT_RAW => Right(SignatureFormat.Raw)
     }
 }
 
@@ -224,17 +224,19 @@ object SigningKeyScheme {
 
   case object Ed25519 extends SigningKeyScheme {
     override val name: String = "Ed25519"
-    override def toProtoEnum: v30.SigningKeyScheme = v30.SigningKeyScheme.Ed25519
+    override def toProtoEnum: v30.SigningKeyScheme = v30.SigningKeyScheme.SIGNING_KEY_SCHEME_ED25519
   }
 
   case object EcDsaP256 extends SigningKeyScheme {
     override def name: String = "ECDSA-P256"
-    override def toProtoEnum: v30.SigningKeyScheme = v30.SigningKeyScheme.EcDsaP256
+    override def toProtoEnum: v30.SigningKeyScheme =
+      v30.SigningKeyScheme.SIGNING_KEY_SCHEME_EC_DSA_P256
   }
 
   case object EcDsaP384 extends SigningKeyScheme {
     override def name: String = "ECDSA-P384"
-    override def toProtoEnum: v30.SigningKeyScheme = v30.SigningKeyScheme.EcDsaP384
+    override def toProtoEnum: v30.SigningKeyScheme =
+      v30.SigningKeyScheme.SIGNING_KEY_SCHEME_EC_DSA_P384
   }
 
   val EdDsaSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, Ed25519)
@@ -247,15 +249,13 @@ object SigningKeyScheme {
       schemeP: v30.SigningKeyScheme,
   ): ParsingResult[SigningKeyScheme] =
     schemeP match {
-      case v30.SigningKeyScheme.MissingSigningKeyScheme =>
+      case v30.SigningKeyScheme.SIGNING_KEY_SCHEME_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.SigningKeyScheme.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.SigningKeyScheme.Ed25519 => Right(SigningKeyScheme.Ed25519)
-      case v30.SigningKeyScheme.EcDsaP256 => Right(SigningKeyScheme.EcDsaP256)
-      case v30.SigningKeyScheme.EcDsaP384 => Right(SigningKeyScheme.EcDsaP384)
-      case v30.SigningKeyScheme.Sm2 =>
-        Left(ProtoDeserializationError.OtherError("Support for SM2 has been removed since v2.7"))
+      case v30.SigningKeyScheme.SIGNING_KEY_SCHEME_ED25519 => Right(SigningKeyScheme.Ed25519)
+      case v30.SigningKeyScheme.SIGNING_KEY_SCHEME_EC_DSA_P256 => Right(SigningKeyScheme.EcDsaP256)
+      case v30.SigningKeyScheme.SIGNING_KEY_SCHEME_EC_DSA_P384 => Right(SigningKeyScheme.EcDsaP384)
     }
 }
 

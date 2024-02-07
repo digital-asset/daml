@@ -34,7 +34,6 @@ import com.digitalasset.canton.{
   BaseTest,
   LfPackageId,
   RequestCounter,
-  TestMetrics,
   TransferCounter,
   TransferCounterO,
 }
@@ -47,7 +46,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @nowarn("msg=match may not be exhaustive")
 trait ActiveContractStoreTest extends PrunableByTimeTest {
-  this: AsyncWordSpecLike & BaseTest & TestMetrics =>
+  this: AsyncWordSpecLike & BaseTest =>
 
   protected implicit def closeContext: CloseContext
 

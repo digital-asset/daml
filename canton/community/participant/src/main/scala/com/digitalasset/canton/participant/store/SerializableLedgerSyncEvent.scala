@@ -693,9 +693,12 @@ private[store] final case class SerializableCommandRejected(
       commandRejected
 
     val commandKindP = commandKind match {
-      case ProcessingSteps.RequestType.Transaction => v30.CommandKind.Transaction
-      case ProcessingSteps.RequestType.TransferOut => v30.CommandKind.TransferOut
-      case ProcessingSteps.RequestType.TransferIn => v30.CommandKind.TransferIn
+      case ProcessingSteps.RequestType.Transaction =>
+        v30.CommandKind.COMMAND_KIND_TRANSACTION_UNSPECIFIED
+      case ProcessingSteps.RequestType.TransferOut =>
+        v30.CommandKind.COMMAND_KIND_TRANSFER_OUT
+      case ProcessingSteps.RequestType.TransferIn =>
+        v30.CommandKind.COMMAND_KIND_TRANSFER_IN
     }
 
     v30.CommandRejected(
@@ -722,9 +725,12 @@ private[store] object SerializableCommandRejected {
       commandRejectedP
 
     val commandTypeE: ParsingResult[ProcessingSteps.RequestType.Values] = commandTypeP match {
-      case v30.CommandKind.Transaction => Right(ProcessingSteps.RequestType.Transaction)
-      case v30.CommandKind.TransferOut => Right(ProcessingSteps.RequestType.TransferOut)
-      case v30.CommandKind.TransferIn => Right(ProcessingSteps.RequestType.TransferIn)
+      case v30.CommandKind.COMMAND_KIND_TRANSACTION_UNSPECIFIED =>
+        Right(ProcessingSteps.RequestType.Transaction)
+      case v30.CommandKind.COMMAND_KIND_TRANSFER_OUT =>
+        Right(ProcessingSteps.RequestType.TransferOut)
+      case v30.CommandKind.COMMAND_KIND_TRANSFER_IN =>
+        Right(ProcessingSteps.RequestType.TransferIn)
       case v30.CommandKind.Unrecognized(unrecognizedValue) =>
         Left(ProtoDeserializationError.UnrecognizedEnum("command kind", unrecognizedValue))
     }

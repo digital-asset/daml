@@ -107,7 +107,7 @@ object ExampleTransactionFactory {
   ): Versioned[LfGlobalKey] =
     LfVersioned(
       transactionVersion,
-      LfGlobalKey.assertBuild(templateId, value, true),
+      LfGlobalKey.assertBuild(templateId, value),
     )
 
   def globalKeyWithMaintainers(

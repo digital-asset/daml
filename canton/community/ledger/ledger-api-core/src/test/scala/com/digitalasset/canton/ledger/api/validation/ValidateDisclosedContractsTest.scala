@@ -273,7 +273,6 @@ object ValidateDisclosedContractsTest {
         ),
       ),
       api.keyMaintainers,
-      shared = true,
     )
 
     private val keyHash: Hash = keyWithMaintainers.globalKey.hash

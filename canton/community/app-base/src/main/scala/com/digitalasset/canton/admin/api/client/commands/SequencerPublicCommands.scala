@@ -5,7 +5,7 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as ConsoleStaticDomainParameters
-import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParameters.Response.Parameters
+import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
 import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
 import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.protocol.StaticDomainParameters as InternalStaticDomainParameters
@@ -28,7 +28,7 @@ object SequencerPublicCommands {
   final case object GetDomainId
       extends SequencerConnectServiceCommands[
         Empty,
-        proto.SequencerConnect.GetDomainId.Response,
+        proto.SequencerConnect.GetDomainIdResponse,
         DomainId,
       ] {
     override def createRequest(): Either[String, Empty] = Right(Empty())
@@ -36,11 +36,11 @@ object SequencerPublicCommands {
     override def submitRequest(
         service: SequencerConnectServiceStub,
         request: Empty,
-    ): Future[proto.SequencerConnect.GetDomainId.Response] =
-      service.getDomainId(proto.SequencerConnect.GetDomainId.Request())
+    ): Future[proto.SequencerConnect.GetDomainIdResponse] =
+      service.getDomainId(proto.SequencerConnect.GetDomainIdRequest())
 
     override def handleResponse(
-        response: proto.SequencerConnect.GetDomainId.Response
+        response: proto.SequencerConnect.GetDomainIdResponse
     ): Either[String, DomainId] = {
 
       DomainId.fromProtoPrimitive(response.domainId, "domain_id").leftMap(_.message)
@@ -50,7 +50,7 @@ object SequencerPublicCommands {
   final case object GetStaticDomainParameters
       extends SequencerConnectServiceCommands[
         Empty,
-        proto.SequencerConnect.GetDomainParameters.Response,
+        proto.SequencerConnect.GetDomainParametersResponse,
         ConsoleStaticDomainParameters,
       ] {
     override def createRequest(): Either[String, Empty] = Right(Empty())
@@ -58,11 +58,11 @@ object SequencerPublicCommands {
     override def submitRequest(
         service: SequencerConnectServiceStub,
         request: Empty,
-    ): Future[proto.SequencerConnect.GetDomainParameters.Response] =
-      service.getDomainParameters(proto.SequencerConnect.GetDomainParameters.Request())
+    ): Future[proto.SequencerConnect.GetDomainParametersResponse] =
+      service.getDomainParameters(proto.SequencerConnect.GetDomainParametersRequest())
 
     override def handleResponse(
-        response: proto.SequencerConnect.GetDomainParameters.Response
+        response: proto.SequencerConnect.GetDomainParametersResponse
     ): Either[String, ConsoleStaticDomainParameters] = {
 
       response.parameters match {

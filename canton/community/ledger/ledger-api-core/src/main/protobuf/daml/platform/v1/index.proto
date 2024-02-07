@@ -9,11 +9,11 @@
 
 syntax = "proto3";
 
-package daml.platform.index;
+package daml.platform.v1;
 
 import "google/protobuf/any.proto";
 
-option java_package = "com.daml.platform.index";
+option java_package = "com.daml.platform.v1";
 
 // Serialized status details, conveyed from the driver `ReadService` to the ledger API client.
 // To be combined with a status code and message.

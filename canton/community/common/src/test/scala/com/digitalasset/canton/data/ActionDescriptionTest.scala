@@ -22,7 +22,6 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       .build(
         LfTransactionBuilder.defaultTemplateId,
         Value.ValueInt64(10L),
-        shared = true,
       )
       .value
   private val choiceName: LfChoiceName = LfChoiceName.assertFromString("choice")
@@ -58,7 +57,6 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
             .build(
               LfTransactionBuilder.defaultTemplateId,
               ExampleTransactionFactory.veryDeepValue,
-              true,
             )
             .value,
           testTxVersion,

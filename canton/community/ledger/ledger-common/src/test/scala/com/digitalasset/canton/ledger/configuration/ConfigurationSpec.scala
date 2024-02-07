@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.configuration
 
 import com.digitalasset.canton.ledger.configuration.ConfigurationSpec.*
-import com.digitalasset.canton.ledger.configuration.protobuf.{ledger_configuration as proto}
+import com.digitalasset.canton.ledger.configuration.v2.ledger_configuration as proto
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.*
 import org.scalatest.wordspec.AnyWordSpec

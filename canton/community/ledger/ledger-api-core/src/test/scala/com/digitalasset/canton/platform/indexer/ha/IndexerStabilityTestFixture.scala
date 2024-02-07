@@ -99,7 +99,6 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
               executionContext,
               tracer,
               loggerFactory,
-              multiDomainEnabled = false,
             )
             .acquire()
 

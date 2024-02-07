@@ -12,7 +12,7 @@ import "com/digitalasset/canton/protocol/v30/topology.proto";
  *
  * Both, participant and domain run a local topology manager exposing the same write interface.
  */
-service TopologyManagerWriteServiceX {
+service TopologyManagerWriteXService {
   rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
 
   rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);

@@ -22,7 +22,7 @@ import com.digitalasset.canton.util.retry.RetryUtil.{
   NoExnRetryable,
 }
 import com.digitalasset.canton.util.{DelayUtil, FutureUtil}
-import com.digitalasset.canton.{BaseTest, HasExecutorService, TestMetrics}
+import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import org.scalatest.funspec.AsyncFunSpec
 import org.slf4j.event.Level
 
@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, At
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
 
-class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService with TestMetrics {
+class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
   val random = new Random()
   val randomSource: RandomSource = Jitter.randomSource(random)
@@ -727,7 +727,6 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService with
       val closeableEc = Threading.newExecutionContext(
         executionContextName,
         noTracingLogger,
-        Some(executorServiceMetrics),
         Threading.detectNumberOfThreads(noTracingLogger),
         exitOnFatal = exitOnFatal,
       )

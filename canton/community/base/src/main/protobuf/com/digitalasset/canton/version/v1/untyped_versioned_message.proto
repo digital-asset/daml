@@ -3,7 +3,9 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.version;
+// This package is versioned out of caution. It is not expected to change,
+// especially not alongside the rest of our messages.
+package com.digitalasset.canton.version.v1;
 
 /* `UntypedVersionedMessage` is the generic wrapper for versioned messages
    * The version is included in the `version` integer and the serialized

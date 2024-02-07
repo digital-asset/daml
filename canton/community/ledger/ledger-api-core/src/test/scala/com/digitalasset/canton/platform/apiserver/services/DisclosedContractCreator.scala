@@ -62,7 +62,6 @@ object DisclosedContractCreator {
         ),
       ),
       api.keyMaintainers,
-      shared = true,
     )
 
     val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
