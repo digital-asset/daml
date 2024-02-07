@@ -76,7 +76,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
       requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
-      enableContractUpgrading = config.enableContractUpgrading,
     )
 
   def info = new EngineInfo(config)
@@ -188,6 +187,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] =
+        Map.empty, // Default until Canton updated
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commands <- preprocessor.translateTransactionRoots(tx)
@@ -200,7 +201,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        packageResolution = Map.empty,
+        packageResolution = packageResolution,
       )
     } yield result
 

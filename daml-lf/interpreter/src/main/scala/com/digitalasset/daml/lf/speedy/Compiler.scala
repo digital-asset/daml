@@ -28,6 +28,7 @@ import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
+import scala.math.Ordered.orderingToOrdered
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
@@ -76,7 +77,6 @@ private[lf] object Compiler {
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
-      enableContractUpgrading: Boolean = false,
   )
 
   object Config {
@@ -116,10 +116,13 @@ private[lf] object Compiler {
   ): Either[String, Map[t.SDefinitionRef, SDefinition]] = {
     val compiler = new Compiler(pkgInterface, compilerConfig)
     try {
-      Right(packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) {
-        case (acc, (pkgId, pkg)) =>
-          acc ++ compiler.compilePackage(pkgId, pkg, compilerConfig.enableContractUpgrading)
-      })
+      Right(
+        packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
+          val enableContractUpgrading =
+            pkg.languageVersion >= LanguageVersion.Features.packageUpgrades
+          acc ++ compiler.compilePackage(pkgId, pkg, enableContractUpgrading)
+        }
+      )
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
       case PackageNotFound(pkgId, context) =>

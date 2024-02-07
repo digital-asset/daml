@@ -250,6 +250,7 @@ conformance_test(
             ",".join([
                 "dev-mode=yes",
                 "canton.domains.test_domain.init.domain-parameters.protocol-version=dev",
+                "_shared.participant_parameters.enable-contract-upgrading=yes",
             ]),
         ],
         tags = ["dev-canton-test"] + extra_tags,
@@ -258,6 +259,9 @@ conformance_test(
                 # we skip those tests for preview/dev
                 "TLSOnePointThreeIT",
                 "TLSAtLeastOnePointTwoIT",
+                # the unexpected arg is now interpreted as a non-optional upgrade field
+                "CommandServiceIT:CSRefuseBadParameter",
+                "CommandServiceIT:CSBadCreateAndExercise",
             ]),
         ],
     )

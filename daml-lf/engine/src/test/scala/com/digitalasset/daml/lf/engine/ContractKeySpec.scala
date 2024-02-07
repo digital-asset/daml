@@ -61,13 +61,22 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+  private[this] val suffixLenientEngine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val compiledPackages = ConcurrentCompiledPackages(
+    suffixLenientEngine.config.getCompilerConfig
+  )
+  private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+
+  private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
+    assert(
+      compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
+    )
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
+  private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
     s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
   )
 
@@ -141,12 +150,6 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         ) =>
       toContractId("BasicTests:WithKey:1")
   }
-
-  private[this] val suffixLenientEngine = Engine.DevEngine(majorLanguageVersion)
-  private[this] val preprocessor =
-    new preprocessing.Preprocessor(
-      ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
-    )
 
   "contract key" should {
     val now = Time.Timestamp.now()
@@ -280,7 +283,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         )
       )
       val (multiKeysPkgId, multiKeysPkg, allMultiKeysPkgs) =
-        loadPackage(s"daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}.dar")
+        loadAndAddPackage(s"daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}.dar")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()

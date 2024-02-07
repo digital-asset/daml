@@ -19,7 +19,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   final override protected lazy val devMode = true
-  final override protected lazy val enableContractUpgrading = true
 
   override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V2
 

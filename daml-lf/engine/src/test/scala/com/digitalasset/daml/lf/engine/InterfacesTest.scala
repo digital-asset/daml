@@ -46,23 +46,27 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
 
   import InterfacesTest._
 
-  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+  private[this] val engine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val compiledPackages = ConcurrentCompiledPackages(engine.config.getCompilerConfig)
+  private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+
+  private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
+    assert(
+      compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
+    )
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private[this] val engine = Engine.DevEngine(majorLanguageVersion)
-  private[this] val preprocessor =
-    new preprocessing.Preprocessor(
-      ConcurrentCompiledPackages(engine.config.getCompilerConfig)
-    )
-
   "interfaces" should {
     val (interfacesPkgId, interfacesPkg, _) =
-      loadPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
+      loadAndAddPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
+
+    val packageNameMap = interfacesPkg.name.toList.map(n => n -> interfacesPkgId).toMap
+
     val (interfaceRetroPkgId, _, allInterfacesPkgs) =
-      loadPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
+      loadAndAddPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
     val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")
@@ -106,6 +110,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             ledgerTime = let,
             submissionTime = let,
             seeding = seeding,
+            packageResolution = packageNameMap,
           )
       } yield result
     def runApi(cmd: ApiCommand): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
