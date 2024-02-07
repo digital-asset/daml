@@ -111,7 +111,7 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class CachedKey(
-      packageName: Option[PackageName],
+      packageName: PackageName,
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
       shared: Boolean,
@@ -129,7 +129,7 @@ private[lf] object Speedy {
 
   final case class ContractInfo(
       version: TxVersion,
-      packageName: Option[Ref.PackageName],
+      packageName: Ref.PackageName,
       templateId: Ref.TypeConName,
       value: SValue,
       signatories: Set[Party],
@@ -896,14 +896,8 @@ private[lf] object Speedy {
         compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
       )
 
-    final def tmplId2PackageName(tmplId: TypeConName, version: TxVersion): Option[PackageName] = {
-      import Ordering.Implicits._
-      if (version < TxVersion.minUpgrade)
-        None
-      else {
-        Some(compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata.name)
-      }
-    }
+    final def tmplId2PackageName(tmplId: TypeConName): PackageName =
+      compiledPackages.pkgInterface.signatures(tmplId.packageId).metadata.name
 
     /* kont manipulation... */
 

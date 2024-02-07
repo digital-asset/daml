@@ -7,6 +7,7 @@ import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -15,10 +16,7 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
-  DeduplicationDuration,
-  DeduplicationOffset,
-}
+import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -239,6 +237,8 @@ private[platform] object InMemoryStateUpdater {
               contract = Contract(
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
+                // TODO(Tudor)
+                packageName = Ref.PackageName.assertFromString("dummyReplace")
               ),
               globalKey = createdEvent.contractKey.map(k =>
                 Key.assertBuild(createdEvent.templateId, k.unversioned)

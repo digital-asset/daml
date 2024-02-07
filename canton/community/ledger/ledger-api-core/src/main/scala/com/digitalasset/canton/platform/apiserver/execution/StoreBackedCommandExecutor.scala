@@ -555,6 +555,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
           ContractInstance(
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
+            // TODO(Tudor)
+            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
         ),
         originalMetadata = ContractMetadata.tryCreate(

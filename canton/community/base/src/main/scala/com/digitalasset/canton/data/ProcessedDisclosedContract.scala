@@ -45,6 +45,8 @@ object ProcessedDisclosedContract {
         stakeholders = stakeholders,
         keyOpt = keyOpt,
         version = version,
+        // TODO(Tudor)
+        packageName = Ref.PackageName.assertFromString("dummyReplace")
       ),
       createdAt = createdAt,
       driverMetadata = driverMetadata,

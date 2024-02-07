@@ -503,6 +503,8 @@ private[events] object TransactionLogUpdatesConversions {
                   createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
                 ),
                 version = createdEvent.createArgument.version,
+                // TODO(Tudor)
+                packageName = Ref.PackageName.assertFromString("dummyReplace"),
               ),
               createTime = createdEvent.ledgerEffectiveTime,
               cantonData = driverMetadataBytes,

@@ -93,62 +93,27 @@ object TransactionCoder {
       coinst: Versioned[Value.ContractInstance],
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     for {
-      value <- ValueCoder
-        .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
-      pkgName <- encodePackageName(coinst.unversioned.packageName, coinst.version)
+      value <- ValueCoder.encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
     } yield TransactionOuterClass.ContractInstance
       .newBuilder()
-      .setPackageName(pkgName)
+      .setPackageName(coinst.unversioned.packageName)
       .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
       .setArgVersioned(value)
       .build()
 
   def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
-    Ref.PackageName.fromString(s).left.map(err => DecodeError(s"Invalid package name '$s': $err"))
-
-  def decodePackageName(
-      s: String,
-      version: TransactionVersion,
-  ): Either[DecodeError, Option[Ref.PackageName]] =
-    if (s.nonEmpty)
-      if (version >= TransactionVersion.minUpgrade)
-        decodePackageName(s).map(Some(_))
-      else
-        Left(
-          DecodeError(s"packageName is not supported by transaction version ${version.protoValue}")
-        )
-    else
-    // TODO: https://github.com/digital-asset/daml/issues/17995
-    //  drop the `|| true`, once canton populate the package name
-    if (version < TransactionVersion.minUpgrade || true)
-      Right(None)
-    else
-      Left(DecodeError(s"packageName is required for transaction version  ${version.protoValue}"))
-
-  def encodePackageName(
-      pkgName: Option[Ref.PackageName],
-      version: TransactionVersion,
-  ): Either[EncodeError, String] =
-    pkgName match {
-      case Some(name) =>
-        if (version >= TransactionVersion.minUpgrade)
-          Right(name)
-        else
-          Left(
-            EncodeError(
-              s"packageName is not supported by transaction version ${version.protoValue}"
-            )
-          )
-      case None =>
-        // TODO: https://github.com/digital-asset/daml/issues/17995
-        //  drop the `|| true`, once canton populate the package name
-        if (version < TransactionVersion.minUpgrade || true)
-          Right("")
-        else
-          Left(
-            EncodeError(s"packageName is required for transaction version  ${version.protoValue}")
-          )
-    }
+    Either
+      .cond(
+        s.nonEmpty,
+        s,
+        DecodeError(s"packageName must not be empty"),
+      )
+      .flatMap(
+        Ref.PackageName
+          .fromString(_)
+          .left
+          .map(err => DecodeError(s"Invalid package name '$s': $err"))
+      )
 
   /** Decode a contract instance from wire format
     *
@@ -163,7 +128,7 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
-      pkgName <- decodePackageName(protoCoinst.getPackageName, value.version)
+      pkgName <- decodePackageName(protoCoinst.getPackageName)
     } yield value.map(arg => Value.ContractInstance(pkgName, id, arg))
 
   private[transaction] def encodeKeyWithMaintainers(
@@ -249,8 +214,7 @@ object TransactionCoder {
                     .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
                     .setArgUnversioned(arg)
                 )
-                encodedPkgName <- encodePackageName(nc.packageName, nodeVersion)
-                _ = builder.setPackageName(encodedPkgName)
+                _ = builder.setPackageName(nc.packageName)
                 _ <- encodeAndSetContractKey(
                   nodeVersion,
                   nc.keyOpt,
@@ -268,9 +232,8 @@ object TransactionCoder {
                 discard(builder.setByKey(nf.byKey))
               }
               nf.actingParties.foreach(builder.addActors)
+              discard(builder.setPackageName(nf.packageName))
               for {
-                encodedPkgName <- encodePackageName(nf.packageName, nodeVersion)
-                _ = builder.setPackageName(encodedPkgName)
                 _ <- encodeAndSetContractKey(
                   nodeVersion,
                   nf.keyOpt,
@@ -285,6 +248,7 @@ object TransactionCoder {
                   .setContractIdStruct(encodeCid.encode(ne.targetCoid))
                   .setChoice(ne.choiceId)
                   .setTemplateId(ValueCoder.encodeIdentifier(ne.templateId))
+                  .setPackageName(ne.packageName)
                   .setConsuming(ne.consuming)
               )
               ne.actingParties.foreach(builder.addActors)
@@ -305,8 +269,6 @@ object TransactionCoder {
                 builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
               )
               for {
-                encodedPkgName <- encodePackageName(ne.packageName, nodeVersion)
-                _ = builder.setPackageName(encodedPkgName)
                 _ <- Either.cond(
                   test = ne.version >= TransactionVersion.minChoiceAuthorizers ||
                     !(ne.choiceAuthorizers.isDefined),
@@ -343,9 +305,8 @@ object TransactionCoder {
               nlbk.result.foreach(cid =>
                 discard(builder.setContractIdStruct(encodeCid.encode(cid)))
               )
+              discard(builder.setPackageName(nlbk.packageName))
               for {
-                encodedPkgName <- encodePackageName(nlbk.packageName, nodeVersion)
-                _ = builder.setPackageName(encodedPkgName)
                 encodedKey <- encodeKeyWithMaintainers(nlbk.version, nlbk.key)
               } yield {
                 discard(builder.setKeyWithMaintainers(encodedKey))
@@ -453,7 +414,7 @@ object TransactionCoder {
         val protoCreate = protoNode.getCreate
         for {
           ni <- nodeId
-          pkgName <- decodePackageName(protoCreate.getPackageName, nodeVersion)
+          pkgName <- decodePackageName(protoCreate.getPackageName)
           c <- decodeCid.decode(protoCreate.getContractIdStruct)
           tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
           arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
@@ -478,7 +439,7 @@ object TransactionCoder {
         val protoFetch = protoNode.getFetch
         for {
           ni <- nodeId
-          pkgName <- decodePackageName(protoFetch.getPackageName, nodeVersion)
+          pkgName <- decodePackageName(protoFetch.getPackageName)
           templateId <- ValueCoder.decodeIdentifier(protoFetch.getTemplateId)
           c <- decodeCid.decode(protoFetch.getContractIdStruct)
           actingParties <- toPartySet(protoFetch.getActorsList)
@@ -508,7 +469,7 @@ object TransactionCoder {
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
         for {
-          pkgName <- decodePackageName(protoExe.getPackageName, nodeVersion)
+          pkgName <- decodePackageName(protoExe.getPackageName)
           templateId <- ValueCoder.decodeIdentifier(protoExe.getTemplateId)
           rvOpt <-
             if (!protoExe.hasResultVersioned && protoExe.getResultUnversioned.isEmpty) {
@@ -578,7 +539,7 @@ object TransactionCoder {
         val protoLookupByKey = protoNode.getLookupByKey
         for {
           ni <- nodeId
-          pkgName <- decodePackageName(protoLookupByKey.getPackageName, nodeVersion)
+          pkgName <- decodePackageName(protoLookupByKey.getPackageName)
           templateId <- ValueCoder.decodeIdentifier(protoLookupByKey.getTemplateId)
           key <-
             decodeKeyWithMaintainers(
@@ -881,7 +842,6 @@ object TransactionCoder {
     import contractInstance._
     for {
       encodedArg <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, createArg)
-      encodedPackageName <- encodePackageName(packageName, version)
       encodedKeyOpt <- contractKeyWithMaintainers match {
         case None =>
           Right(None)
@@ -894,7 +854,7 @@ object TransactionCoder {
         case cid: Value.ContractId.V1 =>
           discard(builder.setContractId(cid.toBytes.toByteString))
       }
-      discard(builder.setPackageName(encodedPackageName))
+      discard(builder.setPackageName(packageName))
       discard(builder.setTemplateId(ValueCoder.encodeIdentifier(templateId)))
       discard(builder.setCreateArg(encodedArg))
       encodedKeyOpt.foreach(builder.setContractKeyWithMaintainers)
@@ -928,7 +888,7 @@ object TransactionCoder {
         .fromBytes(data.Bytes.fromByteString(proto.getContractId))
         .left
         .map(DecodeError)
-      pkgName <- decodePackageName(proto.getPackageName, version)
+      pkgName <- decodePackageName(proto.getPackageName)
       templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
       createArg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getCreateArg)
       keyWithMaintainers <-
