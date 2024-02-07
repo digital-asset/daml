@@ -34,26 +34,23 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   lazy val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
 
-  lazy val testFiles: Seq[Path] = {
-    testFileDir.toFile.listFiles(_.getName.endsWith(".daml")).toSeq.map(_.toPath)
-  }
+  lazy val testCases: Seq[TestCase] = getTestCases(testFileDir)
 
   lazy val tempDir: Path = Files.createTempDirectory("upgrades-it-dev")
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     // "run successfully" in {
-    testFiles.foreach { testFile =>
-      val testName = testFileDir.relativize(testFile).toString.stripSuffix(".daml")
-      (s"test file '${testName}'") in {
+    testCases.foreach { testCase =>
+      testCase.name in {
         for {
           clients <- scriptClients(provideAdminPorts = true)
-          testDarPath = buildTestingDar(testFileDir, testName, testFile)
+          testDarPath = buildTestCaseDar(testCase)
           //   // TODO[SW] Upload `dars` to the participant, using CantonFixtures defaultLedgerClient
           testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
           _ <- run(
             clients,
-            QualifiedName.assertFromString(s"${testName}:main"),
+            QualifiedName.assertFromString(s"${testCase.name}:main"),
             dar = testDar,
             enableContractUpgrading = true,
           )
@@ -191,17 +188,30 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     Files.write(dir.resolve("daml.yaml"), fileContent.getBytes(StandardCharsets.UTF_8))
   }
 
-  // For a given test file, builds all upgrade data packages, then builds test dar depending on those.
-  def buildTestingDar(testFileDir: Path, testName: String, testFile: Path): Path = {
-    val projName = s"daml-upgrades-test-$testName"
-    val testRoot = Files.createDirectory(tempDir.resolve(projName))
-    val testProj = Files.createDirectory(testRoot.resolve("proj"))
-    val dars =
-      for {
-        pkgDef <- readPackageDefinitions(Files.readString(testFile))
-        dar <- buildPackages(pkgDef, testRoot)
-      } yield dar
-    Files.copy(testFile, testProj.resolve(testFileDir.relativize(testFile)))
-    buildDar(testProj, projName, 1, dars)
+  def buildTestCaseDar(testCase: TestCase): Path = {
+    val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
+    val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
+    val dars = testCase.pkgDefs.flatMap(buildPackages(_, testCaseRoot))
+    Files.copy(testCase.damlPath, testCasePkg.resolve(testCase.damlRelPath))
+    buildDar(testCasePkg, testCase.name, 1, dars)
   }
+
+  case class TestCase(
+      name: String,
+      damlPath: Path,
+      damlRelPath: Path,
+      pkgDefs: Seq[PackageDefinition],
+  )
+
+  def getTestCases(testFileDir: Path): Seq[TestCase] =
+    testFileDir.toFile.listFiles(_.getName.endsWith(".daml")).toSeq.map { testFile =>
+      val damlPath = testFile.toPath
+      val damlRelPath = testFileDir.relativize(damlPath)
+      TestCase(
+        name = damlRelPath.toString.stripSuffix(".daml"),
+        damlPath,
+        damlRelPath,
+        pkgDefs = readPackageDefinitions(Files.readString(damlPath)),
+      )
+    }
 }
