@@ -166,7 +166,6 @@ class IndexerBenchmark extends NamedLogging {
           ),
           new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
           registry,
-          true,
         )
         config.metricsReporter
           .fold(ResourceOwner.unit)(reporter =>

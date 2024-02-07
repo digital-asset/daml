@@ -30,7 +30,7 @@ import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.{BaseTest, LfPackageId, RequestCounter, TestMetrics}
+import com.digitalasset.canton.{BaseTest, LfPackageId, RequestCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpecLike
 
@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @nowarn("msg=match may not be exhaustive")
 trait ActiveContractStoreTest extends PrunableByTimeTest {
-  this: AsyncWordSpecLike & BaseTest & TestMetrics =>
+  this: AsyncWordSpecLike & BaseTest =>
 
   protected implicit def closeContext: CloseContext
 

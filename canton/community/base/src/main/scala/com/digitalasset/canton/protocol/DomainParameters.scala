@@ -474,7 +474,7 @@ object StaticDomainParameters
   *                               compatibility.
   *                               Should be significantly longer than the period of time it takes to compute the commitment and have it sequenced of the domain.
   *                               Otherwise, ACS commitments will keep being exchanged continuously on an idle domain.
-  * @param maxRatePerParticipant maximum number of messages sent per participant per second
+  * @param maxRatePerParticipant maximum number of confirmation requests sent per participant per second
   * @param maxRequestSize maximum size of messages (in bytes) that the domain can receive through the public API
   * @param sequencerAggregateSubmissionTimeout the maximum time for how long an incomplete aggregate submission request is
   *                                            allowed to stay pending in the sequencer's state before it's removed.

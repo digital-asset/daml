@@ -31,7 +31,6 @@ class ParticipantMetrics(
     ) val metricsFactory: MetricsFactory,
     val labeledMetricsFactory: LabeledMetricsFactory,
     registry: MetricRegistry,
-    reportExecutionContextMetrics: Boolean,
 ) extends BaseMetrics {
 
   override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.daml.grpc
@@ -49,7 +48,6 @@ class ParticipantMetrics(
       metricsFactory,
       labeledMetricsFactory,
       registry,
-      reportExecutionContextMetrics,
     )
 
   @nowarn("cat=deprecation")

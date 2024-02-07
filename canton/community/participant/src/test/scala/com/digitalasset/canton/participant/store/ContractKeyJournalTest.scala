@@ -22,7 +22,7 @@ import com.digitalasset.canton.util.LfTransactionBuilder.defaultLanguageVersion
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{LfTransactionBuilder, MonadUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{BaseTest, RequestCounter, TestMetrics}
+import com.digitalasset.canton.{BaseTest, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpecLike
 
 import java.time.Instant
@@ -32,7 +32,7 @@ import scala.util.Random
 
 @nowarn("msg=match may not be exhaustive")
 trait ContractKeyJournalTest extends PrunableByTimeTest {
-  this: AsyncWordSpecLike & BaseTest & TestMetrics =>
+  this: AsyncWordSpecLike & BaseTest =>
   import ContractKeyJournalTest.*
 
   def contractKeyJournal(mkCkj: ExecutionContext => ContractKeyJournal): Unit = {

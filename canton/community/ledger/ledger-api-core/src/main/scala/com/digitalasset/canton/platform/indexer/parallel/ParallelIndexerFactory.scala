@@ -57,19 +57,13 @@ object ParallelIndexerFactory {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
         "input-mapping-pool",
-        (
-          metrics.daml.parallelIndexer.inputMapping.executor,
-          metrics.executorServiceMetrics,
-        ),
+        metrics.daml.parallelIndexer.inputMapping.executor,
         loggerFactory,
       ).afterReleased(logger.debug("Input Mapping Threadpool released"))
       batcherExecutor <- asyncPool(
         batchingParallelism,
         "batching-pool",
-        (
-          metrics.daml.parallelIndexer.batching.executor,
-          metrics.executorServiceMetrics,
-        ),
+        metrics.daml.parallelIndexer.batching.executor,
         loggerFactory,
       ).afterReleased(logger.debug("Batching Threadpool released"))
       haCoordinator <-
@@ -82,7 +76,7 @@ object ParallelIndexerFactory {
                     "ha-coordinator",
                     1,
                     new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,
-                    metrics.executorServiceMetrics,
+                    metrics.noOpExecutorServiceMetrics,
                     throwable =>
                       logger
                         .error(

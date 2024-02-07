@@ -102,7 +102,7 @@ final class GrpcServerSpec
 
     "install rate limit interceptor" in {
       val metricsFactory = new InMemoryMetricsFactory
-      val metrics = new Metrics(metricsFactory, metricsFactory, new MetricRegistry, true)
+      val metrics = new Metrics(metricsFactory, metricsFactory, new MetricRegistry)
       val overLimitRejection = LedgerApiErrors.ThreadpoolOverloaded.Rejection(
         "test",
         "test",
