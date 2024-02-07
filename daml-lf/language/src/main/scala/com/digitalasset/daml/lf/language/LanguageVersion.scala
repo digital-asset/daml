@@ -50,7 +50,6 @@ object LanguageVersion {
   object Features {
     val default = v2_1
     val anyType = v2_1
-    val typeRep = v2_1
     val packageMetadata = v2_1
     val bigNumeric = v2_1
     val exceptions = v2_1
