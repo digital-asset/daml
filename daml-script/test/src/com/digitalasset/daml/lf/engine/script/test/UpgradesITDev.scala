@@ -132,7 +132,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       dir: Path,
       name: String,
       version: Int,
-      dataDeps: Seq[(Path, String, String)] = Seq.empty,
+      dataDeps: Seq[DataDep] = Seq.empty,
       opts: Seq[String] = Seq.empty,
   ): Path = {
     writeDamlYaml(dir, name, version, dataDeps)
@@ -145,23 +145,30 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     dir.resolve(s".daml/dist/${name}-$version.0.0.dar")
   }
 
-  def buildPackages(p: PackageDefinition, tmpDir: Path): Seq[(Path, String, String)] = {
+  def buildPackages(p: PackageDefinition, tmpDir: Path): Seq[DataDep] = {
     val dir = tmpDir.resolve("daml-package-" + p.name)
     buildModules(p, dir)
     (1 to p.versions).toSeq.map { version =>
-      (
-        buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}")),
-        s"${p.name}-${version}.0.0",
-        s"V${version}",
+      DataDep(
+        versionedName = s"${p.name}-${version}.0.0",
+        path =
+          buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}")),
+        prefix = s"V${version}",
       )
     }
   }
+
+  case class DataDep(
+      versionedName: String,
+      path: Path,
+      prefix: String,
+  )
 
   def writeDamlYaml(
       dir: Path,
       name: String,
       version: Int,
-      dataDeps: Seq[(Path, String, String)] = Seq.empty,
+      dataDeps: Seq[DataDep] = Seq.empty,
   ) = {
     val fileContent =
       s"""sdk-version: 0.0.0
@@ -175,11 +182,11 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
          |  - ${damlScriptDar.toString}
          |data-dependencies:
          |${darFiles.map("  - " + _).mkString("\n")}
-         |${dataDeps.map(d => "  - " + d._1.toString).mkString("\n")}
+         |${dataDeps.map(d => "  - " + d.path.toString).mkString("\n")}
          |module-prefixes:
          |  upgrades-my-templates-1.0.0: V1
          |  upgrades-my-templates-2.0.0: V2
-         |${dataDeps.map(d => s"  ${d._2}: ${d._3}").mkString("\n")}
+         |${dataDeps.map(d => s"  ${d.versionedName}: ${d.prefix}").mkString("\n")}
          |""".stripMargin
     Files.write(dir.resolve("daml.yaml"), fileContent.getBytes(StandardCharsets.UTF_8))
   }
