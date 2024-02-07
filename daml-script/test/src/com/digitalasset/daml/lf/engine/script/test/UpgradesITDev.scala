@@ -32,11 +32,10 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.dev.dar")
 
-  lazy val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
-
-  lazy val testCases: Seq[TestCase] = getTestCases(testFileDir)
-
   lazy val tempDir: Path = Files.createTempDirectory("upgrades-it-dev")
+
+  val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
+  val testCases: Seq[TestCase] = getTestCases(testFileDir)
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
@@ -74,7 +73,9 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
   )
 
   // TODO[SW] Consider another attempt at using io.circe.generic.auto._
-  implicit val decodePackageDefinition: Decoder[PackageDefinition] =
+  // [MA] we make this lazy because we're calling it from the top level before
+  // the entire class has finished loading
+  implicit lazy val decodePackageDefinition: Decoder[PackageDefinition] =
     new Decoder[PackageDefinition] {
       final def apply(c: HCursor): Decoder.Result[PackageDefinition] =
         for {
@@ -94,7 +95,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
         }
     }
 
-  val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
+  lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
 
   def readPackageDefinitions(fileContent: String): Seq[PackageDefinition] = {
     packagePattern.findAllMatchIn(fileContent).toSeq.map { m =>
