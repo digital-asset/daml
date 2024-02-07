@@ -5,33 +5,37 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
-import com.daml.ledger.api.v1.trace_context.TraceContext as ProtoTraceContext
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.logging.NamedLogging.loggerWithoutTracing
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   hashFromHexString,
   offset,
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
-import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
+  CompositeSql,
+  SqlStringInterpolation,
+}
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlAsVectorOf.*
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.{Identifier, Party}
-import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.tracing.TraceContext
 
 import java.sql.Connection
 import scala.collection.immutable.ArraySeq
+import scala.util.Using
 
 object EventStorageBackendTemplate {
   import com.digitalasset.canton.platform.store.backend.Conversions.ArrayColumnToIntArray.*
   import com.digitalasset.canton.platform.store.backend.Conversions.ArrayColumnToStringArray.*
+
+  private val MaxBatchSizeOfIncompleteReassignmentOffsetTempTablePopulation: Int = 500
 
   private val baseColumnsForFlatTransactionsCreate =
     Seq(
@@ -91,12 +95,9 @@ object EventStorageBackendTemplate {
   val selectColumnsForFlatTransactionsExercise: String =
     baseColumnsForFlatTransactionsExercise.mkString(", ")
 
-  private val selectColumnsForACSEvents =
-    baseColumnsForFlatTransactionsCreate.map(c => s"create_evs.$c").mkString(", ")
-
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
-      Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Option[Int] ~ Option[Array[Byte]]
+      Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Int ~ Option[Array[Byte]]
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
@@ -111,7 +112,7 @@ object EventStorageBackendTemplate {
       str("workflow_id").? ~
       array[Int]("event_witnesses") ~
       array[Int]("submitters").? ~
-      int("domain_id").? ~
+      int("domain_id") ~
       byteArray("trace_context").?
 
   private type CreatedEventRow =
@@ -151,14 +152,6 @@ object EventStorageBackendTemplate {
   private type ArchiveEventRow = SharedRow
 
   private val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
-
-  private def extractTraceContext(
-      tcBytes: Option[Array[Byte]],
-      logger: TracedLogger,
-  ): TraceContext =
-    SerializableTraceContext
-      .fromDamlProtoSafeOpt(loggerWithoutTracing(logger))(tcBytes.map(ProtoTraceContext.parseFrom))
-      .traceContext
 
   private[common] def createdFlatEventParser(
       allQueryingParties: Set[Int],
@@ -210,7 +203,7 @@ object EventStorageBackendTemplate {
             ),
             driverMetadata = driverMetadata,
           ),
-          domainId = internedDomainId.map(stringInterning.domainId.unsafe.externalize),
+          domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
           traceContext = traceContext,
         )
     }
@@ -247,7 +240,7 @@ object EventStorageBackendTemplate {
                 .toArray
             ),
           ),
-          domainId = internedDomainId.map(stringInterning.domainId.unsafe.externalize),
+          domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
           traceContext = traceContext,
         )
     }
@@ -312,7 +305,7 @@ object EventStorageBackendTemplate {
             ),
             driverMetadata = driverMetadata,
           ),
-          domainId = internedDomainId.map(stringInterning.domainId.unsafe.externalize),
+          domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
           traceContext = traceContext,
         )
     }
@@ -361,7 +354,7 @@ object EventStorageBackendTemplate {
                 .toArray
             ),
           ),
-          domainId = internedDomainId.map(stringInterning.domainId.unsafe.externalize),
+          domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
           traceContext = traceContext,
         )
     }
@@ -773,37 +766,6 @@ abstract class EventStorageBackendTemplate(
       stringInterning = stringInterning,
     )
 
-  override def activeContractCreateEventBatch(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Ref.Party],
-      endInclusive: Long,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    val allInternedFilterParties = allFilterParties.iterator
-      .map(stringInterning.party.tryInternalize)
-      .flatMap(_.iterator)
-      .toSet
-    SQL"""
-      SELECT
-        #$selectColumnsForACSEvents,
-        flat_event_witnesses as event_witnesses,
-        '' AS command_id
-      FROM
-        participant_events_create create_evs
-      WHERE
-        create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-        AND NOT EXISTS (  -- check not archived as of snapshot
-          SELECT 1
-          FROM participant_events_consuming_exercise consuming_evs
-          WHERE
-            create_evs.contract_id = consuming_evs.contract_id
-            AND consuming_evs.event_sequential_id <= $endInclusive
-        )
-      ORDER BY
-        create_evs.event_sequential_id -- deliver in index order
-      """
-      .asVectorOf(rawFlatEventParser(allInternedFilterParties, stringInterning))(connection)
-  }
-
   // Improvement idea: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
   /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in the manner specified:
     * 1. entries from filter for create stakeholders for there is an archive for the corresponding create event,
@@ -820,8 +782,40 @@ abstract class EventStorageBackendTemplate(
   override def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit connection: Connection, traceContext: TraceContext): Unit = {
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+
+    val _ =
+      SQL"""
+          -- Create temporary table for storing incomplete reassignment offsets
+          CREATE LOCAL TEMPORARY TABLE IF NOT EXISTS temp_incomplete_reassignment_offsets (
+            incomplete_offset varchar PRIMARY KEY NOT NULL
+          ) ON COMMIT DELETE ROWS
+          """.execute()
+    val incompleteOffsetBatches = incompletReassignmentOffsets.distinct
+      .grouped(MaxBatchSizeOfIncompleteReassignmentOffsetTempTablePopulation)
+    Using.resource(
+      connection.prepareStatement(
+        "INSERT INTO temp_incomplete_reassignment_offsets(incomplete_offset) VALUES (?)"
+      )
+    ) { preparedStatement =>
+      incompleteOffsetBatches.zipWithIndex.foreach { case (batch, index) =>
+        batch.foreach { offset =>
+          preparedStatement.setString(1, offset.toHexString)
+          preparedStatement.addBatch()
+        }
+        val _ = preparedStatement.executeBatch()
+        logger.debug(
+          s"Uploaded incomplete offsets batch #${index + 1} / ${incompleteOffsetBatches.size}"
+        )
+      }
+    }
+    val _ =
+      SQL"${queryStrategy.analyzeTable("temp_incomplete_reassignment_offsets")}".execute()
+    logger.info(
+      s"Populated temp_incomplete_reassignment_offsets table with ${incompletReassignmentOffsets.size} entries"
+    )
 
     pruneIdFilterTables(pruneUpToInclusive)
 
@@ -831,12 +825,19 @@ abstract class EventStorageBackendTemplate(
           delete from participant_events_create delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            )"""
+            ${createIsArchivedOrUnassigned("delete_events", pruneUpToInclusive)}"""
+    }
+
+    pruneWithLogging(queryDescription = "Assign events pruning") {
+      SQL"""
+          -- Assigned events
+          delete from participant_events_assign delete_events
+          where
+            -- do not prune incomplete
+            ${reassignmentIsNotIncomplete("delete_events")}
+            -- only prune if it is archived in same domain, or unassigned later in the same domain
+            and ${assignIsArchivedOrUnassigned("delete_events", pruneUpToInclusive)}
+            and delete_events.event_offset <= $pruneUpToInclusive"""
     }
 
     if (pruneAllDivulgedContracts) {
@@ -873,7 +874,10 @@ abstract class EventStorageBackendTemplate(
           -- Exercise events (consuming)
           delete from participant_events_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive"""
+            -- do not prune if it is preceeded in the same domain by an incomplete assign
+            -- this is needed so that incomplete assign is not resulting in an active contract
+            ${deactivationIsNotDirectlyPreceededByIncompleteAssign("delete_events", "domain_id")}
+            and delete_events.event_offset <= $pruneUpToInclusive"""
     }
 
     pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
@@ -884,8 +888,29 @@ abstract class EventStorageBackendTemplate(
             delete_events.event_offset <= $pruneUpToInclusive"""
     }
 
-    pruneWithLogging(queryDescription = "transaction meta pruning") {
-      pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
+    pruneWithLogging(queryDescription = "Transaction Meta pruning") {
+      SQL"""
+           DELETE FROM
+              participant_transaction_meta m
+           WHERE
+            m.event_offset <= $pruneUpToInclusive
+         """
+    }
+
+    pruneWithLogging(queryDescription = "Unassign events pruning") {
+      SQL"""
+          -- Unassigned events
+          delete from participant_events_unassign delete_events
+          where
+            -- do not prune incomplete
+            ${reassignmentIsNotIncomplete("delete_events")}
+            -- do not prune if it is preceeded in the same domain by an incomplete assign
+            -- this is needed so that incomplete assign is not resulting in an active contract
+            and ${deactivationIsNotDirectlyPreceededByIncompleteAssign(
+          "delete_events",
+          "source_domain_id",
+        )}
+            and delete_events.event_offset <= $pruneUpToInclusive"""
     }
   }
 
@@ -893,22 +918,190 @@ abstract class EventStorageBackendTemplate(
       connection: Connection,
       traceContext: TraceContext,
   ): Unit = {
+    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+    // Improvement idea:
+    // In order to prune an id filter table we query two additional tables: create and consuming events tables.
+    // This can be simplified to query only the create events table if we ensure the ordering
+    // that create events tables are pruned before id filter tables.
+    def pruneIdFilterCreate(tableName: String): SimpleSql[Row] =
+      SQL"""
+            DELETE FROM
+              #$tableName id_filter
+            WHERE EXISTS (
+              SELECT * from participant_events_create c
+              WHERE
+              c.event_offset <= $pruneUpToInclusive
+              AND ${createIsArchivedOrUnassigned("c", pruneUpToInclusive)}
+              AND c.event_sequential_id = id_filter.event_sequential_id
+            )"""
+
+    // Improvement idea:
+    // In order to prune an id filter table we query an events table to discover
+    // the event offset corresponding.
+    // This query can simplified not to query the events table at all
+    // if we were to prune by the sequential id rather than by the offset.
+    def pruneIdFilterConsuming(
+        idFilterTableName: String
+    ): SimpleSql[Row] =
+      SQL"""
+            DELETE FROM
+              #$idFilterTableName id_filter
+            WHERE EXISTS (
+              SELECT * FROM participant_events_consuming_exercise events
+            WHERE
+              events.event_offset <= $pruneUpToInclusive
+              AND
+              ${deactivationIsNotDirectlyPreceededByIncompleteAssign("events", "domain_id")}
+              AND
+              events.event_sequential_id = id_filter.event_sequential_id
+            )"""
+
+    def pruneIdFilterNonConsuming(
+        idFilterTableName: String
+    ): SimpleSql[Row] =
+      SQL"""
+            DELETE FROM
+              #$idFilterTableName id_filter
+            WHERE EXISTS (
+              SELECT * FROM participant_events_non_consuming_exercise events
+            WHERE
+              events.event_offset <= $pruneUpToInclusive
+              AND
+              events.event_sequential_id = id_filter.event_sequential_id
+            )"""
+
     pruneWithLogging("Pruning id filter create stakeholder table") {
-      pruneIdFilterCreateStakeholder(pruneUpToInclusive)
+      pruneIdFilterCreate("pe_create_id_filter_stakeholder")
     }
     pruneWithLogging("Pruning id filter create non-stakeholder informee table") {
-      pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive)
+      pruneIdFilterCreate("pe_create_id_filter_non_stakeholder_informee")
     }
     pruneWithLogging("Pruning id filter consuming stakeholder table") {
-      pruneIdFilterConsumingStakeholder(pruneUpToInclusive)
+      pruneIdFilterConsuming(
+        idFilterTableName = "pe_consuming_id_filter_stakeholder"
+      )
     }
     pruneWithLogging("Pruning id filter consuming non-stakeholders informee table") {
-      pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive)
+      pruneIdFilterConsuming(
+        idFilterTableName = "pe_consuming_id_filter_non_stakeholder_informee"
+      )
     }
     pruneWithLogging("Pruning id filter non-consuming informee table") {
-      pruneIdFilterNonConsumingInformee(pruneUpToInclusive)
+      pruneIdFilterNonConsuming(
+        idFilterTableName = "pe_non_consuming_id_filter_informee"
+      )
+    }
+    pruneWithLogging("Pruning id filter assign stakeholder table") {
+      SQL"""
+          DELETE FROM pe_assign_id_filter_stakeholder id_filter
+          WHERE EXISTS (
+            SELECT * from participant_events_assign assign
+            WHERE
+              assign.event_offset <= $pruneUpToInclusive
+              AND ${assignIsArchivedOrUnassigned("assign", pruneUpToInclusive)}
+              AND ${reassignmentIsNotIncomplete("assign")}
+              AND assign.event_sequential_id = id_filter.event_sequential_id
+          )"""
+    }
+    pruneWithLogging("Pruning id filter unassign stakeholder table") {
+      SQL"""
+          DELETE FROM pe_unassign_id_filter_stakeholder id_filter
+          WHERE EXISTS (
+            SELECT * from participant_events_unassign unassign
+            WHERE
+            unassign.event_offset <= $pruneUpToInclusive
+            AND ${reassignmentIsNotIncomplete("unassign")}
+            AND ${deactivationIsNotDirectlyPreceededByIncompleteAssign(
+          "unassign",
+          "source_domain_id",
+        )}
+            AND unassign.event_sequential_id = id_filter.event_sequential_id
+          )"""
     }
   }
+
+  private def createIsArchivedOrUnassigned(
+      eventTableName: String,
+      pruneUpToInclusive: Offset,
+  ): CompositeSql =
+    eventIsArchivedOrUnassigned(eventTableName, pruneUpToInclusive, "domain_id")
+
+  private def assignIsArchivedOrUnassigned(
+      eventTableName: String,
+      pruneUpToInclusive: Offset,
+  ): CompositeSql =
+    eventIsArchivedOrUnassigned(eventTableName, pruneUpToInclusive, "target_domain_id")
+
+  private def eventIsArchivedOrUnassigned(
+      eventTableName: String,
+      pruneUpToInclusive: Offset,
+      eventDomainName: String,
+  ): CompositeSql = {
+    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+    cSQL"""
+          (
+            exists (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive
+                -- please note: this is the only indexed contraint, this is enough since there can be at most one archival
+                AND archive_events.contract_id = #$eventTableName.contract_id
+                AND archive_events.domain_id = #$eventTableName.#$eventDomainName
+            )
+            or
+            exists (
+              SELECT 1 FROM participant_events_unassign unassign_events
+              WHERE
+                unassign_events.event_offset <= $pruneUpToInclusive
+                AND unassign_events.contract_id = #$eventTableName.contract_id
+                AND unassign_events.source_domain_id = #$eventTableName.#$eventDomainName
+                -- with this constraint the index (contract_id, domain_id, event_sequential_id) can be used
+                -- and what we only need is one unassign later in the same domain
+                AND unassign_events.event_sequential_id > #$eventTableName.event_sequential_id
+              ${QueryStrategy.limitClause(Some(1))}
+            )
+          )
+          """
+  }
+
+  private def reassignmentIsNotIncomplete(eventTableName: String): CompositeSql =
+    cSQL"""
+          not exists (
+            select 1
+            from temp_incomplete_reassignment_offsets
+            where temp_incomplete_reassignment_offsets.incomplete_offset = #$eventTableName.event_offset
+          )"""
+
+  // the not exists (select where in (select limit 1)) contruction is the one which is compatible with H2
+  // other similar constructions with CTE/subqueries are working just fine with PG but not with H2 due
+  // to some impediment/bug not being able to recognize references to the deactivationTableName (it is also
+  // an experimental feature in H2)
+  // in case the PG version produces inefficient plans, the implementation need to be made polimorphic accordingly
+  // authors hope is that the in (select limit 1) clause will be materialized only once due to no relation to the
+  // incomplete temp table
+  // Please note! The limit clause is essential, otherwise contracts which move frequently accross domains can
+  // cause quadratic increase in query cost.
+  private def deactivationIsNotDirectlyPreceededByIncompleteAssign(
+      deactivationTableName: String,
+      deactivationDomainColumnName: String,
+  ): CompositeSql =
+    cSQL"""
+          not exists (
+            SELECT 1
+            FROM temp_incomplete_reassignment_offsets
+            WHERE
+              temp_incomplete_reassignment_offsets.incomplete_offset in (
+                SELECT assign_events.event_offset
+                FROM participant_events_assign assign_events
+                WHERE
+                  -- this one is backed by a (contract_id, event_sequential_id) index only
+                  assign_events.contract_id = #$deactivationTableName.contract_id
+                  AND assign_events.target_domain_id = #$deactivationTableName.#$deactivationDomainColumnName
+                  AND assign_events.event_sequential_id < #$deactivationTableName.event_sequential_id
+                ORDER BY event_sequential_id DESC
+                ${QueryStrategy.limitClause(Some(1))}
+              )
+          )"""
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(implicit
       connection: Connection,
@@ -941,106 +1134,6 @@ abstract class EventStorageBackendTemplate(
         // the first event sequential id after the ledger end
         ledgerEnd._2 + 1
       ) - 1
-  }
-
-  private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
-    pruneIdFilterCreate(
-      tableName = "pe_create_id_filter_stakeholder",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
-  private def pruneIdFilterCreateNonStakeholderInformee(
-      pruneUpToInclusive: Offset
-  ): SimpleSql[Row] =
-    pruneIdFilterCreate(
-      tableName = "pe_create_id_filter_non_stakeholder_informee",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
-  private def pruneIdFilterConsumingStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
-    pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_consuming_id_filter_stakeholder",
-      eventsTableName = "participant_events_consuming_exercise",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
-  private def pruneIdFilterConsumingNonStakeholderInformee(
-      pruneUpToInclusive: Offset
-  ): SimpleSql[Row] = {
-    pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_consuming_id_filter_non_stakeholder_informee",
-      eventsTableName = "participant_events_consuming_exercise",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-  }
-
-  private def pruneIdFilterNonConsumingInformee(pruneUpToInclusive: Offset): SimpleSql[Row] =
-    pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_non_consuming_id_filter_informee",
-      eventsTableName = "participant_events_non_consuming_exercise",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
-  private def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-    SQL"""
-         DELETE FROM
-            participant_transaction_meta m
-         WHERE
-          m.event_offset <= $pruneUpToInclusive
-       """
-  }
-
-  // Improvement idea:
-  // In order to prune an id filter table we query two additional tables: create and consuming events tables.
-  // This can be simplified to query only the create events table if we ensure the ordering
-  // that create events tables are pruned before id filter tables.
-  /** Prunes create events id filter table only for contracts archived before the specified offset
-    */
-  private def pruneIdFilterCreate(tableName: String, pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-    SQL"""
-          DELETE FROM
-            #$tableName id_filter
-          WHERE EXISTS (
-            SELECT * from participant_events_create c
-            WHERE
-            c.event_offset <= $pruneUpToInclusive
-            AND
-            EXISTS (
-              SELECT 1 FROM participant_events_consuming_exercise archive
-              WHERE
-                archive.event_offset <= $pruneUpToInclusive
-                AND
-                archive.contract_id = c.contract_id
-              )
-            AND
-            c.event_sequential_id = id_filter.event_sequential_id
-          )"""
-  }
-
-  // Improvement idea:
-  // In order to prune an id filter table we query an events table to discover
-  // the event offset corresponding.
-  // This query can simplified not to query the events table at all
-  // if we were to prune by the sequential id rather than by the offset.
-  private def pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName: String,
-      eventsTableName: String,
-      pruneUpToInclusive: Offset,
-  ): SimpleSql[Row] = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-    SQL"""
-          DELETE FROM
-            #$idFilterTableName id_filter
-          WHERE EXISTS (
-            SELECT * FROM #$eventsTableName events
-          WHERE
-            events.event_offset <= $pruneUpToInclusive
-            AND
-            events.event_sequential_id = id_filter.event_sequential_id
-          )"""
-
   }
 
   override def assignEventBatch(

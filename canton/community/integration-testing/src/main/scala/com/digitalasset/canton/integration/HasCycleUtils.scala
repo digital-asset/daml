@@ -34,7 +34,7 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
     }
 
     def p2acs(): Seq[LedgerApiTypeWrappers.WrappedCreatedEvent] =
-      participant2.ledger_api_v2.state.acs
+      participant2.ledger_api.state.acs
         .of_party(partyId)
         .filter(_.templateId.isModuleEntity("Cycle", "Cycle"))
         .map(entry => WrappedCreatedEvent(entry.event))
@@ -44,10 +44,10 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
     clue("creating cycle " + commandId) {
       createCycleContract(participant1, partyId, "I SHALL CREATE", commandId)
     }
-    val coid = participant2.ledger_api_v2.javaapi.state.acs.await(M.Cycle.COMPANION)(partyId)
+    val coid = participant2.ledger_api.javaapi.state.acs.await(M.Cycle.COMPANION)(partyId)
     val cycleEx = coid.id.exerciseArchive().commands.loneElement
     clue("submitting response") {
-      participant2.ledger_api_v2.javaapi.commands.submit(
+      participant2.ledger_api.javaapi.commands.submit(
         Seq(partyId),
         Seq(cycleEx),
         commandId = (if (commandId.isEmpty) "" else s"$commandId-response"),
@@ -68,7 +68,7 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
       participant.dars.upload(CantonExamplesPath)
     }
     val cycle = new M.Cycle(id, partyId.toProtoPrimitive).create.commands.loneElement
-    participant.ledger_api_v2.javaapi.commands
+    participant.ledger_api.javaapi.commands
       .submit(Seq(partyId), Seq(cycle), commandId = commandId)
 
   }

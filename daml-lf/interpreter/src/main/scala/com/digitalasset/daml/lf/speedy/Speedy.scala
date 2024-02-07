@@ -147,7 +147,6 @@ private[lf] object Speedy {
         packageName = packageName,
         templateId = templateId,
         arg = arg,
-        agreementText = "", // to be removed
         signatories = signatories,
         stakeholders = stakeholders,
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),

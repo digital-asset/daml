@@ -78,7 +78,6 @@ private[apiserver] final class ApiActiveContractsService private (
               filter = filters,
               verbose = request.verbose,
               activeAtO = activeAtO,
-              multiDomainEnabled = false,
             )
             .map(ApiConversions.toV1)
         }

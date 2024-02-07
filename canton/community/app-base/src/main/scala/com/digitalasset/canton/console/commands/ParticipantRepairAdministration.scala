@@ -364,6 +364,5 @@ abstract class LocalParticipantRepairAdministration(
 }
 
 object ParticipantRepairAdministration {
-  private val DefaultFile = "canton-acs-snapshot.gz"
   private val ExportAcsDefaultFile = "canton-acs-export.gz"
 }

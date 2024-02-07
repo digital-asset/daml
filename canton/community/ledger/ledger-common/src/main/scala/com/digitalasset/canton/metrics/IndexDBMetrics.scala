@@ -224,9 +224,6 @@ class MainIndexDBMetrics(
   val getActiveContractIdsForAssigned: DatabaseMetrics = createDbMetrics(
     "get_active_contract_ids_for_assigned"
   )
-  val getActiveContractBatchForNotArchived: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_batch_for_not_archived"
-  )
   val getActiveContractBatchForCreated: DatabaseMetrics = createDbMetrics(
     "get_active_contract_batch_for_created"
   )

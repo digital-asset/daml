@@ -237,12 +237,10 @@ object ApiPackageManagementServiceSpec {
       Set.empty,
       // TODO(#14706): revert to LanguageVersion.default once default's major version is 2
       LanguageVersion.v2_1,
-      Some(
-        Ast.PackageMetadata(
-          Ref.PackageName.assertFromString("aPackage"),
-          Ref.PackageVersion.assertFromString("0.0.0"),
-          None,
-        )
+      Ast.PackageMetadata(
+        Ref.PackageName.assertFromString("aPackage"),
+        Ref.PackageVersion.assertFromString("0.0.0"),
+        None,
       ),
     )
     Encode.encodeArchive(

@@ -155,6 +155,9 @@ abstract class ProtocolProcessor[
         .leftMap(steps.embedNoMediatorError)
         .mapK(FutureUnlessShutdown.outcomeK)
       submission <- steps.prepareSubmission(submissionParam, mediator, ephemeral, recentSnapshot)
+      _ = logger.debug(
+        s"Topology snapshot timestamp at submission: ${recentSnapshot.ipsSnapshot.timestamp}"
+      )
       result <- {
         submission match {
           case untracked: steps.UntrackedSubmission =>

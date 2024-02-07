@@ -113,7 +113,6 @@ private[apiserver] final class TransactionServiceImpl private (
         request.endInclusive,
         request.filter,
         request.verbose,
-        false,
       )
       .mapConcat(ApiConversions.toV1)
       .via(logger.enrichedDebugStream("Responding with transactions.", transactionsLoggable))
@@ -143,7 +142,6 @@ private[apiserver] final class TransactionServiceImpl private (
         request.endInclusive,
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
         request.verbose,
-        false,
       )
       .mapConcat(ApiConversions.toV1)
       .via(

@@ -205,7 +205,6 @@ class TransactionCoderSpec
           packageName = None,
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
-          agreementText = "", // to be removed
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           keyOpt = None,

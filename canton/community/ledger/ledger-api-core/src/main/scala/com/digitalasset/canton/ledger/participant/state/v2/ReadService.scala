@@ -151,8 +151,12 @@ trait ReadService extends ReportsHealth {
   def incompleteReassignmentOffsets(
       validAt: Offset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
-    throw new UnsupportedOperationException()
+  )(implicit traceContext: TraceContext): Future[Vector[Offset]] = {
+    val _ = validAt
+    val _ = stakeholders
+    val _ = traceContext
+    Future.successful(Vector.empty)
+  }
 }
 
 object ReadService {
