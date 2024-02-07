@@ -16,11 +16,15 @@ sealed abstract class TransactionVersion private (
   */
 object TransactionVersion {
 
+  // TODO(https://github.com/digital-asset/daml/issues/18240): delete V14 and V15 once canton stops
+  //  mentioning them.
   case object V14 extends TransactionVersion("14", 14)
   case object V15 extends TransactionVersion("15", 15)
-  case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val All = List(V14, V15, VDev)
+  case object V31 extends TransactionVersion("301", 301)
+  case object VDev extends TransactionVersion("3dev", Int.MaxValue)
+
+  val All = List(V14, V15, V31, VDev)
 
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
@@ -44,17 +48,23 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
+  // TODO(https://github.com/digital-asset/daml/issues/18240) remove these 3 feature flags and kill
+  //  the transitively dead code. Make sure canton doesn't mention them anymore.
   private[lf] val minExceptions = V14
   private[lf] val minByKey = V14
   private[lf] val minInterfaces = V15
+
+  private[lf] val minUpgrade = V31
+  private[lf] val minSharedKeys = V31
   private[lf] val minExplicitDisclosure = VDev
   private[lf] val minChoiceAuthorizers = VDev
-  private[lf] val minUpgrade = VDev
-  private[lf] val minSharedKeys = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
     Map(
+      // TODO(https://github.com/digital-asset/daml/issues/18240): v1 versions are only mentioned
+      //  here to ensure the map is total, which is tested elsewhere. But these versions are never
+      //  used by the daml3 engine. Once we delete the V1 LanguageMajorVersion, they will go away.
       v1_6 -> V14,
       v1_7 -> V14,
       v1_8 -> V14,
@@ -64,9 +74,7 @@ object TransactionVersion {
       v1_14 -> V14,
       v1_15 -> V15,
       v1_dev -> VDev,
-      // TODO(#17366): Map to TransactionVersion 2.1 once it exists.
-      v2_1 -> VDev,
-      // TODO(#17366): Map to TransactionVersion 2.dev once it exists.
+      v2_1 -> V31,
       v2_dev -> VDev,
     )
   }

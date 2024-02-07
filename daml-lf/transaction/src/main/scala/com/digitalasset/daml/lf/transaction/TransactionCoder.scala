@@ -238,7 +238,7 @@ object TransactionCoder {
         if (enclosingVersion < nodeVersion)
           Left(
             EncodeError(
-              s"A transaction of version $enclosingVersion cannot contain nodes of newer version ($nodeVersion)"
+              s"A transaction of version ${enclosingVersion.protoValue} cannot contain nodes of newer version ($nodeVersion)"
             )
           )
         else {
@@ -699,7 +699,7 @@ object TransactionCoder {
           case Right(nodeVersion) if (txVersion < nodeVersion) =>
             Left(
               DecodeError(
-                s"A transaction of version $txVersion cannot contain node of newer version (${protoNode.getVersion})"
+                s"A transaction of version ${txVersion.protoValue} cannot contain node of newer version (${protoNode.getVersion})"
               )
             )
           case otherwise => otherwise
@@ -945,11 +945,6 @@ object TransactionCoder {
     for {
       versionedBlob <- decodeVersioned(bytes)
       Versioned(version, unversioned) = versionedBlob
-      _ <- Either.cond(
-        version >= TransactionVersion.V14,
-        (),
-        DecodeError(s"version $version does not support FatContractInstance"),
-      )
       proto <- scala.util
         .Try(TransactionOuterClass.FatContractInstance.parseFrom(unversioned))
         .toEither
