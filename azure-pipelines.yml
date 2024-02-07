@@ -26,4 +26,3 @@ jobs:
   condition: False
 
 - template: ci/split-release-job.yml
-- template: ci/refresh-get-daml-com.yml
