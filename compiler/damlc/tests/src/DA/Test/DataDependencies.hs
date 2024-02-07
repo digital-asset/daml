@@ -2449,52 +2449,6 @@ tests TestArgs{..} =
             , "--project-root", path mainProj
             ]
 
-    , simpleImportTestOptions "retroactive interface instance of template from data-dependency"
-        optionsDev
-        [ "module Lib where"
-
-        , "template T with"
-        , "    p : Party"
-        , "  where"
-        , "    signatory p"
-        ]
-        [ "{-# OPTIONS_GHC -Werror #-}"
-        , "module Main where"
-        , "import Lib"
-
-        , "data EmptyInterfaceView = EmptyInterfaceView {}"
-
-        , "interface I where"
-        , "  viewtype EmptyInterfaceView"
-        , "  m : ()"
-        , "  interface instance I for T where"
-        , "    view = EmptyInterfaceView"
-        , "    m = ()"
-        ]
-
-    , simpleImportTestOptions "retroactive interface instance of qualified template from data-dependency"
-        optionsDev
-        [ "module Lib where"
-
-        , "template T with"
-        , "    p : Party"
-        , "  where"
-        , "    signatory p"
-        ]
-        [ "{-# OPTIONS_GHC -Werror #-}"
-        , "module Main where"
-        , "import qualified Lib"
-
-        , "data EmptyInterfaceView = EmptyInterfaceView {}"
-
-        , "interface I where"
-        , "  viewtype EmptyInterfaceView"
-        , "  m : ()"
-        , "  interface instance I for Lib.T where"
-        , "    view = EmptyInterfaceView"
-        , "    m = ()"
-        ]
-
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")

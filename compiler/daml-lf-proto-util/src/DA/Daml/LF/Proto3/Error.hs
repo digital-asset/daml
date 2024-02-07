@@ -25,7 +25,6 @@ data Error
   | DuplicateInterface TypeConName
   | DuplicateRequires (Qualified TypeConName)
   | DuplicateImplements (Qualified TypeConName)
-  | DuplicateCoImplements (Qualified TypeConName)
   | UnsupportedMinorVersion T.Text
   | BadStringId Int32
   | BadDottedNameId Int32

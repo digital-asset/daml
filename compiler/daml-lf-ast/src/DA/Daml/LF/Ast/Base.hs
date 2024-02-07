@@ -1022,7 +1022,6 @@ data DefInterface = DefInterface
   , intParam :: !ExprVarName
   , intChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
-  , intCoImplements :: !(NM.NameMap InterfaceCoImplements)
   , intView :: !Type
   }
   deriving (Eq, Data, Generic, NFData, Show)
@@ -1031,14 +1030,6 @@ data InterfaceMethod = InterfaceMethod
   { ifmLocation :: !(Maybe SourceLoc)
   , ifmName :: !MethodName
   , ifmType :: !Type
-  }
-  deriving (Eq, Data, Generic, NFData, Show)
-
--- | Interface instance in the interface declaration.
-data InterfaceCoImplements = InterfaceCoImplements
-  { iciTemplate :: !(Qualified TypeConName)
-  , iciBody :: !InterfaceInstanceBody
-  , iciLocation :: !(Maybe SourceLoc)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -1160,10 +1151,6 @@ instance NM.Named DefException where
 instance NM.Named DefInterface where
   type Name DefInterface = TypeConName
   name = intName
-
-instance NM.Named InterfaceCoImplements where
-  type Name InterfaceCoImplements = Qualified TypeConName
-  name = iciTemplate
 
 instance NM.Named Template where
   type Name Template = TypeConName

@@ -340,16 +340,6 @@ scenarioResultsToTestResults allPackages results =
         , (templateIdentifier, (pkgId, module_, templateInfo)) <- M.toList $ templatesDefinedIn [loe]
         , LF.TemplateImplements { tpiInterface }
             <- NM.toList $ LF.tplImplements templateInfo
-        ] ++
-        [ InterfaceInstanceIdentifier
-            { instanceTemplate = lfMkNameIdentifier pkgId module_ (LF.qualObject iciTemplate)
-            , instanceInterface = interfaceIdentifier
-            , instancePackage = package (unInterfaceIdentifier interfaceIdentifier)
-            }
-        | loe <- localOrExternals
-        , (interfaceIdentifier, (pkgId, module_, interfaceInfo)) <- M.toList $ interfacesDefinedIn [loe]
-        , LF.InterfaceCoImplements { iciTemplate }
-            <- NM.toList $ LF.intCoImplements interfaceInfo
         ]
 
     allCreatedTemplates :: M.Map TemplateIdentifier (S.Set PackageId)

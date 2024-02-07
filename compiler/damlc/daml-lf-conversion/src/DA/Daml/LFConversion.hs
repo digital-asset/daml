@@ -101,8 +101,6 @@ import           Control.Monad.Extra
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
-import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
-import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
@@ -694,7 +692,6 @@ convertInterface env mc intName ib =
       intRequires <- convertRequires (ibRequires ib)
       intMethods <- convertMethods (ibMethods ib)
       intChoices <- convertChoices env mc intName emptyTemplateBinds
-      intCoImplements <- convertCoImplements intName
       intView <- case ibViewType ib of
           Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
           Just viewType -> convertType env viewType
@@ -723,18 +720,6 @@ convertInterface env mc intName ib =
               }
         | (methodName, (retTy, loc)) <- MS.toList methods
         ]
-
-    convertCoImplements :: LF.TypeConName -> ConvertM (NM.NameMap InterfaceCoImplements)
-    convertCoImplements interface = NM.fromList <$>
-      mapM convertCoImplements1
-        (maybe [] interfaceInstanceGroupBinds (MS.lookup interface (mcInterfaceInstanceBinds mc)))
-      where
-        convertCoImplements1 :: InterfaceInstanceBinds -> ConvertM InterfaceCoImplements
-        convertCoImplements1 =
-          convertInterfaceInstance
-            (TemplateOrInterface.Interface interface)
-            (\_ template -> InterfaceCoImplements template)
-            env
 
 convertConsuming :: LF.Type -> ConvertM Consuming
 convertConsuming consumingTy = case consumingTy of
@@ -1172,34 +1157,26 @@ useSingleMethodDict env x _ =
 
 convertImplements :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
 convertImplements env mc tpl = NM.fromList <$>
-  mapM convertImplements1
+  mapM (convertInterfaceInstance tpl env)
     (maybe [] interfaceInstanceGroupBinds (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
-  where
-    convertImplements1 :: InterfaceInstanceBinds -> ConvertM TemplateImplements
-    convertImplements1 =
-      convertInterfaceInstance
-        (TemplateOrInterface.Template tpl)
-        (\iface _ -> TemplateImplements iface)
-        env
 
 convertInterfaceInstance ::
      SdkVersioned
-  => TemplateOrInterface' TypeConName
-  -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> Maybe SourceLoc -> r)
+  => TypeConName
   -> Env
   -> InterfaceInstanceBinds
-  -> ConvertM r
-convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
+  -> ConvertM TemplateImplements
+convertInterfaceInstance parent env iib = withRange (iibLoc iib) do
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
-  checkParent interfaceQualTypeCon templateQualTypeCon
+  checkParent templateQualTypeCon
   methods <- convertMethods (iibMethods iib)
   view <- convertView (iibView iib)
-  pure $ mkR
-    interfaceQualTypeCon
-    templateQualTypeCon
-    (InterfaceInstanceBody methods view)
-    (iibLoc iib)
+  pure $ TemplateImplements
+    { tpiInterface = interfaceQualTypeCon
+    , tpiBody = InterfaceInstanceBody methods view
+    , tpiLocation = iibLoc iib
+    }
   where
     qualifyInterfaceCon =
       convertInterfaceTyCon env handleIsNotInterface
@@ -1213,18 +1190,12 @@ convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
         handleIsNotTemplate tyCon =
           mkErr $ "'" <> prettyPrint tyCon <> "' is not a template"
 
-    checkParent interfaceQualTypeCon templateQualTypeCon =
-      case parent of
-        TemplateOrInterface.Template t ->
-          checkParent' "template" (qualifyLocally env t == templateQualTypeCon)
-        TemplateOrInterface.Interface i ->
-          checkParent' "interface" (qualifyLocally env i == interfaceQualTypeCon)
-      where
-        checkParent' tOrI check = do
-          unless check $ conversionError $ mkErr $ unwords
-            [ "The", tOrI, "of this interface instance does not match the"
-            , "enclosing", tOrI, "declaration."
-            ]
+    checkParent templateQualTypeCon =
+      unless (qualifyLocally env parent == templateQualTypeCon) $
+        conversionError $ mkErr $ unwords
+          [ "The template of this interface instance does not match the"
+          , "enclosing template declaration."
+          ]
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ InterfaceInstanceMethod k . (`ETmApp` EVar this) <$> convertExpr env v
