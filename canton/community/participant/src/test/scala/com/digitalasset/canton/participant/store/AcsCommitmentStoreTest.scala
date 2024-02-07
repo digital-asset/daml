@@ -22,12 +22,7 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{
-  BaseTest,
-  LfPartyId,
-  ProtocolVersionChecksAsyncWordSpec,
-  TestMetrics,
-}
+import com.digitalasset.canton.{BaseTest, LfPartyId, ProtocolVersionChecksAsyncWordSpec}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -132,7 +127,6 @@ trait AcsCommitmentStoreTest
     extends CommitmentStoreBaseTest
     with PrunableByTimeTest
     with SortedReconciliationIntervalsHelpers
-    with TestMetrics
     with ProtocolVersionChecksAsyncWordSpec {
 
   lazy val srip: SortedReconciliationIntervalsProvider =

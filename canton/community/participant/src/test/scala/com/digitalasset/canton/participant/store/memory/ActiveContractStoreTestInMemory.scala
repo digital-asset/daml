@@ -3,17 +3,16 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{BaseTest, TestMetrics}
 import org.scalatest.wordspec.AsyncWordSpec
 
 class ActiveContractStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with ActiveContractStoreTest
-    with TestMetrics {
+    with ActiveContractStoreTest {
 
   override protected implicit lazy val closeContext: CloseContext =
     HasTestCloseContext.makeTestCloseContext(logger)

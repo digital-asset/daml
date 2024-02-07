@@ -91,7 +91,6 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
             new DropwizardMetricsFactory(registry),
             NoOpMetricsFactory,
             registry,
-            true,
           )
         }
         (inMemoryState, inMemoryStateUpdaterFlow) <-

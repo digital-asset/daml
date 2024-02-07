@@ -7,12 +7,7 @@ import com.codahale.metrics
 import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.daml.metrics.{
-  ExecutorServiceMetrics,
-  HealthMetrics as DMHealth,
-  HistogramDefinition,
-  JvmMetricSet,
-}
+import com.daml.metrics.{HealthMetrics as DMHealth, HistogramDefinition, JvmMetricSet}
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
@@ -43,7 +38,6 @@ import scala.collection.concurrent.TrieMap
 final case class MetricsConfig(
     reporters: Seq[MetricsReporterConfig] = Seq.empty,
     reportJvmMetrics: Boolean = false,
-    reportExecutionContextMetrics: Boolean = false,
     histograms: Seq[HistogramDefinition] = Seq.empty,
 )
 
@@ -128,7 +122,6 @@ final case class MetricsFactory(
     reportJVMMetrics: Boolean,
     meter: Meter,
     factoryType: MetricsFactoryType,
-    reportExecutionContextMetrics: Boolean,
 ) extends AutoCloseable {
 
   @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
@@ -145,10 +138,6 @@ final case class MetricsFactory(
     Seq(participants, domains, sequencers, mediators)
   private def nodeMetricsExcept(toExclude: TrieMap[String, _]): Seq[TrieMap[String, _]] =
     allNodeMetrics filterNot (_ eq toExclude)
-
-  val executionServiceMetrics: ExecutorServiceMetrics = new ExecutorServiceMetrics(
-    createLabeledMetricsFactory(MetricsContext.Empty)
-  )
 
   object benchmark extends MetricsGroup(MetricName(MetricsFactory.prefix :+ "benchmark"), registry)
 
@@ -181,7 +170,6 @@ final case class MetricsFactory(
             participantMetricsContext
           ),
           participantRegistry,
-          reportExecutionContextMetrics,
         )
       },
     )
@@ -324,7 +312,6 @@ object MetricsFactory extends LazyLogging {
       config.reportJvmMetrics,
       openTelemetry.meterBuilder("canton").build(),
       metricsFactoryType,
-      config.reportExecutionContextMetrics,
     )
   }
 
