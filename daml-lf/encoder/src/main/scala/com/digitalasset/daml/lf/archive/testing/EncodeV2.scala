@@ -180,7 +180,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case KStar =>
           kStar
         case KNat =>
-          assertSince(LV.Features.numeric, "Kind.KNat")
           kNat
       }
 
@@ -216,13 +215,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       fun -> arg
     })
 
-    private def ignoreOneDecimalScaleParameter(typs: ImmArray[Type]): ImmArray[Type] =
-      typs match {
-        case ImmArrayCons(TNat(_), tail) => tail
-        case _ =>
-          sys.error(s"cannot encode the archive in LF < ${LV.Features.numeric.pretty}")
-      }
-
     private implicit def encodeType(typ: Type): PLF.Type =
       PLF.Type.newBuilder().setInterned(typeTable.insert(typ)).build()
 
@@ -243,7 +235,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           args.foldLeft(b)(_ addArgs _)
           builder.setVar(b)
         case TNat(n) =>
-          assertSince(LV.Features.numeric, "Type.TNat")
           builder.setNat(n.toLong)
         case TTyCon(tycon) =>
           builder.setCon(
@@ -251,10 +242,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           )
         case TBuiltin(bType) =>
           val (proto, typs) =
-            if (bType == BTNumeric && (languageVersion < LV.Features.numeric))
-              PLF.PrimType.DECIMAL -> ignoreOneDecimalScaleParameter(args)
-            else
-              builtinTypeInfoMap(bType).proto -> args
+            builtinTypeInfoMap(bType).proto -> args
           builder.setPrim(
             PLF.Type.Prim.newBuilder().setPrim(proto).accumulateLeft(typs)(_ addArgs _)
           )
@@ -481,11 +469,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case PLInt64(value) =>
           builder.setInt64(value)
         case PLNumeric(value) =>
-          if (languageVersion < LV.Features.numeric) {
-            assert(value.scale == Decimal.scale)
-            builder.setDecimalStr(Numeric.toUnscaledString(value))
-          } else
-            builder.setNumericInternedStr(stringsTable.insert(Numeric.toString(value)))
+          builder.setNumericInternedStr(stringsTable.insert(Numeric.toString(value)))
         case PLText(value) =>
           setString(value, builder.setTextInternedStr)
         case PLTimestamp(value) =>

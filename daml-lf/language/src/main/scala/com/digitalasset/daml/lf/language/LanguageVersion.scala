@@ -49,7 +49,6 @@ object LanguageVersion {
 
   object Features {
     val default = v2_1
-    val numeric = v2_1
     val anyType = v2_1
     val typeRep = v2_1
     val typeSynonyms = v2_1

@@ -803,7 +803,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         lfKind.getSumCase match {
           case PLF.Kind.SumCase.STAR => Ret(KStar)
           case PLF.Kind.SumCase.NAT =>
-            assertSince(LV.Features.numeric, "Kind.NAT")
             Ret(KNat)
           case PLF.Kind.SumCase.ARROW =>
             val kArrow = lfKind.getArrow
@@ -855,7 +854,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(types.foldLeft[Type](TVar(varName))(TApp))
           }
         case PLF.Type.SumCase.NAT =>
-          assertSince(LV.Features.numeric, "Type.NAT")
           Ret(
             Numeric.Scale
               .fromLong(lfType.getNat)
@@ -879,10 +877,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
-          val baseType =
+          val baseType: Type =
             if (prim.getPrim == PLF.PrimType.DECIMAL) {
-              assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
-              TDecimal
+              throw notSupportedError("PrimType.DECIMAL")
             } else {
               val info = builtinTypeInfoMap(prim.getPrim)
               assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
@@ -1808,7 +1805,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.PrimLit.SumCase.TEXT_INTERNED_STR =>
           PLText(getInternedStr(lfPrimLit.getTextInternedStr))
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
-          assertSince(LV.Features.numeric, "PrimLit.numeric")
           toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
         case PLF.PrimLit.SumCase.ROUNDING_MODE =>
           assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
@@ -1898,7 +1894,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(TEXTMAP, BTTextMap),
       BuiltinTypeInfo(GENMAP, BTGenMap),
       BuiltinTypeInfo(ARROW, BTArrow),
-      BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
+      BuiltinTypeInfo(NUMERIC, BTNumeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
@@ -1926,46 +1922,16 @@ private[lf] object DecodeV2 {
     import LV.Features._
     import PLF.BuiltinFunction._
     List(
-      BuiltinFunctionInfo(
-        ADD_DECIMAL,
-        BAddNumeric,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        SUB_DECIMAL,
-        BSubNumeric,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        MUL_DECIMAL,
-        BMulNumericLegacy,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        DIV_DECIMAL,
-        BDivNumericLegacy,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        ROUND_DECIMAL,
-        BRoundNumeric,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(MUL_NUMERIC_LEGACY, BMulNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric),
+      BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric),
+      BuiltinFunctionInfo(MUL_NUMERIC_LEGACY, BMulNumericLegacy),
       BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric),
-      BuiltinFunctionInfo(DIV_NUMERIC_LEGACY, BDivNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(DIV_NUMERIC_LEGACY, BDivNumericLegacy),
       BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric),
-      BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(CAST_NUMERIC_LEGACY, BCastNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric),
+      BuiltinFunctionInfo(CAST_NUMERIC_LEGACY, BCastNumericLegacy),
       BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric),
-      BuiltinFunctionInfo(SHIFT_NUMERIC_LEGACY, BShiftNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(SHIFT_NUMERIC_LEGACY, BShiftNumericLegacy),
       BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
@@ -1973,21 +1939,9 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(DIV_INT64, BDivInt64),
       BuiltinFunctionInfo(MOD_INT64, BModInt64),
       BuiltinFunctionInfo(EXP_INT64, BExpInt64),
-      BuiltinFunctionInfo(
-        INT64_TO_DECIMAL,
-        BInt64ToNumericLegacy,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        DECIMAL_TO_INT64,
-        BNumericToInt64,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(INT64_TO_NUMERIC_LEGACY, BInt64ToNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(INT64_TO_NUMERIC_LEGACY, BInt64ToNumericLegacy),
       BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric),
-      BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
+      BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
       BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
@@ -2005,38 +1959,8 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(GENMAP_SIZE, BGenMapSize),
       BuiltinFunctionInfo(APPEND_TEXT, BAppendText),
       BuiltinFunctionInfo(ERROR, BError),
-      BuiltinFunctionInfo(
-        LEQ_DECIMAL,
-        BLessEq,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
-      BuiltinFunctionInfo(
-        GEQ_DECIMAL,
-        BGreaterEq,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
-      BuiltinFunctionInfo(
-        LESS_DECIMAL,
-        BLess,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
-      BuiltinFunctionInfo(
-        GREATER_DECIMAL,
-        BGreater,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
       BuiltinFunctionInfo(INT64_TO_TEXT, BInt64ToText),
-      BuiltinFunctionInfo(
-        DECIMAL_TO_TEXT,
-        BNumericToText,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(NUMERIC_TO_TEXT, BNumericToText, minVersion = numeric),
+      BuiltinFunctionInfo(NUMERIC_TO_TEXT, BNumericToText),
       BuiltinFunctionInfo(TIMESTAMP_TO_TEXT, BTimestampToText),
       BuiltinFunctionInfo(PARTY_TO_TEXT, BPartyToText),
       BuiltinFunctionInfo(TEXT_TO_TEXT, BTextToText),
@@ -2045,13 +1969,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
-      BuiltinFunctionInfo(
-        TEXT_TO_DECIMAL,
-        BTextToNumericLegacy,
-        implicitParameters = List(TNat.Decimal),
-        maxVersion = Some(numeric),
-      ),
-      BuiltinFunctionInfo(TEXT_TO_NUMERIC_LEGACY, BTextToNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(TEXT_TO_NUMERIC_LEGACY, BTextToNumericLegacy),
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
@@ -2068,12 +1986,6 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(GREATER, BGreater),
       BuiltinFunctionInfo(GREATER_EQ, BGreaterEq),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
-      BuiltinFunctionInfo(
-        EQUAL_DECIMAL,
-        BEqual,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
       BuiltinFunctionInfo(SCALE_BIGNUMERIC, BScaleBigNumeric, minVersion = bigNumeric),
