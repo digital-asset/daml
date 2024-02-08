@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
 [![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=main&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=main)
 
-Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the Daml repository!
