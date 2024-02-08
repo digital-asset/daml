@@ -3,22 +3,22 @@
 
 package com.daml.ledger.rxjava;
 
-import com.daml.ledger.javaapi.data.CompletionStreamResponseV2;
-import com.daml.ledger.javaapi.data.ParticipantOffsetV2;
+import com.daml.ledger.javaapi.data.CompletionStreamResponse;
+import com.daml.ledger.javaapi.data.ParticipantOffset;
 import io.reactivex.Flowable;
 import java.util.List;
 
 /** An RxJava version of {@link com.daml.ledger.api.v1.CommandCompletionServiceGrpc} */
 public interface CommandCompletionClient {
 
-  Flowable<CompletionStreamResponseV2> completionStream(
-      String applicationId, ParticipantOffsetV2 offset, List<String> parties);
+  Flowable<CompletionStreamResponse> completionStream(
+      String applicationId, ParticipantOffset offset, List<String> parties);
 
-  Flowable<CompletionStreamResponseV2> completionStream(
-      String applicationId, ParticipantOffsetV2 offset, List<String> parties, String accessToken);
+  Flowable<CompletionStreamResponse> completionStream(
+      String applicationId, ParticipantOffset offset, List<String> parties, String accessToken);
 
-  Flowable<CompletionStreamResponseV2> completionStream(String applicationId, List<String> parties);
+  Flowable<CompletionStreamResponse> completionStream(String applicationId, List<String> parties);
 
-  Flowable<CompletionStreamResponseV2> completionStream(
+  Flowable<CompletionStreamResponse> completionStream(
       String applicationId, List<String> parties, String accessToken);
 }
