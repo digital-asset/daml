@@ -21,7 +21,7 @@ test = Trigger with
       cs -> do
         forA_ cs $ \(cid, _asset) -> do
           dedupExercise (toInterfaceContractId @Token cid) $ Transfer with newOwner = p1
-  registeredTemplates = AllInDar
+  registeredTemplates = AllTemplates
   heartbeat = None
 
 data EmptyInterfaceView = EmptyInterfaceView {}

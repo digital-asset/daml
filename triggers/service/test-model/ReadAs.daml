@@ -27,7 +27,7 @@ test = Trigger
       pure 1
   , updateState = \_ -> pure ()
   , rule = \_ -> pure ()
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 

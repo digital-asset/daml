@@ -413,7 +413,8 @@ object Trigger {
       })
 
     Machine.stepToValue(compiledPackages, registeredTemplates) match {
-      case SVariant(_, "AllInDar", _, _) =>
+      // "AllInDar" is there for backward compatibility with dars compiled with 2.8.x or earlier
+      case SVariant(_, "AllInDar" | "AllTemplates", _, _) =>
         Right(
           Filters(
             Some(
@@ -445,7 +446,7 @@ object Trigger {
         }
 
       case v =>
-        Left(s"Expected AllInDar or RegisteredTemplates but got $v")
+        Left(s"Expected AllInDar or AllTemplates or RegisteredTemplates but got $v")
     }
   }
 

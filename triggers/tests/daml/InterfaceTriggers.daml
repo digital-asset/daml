@@ -52,7 +52,7 @@ globalTrigger = Trigger with
   rule = \_ -> do
     debug "globalTrigger rule"
     pure ()
-  registeredTemplates = AllInDar
+  registeredTemplates = AllTemplates
   heartbeat = None
 
 triggerWithRegistration: Trigger ()

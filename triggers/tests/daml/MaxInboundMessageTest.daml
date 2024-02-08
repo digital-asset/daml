@@ -12,7 +12,7 @@ maxInboundMessageSizeTrigger = Trigger
   { initialize = pure ()
   , updateState = \_ -> pure ()
   , rule = maxInboundMessageSizeRule
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 

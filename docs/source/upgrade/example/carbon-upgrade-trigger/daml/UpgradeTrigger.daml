@@ -20,7 +20,7 @@ upgradeTrigger : Trigger ()
 upgradeTrigger = Trigger with
   initialize = pure ()
   updateState = \_msg -> pure ()
-  registeredTemplates = AllInDar
+  registeredTemplates = AllTemplates
   heartbeat = None
   rule = triggerRule
 -- TRIGGER_BOILERPLATE_END

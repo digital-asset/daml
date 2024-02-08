@@ -1,6 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Daml.Trigger.LowLevel
   ( Message(..)
@@ -33,7 +34,7 @@ module Daml.Trigger.LowLevel
   , fromExercise
   , fromExerciseByKey
   , fromCreateAndExercise
-  , RegisteredTemplates(..)
+  , RegisteredTemplates(AllInDar, ..)
   , registeredTemplate
   , RelTime(..)
   , execStateT
@@ -210,12 +211,16 @@ data BatchTrigger s = BatchTrigger
 newtype RegisteredTemplate = RegisteredTemplate TemplateTypeRep
 
 -- This controls which templates the trigger will receive events for.
--- `AllInDar` is a safe default but for performance reasons you might
--- want to limit it to limit the templates that the trigger will receive
--- events for.
+-- `AllTemplates` is a convenience default for development, but should be
+-- avoided in production as it forces the triggers to process a lot of
+-- unnecessary events.
 data RegisteredTemplates
-  = AllInDar -- ^ Listen to events for all templates in the given DAR.
+  = AllTemplates -- ^ Listen to events for all templates known by the triggers' runner.
   | RegisteredTemplates [RegisteredTemplate]
+
+{-# DEPRECATED AllInDar "Use AllTemplates instead" #-}
+pattern AllInDar : RegisteredTemplates
+pattern AllInDar = AllTemplates
 
 registeredTemplate : forall t. Template t => RegisteredTemplate
 registeredTemplate = RegisteredTemplate (templateTypeRep @t)

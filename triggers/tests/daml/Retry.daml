@@ -14,7 +14,7 @@ retryTrigger = Trigger
         | Failed {} <- c.status -> modify (subtract 1)
       _ -> pure ()
   , rule = retryRule
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 

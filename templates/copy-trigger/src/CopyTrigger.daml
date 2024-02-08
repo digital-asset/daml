@@ -53,7 +53,7 @@ copyTrigger = Trigger
   { initialize = pure ()
   , updateState = \_message -> pure ()
   , rule = copyRule
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 -- TRIGGER_END
