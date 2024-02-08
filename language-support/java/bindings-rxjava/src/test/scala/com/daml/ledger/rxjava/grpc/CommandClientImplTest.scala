@@ -11,7 +11,7 @@ import com.daml.ledger.api.v2.command_service.{
 }
 import com.daml.ledger.javaapi.data.{
   Command,
-  CommandsSubmissionV2,
+  CommandsSubmission,
   CreateCommand,
   DamlRecord,
   Identifier,
@@ -123,12 +123,12 @@ class CommandClientImplTest
     List(command).asJava
   }
 
-  private type SubmitAndWait[A] = CommandsSubmissionV2 => Single[A]
+  private type SubmitAndWait[A] = CommandsSubmission => Single[A]
 
   private def submitAndWaitFor[A](
       submit: SubmitAndWait[A]
   )(commands: java.util.List[Command], party: String, token: Option[String]) = {
-    val params = CommandsSubmissionV2
+    val params = CommandsSubmission
       .create(
         randomUUID().toString,
         randomUUID().toString,

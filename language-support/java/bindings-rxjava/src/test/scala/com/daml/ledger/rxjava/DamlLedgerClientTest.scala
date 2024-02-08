@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.javaapi.data.ParticipantOffsetV2.Absolute
+import com.daml.ledger.javaapi.data.ParticipantOffset.Absolute
 import com.daml.ledger.javaapi.data.{CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers._
 import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}

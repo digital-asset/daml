@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.javaapi.data.ParticipantOffsetV2.ParticipantBegin
+import com.daml.ledger.javaapi.data.ParticipantOffset.ParticipantBegin
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}

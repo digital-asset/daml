@@ -62,12 +62,12 @@ object TestUtil {
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)
   private def randomId = UUID.randomUUID().toString
 
-  def allTemplates(partyName: String) = new FiltersByPartyV2(
+  def allTemplates(partyName: String) = new FiltersByParty(
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 
   def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): Empty = {
-    val submission = CommandsSubmissionV2
+    val submission = CommandsSubmission
       .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)
       .withActAs(partyName)
@@ -89,7 +89,7 @@ object TestUtil {
       readAs: java.util.List[String],
       hasCmds: HasCommands*
   ): Empty = {
-    val submission = CommandsSubmissionV2
+    val submission = CommandsSubmission
       .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)
       .withActAs(actAs)
@@ -130,7 +130,7 @@ object TestUtil {
     // the ledger guarantees this.
     val txService = StateServiceGrpc.newBlockingStub(channel)
     val txs = txService.getActiveContracts(
-      new GetActiveContractsRequestV2(
+      new GetActiveContractsRequest(
         allTemplates(partyName),
         true,
         "",
@@ -140,7 +140,7 @@ object TestUtil {
     StreamSupport
       .stream(iterable.spliterator(), false)
       .flatMap[CreatedEvent]((r: GetActiveContractsResponse) =>
-        data.GetActiveContractsResponseV2
+        data.GetActiveContractsResponse
           .fromProto(r)
           .getContractEntry
           .map(_.getCreatedEvent)

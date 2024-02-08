@@ -11,11 +11,11 @@ import java.util.Set;
 /** An RxJava version of {@link com.daml.ledger.api.v1.ActiveContractsServiceGrpc} */
 public interface StateClient {
 
-  Flowable<GetActiveContractsResponseV2> getActiveContracts(
-      TransactionFilterV2 filter, boolean verbose);
+  Flowable<GetActiveContractsResponse> getActiveContracts(
+      TransactionFilter filter, boolean verbose);
 
-  Flowable<GetActiveContractsResponseV2> getActiveContracts(
-      TransactionFilterV2 filter, boolean verbose, String accessToken);
+  Flowable<GetActiveContractsResponse> getActiveContracts(
+      TransactionFilter filter, boolean verbose, String accessToken);
 
   /**
    * Get active Contracts
@@ -44,7 +44,7 @@ public interface StateClient {
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken);
 
-  Single<ParticipantOffsetV2> getLedgerEnd();
+  Single<ParticipantOffset> getLedgerEnd();
 
-  Single<ParticipantOffsetV2> getLedgerEnd(String accessToken);
+  Single<ParticipantOffset> getLedgerEnd(String accessToken);
 }

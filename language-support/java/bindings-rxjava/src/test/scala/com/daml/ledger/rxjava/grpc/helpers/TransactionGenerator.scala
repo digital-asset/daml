@@ -22,7 +22,7 @@ import java.time.Instant
 import java.util
 import java.util.Collections
 
-import com.daml.ledger.javaapi.data.Utils
+import com.daml.ledger.javaapi.data.{Transaction, TransactionTree, Utils}
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
@@ -315,7 +315,7 @@ object TransactionGenerator {
     case (scalaEvent, javaEvent) => (List(scalaEvent), List(javaEvent).asJava)
   }
 
-  val transactionGen: Gen[(LedgerItem, data.TransactionV2)] = for {
+  val transactionGen: Gen[(LedgerItem, Transaction)] = for {
     updateId <- nonEmptyId
     commandId <- nonEmptyId
     workflowId <- nonEmptyId
@@ -335,7 +335,7 @@ object TransactionGenerator {
       domainId,
       TraceContext.fromJavaProto(traceContext),
     ),
-    new data.TransactionV2(
+    new Transaction(
       updateId,
       commandId,
       workflowId,
@@ -347,7 +347,7 @@ object TransactionGenerator {
     ),
   )
 
-  val transactionTreeGen: Gen[(LedgerItem, data.TransactionTreeV2)] = for {
+  val transactionTreeGen: Gen[(LedgerItem, TransactionTree)] = for {
     updateId <- nonEmptyId
     commandId <- nonEmptyId
     workflowId <- nonEmptyId
@@ -367,7 +367,7 @@ object TransactionGenerator {
       domainId,
       TraceContext.fromJavaProto(traceContext),
     ),
-    new data.TransactionTreeV2(
+    new TransactionTree(
       updateId,
       commandId,
       workflowId,
@@ -380,13 +380,13 @@ object TransactionGenerator {
     ),
   )
 
-  val ledgerContentGen: Gen[(List[LedgerItem], List[data.TransactionV2])] =
+  val ledgerContentGen: Gen[(List[LedgerItem], List[Transaction])] =
     Gen.listOf(transactionGen).map(_.unzip)
 
-  val ledgerContentTreeGen: Gen[(List[LedgerItem], List[data.TransactionTreeV2])] =
+  val ledgerContentTreeGen: Gen[(List[LedgerItem], List[TransactionTree])] =
     Gen.listOf(transactionTreeGen).map(_.unzip)
 
-  val ledgerContentWithEventIdGen: Gen[(List[LedgerItem], String, data.TransactionTreeV2)] = for {
+  val ledgerContentWithEventIdGen: Gen[(List[LedgerItem], String, TransactionTree)] = for {
     (arbitraryLedgerContent, _) <- ledgerContentTreeGen
     (queriedLedgerContent, queriedTransaction) <- transactionTreeGen.suchThat(_._1.events.nonEmpty)
     ledgerContent = arbitraryLedgerContent :+ queriedLedgerContent
@@ -395,7 +395,7 @@ object TransactionGenerator {
     eventId = eventIdList.head
   } yield (ledgerContent, eventId, queriedTransaction)
 
-  val ledgerContentWithTransactionIdGen: Gen[(List[LedgerItem], String, data.TransactionTreeV2)] =
+  val ledgerContentWithTransactionIdGen: Gen[(List[LedgerItem], String, TransactionTree)] =
     for {
       (arbitraryLedgerContent, _) <- ledgerContentTreeGen
       (queriedLedgerContent, queriedTransaction) <- transactionTreeGen
@@ -403,7 +403,7 @@ object TransactionGenerator {
       updateId = queriedLedgerContent.updateId
     } yield (ledgerContent, updateId, queriedTransaction)
 
-  val nonEmptyLedgerContent: Gen[(List[LedgerItem], List[data.TransactionV2])] =
+  val nonEmptyLedgerContent: Gen[(List[LedgerItem], List[Transaction])] =
     Gen.nonEmptyListOf(transactionGen).map(_.unzip)
 
 }
