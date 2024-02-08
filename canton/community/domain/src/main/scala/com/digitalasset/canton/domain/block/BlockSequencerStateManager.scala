@@ -87,11 +87,6 @@ trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Unit]
 
-  /** Wait for a member to be available on the underlying ledger. Returns the timestamp at which the member was registered */
-  def waitForMemberToExist(
-      member: Member
-  )(implicit loggingContext: ErrorLoggingContext): Future[CantonTimestamp]
-
   /** Wait for a member to be disabled on the underlying ledger */
   def waitForMemberToBeDisabled(member: Member): Future[Unit]
 
@@ -116,7 +111,6 @@ class BlockSequencerStateManager(
     enableInvariantCheck: Boolean,
     private val initialMemberCounters: MemberCounters,
     override val maybeLowerSigningTimestampBound: Option[CantonTimestamp],
-    implicitMemberRegistration: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, closeContext: CloseContext)
@@ -219,18 +213,6 @@ class BlockSequencerStateManager(
     resolveSequencerPruning(timestamp, msg)
   }
 
-  override def waitForMemberToExist(
-      member: Member
-  )(implicit loggingContext: ErrorLoggingContext): Future[CantonTimestamp] = {
-    if (implicitMemberRegistration)
-      ErrorUtil.internalErrorAsync(
-        new IllegalStateException(
-          "Member registration is turned off. WaitForMemberToExist should not have been called. This is a bug."
-        )
-      )
-    else memberRegistrationPromises.getOrElseUpdate(member, Promise[CantonTimestamp]()).future
-  }
-
   override def waitForMemberToBeDisabled(member: Member): Future[Unit] =
     memberDisablementPromises.getOrElseUpdate(member, Promise[Unit]()).future
 
@@ -284,18 +266,6 @@ class BlockSequencerStateManager(
           startingAt >= SequencerCounter.Genesis,
           (),
           CreateSubscriptionError.InvalidCounter(startingAt): CreateSubscriptionError,
-        )
-        _ <- Either.cond(
-          // with implicitMemberRegistration, it can happen that the member subscribes before the implicit
-          // registration has happened.
-          implicitMemberRegistration || headState
-            .get()
-            .chunk
-            .ephemeral
-            .registeredMembers
-            .contains(member),
-          (),
-          CreateSubscriptionError.UnknownMember(member),
         )
         _ <- Either.cond(
           !headState.get().chunk.ephemeral.status.disabledClients.members.contains(member),
@@ -705,7 +675,6 @@ object BlockSequencerStateManager {
       sequencerId: SequencerId,
       store: SequencerBlockStore,
       enableInvariantCheck: Boolean,
-      implicitMemberRegistration: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -726,7 +695,6 @@ object BlockSequencerStateManager {
         enableInvariantCheck = enableInvariantCheck,
         initialMemberCounters = counters,
         maybeLowerSigningTimestampBound = maybeLowerSigningTimestampBound,
-        implicitMemberRegistration = implicitMemberRegistration,
         timeouts = timeouts,
         loggerFactory = loggerFactory,
       )

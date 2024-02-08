@@ -122,6 +122,7 @@ object RecipientsTest {
   lazy val p16 = ParticipantId("participant16")
   lazy val p17 = ParticipantId("participant17")
   lazy val p18 = ParticipantId("participant18")
+  lazy val p19 = ParticipantId("participant19")
 
   lazy val recP1 = participantRecipient(p1)
   lazy val recP2 = participantRecipient(p2)

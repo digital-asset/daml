@@ -34,8 +34,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   SequencerWriteError,
 }
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
-import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.protocol.{
@@ -169,7 +169,6 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
         new SimClock(loggerFactory = loggerFactory),
         testedProtocolVersion,
         rateLimitManager = None,
-        implicitMemberRegistration = true,
         OrderingTimeFixMode.MakeStrictlyIncreasing,
         processingTimeouts = BlockSequencerTest.this.timeouts,
         logEventDetails = true,
@@ -254,9 +253,6 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
     override def readEventsForMember(member: Member, startingAt: SequencerCounter)(implicit
         traceContext: TraceContext
     ): CreateSubscription = ???
-    override def waitForMemberToExist(member: Member)(implicit
-        loggingContext: ErrorLoggingContext
-    ): Future[CantonTimestamp] = ???
     override private[domain] def firstSequencerCounterServableForSequencer
         : com.digitalasset.canton.SequencerCounter = ???
     override def handleLocalEvent(

@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.Value;
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import java.util.function.Function;
 
 /**
@@ -24,22 +25,22 @@ public final class Choice<Tpl, ArgType, ResType> {
   final ValueDecoder<ArgType> argTypeDecoder;
   final ValueDecoder<ResType> returnTypeDecoder;
 
-  final Function<String, ArgType> argFromJson;
-  final Function<String, ResType> resultFromJson;
+  final JsonLfDecoder<ArgType> argJsonDecoder;
+  final JsonLfDecoder<ResType> resultJsonDecoder;
 
   private Choice(
       final String name,
       final Function<ArgType, Value> encodeArg,
       ValueDecoder<ArgType> argTypeDecoder,
       ValueDecoder<ResType> returnTypeDecoder,
-      Function<String, ArgType> argFromJson,
-      Function<String, ResType> resultFromJson) {
+      JsonLfDecoder<ArgType> argJsonDecoder,
+      JsonLfDecoder<ResType> resultJsonDecoder) {
     this.name = name;
     this.encodeArg = encodeArg;
     this.argTypeDecoder = argTypeDecoder;
     this.returnTypeDecoder = returnTypeDecoder;
-    this.argFromJson = argFromJson;
-    this.resultFromJson = resultFromJson;
+    this.argJsonDecoder = argJsonDecoder;
+    this.resultJsonDecoder = resultJsonDecoder;
   }
 
   /**
@@ -73,9 +74,9 @@ public final class Choice<Tpl, ArgType, ResType> {
       final Function<ArgType, Value> encodeArg,
       ValueDecoder<ArgType> argTypeDecoder,
       ValueDecoder<ResType> returnTypeDecoder,
-      Function<String, ArgType> argFromJson,
-      Function<String, ResType> resultFromJson) {
+      JsonLfDecoder<ArgType> argJsonDecoder,
+      JsonLfDecoder<ResType> resultJsonDecoder) {
     return new Choice<>(
-        name, encodeArg, argTypeDecoder, returnTypeDecoder, argFromJson, resultFromJson);
+        name, encodeArg, argTypeDecoder, returnTypeDecoder, argJsonDecoder, resultJsonDecoder);
   }
 }

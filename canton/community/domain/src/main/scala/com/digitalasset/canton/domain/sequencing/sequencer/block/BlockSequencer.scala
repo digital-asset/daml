@@ -26,7 +26,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
-  OperationError,
   RegisterMemberError,
   SequencerWriteError,
 }
@@ -62,7 +61,6 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 class BlockSequencer(
@@ -80,7 +78,6 @@ class BlockSequencer(
     clock: Clock,
     protocolVersion: ProtocolVersion,
     rateLimitManager: Option[SequencerRateLimitManager],
-    implicitMemberRegistration: Boolean,
     orderingTimeFixMode: OrderingTimeFixMode,
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
@@ -114,7 +111,6 @@ class BlockSequencer(
       topologyClientMember,
       stateManager.maybeLowerSigningTimestampBound,
       rateLimitManager,
-      implicitMemberRegistration,
       orderingTimeFixMode,
       loggerFactory,
     )(CloseContext(cryptoApi))
@@ -260,21 +256,13 @@ class BlockSequencer(
     for {
       timestampOfSigningKeyCheck <- ensureTimestampOfSigningKeyPresentForAggregationRule(submission)
       _ <- validateMaxSequencingTime(timestampOfSigningKeyCheck, submission)
-      memberCheck <-
-        if (implicitMemberRegistration) {
-          EitherT
-            .right[SendAsyncError](
-              cryptoApi.currentSnapshotApproximation.ipsSnapshot
-                .allMembers()
-                .map(allMembers =>
-                  (member: Member) => allMembers.contains(member) || !member.isAuthenticated
-                )
-            )
-        } else {
-          EitherT.rightT[Future, SendAsyncError]((member: Member) =>
-            stateManager.isMemberRegistered(member)
+      memberCheck <- EitherT.right[SendAsyncError](
+        cryptoApi.currentSnapshotApproximation.ipsSnapshot
+          .allMembers()
+          .map(allMembers =>
+            (member: Member) => allMembers.contains(member) || !member.isAuthenticated
           )
-        }
+      )
       _ <- SequencerValidations
         .checkSenderAndRecipientsAreRegistered(
           submission,
@@ -302,75 +290,36 @@ class BlockSequencer(
       traceContext: TraceContext
   ): EitherT[Future, CreateSubscriptionError, EventSource] = {
     logger.debug(s"Answering readInternal(member = $member, offset = $offset)")
-    if (implicitMemberRegistration) {
-      if (!member.isAuthenticated) {
-        // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
-        // and then proceeding with the subscription.
-        // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
-        EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-      } else {
-        EitherT
-          .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
-          .flatMap { isKnown =>
-            if (isKnown) {
-              EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-            } else {
-              EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
-            }
-          }
-      }
-    } else {
+    if (!member.isAuthenticated) {
+      // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
+      // and then proceeding with the subscription.
+      // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
       EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+    } else {
+      EitherT
+        .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
+        .flatMap { isKnown =>
+          if (isKnown) {
+            EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+          } else {
+            EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
+          }
+        }
     }
   }
 
   override def isRegistered(
       member: Member
   )(implicit traceContext: TraceContext): Future[Boolean] = {
-    if (implicitMemberRegistration) {
-      if (!member.isAuthenticated) Future.successful(true)
-      else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
-    } else {
-      logger.debug(s"Answering isRegistered(member = $member)")
-      Future.successful(stateManager.isMemberRegistered(member))
-    }
+    if (!member.isAuthenticated) Future.successful(true)
+    else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
   }
 
   override def registerMember(member: Member)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] = {
-    if (implicitMemberRegistration) {
-      // there is nothing extra to be done for member registration in Canton 3.x
-      EitherT.rightT[Future, SequencerWriteError[RegisterMemberError]](())
-    } else {
-      logger.debug(s"Registering $member at the $name sequencer")
-      if (stateManager.isMemberRegistered(member)) {
-        val error = OperationError(RegisterMemberError.AlreadyRegisteredError(member))
-        EitherT.leftT[Future, Unit](error)
-      } else {
-        val actuallyRegisteredF =
-          futureSupervisor.supervised(s"Waiting for member $member to be exist")(
-            stateManager.waitForMemberToExist(member)
-          )
-        for {
-          _ <- blockSequencerOps.register(member)
-          // wait for the blockchain to reflect that the member is registered
-          _ <- EitherT[Future, SequencerWriteError[
-            RegisterMemberError
-          ], CantonTimestamp](
-            actuallyRegisteredF.map(Right(_)).recover { case NonFatal(throwable) =>
-              logger.error("Failed waiting for the member registration event", throwable)
-              Left(
-                OperationError(
-                  RegisterMemberError
-                    .UnexpectedError(member, "Failed waiting for the member registration event")
-                )
-              )
-            }
-          )
-        } yield ()
-      }
-    }
+    // there is nothing extra to be done for member registration in Canton 3.x
+    EitherT.rightT[Future, SequencerWriteError[RegisterMemberError]](())
   }
 
   /** Important: currently both the disable member and the prune functionality on the block sequencer are

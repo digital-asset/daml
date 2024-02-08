@@ -58,11 +58,7 @@ public abstract class ContractWithKey<Id, Data, Key> extends Contract<Id, Data> 
   }
 
   // Returns an encoder for the key if present, or null otherwise.
-  // TODO(raphael-speyer-da): Make abstract once https://github.com/digital-asset/daml/pull/18198
-  // goes through and all generated classes do in fact define this method.
-  public JsonLfEncoder keyJsonEncoder() {
-    return null;
-  }
+  public abstract JsonLfEncoder keyJsonEncoder();
 
   public String keyToJson() {
     JsonLfEncoder enc = keyJsonEncoder();

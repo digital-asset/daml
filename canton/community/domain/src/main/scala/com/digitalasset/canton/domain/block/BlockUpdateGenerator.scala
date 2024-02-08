@@ -93,7 +93,6 @@ class BlockUpdateGenerator(
     topologyClientMember: Member,
     maybeLowerSigningTimestampBound: Option[CantonTimestamp],
     rateLimitManager: Option[SequencerRateLimitManager],
-    implicitMemberRegistration: Boolean,
     orderingTimeFixMode: OrderingTimeFixMode,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val closeContext: CloseContext)
@@ -175,10 +174,8 @@ class BlockUpdateGenerator(
       blockEvents: Seq[Traced[LedgerBlockEvent]]
   ): Seq[NonEmpty[Seq[Traced[LedgerBlockEvent]]]] = {
     def possibleTopologyEvent(event: LedgerBlockEvent): Boolean = event match {
-      case Send(_, signedSubmissionRequest) if implicitMemberRegistration =>
-        signedSubmissionRequest.content.batch.allRecipients.contains(AllMembersOfDomain)
       case Send(_, signedSubmissionRequest) =>
-        signedSubmissionRequest.content.batch.allMembers.contains(topologyClientMember)
+        signedSubmissionRequest.content.batch.allRecipients.contains(AllMembersOfDomain)
       case _ => false
     }
 
@@ -410,78 +407,73 @@ class BlockUpdateGenerator(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Map[Member, CantonTimestamp]] = {
-    if (implicitMemberRegistration) {
-      fixedTsChanges
-        .parFoldMapA {
-          case (_, Traced(Send(_, _)), Left(_)) =>
-            // trying to get the signingsnapshot failed previously. since we'll anyway reject the request further down the line,
-            // we don't need to detect new members in the recipients
-            FutureUnlessShutdown.pure(Seq.empty)
+    fixedTsChanges
+      .parFoldMapA {
+        case (_, Traced(Send(_, _)), Left(_)) =>
+          // trying to get the signingsnapshot failed previously. since we'll anyway reject the request further down the line,
+          // we don't need to detect new members in the recipients
+          FutureUnlessShutdown.pure(Seq.empty)
 
-          case (sequencingTimestamp, Traced(Send(_, event)), Right(signingSnapshotO)) =>
-            def recipientIsKnown(topologySnapshot: TopologySnapshot, member: Member) = {
-              if (!member.isAuthenticated) Future.successful(Nil)
-              else
-                topologySnapshot
-                  .isMemberKnown(member)
-                  .map(Option.when(_)(member).toList)
-            }
+        case (sequencingTimestamp, Traced(Send(_, event)), Right(signingSnapshotO)) =>
+          def recipientIsKnown(topologySnapshot: TopologySnapshot, member: Member)
+              : Future[Option[Member]] = {
+            if (!member.isAuthenticated) Future.successful(None)
+            else
+              topologySnapshot
+                .isMemberKnown(member)
+                .map(Option.when(_)(member))
+          }
 
-            import event.content.sender
-            for {
-              topologySnapshot <- SyncCryptoClient
-                .getSnapshotForTimestampUS(
-                  domainSyncCryptoApi,
-                  sequencingTimestamp,
-                  state.latestTopologyClientTimestamp,
-                  protocolVersion,
-                  warnIfApproximate = false,
-                )
-                .map(_.ipsSnapshot)
-              signingOrSequencingSnapshot = signingSnapshotO
-                .map(_.ipsSnapshot)
-                .getOrElse(topologySnapshot)
-
-              groupToMembers <- FutureUnlessShutdown.outcomeF(
-                resolveGroupsToMembers(
-                  event.content.batch.allRecipients.collect { case groupRecipient: GroupRecipient =>
-                    groupRecipient
-                  },
-                  signingOrSequencingSnapshot,
-                )
+          import event.content.sender
+          for {
+            topologySnapshot <- SyncCryptoClient
+              .getSnapshotForTimestampUS(
+                domainSyncCryptoApi,
+                sequencingTimestamp,
+                state.latestTopologyClientTimestamp,
+                protocolVersion,
+                warnIfApproximate = false,
               )
-              memberRecipients = event.content.batch.allRecipients.collect {
-                case MemberRecipient(member) => member
-              }
-              knownMemberRecipientsOrSender <- FutureUnlessShutdown.outcomeF(
-                (memberRecipients.toSeq :+ sender).parFoldMapA(
-                  recipientIsKnown(topologySnapshot, _)
-                )
-              )
-            } yield {
-              val knownGroupMembers = groupToMembers.values.flatten
-              val allowUnauthenticatedSender = Option.when(!sender.isAuthenticated)(sender).toList
+              .map(_.ipsSnapshot)
+            signingOrSequencingSnapshot = signingSnapshotO
+              .map(_.ipsSnapshot)
+              .getOrElse(topologySnapshot)
 
-              val allMembersInSubmission =
-                Set.empty ++ knownGroupMembers ++ knownMemberRecipientsOrSender ++ allowUnauthenticatedSender
-              (allMembersInSubmission -- state.ephemeral.registeredMembers)
-                .map(_ -> sequencingTimestamp)
-                .toSeq
+            groupToMembers <- FutureUnlessShutdown.outcomeF(
+              resolveGroupsToMembers(
+                event.content.batch.allRecipients.collect { case groupRecipient: GroupRecipient =>
+                  groupRecipient
+                },
+                signingOrSequencingSnapshot,
+              )
+            )
+            memberRecipients = event.content.batch.allRecipients.collect {
+              case MemberRecipient(member) => member
             }
-          case (_, _, _) => FutureUnlessShutdown.pure(Seq.empty)
-        }
-        .map(
-          _.groupBy(_._1)
-            .flatMap { case (member, tss) => tss.map(_._2).minOption.map(member -> _) }
-        )
-    } else {
-      FutureUnlessShutdown.pure(fixedTsChanges.collect {
-        // to support idempotency we ignore new requests to add already existing members
-        case (ts, Traced(AddMember(member)), _)
-            if !state.ephemeral.registeredMembers.contains(member) =>
-          member -> ts
-      }.toMap)
-    }
+            eligibleSenders = event.content.aggregationRule.fold(Seq.empty[Member])(
+              _.eligibleSenders
+            )
+            knownMemberRecipientsOrSender <- FutureUnlessShutdown.outcomeF(
+              (eligibleSenders ++ memberRecipients.toSeq :+ sender).parTraverseFilter(
+                recipientIsKnown(topologySnapshot, _)
+              )
+            )
+          } yield {
+            val knownGroupMembers = groupToMembers.values.flatten
+            val allowUnauthenticatedSender = Option.when(!sender.isAuthenticated)(sender).toList
+
+            val allMembersInSubmission =
+              Set.empty ++ knownGroupMembers ++ knownMemberRecipientsOrSender ++ allowUnauthenticatedSender
+            (allMembersInSubmission -- state.ephemeral.registeredMembers)
+              .map(_ -> sequencingTimestamp)
+              .toSeq
+          }
+        case (_, _, _) => FutureUnlessShutdown.pure(Seq.empty)
+      }
+      .map(
+        _.groupBy(_._1)
+          .flatMap { case (member, tss) => tss.map(_._2).minOption.map(member -> _) }
+      )
   }
 
   private def processAcknowledgements(
