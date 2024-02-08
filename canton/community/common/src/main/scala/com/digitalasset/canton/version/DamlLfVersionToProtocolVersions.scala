@@ -17,6 +17,7 @@ object DamlLfVersionToProtocolVersions {
       TransactionVersion.V14 -> ProtocolVersion.v30,
       // Interfaces
       TransactionVersion.V15 -> ProtocolVersion.v30,
+      TransactionVersion.V31 -> ProtocolVersion.v30,
       TransactionVersion.VDev -> ProtocolVersion.v30,
     )
 
