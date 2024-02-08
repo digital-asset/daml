@@ -312,25 +312,6 @@ da_scala_library(
 ]
 
 daml_compile(
-    name = "upgrades-test",
-    srcs = [":daml/upgrades/UpgradesTest.daml"],
-    data_dependencies = [
-        "//daml-script/test:upgrades-my-templates-v1.dar",
-        "//daml-script/test:upgrades-my-templates-v2.dar",
-    ],
-    dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
-    ],
-    module_prefixes = {
-        "upgrades-my-templates-1.0.0": "V1",
-        "upgrades-my-templates-2.0.0": "V2",
-    },
-    project_name = "upgrades-test",
-    target = "2.dev",
-    version = "0.0.1",
-)
-
-daml_compile(
     name = "upgrades-my-templates-v1",
     srcs = [":daml/upgrades/v1/MyTemplates.daml"],
     project_name = "upgrades-my-templates",
