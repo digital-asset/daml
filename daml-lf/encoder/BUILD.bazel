@@ -122,10 +122,6 @@ da_scala_binary(
         args = [
             "$(location //daml-lf/repl:repl)",
             "$(location :testing-dar-%s)" % target,
-            "--v2" if version_in(
-                target,
-                v2_minor_version_range = ("0", "dev"),
-            ) else "",
             "--dev" if (lf_version_is_dev(target) or target == lf_version_configuration.get("preview")) else "",
         ],
         data = [

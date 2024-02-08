@@ -155,7 +155,7 @@ object ReplServiceMain extends App {
           maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
           applicationId = None,
-          majorLanguageVersion = LanguageMajorVersion.V1,
+          majorLanguageVersion = LanguageMajorVersion.V2,
         ),
       )
   }

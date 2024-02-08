@@ -117,8 +117,7 @@ class DecodeV2Spec
   private[this] val dummyModuleStr = "dummyModule"
   private[this] val dummyModuleName = Ref.DottedName.assertFromString(dummyModuleStr)
 
-  // TODO(https://github.com/digital-asset/daml/issues/18240): revert to [[All]] once V1 is gone
-  private[this] val lfVersions = LV.All.filter(_.major == LV.Major.V2)
+  private[this] val lfVersions = LV.All
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
     lfVersions.foreach { version =>
@@ -1483,7 +1482,7 @@ class DecodeV2Spec
     val observersExpr = DamlLf2.Expr.newBuilder().setVarInternedStr(2).build()
     val bodyExp = DamlLf2.Expr.newBuilder().setVarInternedStr(5).build()
 
-    "reject choice without observers if lv version >= 1.11" in {
+    "reject choice without observers" in {
 
       val protoChoiceWithoutObservers = DamlLf2.TemplateChoice
         .newBuilder()
