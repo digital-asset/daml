@@ -49,7 +49,6 @@ object LanguageVersion {
 
   object Features {
     val default = v2_1
-    val anyType = v2_1
     val bigNumeric = v2_1
     val exceptions = v2_1
     val packageUpgrades = v2_1
