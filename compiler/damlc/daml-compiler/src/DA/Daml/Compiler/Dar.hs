@@ -26,12 +26,10 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
-import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
 import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
-import DA.Pretty (renderPretty)
 import qualified DA.Service.Logger as Logger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -137,19 +135,12 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
                  mbUpgradedPackage <-
-                   forM pUpgradedPackagePath $ \path ->
-                     if lfVersion `LF.supports` LF.featurePackageUpgrades
-                       then do
-                         ExtractedDar{edMain} <- liftIO $ extractDar path
-                         let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-                         case Archive.decodeArchive Archive.DecodeAsMain bs of
-                            Left _ -> error $ "Could not decode path " ++ path
-                            Right (pid, package) -> return (pid, package)
-                       else do
-                         liftIO $
-                           IdeLogger.logError (ideLogger service) $
-                             renderPretty $ EUnsupportedFeature LF.featurePackageUpgrades
-                         MaybeT (pure Nothing)
+                   forM pUpgradedPackagePath $ \path -> do
+                     ExtractedDar{edMain} <- liftIO $ extractDar path
+                     let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
+                     case Archive.decodeArchive Archive.DecodeAsMain bs of
+                        Left _ -> error $ "Could not decode path " ++ path
+                        Right (pid, package) -> return (pid, package)
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion

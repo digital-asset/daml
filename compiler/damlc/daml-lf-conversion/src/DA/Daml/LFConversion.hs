@@ -822,12 +822,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , NameIn DA_Internal_Template_Functions "HasDynamicExercise" <- cls
     -> pure []
 
-    -- Remove HasSoftFetch instances when softFetch is unsupported
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , Just cls <- tyConClass_maybe t
-    , NameIn DA_Internal_Template_Functions "HasSoftFetch" <- cls
-    -> pure []
-
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
@@ -1377,20 +1371,6 @@ convertBind env mc (name, x)
     = pure []
     | not (envLfVersion env `supports` featureDynamicExercise)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasDynamicExercise") _ <- name
-    = pure []
-
-    -- Remove softFetch when unsupported
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , "$c_softFetch" `T.isPrefixOf` getOccText name
-    = pure []
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , NameIn DA_Internal_Template_Functions "_softFetch" <- name
-    = pure []
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , NameIn DA_Internal_Template_Functions "softFetch" <- name
-    = pure []
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasSoftFetch") _ <- name
     = pure []
 
     -- Remove internal functions.
