@@ -476,5 +476,6 @@ da_scala_test_suite(
         "//test-common/canton/it-lib",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_netty",
     ],
 )

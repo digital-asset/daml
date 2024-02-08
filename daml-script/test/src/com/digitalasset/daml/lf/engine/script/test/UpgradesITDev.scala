@@ -6,15 +6,14 @@ package test
 
 import io.circe._
 import io.circe.yaml
-import java.io.FileInputStream
 import java.nio.file.{Files, Path, Paths}
 import java.nio.charset.StandardCharsets
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
-import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
-import com.google.protobuf.ByteString
+import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
+import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -54,16 +53,27 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
           // Build dars
           (testDarPath, deps) <- Future { buildTestCaseDar(testCase) }
 
+          // Connection
+          clients <- scriptClients(provideAdminPorts = true)
+
           // Upload dars
-          ledgerClient <- defaultLedgerClient()
-          _ <- Future.traverse(deps) { dep =>
-            ledgerClient.packageManagementClient.uploadDarFile(
-              ByteString.readFrom(new FileInputStream(dep.path.toFile))
+          _ <- Future.traverse(ledgerPorts) { portInfo =>
+            val adminClient = AdminLedgerClient.singleHost(
+              "localhost",
+              portInfo.adminPort.value,
+              None,
+              LedgerClientChannelConfiguration.InsecureDefaults,
             )
+
+            Future.traverse(deps) { dep =>
+              println(
+                s"Uploading ${dep.versionedName} to participant on port ${portInfo.ledgerPort.value}"
+              )
+              adminClient.uploadDar(dep.path, dep.versionedName)
+            }
           }
 
           // Run tests
-          clients <- scriptClients(provideAdminPorts = true)
           testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
           _ <- run(
             clients,
@@ -160,12 +170,12 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     val dir = tmpDir.resolve("daml-package-" + p.name)
     buildModules(p, dir)
     (1 to p.versions).toSeq.map { version =>
-      val path = buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}"))
+      val path =
+        buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}"))
       DataDep(
         versionedName = s"${p.name}-${version}.0.0",
         path,
         prefix = s"V${version}",
-        packageId = PackageId.assertFromString(ArchiveParser.fromFile(path).toOption.get.getHash),
       )
     }
   }
@@ -174,7 +184,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       versionedName: String,
       path: Path,
       prefix: String,
-      packageId: PackageId,
   )
 
   def writeDamlYaml(

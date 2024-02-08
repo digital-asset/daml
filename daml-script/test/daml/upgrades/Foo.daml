@@ -10,6 +10,7 @@ modules:
       x : Text
       V1(x = "V1")
       V2(x = "V2")
+      template Test with p: Party where signatory p
 -}
 
 module Foo where
@@ -23,4 +24,6 @@ main : Script ()
 main = do
   V1.Lib.x === "V1"
   V2.Lib.x === "V2"
+  a <- allocateParty "alice"
+  a `submit` createCmd (V2.Lib.Test with p = a)
   pure ()

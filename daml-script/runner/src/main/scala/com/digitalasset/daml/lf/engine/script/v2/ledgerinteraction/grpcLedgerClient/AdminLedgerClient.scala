@@ -10,10 +10,12 @@ import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatin
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
+import com.google.protobuf.ByteString
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
-import java.io.Closeable
+import java.io.{Closeable, FileInputStream}
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 final class AdminLedgerClient private (
@@ -57,6 +59,18 @@ final class AdminLedgerClient private (
 
   def unvetDar(name: String): Future[Unit] =
     findDarHash(name).flatMap(unvetDarByHash)
+
+  def uploadDar(path: Path, name: String): Future[Unit] =
+    packageServiceStub
+      .uploadDar(
+        admin_package_service.UploadDarRequest(
+          data = ByteString.readFrom(new FileInputStream(path.toFile)),
+          filename = name,
+          vetAllPackages = true,
+          synchronizeVetting = true,
+        )
+      )
+      .map(_ => ())
 
   override def close(): Unit = GrpcChannel.close(channel)
 }
