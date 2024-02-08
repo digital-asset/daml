@@ -10,6 +10,7 @@ import java.io.FileInputStream
 import java.nio.file.{Files, Path, Paths}
 import java.nio.charset.StandardCharsets
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
+import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
@@ -159,11 +160,12 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     val dir = tmpDir.resolve("daml-package-" + p.name)
     buildModules(p, dir)
     (1 to p.versions).toSeq.map { version =>
+      val path = buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}"))
       DataDep(
         versionedName = s"${p.name}-${version}.0.0",
-        path =
-          buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}")),
+        path,
         prefix = s"V${version}",
+        packageId = PackageId.assertFromString(ArchiveParser.fromFile(path).toOption.get.getHash),
       )
     }
   }
@@ -172,6 +174,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       versionedName: String,
       path: Path,
       prefix: String,
+      packageId: PackageId,
   )
 
   def writeDamlYaml(
