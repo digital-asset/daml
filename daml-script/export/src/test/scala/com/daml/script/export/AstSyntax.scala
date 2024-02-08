@@ -4,7 +4,7 @@
 package com.daml.script.export
 
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.language.{Ast, StablePackagesV1}
+import com.daml.lf.language.{Ast, StablePackagesV2}
 import com.daml.lf.language.Util._
 
 private[export] object AstSyntax {
@@ -14,7 +14,7 @@ private[export] object AstSyntax {
     }
   }
   def tuple(tys: Ast.Type*): Ast.Type = {
-    val tupleName = StablePackagesV1.DA_Types.assertIdentifier("Tuple" + tys.length.toString)
+    val tupleName = StablePackagesV2.DA_Types.assertIdentifier("Tuple" + tys.length.toString)
     TTyConApp(tupleName, tys.to(ImmArray))
   }
   val vFoo: Ref.Name = Ref.Name.assertFromString("foo")

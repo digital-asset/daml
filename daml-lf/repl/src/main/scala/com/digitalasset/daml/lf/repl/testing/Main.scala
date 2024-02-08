@@ -51,21 +51,13 @@ object Main extends App {
         |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
 
-  // This is not great as it assumes a certain order of the flags, but this is going away with daml3
-  // daml3 so we don't need to invest time into better flag parsing.
-  val (args1, majorLanguageVersion) = args.toList match {
-    case "--v2" :: rest =>
-      rest -> LanguageMajorVersion.V2
-    case list =>
-      list -> LanguageMajorVersion.V1
-  }
-  val (replArgs, compilerConfig) = args1 match {
+  val (replArgs, compilerConfig) = args.toList match {
     case "--dev" :: rest =>
-      rest -> Repl.devCompilerConfig(majorLanguageVersion)
+      rest -> Repl.devCompilerConfig(LV.default.major)
     case list =>
-      list -> Repl.defaultCompilerConfig(majorLanguageVersion)
+      list -> Repl.defaultCompilerConfig(LV.default.major)
   }
-  val repl = new Repl(majorLanguageVersion)
+  val repl = new Repl(LV.default.major)
   replArgs match {
     case "-h" :: _ | "--help" :: _ =>
       usage()

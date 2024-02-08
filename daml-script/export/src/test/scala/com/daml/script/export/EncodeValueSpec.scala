@@ -4,9 +4,10 @@
 package com.daml.script.export
 
 import com.daml.ledger.api.v1.{value => v}
+import com.daml.lf.language.{LanguageVersion, StablePackages}
+
 import java.time.{Instant, LocalDate, OffsetDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
-
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.google.protobuf.empty.Empty
 import org.scalatest.freespec.AnyFreeSpec
@@ -61,7 +62,7 @@ class EncodeValueSpec extends AnyFreeSpec with Matchers {
     "tuple" in {
       def tupleId(n: Int): v.Identifier = v
         .Identifier()
-        .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+        .withPackageId(StablePackages(LanguageVersion.default.major).DA_Types.packageId)
         .withModuleName("DA.Types")
         .withEntityName(s"Tuple$n")
       def tuple(vals: v.Value*): v.Value = {

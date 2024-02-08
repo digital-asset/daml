@@ -19,22 +19,13 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
       targetLfVersion(Seq.empty) shouldBe None
     }
     "single DALF" in {
-      targetLfVersion(Seq(v1_14)) shouldBe Some(v1_14)
+      targetLfVersion(Seq(v2_1)) shouldBe Some(v2_1)
     }
     "multiple DALFs" in {
-      targetLfVersion(Seq(v1_14, v1_dev)) shouldBe Some(v1_dev)
-    }
-    "should be at least 1.14" in {
-      targetLfVersion(Seq(v1_6)) shouldBe Some(v1_14)
+      targetLfVersion(Seq(v2_1, v2_dev)) shouldBe Some(v2_dev)
     }
   }
   "targetFlag" - {
-    "1.14" in {
-      targetFlag(v1_14) shouldBe "--target=1.14"
-    }
-    "1.dev" in {
-      targetFlag(v1_dev) shouldBe "--target=1.dev"
-    }
     "2.1" in {
       targetFlag(v2_1) shouldBe "--target=2.1"
     }
@@ -57,7 +48,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
       val pkg: Ast.Package = Ast.Package(
         modules = Map.empty[Ref.ModuleName, Ast.GenModule[Ast.Expr]],
         directDeps = Set.empty[PackageId],
-        languageVersion = LanguageVersion.v1_8,
+        languageVersion = LanguageVersion.v2_1,
         metadata = Ast.PackageMetadata(
           name = Ref.PackageName.assertFromString("example-pkg"),
           version = Ref.PackageVersion.assertFromString("1.0.0"),
@@ -74,7 +65,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
       val pkg: Ast.Package = Ast.Package(
         modules = Map.empty[Ref.ModuleName, Ast.GenModule[Ast.Expr]],
         directDeps = Set.empty[PackageId],
-        languageVersion = LanguageVersion.v1_8,
+        languageVersion = LanguageVersion.v2_1,
         metadata = Ast.PackageMetadata(
           name = Ref.PackageName.assertFromString("daml-stdlib"),
           version = Ref.PackageVersion.assertFromString("0.0.0"),

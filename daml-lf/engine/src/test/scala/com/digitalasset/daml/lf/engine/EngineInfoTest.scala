@@ -12,22 +12,17 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
   "EngineInfo" should {
 
     val Seq(
-      engineInfoLegacy,
       engineInfoStable,
       engineEarlyAccess,
       engineInfoV2,
     ) =
       List(
-        LanguageVersion.LegacyVersions,
         LanguageVersion.StableVersions(LanguageMajorVersion.V2),
         LanguageVersion.EarlyAccessVersions(LanguageMajorVersion.V2),
         LanguageVersion.AllVersions(LanguageMajorVersion.V2),
       ).map(versions => new EngineInfo(EngineConfig(allowedLanguageVersions = versions)))
 
     "show supported LF, Transaction and Value versions" in {
-
-      engineInfoLegacy.show shouldBe
-        "Daml-LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13, 1.14, 1.15"
 
       engineInfoStable.show shouldBe
         "Daml-LF Engine supports LF versions: 2.1"

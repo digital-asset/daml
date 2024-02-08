@@ -28,23 +28,13 @@ object LanguageVersion {
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
-    case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
-      Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
     case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
-    case (LanguageVersion(Major.V2, _), LanguageVersion(Major.V1, _)) =>
-      1
-    case (_, _) =>
-      -1
   }
 
-  val All = {
-    val v1Versions = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
-    val v2Versions = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
-    v1Versions ++ v2Versions
-  }
+  val All = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_1, v2_dev) =
+  val List(v2_1, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")
 
   object Features {
@@ -78,13 +68,8 @@ object LanguageVersion {
     */
   def StableVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] =
     majorLanguageVersion match {
-      case Major.V1 => throw new IllegalArgumentException("LF V1 is no longer supported")
       case Major.V2 => VersionRange(v2_1, v2_1)
     }
-
-  /** Versions of LF that are no longer supported. */
-  val LegacyVersions: VersionRange[LanguageVersion] =
-    VersionRange(min = v1_6, max = v1_15)
 
   /** All the stable and preview versions for a given major language version.
     * Equals [[StableVersions(majorLanguageVersion)]] if no preview version is available.
@@ -98,7 +83,6 @@ object LanguageVersion {
     */
   def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
     majorLanguageVersion match {
-      case Major.V1 => throw new IllegalArgumentException("LF V1 is no longer supported")
       case Major.V2 => VersionRange(v2_1, v2_dev)
     }
   }
@@ -110,7 +94,6 @@ object LanguageVersion {
     */
   def defaultOrLatestStable(majorLanguageVersion: LanguageMajorVersion): LanguageVersion = {
     majorLanguageVersion match {
-      case Major.V1 => throw new IllegalArgumentException("LF V1 is no longer supported")
       case Major.V2 => v2_1
     }
   }
