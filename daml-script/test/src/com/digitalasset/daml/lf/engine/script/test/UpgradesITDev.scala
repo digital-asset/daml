@@ -6,6 +6,7 @@ package test
 
 import io.circe._
 import io.circe.yaml
+import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.nio.charset.StandardCharsets
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
@@ -42,6 +43,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   lazy val tempDir: Path = Files.createTempDirectory("upgrades-it-dev")
 
+  val testLib: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/TestLib.daml"))
   val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
   val testCases: Seq[TestCase] = getTestCases(testFileDir)
 
@@ -69,6 +71,8 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
               println(
                 s"Uploading ${dep.versionedName} to participant on port ${portInfo.ledgerPort.value}"
               )
+              // TODO[SW] This doesn't wait :(
+              // Add back the package-id to DataDep and wait for upload to finish.
               adminClient.uploadDar(dep.path, dep.versionedName)
             }
           }
@@ -218,6 +222,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
     val dars = testCase.pkgDefs.flatMap(buildPackages(_, testCaseRoot))
     Files.copy(testCase.damlPath, testCasePkg.resolve(testCase.damlRelPath))
+    Files.copy(testLib, testCasePkg.resolve("TestLib.daml"))
     val testDar = buildDar(testCasePkg, testCase.name, 1, dars)
     (testDar, dars)
   }
@@ -251,8 +256,12 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     cases
   }
 
+  // Exclude `TestLib` as a testing file
+  def isTest(file: File): Boolean =
+    file.getName.endsWith(".daml") && file.toPath != testLib
+
   def getTestCasesUnsafe(testFileDir: Path): Seq[TestCase] =
-    testFileDir.toFile.listFiles(_.getName.endsWith(".daml")).toSeq.map { testFile =>
+    testFileDir.toFile.listFiles(isTest _).toSeq.map { testFile =>
       val damlPath = testFile.toPath
       val damlRelPath = testFileDir.relativize(damlPath)
       TestCase(
