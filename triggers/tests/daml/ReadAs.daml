@@ -37,7 +37,7 @@ test = Trigger
           -- we submitted a command and we observed the transaction.
           modify (+1)
         _ -> pure ()
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 

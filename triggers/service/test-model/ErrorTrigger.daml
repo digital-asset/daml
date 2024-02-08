@@ -10,7 +10,7 @@ trigger = Trigger with
   initialize = pure ()
   updateState = \_ -> pure ()
   rule = triggerRule
-  registeredTemplates = AllInDar
+  registeredTemplates = AllTemplates
   heartbeat = None
 
 triggerRule : Party -> TriggerA () ()

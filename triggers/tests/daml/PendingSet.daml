@@ -39,7 +39,7 @@ booTrigger = Trigger with
   initialize = pure ()
   updateState = \_ -> pure ()
   rule = booRule
-  registeredTemplates = AllInDar
+  registeredTemplates = AllTemplates
   heartbeat = None
 
 booRule : Party -> TriggerA () ()

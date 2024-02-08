@@ -11,7 +11,7 @@ createAndExerciseTrigger = Trigger
   { initialize = pure ()
   , updateState = \_ -> pure ()
   , rule = createAndExerciseRule
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 
