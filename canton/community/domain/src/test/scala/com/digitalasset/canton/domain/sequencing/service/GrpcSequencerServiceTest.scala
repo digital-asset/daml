@@ -35,7 +35,7 @@ import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySn
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
-  TopologyTransactionXTestFactory,
+  TopologyTransactionTestFactoryX,
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.{
@@ -135,7 +135,7 @@ class GrpcSequencerServiceTest
     private val topologyInitService: TopologyStateForInitializationService =
       new TopologyStateForInitializationService {
         val factoryX =
-          new TopologyTransactionXTestFactory(loggerFactory, initEc = parallelExecutionContext)
+          new TopologyTransactionTestFactoryX(loggerFactory, initEc = parallelExecutionContext)
 
         override def initialSnapshot(member: Member)(implicit
             executionContext: ExecutionContext,

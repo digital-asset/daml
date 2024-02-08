@@ -70,7 +70,6 @@ abstract class BlockSequencerFactory(
       driverClock: Clock,
       protocolVersion: ProtocolVersion,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,
@@ -109,7 +108,6 @@ abstract class BlockSequencerFactory(
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -143,7 +141,6 @@ abstract class BlockSequencerFactory(
         sequencerId,
         store,
         nodeParameters.enableAdditionalConsistencyChecks,
-        implicitMemberRegistration,
         nodeParameters.processingTimeouts,
         domainLoggerFactory,
       )
@@ -165,7 +162,6 @@ abstract class BlockSequencerFactory(
         driverClock,
         protocolVersion,
         rateLimitManager,
-        implicitMemberRegistration,
         orderingTimeFixMode,
         initialBlockHeight,
         domainLoggerFactory,

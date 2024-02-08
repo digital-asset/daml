@@ -38,7 +38,6 @@ trait SequencerFactory extends AutoCloseable {
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -78,7 +77,6 @@ class CommunityDatabaseSequencerFactory(
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
