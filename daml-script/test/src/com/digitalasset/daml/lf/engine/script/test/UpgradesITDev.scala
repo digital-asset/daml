@@ -10,6 +10,7 @@ import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.nio.charset.StandardCharsets
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
@@ -180,6 +181,8 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
         versionedName = s"${p.name}-${version}.0.0",
         path,
         prefix = s"V${version}",
+        packageId =
+          PackageId.assertFromString(DarParser.assertReadArchiveFromFile(path.toFile).main.getHash),
       )
     }
   }
@@ -188,6 +191,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       versionedName: String,
       path: Path,
       prefix: String,
+      packageId: PackageId,
   )
 
   def writeDamlYaml(
