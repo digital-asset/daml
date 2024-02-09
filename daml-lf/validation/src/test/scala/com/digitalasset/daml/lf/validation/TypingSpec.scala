@@ -405,13 +405,13 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         E"λ (e: Mod:I) → (( create_by_interface @Mod:I e))" ->
           T"Mod:I → (( Update (ContractId Mod:I) ))",
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
-          T"ContractId Mod:T → Int64 → (( Update Numeric 10 ))",
+          T"ContractId Mod:T → Int64 → (( Update (Numeric 10) ))",
         E"λ (e₁: ContractId Mod:I) (e₂: Int64) → (( exercise_interface @Mod:I ChIface e₁ e₂ ))" ->
-          T"ContractId Mod:I → Int64 → (( Update Numeric 10 ))",
+          T"ContractId Mod:I → Int64 → (( Update (Numeric 10) ))",
         E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool) → (( exercise_interface_with_guard @Mod:I ChIface e₁ e₂ e₃ ))" ->
-          T"ContractId Mod:I → Int64 → (Mod:I → Bool) → (( Update Numeric 10 ))",
+          T"ContractId Mod:I → Int64 → (Mod:I → Bool) → (( Update (Numeric 10) ))",
         E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
-          T"Party → Int64 → (( Update Numeric 10 ))",
+          T"Party → Int64 → (( Update (Numeric 10) ))",
         E"λ (e: ContractId Mod:T) → (( fetch_template @Mod:T e ))" ->
           T"ContractId Mod:T → (( Update Mod:T ))",
         E"λ (e: ContractId Mod:I) → (( fetch_interface @Mod:I e ))" ->
