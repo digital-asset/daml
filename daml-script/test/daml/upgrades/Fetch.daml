@@ -3,7 +3,7 @@
 
 module Fetch (main) where
 
-import TestLib
+import UpgradeTestLib
 import qualified V1.Fetch as V1
 import qualified V2.Fetch as V2
 import DA.Text
@@ -78,7 +78,7 @@ fetchDowngradedSome = do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = Some "hi"
   let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
   eV1Name <- a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
-  
+
   case eV1Name of
     Left (DevError Upgrade msg)
       | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg

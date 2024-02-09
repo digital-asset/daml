@@ -3,7 +3,7 @@
 
 module Query (main) where
 
-import TestLib
+import UpgradeTestLib
 import qualified V1.Query as V1
 import qualified V2.Query as V2
 

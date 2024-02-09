@@ -40,10 +40,10 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
   )
 
   lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.dev.dar")
+  lazy val upgradeTestLibDar: Path = rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar"))
 
   lazy val tempDir: Path = Files.createTempDirectory("upgrades-it-dev")
 
-  val testLib: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/TestLib.daml"))
   val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
   val testCases: Seq[TestCase] = getTestCases(testFileDir)
 
@@ -207,6 +207,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
          |  - daml-stdlib
          |  - ${damlScriptDar.toString}
          |data-dependencies:
+         |  - ${upgradeTestLibDar.toString}
          |${darFiles.map("  - " + _).mkString("\n")}
          |${dataDeps.map(d => "  - " + d.path.toString).mkString("\n")}
          |module-prefixes:
@@ -222,7 +223,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
     val dars = testCase.pkgDefs.flatMap(buildPackages(_, testCaseRoot))
     Files.copy(testCase.damlPath, testCasePkg.resolve(testCase.damlRelPath))
-    Files.copy(testLib, testCasePkg.resolve("TestLib.daml"))
     val testDar = buildDar(testCasePkg, testCase.name, 1, dars)
     (testDar, dars)
   }
@@ -256,9 +256,8 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     cases
   }
 
-  // Exclude `TestLib` as a testing file
   def isTest(file: File): Boolean =
-    file.getName.endsWith(".daml") && file.toPath != testLib
+    file.getName.endsWith(".daml")
 
   def getTestCasesUnsafe(testFileDir: Path): Seq[TestCase] =
     testFileDir.toFile.listFiles(isTest _).toSeq.map { testFile =>

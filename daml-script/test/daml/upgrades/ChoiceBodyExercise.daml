@@ -3,7 +3,7 @@
 
 module ChoiceBodyExercise (main) where
 
-import TestLib
+import UpgradeTestLib
 import qualified V1.ChoiceBodyExercise as V1
 import qualified V2.ChoiceBodyExercise as V2
 

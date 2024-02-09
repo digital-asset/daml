@@ -327,6 +327,17 @@ daml_compile(
     version = "2.0.0",
 )
 
+daml_compile(
+    name = "upgrade-test-lib",
+    srcs = [":daml/UpgradeTestLib.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script-2.dev.dar",
+    ],
+    project_name = "upgrade-test-lib",
+    target = "2.dev",
+    version = "1.0.0",
+)
+
 da_scala_test_suite(
     name = "test",
     size = "large",
@@ -410,6 +421,7 @@ da_scala_test_suite(
     ] for lf in LF_DEV_VERSIONS] for dep in deps] + [
         ":script-test-no-ledger.dar",
         ":upgrade-test-files",
+        ":upgrade-test-lib.dar",
         ":upgrades-my-templates-v1.dar",
         ":upgrades-my-templates-v2.dar",
         "//compiler/damlc",
