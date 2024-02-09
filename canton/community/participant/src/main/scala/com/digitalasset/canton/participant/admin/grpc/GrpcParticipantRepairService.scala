@@ -26,7 +26,7 @@ import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, OptionUtil, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
@@ -265,8 +265,20 @@ final class GrpcParticipantRepairService(
           .from(cids)
           .toRight(RepairServiceError.InvalidArgument.Error("Missing contract ids to purge"))
 
+        offboardedParties <- request.offboardedParties
+          .traverse(LfPartyId.fromString)
+          .leftMap(err =>
+            RepairServiceError.InvalidArgument
+              .Error(s"Unable to parse party from `offboarded_parties`: $err")
+          )
+
         _ <- sync.repairService
-          .purgeContracts(domain, cidsNE, request.ignoreAlreadyPurged)
+          .purgeContracts(
+            domain,
+            cidsNE,
+            NonEmpty.from(offboardedParties.toSet),
+            request.ignoreAlreadyPurged,
+          )
           .leftMap(RepairServiceError.ContractPurgeError.Error(domain, _))
       } yield ()
 
@@ -486,16 +498,58 @@ final class GrpcParticipantRepairService(
   ): StreamObserver[ImportAcsRequest] = {
     // TODO(i12481): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
-    val workflowIdPrefix = new AtomicReference[String]
+
+    val workflowIdPrefix = new AtomicReference[Option[String]](None)
+    val hostedParties = new AtomicReference[Option[Set[LfPartyId]]](None)
+
+    /* Update the atomic reference with the new value if there is not conflict
+     * return An error if the parsed value differs from the previously read value
+     */
+    def updateValue[T](existing: AtomicReference[Option[T]], parsed: T): Either[String, Unit] = {
+      val oldValueO = existing.getAndSet(Some(parsed))
+
+      oldValueO match {
+        case Some(oldValue) =>
+          Either.cond(oldValue == parsed, (), s"Cannot override `$oldValue` with parsed `$parsed`")
+        case None => Right(())
+      }
+    }
 
     new StreamObserver[ImportAcsRequest] {
-      override def onNext(value: ImportAcsRequest): Unit = {
-        Try(outputStream.write(value.acsSnapshot.toByteArray)) match {
+      override def onNext(importAcsRequest: ImportAcsRequest): Unit = {
+        Try(outputStream.write(importAcsRequest.acsSnapshot.toByteArray)) match {
           case Failure(exception) =>
             outputStream.close()
             responseObserver.onError(exception)
+
           case Success(_) =>
-            workflowIdPrefix.set(value.workflowIdPrefix)
+            updateValue(workflowIdPrefix, importAcsRequest.workflowIdPrefix).left.foreach { err =>
+              outputStream.close()
+              responseObserver.onError(
+                new IllegalArgumentException(
+                  s"Unable to update from `workflowIdPrefix`: $err"
+                )
+              )
+            }
+
+            val res = for {
+              _ <- updateValue(workflowIdPrefix, importAcsRequest.workflowIdPrefix).leftMap(err =>
+                s"Unable to update from `workflow_id_prefix`: $err"
+              )
+
+              parsedOnboardedParties <- importAcsRequest.onboardedParties
+                .traverse(LfPartyId.fromString)
+                .leftMap(err => s"Unable to parse hosted_parties: $err")
+
+              _ <- updateValue(hostedParties, parsedOnboardedParties.toSet).leftMap(err =>
+                s"Unable to update from `hosted_parties`: $err"
+              )
+            } yield ()
+
+            res.left.foreach { error =>
+              outputStream.close()
+              responseObserver.onError(new IllegalArgumentException(error))
+            }
         }
       }
 
@@ -538,7 +592,8 @@ final class GrpcParticipantRepairService(
                         ),
                         ignoreAlreadyAdded = true,
                         ignoreStakeholderCheck = true,
-                        workflowIdPrefix = Option(workflowIdPrefix.get()),
+                        hostedParties = hostedParties.get().flatMap(NonEmpty.from),
+                        workflowIdPrefix = workflowIdPrefix.get(),
                       )
                     )
                   } yield ()
@@ -650,10 +705,6 @@ final class GrpcParticipantRepairService(
       implicit traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
     for {
-      protocolVersion <- EitherT.fromOption[Future](
-        sync.protocolVersionGetter(Traced(domainId)),
-        ifNone = s"Domain ID's protocol version not found: $domainId",
-      )
       alias <- EitherT.fromEither[Future](
         sync.aliasManager
           .aliasForDomainId(domainId)
@@ -663,6 +714,7 @@ final class GrpcParticipantRepairService(
         sync.repairService.addContracts(
           alias,
           contracts.map(contract => RepairContract(contract, Set.empty)),
+          hostedParties = None,
           ignoreAlreadyAdded = true,
           ignoreStakeholderCheck = true,
         )

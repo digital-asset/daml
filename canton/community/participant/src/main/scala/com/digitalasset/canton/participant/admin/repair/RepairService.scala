@@ -210,13 +210,14 @@ final class RepairService(
   private def readRepairContractCurrentState(
       domain: RepairRequest.DomainData,
       repairContract: RepairContract,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
       ignoreAlreadyAdded: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Option[ContractToAdd]] =
     for {
       acsState <- readContractAcsState(domain.persistentState, repairContract.contract.contractId)
-      keyState <- EitherT.liftF(readContractKey(domain, repairContract.contract))
+      keyState <- EitherT.liftF(readContractKey(domain, hostedParties, repairContract.contract))
       // Able to recompute contract signatories and stakeholders (and sanity check
       // repairContract metadata otherwise ignored matches real metadata)
       contractWithMetadata <- damle
@@ -315,6 +316,7 @@ final class RepairService(
       contracts: Seq[RepairContract],
       ignoreAlreadyAdded: Boolean,
       ignoreStakeholderCheck: Boolean,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
@@ -332,7 +334,7 @@ final class RepairService(
             domain <- readDomainData(domainId)
 
             filteredContracts <- contracts.parTraverseFilter(
-              readRepairContractCurrentState(domain, _, ignoreAlreadyAdded)
+              readRepairContractCurrentState(domain, _, hostedParties, ignoreAlreadyAdded)
             )
 
             contractsByCreation = filteredContracts
@@ -371,8 +373,9 @@ final class RepairService(
                           // Only check for duplicates where the participant hosts a maintainer
                           getKeyIfOneMaintainerIsLocal(
                             repair.domain.topologySnapshot,
-                            contract.metadata.maybeKeyWithMaintainers,
                             participantId,
+                            hostedParties,
+                            contract.metadata.maybeKeyWithMaintainers,
                           ).map { lfKeyO =>
                             lfKeyO.flatMap(_ => contract.metadata.maybeKeyWithMaintainers).map {
                               keyWithMaintainers =>
@@ -452,6 +455,7 @@ final class RepairService(
   def purgeContracts(
       domain: DomainAlias,
       contractIds: NonEmpty[Seq[LfContractId]],
+      offboardedParties: Option[NonEmpty[Set[LfPartyId]]],
       ignoreAlreadyPurged: Boolean,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
@@ -465,7 +469,9 @@ final class RepairService(
 
           // Note the following purposely fails if any contract fails which results in not all contracts being processed.
           contractsToPublishUpstream <- MonadUtil
-            .sequentialTraverse(contractIds)(purgeContract(repair, ignoreAlreadyPurged))
+            .sequentialTraverse(contractIds)(
+              purgeContract(repair, hostedParties = offboardedParties, ignoreAlreadyPurged)
+            )
             .map(_.collect { case Some(x) => x })
 
           // Publish purged contracts upstream as archived via the ledger api.
@@ -747,7 +753,11 @@ final class RepairService(
     } yield ()
   }
 
-  private def purgeContract(repair: RepairRequest, ignoreAlreadyPurged: Boolean)(
+  private def purgeContract(
+      repair: RepairRequest,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
+      ignoreAlreadyPurged: Boolean,
+  )(
       cid: LfContractId
   )(implicit traceContext: TraceContext): EitherT[Future, String, Option[SerializableContract]] = {
     val timeOfChange = repair.tryExactlyOneTimeOfChange
@@ -781,8 +791,9 @@ final class RepairService(
               if (repair.domain.parameters.uniqueContractKeys)
                 getKeyIfOneMaintainerIsLocal(
                   repair.domain.topologySnapshot,
-                  contract.metadata.maybeKeyWithMaintainers,
                   participantId,
+                  hostedParties,
+                  contract.metadata.maybeKeyWithMaintainers,
                 )
               else Future.successful(None)
             )
@@ -1280,6 +1291,7 @@ final class RepairService(
 
   private def readContractKey(
       domain: RepairRequest.DomainData,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
       contract: SerializableContract,
   )(implicit
       traceContext: TraceContext
@@ -1287,8 +1299,9 @@ final class RepairService(
     for {
       optionalKey <- getKeyIfOneMaintainerIsLocal(
         domain.topologySnapshot,
-        contract.metadata.maybeKeyWithMaintainers,
         participantId,
+        hostedParties,
+        contract.metadata.maybeKeyWithMaintainers,
       )
       optionalState <- optionalKey.flatTraverse(
         domain.persistentState.contractKeyJournal.fetchState
