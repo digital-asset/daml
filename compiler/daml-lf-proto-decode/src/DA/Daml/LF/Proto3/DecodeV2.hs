@@ -756,10 +756,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
-  LF2.UpdateSumSoftFetch LF2.Update_SoftFetch{..} ->
-    fmap EUpdate $ USoftFetch
-      <$> mayDecode "update_SoftFetchTemplate" update_SoftFetchTemplate decodeTypeConName
-      <*> mayDecode "update_SoftFetchCid" update_SoftFetchCid decodeExpr
+  LF2.UpdateSumSoftFetch LF2.Update_SoftFetch{} ->
+    throwError (ParseError "Update.Sum.soft_fetch is no longer supported")
   LF2.UpdateSumFetchInterface LF2.Update_FetchInterface{..} ->
     fmap EUpdate $ UFetchInterface
       <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName

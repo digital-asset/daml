@@ -790,10 +790,6 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetch P.Update_Fetch{..}
-    USoftFetch{..} -> do
-        update_SoftFetchTemplate <- encodeQualTypeConName fetTemplate
-        update_SoftFetchCid <- encodeExpr fetContractId
-        pure $ P.UpdateSumSoftFetch P.Update_SoftFetch{..}
     UFetchInterface{..} -> do
         update_FetchInterfaceInterface <- encodeQualTypeConName fetInterface
         update_FetchInterfaceCid <- encodeExpr fetContractId

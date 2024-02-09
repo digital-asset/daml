@@ -305,9 +305,6 @@ applySubstInUpdate subst = \case
     UFetch templateName e -> UFetch
         templateName
         (applySubstInExpr subst e)
-    USoftFetch templateName e -> USoftFetch
-        templateName
-        (applySubstInExpr subst e)
     UFetchInterface interface e -> UFetchInterface
         interface
         (applySubstInExpr subst e)

@@ -280,12 +280,6 @@ convertPrim _ "UFetch" (TContractId (TCon template) :-> TUpdate (TCon template')
     ETmLam (mkVar "this", TContractId (TCon template)) $
     EUpdate $ UFetch template (EVar (mkVar "this"))
 
-convertPrim _ "USoftFetch" (TContractId (TCon template) :-> TUpdate (TCon template'))
-    | template == template' =
-    pure $
-    ETmLam (mkVar "this", TContractId (TCon template)) $
-    EUpdate $ USoftFetch template (EVar (mkVar "this"))
-
 convertPrim _ "UFetchInterface" (TContractId (TCon iface) :-> TUpdate (TCon iface'))
     | iface == iface' =
     pure $

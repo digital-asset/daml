@@ -403,10 +403,6 @@ alphaUpdate env = \case
         UFetch t2 e2 -> alphaTypeCon t1 t2
             && alphaExpr' env e1 e2
         _ -> False
-    USoftFetch t1 e1 -> \case
-        USoftFetch t2 e2 -> alphaTypeCon t1 t2
-            && alphaExpr' env e1 e2
-        _ -> False
     UFetchInterface i1 e1 -> \case
         UFetchInterface i2 e2 -> alphaTypeCon i1 i2
             && alphaExpr' env e1 e2
