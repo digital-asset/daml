@@ -63,9 +63,11 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
           case Success(_) => Success(None);
         })
     } yield {
-      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log").mkString
-      cantonLog should include(s"Package $testPackageV1Id does not upgrade anything")
-      cantonLog should include(
+      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
+      val cantonLogSrc = cantonLog.mkString
+      cantonLog.close()
+      cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
+      cantonLogSrc should include(
         s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
       )
       uploadV1Result match {
@@ -77,7 +79,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
         case Some(failureMessage) => {
-          cantonLog should include(
+          cantonLogSrc should include(
             s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$failureMessage"
           )
           uploadV2Result match {
@@ -94,7 +96,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
 
         // If a failure is not expected, look for a success message
         case None => {
-          cantonLog should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
+          cantonLogSrc should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
           uploadV2Result match {
             case None => succeed;
             case Some(err) => {
