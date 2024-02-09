@@ -1202,16 +1202,10 @@ object Ast {
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
   ) {
-    import Ordering.Implicits._
-
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
-    private[lf] val name: Option[Ref.PackageName] = {
-      if (languageVersion >= LanguageVersion.Features.packageUpgrades)
-        Some(metadata.name)
-      else None
-    }
+    private[lf] val name: Option[Ref.PackageName] = Some(metadata.name)
   }
 
   final class GenPackageCompanion[E] private[Ast] {

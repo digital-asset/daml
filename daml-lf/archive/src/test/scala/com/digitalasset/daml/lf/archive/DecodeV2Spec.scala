@@ -1076,7 +1076,7 @@ class DecodeV2Spec
       }
     }
 
-    s"decode softFetch iff version >= ${LV.Features.packageUpgrades} " in {
+    s"decode softFetch" in {
       val dottedNameTable = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString)
       val unit = DamlLf2.Unit.newBuilder().build()
       val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
@@ -1103,10 +1103,7 @@ class DecodeV2Spec
         val decoder = moduleDecoder(version, ImmArraySeq.empty, dottedNameTable, typeTable)
         val proto = DamlLf2.Expr.newBuilder().setUpdate(softFetchProto).build()
         val result = Try(decoder.decodeExprForTest(proto, "test"))
-        if (version >= LV.Features.packageUpgrades)
-          result shouldBe Success(Ast.EUpdate(softFetchScala))
-        else
-          inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
+        result shouldBe Success(Ast.EUpdate(softFetchScala))
       }
     }
   }
@@ -1392,7 +1389,7 @@ class DecodeV2Spec
       }
     }
 
-    s"decode upgradedPackageId iff version >= ${LV.Features.packageUpgrades} " in {
+    s"decode upgradedPackageId" in {
       forEveryVersion { version =>
         val result = Try(
           new DecodeV2(version.minor).decodePackageMetadata(
@@ -1415,20 +1412,17 @@ class DecodeV2Spec
           )
         )
 
-        if (version >= LV.Features.packageUpgrades)
-          result shouldBe Success(
-            Ast.PackageMetadata(
-              Ref.PackageName.assertFromString("foobar"),
-              Ref.PackageVersion.assertFromString("0.0.0"),
-              Some(
-                Ref.PackageId.assertFromString(
-                  "0000000000000000000000000000000000000000000000000000000000000000"
-                )
-              ),
-            )
+        result shouldBe Success(
+          Ast.PackageMetadata(
+            Ref.PackageName.assertFromString("foobar"),
+            Ref.PackageVersion.assertFromString("0.0.0"),
+            Some(
+              Ref.PackageId.assertFromString(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+              )
+            ),
           )
-        else
-          inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
+        )
       }
     }
   }

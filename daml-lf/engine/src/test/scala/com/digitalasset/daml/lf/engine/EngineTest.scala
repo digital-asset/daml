@@ -2528,12 +2528,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
-  def getPackageName(basicTestsPkg: Package): Option[PackageName] = {
-    if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
-      None
-    else
-      Some(basicTestsPkg.metadata.name)
-  }
+  def getPackageName(basicTestsPkg: Package): Option[PackageName] =
+    Some(basicTestsPkg.metadata.name)
 
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
