@@ -484,6 +484,7 @@ da_scala_test_suite(
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
+        "//libs-scala/timer-utils",
         "//observability/metrics",
         "//test-common/canton/it-lib",
         "@maven//:com_auth0_java_jwt",

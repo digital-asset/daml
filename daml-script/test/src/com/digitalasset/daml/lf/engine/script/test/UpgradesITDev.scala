@@ -15,6 +15,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
+import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -23,6 +24,7 @@ import scala.concurrent.Future
 import scala.sys.process._
 import scala.util.matching.Regex
 import scala.collection.mutable.Map
+import scala.concurrent.duration.DurationInt
 
 class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
 
@@ -72,9 +74,21 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
               println(
                 s"Uploading ${dep.versionedName} to participant on port ${portInfo.ledgerPort.value}"
               )
-              // TODO[SW] This doesn't wait :(
-              // Add back the package-id to DataDep and wait for upload to finish.
-              adminClient.uploadDar(dep.path, dep.versionedName)
+              for {
+                Right(uploadHash) <- adminClient.uploadDar(dep.path, dep.versionedName)
+                _ <- RetryStrategy.constant(attempts = 20, waitTime = 1.seconds) { (_, _) =>
+                  adminClient.listDars().flatMap { dars =>
+                    if (
+                      dars.exists { case (_, darHash) =>
+                        uploadHash == darHash
+                      }
+                    )
+                      Future.successful(())
+                    else
+                      Future.failed(new Exception(s"Couldn't upload ${dep.versionedName}"))
+                  }
+                }
+              } yield ()
             }
           }
 
