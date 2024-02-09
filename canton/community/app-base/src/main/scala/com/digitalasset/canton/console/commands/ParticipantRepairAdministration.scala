@@ -65,11 +65,16 @@ class ParticipantRepairAdministration(
       |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
       |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
       |configuration. In addition repair commands can run for an unbounded time depending on the number of
-      |contract ids passed in. Be sure to not connect the participant to the domain until the call returns."""
+      |contract ids passed in. Be sure to not connect the participant to the domain until the call returns.
+      |
+      |Arguments are:
+      |  - inputFile: the path to the file containing the ACS export
+      |  - offboardedParties: the list of parties that will be offboarded after the purge."""
   )
   def purge(
       domain: DomainAlias,
       contractIds: Seq[LfContractId],
+      offboardedParties: Set[PartyId],
       ignoreAlreadyPurged: Boolean = true,
   ): Unit =
     consoleEnvironment.run {
@@ -78,6 +83,7 @@ class ParticipantRepairAdministration(
           domain = domain,
           contracts = contractIds,
           ignoreAlreadyPurged = ignoreAlreadyPurged,
+          offboardedParties = offboardedParties,
         )
       )
     }
@@ -271,10 +277,15 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This command imports contracts from an ACS snapshot file into the participant's ACS.
         |The given ACS snapshot file needs to be the resulting file from a previous 'export_acs' command invocation.
+        |
+        |Arguments are:
+        |  - inputFile: the path to the file containing the ACS export
+        |  - onboardedParties: the list of new parties whose contracts are imported
         """
   )
   def import_acs(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
+      onboardedParties: Set[PartyId],
       workflowIdPrefix: String = "",
   ): Unit = {
     check(FeatureFlag.Repair) {
@@ -282,8 +293,10 @@ class ParticipantRepairAdministration(
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
             ByteString.copyFrom(File(inputFile).loadBytes),
-            if (workflowIdPrefix.nonEmpty) workflowIdPrefix
-            else s"import-${UUID.randomUUID}",
+            workflowIdPrefix =
+              if (workflowIdPrefix.nonEmpty) workflowIdPrefix
+              else s"import-${UUID.randomUUID}",
+            onboardedParties = onboardedParties,
           )
         )
       }
@@ -338,8 +351,9 @@ abstract class LocalParticipantRepairAdministration(
           .addContracts(
             domain,
             contractsToAdd,
-            ignoreAlreadyAdded,
-            ignoreStakeholderCheck,
+            ignoreAlreadyAdded = ignoreAlreadyAdded,
+            ignoreStakeholderCheck = ignoreStakeholderCheck,
+            hostedParties = None,
           )(tc)
       )
     )

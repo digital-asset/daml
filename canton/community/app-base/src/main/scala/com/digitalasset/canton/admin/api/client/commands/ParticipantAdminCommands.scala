@@ -512,8 +512,11 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ImportAcs(acsChunk: ByteString, workflowIdPrefix: String)
-        extends GrpcAdminCommand[ImportAcsRequest, ImportAcsResponse, Unit]
+    final case class ImportAcs(
+        acsChunk: ByteString,
+        workflowIdPrefix: String,
+        onboardedParties: Set[PartyId],
+    ) extends GrpcAdminCommand[ImportAcsRequest, ImportAcsResponse, Unit]
         with StreamingMachinery[ImportAcsRequest, ImportAcsResponse] {
 
       override type Svc = ParticipantRepairServiceStub
@@ -522,7 +525,13 @@ object ParticipantAdminCommands {
         ParticipantRepairServiceGrpc.stub(channel)
 
       override def createRequest(): Either[String, ImportAcsRequest] = {
-        Right(ImportAcsRequest(acsChunk, workflowIdPrefix))
+        Right(
+          ImportAcsRequest(
+            acsChunk,
+            workflowIdPrefix,
+            onboardedParties = onboardedParties.map(_.toLf).toSeq,
+          )
+        )
       }
 
       override def submitRequest(
@@ -531,7 +540,12 @@ object ParticipantAdminCommands {
       ): Future[ImportAcsResponse] = {
         stream(
           service.importAcs,
-          (bytes: Array[Byte]) => ImportAcsRequest(ByteString.copyFrom(bytes), workflowIdPrefix),
+          (bytes: Array[Byte]) =>
+            ImportAcsRequest(
+              ByteString.copyFrom(bytes),
+              workflowIdPrefix,
+              onboardedParties.map(_.toLf).toSeq,
+            ),
           request.acsSnapshot,
         )
       }
@@ -545,6 +559,7 @@ object ParticipantAdminCommands {
         domain: DomainAlias,
         contracts: Seq[LfContractId],
         ignoreAlreadyPurged: Boolean,
+        offboardedParties: Set[PartyId],
     ) extends GrpcAdminCommand[PurgeContractsRequest, PurgeContractsResponse, Unit] {
 
       override type Svc = ParticipantRepairServiceStub
@@ -558,6 +573,7 @@ object ParticipantAdminCommands {
             domain = domain.toProtoPrimitive,
             contractIds = contracts.map(_.coid),
             ignoreAlreadyPurged = ignoreAlreadyPurged,
+            offboardedParties = offboardedParties.toSeq.map(_.toLf),
           )
         )
       }

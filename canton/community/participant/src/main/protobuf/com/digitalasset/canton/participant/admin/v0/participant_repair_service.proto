@@ -57,6 +57,12 @@ message PurgeContractsRequest {
 
   // If true, will ignore already purged contract; if false, will return an error if a contract is already purged
   bool ignore_already_purged = 3;
+
+  // Some checks rely on the parties hosted on the participant. While this information is usually
+  // derived from a recent topology snapshot, it is not suited for party removal/offboarding because the party
+  // is removed from the topology snapshot before the contracts are purged. In this case, the list of
+  // offboarded parties can be passed explicitly.
+  repeated string offboarded_parties = 4;
 }
 
 message PurgeContractsResponse {}
@@ -116,6 +122,11 @@ message ExportAcsResponse {
 message ImportAcsRequest {
   bytes acs_snapshot = 1;
   string workflow_id_prefix = 2;
+  // Some checks rely on the parties hosted on the participant. While this information is usually
+  // derived from a recent topology snapshot, it is not suited for party replication because the party
+  // is enabled on the target participant only after the acs import is done. In this case, the list
+  // of onboarded parties can be passed explicitly.
+  repeated string onboarded_parties = 3;
 }
 
 message ImportAcsResponse {}

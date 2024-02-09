@@ -224,8 +224,9 @@ private final class MigrateContracts(
           contracts.parTraverseFilter(contract =>
             getKeyIfOneMaintainerIsLocal(
               request.domain.topologySnapshot,
-              contract.payload.contract.metadata.maybeKeyWithMaintainers,
               participantId,
+              hostedPartiesO = None,
+              contract.payload.contract.metadata.maybeKeyWithMaintainers,
             ).map(_.map(_ -> timeOfChange(contract)))
           )
         )
