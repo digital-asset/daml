@@ -36,8 +36,8 @@ trait DataLayerHelpers {
   def genCommands(
       commands: List[Command],
       domainId: Option[String] = None,
-  ): CommandsSubmissionV2 = {
-    CommandsSubmissionV2
+  ): CommandsSubmission = {
+    CommandsSubmission
       .create(
         "applicationId",
         "commandId",
@@ -47,10 +47,10 @@ trait DataLayerHelpers {
       .withWorkflowId("workflowId")
   }
 
-  val filterNothing: FiltersByPartyV2 = new FiltersByPartyV2(Map[String, Filter]().asJava)
+  val filterNothing: FiltersByParty = new FiltersByParty(Map[String, Filter]().asJava)
 
-  def filterFor(party: String): FiltersByPartyV2 =
-    new FiltersByPartyV2(
+  def filterFor(party: String): FiltersByParty =
+    new FiltersByParty(
       Map(party -> (InclusiveFilter.ofTemplateIds(Set.empty[Identifier].asJava): Filter)).asJava
     )
 }

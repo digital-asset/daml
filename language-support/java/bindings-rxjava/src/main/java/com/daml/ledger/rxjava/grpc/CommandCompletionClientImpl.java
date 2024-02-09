@@ -5,9 +5,9 @@ package com.daml.ledger.rxjava.grpc;
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory;
 import com.daml.ledger.api.v2.CommandCompletionServiceGrpc;
-import com.daml.ledger.javaapi.data.CompletionStreamRequestV2;
-import com.daml.ledger.javaapi.data.CompletionStreamResponseV2;
-import com.daml.ledger.javaapi.data.ParticipantOffsetV2;
+import com.daml.ledger.javaapi.data.CompletionStreamRequest;
+import com.daml.ledger.javaapi.data.CompletionStreamResponse;
+import com.daml.ledger.javaapi.data.ParticipantOffset;
 import com.daml.ledger.rxjava.CommandCompletionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
@@ -31,44 +31,44 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
         StubHelper.authenticating(CommandCompletionServiceGrpc.newFutureStub(channel), accessToken);
   }
 
-  private Flowable<CompletionStreamResponseV2> completionStream(
-      CompletionStreamRequestV2 request, Optional<String> accessToken) {
+  private Flowable<CompletionStreamResponse> completionStream(
+      CompletionStreamRequest request, Optional<String> accessToken) {
     return ClientPublisherFlowable.create(
             request.toProto(),
             StubHelper.authenticating(serviceStub, accessToken)::completionStream,
             sequencerFactory)
-        .map(CompletionStreamResponseV2::fromProto);
+        .map(CompletionStreamResponse::fromProto);
   }
 
   @Override
-  public Flowable<CompletionStreamResponseV2> completionStream(
-      String applicationId, ParticipantOffsetV2 offset, List<String> parties) {
+  public Flowable<CompletionStreamResponse> completionStream(
+      String applicationId, ParticipantOffset offset, List<String> parties) {
     return completionStream(
-        new CompletionStreamRequestV2(applicationId, parties, offset), Optional.empty());
+        new CompletionStreamRequest(applicationId, parties, offset), Optional.empty());
   }
 
   @Override
-  public Flowable<CompletionStreamResponseV2> completionStream(
-      String applicationId, ParticipantOffsetV2 offset, List<String> parties, String accessToken) {
+  public Flowable<CompletionStreamResponse> completionStream(
+      String applicationId, ParticipantOffset offset, List<String> parties, String accessToken) {
     return completionStream(
-        new CompletionStreamRequestV2(applicationId, parties, offset), Optional.of(accessToken));
+        new CompletionStreamRequest(applicationId, parties, offset), Optional.of(accessToken));
   }
 
   @Override
-  public Flowable<CompletionStreamResponseV2> completionStream(
+  public Flowable<CompletionStreamResponse> completionStream(
       String applicationId, List<String> parties) {
     return completionStream(
-        new CompletionStreamRequestV2(
-            applicationId, parties, ParticipantOffsetV2.ParticipantBegin.getInstance()),
+        new CompletionStreamRequest(
+            applicationId, parties, ParticipantOffset.ParticipantBegin.getInstance()),
         Optional.empty());
   }
 
   @Override
-  public Flowable<CompletionStreamResponseV2> completionStream(
+  public Flowable<CompletionStreamResponse> completionStream(
       String applicationId, List<String> parties, String accessToken) {
     return completionStream(
-        new CompletionStreamRequestV2(
-            applicationId, parties, ParticipantOffsetV2.ParticipantBegin.getInstance()),
+        new CompletionStreamRequest(
+            applicationId, parties, ParticipantOffset.ParticipantBegin.getInstance()),
         Optional.of(accessToken));
   }
 }

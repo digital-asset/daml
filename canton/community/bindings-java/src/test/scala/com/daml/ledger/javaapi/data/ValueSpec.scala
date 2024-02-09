@@ -4,7 +4,7 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.v1.ValueOuterClass.Value.SumCase
-import com.daml.ledger.javaapi.data.GeneratorsV2.*
+import com.daml.ledger.javaapi.data.Generators.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -13,7 +13,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-import java.util.{Optional as JOptional}
+import java.util.Optional as JOptional
 
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
 class ValueSpec

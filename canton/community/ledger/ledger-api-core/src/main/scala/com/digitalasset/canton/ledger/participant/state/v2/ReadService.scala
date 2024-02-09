@@ -27,7 +27,7 @@ import scala.concurrent.Future
   * information. See [[Update]] for a description of the state updates
   * communicated by [[ReadService!.stateUpdates]].
   */
-trait ReadService extends ReportsHealth {
+trait ReadService extends ReportsHealth with InternalStateServiceProvider {
 
   /** Get the stream of state [[Update]]s starting from the beginning or right
     * after the given [[com.digitalasset.canton.ledger.offset.Offset]]

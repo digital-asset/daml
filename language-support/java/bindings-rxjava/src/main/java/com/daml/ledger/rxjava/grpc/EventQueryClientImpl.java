@@ -5,7 +5,7 @@ package com.daml.ledger.rxjava.grpc;
 
 import com.daml.ledger.api.v1.EventQueryServiceOuterClass.GetEventsByContractIdRequest;
 import com.daml.ledger.api.v2.EventQueryServiceGrpc;
-import com.daml.ledger.javaapi.data.GetEventsByContractIdResponseV2;
+import com.daml.ledger.javaapi.data.GetEventsByContractIdResponse;
 import com.daml.ledger.rxjava.EventQueryClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import io.grpc.Channel;
@@ -22,7 +22,7 @@ public class EventQueryClientImpl implements EventQueryClient {
         StubHelper.authenticating(EventQueryServiceGrpc.newFutureStub(channel), accessToken);
   }
 
-  private Single<GetEventsByContractIdResponseV2> getEventsByContractId(
+  private Single<GetEventsByContractIdResponse> getEventsByContractId(
       String contractId, Set<String> requestingParties, Optional<String> accessToken) {
     GetEventsByContractIdRequest request =
         GetEventsByContractIdRequest.newBuilder()
@@ -31,17 +31,17 @@ public class EventQueryClientImpl implements EventQueryClient {
             .build();
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, accessToken).getEventsByContractId(request))
-        .map(GetEventsByContractIdResponseV2::fromProto);
+        .map(GetEventsByContractIdResponse::fromProto);
   }
 
   @Override
-  public Single<GetEventsByContractIdResponseV2> getEventsByContractId(
+  public Single<GetEventsByContractIdResponse> getEventsByContractId(
       String contractId, Set<String> requestingParties) {
     return getEventsByContractId(contractId, requestingParties, Optional.empty());
   }
 
   @Override
-  public Single<GetEventsByContractIdResponseV2> getEventsByContractId(
+  public Single<GetEventsByContractIdResponse> getEventsByContractId(
       String contractId, Set<String> requestingParties, String accessToken) {
     return getEventsByContractId(contractId, requestingParties, Optional.of(accessToken));
   }

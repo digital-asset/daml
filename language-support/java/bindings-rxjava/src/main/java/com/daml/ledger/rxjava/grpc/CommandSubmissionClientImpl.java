@@ -8,8 +8,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import com.daml.ledger.api.v2.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v2.CommandSubmissionServiceOuterClass;
 import com.daml.ledger.api.v2.CommandSubmissionServiceOuterClass.SubmitResponse;
-import com.daml.ledger.javaapi.data.CommandsSubmissionV2;
-import com.daml.ledger.javaapi.data.SubmitRequestV2;
+import com.daml.ledger.javaapi.data.CommandsSubmission;
+import com.daml.ledger.javaapi.data.SubmitRequest;
 import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import io.grpc.Channel;
@@ -31,8 +31,8 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
   }
 
   @Override
-  public Single<SubmitResponse> submit(CommandsSubmissionV2 submission) {
-    CommandSubmissionServiceOuterClass.SubmitRequest request = SubmitRequestV2.toProto(submission);
+  public Single<SubmitResponse> submit(CommandsSubmission submission) {
+    CommandSubmissionServiceOuterClass.SubmitRequest request = SubmitRequest.toProto(submission);
     CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
         this.timeout
             .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))

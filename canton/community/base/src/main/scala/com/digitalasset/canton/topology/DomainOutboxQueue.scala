@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.store.SignedTopologyTransactionsX
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -44,8 +43,8 @@ class DomainOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogg
   def dequeue(limit: Int)(implicit
       traceContext: TraceContext
   ): Seq[GenericSignedTopologyTransactionX] = blocking(synchronized {
-    val txs = SignedTopologyTransactionsX.compact(unsentQueue.take(limit).toList)
-    logger.debug(s"dequeuing compacted: $txs")
+    val txs = unsentQueue.take(limit).toList
+    logger.debug(s"dequeuing: $txs")
     require(
       pendingQueue.isEmpty,
       s"tried to dequeue while pending wasn't empty: ${pendingQueue.toSeq}",

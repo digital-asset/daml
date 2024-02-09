@@ -18,7 +18,7 @@ public class EventUtils {
   }
 
   /** @hidden */
-  public static ExercisedEvent firstExercisedEvent(TransactionTreeV2 txTree) {
+  public static ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
     var maybeExercisedEvent =
         txTree.getRootEventIds().stream()
             .map(eventId -> txTree.getEventsById().get(eventId))
