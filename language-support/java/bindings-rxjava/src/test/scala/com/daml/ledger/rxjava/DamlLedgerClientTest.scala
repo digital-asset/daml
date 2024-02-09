@@ -6,9 +6,6 @@ package com.daml.ledger.rxjava
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.javaapi.data.ParticipantOffset.Absolute
 import com.daml.ledger.javaapi.data.{CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers._
@@ -21,7 +18,9 @@ import com.daml.ledger.api.v2.command_service.{
 }
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v1.package_service._
+import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.Server
@@ -239,7 +238,7 @@ class DamlLedgerClientTest
       Future.successful(SubmitResponse.defaultInstance),
       List(
         CompletionStreamResponse(
-          Some(Checkpoint(offset = Some(LedgerOffset(LedgerOffset.Value.Absolute("1"))))),
+          Some(Checkpoint(offset = Some(ParticipantOffset(ParticipantOffset.Value.Absolute("1"))))),
           None,
         )
       ),
