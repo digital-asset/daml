@@ -295,15 +295,6 @@ convertPrim _ "UExercise"
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
-convertPrim _ "USoftExercise"
-    (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
-    pure $
-    ETmLam (mkVar "this", TContractId (TCon template)) $
-    ETmLam (mkVar "arg", TCon choice) $
-    EUpdate $ USoftExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
-  where
-    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
-
 convertPrim version "UDynamicExercise"
     ty@(TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
     pure $
