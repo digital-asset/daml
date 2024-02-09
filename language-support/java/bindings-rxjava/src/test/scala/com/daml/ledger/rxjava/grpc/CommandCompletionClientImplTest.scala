@@ -4,15 +4,13 @@
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
-
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.javaapi.data.ParticipantOffset.ParticipantBegin
-import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
+import com.daml.ledger.api.v2.checkpoint.Checkpoint
+import com.daml.ledger.javaapi.data.ParticipantOffset.{Absolute, ParticipantBegin}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.google.rpc.status.Status
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -28,8 +26,8 @@ class CommandCompletionClientImplTest
     with DataLayerHelpers {
 
   val ledgerServices = new LedgerServices("command-completion-service-ledger")
-  private val offset1 = LedgerOffset(LedgerOffset.Value.Absolute("1"))
-  private val offset2 = LedgerOffset(LedgerOffset.Value.Absolute("2"))
+  private val offset1 = ParticipantOffset(ParticipantOffset.Value.Absolute("1"))
+  private val offset2 = ParticipantOffset(ParticipantOffset.Value.Absolute("2"))
 
   behavior of "[4.3] CommandCompletionClientImpl.completionStream"
 
