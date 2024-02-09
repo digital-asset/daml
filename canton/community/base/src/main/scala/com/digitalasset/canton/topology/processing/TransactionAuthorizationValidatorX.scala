@@ -48,7 +48,10 @@ trait TransactionAuthorizationValidatorX {
       inStore: Option[GenericSignedTopologyTransactionX],
   )(implicit
       traceContext: TraceContext
-  ): Either[TopologyTransactionRejection, RequiredAuthXAuthorizations] = {
+  ): Either[
+    TopologyTransactionRejection,
+    (GenericSignedTopologyTransactionX, RequiredAuthXAuthorizations),
+  ] = {
     // first determine all possible namespaces and uids that need to sign the transaction
     val requiredAuth = toValidate.transaction.mapping.requiredAuth(inStore.map(_.transaction))
 
@@ -115,35 +118,17 @@ trait TransactionAuthorizationValidatorX {
         }.toMap
         ++ uidAuthorizations.values.flatMap { case (_, keys) => keys.map(k => k.id -> k) }.toMap
 
-    def logAuthorizations[A](auths: Map[A, (Boolean, Set[SigningPublicKey])]): String = {
-      auths
-        .map { case (auth, (fullyAuthorized, keys)) =>
-          val status = if (fullyAuthorized) "fully" else "partially"
-          s"$auth $status authorized by keys ${keys.map(_.id)}"
-        }
-        .mkString(", ")
-    }
+    logAuthorizations("Authorizations with root for namespaces", namespaceWithRootAuthorizations)
+    logAuthorizations("Authorizations for namespaces", namespaceAuthorizations)
+    logAuthorizations("Authorizations for UIDs", uidAuthorizations)
 
-    if (namespaceWithRootAuthorizations.nonEmpty)
-      logger.debug(
-        s"Authorizations with root for namespaces: ${logAuthorizations(namespaceWithRootAuthorizations)}"
-      )
-
-    if (namespaceAuthorizations.nonEmpty)
-      logger.debug(
-        s"Authorizations for namespaces: ${logAuthorizations(namespaceAuthorizations)}"
-      )
-
-    if (uidAuthorizations.nonEmpty)
-      logger.debug(
-        s"Authorizations for UIDs: ${logAuthorizations(uidAuthorizations)}"
-      )
+    logger.debug(s"All authorizing keys: ${allAuthorizingKeys.keySet}")
 
     val superfluousKeys = signingKeys -- allAuthorizingKeys.keys
     for {
       _ <- Either.cond[TopologyTransactionRejection, Unit](
-        // the key used for the signature must be a valid key for at least one of the delegation mechanisms
-        superfluousKeys.isEmpty,
+        // there must be at least 1 key used for the signatures for one of the delegation mechanisms
+        (signingKeys -- superfluousKeys).nonEmpty,
         (), {
           logger.info(
             s"The keys ${superfluousKeys.mkString(", ")} have no delegation to authorize the transaction $toValidate"
@@ -152,20 +137,29 @@ trait TransactionAuthorizationValidatorX {
         },
       )
 
-      _ <- toValidate.signatures.forgetNE.toList
+      txWithValidSignatures <- toValidate
+        .removeSignatures(superfluousKeys)
+        .toRight({
+          logger.info(
+            "Removing all superfluous keys results in a transaction without any signatures at all."
+          )
+          TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
+        })
+
+      _ <- txWithValidSignatures.signatures.forgetNE.toList
         .traverse_(sig =>
           allAuthorizingKeys
             .get(sig.signedBy)
             .toRight({
               val msg =
-                s"Key ${sig.signedBy.singleQuoted} was delegated to, but no actual key was identified. This should not happen."
+                s"Key ${sig.signedBy} was delegated to, but no actual key was identified. This should not happen."
               logger.error(msg)
               TopologyTransactionRejection.Other(msg)
             })
             .flatMap(key =>
               pureCrypto
                 .verifySignature(
-                  toValidate.transaction.hash.hash,
+                  txWithValidSignatures.transaction.hash.hash,
                   key,
                   sig,
                 )
@@ -180,13 +174,35 @@ trait TransactionAuthorizationValidatorX {
         namespaceAuthorizations.collect { case (ns, (true, _)) => ns }.toSet,
         uidAuthorizations.collect { case (uid, (true, _)) => uid }.toSet,
       )
-      requiredAuth
-        .satisfiedByActualAuthorizers(
-          namespacesWithRoot = actual.namespacesWithRoot,
-          namespaces = actual.namespaces,
-          uids = actual.uids,
-        )
-        .fold(identity, _ => RequiredAuthXAuthorizations.empty)
+      (
+        txWithValidSignatures,
+        requiredAuth
+          .satisfiedByActualAuthorizers(
+            namespacesWithRoot = actual.namespacesWithRoot,
+            namespaces = actual.namespaces,
+            uids = actual.uids,
+          )
+          .fold(identity, _ => RequiredAuthXAuthorizations.empty),
+      )
+    }
+  }
+
+  private def logAuthorizations[A](
+      msg: String,
+      auths: Map[A, (Boolean, Set[SigningPublicKey])],
+  )(implicit traceContext: TraceContext): Unit = {
+    val authorizingKeys = auths
+      .collect {
+        case (auth, (fullyAuthorized, keys)) if keys.nonEmpty => (auth, fullyAuthorized, keys)
+      }
+    if (authorizingKeys.nonEmpty) {
+      val report = authorizingKeys
+        .map { case (auth, fullyAuthorized, keys) =>
+          val status = if (fullyAuthorized) "fully" else "partially"
+          s"$auth $status authorized by keys ${keys.map(_.id)}"
+        }
+        .mkString(", ")
+      logger.debug(s"$msg: $report")
     }
   }
 

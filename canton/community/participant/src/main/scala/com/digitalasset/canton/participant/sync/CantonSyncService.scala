@@ -166,7 +166,8 @@ class CantonSyncService(
     with FlagCloseable
     with Spanning
     with NamedLogging
-    with HasCloseContext {
+    with HasCloseContext
+    with InternalStateServiceProviderImpl {
 
   import ShowUtil.*
 

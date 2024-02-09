@@ -14,10 +14,10 @@ import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.Filters
-import com.daml.ledger.api.v2.completion.Completion as CompletionV2
-import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV2
+import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.reassignment.Reassignment
+import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
 import com.daml.ledger.api.v2.state_service.{
   ActiveContract,
   GetActiveContractsResponse,
@@ -25,11 +25,18 @@ import com.daml.ledger.api.v2.state_service.{
 }
 import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
-  TransactionTree as TransactionTreeV2,
+  TransactionTree as TransactionTreeProto,
 }
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterV2
-import com.daml.ledger.javaapi.data.ReassignmentV2
-import com.daml.ledger.{javaapi as javab}
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterProto
+import com.daml.ledger.javaapi.data.{
+  GetUpdateTreesResponse,
+  GetUpdatesResponse,
+  Reassignment,
+  Transaction,
+  TransactionFilter,
+  TransactionTree,
+}
+import com.daml.ledger.javaapi as javab
 import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.{MetricName, MetricsContext}
@@ -155,7 +162,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
       ): Seq[UpdateTreeWrapper] =
         trees_with_tx_filter(
-          filter = TransactionFilterV2(partyIds.map(_.toLf -> Filters()).toMap),
+          filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap),
           completeAfter = completeAfter,
           beginOffset = beginOffset,
           endOffset = endOffset,
@@ -176,7 +183,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           | (e.g. whether to include in the CreatedEvent the created event blob)."""
       )
       def trees_with_tx_filter(
-          filter: TransactionFilterV2,
+          filter: TransactionFilterProto,
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
             ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
@@ -207,7 +214,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def subscribe_trees(
           observer: StreamObserver[UpdateTreeWrapper],
-          filter: TransactionFilterV2,
+          filter: TransactionFilterProto,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
             ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
           ),
@@ -250,7 +257,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           resultFilter: UpdateWrapper => Boolean = _ => true,
       ): Seq[UpdateWrapper] = check(FeatureFlag.Testing)({
         val observer = new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilter)
-        val filter = TransactionFilterV2(partyIds.map(_.toLf -> Filters()).toMap)
+        val filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap)
         mkResult(
           subscribe_flat(observer, filter, beginOffset, endOffset, verbose),
           "getUpdates",
@@ -269,7 +276,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |`flat` instead."""
       )
       def flat_with_tx_filter(
-          filter: TransactionFilterV2,
+          filter: TransactionFilterProto,
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
             ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
@@ -298,7 +305,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |this command fails with a `NOT_FOUND` error.""")
       def subscribe_flat(
           observer: StreamObserver[UpdateWrapper],
-          filter: TransactionFilterV2,
+          filter: TransactionFilterProto,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
             ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
           ),
@@ -387,7 +394,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               logger.info(s"Stop measuring throughput (metric: $metricName).")
           }
 
-          val filterParty = TransactionFilterV2(parties.map(_.toLf -> Filters()).toMap)
+          val filterParty = TransactionFilterProto(parties.map(_.toLf -> Filters()).toMap)
 
           logger.info(s"Start measuring throughput (metric: $metricName).")
           subscribe_trees(observer, filterParty, state.end(), verbose = false)
@@ -398,7 +405,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         """Get a transaction tree from the update stream by its ID. Returns None if the transaction is not (yet)
           |known at the participant or if the transaction has been pruned via `pruning.prune`."""
       )
-      def by_id(parties: Set[PartyId], id: String): Option[TransactionTreeV2] =
+      def by_id(parties: Set[PartyId], id: String): Option[TransactionTreeProto] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.UpdateService.GetTransactionById(parties.map(_.toLf), id)(
@@ -448,7 +455,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           applicationId: String = applicationId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
-      ): TransactionTreeV2 = {
+      ): TransactionTreeProto = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.CommandService.SubmitAndWaitTransactionTree(
@@ -1258,8 +1265,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
           beginExclusive: ParticipantOffset,
           applicationId: String = applicationId,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-          filter: CompletionV2 => Boolean = _ => true,
-      ): Seq[(CompletionV2, Option[Checkpoint])] =
+          filter: Completion => Boolean = _ => true,
+      ): Seq[(Completion, Option[Checkpoint])] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.CommandCompletionService.CompletionCheckpointRequest(
@@ -1721,7 +1728,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def by_contract_id(
           contractId: String,
           requestingParties: Seq[PartyId],
-      ): GetEventsByContractIdResponseV2 =
+      ): GetEventsByContractIdResponse =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiV2Commands.QueryService
@@ -1766,7 +1773,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
-        ): javab.data.TransactionTreeV2 = check(FeatureFlag.Testing) {
+        ): TransactionTree = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
               LedgerApiV2Commands.CommandService.SubmitAndWaitTransactionTree(
@@ -1785,8 +1792,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
               )
             )
           }
-          javab.data.TransactionTreeV2.fromProto(
-            TransactionTreeV2.toJavaProto(optionallyAwait(tx, tx.updateId, optTimeout))
+          javab.data.TransactionTree.fromProto(
+            TransactionTreeProto.toJavaProto(optionallyAwait(tx, tx.updateId, optTimeout))
           )
         }
 
@@ -1820,7 +1827,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             applicationId: String = applicationId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
-        ): javab.data.TransactionV2 = check(FeatureFlag.Testing) {
+        ): Transaction = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
               LedgerApiV2Commands.CommandService.SubmitAndWaitTransaction(
@@ -1839,7 +1846,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               )
             )
           }
-          javab.data.TransactionV2.fromProto(
+          javab.data.Transaction.fromProto(
             TransactionV2.toJavaProto(optionallyAwait(tx, tx.updateId, optTimeout))
           )
         }
@@ -1897,7 +1904,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId: String = UUID.randomUUID().toString,
             waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-        ): ReassignmentV2 =
+        ): Reassignment =
           ledger_api.commands
             .submit_unassign(
               submitter,
@@ -1911,8 +1918,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
               timeout,
             )
             .reassignment
-            .pipe(Reassignment.toJavaProto)
-            .pipe(ReassignmentV2.fromProto)
+            .pipe(ReassignmentProto.toJavaProto)
+            .pipe(Reassignment.fromProto)
 
         @Help.Summary(
           "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise",
@@ -1936,7 +1943,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             submissionId: String = UUID.randomUUID().toString,
             waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-        ): ReassignmentV2 =
+        ): Reassignment =
           ledger_api.commands
             .submit_assign(
               submitter,
@@ -1950,8 +1957,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
               timeout,
             )
             .reassignment
-            .pipe(Reassignment.toJavaProto)
-            .pipe(ReassignmentV2.fromProto)
+            .pipe(ReassignmentProto.toJavaProto)
+            .pipe(Reassignment.fromProto)
       }
 
       @Help.Summary("Read from update stream (Java bindings)", FeatureFlag.Testing)
@@ -1979,21 +1986,21 @@ trait BaseLedgerApiAdministration extends NoTracing {
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateTreeWrapper => Boolean = _ => true,
-        ): Seq[javab.data.GetUpdateTreesResponseV2] = check(FeatureFlag.Testing)(
+        ): Seq[GetUpdateTreesResponse] = check(FeatureFlag.Testing)(
           ledger_api.updates
             .trees(partyIds, completeAfter, beginOffset, endOffset, verbose, timeout, resultFilter)
             .map {
               case tx: TransactionTreeWrapper =>
                 tx.transactionTree
-                  .pipe(TransactionTreeV2.toJavaProto)
-                  .pipe(javab.data.TransactionTreeV2.fromProto)
-                  .pipe(new javab.data.GetUpdateTreesResponseV2(_))
+                  .pipe(TransactionTreeProto.toJavaProto)
+                  .pipe(javab.data.TransactionTree.fromProto)
+                  .pipe(new GetUpdateTreesResponse(_))
 
               case reassignment: ReassignmentWrapper =>
                 reassignment.reassignment
-                  .pipe(Reassignment.toJavaProto)
-                  .pipe(ReassignmentV2.fromProto)
-                  .pipe(new javab.data.GetUpdateTreesResponseV2(_))
+                  .pipe(ReassignmentProto.toJavaProto)
+                  .pipe(Reassignment.fromProto)
+                  .pipe(new GetUpdateTreesResponse(_))
             }
         )
 
@@ -2019,21 +2026,21 @@ trait BaseLedgerApiAdministration extends NoTracing {
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
-        ): Seq[javab.data.GetUpdatesResponseV2] = check(FeatureFlag.Testing)(
+        ): Seq[GetUpdatesResponse] = check(FeatureFlag.Testing)(
           ledger_api.updates
             .flat(partyIds, completeAfter, beginOffset, endOffset, verbose, timeout, resultFilter)
             .map {
               case tx: TransactionWrapper =>
                 tx.transaction
                   .pipe(TransactionV2.toJavaProto)
-                  .pipe(javab.data.TransactionV2.fromProto)
-                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+                  .pipe(javab.data.Transaction.fromProto)
+                  .pipe(new GetUpdatesResponse(_))
 
               case reassignment: ReassignmentWrapper =>
                 reassignment.reassignment
-                  .pipe(Reassignment.toJavaProto)
-                  .pipe(ReassignmentV2.fromProto)
-                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+                  .pipe(ReassignmentProto.toJavaProto)
+                  .pipe(Reassignment.fromProto)
+                  .pipe(new GetUpdatesResponse(_))
             }
         )
 
@@ -2050,7 +2057,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |`flat` instead."""
         )
         def flat_with_tx_filter(
-            filter: javab.data.TransactionFilterV2,
+            filter: TransactionFilter,
             completeAfter: Int,
             beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
               ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
@@ -2059,10 +2066,10 @@ trait BaseLedgerApiAdministration extends NoTracing {
             verbose: Boolean = true,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
-        ): Seq[javab.data.GetUpdatesResponseV2] = check(FeatureFlag.Testing)(
+        ): Seq[GetUpdatesResponse] = check(FeatureFlag.Testing)(
           ledger_api.updates
             .flat_with_tx_filter(
-              TransactionFilterV2.fromJavaProto(filter.toProto),
+              TransactionFilterProto.fromJavaProto(filter.toProto),
               completeAfter,
               beginOffset,
               endOffset,
@@ -2074,14 +2081,14 @@ trait BaseLedgerApiAdministration extends NoTracing {
               case tx: TransactionWrapper =>
                 tx.transaction
                   .pipe(TransactionV2.toJavaProto)
-                  .pipe(javab.data.TransactionV2.fromProto)
-                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+                  .pipe(javab.data.Transaction.fromProto)
+                  .pipe(new GetUpdatesResponse(_))
 
               case reassignment: ReassignmentWrapper =>
                 reassignment.reassignment
-                  .pipe(Reassignment.toJavaProto)
-                  .pipe(ReassignmentV2.fromProto)
-                  .pipe(new javab.data.GetUpdatesResponseV2(_))
+                  .pipe(ReassignmentProto.toJavaProto)
+                  .pipe(Reassignment.fromProto)
+                  .pipe(new GetUpdatesResponse(_))
             }
         )
       }
@@ -2174,7 +2181,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): com.daml.ledger.api.v2.EventQueryServiceOuterClass.GetEventsByContractIdResponse =
           ledger_api.event_query
             .by_contract_id(contractId, requestingParties)
-            .pipe(GetEventsByContractIdResponseV2.toJavaProto)
+            .pipe(GetEventsByContractIdResponse.toJavaProto)
       }
 
     }

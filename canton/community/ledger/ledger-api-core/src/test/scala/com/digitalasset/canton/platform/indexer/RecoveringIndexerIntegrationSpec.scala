@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
+  InternalStateServiceProviderImpl,
   ReadService,
   SubmissionResult,
   Update,
@@ -401,7 +402,8 @@ object RecoveringIndexerIntegrationSpec {
       queue: BoundedSourceQueue[(Offset, Traced[Update])],
       source: Source[(Offset, Traced[Update]), NotUsed],
   ) extends WritePartyService
-      with ReadService {
+      with ReadService
+      with InternalStateServiceProviderImpl {
 
     private val offset = new AtomicLong(0)
     private val writtenUpdates = mutable.Buffer.empty[(Offset, Traced[Update])]

@@ -651,6 +651,82 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       checkProposalFlatAfterValidation(validationIsFinal = false, expectProposal = true)
     }
 
+    "remove superfluous signatures" in {
+      val store =
+        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+      val validator = mk(store)
+      import Factory.*
+      import SigningKeys.{ec as _, *}
+
+      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8))
+      val dnsTwoOwners = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(dns_id, PositiveInt.two, NonEmpty(Set, ns1, ns8))
+          .value,
+        NonEmpty(Set, key1, key8),
+        serial = PositiveInt.one,
+      )
+      val decentralizedNamespaceWithTwoOwners = List(ns1k1_k1, ns8k8_k8, dnsTwoOwners)
+
+      for {
+        _ <- store.update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Set.empty,
+          removeTxs = Set.empty,
+          additions = decentralizedNamespaceWithTwoOwners.map(
+            ValidatedTopologyTransactionX(_)
+          ),
+        )
+
+        pkgTx = TopologyTransactionX(
+          TopologyChangeOpX.Replace,
+          serial = PositiveInt.one,
+          VettedPackagesX(
+            ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+            None,
+            Seq.empty,
+          ),
+          BaseTest.testedProtocolVersion,
+        )
+        resultPackageVetting <- validator
+          .validateAndUpdateHeadAuthState(
+            ts(1),
+            transactionsToValidate = List(
+              // Signing this transaction also with key9 simulates that ns9 was part of the
+              // decentralized namespace before and was eligible for signing the transaction.
+              // After this validation, we expect the signature of key9 to be removed
+              mkTrans(pkgTx, signingKeys = NonEmpty(Set, key9, key1, key8), isProposal = true)
+            ),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = false,
+          )
+
+        // if there are only superfluous signatures, reject the transaction
+        resultOnlySuperfluousSignatures <- validator.validateAndUpdateHeadAuthState(
+          ts(2),
+          transactionsToValidate = List(
+            mkTrans(pkgTx, signingKeys = NonEmpty(Set, key3, key5), isProposal = true)
+          ),
+          transactionsInStore = Map.empty,
+          expectFullAuthorization = false,
+        )
+
+      } yield {
+        val validatedPkgTx = resultPackageVetting._2.loneElement
+        val signatures = validatedPkgTx.transaction.signatures
+
+        validatedPkgTx.rejectionReason shouldBe None
+        signatures.map(_.signedBy).forgetNE should contain theSameElementsAs (Set(key1, key8).map(
+          _.id
+        ))
+
+        resultOnlySuperfluousSignatures._2.loneElement.rejectionReason shouldBe Some(
+          TopologyTransactionRejection.NoDelegationFoundForKeys(Set(key3.id, key5.id))
+        )
+      }
+    }
+
     "respect the threshold of decentralized namespaces" in {
       val store =
         new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
