@@ -13,7 +13,6 @@ import com.google.protobuf.ByteString
 import com.daml.bazeltools.BazelRunfiles
 import java.io.File
 import java.io.FileInputStream
-import org.scalatest.Suite
 import org.scalatest.compatible.Assertion
 
 import scala.io.Source
@@ -23,7 +22,6 @@ import com.daml.lf.archive.{DarReader}
 import scala.util.{Success, Failure}
 
 final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with CantonFixture {
-  self: Suite =>
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
 
