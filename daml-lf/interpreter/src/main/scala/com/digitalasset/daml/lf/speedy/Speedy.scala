@@ -400,7 +400,7 @@ private[lf] object Speedy {
         } else {
           popKont() match {
             case handler: KTryCatchHandler =>
-              ptx = ptx.rollbackTry(excep)
+              ptx = ptx.rollbackTry()
               Some(handler)
             case _: KCloseExercise =>
               ptx = ptx.abortExercises
