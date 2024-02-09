@@ -60,7 +60,7 @@ final class AdminLedgerClient private (
   def unvetDar(name: String): Future[Unit] =
     findDarHash(name).flatMap(unvetDarByHash)
 
-  def uploadDar(path: Path, name: String): Future[Unit] =
+  def uploadDar(path: Path, name: String): Future[Either[String, String]] =
     packageServiceStub
       .uploadDar(
         admin_package_service.UploadDarRequest(
@@ -70,7 +70,14 @@ final class AdminLedgerClient private (
           synchronizeVetting = true,
         )
       )
-      .map(_ => ())
+      .map { response =>
+        import admin_package_service.UploadDarResponse
+        response.value match {
+          case UploadDarResponse.Value.Success(UploadDarResponse.Success(hash)) => Right(hash)
+          case UploadDarResponse.Value.Failure(UploadDarResponse.Failure(msg)) => Left(msg)
+          case UploadDarResponse.Value.Empty => Left("unexpected empty response")
+        }
+      }
 
   override def close(): Unit = GrpcChannel.close(channel)
 }
