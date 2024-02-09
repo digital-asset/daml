@@ -87,7 +87,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       ptx.endExercises(_ => Value.ValueNone)
 
     def rollbackTry_ : PartialTransaction =
-      ptx.rollbackTry(null /* dummy exception, never read */ )
+      ptx.rollbackTry()
   }
 
   private[this] val outputCids =

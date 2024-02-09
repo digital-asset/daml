@@ -165,7 +165,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private def flatVTXs: Seq[VTX] =
     (someCreates ++ someFetches ++ someLookups ++ someExercises).map { node =>
       val nid = NodeId(0)
-      val version = TransactionVersion.minExceptions
+      val version = TransactionVersion.minVersion
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
@@ -177,7 +177,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       val nid0 = NodeId(0)
       val nid1 = NodeId(1)
       val parent = exe.copy(children = ImmArray(nid1))
-      val version = TransactionVersion.minExceptions
+      val version = TransactionVersion.minVersion
       VersionedTransaction(
         version,
         HashMap(nid0 -> parent, nid1 -> child),
