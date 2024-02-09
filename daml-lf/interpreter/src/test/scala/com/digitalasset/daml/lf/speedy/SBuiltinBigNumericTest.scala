@@ -45,8 +45,8 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
     else
       "0." + "0" * (-i - 1) + "1" + "0" * (scale + i)
 
-  private val decimals = Table[String](
-    "Decimals",
+  private val numerics = Table[String](
+    "Nueric",
     "161803398.87499",
     "3.1415926536",
     "2.7182818285",
@@ -88,8 +88,8 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
       forEvery(testCases) { (builtin, ref) =>
-        forEvery(decimals) { a =>
-          forEvery(decimals) { b =>
+        forEvery(numerics) { a =>
+          forEvery(numerics) { b =>
             val actualResult = eval(
               e"$builtin (NUMERIC_TO_BIGNUMERIC @10 ${s(10, a)}) (NUMERIC_TO_BIGNUMERIC @10 ${s(10, b)})"
             )

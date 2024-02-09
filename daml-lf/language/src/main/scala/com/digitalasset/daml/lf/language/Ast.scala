@@ -347,7 +347,6 @@ object Ast {
     // works because Numeric.Scale.MinValue = 0
     val values = Numeric.Scale.values.map(new TNat(_))
     def apply(n: Numeric.Scale): TNat = values(n)
-    val Decimal: TNat = values(10)
   }
 
   /** Fully applied type synonym. */

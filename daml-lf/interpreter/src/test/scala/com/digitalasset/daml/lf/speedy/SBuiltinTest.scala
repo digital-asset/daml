@@ -237,16 +237,16 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "Numeric operations" - {
 
-    val maxDecimal = Decimal.MaxValue
+    val maxNumeric = Numeric.maxValue(Numeric.Scale.assertFromInt(10))
 
-    val minPosDecimal = BigDecimal("0000000000000000000000000000.0000000001")
+    val minPosNumeric = BigDecimal("0000000000000000000000000000.0000000001")
     val bigBigDecimal = BigDecimal("8765432109876543210987654321.0987654321")
     val zero = BigDecimal("0.0000000000")
     val one = BigDecimal("1.0000000000")
     val two = BigDecimal("2.0000000000")
 
-    val decimals = Table[String](
-      "Decimals",
+    val numerics = Table[String](
+      "Numerics",
       "161803398.87499",
       "3.1415926536",
       "2.7182818285",
@@ -270,8 +270,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, two)}") shouldBe Right(
           SNumeric(n(10, bigBigDecimal + 2))
         )
-        eval(e"$builtin @10 ${s(10, maxDecimal)} ${s(10, minPosDecimal)}") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 ${s(10, maxDecimal.negate)} ${s(10, -minPosDecimal)}") shouldBe a[
+        eval(e"$builtin @10 ${s(10, maxNumeric)} ${s(10, minPosNumeric)}") shouldBe a[Left[_, _]]
+        eval(e"$builtin @10 ${s(10, maxNumeric.negate)} ${s(10, -minPosNumeric)}") shouldBe a[
           Left[_, _]
         ]
         eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, bigBigDecimal - 1)}") shouldBe a[
@@ -291,8 +291,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         eval(e"$builtin @10 $bigBigDecimal ${s(10, two)}") shouldBe Right(
           SNumeric(n(10, bigBigDecimal - 2))
         )
-        eval(e"$builtin @10 ${s(10, maxDecimal)} -$minPosDecimal") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 ${maxDecimal.negate} ${s(10, minPosDecimal)}") shouldBe a[Left[_, _]]
+        eval(e"$builtin @10 ${s(10, maxNumeric)} -$minPosNumeric") shouldBe a[Left[_, _]]
+        eval(e"$builtin @10 ${maxNumeric.negate} ${s(10, minPosNumeric)}") shouldBe a[Left[_, _]]
         eval(e"$builtin @10 ${-bigBigDecimal} ${s(10, bigBigDecimal)}") shouldBe a[Left[_, _]]
       }
     }
@@ -431,7 +431,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "returns proper result" in {
         val d = "8765432109876543210987654321.0987654321"
         val testCases = Table[Long, String, String](
-          ("rounding", "decimal", "result"),
+          ("rounding", "nuemric", "result"),
           (-27, d, "9000000000000000000000000000.0000000000"),
           (-1, "45.0", "40.0"),
           (-1, "55.0", "60.0"),
@@ -446,7 +446,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "Decimal binary operations compute proper results" in {
+    "Numeric binary operations compute proper results" in {
 
       def round(x: BigDecimal) = n(10, x.setScale(10, BigDecimal.RoundingMode.HALF_EVEN))
 
@@ -472,8 +472,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
       forEvery(testCases) { (builtin, ref) =>
-        forEvery(decimals) { a =>
-          forEvery(decimals) { b =>
+        forEvery(numerics) { a =>
+          forEvery(numerics) { b =>
             eval(e"$builtin ${s(10, a)} ${s(10, b)}").toOption shouldBe
               ref(n(10, a), n(10, b))
           }
@@ -483,7 +483,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     "NUMERIC_TO_TEXT" - {
       "returns proper results" in {
-        forEvery(decimals) { a =>
+        forEvery(numerics) { a =>
           eval(e"NUMERIC_TO_TEXT @10 ${s(10, a)}") shouldBe Right(SText(a))
         }
       }
@@ -1266,7 +1266,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
       "works as expected" in {
         val testCases = Table[Long, String, Long](
-          ("scale", "Decimal", "Int64"),
+          ("scale", "Numeric", "Int64"),
           (7, s(7, almostZero(7)), 0),
           (2, "0.00", 0),
           (8, "1.00000000", 1),
@@ -1275,9 +1275,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           (20, "123456789.12345678912345678912", 123456789),
         )
 
-        forEvery(testCases) { (scale, decimal, int64) =>
-          eval(e"NUMERIC_TO_INT64 @$scale $decimal") shouldBe Right(SInt64(int64))
-          eval(e"NUMERIC_TO_INT64 @$scale -$decimal") shouldBe Right(SInt64(-int64))
+        forEvery(testCases) { (scale, numeric, int64) =>
+          eval(e"NUMERIC_TO_INT64 @$scale $numeric") shouldBe Right(SInt64(int64))
+          eval(e"NUMERIC_TO_INT64 @$scale -$numeric") shouldBe Right(SInt64(-int64))
         }
       }
     }

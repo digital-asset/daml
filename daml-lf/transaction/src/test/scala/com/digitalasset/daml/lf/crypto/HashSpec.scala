@@ -4,7 +4,7 @@
 package com.daml.lf
 package crypto
 
-import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
+import com.daml.lf.data.{Numeric, Ref, SortedLookupList, Time}
 import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
@@ -31,8 +31,8 @@ class HashSpec extends AnyWordSpec with Matchers {
         fInt0 = VA.int64,
         fInt1 = VA.int64,
         fInt2 = VA.int64,
-        fNumeric0 = VA.numeric(Decimal.scale),
-        fNumeric1 = VA.numeric(Decimal.scale),
+        fNumeric0 = VA.numeric(Numeric.Scale.assertFromInt(10)),
+        fNumeric1 = VA.numeric(Numeric.Scale.assertFromInt(10)),
         fBool0 = VA.bool,
         fBool1 = VA.bool,
         fDate0 = VA.date,
@@ -131,9 +131,10 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in list of decimals" in {
-      // Testing whether decimals are delimited: [10, 10] vs [101, 0]
+      // Testing whether numeric are delimited: [10, 10] vs [101, 0]
       def list(elements: String*) =
-        VA.list(VA.numeric(Decimal.scale)).inj(elements.map(Numeric.assertFromString).toVector)
+        VA.list(VA.numeric(Numeric.Scale.assertFromInt(10)))
+          .inj(elements.map(Numeric.assertFromString).toVector)
       val value1 = list("10.0000000000", "10.0000000000")
       val value2 = list("101.0000000000", "0.0000000000")
 
@@ -269,7 +270,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       hash1 should !==(hash2)
     }
 
-    "not produce collision in Decimal" in {
+    "not produce collision in Numeric" in {
       val value1 = ValueNumeric(Numeric.assertFromString("0."))
       val value2 = ValueNumeric(Numeric.assertFromString("1."))
 
@@ -352,9 +353,9 @@ class HashSpec extends AnyWordSpec with Matchers {
       val units = List(ValueUnit)
       val bools = List(true, false).map(VA.bool.inj(_))
       val ints = List(-1L, 0L, 1L).map(VA.int64.inj(_))
-      val decimals = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
+      val numric10s = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
         .map(Numeric.assertFromString)
-        .map(VA.numeric(Decimal.scale).inj(_))
+        .map(VA.numeric(Numeric.Scale.assertFromInt(10)).inj(_))
       val numeric0s = List("-10000.", "0.", "10000.")
         .map(Numeric.assertFromString)
         .map(VA.numeric(Numeric.Scale.MinValue).inj(_))
@@ -473,7 +474,7 @@ class HashSpec extends AnyWordSpec with Matchers {
           List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj(_))
 
       val testCases: List[V] =
-        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
+        units ++ bools ++ ints ++ numric10s ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
 
       val expectedOut =
         """ValueUnit

@@ -217,7 +217,6 @@ object ValueGenerators {
     dateGen.map(ValueDate),
     Gen.alphaStr.map(ValueText),
     unscaledNumGen.map(ValueNumeric),
-    numGen(Decimal.scale).map(ValueNumeric),
     arbitrary[Long].map(ValueInt64),
     Gen.alphaStr.map(ValueText),
     timestampGen.map(ValueTimestamp),

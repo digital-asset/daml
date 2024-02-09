@@ -173,7 +173,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           T"∀ (τ : ⋆). τ → (( Option τ ))",
         // ExpLitInt64
         E"(( 42 ))" -> T"Int64",
-        // ExpLitDecimal
+        // ExpLitNumeric
         E"(( 3.1415926536 ))" -> T"(( Numeric 10 ))",
         // ExpLitText
         E"""(( "text" ))""" -> T"(( Text ))",
@@ -405,13 +405,13 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         E"λ (e: Mod:I) → (( create_by_interface @Mod:I e))" ->
           T"Mod:I → (( Update (ContractId Mod:I) ))",
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
-          T"ContractId Mod:T → Int64 → (( Update Decimal ))",
+          T"ContractId Mod:T → Int64 → (( Update Numeric 10 ))",
         E"λ (e₁: ContractId Mod:I) (e₂: Int64) → (( exercise_interface @Mod:I ChIface e₁ e₂ ))" ->
-          T"ContractId Mod:I → Int64 → (( Update Decimal ))",
+          T"ContractId Mod:I → Int64 → (( Update Numeric 10 ))",
         E"λ (e₁: ContractId Mod:I) (e₂: Int64) (e₃: Mod:I → Bool) → (( exercise_interface_with_guard @Mod:I ChIface e₁ e₂ e₃ ))" ->
-          T"ContractId Mod:I → Int64 → (Mod:I → Bool) → (( Update Decimal ))",
+          T"ContractId Mod:I → Int64 → (Mod:I → Bool) → (( Update Numeric 10 ))",
         E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
-          T"Party → Int64 → (( Update Decimal ))",
+          T"Party → Int64 → (( Update Numeric 10 ))",
         E"λ (e: ContractId Mod:T) → (( fetch_template @Mod:T e ))" ->
           T"ContractId Mod:T → (( Update Mod:T ))",
         E"λ (e: ContractId Mod:I) → (( fetch_interface @Mod:I e ))" ->
@@ -1962,16 +1962,16 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
            precondition True;
            signatories Nil @Party;
            observers Nil @Party;
-           choice Ch (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
+           choice Ch (self) (x: Int64) : Numeric 10, controllers Nil @Party to upure @INT64 (NUMERIC_TO_INT64 @1 x);
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
          };
 
          interface (this : I) = {
               viewtype Mod:MyUnit;
               method getParties: List Party;
-              choice ChIface (self) (x: Int64) : Decimal,
+              choice ChIface (self) (x: Int64) : Numeric 10,
                   controllers Nil @Party
-                to upure @INT64 (DECIMAL_TO_INT64 x);
+                to upure @INT64 (NUMERIC_TO_INT64 @10 x);
          };
 
          interface (this : SubI) = {
@@ -1986,7 +1986,7 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
            precondition True;
            signatories Nil @Party;
            observers Nil @Party;
-           choice ChTmpl (self) (x: Int64) : Decimal, controllers Nil @Party to upure @INT64 (DECIMAL_TO_INT64 x);
+           choice ChTmpl (self) (x: Int64) : Numeric 10, controllers Nil @Party to upure @INT64 (NUMERIC_TO_INT64 @10 x);
            implements Mod:I {
               view = Mod:MyUnit {};
               method getParties = Cons @Party [(Mod:Ti {person} this)] (Nil @Party);
