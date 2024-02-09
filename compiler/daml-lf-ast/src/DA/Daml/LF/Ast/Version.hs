@@ -174,13 +174,6 @@ featureDynamicExercise = Feature
     , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
     }
 
-featurePackageUpgrades :: Feature
-featurePackageUpgrades = Feature
-    { featureName = "Package upgrades POC"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
-    }
-
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -211,7 +204,6 @@ allFeatures =
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
-    , featurePackageUpgrades
     ]
 
 -- | A map from feature CPP flags to features.
