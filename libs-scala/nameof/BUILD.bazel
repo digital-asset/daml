@@ -33,7 +33,6 @@ da_scala_test_suite(
     ],
     deps = [
         ":nameof",
-        "@maven//:org_scala_lang_scala_compiler",
         "@maven//:org_scala_lang_scala_reflect",
     ],
 )
