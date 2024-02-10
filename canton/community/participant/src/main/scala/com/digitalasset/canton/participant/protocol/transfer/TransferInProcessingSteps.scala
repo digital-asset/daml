@@ -584,7 +584,6 @@ private[transfer] class TransferInProcessingSteps(
         coid = contract.contractId,
         templateId = contractInst.template,
         arg = contractInst.arg,
-        agreementText = "", // TODO(i12451): get the right agreement text from `contractInst`
         signatories = contract.metadata.signatories,
         stakeholders = contract.metadata.stakeholders,
         keyOpt = contract.metadata.maybeKeyWithMaintainers,
@@ -631,7 +630,6 @@ private[transfer] class TransferInProcessingSteps(
       contractMetadata = driverContractMetadata,
       transferId = transferId,
       targetDomain = targetDomain,
-      createTransactionAccepted = !isTransferringParticipant,
       workflowId = submitterMetadata.workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,

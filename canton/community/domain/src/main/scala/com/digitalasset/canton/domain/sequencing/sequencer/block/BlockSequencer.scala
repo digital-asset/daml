@@ -51,7 +51,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, OptionUtil, PekkoUtil}
+import com.digitalasset.canton.util.{EitherTUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -167,39 +167,30 @@ class BlockSequencer(
 
   private object TimestampOfSigningKeyCheck
 
-  private def ensureTimestampOfSigningKeyPresentForAggregationRule(
+  private def ensureTimestampOfSigningKeyPresentForAggregationRuleAndSignatures(
       submission: SubmissionRequest
-  ): EitherT[Future, SendAsyncError, TimestampOfSigningKeyCheck.type] = {
-    EitherTUtil
-      .condUnitET[Future](
-        submission.aggregationRule.isEmpty || submission.timestampOfSigningKey.isDefined,
-        SendAsyncError.RequestInvalid(
-          s"Submission id ${submission.messageId} has `aggregationRule` set, but `timestampOfSigningKey` is not defined. Please check that `timestampOfSigningKey` has been set for the submission."
-        ): SendAsyncError,
-      )
-      .map(_ => TimestampOfSigningKeyCheck)
-  }
+  ): EitherT[Future, SendAsyncError, TimestampOfSigningKeyCheck.type] =
+    EitherT.cond[Future](
+      submission.aggregationRule.isEmpty || submission.timestampOfSigningKey.isDefined ||
+        submission.batch.envelopes.forall(_.signatures.isEmpty),
+      TimestampOfSigningKeyCheck,
+      SendAsyncError.RequestInvalid(
+        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `timestampOfSigningKey` is not defined. Please set the `timestampOfSigningKey` for the submission."
+      ): SendAsyncError,
+    )
 
   private def validateMaxSequencingTime(
       _timestampOfSigningKeyCheck: TimestampOfSigningKeyCheck.type,
       submission: SubmissionRequest,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
-    val estimateSequencingTimestamp = clock.now
+    val estimatedSequencingTimestamp = clock.now
     submission.aggregationRule match {
       case Some(_) =>
         for {
           _ <- EitherTUtil.condUnitET[Future](
-            submission.maxSequencingTime > estimateSequencingTimestamp,
+            submission.maxSequencingTime > estimatedSequencingTimestamp,
             SendAsyncError.RequestInvalid(
-              s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimateSequencingTimestamp"
-            ),
-          )
-          timestampOfSigningKey <- EitherT.fromOption[Future](
-            submission.timestampOfSigningKey,
-            ErrorUtil.internalError(
-              new IllegalStateException(
-                "timestampOfSigningKey is expected to be defined at this point"
-              )
+              s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimatedSequencingTimestamp"
             ),
           )
           // We can't easily use snapshot(timestampOfSigningKey), because the effective last snapshot transaction
@@ -207,7 +198,9 @@ class BlockSequencer(
           // intermediate topology change is impossible here (will need to communicate with the BlockUpdateGenerator).
           // If timestampOfSigningKey happens to be ahead of current topology's timestamp we grab the latter
           // to prevent a deadlock.
-          topologyTimestamp = cryptoApi.approximateTimestamp.min(timestampOfSigningKey)
+          topologyTimestamp = cryptoApi.approximateTimestamp.min(
+            submission.timestampOfSigningKey.getOrElse(CantonTimestamp.MaxValue)
+          )
           snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
           domainParameters <- EitherT(
             snapshot.ipsSnapshot.findDynamicDomainParameters()
@@ -215,7 +208,7 @@ class BlockSequencer(
             .leftMap(error =>
               SendAsyncError.Internal(s"Could not fetch dynamic domain parameters: $error")
             )
-          maxSequencingTimeUpperBound = estimateSequencingTimestamp.add(
+          maxSequencingTimeUpperBound = estimatedSequencingTimestamp.add(
             domainParameters.parameters.sequencerAggregateSubmissionTimeout.duration
           )
           _ <- EitherTUtil.condUnitET[Future](
@@ -254,7 +247,8 @@ class BlockSequencer(
     )
 
     for {
-      timestampOfSigningKeyCheck <- ensureTimestampOfSigningKeyPresentForAggregationRule(submission)
+      timestampOfSigningKeyCheck <-
+        ensureTimestampOfSigningKeyPresentForAggregationRuleAndSignatures(submission)
       _ <- validateMaxSequencingTime(timestampOfSigningKeyCheck, submission)
       memberCheck <- EitherT.right[SendAsyncError](
         cryptoApi.currentSnapshotApproximation.ipsSnapshot

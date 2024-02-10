@@ -185,8 +185,9 @@ object SubmissionRequest
         rpv: SubmissionRequest.ThisRepresentativeProtocolVersion,
     ): Either[String, Unit] =
       EitherUtil.condUnitE(
-        v.aggregationRule.isEmpty || v.timestampOfSigningKey.isDefined,
-        s"Submission request has `aggregationRule` set, but `timestampOfSigningKey` is not defined. Please check that `timestampOfSigningKey` has been set for the submission.",
+        v.aggregationRule.isEmpty || v.timestampOfSigningKey.isDefined || v.batch.envelopes
+          .forall(_.signatures.isEmpty),
+        s"Submission request with signed envelopes has `aggregationRule` set, but `timestampOfSigningKey` is not defined. Please check that `timestampOfSigningKey` has been set for the submission.",
       )
   }
 

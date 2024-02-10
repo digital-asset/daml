@@ -140,8 +140,7 @@ object MemberAuthentication {
         s"Due to an internal error, the server side token lookup for member $member failed",
         "VerifyTokenTimeout",
       )
-  final case class ServiceAgreementAcceptanceError(member: Member, error: String)
-      extends AuthenticationError(reason = error, code = "ServiceAgreementAcceptanceError")
+
   final case class AuthenticationNotSupportedForMember(member: Member)
       extends AuthenticationError(
         reason = s"Authentication for member type is not supported: $member",

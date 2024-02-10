@@ -10,10 +10,10 @@ import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails as ProtoPartyDetails
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
