@@ -414,7 +414,10 @@ object Trigger {
 
     Machine.stepToValue(compiledPackages, registeredTemplates) match {
       // "AllInDar" is there for backward compatibility with dars compiled with 2.8.x or earlier
-      case SVariant(_, "AllInDar" | "AllTemplates", _, _) =>
+      case SVariant(_, allTemplates @ ("AllInDar" | "AllTemplates"), _, _) =>
+        triggerContext.logWarning(
+          s"Please avoid the use of $allTemplates and register against specific templates using RegisteredTemplate - AllInDar and AllTemplates should only be used when developing or testing trigger code"
+        )
         Right(
           Filters(
             Some(
