@@ -151,13 +151,13 @@ class OngoingAuthorizationObserverSpec
               verify(cancellableMock, times(1)).cancel()
               assertError(
                 actual = captor.getValue,
-                expected = AuthorizationChecksErrors.PermissionDenied
+                expected = AuthorizationChecksErrors.AccessTokenExpired
                   .Reject(Expired(expiration, clock.instant).reason)
                   .asGrpcError,
               )
             },
             assertions =
-              _.warningMessage should include("PERMISSION_DENIED(7,0): Claims were valid until "),
+              _.warningMessage should include("ACCESS_TOKEN_EXPIRED(6,0): Claims were valid until "),
           )
 
           // onError has already been called by tested implementation so subsequent onNext, onError and onComplete

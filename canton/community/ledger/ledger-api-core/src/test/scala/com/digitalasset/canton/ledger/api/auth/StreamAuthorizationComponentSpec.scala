@@ -168,7 +168,7 @@ class StreamAuthorizationComponentSpec
       .failed
       .map { t =>
         // the client stream should be cancelled with error
-        t.getMessage should include("PERMISSION_DENIED")
+        t.getMessage should include("UNAUTHENTICATED")
         // the server stream should be completed
         fixture.waitForServerPekkoStream shouldBe None
       }

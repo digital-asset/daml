@@ -157,7 +157,7 @@ private[auth] final class OngoingAuthorizationObserver[A](
       .notExpired(now, jwtTimestampLeeway, tokenExpiryGracePeriodForStreams)
       .left
       .map(authorizationError =>
-        AuthorizationChecksErrors.PermissionDenied
+        AuthorizationChecksErrors.AccessTokenExpired
           .Reject(authorizationError.reason)(errorLogger)
           .asGrpcError
       )
