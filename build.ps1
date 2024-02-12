@@ -69,7 +69,7 @@ bazel build //... `
 bazel shutdown
 
 function Has-Run-All-Tests-Trailer {
-  if ($env:BUILD_REASON -eq "PullRequest") {
+  if (2 -eq ((git show -s --format=%p HEAD | Measure-Object -Word).Words)) {
     $ref = "HEAD^2"
   } else {
     $ref = "HEAD"
