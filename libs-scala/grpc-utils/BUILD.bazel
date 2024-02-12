@@ -26,7 +26,6 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
     ],
     deps = [
         ":grpc-utils",
