@@ -227,7 +227,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     }
 
     Versioned(
-      TransactionVersion.minExplicitDisclosure,
+      TransactionVersion.minVersion,
       Value.ContractInstance(
         packageName = packageName,
         template = templateId,
@@ -267,7 +267,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       else None
 
     ContractInfo(
-      version = TransactionVersion.minExplicitDisclosure,
+      version = TransactionVersion.minVersion,
       packageName = packageName,
       templateId = templateId,
       value = contract,
