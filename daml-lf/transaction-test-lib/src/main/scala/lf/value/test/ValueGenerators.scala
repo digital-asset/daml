@@ -29,8 +29,6 @@ import scalaz.scalacheck.ScalaCheckBinding._
 
 object ValueGenerators {
 
-  import TransactionVersion.minInterfaces
-
   // generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
     val num = for {
@@ -377,7 +375,7 @@ object ValueGenerators {
       targetCoid <- coidGen
       pkgName <- pkgNameGen(version)
       templateId <- idGen
-      interfaceId <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
+      interfaceId <- Gen.option(idGen)
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties

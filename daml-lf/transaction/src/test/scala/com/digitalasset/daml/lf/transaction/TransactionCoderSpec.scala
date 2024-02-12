@@ -1115,10 +1115,7 @@ class TransactionCoderSpec
       case _ => exe
     }
     node.copy(
-      interfaceId =
-        if (exe.version >= TransactionVersion.minInterfaces)
-          exe.interfaceId
-        else None,
+      interfaceId = exe.interfaceId,
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
       choiceObservers = exe.choiceObservers,

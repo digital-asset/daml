@@ -301,11 +301,9 @@ object TransactionCoder {
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
               }
-              if (nodeVersion >= TransactionVersion.minInterfaces) {
-                ne.interfaceId.foreach(iface =>
-                  builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
-                )
-              }
+              ne.interfaceId.foreach(iface =>
+                builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
+              )
               for {
                 encodedPkgName <- encodePackageName(ne.packageName, nodeVersion)
                 _ = builder.setPackageName(encodedPkgName)
@@ -552,7 +550,7 @@ object TransactionCoder {
               protoExe.getByKey
             else false
           interfaceId <-
-            if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasInterfaceId) {
+            if (protoExe.hasInterfaceId) {
               ValueCoder.decodeIdentifier(protoExe.getInterfaceId).map(Some(_))
             } else {
               Right(None)
