@@ -107,8 +107,11 @@ if ($env:SKIP_TESTS -ceq "False") {
 
     Write-Output "Running bazel test with the following tag filters: $tag_filter"
 
+    if (Test-Path -Path bazel-testlogs) {
+    } else {
     mkdir bazel-testlogs
     echo $null >> bazel-testlogs
+    }
 
 #    bazel test //... `
 #      `-`-build_tag_filters "$tag_filter" `
