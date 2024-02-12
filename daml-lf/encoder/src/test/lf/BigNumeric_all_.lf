@@ -17,8 +17,8 @@ module BigNumericMod {
     DIV_BIGNUMERIC;
   val shiftRightBigNumeric: Int64 -> BigNumeric -> BigNumeric =
     SHIFT_RIGHT_BIGNUMERIC;
-  val toNumericBigNumeric: forall (n: nat). BigNumeric -> Numeric n =
-    BIGNUMERIC_TO_NUMERIC_LEGACY;
+  val toNumericBigNumeric: forall (n: nat). Numeric n -> BigNumeric -> Numeric n =
+    BIGNUMERIC_TO_NUMERIC;
   val toBigNumericNumeric: forall (n: nat). Numeric n -> BigNumeric =
     NUMERIC_TO_BIGNUMERIC;
   val toTextBigNumeric: BigNumeric -> Text =

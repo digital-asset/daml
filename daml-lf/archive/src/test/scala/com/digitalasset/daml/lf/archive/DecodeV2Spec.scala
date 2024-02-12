@@ -107,6 +107,14 @@ class DecodeV2Spec
         DamlLf2.BuiltinFunction.LEQ_TIMESTAMP,
         DamlLf2.BuiltinFunction.EQUAL_CONTRACT_ID,
         DamlLf2.BuiltinFunction.LEQ_INT64,
+        DamlLf2.BuiltinFunction.MUL_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.DIV_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.TEXT_TO_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.CAST_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.SHIFT_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.INT64_TO_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.BIGNUMERIC_TO_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.BIGNUMERIC_TO_TEXT,
       ) ++ DecodeV2.builtinFunctionInfos.map(_.proto)
     val s2 = DamlLf2.BuiltinFunction.values().toSet
     (s1 -- s2) shouldBe Set.empty
@@ -351,9 +359,6 @@ class DecodeV2Spec
     def toProtoExpr(b: DamlLf2.BuiltinFunction) =
       DamlLf2.Expr.newBuilder().setBuiltin(b).build()
 
-    def toDecimalProto(s: String): DamlLf2.Expr =
-      DamlLf2.Expr.newBuilder().setPrimLit(DamlLf2.PrimLit.newBuilder().setDecimalStr(s)).build()
-
     // def toNumericProto(s: String): DamlLf2.Expr =
     //  DamlLf2.Expr.newBuilder().setPrimLit(DamlLf2.PrimLit.newBuilder().setNumeric(s)).build()
 
@@ -367,12 +372,8 @@ class DecodeV2Spec
       "numeric builtins" -> "expected output",
       DamlLf2.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltin(Ast.BAddNumeric),
       DamlLf2.BuiltinFunction.SUB_NUMERIC -> Ast.EBuiltin(Ast.BSubNumeric),
-      DamlLf2.BuiltinFunction.MUL_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BMulNumericLegacy),
-      DamlLf2.BuiltinFunction.DIV_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BDivNumericLegacy),
       DamlLf2.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
       DamlLf2.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltin(Ast.BNumericToText),
-      DamlLf2.BuiltinFunction.TEXT_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BTextToNumericLegacy),
-      DamlLf2.BuiltinFunction.INT64_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BInt64ToNumericLegacy),
       DamlLf2.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
     )
 
@@ -496,16 +497,6 @@ class DecodeV2Spec
       }
     }
 
-    s"reject numeric decimal" in {
-
-      forEveryVersion { version =>
-        val decoder = moduleDecoder(version)
-        an[Error.Parsing] shouldBe thrownBy(
-          decoder.decodeExprForTest(toDecimalProto("0.0"), "test")
-        )
-      }
-    }
-
     s"reject comparison builtins as is" in {
 
       forEveryVersion { version =>
@@ -551,8 +542,6 @@ class DecodeV2Spec
           Ast.EBuiltin(Ast.BDivBigNumeric),
         DamlLf2.BuiltinFunction.NUMERIC_TO_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BNumericToBigNumeric),
-        DamlLf2.BuiltinFunction.BIGNUMERIC_TO_NUMERIC_LEGACY ->
-          Ast.EBuiltin(Ast.BBigNumericToNumericLegacy),
         DamlLf2.BuiltinFunction.BIGNUMERIC_TO_TEXT ->
           Ast.EBuiltin(Ast.BBigNumericToText),
       )

@@ -297,29 +297,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "MUL_NUMERIC_LEGACY" - {
-      val builtin = "MUL_NUMERIC_LEGACY"
-      val underSqrtOfTen = "3.1622776601683793319988935444327185337"
-      val overSqrtOfTen = "3.1622776601683793319988935444327185338"
-
-      "throws an exception in case of overflow" in {
-        eval(e"$builtin @0 @0 @0 1${"0" * 18}. 1${"0" * 19}.") shouldBe a[Right[_, _]]
-        eval(e"$builtin @0 @0 @0 1${"0" * 19}.  1${"0" * 19}.") shouldBe a[Left[_, _]]
-        eval(e"$builtin @37 @37 @37 $underSqrtOfTen $underSqrtOfTen") shouldBe a[Right[_, _]]
-        eval(e"$builtin @37 @37 @37 $overSqrtOfTen $underSqrtOfTen") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 @10 @10 1.1000000000 2.2000000000") shouldBe Right(
-          SNumeric(n(10, 2.42))
-        )
-        eval(e"$builtin @10 @10 @10 ${tenPowerOf(13)} ${tenPowerOf(14)}") shouldBe Right(
-          SNumeric(n(10, "1E27"))
-        )
-        eval(e"$builtin @10 @10 @10 ${tenPowerOf(14)} ${tenPowerOf(14)}") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${bigBigDecimal - 1}") shouldBe a[
-          Left[_, _]
-        ]
-      }
-    }
-
     "MUL_NUMERIC" - {
       val builtin = "MUL_NUMERIC"
       val underSqrtOfTen = "3.1622776601683793319988935444327185337"
@@ -346,35 +323,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         ) shouldBe a[
           Left[_, _]
         ]
-      }
-    }
-
-    "DIV_NUMERIC_LEGACY" - {
-      val builtin = "DIV_NUMERIC_LEGACY"
-
-      "throws an exception in case of overflow" in {
-        eval(e"$builtin @37 @37 @37 ${s(37, "1E-18")} ${s(37, "-1E-18")}") shouldBe a[Right[_, _]]
-        eval(e"$builtin @37 @37 @37 ${s(37, "1E-18")} ${s(37, "-1E-19")}") shouldBe a[Left[_, _]]
-        eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.2") shouldBe a[Right[_, _]]
-        eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.1") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 @10 @10 1.1000000000 2.2000000000") shouldBe Right(
-          SNumeric(n(10, 0.5))
-        )
-        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${tenPowerOf(-10)}") shouldBe a[
-          Left[_, _]
-        ]
-        eval(e"$builtin @10 @10 @10 ${tenPowerOf(17)} ${tenPowerOf(-10)}") shouldBe Right(
-          SNumeric(n(10, "1E27"))
-        )
-        eval(e"$builtin @10 @10 @10 ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldBe a[Left[_, _]]
-      }
-
-      "throws an exception when divided by 0" in {
-        eval(e"$builtin @10 @10 @10 ${s(10, one)} ${tenPowerOf(-10)}") shouldBe Right(
-          SNumeric(n(10, tenPowerOf(10)))
-        )
-        eval(e"$builtin @10 @10 @10 ${s(10, one)} ${s(10, zero)}") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldBe a[Left[_, _]]
       }
     }
 
@@ -454,9 +402,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         ("builtin", "reference"),
         ("ADD_NUMERIC @10", (a, b) => Some(SNumeric(n(10, a add b)))),
         ("SUB_NUMERIC @10", (a, b) => Some(SNumeric(n(10, a subtract b)))),
-        ("MUL_NUMERIC_LEGACY @10 @10 @10 ", (a, b) => Some(SNumeric(round(a multiply b)))),
+        (s"MUL_NUMERIC @10 @10 @10 ${w(10)}", (a, b) => Some(SNumeric(round(a multiply b)))),
         (
-          "DIV_NUMERIC_LEGACY @10 @10 @10",
+          s"DIV_NUMERIC @10 @10 @10 ${w(10)}",
           (a, b) =>
             if (b.signum != 0) Some(SNumeric(round(BigDecimal(a) / BigDecimal(b)))) else None,
         ),
@@ -485,53 +433,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "returns proper results" in {
         forEvery(numerics) { a =>
           eval(e"NUMERIC_TO_TEXT @10 ${s(10, a)}") shouldBe Right(SText(a))
-        }
-      }
-    }
-
-    "CAST_NUMERIC_LEGACY" - {
-      "throws an error in case of overflow" in {
-        val testCases = Table[Int, Int, String](
-          ("input scale", "output scale", "x"),
-          (0, 1, s(0, Numeric.maxValue(0))),
-          (0, 37, "10."),
-          (20, 30, tenPowerOf(15, 20)),
-          (36, 37, s(36, Numeric.minValue(36))),
-        )
-
-        forEvery(testCases) { (inputScale, outputScale, x) =>
-          eval(e"CAST_NUMERIC_LEGACY @$inputScale @$outputScale $x") shouldBe a[Left[_, _]]
-        }
-
-      }
-
-      "throws an error in case of precision loss" in {
-        val testCases = Table[Int, Int, String](
-          ("input scale", "output scale", "x"),
-          (1, 0, tenPowerOf(-1, 1)),
-          (37, 0, tenPowerOf(-37, 37)),
-          (20, 10, "-" + tenPowerOf(-15, 20)),
-          (37, 36, tenPowerOf(-37, 37)),
-        )
-
-        forEvery(testCases) { (inputScale, outputScale, x) =>
-          eval(e"CAST_NUMERIC_LEGACY @$inputScale @$outputScale $x") shouldBe a[Left[_, _]]
-        }
-      }
-
-      "returns proper result" in {
-        val testCases = Table[Int, Int, String](
-          ("input scale", "output scale", "x"),
-          (1, 0, "1.0"),
-          (10, 20, tenPowerOf(-5, 10)),
-          (20, 10, tenPowerOf(-5, 20)),
-          (10, 20, tenPowerOf(10, 10)),
-          (20, 10, tenPowerOf(10, 20)),
-        )
-        forEvery(testCases) { (inputScale, outputScale, x) =>
-          eval(e"CAST_NUMERIC_LEGACY @$inputScale @$outputScale $x") shouldBe Right(
-            SNumeric(n(outputScale, x))
-          )
         }
       }
     }
@@ -582,28 +483,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         forEvery(testCases) { (inputScale, outputScale, x) =>
           eval(e"CAST_NUMERIC @$inputScale @$outputScale ${w(outputScale)} $x") shouldBe Right(
             SNumeric(n(outputScale, x))
-          )
-        }
-      }
-    }
-
-    "SHIFT_NUMERIC_LEGACY" - {
-
-      "returns proper result" in {
-        val testCases = Table[Int, Int, String, String](
-          ("input scale", "output scale", "input", "output"),
-          (0, 1, s(0, Numeric.maxValue(0)), s(1, Numeric.maxValue(1))),
-          (0, 37, tenPowerOf(1, 0), tenPowerOf(-36, 37)),
-          (20, 30, tenPowerOf(15, 20), tenPowerOf(5, 30)),
-          (20, 10, tenPowerOf(15, 20), tenPowerOf(25, 10)),
-          (10, 20, tenPowerOf(-5, 10), tenPowerOf(-15, 20)),
-          (20, 10, tenPowerOf(-5, 20), tenPowerOf(5, 10)),
-          (10, 20, tenPowerOf(10, 10), tenPowerOf(0, 20)),
-          (20, 10, tenPowerOf(10, 20), tenPowerOf(20, 10)),
-        )
-        forEvery(testCases) { (inputScale, outputScale, input, output) =>
-          eval(e"SHIFT_NUMERIC_LEGACY @$inputScale @$outputScale $input") shouldBe Right(
-            SNumeric(n(outputScale, output))
           )
         }
       }
@@ -1282,12 +1161,12 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "INT64_TO_NUMERIC_LEGACY" - {
+    "INT64_TO_NUMERIC" - {
       "work as expected" in {
         val testCases = Table[Long]("Int64", 167, 11, 2, 1, 0, -1, -2, -13, -113)
 
         forEvery(testCases) { int64 =>
-          eval(e"INT64_TO_NUMERIC_LEGACY @10 $int64") shouldBe Right(SNumeric(n(10, int64)))
+          eval(e"INT64_TO_NUMERIC @10 ${w(10)} $int64") shouldBe Right(SNumeric(n(10, int64)))
         }
       }
     }
@@ -1493,7 +1372,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     }
 
-    "TEXT_TO_NUMERIC_LEGACY" in {
+    "TEXT_TO_NUMERIC" in {
       val positiveTestCases =
         Table(
           "strings" -> "canonical string",
@@ -1535,11 +1414,11 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         )
 
       forEvery(positiveTestCases) { (input, expected) =>
-        val e = e"""TEXT_TO_NUMERIC_LEGACY @10 "$input""""
+        val e = e"""TEXT_TO_NUMERIC @10 ${w(10)}"$input""""
         eval(e) shouldBe Right(SOptional(Some(SNumeric(n(10, expected)))))
       }
       forEvery(negativeTestCases) { input =>
-        eval(e"""TEXT_TO_NUMERIC_LEGACY @10 "$input"""") shouldBe Right(SOptional(None))
+        eval(e"""TEXT_TO_NUMERIC @10 ${w(10)}"$input"""") shouldBe Right(SOptional(None))
       }
     }
 
@@ -1553,7 +1432,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         (() => "+" + "0" * 10000000 + "2.0") -> Some(SNumeric(n(10, 2))),
         (() => "-" + "0" * 10000000 + "3.0") -> Some(SNumeric(n(10, -3))),
       )
-      val builtin = e"""TEXT_TO_NUMERIC_LEGACY @10"""
+      val builtin = e"""TEXT_TO_NUMERIC @10 ${w(10)}"""
 
       forEvery(testCases) { (input, output) =>
         eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(SOptional(output))

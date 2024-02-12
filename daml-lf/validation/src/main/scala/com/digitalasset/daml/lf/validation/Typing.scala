@@ -88,14 +88,6 @@ private[validation] object Typing {
     val beta = TVar(Name.assertFromString("$beta$"))
     val gamma = TVar(Name.assertFromString("$gamma$"))
     val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
-    val tMultiNumBinopLegacy =
-      TForall(
-        alpha.name -> KNat,
-        TForall(
-          beta.name -> KNat,
-          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma)),
-        ),
-      )
     val tMultiNumBinop =
       TForall(
         alpha.name -> KNat,
@@ -107,8 +99,6 @@ private[validation] object Typing {
           ),
         ),
       )
-    val tNumConversionLegacy =
-      TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
     val tNumConversion =
       TForall(
         alpha.name -> KNat,
@@ -122,14 +112,10 @@ private[validation] object Typing {
       // Numeric arithmetic
       BAddNumeric -> tNumBinop,
       BSubNumeric -> tNumBinop,
-      BMulNumericLegacy -> tMultiNumBinopLegacy,
       BMulNumeric -> tMultiNumBinop,
-      BDivNumericLegacy -> tMultiNumBinopLegacy,
       BDivNumeric -> tMultiNumBinop,
       BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
-      BCastNumericLegacy -> tNumConversionLegacy,
       BCastNumeric -> tNumConversion,
-      BShiftNumericLegacy -> tNumConversionLegacy,
       BShiftNumeric -> tNumConversion,
       // Int64 arithmetic
       BAddInt64 -> tBinop(TInt64),
@@ -139,7 +125,6 @@ private[validation] object Typing {
       BModInt64 -> tBinop(TInt64),
       BExpInt64 -> tBinop(TInt64),
       // Conversions
-      BInt64ToNumericLegacy -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
       BInt64ToNumeric -> TForall(
         alpha.name -> KNat,
         TNumeric(alpha) ->: TInt64 ->: TNumeric(alpha),
@@ -298,7 +283,6 @@ private[validation] object Typing {
       BMulBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BDivBigNumeric -> (TInt64 ->: TRoundingMode ->: TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BShiftRightBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
-      BBigNumericToNumericLegacy -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
       BBigNumericToNumeric -> TForall(
         alpha.name -> KNat,
         TNumeric(alpha) ->: TBigNumeric ->: TNumeric(alpha),
