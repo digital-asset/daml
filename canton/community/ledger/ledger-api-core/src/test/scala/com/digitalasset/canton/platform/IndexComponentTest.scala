@@ -15,7 +15,11 @@ import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
-import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{
+  InternalStateServiceProviderImpl,
+  ReadService,
+  Update,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.IndexComponentTest.{TestReadService, TestServices}
@@ -185,7 +189,9 @@ object IndexComponentTest {
 
   val maxUpdateCount = 1000000
 
-  class TestReadService(implicit val materializer: Materializer) extends ReadService {
+  class TestReadService(implicit val materializer: Materializer)
+      extends ReadService
+      with InternalStateServiceProviderImpl {
     private var currentEnd: Int = 0
     private var queue: Vector[(Offset, Traced[Update])] = Vector.empty
     private var subscription: BoundedSourceQueue[(Offset, Traced[Update])] = _

@@ -34,7 +34,6 @@ object ProcessedDisclosedContract {
       signatories: Set[Ref.Party],
       stakeholders: Set[Ref.Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
-      agreementText: String,
       version: TransactionVersion,
   ): ProcessedDisclosedContract =
     ProcessedDisclosedContract(
@@ -45,7 +44,6 @@ object ProcessedDisclosedContract {
         signatories = signatories,
         stakeholders = stakeholders,
         keyOpt = keyOpt,
-        agreementText = agreementText,
         version = version,
       ),
       createdAt = createdAt,

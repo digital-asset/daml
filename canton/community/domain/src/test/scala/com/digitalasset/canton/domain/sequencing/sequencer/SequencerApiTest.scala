@@ -605,7 +605,8 @@ abstract class SequencerApiTest
           Recipients.cc(p1),
           aggregationRule = Some(aggregationRule),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          // Since the envelope does not contain a signature, we don't need to specify a timestamp of signing key
+          timestampOfSigningKey = None,
         )
 
         for {
@@ -633,7 +634,7 @@ abstract class SequencerApiTest
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          timestampOfSigningKey = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
@@ -663,7 +664,7 @@ abstract class SequencerApiTest
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          timestampOfSigningKey = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
@@ -698,7 +699,7 @@ abstract class SequencerApiTest
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          timestampOfSigningKey = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )

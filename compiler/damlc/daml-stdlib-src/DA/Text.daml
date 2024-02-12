@@ -281,11 +281,7 @@ parseInt = primitive @"BETextToInt64"
 --   parseNumeric "+12.0" == Some 12
 -- ```
 parseNumeric: forall n. NumericScale n => Text -> Optional (Numeric n)
-#ifndef DAML_NAT_TYPE_ERASURE
-parseNumeric = primitive @"BETextToNumericLegacy"
-#else
 parseNumeric = primitive @"BETextToNumeric" (numericOne @n)
-#endif
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex

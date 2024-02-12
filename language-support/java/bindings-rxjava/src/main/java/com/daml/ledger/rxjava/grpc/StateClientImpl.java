@@ -33,26 +33,26 @@ public class StateClientImpl implements StateClient {
         StubHelper.authenticating(StateServiceGrpc.newFutureStub(channel), accessToken);
   }
 
-  private Flowable<GetActiveContractsResponseV2> getActiveContracts(
-      @NonNull TransactionFilterV2 filter, boolean verbose, @NonNull Optional<String> accessToken) {
+  private Flowable<GetActiveContractsResponse> getActiveContracts(
+      @NonNull TransactionFilter filter, boolean verbose, @NonNull Optional<String> accessToken) {
     StateServiceOuterClass.GetActiveContractsRequest request =
-        new GetActiveContractsRequestV2(filter, verbose, "").toProto();
+        new GetActiveContractsRequest(filter, verbose, "").toProto();
     return ClientPublisherFlowable.create(
             request,
             StubHelper.authenticating(this.serviceStub, accessToken)::getActiveContracts,
             sequencerFactory)
-        .map(GetActiveContractsResponseV2::fromProto);
+        .map(GetActiveContractsResponse::fromProto);
   }
 
   @Override
-  public Flowable<GetActiveContractsResponseV2> getActiveContracts(
-      @NonNull TransactionFilterV2 filter, boolean verbose) {
+  public Flowable<GetActiveContractsResponse> getActiveContracts(
+      @NonNull TransactionFilter filter, boolean verbose) {
     return getActiveContracts(filter, verbose, Optional.empty());
   }
 
   @Override
-  public Flowable<GetActiveContractsResponseV2> getActiveContracts(
-      @NonNull TransactionFilterV2 filter, boolean verbose, @NonNull String accessToken) {
+  public Flowable<GetActiveContractsResponse> getActiveContracts(
+      @NonNull TransactionFilter filter, boolean verbose, @NonNull String accessToken) {
     return getActiveContracts(filter, verbose, Optional.of(accessToken));
   }
 
@@ -61,9 +61,9 @@ public class StateClientImpl implements StateClient {
       Set<String> parties,
       boolean verbose,
       Optional<String> accessToken) {
-    TransactionFilterV2 filter = contractFilter.transactionFilterV2(parties);
+    TransactionFilter filter = contractFilter.transactionFilter(parties);
 
-    Flowable<GetActiveContractsResponseV2> responses =
+    Flowable<GetActiveContractsResponse> responses =
         getActiveContracts(filter, verbose, accessToken);
     return responses.map(
         response -> {
@@ -88,22 +88,22 @@ public class StateClientImpl implements StateClient {
     return getActiveContracts(contractFilter, parties, verbose, Optional.of(accessToken));
   }
 
-  private Single<ParticipantOffsetV2> getLedgerEnd(Optional<String> accessToken) {
+  private Single<ParticipantOffset> getLedgerEnd(Optional<String> accessToken) {
     StateServiceOuterClass.GetLedgerEndRequest request =
         StateServiceOuterClass.GetLedgerEndRequest.newBuilder().build();
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceFutureStub, accessToken).getLedgerEnd(request))
-        .map(GetLedgerEndResponseV2::fromProto)
-        .map(GetLedgerEndResponseV2::getOffset);
+        .map(GetLedgerEndResponse::fromProto)
+        .map(GetLedgerEndResponse::getOffset);
   }
 
   @Override
-  public Single<ParticipantOffsetV2> getLedgerEnd() {
+  public Single<ParticipantOffset> getLedgerEnd() {
     return getLedgerEnd(Optional.empty());
   }
 
   @Override
-  public Single<ParticipantOffsetV2> getLedgerEnd(String accessToken) {
+  public Single<ParticipantOffset> getLedgerEnd(String accessToken) {
     return getLedgerEnd(Optional.of(accessToken));
   }
 }

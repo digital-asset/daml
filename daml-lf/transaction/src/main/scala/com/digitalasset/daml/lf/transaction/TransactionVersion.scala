@@ -48,11 +48,8 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
-  // TODO(https://github.com/digital-asset/daml/issues/18240) remove these 3 feature flags and kill
-  //  the transitively dead code. Make sure canton doesn't mention them anymore.
-  private[lf] val minExceptions = V14
+  // TODO(https://github.com/digital-asset/daml/issues/18240) move this feature flag to VDev.
   private[lf] val minByKey = V14
-  private[lf] val minInterfaces = V15
 
   private[lf] val minUpgrade = V31
   private[lf] val minSharedKeys = V31
@@ -71,7 +68,7 @@ object TransactionVersion {
     import scala.Ordering.Implicits.infixOrderingOps
     tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
       case (acc, action: Node.Action) => acc max action.version
-      case (acc, _: Node.Rollback) => acc max minExceptions
+      case (acc, _: Node.Rollback) => acc
     }
   }
 

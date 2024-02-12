@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/command_completion_service.proto";
+import "com/daml/ledger/api/v2/checkpoint.proto";
 import "com/daml/ledger/api/v2/completion.proto";
 import "com/daml/ledger/api/v2/participant_offset.proto";
 
@@ -58,7 +58,7 @@ message CompletionStreamResponse {
   // This checkpoint may be used to restart consumption.  The
   // checkpoint belongs to the completion in this response.
   // Required
-  com.daml.ledger.api.v1.Checkpoint checkpoint = 1;
+  Checkpoint checkpoint = 1;
 
   // Required
   Completion completion = 2;

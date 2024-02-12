@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data
 
-import com.daml.ledger.javaapi.data.GeneratorsV2.*
+import com.daml.ledger.javaapi.data.Generators.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks

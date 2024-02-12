@@ -164,8 +164,6 @@ class GrpcSequencerAuthenticationService(
       case MemberAuthentication.ParticipantAccessDisabled(_) |
           MemberAuthentication.MediatorAccessDisabled(_) =>
         Status.PERMISSION_DENIED.withDescription(err.reason)
-      case MemberAuthentication.ServiceAgreementAcceptanceError(_, _) =>
-        Status.FAILED_PRECONDITION.withDescription(err.reason)
       case MemberAuthentication.NonMatchingDomainId(_, _) =>
         Status.FAILED_PRECONDITION.withDescription(err.reason)
       case MemberAuthentication.PassiveSequencer =>

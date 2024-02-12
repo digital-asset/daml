@@ -11,76 +11,70 @@ import java.util.Set;
 /** An RxJava version of {@link com.daml.ledger.api.v2.UpdateServiceGrpc} */
 public interface UpdateClient {
 
-  Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
-      boolean verbose);
+  Flowable<Transaction> getTransactions(
+      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose);
 
-  Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
+  Flowable<Transaction> getTransactions(
+      ParticipantOffset begin,
+      ParticipantOffset end,
+      TransactionFilter filter,
       boolean verbose,
       String accessToken);
 
-  Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose);
+  Flowable<Transaction> getTransactions(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose);
 
-  Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose, String accessToken);
+  Flowable<Transaction> getTransactions(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
 
-  Flowable<TransactionV2> getTransactions(
+  Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffsetV2 begin,
+      ParticipantOffset begin,
       Set<String> parties,
       boolean verbose);
 
-  Flowable<TransactionV2> getTransactions(
+  Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffsetV2 begin,
+      ParticipantOffset begin,
       Set<String> parties,
       boolean verbose,
       String accessToken);
 
-  Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
-      boolean verbose);
+  Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose);
 
-  Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
+  Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin,
+      ParticipantOffset end,
+      TransactionFilter filter,
       boolean verbose,
       String accessToken);
 
-  Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose);
+  Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose);
 
-  Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose, String accessToken);
+  Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
 
-  Single<TransactionTreeV2> getTransactionTreeByEventId(
+  Single<TransactionTree> getTransactionTreeByEventId(
       String eventId, Set<String> requestingParties);
 
-  Single<TransactionTreeV2> getTransactionTreeByEventId(
+  Single<TransactionTree> getTransactionTreeByEventId(
       String eventId, Set<String> requestingParties, String accessToken);
 
-  Single<TransactionTreeV2> getTransactionTreeById(
+  Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties);
 
-  Single<TransactionTreeV2> getTransactionTreeById(
+  Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, String accessToken);
 
-  Single<TransactionV2> getTransactionByEventId(String eventId, Set<String> requestingParties);
+  Single<Transaction> getTransactionByEventId(String eventId, Set<String> requestingParties);
 
-  Single<TransactionV2> getTransactionByEventId(
+  Single<Transaction> getTransactionByEventId(
       String eventId, Set<String> requestingParties, String accessToken);
 
-  Single<TransactionV2> getTransactionById(String transactionId, Set<String> requestingParties);
+  Single<Transaction> getTransactionById(String transactionId, Set<String> requestingParties);
 
-  Single<TransactionV2> getTransactionById(
+  Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties, String accessToken);
 }

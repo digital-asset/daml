@@ -164,3 +164,9 @@ create table active_epoch (
     -- enable idempotent writes: "on conflict, do nothing"
     constraint unique_block unique (epoch_number, block_number)
 );
+
+create table availability_batch (
+    id varchar(300) collate "C" not null,
+    batch bytea not null,
+    primary key (id)
+);

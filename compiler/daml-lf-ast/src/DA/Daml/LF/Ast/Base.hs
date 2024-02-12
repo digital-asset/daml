@@ -272,14 +272,10 @@ data BuiltinExpr
   | BENumericToText              -- :: ∀(s:nat). Numeric s -> Text
   | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
-  | BEMulNumericLegacy           -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
   | BEMulNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s3 -> Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
-  | BEDivNumericLegacy           -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, automatically rounds to even, crashes on divisor = 0 and on overflow
   | BEDivNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s3 -> Numeric s1 -> Numeric s2 -> Numeric s3, automatically rounds to even, crashes on divisor = 0 and on overflow
   | BERoundNumeric               -- :: ∀(s:nat). Int64 -> Numeric s -> Numeric s, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
-  | BECastNumericLegacy          -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
   | BECastNumeric                -- :: ∀(s1:nat). ∀(s2:nat). Numeric s2 -> Numeric s1 -> Numeric s2
-  | BEShiftNumericLegacy         -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
   | BEShiftNumeric               -- :: ∀(s1:nat). ∀(s2:nat). Numeric s2 -> Numeric s1 -> Numeric s2
 
   -- Integer arithmetic
@@ -291,7 +287,6 @@ data BuiltinExpr
   | BEExpInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
 
   -- Numerical conversion
-  | BEInt64ToNumericLegacy       -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
   | BEInt64ToNumeric             -- :: ∀(s:nat). Numeric s -> Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
   | BENumericToInt64             -- :: ∀(s:nat). Numeric s -> Int64, only converts the whole part, crashes if it doesn't fit
 
@@ -330,7 +325,6 @@ data BuiltinExpr
   | BESha256Text                 -- :: Text -> Text
   | BETextToParty                -- :: Text -> Optional Party
   | BETextToInt64                -- :: Text -> Optional Int64
-  | BETextToNumericLegacy        -- :: ∀(s:nat). Text -> Optional (Numeric s)
   | BETextToNumeric              -- :: ∀(s:nat). Numeric s -> Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
   | BECodePointsToText           -- :: List Int64 -> Text
@@ -344,7 +338,6 @@ data BuiltinExpr
   | BEMulBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
   | BEDivBigNumeric              -- :: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
   | BEShiftRightBigNumeric       -- :: Int64 -> BigNumeric -> BigNumeric
-  | BEBigNumericToNumericLegacy  -- :: ∀(s:nat). BigNumeric -> Numeric s
   | BEBigNumericToNumeric        -- :: ∀(s:nat). Numeric s -> BigNumeric -> Numeric s
   | BENumericToBigNumeric        -- :: ∀(s:nat). Numeric s -> BigNumeric
 
@@ -713,18 +706,6 @@ data Update
       -- ^ Argument for the choice.
     }
 
-  -- | (Soft) Exercise choice on a contract given a contract ID.
-  | USoftExercise
-    { exeTemplate   :: !(Qualified TypeConName)
-      -- ^ Qualified type constructor corresponding to the contract template.
-    , exeChoice     :: !ChoiceName
-      -- ^ Choice to exercise.
-    , exeContractId :: !Expr
-      -- ^ Contract id of the contract template instance to exercise choice on.
-    , exeArg        :: !Expr
-      -- ^ Argument for the choice.
-    }
-
   -- | Exercise choice on a contract given a contract ID, dynamically.
   | UDynamicExercise
     { exeTemplate   :: !(Qualified TypeConName)
@@ -764,16 +745,6 @@ data Update
     }
   -- | Retrieve the argument of an existing contract template instance.
   | UFetch
-    { fetTemplate   :: !(Qualified TypeConName)
-      -- ^ Qualified type constructor corresponding to the contract template.
-    , fetContractId :: !Expr
-      -- ^ Contract id of the contract template instance whose argument shall be
-      -- retrieved.
-    }
-  -- | Retrieve the argument of an existing contract instance of the given
-  -- template type or one of its predecessors. If such a contract exists the
-  -- result will be translated into terms of the given template type.
-  | USoftFetch
     { fetTemplate   :: !(Qualified TypeConName)
       -- ^ Qualified type constructor corresponding to the contract template.
     , fetContractId :: !Expr

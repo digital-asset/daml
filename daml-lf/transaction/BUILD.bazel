@@ -127,6 +127,5 @@ da_scala_test(
     deps = [
         ":transaction",
         "//daml-lf/data",
-        "//daml-lf/language",
     ],
 )

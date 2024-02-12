@@ -5,7 +5,7 @@ package com.digitalasset.canton.demo
 
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, ContractId}
-import com.daml.ledger.javaapi.data.{Template, TransactionTreeV2}
+import com.daml.ledger.javaapi.data.{Template, TransactionTree}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.commands.DomainChoice
 import com.digitalasset.canton.console.{
@@ -396,7 +396,7 @@ class ReferenceDemoScript(
           }
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), withdraw, optTimeout = syncTimeout)
-            .discard[TransactionTreeV2]
+            .discard[TransactionTree]
 
           def findCashCid =
             participant3.ledger_api.javaapi.state.acs
@@ -410,7 +410,7 @@ class ReferenceDemoScript(
           }
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), settleClaim, optTimeout = syncTimeout)
-            .discard[TransactionTreeV2]
+            .discard[TransactionTree]
         },
       ),
       Noop,
@@ -424,7 +424,7 @@ class ReferenceDemoScript(
             .commands
           participant1.ledger_api.javaapi.commands
             .submit(Seq(alice), archiveRequest, optTimeout = syncTimeout)
-            .discard[TransactionTreeV2]
+            .discard[TransactionTree]
           // wait until the acs of the registry is empty
           ConsoleMacros.utils.retry_until_true(lookupTimeout) {
             participant5.ledger_api.state.acs.of_party(registry).isEmpty
@@ -537,7 +537,7 @@ class ReferenceDemoScript(
             ).create.commands
             participant5.ledger_api.javaapi.commands
               .submit(Seq(registry), offer, optTimeout = syncTimeout)
-              .discard[TransactionTreeV2]
+              .discard[TransactionTree]
           }))).discard
         },
       ),
@@ -552,7 +552,7 @@ class ReferenceDemoScript(
             .commands
           participant1.ledger_api.javaapi.commands
             .submit(Seq(alice), accept, optTimeout = syncTimeout)
-            .discard[TransactionTreeV2]
+            .discard[TransactionTree]
         },
       ),
       Action(
@@ -566,7 +566,7 @@ class ReferenceDemoScript(
 
           participant6.ledger_api.javaapi.commands
             .submit(Seq(processor), processingDone, optTimeout = syncTimeout)
-            .discard[TransactionTreeV2]
+            .discard[TransactionTree]
 
           val resultId = registryLookup(ME.aianalysis.AnalysisResult.COMPANION)
           val recordedResult = registryLookup(ME.aianalysis.PendingAnalysis.COMPANION).id
@@ -575,7 +575,7 @@ class ReferenceDemoScript(
 
           participant5.ledger_api.javaapi.commands
             .submit(Seq(registry), recordedResult, optTimeout = syncTimeout)
-            .discard[TransactionTreeV2]
+            .discard[TransactionTree]
         },
       ),
     )

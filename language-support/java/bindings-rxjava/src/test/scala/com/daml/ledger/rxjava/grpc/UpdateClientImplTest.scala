@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Absolute
 import com.daml.ledger.api.v1.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.javaapi.data.FiltersByParty
 import io.reactivex.Observable
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -32,9 +33,9 @@ final class UpdateClientImplTest
 
   implicit def tupleNoShrink[A, B]: Shrink[(A, B)] = Shrink.shrinkAny
 
-  private val ledgerBegin = data.ParticipantOffsetV2.ParticipantBegin.getInstance()
-  private val ledgerEnd = data.ParticipantOffsetV2.ParticipantEnd.getInstance()
-  private val emptyFilter = new data.FiltersByPartyV2(Map.empty[String, data.Filter].asJava)
+  private val ledgerBegin = data.ParticipantOffset.ParticipantBegin.getInstance()
+  private val ledgerEnd = data.ParticipantOffset.ParticipantEnd.getInstance()
+  private val emptyFilter = new FiltersByParty(Map.empty[String, data.Filter].asJava)
 
   behavior of "8.1 TransactionClient.getTransactions"
 
@@ -55,10 +56,10 @@ final class UpdateClientImplTest
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
-      val begin = new data.ParticipantOffsetV2.Absolute("1")
-      val end = new data.ParticipantOffsetV2.Absolute("2")
+      val begin = new data.ParticipantOffset.Absolute("1")
+      val end = new data.ParticipantOffset.Absolute("2")
 
-      val transactionFilter = new data.FiltersByPartyV2(
+      val transactionFilter = new FiltersByParty(
         Map[String, data.Filter](
           "Alice" -> data.InclusiveFilter.ofTemplateIds(
             Set(
@@ -111,10 +112,10 @@ final class UpdateClientImplTest
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
-      val begin = new data.ParticipantOffsetV2.Absolute("1")
-      val end = new data.ParticipantOffsetV2.Absolute("2")
+      val begin = new data.ParticipantOffset.Absolute("1")
+      val end = new data.ParticipantOffset.Absolute("2")
 
-      val transactionFilter = new data.FiltersByPartyV2(
+      val transactionFilter = new FiltersByParty(
         Map[String, data.Filter](
           "Alice" -> data.InclusiveFilter.ofTemplateIds(
             Set(

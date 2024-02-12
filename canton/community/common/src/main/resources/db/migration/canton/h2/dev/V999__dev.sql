@@ -159,3 +159,9 @@ create table active_epoch (
     -- global sequence number of the ordered block
     block_number bigint not null primary key
 );
+
+create table availability_batch(
+    id varchar(300) not null,
+    batch binary large object not null,
+    primary key (id)
+);
