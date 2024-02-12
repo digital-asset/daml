@@ -17,8 +17,6 @@ module BuiltinMod {
     ROUND_NUMERIC;
   val castNumeric: forall (a: nat) (b: nat). Numeric b -> Numeric a -> Numeric b =
     CAST_NUMERIC;
-  val shiftNumericLegacy: forall (a: nat) (b: nat). Numeric a -> Numeric b =
-    SHIFT_NUMERIC_LEGACY;
   val shiftNumeric: forall (a: nat) (b: nat). Numeric b -> Numeric a -> Numeric b =
     SHIFT_NUMERIC;
   val addInt64: Int64 -> Int64 -> Int64 =
