@@ -175,8 +175,6 @@ jobs:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
-        # Temporarily disable Oracle EE test due to breaking HttpJson change
-        exit 0  
         eval "$(./dev-env/bin/dade-assist)"
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
         IMAGE=$(cat ci/oracle_image)
