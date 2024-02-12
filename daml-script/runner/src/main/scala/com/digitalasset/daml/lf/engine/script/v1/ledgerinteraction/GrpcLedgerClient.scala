@@ -86,8 +86,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       Filters(
         Some(
           InclusiveFilters(
-            List(),
-            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)),
+            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true))
           )
         )
       )
@@ -265,7 +264,6 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       case Right(cmds) => cmds
     }
     val apiCommands = Commands(
-      party = actAs.head,
       actAs = actAs.toList,
       readAs = readAs.toList,
       disclosedContracts = ledgerDisclosures,
@@ -323,7 +321,6 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
     for {
       ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
       apiCommands = Commands(
-        party = actAs.head,
         actAs = actAs.toList,
         readAs = readAs.toList,
         commands = ledgerCommands,

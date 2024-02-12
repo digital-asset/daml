@@ -61,11 +61,12 @@ final class UpdateClientImplTest
 
       val transactionFilter = new FiltersByParty(
         Map[String, data.Filter](
-          "Alice" -> data.InclusiveFilter.ofTemplateIds(
-            Set(
-              new data.Identifier("p1", "m1", "e1"),
-              new data.Identifier("p2", "m2", "e2"),
-            ).asJava
+          "Alice" -> new data.InclusiveFilter(
+            Map.empty.asJava,
+            Map(
+              new data.Identifier("p1", "m1", "e1") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
+              new data.Identifier("p2", "m2", "e2") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
+            ).asJava,
           )
         ).asJava
       )
@@ -117,11 +118,12 @@ final class UpdateClientImplTest
 
       val transactionFilter = new FiltersByParty(
         Map[String, data.Filter](
-          "Alice" -> data.InclusiveFilter.ofTemplateIds(
-            Set(
-              new data.Identifier("p1", "m1", "e1"),
-              new data.Identifier("p2", "m2", "e2"),
-            ).asJava
+          "Alice" -> new data.InclusiveFilter(
+            Map.empty.asJava,
+            Map(
+              new data.Identifier("p1", "m1", "e1") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
+              new data.Identifier("p2", "m2", "e2") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
+            ).asJava,
           )
         ).asJava
       )
