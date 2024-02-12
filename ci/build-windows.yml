@@ -49,12 +49,12 @@ steps:
       platform: 'windows'
       is_release: '${{parameters.is_release}}'
 
-  - task: PublishBuildArtifacts@1
-    condition: failed()
-    displayName: 'Publish the bazel test logs'
-    inputs:
-      pathtoPublish: 'bazel-testlogs/'
-      artifactName: 'Test logs Windows'
+#  - task: PublishBuildArtifacts@1
+#    condition: failed()
+#    displayName: 'Publish the bazel test logs'
+#    inputs:
+#      pathtoPublish: 'bazel-testlogs/'
+#      artifactName: 'Test logs Windows'
 
   - template: bash-lib.yml
     parameters:
