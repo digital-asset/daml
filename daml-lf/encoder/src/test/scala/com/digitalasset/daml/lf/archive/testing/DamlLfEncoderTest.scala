@@ -56,13 +56,13 @@ class DamlLfEncoderTest
         "AnyMod",
         "SynonymMod",
         "GenMapMod",
-        "BigNumericMod",
         "ExceptionMod",
         "InterfaceMod",
         "InterfaceMod0",
       )
       val modules_2_dev = modules_2_1 ++ Set[DottedName](
-        "InterfaceExtMod"
+        "BigNumericMod",
+        "InterfaceExtMod",
       )
 
       val versions = Table(
