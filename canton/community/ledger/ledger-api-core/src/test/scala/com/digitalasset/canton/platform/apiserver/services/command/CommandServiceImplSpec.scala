@@ -330,7 +330,7 @@ object CommandServiceImplSpec {
     ledgerId = ledgerId.toString,
     commandId = commandId,
     applicationId = applicationId,
-    party = party,
+    actAs = Seq(party),
     commands = Seq(command),
   )
 }

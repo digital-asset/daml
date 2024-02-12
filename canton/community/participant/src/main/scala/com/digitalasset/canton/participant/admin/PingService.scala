@@ -153,7 +153,7 @@ class PingService(
         workflowId = workflowId.map(Tag.unwrap).getOrElse(""),
         applicationId = applicationId,
         commandId = commandId,
-        party = adminPartyId.toProtoPrimitive,
+        actAs = Seq(adminPartyId.toProtoPrimitive),
         commands = cmds.map(LedgerClientUtils.javaCodegenToScalaProto),
         deduplicationPeriod = DeduplicationDuration(deduplicationDuration.toProtoPrimitive),
         domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),

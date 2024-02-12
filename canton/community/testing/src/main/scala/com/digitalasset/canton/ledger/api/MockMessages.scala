@@ -42,7 +42,8 @@ object MockMessages {
   val commandsV1: CommandsV1 =
     CommandsV1(ledgerId, workflowId, applicationId, commandId, party, Nil)
 
-  val commands: CommandsV2 = CommandsV2(workflowId, applicationId, commandId, party, Nil)
+  val commands: CommandsV2 =
+    CommandsV2(workflowId, applicationId, commandId, Nil, actAs = Seq(party))
 
   val submitRequestV1: SubmitRequestV1 = SubmitRequestV1(Some(commandsV1))
 

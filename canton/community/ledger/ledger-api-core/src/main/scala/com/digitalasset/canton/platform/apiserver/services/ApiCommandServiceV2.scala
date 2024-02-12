@@ -92,7 +92,7 @@ final class ApiCommandServiceV2(
   ): Future[SubmitAndWaitForTransactionResponse] =
     withCommandsLoggingContext(request.getCommands) { (errorLogger, loggingContextWithTrace) =>
       submitAndWaitInternal(request)(errorLogger, loggingContextWithTrace).flatMap { resp =>
-        val effectiveActAs = CommandsValidator.effectiveActAs(request.getCommands)
+        val effectiveActAs = request.getCommands.actAs
         val txRequest = GetTransactionByIdRequest(
           updateId = resp.completion.updateId,
           requestingParties = effectiveActAs.toList,
@@ -156,7 +156,7 @@ final class ApiCommandServiceV2(
               commandId = commands.commandId,
               submissionId = commands.submissionId,
               applicationId = commands.applicationId,
-              parties = CommandsValidator.effectiveActAs(commands),
+              parties = commands.actAs.toSet,
             ),
             timeout = nonNegativeTimeout,
             submit = childContext => submit(Traced(SubmitRequest(Some(commands)))(childContext)),
@@ -177,7 +177,6 @@ final class ApiCommandServiceV2(
     LoggingContextWithTrace.withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
       logging.commandId(commands.commandId),
-      logging.partyString(commands.party),
       logging.actAsStrings(commands.actAs),
       logging.readAsStrings(commands.readAs),
     ) { loggingContext =>

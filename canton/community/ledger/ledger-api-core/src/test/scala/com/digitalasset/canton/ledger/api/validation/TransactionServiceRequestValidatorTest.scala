@@ -145,7 +145,7 @@ class TransactionServiceRequestValidatorTest
         requestMustFailWith(
           request = validator.validate(
             txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
-              p -> f.update(_.inclusive := InclusiveFilters(Nil, Seq(InterfaceFilter(None, true))))
+              p -> f.update(_.inclusive := InclusiveFilters(Seq(InterfaceFilter(None, true))))
             })),
             ledgerEnd,
           ),
@@ -352,120 +352,6 @@ class TransactionServiceRequestValidatorTest
         }
       }
 
-      "not allow mixed (deprecated and current) definitions between parties: one has templateIds, the other has templateFilters" in {
-        requestMustFailWith(
-          request = validator.validate(
-            txReqBuilder(Seq.empty).copy(
-              filter = Some(
-                TransactionFilter(
-                  Map(
-                    // deprecated
-                    party -> Filters(
-                      Some(
-                        InclusiveFilters(
-                          templateIds = Seq(templateId),
-                          interfaceFilters = Seq.empty,
-                          templateFilters = Seq.empty,
-                        )
-                      )
-                    ),
-                    // current
-                    party2 -> Filters(
-                      Some(
-                        InclusiveFilters(
-                          templateIds = Seq.empty,
-                          interfaceFilters = Seq.empty,
-                          templateFilters = Seq(TemplateFilter(Some(templateId), false)),
-                        )
-                      )
-                    ),
-                  )
-                )
-              )
-            ),
-            ledgerEnd,
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed.",
-          metadata = Map.empty,
-        )
-      }
-
-      "not allow mixed (deprecated and current) definitions between parties: one has templateIds, the other has interfaceFilter.includeCreatedEventBlob" in {
-        requestMustFailWith(
-          request = validator.validate(
-            txReqBuilder(Seq.empty).copy(
-              filter = Some(
-                TransactionFilter(
-                  Map(
-                    // deprecated
-                    party -> Filters(
-                      Some(
-                        InclusiveFilters(
-                          templateIds = Seq(templateId),
-                          templateFilters = Seq.empty,
-                        )
-                      )
-                    ),
-                    // current
-                    party2 -> Filters(
-                      Some(
-                        InclusiveFilters(
-                          templateIds = Seq.empty,
-                          interfaceFilters = Seq(
-                            InterfaceFilter(
-                              interfaceId = Some(templateId),
-                              includeInterfaceView = false,
-                              includeCreatedEventBlob = true,
-                            )
-                          ),
-                          templateFilters = Seq.empty,
-                        )
-                      )
-                    ),
-                  )
-                )
-              )
-            ),
-            ledgerEnd,
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed.",
-          metadata = Map.empty,
-        )
-      }
-
-      "not allow mixed (deprecated and current) definitions within one InclusiveFilter: templateIds and templateFilters" in {
-        requestMustFailWith(
-          request = validator.validate(
-            txReqBuilder(Seq.empty).copy(
-              filter = Some(
-                TransactionFilter(
-                  Map(
-                    party -> Filters(
-                      Some(
-                        InclusiveFilters(
-                          templateIds = Seq(templateId),
-                          interfaceFilters = Seq.empty,
-                          templateFilters = Seq(TemplateFilter(Some(templateId), false)),
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            ),
-            ledgerEnd,
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed.",
-          metadata = Map.empty,
-        )
-      }
-
       "current definition populate the right domain request" in {
         val result = validator.validate(
           txReqBuilder(Seq.empty).copy(
@@ -475,7 +361,6 @@ class TransactionServiceRequestValidatorTest
                   party -> Filters(
                     Some(
                       InclusiveFilters(
-                        templateIds = Seq.empty,
                         interfaceFilters = Seq(
                           InterfaceFilter(
                             interfaceId = Some(templateId),
@@ -544,7 +429,7 @@ class TransactionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: party attempted subscription for templates []. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC.",
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: party attempted subscription for templates. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC.",
           metadata = Map.empty,
         )
       }

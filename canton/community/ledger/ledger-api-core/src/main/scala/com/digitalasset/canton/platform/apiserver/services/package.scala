@@ -35,7 +35,7 @@ package object services {
       telemetryContext
         .setAttribute(SpanAttribute.ApplicationId, commands.applicationId)
         .setAttribute(SpanAttribute.CommandId, commands.commandId)
-        .setAttribute(SpanAttribute.Submitter, commands.party)
+        .setAttribute(SpanAttribute.Submitter, commands.actAs.headOption.getOrElse(""))
         .setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
     }
     TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())

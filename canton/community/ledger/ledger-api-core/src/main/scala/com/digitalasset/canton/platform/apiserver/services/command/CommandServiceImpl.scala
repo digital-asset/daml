@@ -160,7 +160,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
           commandId = commands.commandId,
           submissionId = commands.submissionId,
           applicationId = commands.applicationId,
-          parties = CommandsValidator.effectiveActAs(commands),
+          parties = commands.actAs.toSet,
         ),
         timeout = nonNegativeTimeout,
         submit = childContext => submit(Traced(SubmitRequest(Some(commands)))(childContext)),
@@ -194,7 +194,6 @@ private[apiserver] final class CommandServiceImpl private[services] (
     LoggingContextWithTrace.withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
       logging.commandId(commands.commandId),
-      logging.partyString(commands.party),
       logging.actAsStrings(commands.actAs),
       logging.readAsStrings(commands.readAs),
     ) { loggingContext =>

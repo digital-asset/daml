@@ -318,18 +318,12 @@ object CommandsValidator {
   }
 
   def effectiveSubmitters(commands: V2.Commands): Submitters[String] = {
-    val actAs = effectiveActAs(commands)
+    val actAs = commands.actAs.toSet
     val readAs = commands.readAs.toSet -- actAs
     Submitters(actAs, readAs)
   }
 
   def effectiveActAs(commands: V1.Commands): Set[String] =
-    if (commands.party.isEmpty)
-      commands.actAs.toSet
-    else
-      commands.actAs.toSet + commands.party
-
-  def effectiveActAs(commands: V2.Commands): Set[String] =
     if (commands.party.isEmpty)
       commands.actAs.toSet
     else

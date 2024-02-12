@@ -81,14 +81,6 @@ object Commands {
     val commands = lav2.commands.Commands(
       applicationId = applicationId.unwrap,
       commandId = commandId.unwrap,
-      // We set party for backwards compatibility. The
-      // ledger takes the union of party and actAs so
-      // talking to a ledger that supports multi-party submissions does exactly what we want.
-      // When talking to an older ledger, single-party submissions
-      // will succeed just fine. Multi-party submissions will set party
-      // but you will get an authorization error if you try to use authorization
-      // from the parties in the tail.
-      party = actAs.head.unwrap,
       actAs = lar.Party.unsubst(actAs.toList),
       readAs = lar.Party.unsubst(readAs),
       deduplicationPeriod = deduplicationPeriod,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.ledger.api.client
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TemplateFilter}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterV2
 import com.daml.ledger.javaapi
@@ -61,7 +61,14 @@ object LedgerConnection {
   def transactionFilterByPartyV2(filter: Map[PartyId, Seq[Identifier]]): TransactionFilterV2 =
     TransactionFilterV2(filter.map {
       case (p, Nil) => p.toParty.getValue -> Filters.defaultInstance
-      case (p, ts) => p.toParty.getValue -> Filters(Some(InclusiveFilters(ts)))
+      case (p, ts) =>
+        p.toParty.getValue -> Filters(
+          Some(
+            InclusiveFilters(
+              templateFilters = ts.map(tf => TemplateFilter(Some(tf), false))
+            )
+          )
+        )
     })
 
   def mapTemplateIds(id: javaapi.data.Identifier): Identifier =
