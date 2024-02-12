@@ -110,6 +110,8 @@ class DecodeV2Spec
         DamlLf2.BuiltinFunction.MUL_NUMERIC_LEGACY,
         DamlLf2.BuiltinFunction.DIV_NUMERIC_LEGACY,
         DamlLf2.BuiltinFunction.TEXT_TO_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.CAST_NUMERIC_LEGACY,
+        DamlLf2.BuiltinFunction.SHIFT_NUMERIC_LEGACY,
         DamlLf2.BuiltinFunction.INT64_TO_NUMERIC_LEGACY,
         DamlLf2.BuiltinFunction.BIGNUMERIC_TO_NUMERIC_LEGACY,
         DamlLf2.BuiltinFunction.BIGNUMERIC_TO_TEXT,
