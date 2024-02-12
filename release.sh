@@ -17,7 +17,9 @@ uhoh() {
 trap uhoh EXIT
 
 STABLE_REGEX="\d+\.\d+\.\d+"
-VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8})?$"
+SNAPSHOT_REGEX="^${STABLE_REGEX}-(snapshot|adhoc)\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
+RC_REGEX="^${STABLE_REGEX}-rc\d+$"
+VERSION_REGEX="(^$STABLE_REGEX$)|($SNAPSHOT_REGEX)|($RC_REGEX)"
 
 function file_ends_with_newline() {
     [[ $(tail -c1 "$1" | wc -l) -gt 0 ]]
@@ -59,12 +61,13 @@ is_stable() {
 
 make_snapshot() {
     local sha prefix commit_date number_of_commits commit_sha_8
-    sha=$1
-    prefix=$2
+    t=$1
+    sha=$2
+    prefix=$3
     commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
     number_of_commits=$(git rev-list --count $sha)
     commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.v$commit_sha_8 SPLIT_RELEASE"
+    echo "$sha $prefix-$t.$commit_date.$number_of_commits.0.v$commit_sha_8 SPLIT_RELEASE"
 }
 
 display_help() {
@@ -148,8 +151,10 @@ case $1 in
         if [ -n "${2+x}" ] && [ -n "${3+x}" ]; then
             if ! commit_belongs_to_release_branch $2; then
                 echo "WARNING: Commit does not belong to a release branch."
+                make_snapshot adhoc $(git rev-parse $2) $3
+            else
+                make_snapshot snapshot $(git rev-parse $2) $3
             fi
-            make_snapshot $(git rev-parse $2) $3
         else
             display_help
         fi
