@@ -64,7 +64,7 @@ class ValueCoderSpec
           whenever(Numeric.fromBigDecimal(s, d).isRight) {
             val Right(dec) = Numeric.fromBigDecimal(s, d)
             val value = ValueNumeric(dec)
-            val recoveredDecimal = ValueCoder.decodeValue(
+            val recoveredNumeric = ValueCoder.decodeValue(
               ValueCoder.CidDecoder,
               TransactionVersion.minVersion,
               assertRight(
@@ -80,7 +80,7 @@ class ValueCoderSpec
               case x => fail(s"should have got a numeric back, got $x")
             }
             Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
-              recoveredDecimal
+              recoveredNumeric
             )
           }
       }

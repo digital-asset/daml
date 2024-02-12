@@ -418,7 +418,7 @@ message Value {
     string contract_id = 3;
     List list = 4;
     sint64 int64 = 5;
-    string decimal = 6;
+    string numeric = 6;
     string text = 7;
     sfixed64 timestamp = 8;
     string party = 9;

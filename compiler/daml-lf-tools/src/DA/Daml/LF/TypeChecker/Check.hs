@@ -243,20 +243,14 @@ typeOfBuiltin = \case
   BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BEMulNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BEMulNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
-  BEDivNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BEDivNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BERoundNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BECastNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
   BECastNumeric      -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tBeta :-> TNumeric tAlpha :-> TNumeric tBeta
-  BEShiftNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
   BEShiftNumeric     -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tBeta :-> TNumeric tAlpha :-> TNumeric tBeta
-  BEInt64ToNumericLegacy -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
   BEInt64ToNumeric   -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64 :-> TNumeric tAlpha
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
   BENumericToText -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
-  BETextToNumericLegacy -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
   BETextToNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText :-> TOptional (TNumeric tAlpha)
 
   BEScaleBigNumeric -> pure $ TBigNumeric :-> TInt64
@@ -266,7 +260,6 @@ typeOfBuiltin = \case
   BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEShiftRightBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
-  BEBigNumericToNumericLegacy -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
   BEBigNumericToNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric :-> TNumeric tAlpha
   BENumericToBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
 

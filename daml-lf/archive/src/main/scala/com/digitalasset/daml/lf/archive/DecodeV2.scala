@@ -88,7 +88,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       toPackageName(getInternedStr(metadata.getNameInternedStr)),
       toPackageVersion(getInternedStr(metadata.getVersionInternedStr)),
       if (metadata.hasUpgradedPackageId) {
-        assertSince(LV.Features.packageUpgrades, "Package.metadata.upgradedPackageId")
         Some(
           getInternedPackageId(metadata.getUpgradedPackageId.getUpgradedPackageIdInternedStr)
         )
@@ -1538,7 +1537,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.SOFT_EXERCISE =>
-          assertSince(LV.Features.packageUpgrades, "softExercise")
           val exercise = lfUpdate.getSoftExercise
           val templateId = decodeTypeConName(exercise.getTemplate)
           val choice = handleInternedName(
@@ -1605,7 +1603,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.SOFT_FETCH =>
-          assertSince(LV.Features.packageUpgrades, "softFetch")
           val softFetch = lfUpdate.getSoftFetch
           decodeExpr(softFetch.getCid, definition) { contractId =>
             Ret(
@@ -1866,7 +1863,6 @@ private[lf] object DecodeV2 {
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
     import LV.Features._
     import PLF.PrimType._
-    // DECIMAL is not there and should be handled in an ad-hoc way.
     List(
       BuiltinTypeInfo(UNIT, BTUnit),
       BuiltinTypeInfo(BOOL, BTBool),
@@ -1913,14 +1909,10 @@ private[lf] object DecodeV2 {
     List(
       BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric),
       BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric),
-      BuiltinFunctionInfo(MUL_NUMERIC_LEGACY, BMulNumericLegacy),
       BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric),
-      BuiltinFunctionInfo(DIV_NUMERIC_LEGACY, BDivNumericLegacy),
       BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric),
       BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric),
-      BuiltinFunctionInfo(CAST_NUMERIC_LEGACY, BCastNumericLegacy),
       BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric),
-      BuiltinFunctionInfo(SHIFT_NUMERIC_LEGACY, BShiftNumericLegacy),
       BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
@@ -1928,7 +1920,6 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(DIV_INT64, BDivInt64),
       BuiltinFunctionInfo(MOD_INT64, BModInt64),
       BuiltinFunctionInfo(EXP_INT64, BExpInt64),
-      BuiltinFunctionInfo(INT64_TO_NUMERIC_LEGACY, BInt64ToNumericLegacy),
       BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric),
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64),
       BuiltinFunctionInfo(FOLDL, BFoldl),
@@ -1958,7 +1949,6 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
-      BuiltinFunctionInfo(TEXT_TO_NUMERIC_LEGACY, BTextToNumericLegacy),
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
@@ -1984,11 +1974,6 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(
-        BIGNUMERIC_TO_NUMERIC_LEGACY,
-        BBigNumericToNumericLegacy,
-        minVersion = bigNumeric,
-      ),
       BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric),
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),

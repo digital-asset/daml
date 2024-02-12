@@ -113,7 +113,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
       (TDate, ValueDate("1879-03-14"), ValueDate("1879-03-14")),
       (TText, ValueText("daml"), ValueText("daml")),
       (
-        TNumeric(TNat(Decimal.scale)),
+        TNumeric(TNat(Numeric.Scale.assertFromInt(10))),
         ValueNumeric("10."),
         ValueNumeric("10.0000000000"),
       ),
