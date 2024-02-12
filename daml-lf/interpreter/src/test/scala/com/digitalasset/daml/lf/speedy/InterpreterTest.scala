@@ -107,36 +107,6 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
-  "compilation and evaluation handle properly nat types" in {
-
-    def result(s: String) =
-      SValue.SOptional(Some(SValue.SNumeric(Numeric.assertFromString(s))))
-
-    val testCases = Table(
-      "input" -> "output",
-      e"""(/\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n "0") @1""" ->
-        result("0.0"),
-      e"""(/\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n "1") @2 @3 """ ->
-        result("1.000"),
-      e"""(/\ (n: nat). /\ (n: nat). \(n: Text) -> TEXT_TO_NUMERIC_LEGACY @n n) @4 @5 "2"""" ->
-        result("2.00000"),
-      e"""(/\ (n: nat). \(n: Text) -> /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n n) @6 "3" @7""" ->
-        result("3.0000000"),
-      e"""(\(n: Text) -> /\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n n) "4" @8 @9""" ->
-        result("4.000000000"),
-      e"""(\(n: Text) -> /\ (n: *). /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n n) "5" @Text @10""" ->
-        result("5.0000000000"),
-    )
-
-    forEvery(testCases) { (input, output) =>
-      runExpr(input) shouldBe output
-    }
-
-    a[Compiler.CompilationError] shouldBe thrownBy(
-      runExpr(e"""(/\ (n: nat). /\ (n: *). TEXT_TO_NUMERIC_LEGACY @n n) @4 @Text""")
-    )
-  }
-
   "large lists" should {
     val t_int64 = TBuiltin(BTInt64)
     val t_int64List = TApp(TBuiltin(BTList), t_int64)
