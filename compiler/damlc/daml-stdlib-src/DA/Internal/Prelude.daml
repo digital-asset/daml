@@ -598,8 +598,9 @@ roundCommercial d x =
 zero: NumericScale n => Numeric n
 zero = intToNumeric 0
 
-half: NumericScale n => Numeric n
-half = fromNumeric (0.5: Numeric 1)
+-- | fail for scale 0
+half: forall n. NumericScale n => Numeric n
+half = primitive @"BECastNumeric" (numericOne @n) (0.5: Numeric 1)
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
 round : NumericScale n => Numeric n -> Int
