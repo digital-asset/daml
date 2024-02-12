@@ -52,6 +52,7 @@ import Options.Applicative.Extended (determineAuto)
 import qualified Data.SemVer as V
 import qualified Data.Text as T
 import qualified Control.Exception
+import qualified Data.List.NonEmpty as NonEmpty
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -371,19 +372,39 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
             in either Control.Exception.throw id (unsafeParseOldReleaseVersion verStr)
+
         downloadLocation :: DAVersion.InstallLocation -> IO ()
-        downloadLocation (DAVersion.HttpInstallLocation url headers) = do
-            request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
-            withResponse (setRequestHeaders headers request) $ \response -> do
-                when (getResponseStatusCode response /= 200) $
-                    throwIO . assistantErrorBecause ("Failed to download release from " <> url <> ".")
-                            . pack . show $ getResponseStatus response
-                let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
-                extractAndInstall (fmap Just env)
-                    . maybe id (\s -> (.| observeProgress s)) totalSizeM
-                    $ getResponseBody response
+        downloadLocation (DAVersion.HttpInstallLocations (location NonEmpty.:| alternatives)) = do
+            installationSucceeded <- go location alternatives
+            when (not installationSucceeded) $
+              throwIO $ assistantError "Could not download release from any of the following locations: "
+            where
+            go :: DAVersion.HttpInstallLocation -> [DAVersion.HttpInstallLocation] -> IO Bool
+            go location alternatives = do
+                location <- try (downloadHttpLocation location)
+                case location of
+                  Left err@AssistantError {} -> do
+                      hPutStrLn stderr $ displayException err
+                      case alternatives of
+                        [] -> pure False
+                        (next:rest) -> go next rest
+                  Right () -> pure True
+
+            downloadHttpLocation :: DAVersion.HttpInstallLocation -> IO ()
+            downloadHttpLocation (DAVersion.HttpInstallLocation url headers name) = do
+                hPutStrLn stderr $ "Trying to install version via HTTP from " <> T.unpack name
+                request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
+                withResponse (setRequestHeaders headers request) $ \response -> do
+                    when (getResponseStatusCode response /= 200) $
+                        throwIO . assistantErrorBecause ("Failed to download release from " <> url <> ".")
+                                . pack . show $ getResponseStatus response
+                    let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
+                    extractAndInstall (fmap Just env)
+                        . maybe id (\s -> (.| observeProgress s)) totalSizeM
+                        $ getResponseBody response
         downloadLocation (DAVersion.FileInstallLocation file) =
             extractAndInstall (fmap Just env) (sourceFileBS file)
+
         observeProgress :: MonadResource m =>
             Int -> ConduitT BS.ByteString BS.ByteString m ()
         observeProgress totalSize = do

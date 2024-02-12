@@ -31,6 +31,7 @@ module DA.Daml.Assistant.Version
     , ArtifactoryApiKey(..)
     , alternateVersionLocation
     , InstallLocation(..)
+    , HttpInstallLocation(..)
     , resolveReleaseVersionFromArtifactory
     ) where
 
@@ -72,6 +73,7 @@ import Data.Either.Extra (eitherToMaybe)
 
 import qualified Data.Map.Strict as M
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.List.NonEmpty (NonEmpty)
 import qualified System.Info
 
 import GHC.Stack
@@ -585,26 +587,54 @@ queryArtifactoryApiKey damlConfig =
 
 -- | Install location for particular version.
 artifactoryVersionLocation :: ReleaseVersion -> ArtifactoryApiKey -> InstallLocation
-artifactoryVersionLocation releaseVersion apiKey = HttpInstallLocation
-    { ilUrl = T.concat
-        [ "https://digitalasset.jfrog.io/artifactory/sdk-ee/"
-        , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
-        , "/daml-sdk-"
-        , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
-        , "-"
-        , osName
-        , "-ee.tar.gz"
+artifactoryVersionLocation releaseVersion apiKey =
+    let textShow = T.pack . show
+        majorVersion = view V.major (releaseVersionFromReleaseVersion releaseVersion)
+        minorVersion = view V.minor (releaseVersionFromReleaseVersion releaseVersion)
+    in
+    HttpInstallLocations $
+        HttpInstallLocation
+            { hilUrl = T.concat
+                [ "https://digitalasset.jfrog.io/artifactory/external-files/daml-enterprise/"
+                , textShow majorVersion <> "." <> textShow minorVersion
+                , "/"
+                , versionToText releaseVersion
+                , "/daml-sdk-"
+                , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
+                , "-"
+                , osName
+                , "-ee.tar.gz"
+                ]
+            , hilHeaders =
+                [("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))]
+            , hilAlternativeName = "Artifactory `external-files` repo"
+            }
+        NonEmpty.:|
+        [ HttpInstallLocation
+            { hilUrl = T.concat
+                [ "https://digitalasset.jfrog.io/artifactory/external-files/daml-enterprise/"
+                , textShow majorVersion <> "." <> textShow minorVersion
+                , "/"
+                , versionToText releaseVersion
+                , "/daml-sdk-"
+                , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
+                , "-"
+                , osName
+                , "-ee.tar.gz"
+                ]
+            , hilHeaders =
+                [("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))]
+            , hilAlternativeName = "Artifactory `external-files` repo"
+            }
         ]
-    , ilHeaders =
-        [("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))]
-    }
 
 -- | Install location from Github for particular version.
 githubVersionLocation :: ReleaseVersion -> InstallLocation
-githubVersionLocation releaseVersion =
+githubVersionLocation releaseVersion = HttpInstallLocations $ pure
     HttpInstallLocation
-        { ilUrl = renderVersionLocation releaseVersion "https://github.com/digital-asset/daml/releases/download"
-        , ilHeaders = []
+        { hilUrl = renderVersionLocation releaseVersion "https://github.com/digital-asset/daml/releases/download"
+        , hilHeaders = []
+        , hilAlternativeName = "Github Daml repo"
         }
 
 alternateVersionLocation :: ReleaseVersion -> Text -> IO (Either Text InstallLocation)
@@ -616,7 +646,13 @@ alternateVersionLocation releaseVersion prefix = do
           pure $ if exists
                     then Right (FileInstallLocation (T.unpack location))
                     else Left location
-      Just _ -> pure (Right (HttpInstallLocation location []))
+      Just _ ->
+          pure $ Right $ HttpInstallLocations $ pure
+              HttpInstallLocation
+                  { hilUrl = location
+                  , hilHeaders = []
+                  , hilAlternativeName = "Alternative install location from daml config `" <> prefix <> "`"
+                  }
 
 -- | Install location for particular version.
 renderVersionLocation :: ReleaseVersion -> Text -> Text
@@ -636,11 +672,17 @@ renderVersionLocation releaseVersion prefix =
 -- required to access that URL. For example:
 -- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
 data InstallLocation
-    = HttpInstallLocation
-        { ilUrl :: Text
-        , ilHeaders :: RequestHeaders
+    = HttpInstallLocations
+        { ilAlternatives :: NonEmpty HttpInstallLocation
         }
     | FileInstallLocation
         { ilPath :: FilePath
-        } deriving (Eq, Show)
+        }
+    deriving (Eq, Show)
 
+data HttpInstallLocation = HttpInstallLocation
+    { hilUrl :: Text
+    , hilHeaders :: RequestHeaders
+    , hilAlternativeName :: Text
+    }
+    deriving (Eq, Show)
