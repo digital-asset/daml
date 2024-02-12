@@ -353,7 +353,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       val units = List(ValueUnit)
       val bools = List(true, false).map(VA.bool.inj(_))
       val ints = List(-1L, 0L, 1L).map(VA.int64.inj(_))
-      val numric10s = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
+      val numeric10s = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
         .map(Numeric.assertFromString)
         .map(VA.numeric(Numeric.Scale.assertFromInt(10)).inj(_))
       val numeric0s = List("-10000.", "0.", "10000.")
@@ -474,7 +474,7 @@ class HashSpec extends AnyWordSpec with Matchers {
           List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj(_))
 
       val testCases: List[V] =
-        units ++ bools ++ ints ++ numric10s ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
+        units ++ bools ++ ints ++ numeric10s ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
 
       val expectedOut =
         """ValueUnit

@@ -431,7 +431,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "returns proper result" in {
         val d = "8765432109876543210987654321.0987654321"
         val testCases = Table[Long, String, String](
-          ("rounding", "nuemric", "result"),
+          ("rounding", "numeric", "result"),
           (-27, d, "9000000000000000000000000000.0000000000"),
           (-1, "45.0", "40.0"),
           (-1, "55.0", "60.0"),

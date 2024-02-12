@@ -46,7 +46,7 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
       "0." + "0" * (-i - 1) + "1" + "0" * (scale + i)
 
   private val numerics = Table[String](
-    "Nueric",
+    "Numeric",
     "161803398.87499",
     "3.1415926536",
     "2.7182818285",
