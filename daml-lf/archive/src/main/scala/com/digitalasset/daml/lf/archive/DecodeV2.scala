@@ -1863,7 +1863,6 @@ private[lf] object DecodeV2 {
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
     import LV.Features._
     import PLF.PrimType._
-    // DECIMAL is not there and should be handled in an ad-hoc way.
     List(
       BuiltinTypeInfo(UNIT, BTUnit),
       BuiltinTypeInfo(BOOL, BTBool),

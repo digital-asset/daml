@@ -110,7 +110,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           t"Unit" -> List(e"()"),
           t"Bool" -> List(e"False", e"True"),
           t"Int64" -> List(e"-3", e"0", e"1"),
-          t"Decimal" -> List(e"-10000.0000000000", e"0.0000000000", e"10000.0000000000"),
+          t"Numeric 10" -> List(e"-10000.0000000000", e"0.0000000000", e"10000.0000000000"),
           t"Numeric 0" -> List(e"-10000.", e"0.", e"10000."),
           t"Text" ->
             // Note that in UTF8  "｡" < "😂" but in UTF16 "｡" > "😂"

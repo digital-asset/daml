@@ -36,7 +36,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
          module Mod {                  // fully resolved name: "Mod"
            record R = {                // fully resolved name: "Mod.R."
              field1: Int64,            // fully resolved name: "Mod.R.field1"
-             field2: Decimal           // fully resolved name: "Mod.R.field2"
+             field2: Numeric 10        // fully resolved name: "Mod.R.field2"
            };
          }
          """
@@ -49,7 +49,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           module Mod {                  // fully resolved name: "Mod"
             record R = {                // fully resolved name: "Mod.R."
               field: Int64,             // fully resolved name: "Mod.R.field"  (collision)
-              field: Decimal            // fully resolved name: "Mod.R.field"  (collision)
+              field: Numeric 10         // fully resolved name: "Mod.R.field"  (collision)
             };
           }
           """,
@@ -59,7 +59,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           module Mod {                  // fully resolved name: "Mod"
             record R = {                  // fully resolved name: "Mod.R."
               field: Int64,             // fully resolved name: "Mod.R.field"  (collision)
-              FiElD: Decimal            // fully resolved name: "Mod.R.FiElD"  (collision)
+              FiElD: Numeric 10         // fully resolved name: "Mod.R.FiElD"  (collision)
             };
           }
           """,
@@ -79,7 +79,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
          module Mod {                  // fully resolved name: "Mod"
            variant V =                 // fully resolved name: "Mod.V"
              Variant1: Int64           // fully resolved name: "Mod.V.Variant1"
-           | Variant2: Decimal;        // fully resolved name: "Mod.V.Variant2"
+           | Variant2: Numeric 10;        // fully resolved name: "Mod.V.Variant2"
          }
          """
 
@@ -91,7 +91,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           module Mod {                 // fully resolved name: "Mod"
             variant V =                // fully resolved name: "Mod.V"
               Variant: Int64           // fully resolved name: "Mod.V.Variant" (collision)
-            | Variant: Decimal;        // fully resolved name: "Mod.V.Variant" (collision)
+            | Variant: Numeric 10;        // fully resolved name: "Mod.V.Variant" (collision)
           }
           """,
         // a variant definition with case insensitive collision
@@ -100,7 +100,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           module Mod {                 // fully resolved name: "Mod"
             variant V =                   // fully resolved name: "Mod.V"
               Variant: Int64           // fully resolved name: "Mod.V.Variant" (collision)
-            | VARIANT: Decimal;        // fully resolved name: "Mod.V.VARIANT" (collision)
+            | VARIANT: Numeric 10;        // fully resolved name: "Mod.V.VARIANT" (collision)
           }
           """,
       )

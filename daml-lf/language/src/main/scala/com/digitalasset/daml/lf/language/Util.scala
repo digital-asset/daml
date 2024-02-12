@@ -4,7 +4,7 @@
 package com.daml.lf
 package language
 
-import com.daml.lf.data.{Decimal, ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.nameof.NameOf
 
@@ -94,8 +94,6 @@ object Util {
   val TContractId = new ParametricType1(BTContractId)
 
   val TParties = TList(TParty)
-  val TDecimalScale = TNat(Decimal.scale)
-  val TDecimal = TNumeric(TDecimalScale)
 
   val TAnyException = TBuiltin(BTAnyException)
 

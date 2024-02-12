@@ -360,7 +360,7 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [bob] (Nil @Party);
             observers Cons @Party [alice] (Nil @Party);
-            choice Ch (self) (x: Int64) : Decimal, controllers bob to upure @Int64 (DECIMAL_TO_INT64 x);
+            choice Ch (self) (x: Int64) : Numeric 10, controllers bob to upure @Int64 (NUMERIC_TO_INT64 @10 x);
           } ;
 
         val f : Int64 -> Int64  =  ERROR @(Int64 -> Int64) "not implemented";

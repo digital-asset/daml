@@ -955,7 +955,7 @@ prettyValue' lvl showRecordType prec world (Value (Just vsum)) = case vsum of
     brackets (fcommasep (mapV (prettyValue' lvl True prec world) elems))
   ValueSumContractId coid -> prettyContractId coid
   ValueSumInt64 i -> string (show i)
-  ValueSumDecimal ds -> ltext ds
+  ValueSumNumeric ds -> ltext ds
   ValueSumText t -> char '"' <> ltext t <> char '"'
   ValueSumTimestamp ts -> prettyTimestamp ts
   ValueSumParty p -> char '\'' <> ltext p <> char '\''

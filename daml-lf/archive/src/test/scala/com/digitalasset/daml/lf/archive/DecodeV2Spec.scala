@@ -6,7 +6,7 @@ package com.daml.lf.archive
 import java.math.BigDecimal
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.data.{Decimal, Numeric, Ref}
+import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
@@ -188,22 +188,12 @@ class DecodeV2Spec
         .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(primType).addAllArgs(args.asJava))
         .build()
 
-    val decimalTestCases = Table(
-      "input" -> "expected output",
-      buildPrimType(DECIMAL) ->
-        TNumeric(Ast.TNat(Decimal.scale)),
-      buildPrimType(DECIMAL, buildPrimType(TEXT)) ->
-        Ast.TApp(TNumeric(Ast.TNat(Decimal.scale)), TText),
-      buildPrimType(ARROW, buildPrimType(TEXT), buildPrimType(DECIMAL)) ->
-        TFun(TText, TNumeric(Ast.TNat(Decimal.scale))),
-    )
-
     val numericTestCases = Table(
       "input" -> "expected output",
       buildPrimType(NUMERIC) ->
         TNumeric.cons,
-      buildPrimType(NUMERIC, DamlLf2.Type.newBuilder().setNat(Decimal.scale.toLong).build()) ->
-        TNumeric(Ast.TNat(Decimal.scale)),
+      buildPrimType(NUMERIC, DamlLf2.Type.newBuilder().setNat(10.toLong).build()) ->
+        TNumeric(Ast.TNat(Numeric.Scale.assertFromInt(10))),
       buildPrimType(NUMERIC, buildPrimType(TEXT)) ->
         Ast.TApp(TNumeric.cons, TText),
       buildPrimType(ARROW, buildPrimType(TEXT), buildPrimType(NUMERIC)) ->
@@ -215,20 +205,6 @@ class DecodeV2Spec
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, expectedOutput) =>
           decoder.uncheckedDecodeTypeForTest(input) shouldBe expectedOutput
-        }
-      }
-    }
-
-    "reject Decimal types" in {
-      forEveryVersion { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(decimalTestCases) { (input, _) =>
-          try {
-            decoder.uncheckedDecodeTypeForTest(input)
-          } catch {
-            case e: Throwable => e.printStackTrace()
-          }
-          an[Error.Parsing] shouldBe thrownBy(decoder.uncheckedDecodeTypeForTest(input))
         }
       }
     }
@@ -387,74 +363,6 @@ class DecodeV2Spec
         .setPrimLit(DamlLf2.PrimLit.newBuilder().setNumericInternedStr(id))
         .build()
 
-    val decimalBuiltinTestCases = Table[DamlLf2.BuiltinFunction, String, Ast.Expr](
-      ("decimal builtins", "minVersion", "expected output"),
-      (
-        DamlLf2.BuiltinFunction.ADD_DECIMAL,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BAddNumeric), TDecimalScale),
-      ),
-      (
-        DamlLf2.BuiltinFunction.SUB_DECIMAL,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BSubNumeric), TDecimalScale),
-      ),
-      (
-        DamlLf2.BuiltinFunction.MUL_DECIMAL,
-        "6",
-        Ast.ETyApp(
-          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumericLegacy), TDecimalScale), TDecimalScale),
-          TDecimalScale,
-        ),
-      ),
-      (
-        DamlLf2.BuiltinFunction.DIV_DECIMAL,
-        "6",
-        Ast.ETyApp(
-          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumericLegacy), TDecimalScale), TDecimalScale),
-          TDecimalScale,
-        ),
-      ),
-      (
-        DamlLf2.BuiltinFunction.ROUND_DECIMAL,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale),
-      ),
-      (DamlLf2.BuiltinFunction.LEQ_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
-      (DamlLf2.BuiltinFunction.LESS_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
-      (
-        DamlLf2.BuiltinFunction.GEQ_DECIMAL,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal),
-      ),
-      (
-        DamlLf2.BuiltinFunction.GREATER_DECIMAL,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal),
-      ),
-      (
-        DamlLf2.BuiltinFunction.DECIMAL_TO_TEXT,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToText), TDecimalScale),
-      ),
-      (
-        DamlLf2.BuiltinFunction.TEXT_TO_DECIMAL,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BTextToNumericLegacy), TDecimalScale),
-      ),
-      (
-        DamlLf2.BuiltinFunction.INT64_TO_DECIMAL,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumericLegacy), TDecimalScale),
-      ),
-      (
-        DamlLf2.BuiltinFunction.DECIMAL_TO_INT64,
-        "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale),
-      ),
-      (DamlLf2.BuiltinFunction.EQUAL_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
-    )
-
     val numericBuiltinTestCases = Table(
       "numeric builtins" -> "expected output",
       DamlLf2.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltin(Ast.BAddNumeric),
@@ -535,17 +443,6 @@ class DecodeV2Spec
 
         forEvery(numericBuiltinTestCases) { (proto, scala) =>
           decoder.decodeExprForTest(toProtoExpr(proto), "test") shouldBe scala
-        }
-      }
-    }
-
-    "reject Decimal builtins" in {
-
-      forEveryVersion { version =>
-        val decoder = moduleDecoder(version)
-
-        forEvery(decimalBuiltinTestCases) { (proto, _, _) =>
-          an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
         }
       }
     }
