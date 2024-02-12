@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Struct}
+import com.daml.lf.data.{ImmArray, Struct}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, PackageInterface}
 import com.daml.lf.speedy.Compiler.{ProfilingMode, StackTraceMode, CompilationError}
@@ -28,14 +28,8 @@ private[speedy] object PhaseOne {
 
   private val SSGetTime = SEBuiltin(SBSGetTime)
 
-  private val SNumericWitness: Numeric.Scale => Some[SEValue] =
-    Numeric.Scale.values.map(s => Some(SEValue(SNumeric(Numeric.assertFromBigDecimal(s, 1)))))
-
-  private[speedy] abstract class VarRef { def name: Name }
   // corresponds to Daml-LF expression variable.
-  private[this] case class EVarRef(name: ExprVarName) extends VarRef
-  // corresponds to Daml-LF type variable.
-  private[this] case class TVarRef(name: TypeVarName) extends VarRef
+  private[speedy] case class VarRef(name: ExprVarName)
 
   final case class Position(idx: Int)
 
@@ -61,7 +55,7 @@ private[speedy] object PhaseOne {
       bindVar(ref, nextPosition).pushVar
 
     def pushExprVar(name: ExprVarName): Env =
-      pushVar(EVarRef(name))
+      pushVar(VarRef(name))
 
     def pushExprVar(maybeName: Option[ExprVarName]): Env =
       maybeName match {
@@ -69,14 +63,8 @@ private[speedy] object PhaseOne {
         case None => pushVar
       }
 
-    def pushTypeVar(name: ExprVarName): Env =
-      pushVar(TVarRef(name))
-
-    def hideTypeVar(name: TypeVarName): Env =
-      copy(varIndices = varIndices - TVarRef(name))
-
     def bindExprVar(name: ExprVarName, p: Position): Env =
-      bindVar(EVarRef(name), p)
+      bindVar(VarRef(name), p)
 
     private[this] def vars: List[VarRef] = varIndices.keys.toList
 
@@ -84,11 +72,8 @@ private[speedy] object PhaseOne {
       varIndices.get(varRef).map(toSEVar)
 
     def lookupExprVar(name: ExprVarName): SExpr =
-      lookupVar(EVarRef(name))
+      lookupVar(VarRef(name))
         .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
-
-    def lookupTypeVar(name: TypeVarName): Option[SExpr] =
-      lookupVar(TVarRef(name))
   }
 
   // A type to represent a step of compilation Work
@@ -389,35 +374,10 @@ private[lf] final class PhaseOne(
 
   private[this] def compileBuiltin(env: Env, bf: BuiltinFunction): SExpr = {
 
-    // SEBNumericN(b) drop the N first arguments and call b
-    def SEBNumeric1(b: SBuiltin) = SEAbs(1, SEBuiltin(b))
-    def SEBNumeric2(b: SBuiltin) = SEAbs(2, SEBuiltin(b))
-    def SEBNumeric3(b: SBuiltin) = SEAbs(3, SEBuiltin(b))
-
     bf match {
       case BCoerceContractId => compileIdentity(env)
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
-
-      // Numeric
-      case BLessNumeric => SEBNumeric1(SBLess)
-      case BLessEqNumeric => SEBNumeric1(SBLessEq)
-      case BGreaterNumeric => SEBNumeric1(SBGreater)
-      case BGreaterEqNumeric => SEBNumeric1(SBGreaterEq)
-      case BEqualNumeric => SEBNumeric1(SBEqual)
-      case BNumericToText => SEBNumeric1(SBToText)
-      case BAddNumeric => SEBNumeric1(SBAddNumeric)
-      case BSubNumeric => SEBNumeric1(SBSubNumeric)
-      case BMulNumeric => SEBNumeric3(SBMulNumeric)
-      case BDivNumeric => SEBNumeric3(SBDivNumeric)
-      case BRoundNumeric => SEBNumeric1(SBRoundNumeric)
-      case BCastNumeric => SEBNumeric2(SBCastNumeric)
-      case BShiftNumeric => SEBNumeric2(SBShiftNumeric)
-      case BInt64ToNumeric => SEBNumeric1(SBInt64ToNumeric)
-      case BTextToNumeric => SEBNumeric1(SBTextToNumeric)
-      case BNumericToInt64 => SEBNumeric1(SBNumericToInt64)
-      case BNumericToBigNumeric => SEBNumeric1(SBNumericToBigNumeric)
-      case BBigNumericToNumeric => SEBNumeric1(SBBigNumericToNumeric)
 
       case _ =>
         SEBuiltin(bf match {
@@ -478,6 +438,26 @@ private[lf] final class PhaseOne(
           case BTextMapDelete => SBMapDelete
           case BTextMapToList => SBMapToList
           case BTextMapSize => SBMapSize
+
+          // Numeric
+          case BLessNumeric => SBLess
+          case BLessEqNumeric => SBLessEq
+          case BGreaterNumeric => SBGreater
+          case BGreaterEqNumeric => SBGreaterEq
+          case BEqualNumeric => SBEqual
+          case BNumericToText => SBToText
+          case BAddNumeric => SBAddNumeric
+          case BSubNumeric => SBSubNumeric
+          case BMulNumeric => SBMulNumeric
+          case BDivNumeric => SBDivNumeric
+          case BRoundNumeric => SBRoundNumeric
+          case BCastNumeric => SBCastNumeric
+          case BShiftNumeric => SBShiftNumeric
+          case BInt64ToNumeric => SBInt64ToNumeric
+          case BTextToNumeric => SBTextToNumeric
+          case BNumericToInt64 => SBNumericToInt64
+          case BNumericToBigNumeric => SBNumericToBigNumeric
+          case BBigNumericToNumeric => SBBigNumericToNumeric
 
           // GenMap
 
@@ -793,10 +773,8 @@ private[lf] final class PhaseOne(
     exp match {
       case EAbs((binder, typ @ _), body, ref @ _) =>
         compileAbss(env.pushExprVar(binder), body, arity + 1)
-      case ETyAbs((binder, KNat), body) =>
-        compileAbss(env.pushTypeVar(binder), body, arity + 1)
-      case ETyAbs((binder, _), body) =>
-        compileAbss(env.hideTypeVar(binder), body, arity)
+      case ETyAbs(_, body) =>
+        compileAbss(env, body, arity)
       case _ if arity == 0 =>
         compileExp(env, exp)(Return)
       case _ =>
@@ -814,8 +792,8 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           compileAppsX(env, fun, arg :: args) // recursive call in compileExp is stack-safe
         }
-      case ETyApp(fun, arg) =>
-        compileApps(env, fun, translateType(env, arg).fold(args)(_ :: args))
+      case ETyApp(fun, _) =>
+        compileApps(env, fun, args)
       case _ if args.isEmpty =>
         compileExp(env, exp)(Return)
       case _ =>
@@ -824,13 +802,6 @@ private[lf] final class PhaseOne(
         }
     }
   }
-
-  private[this] def translateType(env: Env, typ: Type): Option[SExpr] =
-    typ match {
-      case TNat(n) => SNumericWitness(n)
-      case TVar(name) => env.lookupTypeVar(name)
-      case _ => None
-    }
 
   private[this] def compileScenario(
       env: Env,
