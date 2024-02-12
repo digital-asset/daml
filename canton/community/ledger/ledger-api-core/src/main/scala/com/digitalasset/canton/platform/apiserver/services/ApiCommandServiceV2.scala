@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
+import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v2.commands.Commands

@@ -58,6 +58,7 @@ import com.digitalasset.canton.participant.admin.inspection.{
   SyncStateInspection,
 }
 import com.digitalasset.canton.participant.admin.repair.RepairService
+import com.digitalasset.canton.participant.admin.workflows.java.canton
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -182,11 +183,38 @@ class CantonSyncService(
     participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration
       .getOrElse(throw new RuntimeException("Max deduplication duration is not available"))
 
-  val eventTranslationStrategy = new EventTranslationStrategy(
-    excludeInfrastructureTransactions = parameters.excludeInfrastructureTransactions
-  )
+  // Augment event with transaction statistics "as late as possible" as stats are redundant data and so that
+  // we don't need to persist stats and deal with versioning stats changes. Also every event is usually consumed
+  // only once.
+  private[sync] def augmentTransactionStatistics(
+      e: LedgerSyncEvent
+  ): LedgerSyncEvent = e match {
+    case e: LedgerSyncEvent.TransactionAccepted =>
+      e.copy(completionInfoO =
+        e.completionInfoO.map(completionInfo =>
+          completionInfo.copy(statistics =
+            Some(LedgerTransactionNodeStatistics(e.transaction, excludedPackageIds))
+          )
+        )
+      )
+    case e => e
+  }
 
-  type ConnectionListener = Traced[DomainId] => Unit
+  private val excludedPackageIds: Set[LfPackageId] =
+    if (parameters.excludeInfrastructureTransactions) {
+      Set(
+        canton.internal.ping.Ping.TEMPLATE_ID,
+        canton.internal.bong.BongProposal.TEMPLATE_ID,
+        canton.internal.bong.Bong.TEMPLATE_ID,
+        canton.internal.bong.Merge.TEMPLATE_ID,
+        canton.internal.bong.Explode.TEMPLATE_ID,
+        canton.internal.bong.Collapse.TEMPLATE_ID,
+      ).map(x => LfPackageId.assertFromString(x.getPackageId))
+    } else {
+      Set.empty[LfPackageId]
+    }
+
+  private type ConnectionListener = Traced[DomainId] => Unit
 
   // Listeners to domain connections
   private val connectionListeners = new AtomicReference[List[ConnectionListener]](List.empty)
@@ -586,7 +614,8 @@ class CantonSyncService(
               .subscribe(beginStartingAt)
               .mapConcat { case (offset, event) =>
                 event
-                  .traverse(eventTranslationStrategy.translate)
+                  .map(augmentTransactionStatistics)
+                  .traverse(_.toDamlUpdate)
                   .map { e =>
                     logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")(
                       e.traceContext

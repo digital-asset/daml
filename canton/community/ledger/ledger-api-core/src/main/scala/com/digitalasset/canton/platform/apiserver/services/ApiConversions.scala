@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse as GetActiveContractsResponseV1
 import com.daml.ledger.api.v1.command_completion_service.{
+  Checkpoint as CheckpointV1,
   CompletionStreamRequest as CompletionStreamRequestV1,
   CompletionStreamResponse as CompletionStreamResponseV1,
 }
@@ -26,6 +27,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse as GetTransactionTreesResponseV1,
   GetTransactionsResponse as GetTransactionsResponseV1,
 }
+import com.daml.ledger.api.v2.checkpoint.Checkpoint as CheckpointV2
 import com.daml.ledger.api.v2.command_completion_service.{
   CompletionStreamRequest as CompletionStreamRequestV2,
   CompletionStreamResponse as CompletionStreamResponseV2,
@@ -137,9 +139,15 @@ object ApiConversions {
       traceContext = completion.traceContext,
     )
 
+  def toV1(checkpoint: CheckpointV2): CheckpointV1 =
+    CheckpointV1(
+      recordTime = checkpoint.recordTime,
+      offset = checkpoint.offset.map(toV1),
+    )
+
   def toV1(completionStreamResponse: CompletionStreamResponseV2): CompletionStreamResponseV1 =
     CompletionStreamResponseV1(
-      checkpoint = completionStreamResponse.checkpoint,
+      checkpoint = completionStreamResponse.checkpoint.map(toV1),
       completions = completionStreamResponse.completion.toList.map(toV1),
     )
 

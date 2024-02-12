@@ -61,6 +61,12 @@ message ExportAcsRequest {
   // Optional mapping from one domain id to another to rename the associated domain of contracts in the export
   // NOTE: This is not a proper domain migration of contracts.
   map<string, TargetDomain> contract_domain_renames = 4;
+
+  // Do not check whether the provided timestamp is clean
+  // Should not be used in production.
+  // Note: for this option to yield a consistent snapshot, you need to wait at least
+  // participantResponseTimeout + mediatorReactionTimeout after the last submitted request.
+  bool force = 5;
 }
 
 message ExportAcsResponse {

@@ -76,7 +76,6 @@ case class SerializableContract(
     coid = contractId,
     templateId = rawContractInstance.contractInstance.unversioned.template,
     arg = rawContractInstance.contractInstance.unversioned.arg,
-    agreementText = "", // not used anymore
     signatories = metadata.signatories,
     stakeholders = metadata.stakeholders,
     keyOpt = metadata.maybeKeyWithMaintainers,

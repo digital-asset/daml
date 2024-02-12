@@ -3,32 +3,33 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.CommandCompletionServiceOuterClass;
+import com.daml.ledger.api.v2.CheckpointOuterClass;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 import java.time.Instant;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class Checkpoint {
 
   private final Instant recordTime;
 
-  private final LedgerOffset offset;
+  private final ParticipantOffset offset;
 
-  public Checkpoint(@NonNull Instant recordTime, @NonNull LedgerOffset offset) {
+  public Checkpoint(@NonNull Instant recordTime, @NonNull ParticipantOffset offset) {
     this.recordTime = recordTime;
     this.offset = offset;
   }
 
-  public static Checkpoint fromProto(CommandCompletionServiceOuterClass.Checkpoint checkpoint) {
-    LedgerOffset offset = LedgerOffset.fromProto(checkpoint.getOffset());
+  public static Checkpoint fromProto(CheckpointOuterClass.Checkpoint checkpoint) {
+    ParticipantOffset offset = ParticipantOffset.fromProto(checkpoint.getOffset());
     return new Checkpoint(
         Instant.ofEpochSecond(
             checkpoint.getRecordTime().getSeconds(), checkpoint.getRecordTime().getNanos()),
         offset);
   }
 
-  public CommandCompletionServiceOuterClass.Checkpoint toProto() {
-    return CommandCompletionServiceOuterClass.Checkpoint.newBuilder()
+  public CheckpointOuterClass.Checkpoint toProto() {
+    return CheckpointOuterClass.Checkpoint.newBuilder()
         .setRecordTime(
             com.google.protobuf.Timestamp.newBuilder()
                 .setSeconds(this.recordTime.getEpochSecond())
@@ -43,7 +44,7 @@ public final class Checkpoint {
   }
 
   @NonNull
-  public LedgerOffset getOffset() {
+  public ParticipantOffset getOffset() {
     return offset;
   }
 

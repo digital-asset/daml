@@ -80,7 +80,7 @@ class SequencerMemberRateLimiter(
         SequencerRateLimitError.AboveTrafficLimit(
           member = member,
           trafficCost = eventCost,
-          Some(newTrafficState),
+          newTrafficState,
         )
       ) -> newEffectiveTopUp
     }

@@ -67,17 +67,21 @@ private[inspection] object AcsInspection {
 
   // fetch acs, checking that the requested timestamp is clean
   private def getSnapshotAt(domainId: DomainId, state: SyncDomainPersistentState)(
-      timestamp: CantonTimestamp
+      timestamp: CantonTimestamp,
+      skipCleanTimestampCheck: Boolean,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]] =
     for {
-      _ <- TimestampValidation.beforePrehead(
-        domainId,
-        state.requestJournalStore.preheadClean,
-        timestamp,
-      )
+      _ <-
+        if (!skipCleanTimestampCheck)
+          TimestampValidation.beforePrehead(
+            domainId,
+            state.requestJournalStore.preheadClean,
+            timestamp,
+          )
+        else EitherT.pure[Future, Error](())
       snapshot <- EitherT.right(state.activeContractStore.snapshot(timestamp))
       // check after getting the snapshot in case a pruning was happening concurrently
       _ <- TimestampValidation.afterPruning(
@@ -94,12 +98,13 @@ private[inspection] object AcsInspection {
       domainId: DomainId,
       state: SyncDomainPersistentState,
       timestamp: Option[CantonTimestamp],
+      skipCleanTimestampCheck: Boolean,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, Iterator[Seq[(LfContractId, TransferCounterO)]]] =
     timestamp
-      .map(getSnapshotAt(domainId, state))
+      .map(getSnapshotAt(domainId, state)(_, skipCleanTimestampCheck = skipCleanTimestampCheck))
       .getOrElse(EitherT.right(getCurrentSnapshot(state)))
       .map(
         _.iterator
@@ -117,12 +122,13 @@ private[inspection] object AcsInspection {
       state: SyncDomainPersistentState,
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
+      force: Boolean = false, // if true, does not check whether `timestamp` is clean
   )(f: (SerializableContract, TransferCounterO) => Either[Error, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, Unit] =
     for {
-      acs <- getAcsSnapshot(domainId, state, timestamp)
+      acs <- getAcsSnapshot(domainId, state, timestamp, skipCleanTimestampCheck = force)
       unit <- MonadUtil.sequentialTraverse_(acs)(forEachBatch(domainId, state, parties, f))
     } yield unit
 

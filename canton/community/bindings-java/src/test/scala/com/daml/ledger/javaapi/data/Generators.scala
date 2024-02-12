@@ -534,24 +534,6 @@ object Generators {
       .build()
   }
 
-  def ledgerOffsetGen: Gen[v1.LedgerOffsetOuterClass.LedgerOffset] = {
-    import v1.LedgerOffsetOuterClass.{LedgerOffset as OffsetProto}
-    for {
-      modifier <- Gen.oneOf(
-        Arbitrary.arbString.arbitrary.map(absolute =>
-          (b: OffsetProto.Builder) => b.setAbsolute(absolute)
-        ),
-        Gen.const((b: OffsetProto.Builder) =>
-          b.setBoundary(OffsetProto.LedgerBoundary.LEDGER_BEGIN)
-        ),
-        Gen.const((b: OffsetProto.Builder) => b.setBoundary(OffsetProto.LedgerBoundary.LEDGER_END)),
-      )
-    } yield OffsetProto
-      .newBuilder()
-      .pipe(modifier)
-      .build()
-  }
-
   def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] = {
     for {
       offset <- participantOffsetGen
@@ -655,11 +637,11 @@ object Generators {
       .build()
   }
 
-  def checkpointGen: Gen[v1.CommandCompletionServiceOuterClass.Checkpoint] = {
-    import v1.CommandCompletionServiceOuterClass.Checkpoint
+  def checkpointGen: Gen[v2.CheckpointOuterClass.Checkpoint] = {
+    import v2.CheckpointOuterClass.Checkpoint
     for {
       recordTime <- instantGen
-      offset <- ledgerOffsetGen
+      offset <- participantOffsetGen
     } yield Checkpoint
       .newBuilder()
       .setRecordTime(Utils.instantToProto(recordTime))

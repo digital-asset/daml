@@ -97,6 +97,7 @@ object GrpcParticipantRepairService {
         parties.toSet,
         timestamp,
         contractDomainRenames.toMap,
+        force = request.force,
       )
     }
 
@@ -115,16 +116,8 @@ object GrpcParticipantRepairService {
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
+      force: Boolean, // if true, does not check whether `timestamp` is clean
   )
-
-  private def isSupported(protocolVersion: ProtocolVersion)(implicit
-      elc: ErrorLoggingContext
-  ): Either[RepairServiceError, Unit] =
-    EitherUtil.condUnitE(
-      protocolVersion.isSupported,
-      RepairServiceError.UnsupportedProtocolVersionParticipant.Error(protocolVersion),
-    )
-
 }
 
 final class GrpcParticipantRepairService(
@@ -229,6 +222,7 @@ final class GrpcParticipantRepairService(
                 validRequest.parties,
                 validRequest.timestamp,
                 validRequest.contractDomainRenames,
+                skipCleanTimestampCheck = validRequest.force,
               )
           )
           .leftMap(toRepairServiceError)

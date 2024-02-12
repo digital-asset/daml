@@ -74,7 +74,6 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      agreementText = "", // not used anymore
       version = transactionVersion,
     )
 

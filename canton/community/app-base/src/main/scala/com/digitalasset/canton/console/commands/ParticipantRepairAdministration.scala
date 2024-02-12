@@ -108,6 +108,10 @@ class ParticipantRepairAdministration(
         |Such ACS export (and import) is interesting for recovery and operational purposes only.
         |Note that the 'export_acs' command execution may take a long time to complete and may require significant
         |resources.
+        |
+        |If `force` is set to true, then the check that the timestamp is clean will not be done.
+        |For this option to yield a consistent snapshot, you need to wait at least
+        |participantResponseTimeout + mediatorReactionTimeout after the last submitted request.
         """
   )
   def export_acs(
@@ -116,6 +120,7 @@ class ParticipantRepairAdministration(
       filterDomainId: Option[DomainId] = None,
       timestamp: Option[Instant] = None,
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)] = Map.empty,
+      force: Boolean = false,
   ): Unit = {
     check(FeatureFlag.Repair) {
       val collector = AcsSnapshotFileCollector[ExportAcsRequest, ExportAcsResponse](outputFile)
@@ -126,6 +131,7 @@ class ParticipantRepairAdministration(
           timestamp,
           collector.observer,
           contractDomainRenames,
+          force = force,
         )
       collector.materializeFile(command)
     }
