@@ -17,7 +17,7 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
 has_run_all_tests_trailer() {
-  if [ "${BUILD_REASON:-}" = "PullRequest" ]; then
+  if (( 2 == $(git show -s --format=%p HEAD | wc -w) )); then
     ref="HEAD^2"
   else
     ref="HEAD"
