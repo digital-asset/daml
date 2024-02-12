@@ -713,18 +713,6 @@ data Update
       -- ^ Argument for the choice.
     }
 
-  -- | (Soft) Exercise choice on a contract given a contract ID.
-  | USoftExercise
-    { exeTemplate   :: !(Qualified TypeConName)
-      -- ^ Qualified type constructor corresponding to the contract template.
-    , exeChoice     :: !ChoiceName
-      -- ^ Choice to exercise.
-    , exeContractId :: !Expr
-      -- ^ Contract id of the contract template instance to exercise choice on.
-    , exeArg        :: !Expr
-      -- ^ Argument for the choice.
-    }
-
   -- | Exercise choice on a contract given a contract ID, dynamically.
   | UDynamicExercise
     { exeTemplate   :: !(Qualified TypeConName)
@@ -764,16 +752,6 @@ data Update
     }
   -- | Retrieve the argument of an existing contract template instance.
   | UFetch
-    { fetTemplate   :: !(Qualified TypeConName)
-      -- ^ Qualified type constructor corresponding to the contract template.
-    , fetContractId :: !Expr
-      -- ^ Contract id of the contract template instance whose argument shall be
-      -- retrieved.
-    }
-  -- | Retrieve the argument of an existing contract instance of the given
-  -- template type or one of its predecessors. If such a contract exists the
-  -- result will be translated into terms of the given template type.
-  | USoftFetch
     { fetTemplate   :: !(Qualified TypeConName)
       -- ^ Qualified type constructor corresponding to the contract template.
     , fetContractId :: !Expr

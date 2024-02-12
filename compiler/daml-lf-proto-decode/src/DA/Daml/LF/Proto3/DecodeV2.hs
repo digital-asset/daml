@@ -727,12 +727,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
-  LF2.UpdateSumSoftExercise LF2.Update_SoftExercise{..} ->
-    fmap EUpdate $ USoftExercise
-      <$> mayDecode "update_SoftExerciseTemplate" update_SoftExerciseTemplate decodeTypeConName
-      <*> decodeName ChoiceName update_SoftExerciseChoice
-      <*> mayDecode "update_SoftExerciseCid" update_SoftExerciseCid decodeExpr
-      <*> mayDecode "update_SoftExerciseArg" update_SoftExerciseArg decodeExpr
+  LF2.UpdateSumSoftExercise LF2.Update_SoftExercise{} ->
+    throwError (ParseError "Update.Sum.soft_exercise is no longer supported")
   LF2.UpdateSumDynamicExercise LF2.Update_DynamicExercise{..} ->
     fmap EUpdate $ UDynamicExercise
       <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConName
@@ -756,10 +752,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
-  LF2.UpdateSumSoftFetch LF2.Update_SoftFetch{..} ->
-    fmap EUpdate $ USoftFetch
-      <$> mayDecode "update_SoftFetchTemplate" update_SoftFetchTemplate decodeTypeConName
-      <*> mayDecode "update_SoftFetchCid" update_SoftFetchCid decodeExpr
+  LF2.UpdateSumSoftFetch LF2.Update_SoftFetch{} ->
+    throwError (ParseError "Update.Sum.soft_fetch is no longer supported")
   LF2.UpdateSumFetchInterface LF2.Update_FetchInterface{..} ->
     fmap EUpdate $ UFetchInterface
       <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName

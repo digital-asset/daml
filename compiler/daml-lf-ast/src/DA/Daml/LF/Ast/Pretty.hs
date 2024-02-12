@@ -409,9 +409,6 @@ instance Pretty Update where
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
-    USoftExercise tpl choice cid arg ->
-      pPrintAppKeyword lvl prec "soft_exercise"
-      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UDynamicExercise tpl choice cid arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "dynamic_exercise"
@@ -429,8 +426,6 @@ instance Pretty Update where
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
     UFetch tpl cid ->
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
-    USoftFetch tpl cid ->
-      pPrintAppKeyword lvl prec "soft_fetch" [tplArg tpl, TmArg cid]
     UFetchInterface interface cid ->
       pPrintAppKeyword lvl prec "fetch_interface" [interfaceArg interface, TmArg cid]
     UGetTime ->

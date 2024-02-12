@@ -280,12 +280,6 @@ convertPrim _ "UFetch" (TContractId (TCon template) :-> TUpdate (TCon template')
     ETmLam (mkVar "this", TContractId (TCon template)) $
     EUpdate $ UFetch template (EVar (mkVar "this"))
 
-convertPrim _ "USoftFetch" (TContractId (TCon template) :-> TUpdate (TCon template'))
-    | template == template' =
-    pure $
-    ETmLam (mkVar "this", TContractId (TCon template)) $
-    EUpdate $ USoftFetch template (EVar (mkVar "this"))
-
 convertPrim _ "UFetchInterface" (TContractId (TCon iface) :-> TUpdate (TCon iface'))
     | iface == iface' =
     pure $
@@ -298,15 +292,6 @@ convertPrim _ "UExercise"
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
     EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
-  where
-    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
-
-convertPrim _ "USoftExercise"
-    (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
-    pure $
-    ETmLam (mkVar "this", TContractId (TCon template)) $
-    ETmLam (mkVar "arg", TCon choice) $
-    EUpdate $ USoftExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
