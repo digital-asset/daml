@@ -5,14 +5,12 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -32,9 +30,6 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
   import SpeedyTestLib.loggingContext
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
-
-  private implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
   private val languageVersion = compilerConfig.allowedLanguageVersions.max
