@@ -390,7 +390,6 @@ private[lf] final class PhaseOne(
   private[this] def compileBuiltin(env: Env, bf: BuiltinFunction): SExpr = {
 
     // SEBNumericN(b) drop the N first arguments and call b
-    def SEBNumeric0(b: SBuiltin) = SEBuiltin(b)
     def SEBNumeric1(b: SBuiltin) = SEAbs(1, SEBuiltin(b))
     def SEBNumeric2(b: SBuiltin) = SEAbs(2, SEBuiltin(b))
     def SEBNumeric3(b: SBuiltin) = SEAbs(3, SEBuiltin(b))
@@ -409,22 +408,15 @@ private[lf] final class PhaseOne(
       case BNumericToText => SEBNumeric1(SBToText)
       case BAddNumeric => SEBNumeric1(SBAddNumeric)
       case BSubNumeric => SEBNumeric1(SBSubNumeric)
-      case BMulNumericLegacy => SEBNumeric2(SBMulNumeric)
       case BMulNumeric => SEBNumeric3(SBMulNumeric)
-      case BDivNumericLegacy => SEBNumeric2(SBDivNumeric)
       case BDivNumeric => SEBNumeric3(SBDivNumeric)
       case BRoundNumeric => SEBNumeric1(SBRoundNumeric)
-      case BCastNumericLegacy => SEBNumeric1(SBCastNumeric)
       case BCastNumeric => SEBNumeric2(SBCastNumeric)
-      case BShiftNumericLegacy => SEBNumeric1(SBShiftNumeric)
       case BShiftNumeric => SEBNumeric2(SBShiftNumeric)
-      case BInt64ToNumericLegacy => SEBNumeric0(SBInt64ToNumeric)
       case BInt64ToNumeric => SEBNumeric1(SBInt64ToNumeric)
-      case BTextToNumericLegacy => SEBNumeric0(SBTextToNumeric)
       case BTextToNumeric => SEBNumeric1(SBTextToNumeric)
       case BNumericToInt64 => SEBNumeric1(SBNumericToInt64)
       case BNumericToBigNumeric => SEBNumeric1(SBNumericToBigNumeric)
-      case BBigNumericToNumericLegacy => SEBNumeric0(SBBigNumericToNumeric)
       case BBigNumericToNumeric => SEBNumeric1(SBBigNumericToNumeric)
 
       case _ =>
@@ -510,12 +502,10 @@ private[lf] final class PhaseOne(
 
           // Implemented using SExpr
           case BCoerceContractId | BTextMapEmpty | BGenMapEmpty | BLessNumeric | BLessEqNumeric |
-              BGreaterNumeric | BGreaterEqNumeric | BEqualNumeric | BNumericToText | BAddNumeric |
-              BSubNumeric | BMulNumericLegacy | BMulNumeric | BDivNumericLegacy | BDivNumeric |
-              BRoundNumeric | BCastNumericLegacy | BCastNumeric | BShiftNumericLegacy |
-              BShiftNumeric | BInt64ToNumericLegacy | BInt64ToNumeric | BTextToNumericLegacy |
-              BTextToNumeric | BNumericToInt64 | BNumericToBigNumeric | BBigNumericToNumericLegacy |
-              BBigNumericToNumeric =>
+              BGreaterNumeric | BGreaterEqNumeric | BEqualNumeric | BNumericToText |
+              BAddNumeric | BSubNumeric | BMulNumeric | BDivNumeric | BRoundNumeric | BCastNumeric |
+              BShiftNumeric | BInt64ToNumeric | BTextToNumericLegacy | BTextToNumeric |
+              BNumericToInt64 | BNumericToBigNumeric | BBigNumericToNumeric =>
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
