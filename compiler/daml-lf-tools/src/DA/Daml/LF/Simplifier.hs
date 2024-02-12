@@ -111,29 +111,21 @@ safetyStep = \case
       BEGreaterEqNumeric  -> Safe 2
       BEAddNumeric          -> Safe 1
       BESubNumeric          -> Safe 1
-      BEMulNumericLegacy    -> Safe 1
       BEMulNumeric          -> Safe 2
-      BEDivNumericLegacy    -> Safe 1
       BEDivNumeric          -> Safe 2
-      BEInt64ToNumericLegacy -> Safe 0
       BEInt64ToNumeric      -> Safe 1
       BENumericToInt64      -> Safe 0
-      BETextToNumericLegacy -> Safe 1
       BETextToNumeric       -> Safe 2
       BENumericToText       -> Safe 1
       BERoundNumeric        -> Safe 1
-      BECastNumericLegacy   -> Safe 0
       BECastNumeric         -> Safe 1
-      BEShiftNumericLegacy  -> Safe 1
       BEShiftNumeric        -> Safe 2
       BEScaleBigNumeric     -> Safe 1 -- doesn't fail
-      BEPrecisionBigNumeric -> Safe 1 -- doesn't fail
       BEAddBigNumeric       -> Safe 1 -- fails on overflow
       BESubBigNumeric       -> Safe 1 -- fails on overflow
       BEMulBigNumeric       -> Safe 1 -- fails on overflow
       BEDivBigNumeric       -> Safe 3 -- takes 4 arguments, fails on division by 0 and on rounding ("rounding unnecessary" mode)
       BEShiftRightBigNumeric     -> Safe 1 -- fails on overflow (shift too large)
-      BEBigNumericToNumericLegacy -> Safe 0 -- fails on overflow (numeric doesn't fit)
       BEBigNumericToNumeric -> Safe 1 -- fails on overflow (numeric doesn't fit)
       BENumericToBigNumeric -> Safe 1 -- doesn't fail
       BEAddInt64          -> Safe 1

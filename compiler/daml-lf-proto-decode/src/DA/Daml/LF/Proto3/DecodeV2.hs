@@ -435,21 +435,16 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionCODE_POINTS_TO_TEXT -> pure BECodePointsToText
   LF2.BuiltinFunctionTEXT_TO_PARTY -> pure BETextToParty
   LF2.BuiltinFunctionTEXT_TO_INT64 -> pure BETextToInt64
-  LF2.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY -> pure BETextToNumericLegacy
   LF2.BuiltinFunctionTEXT_TO_NUMERIC -> pure BETextToNumeric
   LF2.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
   LF2.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> pure BEPartyToQuotedText
 
   LF2.BuiltinFunctionADD_NUMERIC   -> pure BEAddNumeric
   LF2.BuiltinFunctionSUB_NUMERIC   -> pure BESubNumeric
-  LF2.BuiltinFunctionMUL_NUMERIC_LEGACY   -> pure BEMulNumericLegacy
   LF2.BuiltinFunctionMUL_NUMERIC   -> pure  BEMulNumeric
-  LF2.BuiltinFunctionDIV_NUMERIC_LEGACY   -> pure BEDivNumericLegacy
   LF2.BuiltinFunctionDIV_NUMERIC   -> pure BEDivNumeric
   LF2.BuiltinFunctionROUND_NUMERIC -> pure BERoundNumeric
-  LF2.BuiltinFunctionCAST_NUMERIC_LEGACY  -> pure BECastNumericLegacy
   LF2.BuiltinFunctionCAST_NUMERIC  -> pure BECastNumeric
-  LF2.BuiltinFunctionSHIFT_NUMERIC_LEGACY -> pure BEShiftNumericLegacy
   LF2.BuiltinFunctionSHIFT_NUMERIC -> pure BEShiftNumeric
 
   LF2.BuiltinFunctionADD_INT64 -> pure BEAddInt64
@@ -491,7 +486,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS -> pure BETimestampToUnixMicroseconds
   LF2.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP -> pure BEUnixMicrosecondsToTimestamp
 
-  LF2.BuiltinFunctionINT64_TO_NUMERIC_LEGACY -> pure BEInt64ToNumericLegacy
   LF2.BuiltinFunctionINT64_TO_NUMERIC -> pure BEInt64ToNumeric
   LF2.BuiltinFunctionNUMERIC_TO_INT64 -> pure BENumericToInt64
 
@@ -508,7 +502,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionMUL_BIGNUMERIC -> pure BEMulBigNumeric
   LF2.BuiltinFunctionDIV_BIGNUMERIC -> pure BEDivBigNumeric
   LF2.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> pure BEShiftRightBigNumeric
-  LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> pure BEBigNumericToNumericLegacy
   LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> pure BEBigNumericToNumeric
   LF2.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> pure BENumericToBigNumeric
 

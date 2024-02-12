@@ -186,7 +186,6 @@ featureExperimental = Feature
 foreverCppFlags :: [T.Text]
 foreverCppFlags =
     [ "DAML_NAT_SYN"
-    , "DAML_NAT_TYPE_ERASURE"
     , "DAML_INTERFACE"
     , "DAML_RIGHT_TO_LEFT_EVALUATION"
     ]
