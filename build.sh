@@ -136,6 +136,9 @@ echo "Running bazel test with the following tag filters: ${tag_filter}"
 #  --build_event_publish_all_actions \
 #  --execution_log_json_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.json.gz"
 
+mkdir -p bazel-testlogs
+touch bazel-testlogs/foo
+
 # Make sure that Bazel query works.
 $bazel query 'deps(//...)' >/dev/null
 
