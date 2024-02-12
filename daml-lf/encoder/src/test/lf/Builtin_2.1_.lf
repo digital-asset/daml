@@ -9,8 +9,6 @@ module BuiltinMod {
     SUB_NUMERIC;
   val mulNumeric: forall (a: nat) (b: nat) (g: nat). Numeric g -> Numeric a -> Numeric b -> Numeric g =
     MUL_NUMERIC;
-  val divNumericLegacy: forall (a: nat) (b: nat) (g: nat). Numeric a -> Numeric b -> Numeric g =
-    DIV_NUMERIC_LEGACY;
   val divNumeric: forall (a: nat) (b: nat) (g: nat). Numeric g -> Numeric a -> Numeric b -> Numeric g =
     DIV_NUMERIC;
   val roundNumeric: forall (a: nat). Int64 -> Numeric a -> Numeric a =
@@ -87,8 +85,6 @@ module BuiltinMod {
     TEXT_TO_PARTY;
   val textToInt64: Text -> Option Int64 =
     TEXT_TO_INT64;
-  val textToNumericLegacy: forall (a: nat). Text -> Option (Numeric a) =
-    TEXT_TO_NUMERIC_LEGACY;
   val textToNumeric: forall (a: nat). Numeric a -> Text -> Option (Numeric a) =
       TEXT_TO_NUMERIC;
   val textToCodePoints: Text -> List Int64 =

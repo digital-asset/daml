@@ -85,8 +85,6 @@ module BuiltinMod {
     TEXT_TO_PARTY;
   val textToInt64: Text -> Option Int64 =
     TEXT_TO_INT64;
-  val textToNumericLegacy: forall (a: nat). Text -> Option (Numeric a) =
-    TEXT_TO_NUMERIC_LEGACY;
   val textToNumeric: forall (a: nat). Numeric a -> Text -> Option (Numeric a) =
       TEXT_TO_NUMERIC;
   val textToCodePoints: Text -> List Int64 =
