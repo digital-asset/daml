@@ -568,11 +568,7 @@ truncate = primitive @"BENumericToInt64"
 
 -- | Convert an `Int` to a `Numeric`.
 intToNumeric : forall n. NumericScale n => Int -> Numeric n
-#ifndef DAML_NAT_TYPE_ERASURE
-intToNumeric = primitive @"BEInt64ToNumericLegacy"
-#else
 intToNumeric = primitive @"BEInt64ToNumeric" (numericOne @n)
-#endif
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
