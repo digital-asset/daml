@@ -88,7 +88,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       toPackageName(getInternedStr(metadata.getNameInternedStr)),
       toPackageVersion(getInternedStr(metadata.getVersionInternedStr)),
       if (metadata.hasUpgradedPackageId) {
-        assertSince(LV.Features.packageUpgrades, "Package.metadata.upgradedPackageId")
         Some(
           getInternedPackageId(metadata.getUpgradedPackageId.getUpgradedPackageIdInternedStr)
         )
@@ -1538,7 +1537,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.SOFT_EXERCISE =>
-          assertSince(LV.Features.packageUpgrades, "softExercise")
           val exercise = lfUpdate.getSoftExercise
           val templateId = decodeTypeConName(exercise.getTemplate)
           val choice = handleInternedName(
@@ -1605,7 +1603,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.SOFT_FETCH =>
-          assertSince(LV.Features.packageUpgrades, "softFetch")
           val softFetch = lfUpdate.getSoftFetch
           decodeExpr(softFetch.getCid, definition) { contractId =>
             Ret(
