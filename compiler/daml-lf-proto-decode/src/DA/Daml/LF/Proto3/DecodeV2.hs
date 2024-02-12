@@ -527,7 +527,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionSHIFT_NUMERIC_LEGACY -> error "The builin SHIFT_NUMERIC_LEGACY is not supported by LF 2.x"
   LF2.BuiltinFunctionINT64_TO_NUMERIC_LEGACY -> error "The builin INT64_TO_NUMERIC_LEGACY is not supported by LF 2.x"
   LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> error "The builin BIGNUMERIC_TO_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> error "The builin BIGNUMERIC_TO_NUMERIC is not supported by LF 2.x"
 
 decodeLocation :: LF2.Location -> Decode SourceLoc
 decodeLocation (LF2.Location mbModRef mbRange) = do

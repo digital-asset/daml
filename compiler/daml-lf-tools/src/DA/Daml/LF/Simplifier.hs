@@ -121,6 +121,7 @@ safetyStep = \case
       BECastNumeric         -> Safe 1
       BEShiftNumeric        -> Safe 2
       BEScaleBigNumeric     -> Safe 1 -- doesn't fail
+      BEPrecisionBigNumeric -> Safe 1 -- doesn't fail
       BEAddBigNumeric       -> Safe 1 -- fails on overflow
       BESubBigNumeric       -> Safe 1 -- fails on overflow
       BEMulBigNumeric       -> Safe 1 -- fails on overflow
