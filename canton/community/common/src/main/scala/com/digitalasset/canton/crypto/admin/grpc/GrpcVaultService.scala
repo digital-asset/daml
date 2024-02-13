@@ -22,7 +22,6 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
-import com.google.protobuf.empty.Empty
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,19 +35,21 @@ class GrpcVaultService(
     with NamedLogging {
 
   private def listPublicKeys(
-      request: v30.ListKeysRequest,
+      filters: Option[v30.ListKeysFilters],
       pool: Iterable[PublicKeyWithName],
   ): Seq[PublicKeyWithName] =
     pool
       .filter(entry =>
-        entry.publicKey.fingerprint.unwrap.startsWith(request.filterFingerprint)
-          && entry.name.map(_.unwrap).getOrElse("").contains(request.filterName)
-          && request.filterPurpose.forall(_ == entry.publicKey.purpose.toProtoEnum)
+        filters.forall { filter =>
+          entry.publicKey.fingerprint.unwrap.startsWith(filter.fingerprint)
+          && entry.name.map(_.unwrap).getOrElse("").contains(filter.name)
+          && filter.purpose.forall(_ == entry.publicKey.purpose.toProtoEnum)
+        }
       )
       .toSeq
 
   // returns public keys of which we have private keys
-  override def listMyKeys(request: v30.ListKeysRequest): Future[v30.ListMyKeysResponse] = {
+  override def listMyKeys(request: v30.ListMyKeysRequest): Future[v30.ListMyKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       keys <- crypto.cryptoPublicStore.publicKeysWithName.valueOr(err =>
@@ -66,7 +67,7 @@ class GrpcVaultService(
                 .asGrpcError
             )
         )
-      filteredPublicKeys = listPublicKeys(request, publicKeys)
+      filteredPublicKeys = listPublicKeys(request.filters, publicKeys)
       keysMetadata <-
         filteredPublicKeys.parTraverse { pk =>
           (crypto.cryptoPrivateStore.toExtended match {
@@ -113,10 +114,14 @@ class GrpcVaultService(
     } yield v30.ImportPublicKeyResponse(fingerprint = publicKey.fingerprint.unwrap)
   }
 
-  override def listPublicKeys(request: v30.ListKeysRequest): Future[v30.ListKeysResponse] = {
+  override def listPublicKeys(
+      request: v30.ListPublicKeysRequest
+  ): Future[v30.ListPublicKeysResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     crypto.cryptoPublicStore.publicKeysWithName
-      .map(keys => v30.ListKeysResponse(listPublicKeys(request, keys).map(_.toProtoV30)))
+      .map(keys =>
+        v30.ListPublicKeysResponse(listPublicKeys(request.filters, keys).map(_.toProtoV30))
+      )
       .valueOr(err =>
         throw CryptoPublicStoreError.ErrorCode
           .WrapStr(s"Failed to retrieve public keys: $err")
@@ -130,7 +135,7 @@ class GrpcVaultService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheme <-
-        if (request.keyScheme.isMissingSigningKeyScheme)
+        if (request.keyScheme.isSigningKeySchemeUnspecified)
           Future.successful(crypto.privateCrypto.defaultSigningKeyScheme)
         else
           Future(
@@ -155,7 +160,7 @@ class GrpcVaultService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheme <-
-        if (request.keyScheme.isMissingEncryptionKeyScheme)
+        if (request.keyScheme.isEncryptionKeySchemeUnspecified)
           Future.successful(crypto.privateCrypto.defaultEncryptionKeyScheme)
         else
           Future(
@@ -190,8 +195,10 @@ class GrpcVaultService(
 
   override def rotateWrapperKey(
       request: v30.RotateWrapperKeyRequest
-  ): Future[Empty] =
-    Future.failed[Empty](StaticGrpcServices.notSupportedByCommunityStatus.asRuntimeException())
+  ): Future[v30.RotateWrapperKeyResponse] =
+    Future.failed[v30.RotateWrapperKeyResponse](
+      StaticGrpcServices.notSupportedByCommunityStatus.asRuntimeException()
+    )
 
   override def getWrapperKeyId(
       request: v30.GetWrapperKeyIdRequest

@@ -96,12 +96,12 @@ class InMemoryStateUpdaterSpec
 
   "prepare" should "throw exception for an empty vector" in new Scope {
     an[NoSuchElementException] should be thrownBy {
-      InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(Vector.empty, 0L)
+      InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(Vector.empty, 0L)
     }
   }
 
   "prepare" should "prepare a batch of a single update" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
       Vector(update1),
       0L,
     ) shouldBe PrepareResult(
@@ -113,21 +113,8 @@ class InMemoryStateUpdaterSpec
     )
   }
 
-  "prepare" should "prepare a batch without reassignments if multi domain is disabled" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(
-      Vector(update1, update7, update8),
-      0L,
-    ) shouldBe PrepareResult(
-      Vector(txLogUpdate1),
-      offset(8L),
-      0L,
-      update1._2.traceContext,
-      PackageMetadata(),
-    )
-  }
-
-  "prepare" should "prepare a batch with reassignments if multi domain is enabled" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, true)(
+  "prepare" should "prepare a batch with reassignments" in new Scope {
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
       Vector(update1, update7, update8),
       0L,
     ) shouldBe PrepareResult(
@@ -140,7 +127,7 @@ class InMemoryStateUpdaterSpec
   }
 
   "prepare" should "set last offset and eventSequentialId to last element" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
       Vector(update1, metadataChangedUpdate),
       6L,
     ) shouldBe PrepareResult(
@@ -161,7 +148,7 @@ class InMemoryStateUpdaterSpec
       case _ => fail("unexpected archive hash")
     }
 
-    InMemoryStateUpdater.prepare(metadata, false)(
+    InMemoryStateUpdater.prepare(metadata)(
       Vector(update5, update6),
       0L,
     ) shouldBe PrepareResult(
@@ -472,9 +459,6 @@ object InMemoryStateUpdaterSpec {
 
   private val party1 = Ref.Party.assertFromString("someparty1")
   private val party2 = Ref.Party.assertFromString("someparty2")
-
-  private val templateQualifiedName1 = Ref.QualifiedName.assertFromString("Mod:I")
-  private val templateQualifiedName2 = Ref.QualifiedName.assertFromString("Mod:I2")
 
   private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
   private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")

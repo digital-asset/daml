@@ -1,0 +1,27 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+// This package is versioned out of caution. It is not expected to change,
+// especially not alongside the rest of our messages.
+package com.digitalasset.canton.version.v1;
+
+/* `UntypedVersionedMessage` is the generic wrapper for versioned messages
+   * The version is included in the `version` integer and the serialized
+   * message is contained in `data`.
+
+   * Internally, we use the typed alias `VersionedMessage[ValueClass]` to avoid
+   * the risk of confusion between different proto versioned messaged (see, e.g.,
+   * the return type of the `HasVersionedWrapper.toProtoVersioned` method).
+
+   * The `oneof` prevents the serialized message to be empty if `data` is empty
+   * and `version` is 0 (the default value for an integer). Such an empty message
+   * cannot be deserialized using previous version of our parsing method.
+*/
+message UntypedVersionedMessage {
+  oneof wrapper {
+    bytes data = 1;
+  }
+  int32 version = 2;
+}

@@ -9,7 +9,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
-import com.daml.platform.index.index.StatusDetails
+import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationDuration,
   DeduplicationOffset,
@@ -33,7 +33,6 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: Metrics,
-      multiDomainEnabled: Boolean,
   )(implicit mc: MetricsContext): Offset => Traced[Update] => Iterator[DbDto] = {
     offset => tracedUpdate =>
       import Update.*
@@ -54,14 +53,13 @@ object UpdateToDbDto {
               IndexedUpdatesMetrics.Labels.status.rejected,
             )
           }
-          val domainId = Option.when(multiDomainEnabled)(u.domainId.toProtoPrimitive)
           Iterator(
             commandCompletion(
               offset = offset,
               recordTime = u.recordTime,
               transactionId = None,
               completionInfo = u.completionInfo,
-              domainId = domainId,
+              domainId = u.domainId.toProtoPrimitive,
               serializedTraceContext = serializedTraceContext,
             ).copy(
               rejection_status_code = Some(u.reasonTemplate.code),
@@ -201,7 +199,7 @@ object UpdateToDbDto {
             event_sequential_id_first = 0, // this is filled later
             event_sequential_id_last = 0, // this is filled later
           )
-          val domainId = Option.when(multiDomainEnabled)(u.domainId.toProtoPrimitive)
+          val domainId = u.domainId.toProtoPrimitive
           val events: Iterator[DbDto] = preorderTraversal.iterator
             .flatMap {
               case (nodeId, create: Create) =>
@@ -353,7 +351,7 @@ object UpdateToDbDto {
           // and transaction meta is assigned sequential ids of its first and last event
           events ++ completions ++ Seq(transactionMeta)
 
-        case u: ReassignmentAccepted if multiDomainEnabled =>
+        case u: ReassignmentAccepted =>
           val events = u.reassignment match {
             case unassign: Reassignment.Unassign =>
               val flatEventWitnesses = unassign.stakeholders.map(_.toString)
@@ -441,9 +439,9 @@ object UpdateToDbDto {
               _,
               domainId = u.reassignment match {
                 case _: Reassignment.Unassign =>
-                  Some(u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive)
+                  u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
                 case _: Reassignment.Assign =>
-                  Some(u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive)
+                  u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
               },
               serializedTraceContext = serializedTraceContext,
             )
@@ -461,8 +459,6 @@ object UpdateToDbDto {
           // will be assigned consecutive event sequential ids
           // and transaction meta is assigned sequential ids of its first and last event
           events ++ completions ++ Seq(transactionMeta)
-
-        case _: ReassignmentAccepted => Iterator.empty
       }
   }
 
@@ -485,7 +481,7 @@ object UpdateToDbDto {
       recordTime: Time.Timestamp,
       transactionId: Option[Ref.TransactionId],
       completionInfo: CompletionInfo,
-      domainId: Option[String],
+      domainId: String,
       serializedTraceContext: Array[Byte],
   ): DbDto.CommandCompletion = {
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =

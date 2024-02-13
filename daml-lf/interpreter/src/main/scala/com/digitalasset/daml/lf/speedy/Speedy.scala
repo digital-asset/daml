@@ -147,7 +147,6 @@ private[lf] object Speedy {
         packageName = packageName,
         templateId = templateId,
         arg = arg,
-        agreementText = "", // to be removed
         signatories = signatories,
         stakeholders = stakeholders,
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
@@ -401,7 +400,7 @@ private[lf] object Speedy {
         } else {
           popKont() match {
             case handler: KTryCatchHandler =>
-              ptx = ptx.rollbackTry(excep)
+              ptx = ptx.rollbackTry()
               Some(handler)
             case _: KCloseExercise =>
               ptx = ptx.abortExercises

@@ -28,29 +28,34 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * <pre/>
  */
 public final class UpdateSubmission<U> {
-  private String applicationId;
-  private String commandId;
-  private Update<U> update;
+  @NonNull private final String applicationId;
+  @NonNull private final String commandId;
+  @NonNull private final Update<U> update;
 
-  private Optional<String> workflowId;
-  private List<@NonNull String> actAs;
-  private List<@NonNull String> readAs;
-  private Optional<Instant> minLedgerTimeAbs;
-  private Optional<Duration> minLedgerTimeRel;
-  private Optional<Duration> deduplicationTime;
-  private Optional<String> accessToken;
+  @NonNull private final Optional<String> workflowId;
+  @NonNull private final List<@NonNull String> actAs;
+  @NonNull private final List<@NonNull String> readAs;
+  @NonNull private final Optional<Instant> minLedgerTimeAbs;
+  @NonNull private final Optional<Duration> minLedgerTimeRel;
+  @NonNull private final Optional<Duration> deduplicationDuration;
+  @NonNull private final Optional<String> deduplicationOffset;
+  @NonNull private final Optional<String> accessToken;
+
+  @NonNull private final String domainId;
 
   private UpdateSubmission(
-      String applicationId,
-      String commandId,
-      Update<U> update,
-      List<@NonNull String> actAs,
-      List<@NonNull String> readAs,
-      Optional<String> workflowId,
-      Optional<Instant> minLedgerTimeAbs,
-      Optional<Duration> minLedgerTimeRel,
-      Optional<Duration> deduplicationTime,
-      Optional<String> accessToken) {
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull Update<U> update,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<String> workflowId,
+      @NonNull Optional<Instant> minLedgerTimeAbs,
+      @NonNull Optional<Duration> minLedgerTimeRel,
+      @NonNull Optional<Duration> deduplicationDuration,
+      @NonNull Optional<String> deduplicationOffset,
+      @NonNull Optional<String> accessToken,
+      @NonNull String domainId) {
     this.workflowId = workflowId;
     this.applicationId = applicationId;
     this.commandId = commandId;
@@ -58,9 +63,11 @@ public final class UpdateSubmission<U> {
     this.readAs = readAs;
     this.minLedgerTimeAbs = minLedgerTimeAbs;
     this.minLedgerTimeRel = minLedgerTimeRel;
-    this.deduplicationTime = deduplicationTime;
+    this.deduplicationDuration = deduplicationDuration;
+    this.deduplicationOffset = deduplicationOffset;
     this.update = update;
     this.accessToken = accessToken;
+    this.domainId = domainId;
   }
 
   public static <U> UpdateSubmission<U> create(
@@ -75,7 +82,9 @@ public final class UpdateSubmission<U> {
         empty(),
         Optional.empty(),
         empty(),
-        empty());
+        empty(),
+        empty(),
+        "");
   }
 
   public Optional<String> getWorkflowId() {
@@ -106,8 +115,12 @@ public final class UpdateSubmission<U> {
     return minLedgerTimeRel;
   }
 
-  public Optional<Duration> getDeduplicationTime() {
-    return deduplicationTime;
+  public Optional<Duration> getDeduplicationDuration() {
+    return deduplicationDuration;
+  }
+
+  public Optional<String> getDeduplicationOffset() {
+    return deduplicationOffset;
   }
 
   public Update<U> getUpdate() {
@@ -116,6 +129,10 @@ public final class UpdateSubmission<U> {
 
   public Optional<String> getAccessToken() {
     return accessToken;
+  }
+
+  public String getDomainId() {
+    return domainId;
   }
 
   public UpdateSubmission<U> withWorkflowId(String workflowId) {
@@ -128,8 +145,10 @@ public final class UpdateSubmission<U> {
         Optional.of(workflowId),
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
   public UpdateSubmission<U> withActAs(String actAs) {
@@ -142,8 +161,10 @@ public final class UpdateSubmission<U> {
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
   public UpdateSubmission<U> withActAs(List<@NonNull String> actAs) {
@@ -156,8 +177,10 @@ public final class UpdateSubmission<U> {
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
   public UpdateSubmission<U> withReadAs(List<@NonNull String> readAs) {
@@ -170,8 +193,10 @@ public final class UpdateSubmission<U> {
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
@@ -184,8 +209,10 @@ public final class UpdateSubmission<U> {
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
   public UpdateSubmission<U> withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
@@ -198,11 +225,13 @@ public final class UpdateSubmission<U> {
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
-  public UpdateSubmission<U> withDeduplicationTime(Optional<Duration> deduplicationTime) {
+  public UpdateSubmission<U> withDeduplicationDuration(Optional<Duration> deduplicationDuration) {
     return new UpdateSubmission<U>(
         applicationId,
         commandId,
@@ -212,8 +241,26 @@ public final class UpdateSubmission<U> {
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
+  }
+
+  public UpdateSubmission<U> withDeduplicationOffset(Optional<String> deduplicationOffset) {
+    return new UpdateSubmission<U>(
+        applicationId,
+        commandId,
+        update,
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
   public UpdateSubmission<U> withAccessToken(Optional<String> accessToken) {
@@ -226,22 +273,43 @@ public final class UpdateSubmission<U> {
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+        deduplicationDuration,
+        deduplicationOffset,
+        accessToken,
+        domainId);
   }
 
-  public CommandsSubmission toCommandsSubmission() {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withDomainId(String domanId) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        update.commands(),
+        update,
         actAs,
         readAs,
         workflowId,
         minLedgerTimeAbs,
         minLedgerTimeRel,
-        deduplicationTime,
+        deduplicationDuration,
+        deduplicationOffset,
         accessToken,
-        emptyList());
+        domainId);
+  }
+
+  public CommandsSubmission toCommandsSubmission() {
+    return new CommandsSubmission(
+        workflowId,
+        applicationId,
+        commandId,
+        update.commands(),
+        deduplicationDuration,
+        deduplicationOffset,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        actAs,
+        readAs,
+        empty(),
+        emptyList(),
+        domainId,
+        accessToken);
   }
 }

@@ -35,171 +35,165 @@ public final class UpdateClientImpl implements UpdateClient {
     return o.map(Collections::singleton).orElseGet(Collections::emptySet);
   }
 
-  private Flowable<TransactionV2> extractTransactions(
+  private Flowable<Transaction> extractTransactions(
       UpdateServiceOuterClass.GetUpdatesRequest request, Optional<String> accessToken) {
     return ClientPublisherFlowable.create(
             request,
             StubHelper.authenticating(this.serviceStub, accessToken)::getUpdates,
             sequencerFactory)
-        .map(GetUpdatesResponseV2::fromProto)
-        .map(GetUpdatesResponseV2::getTransaction)
+        .map(GetUpdatesResponse::fromProto)
+        .map(GetUpdatesResponse::getTransaction)
         .concatMapIterable(UpdateClientImpl::toIterable);
   }
 
-  private Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
+  private Flowable<Transaction> getTransactions(
+      ParticipantOffset begin,
+      ParticipantOffset end,
+      TransactionFilter filter,
       boolean verbose,
       Optional<String> accessToken) {
     UpdateServiceOuterClass.GetUpdatesRequest request =
-        new GetUpdatesRequestV2(begin, end, filter, verbose).toProto();
+        new GetUpdatesRequest(begin, end, filter, verbose).toProto();
     return extractTransactions(request, accessToken);
   }
 
   @Override
-  public Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
-      boolean verbose) {
+  public Flowable<Transaction> getTransactions(
+      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose) {
     return getTransactions(begin, end, filter, verbose, Optional.empty());
   }
 
   @Override
-  public Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
+  public Flowable<Transaction> getTransactions(
+      ParticipantOffset begin,
+      ParticipantOffset end,
+      TransactionFilter filter,
       boolean verbose,
       String accessToken) {
     return getTransactions(begin, end, filter, verbose, Optional.of(accessToken));
   }
 
-  private Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin,
-      TransactionFilterV2 filter,
+  private Flowable<Transaction> getTransactions(
+      ParticipantOffset begin,
+      TransactionFilter filter,
       boolean verbose,
       Optional<String> accessToken) {
     UpdateServiceOuterClass.GetUpdatesRequest request =
-        new GetUpdatesRequestV2(
-                begin, ParticipantOffsetV2.ParticipantEnd.getInstance(), filter, verbose)
+        new GetUpdatesRequest(
+                begin, ParticipantOffset.ParticipantEnd.getInstance(), filter, verbose)
             .toProto();
     return extractTransactions(request, accessToken);
   }
 
   @Override
-  public Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose) {
+  public Flowable<Transaction> getTransactions(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose) {
     return getTransactions(begin, filter, verbose, Optional.empty());
   }
 
   @Override
-  public Flowable<TransactionV2> getTransactions(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose, String accessToken) {
+  public Flowable<Transaction> getTransactions(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
     return getTransactions(begin, filter, verbose, Optional.of(accessToken));
   }
 
-  private Flowable<TransactionV2> getTransactions(
+  private Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffsetV2 begin,
+      ParticipantOffset begin,
       Set<String> parties,
       boolean verbose,
       Optional<String> accessToken) {
-    TransactionFilterV2 filter = contractFilter.transactionFilterV2(parties);
+    TransactionFilter filter = contractFilter.transactionFilter(parties);
     return getTransactions(begin, filter, verbose, accessToken);
   }
 
-  public Flowable<TransactionV2> getTransactions(
+  public Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffsetV2 begin,
+      ParticipantOffset begin,
       Set<String> parties,
       boolean verbose,
       String accessToken) {
     return getTransactions(contractFilter, begin, parties, verbose, Optional.of(accessToken));
   }
 
-  public Flowable<TransactionV2> getTransactions(
+  public Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
-      ParticipantOffsetV2 begin,
+      ParticipantOffset begin,
       Set<String> parties,
       boolean verbose) {
     return getTransactions(contractFilter, begin, parties, verbose, Optional.empty());
   }
 
-  private Flowable<TransactionTreeV2> extractTransactionTrees(
+  private Flowable<TransactionTree> extractTransactionTrees(
       UpdateServiceOuterClass.GetUpdatesRequest request, Optional<String> accessToken) {
     return ClientPublisherFlowable.create(
             request,
             StubHelper.authenticating(this.serviceStub, accessToken)::getUpdateTrees,
             sequencerFactory)
-        .map(GetUpdateTreesResponseV2::fromProto)
-        .map(GetUpdateTreesResponseV2::getTransactionTree)
+        .map(GetUpdateTreesResponse::fromProto)
+        .map(GetUpdateTreesResponse::getTransactionTree)
         .concatMapIterable(UpdateClientImpl::toIterable);
   }
 
-  private Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin,
-      TransactionFilterV2 filter,
+  private Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin,
+      TransactionFilter filter,
       boolean verbose,
       Optional<String> accessToken) {
     UpdateServiceOuterClass.GetUpdatesRequest request =
-        new GetUpdatesRequestV2(
-                begin, ParticipantOffsetV2.ParticipantEnd.getInstance(), filter, verbose)
+        new GetUpdatesRequest(
+                begin, ParticipantOffset.ParticipantEnd.getInstance(), filter, verbose)
             .toProto();
     return extractTransactionTrees(request, accessToken);
   }
 
   @Override
-  public Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose) {
+  public Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose) {
     return getTransactionsTrees(begin, filter, verbose, Optional.empty());
   }
 
   @Override
-  public Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin, TransactionFilterV2 filter, boolean verbose, String accessToken) {
+  public Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
     return getTransactionsTrees(begin, filter, verbose, Optional.of(accessToken));
   }
 
-  private Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
+  private Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin,
+      ParticipantOffset end,
+      TransactionFilter filter,
       boolean verbose,
       Optional<String> accessToken) {
     UpdateServiceOuterClass.GetUpdatesRequest request =
-        new GetUpdatesRequestV2(begin, end, filter, verbose).toProto();
+        new GetUpdatesRequest(begin, end, filter, verbose).toProto();
     return extractTransactionTrees(request, accessToken);
   }
 
   @Override
-  public Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
-      boolean verbose) {
+  public Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin, ParticipantOffset end, TransactionFilter filter, boolean verbose) {
     return getTransactionsTrees(begin, end, filter, verbose, Optional.empty());
   }
 
   @Override
-  public Flowable<TransactionTreeV2> getTransactionsTrees(
-      ParticipantOffsetV2 begin,
-      ParticipantOffsetV2 end,
-      TransactionFilterV2 filter,
+  public Flowable<TransactionTree> getTransactionsTrees(
+      ParticipantOffset begin,
+      ParticipantOffset end,
+      TransactionFilter filter,
       boolean verbose,
       String accessToken) {
     return getTransactionsTrees(begin, end, filter, verbose, Optional.of(accessToken));
   }
 
-  private Single<TransactionTreeV2> extractTransactionTree(
+  private Single<TransactionTree> extractTransactionTree(
       Future<UpdateServiceOuterClass.GetTransactionTreeResponse> future) {
     return Single.fromFuture(future)
-        .map(GetTransactionTreeResponseV2::fromProto)
-        .map(GetTransactionTreeResponseV2::getTransactionTree);
+        .map(GetTransactionTreeResponse::fromProto)
+        .map(GetTransactionTreeResponse::getTransactionTree);
   }
 
-  private Single<TransactionTreeV2> getTransactionTreeByEventId(
+  private Single<TransactionTree> getTransactionTreeByEventId(
       String eventId, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByEventIdRequest request =
         UpdateServiceOuterClass.GetTransactionByEventIdRequest.newBuilder()
@@ -212,18 +206,18 @@ public final class UpdateClientImpl implements UpdateClient {
   }
 
   @Override
-  public Single<TransactionTreeV2> getTransactionTreeByEventId(
+  public Single<TransactionTree> getTransactionTreeByEventId(
       String eventId, Set<String> requestingParties) {
     return getTransactionTreeByEventId(eventId, requestingParties, Optional.empty());
   }
 
   @Override
-  public Single<TransactionTreeV2> getTransactionTreeByEventId(
+  public Single<TransactionTree> getTransactionTreeByEventId(
       String eventId, Set<String> requestingParties, String accessToken) {
     return getTransactionTreeByEventId(eventId, requestingParties, Optional.of(accessToken));
   }
 
-  private Single<TransactionTreeV2> getTransactionTreeById(
+  private Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByIdRequest request =
         UpdateServiceOuterClass.GetTransactionByIdRequest.newBuilder()
@@ -236,25 +230,25 @@ public final class UpdateClientImpl implements UpdateClient {
   }
 
   @Override
-  public Single<TransactionTreeV2> getTransactionTreeById(
+  public Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties) {
     return getTransactionTreeById(transactionId, requestingParties, Optional.empty());
   }
 
   @Override
-  public Single<TransactionTreeV2> getTransactionTreeById(
+  public Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, String accessToken) {
     return getTransactionTreeById(transactionId, requestingParties, Optional.of(accessToken));
   }
 
-  private Single<TransactionV2> extractTransaction(
+  private Single<Transaction> extractTransaction(
       Future<UpdateServiceOuterClass.GetTransactionResponse> future) {
     return Single.fromFuture(future)
-        .map(GetTransactionResponseV2::fromProto)
-        .map(GetTransactionResponseV2::getTransaction);
+        .map(GetTransactionResponse::fromProto)
+        .map(GetTransactionResponse::getTransaction);
   }
 
-  private Single<TransactionV2> getTransactionByEventId(
+  private Single<Transaction> getTransactionByEventId(
       String eventId, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByEventIdRequest request =
         UpdateServiceOuterClass.GetTransactionByEventIdRequest.newBuilder()
@@ -267,18 +261,18 @@ public final class UpdateClientImpl implements UpdateClient {
   }
 
   @Override
-  public Single<TransactionV2> getTransactionByEventId(
+  public Single<Transaction> getTransactionByEventId(
       String eventId, Set<String> requestingParties) {
     return getTransactionByEventId(eventId, requestingParties, Optional.empty());
   }
 
   @Override
-  public Single<TransactionV2> getTransactionByEventId(
+  public Single<Transaction> getTransactionByEventId(
       String eventId, Set<String> requestingParties, String accessToken) {
     return getTransactionByEventId(eventId, requestingParties, Optional.of(accessToken));
   }
 
-  private Single<TransactionV2> getTransactionById(
+  private Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByIdRequest request =
         UpdateServiceOuterClass.GetTransactionByIdRequest.newBuilder()
@@ -290,13 +284,13 @@ public final class UpdateClientImpl implements UpdateClient {
   }
 
   @Override
-  public Single<TransactionV2> getTransactionById(
+  public Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties) {
     return getTransactionById(transactionId, requestingParties, Optional.empty());
   }
 
   @Override
-  public Single<TransactionV2> getTransactionById(
+  public Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties, String accessToken) {
     return getTransactionById(transactionId, requestingParties, Optional.of(accessToken));
   }

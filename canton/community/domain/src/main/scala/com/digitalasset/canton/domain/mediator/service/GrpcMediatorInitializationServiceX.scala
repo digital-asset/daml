@@ -35,7 +35,7 @@ class GrpcMediatorInitializationServiceX(
 ) extends v30.MediatorInitializationServiceGrpc.MediatorInitializationService
     with NamedLogging {
 
-  override def initialize(
+  override def initializeMediator(
       requestP: InitializeMediatorRequest
   ): Future[InitializeMediatorResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext

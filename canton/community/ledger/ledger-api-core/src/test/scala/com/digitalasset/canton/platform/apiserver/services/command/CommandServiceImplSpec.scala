@@ -5,13 +5,13 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.RpcProtoExtractors
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.tracing.DefaultOpenTelemetry
@@ -225,8 +225,9 @@ class CommandServiceImplSpec
   private class TestContext {
     val trackerCompletionResponse = tracking.CompletionResponse(
       completion = completion,
-      checkpoint =
-        Some(Checkpoint(offset = Some(LedgerOffset(LedgerOffset.Value.Absolute("offset"))))),
+      checkpoint = Some(
+        Checkpoint(offset = Some(ParticipantOffset(ParticipantOffset.Value.Absolute("offset"))))
+      ),
     )
     val commands = someCommands()
     val submissionTracker = mock[SubmissionTracker]

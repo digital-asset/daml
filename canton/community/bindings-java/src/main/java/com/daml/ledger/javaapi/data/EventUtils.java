@@ -30,18 +30,4 @@ public class EventUtils {
         () ->
             new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
   }
-
-  /** @hidden */
-  public static ExercisedEvent firstExercisedEvent(TransactionTreeV2 txTree) {
-    var maybeExercisedEvent =
-        txTree.getRootEventIds().stream()
-            .map(eventId -> txTree.getEventsById().get(eventId))
-            .filter(e -> e instanceof ExercisedEvent)
-            .map(e -> (ExercisedEvent) e)
-            .findFirst();
-
-    return maybeExercisedEvent.orElseThrow(
-        () ->
-            new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
-  }
 }

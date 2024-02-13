@@ -30,9 +30,9 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Empty> submitAndWait(CommandsSubmissionV2 submission) {
+  public Single<Empty> submitAndWait(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequestV2.toProto(submission);
+        SubmitAndWaitRequest.toProto(submission);
 
     return Single.fromFuture(
         StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
@@ -40,9 +40,9 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<String> submitAndWaitForTransactionId(CommandsSubmissionV2 submission) {
+  public Single<String> submitAndWaitForTransactionId(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequestV2.toProto(submission);
+        SubmitAndWaitRequest.toProto(submission);
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForUpdateId(request))
@@ -50,32 +50,31 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<TransactionV2> submitAndWaitForTransaction(CommandsSubmissionV2 submission) {
+  public Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequestV2.toProto(submission);
+        SubmitAndWaitRequest.toProto(submission);
 
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForTransaction(request))
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionResponse::getTransaction)
-        .map(TransactionV2::fromProto);
+        .map(Transaction::fromProto);
   }
 
   @Override
-  public Single<TransactionTreeV2> submitAndWaitForTransactionTree(
-      CommandsSubmissionV2 submission) {
+  public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequestV2.toProto(submission);
+        SubmitAndWaitRequest.toProto(submission);
 
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
                 .submitAndWaitForTransactionTree(request))
         .map(CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse::getTransaction)
-        .map(TransactionTreeV2::fromProto);
+        .map(TransactionTree::fromProto);
   }
 
   @Override
-  public <U> Single<U> submitAndWaitForResult(@NonNull UpdateSubmissionV2<U> submission) {
+  public <U> Single<U> submitAndWaitForResult(@NonNull UpdateSubmission<U> submission) {
     return submission
         .getUpdate()
         .foldUpdate(

@@ -3,10 +3,9 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.api.v30;
+package com.digitalasset.canton.time.admin.v30;
 
 import "google/protobuf/duration.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
@@ -14,7 +13,7 @@ service DomainTimeService {
   // fetch the domain time which has been received within a supplied freshness bound defined by the local clock
   rpc FetchTime(FetchTimeRequest) returns (FetchTimeResponse);
   // await for the supplied time to be reached on the target domain
-  rpc AwaitTime(AwaitTimeRequest) returns (google.protobuf.Empty);
+  rpc AwaitTime(AwaitTimeRequest) returns (AwaitTimeResponse);
 }
 
 message FetchTimeRequest {
@@ -33,3 +32,5 @@ message AwaitTimeRequest {
   // the domain time to wait for
   google.protobuf.Timestamp timestamp = 2;
 }
+
+message AwaitTimeResponse {}

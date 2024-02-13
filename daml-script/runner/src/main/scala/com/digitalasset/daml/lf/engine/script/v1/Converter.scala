@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.v1.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackagesV1
+import com.daml.lf.language.StablePackagesV2
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
@@ -28,7 +28,7 @@ import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
 
-object Converter extends script.ConverterMethods(StablePackagesV1) {
+object Converter extends script.ConverterMethods(StablePackagesV2) {
   import com.daml.script.converter.Converter._
 
   def translateExerciseResult(
@@ -215,7 +215,7 @@ object Converter extends script.ConverterMethods(StablePackagesV1) {
     for {
       anyTpl <- fromContract(translator, contract)
     } yield record(
-      StablePackagesV1.Tuple2,
+      StablePackagesV2.Tuple2,
       ("_1", SContractId(contract.contractId)),
       ("_2", anyTpl),
     )

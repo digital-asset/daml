@@ -12,31 +12,31 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-service TopologyManagerReadServiceX {
-  rpc ListNamespaceDelegation(ListNamespaceDelegationRequest) returns (ListNamespaceDelegationResult);
-  rpc ListDecentralizedNamespaceDefinition(ListDecentralizedNamespaceDefinitionRequest) returns (ListDecentralizedNamespaceDefinitionResult);
-  rpc ListIdentifierDelegation(ListIdentifierDelegationRequest) returns (ListIdentifierDelegationResult);
+service TopologyManagerReadXService {
+  rpc ListNamespaceDelegation(ListNamespaceDelegationRequest) returns (ListNamespaceDelegationResponse);
+  rpc ListDecentralizedNamespaceDefinition(ListDecentralizedNamespaceDefinitionRequest) returns (ListDecentralizedNamespaceDefinitionResponse);
+  rpc ListIdentifierDelegation(ListIdentifierDelegationRequest) returns (ListIdentifierDelegationResponse);
 
-  rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResult);
+  rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResponse);
 
-  rpc ListDomainTrustCertificate(ListDomainTrustCertificateRequest) returns (ListDomainTrustCertificateResult);
-  rpc ListParticipantDomainPermission(ListParticipantDomainPermissionRequest) returns (ListParticipantDomainPermissionResult);
-  rpc ListPartyHostingLimits(ListPartyHostingLimitsRequest) returns (ListPartyHostingLimitsResult);
-  rpc ListVettedPackages(ListVettedPackagesRequest) returns (ListVettedPackagesResult);
+  rpc ListDomainTrustCertificate(ListDomainTrustCertificateRequest) returns (ListDomainTrustCertificateResponse);
+  rpc ListParticipantDomainPermission(ListParticipantDomainPermissionRequest) returns (ListParticipantDomainPermissionResponse);
+  rpc ListPartyHostingLimits(ListPartyHostingLimitsRequest) returns (ListPartyHostingLimitsResponse);
+  rpc ListVettedPackages(ListVettedPackagesRequest) returns (ListVettedPackagesResponse);
 
-  rpc ListPartyToParticipant(ListPartyToParticipantRequest) returns (ListPartyToParticipantResult);
-  rpc ListAuthorityOf(ListAuthorityOfRequest) returns (ListAuthorityOfResult);
+  rpc ListPartyToParticipant(ListPartyToParticipantRequest) returns (ListPartyToParticipantResponse);
+  rpc ListAuthorityOf(ListAuthorityOfRequest) returns (ListAuthorityOfResponse);
 
-  rpc ListDomainParametersState(ListDomainParametersStateRequest) returns (ListDomainParametersStateResult);
-  rpc ListMediatorDomainState(ListMediatorDomainStateRequest) returns (ListMediatorDomainStateResult);
-  rpc ListSequencerDomainState(ListSequencerDomainStateRequest) returns (ListSequencerDomainStateResult);
+  rpc ListDomainParametersState(ListDomainParametersStateRequest) returns (ListDomainParametersStateResponse);
+  rpc ListMediatorDomainState(ListMediatorDomainStateRequest) returns (ListMediatorDomainStateResponse);
+  rpc ListSequencerDomainState(ListSequencerDomainStateRequest) returns (ListSequencerDomainStateResponse);
 
-  rpc ListPurgeTopologyTransactionX(ListPurgeTopologyTransactionXRequest) returns (ListPurgeTopologyTransactionXResult);
+  rpc ListPurgeTopologyTransactionX(ListPurgeTopologyTransactionXRequest) returns (ListPurgeTopologyTransactionXResponse);
 
-  rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResult);
+  rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
   rpc ListAll(ListAllRequest) returns (ListAllResponse);
 
-  rpc ListTrafficState(ListTrafficStateRequest) returns (ListTrafficStateResult);
+  rpc ListTrafficState(ListTrafficStateRequest) returns (ListTrafficStateResponse);
 }
 
 message ListTrafficStateRequest {
@@ -44,7 +44,7 @@ message ListTrafficStateRequest {
   string filter_member = 2;
 }
 
-message ListTrafficStateResult {
+message ListTrafficStateResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.TrafficControlStateX item = 2;
@@ -108,7 +108,7 @@ message ListNamespaceDelegationRequest {
   string filter_target_key_fingerprint = 3;
 }
 
-message ListNamespaceDelegationResult {
+message ListNamespaceDelegationResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.NamespaceDelegationX item = 2;
@@ -121,7 +121,7 @@ message ListDecentralizedNamespaceDefinitionRequest {
   string filter_namespace = 2;
 }
 
-message ListDecentralizedNamespaceDefinitionResult {
+message ListDecentralizedNamespaceDefinitionResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.DecentralizedNamespaceDefinitionX item = 2;
@@ -135,7 +135,7 @@ message ListIdentifierDelegationRequest {
   string filter_target_key_fingerprint = 3;
 }
 
-message ListIdentifierDelegationResult {
+message ListIdentifierDelegationResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.IdentifierDelegationX item = 2;
@@ -149,7 +149,7 @@ message ListOwnerToKeyMappingRequest {
   string filter_key_owner_uid = 3;
 }
 
-message ListOwnerToKeyMappingResult {
+message ListOwnerToKeyMappingResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.OwnerToKeyMappingX item = 2;
@@ -162,7 +162,7 @@ message ListDomainTrustCertificateRequest {
   string filter_uid = 2;
 }
 
-message ListDomainTrustCertificateResult {
+message ListDomainTrustCertificateResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.DomainTrustCertificateX item = 2;
@@ -175,7 +175,7 @@ message ListParticipantDomainPermissionRequest {
   string filter_uid = 2;
 }
 
-message ListParticipantDomainPermissionResult {
+message ListParticipantDomainPermissionResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.ParticipantDomainPermissionX item = 2;
@@ -188,7 +188,7 @@ message ListPartyHostingLimitsRequest {
   string filter_uid = 2;
 }
 
-message ListPartyHostingLimitsResult {
+message ListPartyHostingLimitsResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.PartyHostingLimitsX item = 2;
@@ -201,7 +201,7 @@ message ListVettedPackagesRequest {
   string filter_participant = 2;
 }
 
-message ListVettedPackagesResult {
+message ListVettedPackagesResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.VettedPackagesX item = 2;
@@ -214,7 +214,7 @@ message ListPartyToParticipantRequest {
   string filter_participant = 3;
 }
 
-message ListPartyToParticipantResult {
+message ListPartyToParticipantResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.PartyToParticipantX item = 2;
@@ -227,7 +227,7 @@ message ListAuthorityOfRequest {
   string filter_party = 2;
 }
 
-message ListAuthorityOfResult {
+message ListAuthorityOfResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.AuthorityOfX item = 2;
@@ -240,7 +240,7 @@ message ListDomainParametersStateRequest {
   string filter_domain = 2;
 }
 
-message ListDomainParametersStateResult {
+message ListDomainParametersStateResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.DynamicDomainParameters item = 2;
@@ -253,7 +253,7 @@ message ListMediatorDomainStateRequest {
   string filter_domain = 2;
 }
 
-message ListMediatorDomainStateResult {
+message ListMediatorDomainStateResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.MediatorDomainStateX item = 2;
@@ -266,7 +266,7 @@ message ListSequencerDomainStateRequest {
   string filter_domain = 2;
 }
 
-message ListSequencerDomainStateResult {
+message ListSequencerDomainStateResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.SequencerDomainStateX item = 2;
@@ -279,7 +279,7 @@ message ListPurgeTopologyTransactionXRequest {
   string filter_domain = 2;
 }
 
-message ListPurgeTopologyTransactionXResult {
+message ListPurgeTopologyTransactionXResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.PurgeTopologyTransactionX item = 2;
@@ -289,7 +289,7 @@ message ListPurgeTopologyTransactionXResult {
 
 message ListAvailableStoresRequest {}
 
-message ListAvailableStoresResult {
+message ListAvailableStoresResponse {
   repeated string store_ids = 1;
 }
 
@@ -298,5 +298,5 @@ message ListAllRequest {
 }
 
 message ListAllResponse {
-  com.digitalasset.canton.protocol.v30.TopologyTransactions result = 1;
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1;
 }

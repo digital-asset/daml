@@ -137,7 +137,7 @@ private[store] object StorageBackendTestValues {
       ledgerEffectiveTime: Option[Timestamp] = Some(someTime),
       driverMetadata: Option[Array[Byte]] = None,
       keyHash: Option[String] = None,
-      domainId: Option[String] = None,
+      domainId: String = "x::sourcedomain",
       createKey: Option[Array[Byte]] = None,
       createKeyMaintainer: Option[String] = None,
       traceContext: Array[Byte] = serializableTraceContext,
@@ -189,7 +189,7 @@ private[store] object StorageBackendTestValues {
       signatory: String = "signatory",
       actor: String = "actor",
       commandId: String = UUID.randomUUID().toString,
-      domainId: Option[String] = None,
+      domainId: String = "x::sourcedomain",
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.EventExercise = {
     val transactionId = transactionIdFromOffset(offset)
@@ -306,7 +306,7 @@ private[store] object StorageBackendTestValues {
       deduplicationDurationSeconds: Option[Long] = None,
       deduplicationDurationNanos: Option[Int] = None,
       deduplicationStart: Option[Timestamp] = None,
-      domainId: Option[String] = None,
+      domainId: String = "x::sourcedomain",
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
@@ -370,7 +370,31 @@ private[store] object StorageBackendTestValues {
     dto match {
       case e: DbDto.EventCreate => Ref.TransactionId.assertFromString(e.transaction_id.get)
       case e: DbDto.EventExercise => Ref.TransactionId.assertFromString(e.transaction_id.get)
+      case e: DbDto.EventAssign => Ref.TransactionId.assertFromString(e.update_id)
+      case e: DbDto.EventUnassign => Ref.TransactionId.assertFromString(e.update_id)
       case _ => sys.error(s"$dto does not have a transaction id")
+    }
+  }
+
+  def dtoEventSeqId(dto: DbDto): Long = {
+    dto match {
+      case e: DbDto.EventCreate => e.event_sequential_id
+      case e: DbDto.EventExercise => e.event_sequential_id
+      case e: DbDto.EventAssign => e.event_sequential_id
+      case e: DbDto.EventUnassign => e.event_sequential_id
+      case _ => sys.error(s"$dto does not have a event sequential id")
+    }
+  }
+
+  def dtoOffset(dto: DbDto): String = {
+    dto match {
+      case e: DbDto.EventCreate =>
+        e.event_offset.getOrElse(sys.error(s"$dto does not have an offset set"))
+      case e: DbDto.EventExercise =>
+        e.event_offset.getOrElse(sys.error(s"$dto does not have an offset set"))
+      case e: DbDto.EventAssign => e.event_offset
+      case e: DbDto.EventUnassign => e.event_offset
+      case _ => sys.error(s"$dto does not have a offset id")
     }
   }
 
@@ -382,4 +406,11 @@ private[store] object StorageBackendTestValues {
       case _ => sys.error(s"$dto does not have an application id")
     }
   }
+
+  def metaFromSingle(dbDto: DbDto): DbDto.TransactionMeta = DbDto.TransactionMeta(
+    transaction_id = dtoTransactionId(dbDto),
+    event_offset = dtoOffset(dbDto),
+    event_sequential_id_first = dtoEventSeqId(dbDto),
+    event_sequential_id_last = dtoEventSeqId(dbDto),
+  )
 }

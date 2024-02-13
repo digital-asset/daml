@@ -69,7 +69,6 @@ data InstallOptions = InstallOptions
     { iTargetM :: Maybe RawInstallTarget -- ^ version to install
     , iSnapshots :: Bool -- ^ include snapshots for latest target
     , iAssistant :: InstallAssistant -- ^ install the assistant
-    , iActivate :: ActivateInstall -- ^ install the assistant if true (deprecated, delete with 0.14.x)
     , iForce :: ForceInstall -- ^ force reinstall if already installed
     , iQuiet :: QuietInstall -- ^ don't print messages
     , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
@@ -85,7 +84,6 @@ newtype InstallWithCustomVersion = InstallWithCustomVersion { unInstallWithCusto
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Show)
 newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Show)
-newtype ActivateInstall = ActivateInstall { unActivateInstall :: Bool } deriving (Eq, Show)
 newtype SetPath = SetPath {unwrapSetPath :: YesNoAuto} deriving (Eq, Show)
 newtype InstallAssistant = InstallAssistant { unwrapInstallAssistant :: YesNoAuto } deriving (Eq, Show)
 newtype BashCompletions = BashCompletions { unwrapBashCompletions :: YesNoAuto } deriving (Eq, Show)

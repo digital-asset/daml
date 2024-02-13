@@ -578,7 +578,6 @@ class SequencerNodeBootstrapX(
             Some(domainOutboxFactory),
             memberAuthServiceFactory,
             rateLimiter,
-            implicitMemberRegistration = true,
             domainLoggerFactory,
           )
           // TODO(#14073) subscribe to processor BEFORE sequencer client is created

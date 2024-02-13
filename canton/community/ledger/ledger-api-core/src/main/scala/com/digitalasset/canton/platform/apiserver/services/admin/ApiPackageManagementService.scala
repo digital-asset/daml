@@ -4,14 +4,14 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.{ContextualizedErrorLogger, DamlError}
+import com.daml.error.DamlError
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.*
 import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
-import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError, Upgrading}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
+import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
@@ -38,7 +38,6 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import scalaz.std.either.*
-import scalaz.std.list.*
 import scalaz.std.option.*
 import scalaz.std.scalaFuture.futureInstance
 import scalaz.syntax.traverse.*
@@ -47,7 +46,7 @@ import java.util.zip.ZipInputStream
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
-import scala.util.{Try, Success, Failure, Using}
+import scala.util.{Failure, Success, Try, Using}
 import scala.util.control.NonFatal
 
 private[apiserver] final class ApiPackageManagementService private (
@@ -110,7 +109,6 @@ private[apiserver] final class ApiPackageManagementService private (
   private def decodeAndValidate(
       darFile: ByteString
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger,
       loggingContext: LoggingContextWithTrace
   ): Future[Dar[Archive]] = Future.delegate {
     // Triggering computation in `executionContext` as caller thread (from netty)
@@ -181,17 +179,29 @@ private[apiserver] final class ApiPackageManagementService private (
   ): Future[Unit] = {
     optDar1 match {
       case None =>
+        logger.info(s"Typechecking upgrades for $pkgId2 succeeded.")
         Future.unit
 
       case Some((pkgId1, pkg1)) =>
         logger.info(s"Package $pkgId1 claims to upgrade package id $pkgId2")
         Future.fromTry(TypecheckUpgrades.typecheckUpgrades((pkgId1, pkg1), pkgId2, optPkg2)).recoverWith {
           case err: UpgradeError =>
-            logger.info(s"Typechecking upgrades for $pkgId1 failed with following message: ${err.getMessage}")
-            Future.failed(Validation.handleUpgradeError(pkgId1, pkgId2, err).asGrpcError)
+            Future.failed(
+              Validation.Upgradeability
+                .Error(pkgId2, pkgId1, err)
+                .asGrpcError
+            )
           case NonFatal(err) =>
-            logger.info(s"Typechecking upgrades failed with unknown error.")
-            Future.failed(InternalError.Unhandled(err).asGrpcError)
+            Future.failed(
+              InternalError
+                .Unhandled(
+                  err,
+                  Some(
+                    s"Typechecking upgrades for $pkgId2 failed with unknown error."
+                  ),
+                )
+                .asGrpcError
+            )
         }
     }
   }
@@ -237,15 +247,6 @@ private[apiserver] final class ApiPackageManagementService private (
       logging.submissionId(submissionId)
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
-
-      // a new ErrorLoggingContext (that is overriding the default one derived from NamedLogging) is required to contain the loggingContext entries
-      implicit val errorLoggingContext: LedgerErrorLoggingContext =
-        LedgerErrorLoggingContext(
-          logger,
-          loggerFactory.properties ++ loggingContext.toPropertiesMap,
-          loggingContext.traceContext,
-          submissionId,
-        )
 
       val response = for {
         dar <- decodeAndValidate(request.darFile)

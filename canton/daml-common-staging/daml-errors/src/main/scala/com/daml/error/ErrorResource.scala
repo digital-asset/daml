@@ -15,7 +15,6 @@ object ErrorResource {
   lazy val ContractId: ErrorResource = ErrorResource("CONTRACT_ID")
   lazy val ContractIds: ErrorResource = ErrorResource("CONTRACT_IDS")
   lazy val ContractKey: ErrorResource = ErrorResource("CONTRACT_KEY")
-  lazy val SharedKey: ErrorResource = ErrorResource("SHARED_KEY")
   lazy val ContractArg: ErrorResource = ErrorResource("CONTRACT_ARG")
   lazy val TransactionId: ErrorResource = ErrorResource("TRANSACTION_ID")
   lazy val DalfPackage: ErrorResource = ErrorResource("PACKAGE")
@@ -42,7 +41,6 @@ object ErrorResource {
     ContractId,
     ContractIds,
     ContractKey,
-    SharedKey,
     ContractKeyHash,
     DalfPackage,
     DevErrorType,

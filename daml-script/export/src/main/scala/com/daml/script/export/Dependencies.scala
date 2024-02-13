@@ -9,7 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.value
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.daml.lf.{VersionRange, archive}
+import com.daml.lf.archive
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion, StablePackages}
@@ -46,8 +46,8 @@ object Dependencies {
     *
     * If so then we need to generate replacement instances for standard template and choice instances.
     */
-  def lfMissingInstances(version: LanguageVersion): Boolean =
-    LanguageVersion.Ordering.lt(version, LanguageVersion.v1_8)
+  // TODO(https://github.com/digital-asset/daml/issues/18240): delete this and its transitive uses
+  def lfMissingInstances(_version: LanguageVersion): Boolean = false
 
   final case class ChoiceInstanceSpec(
       arg: Ast.Type,
@@ -96,12 +96,12 @@ object Dependencies {
 
   /** The Daml-LF version to target based on the DALF dependencies.
     *
-    * Chooses the latest LF version among the DALFs but at least 1.14 as that is the minimum supported by damlc.
+    * Chooses the latest LF version among the DALFs but at least 2.1 as that is the minimum supported by damlc.
     * Returns None if no DALFs are given.
     */
   def targetLfVersion(dalfs: Iterable[LanguageVersion]): Option[LanguageVersion] = {
     if (dalfs.isEmpty) { None }
-    else { Some((List(LanguageVersion.v1_14) ++ dalfs).max) }
+    else { Some((List(LanguageVersion.v2_1) ++ dalfs).max) }
   }
 
   def targetFlag(v: LanguageVersion): String =
@@ -132,12 +132,8 @@ object Dependencies {
     Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
 
   private def isProvidedLibrary(pkgId: PackageId, pkg: Ast.Package): Boolean = {
-    // We use the list of stable packages for the compiler not the engine so we really want to catch
-    // all of them ignoring the version.
-    // TODO(#17366): make this code more elegant once we refactor LanguageVersion
     val stablePackages =
-      (StablePackages.ids(VersionRange(LanguageVersion.v1_dev, LanguageVersion.v1_dev))
-        | StablePackages.ids(VersionRange(LanguageVersion.v2_1, LanguageVersion.v2_dev)))
+      StablePackages.ids(LanguageVersion.AllVersions(LanguageVersion.default.major))
     providedLibraries.contains(pkg.metadata.name) || stablePackages.contains(pkgId)
   }
 

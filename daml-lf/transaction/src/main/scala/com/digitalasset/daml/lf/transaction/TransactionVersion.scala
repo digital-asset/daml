@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.LanguageVersion
 
 sealed abstract class TransactionVersion private (
     val protoValue: String,
@@ -16,11 +16,15 @@ sealed abstract class TransactionVersion private (
   */
 object TransactionVersion {
 
+  // TODO(https://github.com/digital-asset/daml/issues/18240): delete V14 and V15 once canton stops
+  //  mentioning them.
   case object V14 extends TransactionVersion("14", 14)
   case object V15 extends TransactionVersion("15", 15)
-  case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val All = List(V14, V15, VDev)
+  case object V31 extends TransactionVersion("301", 301)
+  case object VDev extends TransactionVersion("3dev", Int.MaxValue)
+
+  val All = List(V31, VDev)
 
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
@@ -44,29 +48,17 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
-  private[lf] val minExceptions = V14
+  // TODO(https://github.com/digital-asset/daml/issues/18240) move this feature flag to VDev.
   private[lf] val minByKey = V14
-  private[lf] val minInterfaces = V15
-  private[lf] val minExplicitDisclosure = VDev
+
+  private[lf] val minUpgrade = V31
+  private[lf] val minSharedKeys = V31
   private[lf] val minChoiceAuthorizers = VDev
-  private[lf] val minUpgrade = VDev
-  private[lf] val minSharedKeys = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
     Map(
-      v1_6 -> V14,
-      v1_7 -> V14,
-      v1_8 -> V14,
-      v1_11 -> V14,
-      v1_12 -> V14,
-      v1_13 -> V14,
-      v1_14 -> V14,
-      v1_15 -> V15,
-      v1_dev -> VDev,
-      // TODO(#17366): Map to TransactionVersion 2.1 once it exists.
-      v2_1 -> VDev,
-      // TODO(#17366): Map to TransactionVersion 2.dev once it exists.
+      v2_1 -> V31,
       v2_dev -> VDev,
     )
   }
@@ -75,7 +67,7 @@ object TransactionVersion {
     import scala.Ordering.Implicits.infixOrderingOps
     tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
       case (acc, action: Node.Action) => acc max action.version
-      case (acc, _: Node.Rollback) => acc max minExceptions
+      case (acc, _: Node.Rollback) => acc
     }
   }
 
@@ -85,13 +77,12 @@ object TransactionVersion {
     VersionedTransaction(txVersion(tx), tx.nodes, tx.roots)
 
   val StableVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.StableVersions.map(assignNodeVersion)
+    LanguageVersion.StableVersions(LanguageVersion.default.major).map(assignNodeVersion)
 
   private[lf] val EarlyAccessVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.EarlyAccessVersions.map(assignNodeVersion)
+    LanguageVersion.EarlyAccessVersions(LanguageVersion.default.major).map(assignNodeVersion)
 
-  // TODO(#17366): parameterize by major language version once there's a transaction v2
   private[lf] val DevVersions: VersionRange[TransactionVersion] =
-    LanguageVersion.AllVersions(LanguageMajorVersion.V2).map(assignNodeVersion)
+    LanguageVersion.AllVersions(LanguageVersion.default.major).map(assignNodeVersion)
 
 }

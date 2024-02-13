@@ -17,7 +17,7 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
 has_run_all_tests_trailer() {
-  if [ "${BUILD_REASON:-}" = "PullRequest" ]; then
+  if (( 2 == $(git show -s --format=%p HEAD | wc -w) )); then
     ref="HEAD^2"
   else
     ref="HEAD"
@@ -91,10 +91,6 @@ $bazel build //... \
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
-if [ -e "$POSTGRESQL_ROOT_DIR" ]; then
-  echo "'$POSTGRESQL_ROOT_DIR' exists, please choose another one by setting $POSTGRESQL_TMP_ROOT_DIR."
-  exit 1
-fi
 export POSTGRESQL_DATA_DIR="${POSTGRESQL_ROOT_DIR}/data"
 export POSTGRESQL_LOG_FILE="${POSTGRESQL_ROOT_DIR}/postgresql.log"
 export POSTGRESQL_HOST='localhost'

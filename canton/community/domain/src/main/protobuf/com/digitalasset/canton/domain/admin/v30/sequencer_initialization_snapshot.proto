@@ -7,7 +7,6 @@ package com.digitalasset.canton.domain.admin.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/sequencing.proto";
-
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 

@@ -60,8 +60,10 @@ da_scala_test_suite(
         "@maven//:org_apache_pekko_pekko_http",
         "@maven//:org_apache_pekko_pekko_http_core",
         "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_apache_pekko_pekko_stream_testkit",
         "@maven//:org_apache_pekko_pekko_http_testkit",
+    ],
+    scala_runtime_deps = [
+        "@maven//:org_apache_pekko_pekko_stream_testkit",
     ],
     deps = [
         ":pekko-http-metrics",
@@ -70,12 +72,6 @@ da_scala_test_suite(
         "//libs-scala/testing-utils",
         "//observability/metrics",
         "//observability/metrics:metrics-test-lib",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_config",
-        "@maven//:io_opentelemetry_opentelemetry_api",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics_testing",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
     ],
 )

@@ -71,7 +71,6 @@ private[dao] final class TransactionsReader(
       endInclusive: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
@@ -81,7 +80,6 @@ private[dao] final class TransactionsReader(
           queryRange,
           filter,
           eventProjectionProperties,
-          multiDomainEnabled,
         )
       )
     Source
@@ -124,7 +122,6 @@ private[dao] final class TransactionsReader(
       endInclusive: Offset,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
@@ -134,7 +131,6 @@ private[dao] final class TransactionsReader(
           queryRange = queryRange,
           requestingParties = requestingParties,
           eventProjectionProperties = eventProjectionProperties,
-          multiDomainEnabled = multiDomainEnabled,
         )
       )
     Source
@@ -146,7 +142,6 @@ private[dao] final class TransactionsReader(
       activeAt: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
@@ -156,7 +151,6 @@ private[dao] final class TransactionsReader(
           filter,
           activeAt -> maxSeqId,
           eventProjectionProperties,
-          multiDomainEnabled,
         )
       )
     Source

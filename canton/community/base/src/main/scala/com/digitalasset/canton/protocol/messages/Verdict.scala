@@ -7,20 +7,18 @@ import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.utils.DecodedCantonError
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
+import com.digitalasset.canton.{LfPartyId, protocol}
 import com.google.protobuf.empty
 import com.google.rpc.status.Status
 import pprint.Tree
-
-import scala.Ordered.orderingToOrdered
 
 trait TransactionRejection {
   def logWithContext(extra: Map[String, String] = Map())(implicit
@@ -49,12 +47,13 @@ object Verdict
     extends HasProtocolVersionedCompanion[Verdict]
     with ProtocolVersionedCompanionDbHelpers[Verdict] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.Verdict)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+  val supportedProtoVersions: protocol.messages.Verdict.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.Verdict)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   final case class Approve()(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
@@ -191,7 +190,7 @@ object Verdict
 
   def fromProtoV30(verdictP: v30.Verdict): ParsingResult[Verdict] = {
     val v30.Verdict(someVerdictP) = verdictP
-    import v30.Verdict.{SomeVerdict as V}
+    import v30.Verdict.SomeVerdict as V
 
     protocolVersionRepresentativeFor(ProtoVersion(30)).flatMap { rpv =>
       someVerdictP match {

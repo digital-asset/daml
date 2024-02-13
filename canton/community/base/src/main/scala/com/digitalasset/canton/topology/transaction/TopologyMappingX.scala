@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt,
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.v30.EnumsX
 import com.digitalasset.canton.protocol.v30.TopologyMappingX.Mapping
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -118,7 +119,7 @@ object TopologyMappingX {
     object PurgeTopologyTransactionX extends Code(15, "ptt")
     object TrafficControlStateX extends Code(16, "tcs")
 
-    lazy val all = Seq(
+    lazy val all: Seq[Code] = Seq(
       NamespaceDelegationX,
       IdentifierDelegationX,
       DecentralizedNamespaceDefinitionX,
@@ -502,7 +503,7 @@ final case class DecentralizedNamespaceDefinitionX private (
             TopologyTransactionX(
               _op,
               _serial,
-              DecentralizedNamespaceDefinitionX(`namespace`, previousThreshold, previousOwners),
+              DecentralizedNamespaceDefinitionX(`namespace`, _previousThreshold, previousOwners),
             )
           ) =>
         val added = owners.diff(previousOwners)
@@ -514,7 +515,7 @@ final case class DecentralizedNamespaceDefinitionX private (
               Set(namespace)
             )
           )
-      case Some(topoTx) =>
+      case Some(_topoTx) =>
         // TODO(#14048): proper error or ignore
         sys.error(s"unexpected transaction data: $previous")
     }
@@ -773,20 +774,23 @@ object DomainTrustCertificateX {
 sealed abstract class ParticipantPermissionX(val canConfirm: Boolean)
     extends Product
     with Serializable {
-  def toProtoV2: v30.EnumsX.ParticipantPermissionX
+  def toProtoV30: v30.EnumsX.ParticipantPermissionX
   def toNonX: ParticipantPermission
 }
 object ParticipantPermissionX {
   case object Submission extends ParticipantPermissionX(canConfirm = true) {
-    lazy val toProtoV2 = v30.EnumsX.ParticipantPermissionX.Submission
+    lazy val toProtoV30: EnumsX.ParticipantPermissionX =
+      v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_SUBMISSION
     override def toNonX: ParticipantPermission = ParticipantPermission.Submission
   }
   case object Confirmation extends ParticipantPermissionX(canConfirm = true) {
-    lazy val toProtoV2 = v30.EnumsX.ParticipantPermissionX.Confirmation
+    lazy val toProtoV30: EnumsX.ParticipantPermissionX =
+      v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_CONFIRMATION
     override def toNonX: ParticipantPermission = ParticipantPermission.Confirmation
   }
   case object Observation extends ParticipantPermissionX(canConfirm = false) {
-    lazy val toProtoV2 = v30.EnumsX.ParticipantPermissionX.Observation
+    lazy val toProtoV30: EnumsX.ParticipantPermissionX =
+      v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_OBSERVATION
     override def toNonX: ParticipantPermission = ParticipantPermission.Observation
   }
 
@@ -794,11 +798,14 @@ object ParticipantPermissionX {
       value: v30.EnumsX.ParticipantPermissionX
   ): ParsingResult[ParticipantPermissionX] =
     value match {
-      case v30.EnumsX.ParticipantPermissionX.MissingParticipantPermission =>
+      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_UNSPECIFIED =>
         Left(FieldNotSet(value.name))
-      case v30.EnumsX.ParticipantPermissionX.Submission => Right(Submission)
-      case v30.EnumsX.ParticipantPermissionX.Confirmation => Right(Confirmation)
-      case v30.EnumsX.ParticipantPermissionX.Observation => Right(Observation)
+      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_SUBMISSION =>
+        Right(Submission)
+      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_CONFIRMATION =>
+        Right(Confirmation)
+      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_OBSERVATION =>
+        Right(Observation)
       case v30.EnumsX.ParticipantPermissionX.Unrecognized(x) =>
         Left(UnrecognizedEnum(value.name, x))
     }
@@ -837,7 +844,7 @@ final case class ParticipantDomainPermissionX(
     v30.ParticipantDomainPermissionX(
       domain = domainId.toProtoPrimitive,
       participant = participantId.toProtoPrimitive,
-      permission = permission.toProtoV2,
+      permission = permission.toProtoV30,
       limits = limits.map(_.toProto),
       loginAfter = loginAfter.map(_.toProtoPrimitive),
     )
@@ -1043,7 +1050,7 @@ final case class HostingParticipant(
   def toProto: v30.PartyToParticipantX.HostingParticipant =
     v30.PartyToParticipantX.HostingParticipant(
       participant = participantId.toProtoPrimitive,
-      permission = permission.toProtoV2,
+      permission = permission.toProtoV30,
     )
 }
 
@@ -1272,7 +1279,7 @@ final case class MediatorDomainStateX private (
     observers: Seq[MediatorId],
 ) extends TopologyMappingX {
 
-  lazy val allMediatorsInGroup = active ++ observers
+  lazy val allMediatorsInGroup: NonEmpty[Seq[MediatorId]] = active ++ observers
 
   def toProto: v30.MediatorDomainStateX =
     v30.MediatorDomainStateX(
@@ -1321,7 +1328,7 @@ object MediatorDomainStateX {
     _ <- Either.cond(
       threshold.unwrap <= active.length,
       (),
-      s"threshold (${threshold}) of mediator domain state higher than number of mediators ${active.length}",
+      s"threshold ($threshold) of mediator domain state higher than number of mediators ${active.length}",
     )
     activeNE <- NonEmpty
       .from(active)
@@ -1367,7 +1374,7 @@ final case class SequencerDomainStateX private (
     observers: Seq[SequencerId],
 ) extends TopologyMappingX {
 
-  lazy val allSequencers = active ++ observers
+  lazy val allSequencers: NonEmpty[Seq[SequencerId]] = active ++ observers
 
   def toProto: v30.SequencerDomainStateX =
     v30.SequencerDomainStateX(
@@ -1414,7 +1421,7 @@ object SequencerDomainStateX {
     _ <- Either.cond(
       threshold.unwrap <= active.length,
       (),
-      s"threshold (${threshold}) of sequencer domain state higher than number of active sequencers ${active.length}",
+      s"threshold ($threshold) of sequencer domain state higher than number of active sequencers ${active.length}",
     )
     activeNE <- NonEmpty
       .from(active)

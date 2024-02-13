@@ -442,6 +442,7 @@ private class JdbcLedgerDao(
   override def prune(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     val allDivulgencePruningParticle =
       if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
@@ -468,6 +469,7 @@ private class JdbcLedgerDao(
         readStorageBackend.eventStorageBackend.pruneEvents(
           pruneUpToInclusive,
           pruneAllDivulgedContracts,
+          incompletReassignmentOffsets,
         )(
           conn,
           loggingContext.traceContext,

@@ -8,7 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.daml.lf.command.ApiCommand
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageMinorVersion, LanguageVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.{ArrayList, Command, DisclosedContract, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
 import org.scalatest.{Assertion, Inside, Inspectors}
@@ -286,8 +286,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-      // TODO(#17366): use something like LanguageVersion.default(major) once available
-      LanguageVersion(majorLanguageVersion, LanguageMinorVersion("dev")),
+      LanguageVersion.defaultOrLatestStable(majorLanguageVersion),
     )
 
   implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId

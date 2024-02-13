@@ -52,7 +52,6 @@ final class DependencyGraphSpec extends AnyWordSpec with Matchers {
                   returnType = TypeCon(TypeConName(baz), ImmArraySeq.empty),
                 )
               ),
-              retroImplements = Set.empty,
               viewType = Some(vt),
             )
           ),

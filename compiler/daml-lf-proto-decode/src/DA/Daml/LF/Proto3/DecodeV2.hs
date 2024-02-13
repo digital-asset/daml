@@ -228,7 +228,6 @@ decodeDefInterface LF2.DefInterface {..} = do
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
-  intCoImplements <- decodeNM DuplicateCoImplements decodeInterfaceCoImplements defInterfaceCoImplements
   intView <- mayDecode "defInterfaceView" defInterfaceView decodeType
   pure DefInterface {..}
 
@@ -240,12 +239,6 @@ decodeInterfaceMethod LF2.InterfaceMethod {..} = InterfaceMethod
 
 decodeMethodName :: Int32 -> Decode MethodName
 decodeMethodName = decodeNameId MethodName
-
-decodeInterfaceCoImplements :: LF2.DefInterface_CoImplements -> Decode InterfaceCoImplements
-decodeInterfaceCoImplements LF2.DefInterface_CoImplements {..} = InterfaceCoImplements
-  <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
-  <*> mayDecode "defInterface_CoImplementsBody" defInterface_CoImplementsBody decodeInterfaceInstanceBody
-  <*> traverse decodeLocation defInterface_CoImplementsLocation
 
 decodeFeatureFlags :: LF2.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF2.FeatureFlags{..} =
@@ -442,21 +435,16 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionCODE_POINTS_TO_TEXT -> pure BECodePointsToText
   LF2.BuiltinFunctionTEXT_TO_PARTY -> pure BETextToParty
   LF2.BuiltinFunctionTEXT_TO_INT64 -> pure BETextToInt64
-  LF2.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY -> pure BETextToNumericLegacy
   LF2.BuiltinFunctionTEXT_TO_NUMERIC -> pure BETextToNumeric
   LF2.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
   LF2.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> pure BEPartyToQuotedText
 
   LF2.BuiltinFunctionADD_NUMERIC   -> pure BEAddNumeric
   LF2.BuiltinFunctionSUB_NUMERIC   -> pure BESubNumeric
-  LF2.BuiltinFunctionMUL_NUMERIC_LEGACY   -> pure BEMulNumericLegacy
   LF2.BuiltinFunctionMUL_NUMERIC   -> pure  BEMulNumeric
-  LF2.BuiltinFunctionDIV_NUMERIC_LEGACY   -> pure BEDivNumericLegacy
   LF2.BuiltinFunctionDIV_NUMERIC   -> pure BEDivNumeric
   LF2.BuiltinFunctionROUND_NUMERIC -> pure BERoundNumeric
-  LF2.BuiltinFunctionCAST_NUMERIC_LEGACY  -> pure BECastNumericLegacy
   LF2.BuiltinFunctionCAST_NUMERIC  -> pure BECastNumeric
-  LF2.BuiltinFunctionSHIFT_NUMERIC_LEGACY -> pure BEShiftNumericLegacy
   LF2.BuiltinFunctionSHIFT_NUMERIC -> pure BEShiftNumeric
 
   LF2.BuiltinFunctionADD_INT64 -> pure BEAddInt64
@@ -498,7 +486,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS -> pure BETimestampToUnixMicroseconds
   LF2.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP -> pure BEUnixMicrosecondsToTimestamp
 
-  LF2.BuiltinFunctionINT64_TO_NUMERIC_LEGACY -> pure BEInt64ToNumericLegacy
   LF2.BuiltinFunctionINT64_TO_NUMERIC -> pure BEInt64ToNumeric
   LF2.BuiltinFunctionNUMERIC_TO_INT64 -> pure BENumericToInt64
 
@@ -515,7 +502,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionMUL_BIGNUMERIC -> pure BEMulBigNumeric
   LF2.BuiltinFunctionDIV_BIGNUMERIC -> pure BEDivBigNumeric
   LF2.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> pure BEShiftRightBigNumeric
-  LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> pure BEBigNumericToNumericLegacy
   LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> pure BEBigNumericToNumeric
   LF2.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> pure BENumericToBigNumeric
 
@@ -533,6 +519,14 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionDECIMAL_TO_INT64 -> unsupportedDecimal
   LF2.BuiltinFunctionEQUAL_DECIMAL -> unsupportedDecimal
   LF2.BuiltinFunctionTEXT_TO_DECIMAL -> unsupportedDecimal
+
+  LF2.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY -> error "The builin TEXT_TO_NUMERIC_LEGACY is not supported by LF 2.x"
+  LF2.BuiltinFunctionMUL_NUMERIC_LEGACY -> error "The builin MUL_NUMERIC_LEGACY is not supported by LF 2.x"
+  LF2.BuiltinFunctionDIV_NUMERIC_LEGACY -> error "The builin DIV_NUMERIC_LEGACY is not supported by LF 2.x"
+  LF2.BuiltinFunctionCAST_NUMERIC_LEGACY -> error "The builin CAST_NUMERIC_LEGACY is not supported by LF 2.x"
+  LF2.BuiltinFunctionSHIFT_NUMERIC_LEGACY -> error "The builin SHIFT_NUMERIC_LEGACY is not supported by LF 2.x"
+  LF2.BuiltinFunctionINT64_TO_NUMERIC_LEGACY -> error "The builin INT64_TO_NUMERIC_LEGACY is not supported by LF 2.x"
+  LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> error "The builin BIGNUMERIC_TO_NUMERIC_LEGACY is not supported by LF 2.x"
 
 decodeLocation :: LF2.Location -> Decode SourceLoc
 decodeLocation (LF2.Location mbModRef mbRange) = do
@@ -734,12 +728,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
-  LF2.UpdateSumSoftExercise LF2.Update_SoftExercise{..} ->
-    fmap EUpdate $ USoftExercise
-      <$> mayDecode "update_SoftExerciseTemplate" update_SoftExerciseTemplate decodeTypeConName
-      <*> decodeName ChoiceName update_SoftExerciseChoice
-      <*> mayDecode "update_SoftExerciseCid" update_SoftExerciseCid decodeExpr
-      <*> mayDecode "update_SoftExerciseArg" update_SoftExerciseArg decodeExpr
+  LF2.UpdateSumSoftExercise LF2.Update_SoftExercise{} ->
+    throwError (ParseError "Update.Sum.soft_exercise is no longer supported")
   LF2.UpdateSumDynamicExercise LF2.Update_DynamicExercise{..} ->
     fmap EUpdate $ UDynamicExercise
       <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConName
@@ -763,10 +753,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
-  LF2.UpdateSumSoftFetch LF2.Update_SoftFetch{..} ->
-    fmap EUpdate $ USoftFetch
-      <$> mayDecode "update_SoftFetchTemplate" update_SoftFetchTemplate decodeTypeConName
-      <*> mayDecode "update_SoftFetchCid" update_SoftFetchCid decodeExpr
+  LF2.UpdateSumSoftFetch LF2.Update_SoftFetch{} ->
+    throwError (ParseError "Update.Sum.soft_fetch is no longer supported")
   LF2.UpdateSumFetchInterface LF2.Update_FetchInterface{..} ->
     fmap EUpdate $ UFetchInterface
       <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName

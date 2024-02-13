@@ -12,7 +12,7 @@ import scala.util.Try
 
 class DamlLfVersionToProtocolVersionsTest extends AnyWordSpec with BaseTest {
 
-  val supportedTransactionVersions = TransactionVersion.All.filter(_ >= TransactionVersion.V14)
+  val supportedTransactionVersions = TransactionVersion.All.filter(_ >= TransactionVersion.V31)
 
   "DamlLFVersionToProtocolVersions" should {
     supportedTransactionVersions.foreach { version =>

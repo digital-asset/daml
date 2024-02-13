@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.platform.store.backend.h2
 
-import com.digitalasset.canton.platform.store.backend.common.QueryStrategy
+import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.digitalasset.canton.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 
 object H2QueryStrategy extends QueryStrategy {
 
@@ -15,4 +16,7 @@ object H2QueryStrategy extends QueryStrategy {
   override def constBooleanSelect(value: Boolean): String = if (value) "true" else "false"
 
   override def constBooleanWhere(value: Boolean): String = if (value) "true" else "false"
+
+  override def analyzeTable(tableName: String): ComposableQuery.CompositeSql =
+    cSQL"ANALYZE TABLE #$tableName"
 }

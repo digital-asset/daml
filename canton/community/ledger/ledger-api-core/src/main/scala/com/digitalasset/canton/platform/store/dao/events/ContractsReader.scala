@@ -86,7 +86,6 @@ private[dao] sealed class ContractsReader(
               GlobalKey.assertBuild(
                 contract.unversioned.template,
                 value.unversioned,
-                true,
               )
             }
 

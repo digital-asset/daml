@@ -107,7 +107,7 @@ object ExampleTransactionFactory {
   ): Versioned[LfGlobalKey] =
     LfVersioned(
       transactionVersion,
-      LfGlobalKey.assertBuild(templateId, value, true),
+      LfGlobalKey.assertBuild(templateId, value),
     )
 
   def globalKeyWithMaintainers(
@@ -148,7 +148,6 @@ object ExampleTransactionFactory {
       coid = cid,
       templateId = unversionedContractInst.template,
       arg = unversionedContractInst.arg,
-      agreementText = "", // not used anymore
       signatories = signatories,
       stakeholders = signatories ++ observers,
       keyOpt = key,
@@ -454,7 +453,7 @@ class ExampleTransactionFactory(
         capturedContractIds = Seq(suffixedId(-1, 0), suffixedId(-1, 1)),
         unsuffixedCapturedContractIds = Seq(suffixedId(-1, 0), suffixedId(-1, 1)),
       ),
-      SingleFetch(version = LfTransactionVersion.V14),
+      SingleFetch(version = LfTransactionVersion.V31),
       SingleExercise(seed = deriveNodeSeed(0)),
       SingleExerciseWithNonstakeholderActor(seed = deriveNodeSeed(0)),
       MultipleRoots,
@@ -1068,7 +1067,6 @@ class ExampleTransactionFactory(
       lfContractId: LfContractId = suffixedId(-1, 0),
       contractId: LfContractId = suffixedId(-1, 0),
       inputContractInstance: LfContractInst = contractInstance(),
-      inputContractAgreementText: String = "single exercise",
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(Some(seed)) {
     override def toString: String = "single exercise"
@@ -1176,7 +1174,7 @@ class ExampleTransactionFactory(
         contractId = create0.contractId,
         fetchedContractInstance = create0.contractInstance,
         version =
-          LfTransactionVersion.V14, // ensure we test merging transactions with different versions
+          LfTransactionVersion.V31, // ensure we test merging transactions with different versions
         salt = create0.salt,
       )
     private val exercise4: SingleExercise =

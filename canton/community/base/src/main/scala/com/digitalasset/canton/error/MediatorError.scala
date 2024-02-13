@@ -41,7 +41,7 @@ object MediatorError extends MediatorErrorGroup {
       )
     }
     object Reject {
-      val defaultCause: String =
+      private val defaultCause: String =
         "Rejected transaction as the mediator did not receive sufficient confirmations within the expected timeframe."
     }
   }
@@ -63,7 +63,7 @@ object MediatorError extends MediatorErrorGroup {
 
     final case class Reject(
         override val cause: String,
-        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.Timeout,
+        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.CODE_TIMEOUT,
     ) extends BaseCantonError.Impl(cause)
         with MediatorError {
       override def pretty: Pretty[Reject] = prettyOfClass(
@@ -83,7 +83,7 @@ object MediatorError extends MediatorErrorGroup {
 
     final case class Reject(
         override val cause: String,
-        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.Timeout,
+        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.CODE_TIMEOUT,
     ) extends Alarm(cause)
         with MediatorError
         with BaseCantonError {

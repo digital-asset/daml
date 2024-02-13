@@ -29,7 +29,6 @@ import com.digitalasset.canton.protocol.{
   LfNodeExercises,
   LfNodeId,
   LfTemplateId,
-  LfVersionedTransaction,
   SourceDomainId,
   TargetDomainId,
   TransferId,
@@ -49,8 +48,6 @@ import com.google.rpc.status.Status as RpcStatus
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
 import monocle.macros.syntax.lens.*
-
-import scala.collection.immutable.HashMap
 
 /** This a copy of [[com.digitalasset.canton.ledger.participant.state.v2.Update]].
   * Refer to [[com.digitalasset.canton.ledger.participant.state.v2.Update]] documentation for more information.
@@ -509,8 +506,6 @@ object LedgerSyncEvent {
     * @param contractMetadata          Contains contract metadata of the contract transferred assigned by the ledger implementation
     * @param transferId                Uniquely identifies the transfer. See [[com.digitalasset.canton.protocol.TransferId]].
     * @param targetDomain              The target domain of the transfer.
-    * @param createTransactionAccepted We used to create a TransactionAccepted for the transferIn.
-    *                                  This param is used to keep the same behavior.
     * @param workflowId                The workflowId specified by the submitter in the transfer command.
     * @param isTransferringParticipant True if the participant is transferring.
     *                                  Note: false if the data comes from an old serialized event
@@ -527,7 +522,6 @@ object LedgerSyncEvent {
       contractMetadata: Bytes,
       transferId: TransferId,
       targetDomain: TargetDomainId,
-      createTransactionAccepted: Boolean,
       workflowId: Option[LfWorkflowId],
       isTransferringParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
@@ -554,41 +548,6 @@ object LedgerSyncEvent {
     override def contractId: LfContractId = createNode.coid
 
     def domainId: DomainId = targetDomain.id
-
-    /** Workaround to create an update for informing the ledger API server about a transferred-in contract.
-      * Creates a TransactionAccepted event consisting of a single create action that creates the given contract.
-      *
-      * The transaction has the same ledger time and transaction id as the creation of the contract.
-      */
-    def asTransactionAccepted: Option[Update] =
-      Option.when(createTransactionAccepted)(
-        Update.TransactionAccepted(
-          completionInfoO = optCompletionInfo,
-          transactionMeta = TransactionMeta(
-            ledgerEffectiveTime = ledgerCreateTime,
-            workflowId = workflowId,
-            submissionTime =
-              recordTime, // TODO(M41): Upstream mismatch, replace with enter/leave view
-            submissionSeed = LedgerSyncEvent.noOpSeed,
-            optUsedPackages = None,
-            optNodeSeeds = None,
-            optByKeyNodes = None,
-          ),
-          transaction = LfCommittedTransaction(
-            LfVersionedTransaction(
-              version = createNode.version,
-              nodes = HashMap((LfNodeId(0), createNode)),
-              roots = ImmArray(LfNodeId(0)),
-            )
-          ),
-          transactionId = updateId,
-          recordTime = recordTime,
-          blindingInfoO = None,
-          hostedWitnesses = hostedStakeholders,
-          contractMetadata = Map(createNode.coid -> contractMetadata),
-          domainId = targetDomain.unwrap,
-        )
-      )
 
     def toDamlUpdate: Option[Update] = Some(
       Update.ReassignmentAccepted(

@@ -41,7 +41,6 @@ class DamlLfEncoderTest
         "BoolMod",
         "Int64Mod",
         "TextMod",
-        "DecimalMod",
         "DateMod",
         "TimestampMod",
         "ListMod",

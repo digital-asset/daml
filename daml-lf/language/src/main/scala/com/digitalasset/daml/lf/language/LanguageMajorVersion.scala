@@ -48,26 +48,18 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
 }
 
 object LanguageMajorVersion {
-
-  case object V1
-      extends LanguageMajorVersion(
-        pretty = "1",
-        minorAscending = List("6", "7", "8", "11", "12", "13", "14", "15"),
-      )
-
   case object V2
       extends LanguageMajorVersion(
         pretty = "2",
         minorAscending = List("1"),
       )
 
-  val All: List[LanguageMajorVersion] = List(V1, V2)
+  val All: List[LanguageMajorVersion] = List(V2)
 
   implicit val languageMajorVersionOrdering: scala.Ordering[LanguageMajorVersion] =
     scala.Ordering.by(All.zipWithIndex.toMap)
 
   def fromString(str: String): Option[LanguageMajorVersion] = str match {
-    case "1" => Some(V1)
     case "2" => Some(V2)
     case _ => None
   }

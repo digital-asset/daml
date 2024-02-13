@@ -123,7 +123,6 @@ trait SequencerNodeBootstrapCommon[
       maybeDomainOutboxFactory: Option[DomainOutboxXFactorySingleCreate],
       memberAuthServiceFactory: MemberAuthenticationServiceFactory,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
       domainLoggerFactory: NamedLoggerFactory,
   ): EitherT[Future, String, SequencerRuntime] = {
     for {
@@ -151,7 +150,6 @@ trait SequencerNodeBootstrapCommon[
           syncCrypto,
           futureSupervisor,
           rateLimitManager,
-          implicitMemberRegistration,
         )
       )
 

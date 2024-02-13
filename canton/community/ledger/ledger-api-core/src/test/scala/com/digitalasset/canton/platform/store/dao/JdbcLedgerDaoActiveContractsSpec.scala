@@ -46,7 +46,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               wildcardWitnesses = Set(alice, bob, charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
       activeContractsAfter <- activeContractsOf(
@@ -58,7 +57,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               wildcardWitnesses = Set(alice, bob, charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -85,7 +83,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               wildcardWitnesses = Set(alice, bob, charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
       (_, _) <- store(singleCreate)
@@ -103,7 +100,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               wildcardWitnesses = Set(alice, bob, charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -137,7 +133,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               witnessTemplateProjections =
                 Map(party1 -> Map(otherTemplateId -> Projection(contractArguments = true))),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -180,7 +175,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 party2 -> Map(otherTemplateId -> Projection(contractArguments = true)),
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -231,7 +225,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 party2 -> Map(otherTemplateId -> Projection(contractArguments = true)),
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -280,7 +273,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 party1 -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -335,7 +327,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 party1 -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultUnknownParty <- activeContractsOf(
@@ -355,7 +346,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 party1 -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultUnknownTemplate <- activeContractsOf(
@@ -379,7 +369,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 )
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultUnknownPartyAndTemplate <- activeContractsOf(
@@ -403,7 +392,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 )
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultUnknownsOnly <- activeContractsOf(
@@ -425,7 +413,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 )
               ),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -448,7 +435,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
           activeAt = end.lastOffset,
           filter = TemplatePartiesFilter(Map.empty, Set(alice)),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Set(alice)),
-          multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
 

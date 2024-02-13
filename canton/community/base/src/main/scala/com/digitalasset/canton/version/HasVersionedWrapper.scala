@@ -20,7 +20,7 @@ import scala.collection.immutable
   *
   * This wrapper is to be used if a single instance needs to be serialized to different proto versions.
   *
-  * The underlying ProtoClass is [[com.digitalasset.canton.version.UntypedVersionedMessage]]
+  * The underlying ProtoClass is [[com.digitalasset.canton.version.v1.UntypedVersionedMessage]]
   * but we often specify the typed alias [[com.digitalasset.canton.version.VersionedMessage]]
   * instead.
   */
@@ -182,7 +182,7 @@ trait HasVersionedMessageCompanion[ValueClass]
     }
 
   def fromByteString(bytes: ByteString): ParsingResult[ValueClass] = for {
-    proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
+    proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
     valueClass <- fromProtoVersioned(VersionedMessage(proto))
   } yield valueClass
 
@@ -192,7 +192,7 @@ trait HasVersionedMessageCompanion[ValueClass]
     )
 
   def fromByteArray(bytes: Array[Byte]): ParsingResult[ValueClass] = for {
-    proto <- ProtoConverter.protoParserArray(UntypedVersionedMessage.parseFrom)(bytes)
+    proto <- ProtoConverter.protoParserArray(v1.UntypedVersionedMessage.parseFrom)(bytes)
     valueClass <- fromProtoVersioned(VersionedMessage(proto))
   } yield valueClass
 
@@ -268,7 +268,7 @@ trait HasVersionedMessageWithContextCompanion[ValueClass, Ctx]
     }
 
   def fromByteString(ctx: Ctx)(bytes: ByteString): ParsingResult[ValueClass] = for {
-    proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
+    proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
     valueClass <- fromProtoVersioned(ctx)(VersionedMessage(proto))
   } yield valueClass
 }

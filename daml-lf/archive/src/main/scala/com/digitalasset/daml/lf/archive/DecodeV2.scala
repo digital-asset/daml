@@ -88,7 +88,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       toPackageName(getInternedStr(metadata.getNameInternedStr)),
       toPackageVersion(getInternedStr(metadata.getVersionInternedStr)),
       if (metadata.hasUpgradedPackageId) {
-        assertSince(LV.Features.packageUpgrades, "Package.metadata.upgradedPackageId")
         Some(
           getInternedPackageId(metadata.getUpgradedPackageId.getUpgradedPackageIdInternedStr)
         )
@@ -244,9 +243,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
       val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
-      if (versionIsOlderThan(LV.Features.typeSynonyms)) {
-        assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
-      } else if (!onlySerializableDataDefs) {
+      if (!onlySerializableDataDefs) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
@@ -706,14 +703,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         )
         decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller") { controllers =>
           bindWork(
-            if (lfChoice.hasObservers) {
-              assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
-              decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers") { observers =>
-                Ret(Some(observers))
-              }
-            } else {
-              assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
-              Ret(None)
+            decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers") { observers =>
+              Ret(Some(observers))
             }
           ) { choiceObservers =>
             bindWork(
@@ -803,7 +794,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         lfKind.getSumCase match {
           case PLF.Kind.SumCase.STAR => Ret(KStar)
           case PLF.Kind.SumCase.NAT =>
-            assertSince(LV.Features.numeric, "Kind.NAT")
             Ret(KNat)
           case PLF.Kind.SumCase.ARROW =>
             val kArrow = lfKind.getArrow
@@ -855,7 +845,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(types.foldLeft[Type](TVar(varName))(TApp))
           }
         case PLF.Type.SumCase.NAT =>
-          assertSince(LV.Features.numeric, "Type.NAT")
           Ret(
             Numeric.Scale
               .fromLong(lfType.getNat)
@@ -879,10 +868,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
-          val baseType =
+          val baseType: Type =
             if (prim.getPrim == PLF.PrimType.DECIMAL) {
-              assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
-              TDecimal
+              throw notSupportedError("PrimType.DECIMAL")
             } else {
               val info = builtinTypeInfoMap(prim.getPrim)
               assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
@@ -1227,7 +1215,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TO_ANY =>
-          assertSince(LV.Features.anyType, "Expr.ToAny")
           decodeType(lfExpr.getToAny.getType) { typ =>
             decodeExpr(lfExpr.getToAny.getExpr, definition) { expr =>
               Ret(EToAny(typ, expr))
@@ -1235,7 +1222,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.FROM_ANY =>
-          assertSince(LV.Features.anyType, "Expr.FromAny")
           decodeType(lfExpr.getFromAny.getType) { typ =>
             decodeExpr(lfExpr.getFromAny.getExpr, definition) { expr =>
               Ret(EFromAny(typ, expr))
@@ -1243,7 +1229,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TYPE_REP =>
-          assertSince(LV.Features.typeRep, "Expr.type_rep")
           decodeType(lfExpr.getTypeRep) { typ =>
             Ret(ETypeRep(typ))
           }
@@ -1552,7 +1537,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.SOFT_EXERCISE =>
-          assertSince(LV.Features.packageUpgrades, "softExercise")
           val exercise = lfUpdate.getSoftExercise
           val templateId = decodeTypeConName(exercise.getTemplate)
           val choice = handleInternedName(
@@ -1619,7 +1603,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.SOFT_FETCH =>
-          assertSince(LV.Features.packageUpgrades, "softFetch")
           val softFetch = lfUpdate.getSoftFetch
           decodeExpr(softFetch.getCid, definition) { contractId =>
             Ret(
@@ -1808,7 +1791,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.PrimLit.SumCase.TEXT_INTERNED_STR =>
           PLText(getInternedStr(lfPrimLit.getTextInternedStr))
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
-          assertSince(LV.Features.numeric, "PrimLit.numeric")
           toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
         case PLF.PrimLit.SumCase.ROUNDING_MODE =>
           assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
@@ -1881,7 +1863,6 @@ private[lf] object DecodeV2 {
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
     import LV.Features._
     import PLF.PrimType._
-    // DECIMAL is not there and should be handled in an ad-hoc way.
     List(
       BuiltinTypeInfo(UNIT, BTUnit),
       BuiltinTypeInfo(BOOL, BTBool),
@@ -1898,9 +1879,9 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(TEXTMAP, BTTextMap),
       BuiltinTypeInfo(GENMAP, BTGenMap),
       BuiltinTypeInfo(ARROW, BTArrow),
-      BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
-      BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
-      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
+      BuiltinTypeInfo(NUMERIC, BTNumeric),
+      BuiltinTypeInfo(ANY, BTAny),
+      BuiltinTypeInfo(TYPE_REP, BTTypeRep),
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
@@ -1926,68 +1907,21 @@ private[lf] object DecodeV2 {
     import LV.Features._
     import PLF.BuiltinFunction._
     List(
-      BuiltinFunctionInfo(
-        ADD_DECIMAL,
-        BAddNumeric,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        SUB_DECIMAL,
-        BSubNumeric,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        MUL_DECIMAL,
-        BMulNumericLegacy,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        DIV_DECIMAL,
-        BDivNumericLegacy,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        ROUND_DECIMAL,
-        BRoundNumeric,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(MUL_NUMERIC_LEGACY, BMulNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric, minVersion = natTypeErasure),
-      BuiltinFunctionInfo(DIV_NUMERIC_LEGACY, BDivNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric, minVersion = natTypeErasure),
-      BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(CAST_NUMERIC_LEGACY, BCastNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric, minVersion = natTypeErasure),
-      BuiltinFunctionInfo(SHIFT_NUMERIC_LEGACY, BShiftNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric),
+      BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric),
+      BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric),
+      BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric),
+      BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric),
+      BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric),
+      BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
       BuiltinFunctionInfo(MUL_INT64, BMulInt64),
       BuiltinFunctionInfo(DIV_INT64, BDivInt64),
       BuiltinFunctionInfo(MOD_INT64, BModInt64),
       BuiltinFunctionInfo(EXP_INT64, BExpInt64),
-      BuiltinFunctionInfo(
-        INT64_TO_DECIMAL,
-        BInt64ToNumericLegacy,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(
-        DECIMAL_TO_INT64,
-        BNumericToInt64,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(INT64_TO_NUMERIC_LEGACY, BInt64ToNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = natTypeErasure),
-      BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
+      BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric),
+      BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
       BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
@@ -2005,38 +1939,8 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(GENMAP_SIZE, BGenMapSize),
       BuiltinFunctionInfo(APPEND_TEXT, BAppendText),
       BuiltinFunctionInfo(ERROR, BError),
-      BuiltinFunctionInfo(
-        LEQ_DECIMAL,
-        BLessEq,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
-      BuiltinFunctionInfo(
-        GEQ_DECIMAL,
-        BGreaterEq,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
-      BuiltinFunctionInfo(
-        LESS_DECIMAL,
-        BLess,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
-      BuiltinFunctionInfo(
-        GREATER_DECIMAL,
-        BGreater,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
       BuiltinFunctionInfo(INT64_TO_TEXT, BInt64ToText),
-      BuiltinFunctionInfo(
-        DECIMAL_TO_TEXT,
-        BNumericToText,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal),
-      ),
-      BuiltinFunctionInfo(NUMERIC_TO_TEXT, BNumericToText, minVersion = numeric),
+      BuiltinFunctionInfo(NUMERIC_TO_TEXT, BNumericToText),
       BuiltinFunctionInfo(TIMESTAMP_TO_TEXT, BTimestampToText),
       BuiltinFunctionInfo(PARTY_TO_TEXT, BPartyToText),
       BuiltinFunctionInfo(TEXT_TO_TEXT, BTextToText),
@@ -2045,14 +1949,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
-      BuiltinFunctionInfo(
-        TEXT_TO_DECIMAL,
-        BTextToNumericLegacy,
-        implicitParameters = List(TNat.Decimal),
-        maxVersion = Some(numeric),
-      ),
-      BuiltinFunctionInfo(TEXT_TO_NUMERIC_LEGACY, BTextToNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
@@ -2068,12 +1965,6 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(GREATER, BGreater),
       BuiltinFunctionInfo(GREATER_EQ, BGreaterEq),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
-      BuiltinFunctionInfo(
-        EQUAL_DECIMAL,
-        BEqual,
-        maxVersion = Some(numeric),
-        implicitParameters = List(TDecimal),
-      ),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
       BuiltinFunctionInfo(SCALE_BIGNUMERIC, BScaleBigNumeric, minVersion = bigNumeric),
@@ -2083,16 +1974,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(
-        BIGNUMERIC_TO_NUMERIC_LEGACY,
-        BBigNumericToNumericLegacy,
-        minVersion = bigNumeric,
-      ),
-      BuiltinFunctionInfo(
-        BIGNUMERIC_TO_NUMERIC,
-        BBigNumericToNumeric,
-        minVersion = natTypeErasure,
-      ),
+      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric),
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),

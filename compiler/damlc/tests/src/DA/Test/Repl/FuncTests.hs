@@ -91,9 +91,7 @@ withInteractionTester major action = do
                 devNull
                 defaultSandboxConf
                     { dars = testDars
-                    -- TODO(#17366): replace with LF.isDevVersion lfVersion once
-                    --  the engine supports running
-                    , devVersionSupport = major == LF.V2
+                    , devVersionSupport = LF.isDevVersion lfVersion
                     }
             )
             destroySandbox

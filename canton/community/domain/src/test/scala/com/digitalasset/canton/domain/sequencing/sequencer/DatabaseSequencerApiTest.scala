@@ -14,7 +14,8 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
 import org.apache.pekko.stream.Materializer
 
-class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
+// TODO(#14392) reenable this test once DB sequencer works with implicit member registration
+abstract class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
 
   def createSequencer(
       crypto: DomainSyncCryptoClient

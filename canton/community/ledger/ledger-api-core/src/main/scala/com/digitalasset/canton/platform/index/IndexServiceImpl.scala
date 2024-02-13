@@ -113,7 +113,6 @@ private[index] class IndexServiceImpl(
       endInclusive: Option[domain.LedgerOffset],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
       between(startExclusive, endInclusive) { (from, to) =>
@@ -143,7 +142,6 @@ private[index] class IndexServiceImpl(
                         endInclusive,
                         templateFilter,
                         eventProjectionProperties,
-                        multiDomainEnabled,
                       )
                   }
             },
@@ -168,7 +166,6 @@ private[index] class IndexServiceImpl(
       endInclusive: Option[LedgerOffset],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
       val parties = transactionFilter.filtersByParty.keySet
@@ -199,7 +196,6 @@ private[index] class IndexServiceImpl(
                         endInclusive,
                         parties, // on the query filter side we treat every party as wildcard party
                         eventProjectionProperties,
-                        multiDomainEnabled,
                       )
                   }
             },
@@ -264,7 +260,6 @@ private[index] class IndexServiceImpl(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
       activeAtO: Option[Offset],
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
@@ -291,7 +286,6 @@ private[index] class IndexServiceImpl(
                 activeAt = activeAt,
                 filter = templateFilter,
                 eventProjectionProperties = eventProjectionProperties,
-                multiDomainEnabled = multiDomainEnabled,
               )
           }
         activeContractsSource
@@ -443,11 +437,15 @@ private[index] class IndexServiceImpl(
           }
       )
 
-  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+  override def prune(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
-    ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
+    ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets)
   }
 
   override def getMeteringReportData(

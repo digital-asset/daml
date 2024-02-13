@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
+import com.daml.lf.language.LanguageMajorVersion.V2
 import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
@@ -75,7 +75,6 @@ final case class Disclosure(templatedId: TypeConName, contractId: ContractId, bl
 object Converter {
   def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
     majorLanguageVersion match {
-      case V1 => com.daml.lf.engine.script.v1.Converter
       case V2 => com.daml.lf.engine.script.v2.Converter
     }
   }

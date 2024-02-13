@@ -49,7 +49,7 @@ class PackageService(
   ) {
 
     def append(diff: PackageStore): State = {
-      val newPackageStore = appendAndResolveRetroactiveInterfaces(resolveChoicesIn(diff))
+      val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
@@ -68,16 +68,6 @@ class PackageService(
       diff.transform((_, iface) => iface resolveChoicesAndIgnoreUnresolvedChoices findIface)
     }
 
-    private[this] def appendAndResolveRetroactiveInterfaces(diff: PackageStore): PackageStore = {
-      def lookupIf(packageStore: PackageStore, pkId: Ref.PackageId) =
-        packageStore
-          .get(pkId)
-          .map((_, { (newSig: typesig.PackageSignature) => packageStore.updated(pkId, newSig) }))
-
-      val (packageStore2, diffElems) =
-        typesig.PackageSignature.resolveRetroImplements(packageStore, diff.values.toSeq)(lookupIf)
-      packageStore2 ++ diffElems.view.map(p => (p.packageId, p))
-    }
   }
 
   private class StateCache private () {

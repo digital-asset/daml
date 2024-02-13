@@ -114,25 +114,23 @@ class TransactionCoderSpec
     "do Node.Rollback" in {
       forAll(danglingRefRollbackNodeGen) { node =>
         forEvery(transactionVersions) { txVersion =>
-          if (txVersion >= TransactionVersion.minExceptions) {
-            val normalizedNode = normalizeNode(node)
-            val Right(encodedNode) =
-              TransactionCoder
-                .encodeNode(
-                  TransactionCoder.NidEncoder,
-                  ValueCoder.CidEncoder,
-                  txVersion,
-                  NodeId(0),
-                  normalizedNode,
-                )
+          val normalizedNode = normalizeNode(node)
+          val Right(encodedNode) =
             TransactionCoder
-              .decodeVersionedNode(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
                 txVersion,
-                encodedNode,
-              ) shouldBe Right((NodeId(0), normalizedNode))
-          }
+                NodeId(0),
+                normalizedNode,
+              )
+          TransactionCoder
+            .decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              txVersion,
+              encodedNode,
+            ) shouldBe Right((NodeId(0), normalizedNode))
         }
       }
     }
@@ -205,7 +203,6 @@ class TransactionCoderSpec
           packageName = None,
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
-          agreementText = "", // to be removed
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           keyOpt = None,
@@ -243,44 +240,6 @@ class TransactionCoderSpec
   }
 
   "encodeVersionedNode" should {
-
-    "fail if try encode rollback node in version < minExceptions" in {
-      forAll(danglingRefRollbackNodeGen) { node =>
-        forEvery(transactionVersions) { txVersion =>
-          val normalizedNode = normalizeNode(node)
-          val result = TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              txVersion,
-              NodeId(0),
-              normalizedNode,
-            )
-
-          result.isLeft shouldBe (txVersion < TransactionVersion.minExceptions)
-        }
-      }
-    }
-
-    "fail if try encode missing exerciseResult in version < minExceptions" in {
-      forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) {
-        case (node, (nodeVersion, txVersion)) =>
-          val normalizedNode =
-            normalizeExe(node.updateVersion(nodeVersion)).copy(
-              exerciseResult = None
-            )
-          val result = TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              txVersion,
-              NodeId(0),
-              normalizedNode,
-            )
-
-          result.isLeft shouldBe (nodeVersion < TransactionVersion.minExceptions)
-      }
-    }
 
     "fail if try to encode a node in a version newer than the transaction" in {
 
@@ -866,62 +825,6 @@ class TransactionCoderSpec
       }
     }
 
-    "fail if we try to decode a rollback node in a version < minExceptions" in {
-      forAll(danglingRefRollbackNodeGen) { node =>
-        forEvery(transactionVersions) { txVersion =>
-          val normalizedNode = normalizeNode(node)
-          val Right(encodedNode) =
-            TransactionCoder
-              .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                txVersion,
-                NodeId(0),
-                normalizedNode,
-                disableVersionCheck = true, // so the bad proto can be created
-              )
-          val result =
-            TransactionCoder
-              .decodeVersionedNode(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
-                txVersion,
-                encodedNode,
-              )
-          result.isLeft shouldBe (txVersion < TransactionVersion.minExceptions)
-        }
-      }
-    }
-
-    "fail if we try to decode an exercise node with a missing result in a version < minExceptions" in {
-      forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) { case (node, (v1, v2)) =>
-        val normalizedNode =
-          normalizeExe(node.updateVersion(v1))
-            .copy(
-              exerciseResult = None
-            )
-        val Right(encodedNode) =
-          TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              v2,
-              NodeId(0),
-              normalizedNode,
-              disableVersionCheck = true, // so the bad proto can be created
-            )
-        val result =
-          TransactionCoder
-            .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              v2,
-              encodedNode,
-            )
-        result.isLeft shouldBe (v1 < TransactionVersion.minExceptions)
-      }
-    }
-
     s"preserve byKey on exercise in version >= ${TransactionVersion.minByKey} and drop before" in {
       forAll(
         Arbitrary.arbInt.arbitrary,
@@ -1212,21 +1115,9 @@ class TransactionCoderSpec
       case _ => exe
     }
     node.copy(
-      interfaceId =
-        if (exe.version >= TransactionVersion.minInterfaces)
-          exe.interfaceId
-        else None,
+      interfaceId = exe.interfaceId,
       chosenValue = normalize(exe.chosenValue, exe.version),
-      exerciseResult = exe.exerciseResult match {
-        case None =>
-          if (exe.version >= TransactionVersion.minExceptions) {
-            None
-          } else {
-            Some(Value.ValueText("not-missing"))
-          }
-        case Some(v) =>
-          Some(normalize(v, exe.version))
-      },
+      exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
       choiceObservers = exe.choiceObservers,
       choiceAuthorizers =
         if (exe.version >= TransactionVersion.minChoiceAuthorizers) exe.choiceAuthorizers else None,

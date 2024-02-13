@@ -93,7 +93,7 @@ final case class TestingTopology(
     mediators: Set[MediatorId] = Set(DefaultTestIdentities.mediator),
     participants: Map[ParticipantId, ParticipantAttributes] = Map.empty,
     packages: Seq[VettedPackages] = Seq.empty,
-    keyPurposes: Set[KeyPurpose] = KeyPurpose.all,
+    keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
     domainParameters: List[DomainParameters.WithValidity[DynamicDomainParameters]] = List(
       DomainParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch,

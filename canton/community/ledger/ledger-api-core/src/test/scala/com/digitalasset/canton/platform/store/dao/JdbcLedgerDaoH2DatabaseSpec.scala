@@ -22,3 +22,4 @@ final class JdbcLedgerDaoH2DatabaseSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
     with JdbcLedgerDaoTransactionsWriterSpec
+    with JdbcLedgerDaoEventsSpec

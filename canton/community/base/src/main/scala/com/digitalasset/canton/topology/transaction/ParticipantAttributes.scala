@@ -48,16 +48,19 @@ object ParticipantPermission {
   case object Submission extends ParticipantPermission {
     override val canConfirm = true
     val level = 1
-    val toProtoEnum: v30.ParticipantPermission = v30.ParticipantPermission.Submission
+    val toProtoEnum: v30.ParticipantPermission =
+      v30.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION
   }
   case object Confirmation extends ParticipantPermission {
     override val canConfirm = true
     val level = 2
-    val toProtoEnum: v30.ParticipantPermission = v30.ParticipantPermission.Confirmation
+    val toProtoEnum: v30.ParticipantPermission =
+      v30.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION
   }
   case object Observation extends ParticipantPermission {
     val level = 3
-    val toProtoEnum: v30.ParticipantPermission = v30.ParticipantPermission.Observation
+    val toProtoEnum: v30.ParticipantPermission =
+      v30.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION
   }
   // in 3.0, participants can't be disabled anymore. they can be purged for good
   // The permission may still be used in the old topology management, but should not be used from the new topology management.
@@ -65,7 +68,8 @@ object ParticipantPermission {
   case object Disabled extends ParticipantPermission {
     override def isActive = false
     val level = 4
-    val toProtoEnum = v30.ParticipantPermission.Disabled
+    val toProtoEnum: v30.ParticipantPermission =
+      v30.ParticipantPermission.PARTICIPANT_PERMISSION_DISABLED
   }
   // TODO(i2213): add purging of participants
 
@@ -73,11 +77,15 @@ object ParticipantPermission {
       permission: v30.ParticipantPermission
   ): ParsingResult[ParticipantPermission] = {
     permission match {
-      case v30.ParticipantPermission.Observation => Right(ParticipantPermission.Observation)
-      case v30.ParticipantPermission.Confirmation => Right(ParticipantPermission.Confirmation)
-      case v30.ParticipantPermission.Submission => Right(ParticipantPermission.Submission)
-      case v30.ParticipantPermission.Disabled => Right(ParticipantPermission.Disabled)
-      case v30.ParticipantPermission.MissingParticipantPermission =>
+      case v30.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION =>
+        Right(ParticipantPermission.Observation)
+      case v30.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION =>
+        Right(ParticipantPermission.Confirmation)
+      case v30.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION =>
+        Right(ParticipantPermission.Submission)
+      case v30.ParticipantPermission.PARTICIPANT_PERMISSION_DISABLED =>
+        Right(ParticipantPermission.Disabled)
+      case v30.ParticipantPermission.PARTICIPANT_PERMISSION_UNSPECIFIED =>
         Left(FieldNotSet(permission.name))
       case v30.ParticipantPermission.Unrecognized(x) => Left(UnrecognizedEnum(permission.name, x))
     }
@@ -116,19 +124,19 @@ object TrustLevel {
   def higherOf(fst: TrustLevel, snd: TrustLevel): TrustLevel = if (fst.rank > snd.rank) fst else snd
 
   case object Ordinary extends TrustLevel {
-    override def toProtoEnum: v30.TrustLevel = v30.TrustLevel.Ordinary
+    override def toProtoEnum: v30.TrustLevel = v30.TrustLevel.TRUST_LEVEL_ORDINARY
     override def rank: Byte = 0;
   }
   case object Vip extends TrustLevel {
-    override def toProtoEnum: v30.TrustLevel = v30.TrustLevel.Vip
+    override def toProtoEnum: v30.TrustLevel = v30.TrustLevel.TRUST_LEVEL_VIP
     override def rank: Byte = 1;
   }
 
   def fromProtoEnum(value: v30.TrustLevel): ParsingResult[TrustLevel] =
     value match {
-      case v30.TrustLevel.Vip => Right(Vip)
-      case v30.TrustLevel.Ordinary => Right(Ordinary)
-      case v30.TrustLevel.MissingTrustLevel => Left(FieldNotSet("trustLevel"))
+      case v30.TrustLevel.TRUST_LEVEL_VIP => Right(Vip)
+      case v30.TrustLevel.TRUST_LEVEL_ORDINARY => Right(Ordinary)
+      case v30.TrustLevel.TRUST_LEVEL_UNSPECIFIED => Left(FieldNotSet("trustLevel"))
       case v30.TrustLevel.Unrecognized(x) => Left(UnrecognizedEnum("trustLevel", x))
     }
 

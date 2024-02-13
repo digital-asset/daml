@@ -19,7 +19,6 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{DbConfig, H2DbConfig}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiProvider}
-import com.digitalasset.canton.domain.api.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.environment.{CantonNode, CantonNodeBootstrapCommon}
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
@@ -61,6 +60,7 @@ import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig,
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
+import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -77,7 +77,6 @@ class CantonLedgerApiServerFactory(
     testingTimeService: TestingTimeService,
     allocateIndexerLockIds: DbConfig => Either[String, Option[IndexerLockIds]],
     meteringReportKey: MeteringReportKey,
-    val multiDomainEnabled: Boolean,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
@@ -157,7 +156,6 @@ class CantonLedgerApiServerFactory(
           // start ledger API server iff participant replica is active
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
-          multiDomainEnabled = multiDomainEnabled,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
@@ -442,7 +440,6 @@ trait ParticipantNodeBootstrapCommon {
         arguments.futureSupervisor,
         loggerFactory,
         skipRecipientsCheck,
-        multiDomainLedgerAPIEnabled = ledgerApiServerFactory.multiDomainEnabled,
       )
 
       _ = {

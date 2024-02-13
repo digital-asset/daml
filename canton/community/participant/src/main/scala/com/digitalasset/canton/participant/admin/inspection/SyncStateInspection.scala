@@ -179,6 +179,7 @@ final class SyncStateInspection(
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
+      skipCleanTimestampCheck: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, Unit] = {
@@ -192,25 +193,30 @@ final class SyncStateInspection(
 
           val ret = for {
             _ <- AcsInspection
-              .forEachVisibleActiveContract(domainId, state, parties, timestamp) {
-                case (contract, transferCounter) =>
-                  val activeContractE =
-                    ActiveContract.create(domainIdForExport, contract, transferCounter)(
-                      protocolVersion
-                    )
+              .forEachVisibleActiveContract(
+                domainId,
+                state,
+                parties,
+                timestamp,
+                force = skipCleanTimestampCheck,
+              ) { case (contract, transferCounter) =>
+                val activeContractE =
+                  ActiveContract.create(domainIdForExport, contract, transferCounter)(
+                    protocolVersion
+                  )
 
-                  activeContractE match {
-                    case Left(e) =>
-                      Left(InvariantIssue(domainId, contract.contractId, e.getMessage))
-                    case Right(bundle) =>
-                      bundle.writeDelimitedTo(outputStream) match {
-                        case Left(errorMessage) =>
-                          Left(SerializationIssue(domainId, contract.contractId, errorMessage))
-                        case Right(_) =>
-                          outputStream.flush()
-                          Right(())
-                      }
-                  }
+                activeContractE match {
+                  case Left(e) =>
+                    Left(InvariantIssue(domainId, contract.contractId, e.getMessage))
+                  case Right(bundle) =>
+                    bundle.writeDelimitedTo(outputStream) match {
+                      case Left(errorMessage) =>
+                        Left(SerializationIssue(domainId, contract.contractId, errorMessage))
+                      case Right(_) =>
+                        outputStream.flush()
+                        Right(())
+                    }
+                }
 
               }
           } yield ()

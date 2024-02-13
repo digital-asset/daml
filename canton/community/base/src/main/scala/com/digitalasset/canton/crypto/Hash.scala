@@ -50,7 +50,7 @@ object HashAlgorithm {
   }
 
   case object Sha256 extends HashAlgorithm("SHA-256", 0x12, 32) {
-    override def toProtoEnum: v30.HashAlgorithm = v30.HashAlgorithm.Sha256
+    override def toProtoEnum: v30.HashAlgorithm = v30.HashAlgorithm.HASH_ALGORITHM_SHA256
   }
 
   def lookup(index: Long, length: Long): Either[String, HashAlgorithm] =
@@ -68,11 +68,11 @@ object HashAlgorithm {
       hashAlgorithmP: v30.HashAlgorithm,
   ): ParsingResult[HashAlgorithm] =
     hashAlgorithmP match {
-      case v30.HashAlgorithm.MissingHashAlgorithm =>
+      case v30.HashAlgorithm.HASH_ALGORITHM_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.HashAlgorithm.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.HashAlgorithm.Sha256 => Right(Sha256)
+      case v30.HashAlgorithm.HASH_ALGORITHM_SHA256 => Right(Sha256)
     }
 }
 

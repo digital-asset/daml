@@ -63,7 +63,9 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     val transactionTree = executeSql(
       backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 1L, Set(someParty))
     )
-    val acs = executeSql(backend.event.activeContractCreateEventBatch(Seq(1L), Set(someParty), 1L))
+    val acs = executeSql(
+      backend.event.activeContractCreateEventBatchV2(Seq(1L), Set(someParty), 1L)
+    )
     (flatTransactionEvents, transactionTreeEvents, flatTransaction, transactionTree, acs)
   }
 
@@ -100,10 +102,9 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       createdAt = _.partial.createdAt,
     ) shouldBe expectedCreatedAt
 
-    extractCreatedAtFrom[FlatEvent.Created, FlatEvent](
-      in = acs,
-      createdAt = _.partial.createdAt,
-    ) shouldBe expectedCreatedAt
+    acs.head.rawCreatedEvent.ledgerEffectiveTime.micros.shouldBe(
+      (expectedCreatedAt.seconds * 1000000) + (expectedCreatedAt.nanos / 1000)
+    )
   }
 
   private def extractCreatedAtFrom[O: ClassTag, E >: O](

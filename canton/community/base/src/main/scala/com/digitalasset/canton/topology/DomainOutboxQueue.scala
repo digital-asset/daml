@@ -43,7 +43,7 @@ class DomainOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogg
   def dequeue(limit: Int)(implicit
       traceContext: TraceContext
   ): Seq[GenericSignedTopologyTransactionX] = blocking(synchronized {
-    val txs = unsentQueue.take(limit)
+    val txs = unsentQueue.take(limit).toList
     logger.debug(s"dequeuing: $txs")
     require(
       pendingQueue.isEmpty,

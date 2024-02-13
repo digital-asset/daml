@@ -9,8 +9,8 @@ import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.Top
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.protocol.v30.RegisterTopologyTransactionResponse.Result.State as ProtoStateV1
+import com.digitalasset.canton.protocol.{messages, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.version.{
@@ -50,14 +50,15 @@ final case class RegisterTopologyTransactionResponse(
 
 object RegisterTopologyTransactionResponse
     extends HasProtocolVersionedCompanion[RegisterTopologyTransactionResponse] {
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v30.RegisterTopologyTransactionResponse
-    )(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+  val supportedProtoVersions: messages.RegisterTopologyTransactionResponse.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+        v30.RegisterTopologyTransactionResponse
+      )(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   def apply(
       requestedBy: Member,
@@ -130,11 +131,11 @@ final case class RegisterTopologyTransactionResponseResult(
       )
 
     state match {
-      case State.Failed => reply(ProtoStateV1.FAILED)
-      case State.Rejected => reply(ProtoStateV1.REJECTED)
-      case State.Accepted => reply(ProtoStateV1.ACCEPTED)
-      case State.Duplicate => reply(ProtoStateV1.DUPLICATE)
-      case State.Obsolete => reply(ProtoStateV1.OBSOLETE)
+      case State.Failed => reply(ProtoStateV1.STATE_FAILED)
+      case State.Rejected => reply(ProtoStateV1.STATE_REJECTED)
+      case State.Accepted => reply(ProtoStateV1.STATE_ACCEPTED)
+      case State.Duplicate => reply(ProtoStateV1.STATE_DUPLICATE)
+      case State.Obsolete => reply(ProtoStateV1.STATE_OBSOLETE)
     }
   }
 
@@ -165,18 +166,22 @@ object RegisterTopologyTransactionResponseResult {
       result: v30.RegisterTopologyTransactionResponse.Result
   ): ParsingResult[RegisterTopologyTransactionResponseResult] = {
     result.state match {
-      case ProtoStateV1.MISSING_STATE =>
+      case ProtoStateV1.STATE_UNSPECIFIED =>
         Left(
           ProtoDeserializationError.OtherError(
             "Missing state for v1.RegisterTopologyTransactionResponse.State.Result"
           )
         )
-      case ProtoStateV1.FAILED => Right(RegisterTopologyTransactionResponseResult(State.Failed))
-      case ProtoStateV1.REJECTED => Right(RegisterTopologyTransactionResponseResult(State.Rejected))
-      case ProtoStateV1.ACCEPTED => Right(RegisterTopologyTransactionResponseResult(State.Accepted))
-      case ProtoStateV1.DUPLICATE =>
+      case ProtoStateV1.STATE_FAILED =>
+        Right(RegisterTopologyTransactionResponseResult(State.Failed))
+      case ProtoStateV1.STATE_REJECTED =>
+        Right(RegisterTopologyTransactionResponseResult(State.Rejected))
+      case ProtoStateV1.STATE_ACCEPTED =>
+        Right(RegisterTopologyTransactionResponseResult(State.Accepted))
+      case ProtoStateV1.STATE_DUPLICATE =>
         Right(RegisterTopologyTransactionResponseResult(State.Duplicate))
-      case ProtoStateV1.OBSOLETE => Right(RegisterTopologyTransactionResponseResult(State.Obsolete))
+      case ProtoStateV1.STATE_OBSOLETE =>
+        Right(RegisterTopologyTransactionResponseResult(State.Obsolete))
       case ProtoStateV1.Unrecognized(unrecognizedValue) =>
         Left(
           ProtoDeserializationError.OtherError(

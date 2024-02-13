@@ -29,9 +29,6 @@ import scalaz.scalacheck.ScalaCheckBinding._
 
 object ValueGenerators {
 
-  import TransactionVersion.minExceptions
-  import TransactionVersion.minInterfaces
-
   // generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
     val num = for {
@@ -217,7 +214,6 @@ object ValueGenerators {
     dateGen.map(ValueDate),
     Gen.alphaStr.map(ValueText),
     unscaledNumGen.map(ValueNumeric),
-    numGen(Decimal.scale).map(ValueNumeric),
     arbitrary[Long].map(ValueInt64),
     Gen.alphaStr.map(ValueText),
     timestampGen.map(ValueTimestamp),
@@ -290,7 +286,7 @@ object ValueGenerators {
     * 2. key's maintainers may not be a subset of signatories
     */
   def malformedCreateNodeGen(
-      minVersion: TransactionVersion = TransactionVersion.V14
+      minVersion: TransactionVersion = TransactionVersion.V31
   ): Gen[Node.Create] = {
     for {
       version <- transactionVersionGen(minVersion)
@@ -319,7 +315,6 @@ object ValueGenerators {
       packageName = packageName,
       templateId = templateId,
       arg = arg,
-      agreementText = "", // to be removed
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = key,
@@ -379,7 +374,7 @@ object ValueGenerators {
       targetCoid <- coidGen
       pkgName <- pkgNameGen(version)
       templateId <- idGen
-      interfaceId <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
+      interfaceId <- Gen.option(idGen)
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
@@ -393,8 +388,7 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(_.to(ImmArray))
-      exerciseResult <-
-        if (version < minExceptions) valueGen().map(Some(_)) else Gen.option(valueGen())
+      exerciseResult <- Gen.option(valueGen())
       key <- Gen.option(keyWithMaintainersGen(templateId))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
@@ -474,15 +468,11 @@ object ValueGenerators {
       )
     )
 
-  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] = {
-    if (version < minExceptions)
-      danglingRefGenActionNodeWithVersion(version)
-    else
-      Gen.frequency(
-        3 -> danglingRefGenActionNodeWithVersion(version),
-        1 -> refGenNode(danglingRefRollbackNodeGen),
-      )
-  }
+  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] =
+    Gen.frequency(
+      3 -> danglingRefGenActionNodeWithVersion(version),
+      1 -> refGenNode(danglingRefRollbackNodeGen),
+    )
 
   /** Aside from the invariants failed as listed under `malformedCreateNodeGen`,
     * resulting transactions may be malformed in several other ways:

@@ -93,15 +93,6 @@ object GrpcErrorParser {
             SubmitError.ContractKeyNotFound(
               GlobalKey.assertBuild(templateId, key)
             )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, _),
-              ) =>
-            SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
-            )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
       case "CONTRACT_NOT_ACTIVE" =>
@@ -125,19 +116,6 @@ object GrpcErrorParser {
               GlobalKey.assertBuild(templateId, key),
               keyHash,
             )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractId, cid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, _),
-                (ErrorResource.ContractKeyHash, keyHash),
-              ) =>
-            SubmitError.DisclosedContractKeyHashingError(
-              ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key),
-              keyHash,
-            )
         }
       case "DUPLICATE_CONTRACT_KEY" =>
         caseErr {
@@ -152,7 +130,6 @@ object GrpcErrorParser {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, _),
               ) =>
             SubmitError.DuplicateContractKey(
               Some(
@@ -190,15 +167,6 @@ object GrpcErrorParser {
             SubmitError.InconsistentContractKey(
               GlobalKey.assertBuild(templateId, key)
             )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, _),
-              ) =>
-            SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
-            )
         }
       case "UNHANDLED_EXCEPTION" =>
         caseErr {
@@ -231,15 +199,6 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             SubmitError.FetchEmptyContractKeyMaintainers(
               GlobalKey.assertBuild(templateId, key)
-            )
-
-          case Seq(
-                (ErrorResource.TemplateId, tid),
-                (ErrorResource.ContractKey, decodeValue.unlift(key)),
-                (ErrorResource.SharedKey, _),
-              ) =>
-            SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(Identifier.assertFromString(tid), key)
             )
         }
       case "WRONGLY_TYPED_CONTRACT" =>

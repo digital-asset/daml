@@ -105,8 +105,6 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/codegen-common",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
@@ -158,7 +156,6 @@ daml_compile(
     name = "test-contract-id-daml",
     srcs = [
         "src/test/daml/Bar.daml",
-        "src/test/daml/Retro.daml",
     ],
     target = lf_version_configuration.get("default"),
 )
@@ -379,9 +376,6 @@ java_test(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    # TODO(https://github.com/digital-asset/daml/issues/17366)
-    # remove target, once interfaces are stable.
-    target = lf_version_default_or_latest("2"),
 )
 
 dar_to_java(

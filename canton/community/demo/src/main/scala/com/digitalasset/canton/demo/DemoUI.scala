@@ -290,7 +290,7 @@ class ParticipantTab(
             val coidMap =
               if (isClosing) Map.empty[LfContractId, String]
               else
-                participant.ledger_api_v2.state.acs
+                participant.ledger_api.state.acs
                   .of_all()
                   .flatMap(_.entry.activeContract)
                   .map(c => c.domainId -> c.createdEvent)
@@ -706,7 +706,6 @@ class DemoUI(script: BaseScript, val loggerFactory: NamedLoggerFactory)
     Threading.newExecutionContext(
       "demo-ui",
       noTracingLogger,
-      maybeMetrics = None,
     )
   private implicit val actorSystem: ActorSystem = PekkoUtil.createActorSystem("demo-ui")
   private implicit val sequencerPool: ExecutionSequencerFactory =

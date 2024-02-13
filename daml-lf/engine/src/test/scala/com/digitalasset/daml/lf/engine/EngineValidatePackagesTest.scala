@@ -21,11 +21,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
-  // TODO(#17366): use something like LanguageVersion.default(major) once available
-  val langVersion = majorLanguageVersion match {
-    case LanguageMajorVersion.V1 => LanguageVersion.default
-    case LanguageMajorVersion.V2 => LanguageVersion.v2_1
-  }
+  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(pkgId, langVersion)
@@ -63,21 +59,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         newEngine.validatePackages(Map(pkgId -> illTypedPackage))
       ) { case Left(_: Error.Package.Validation) =>
-      }
-
-    }
-
-    "reject packages with disallowed language version" in {
-
-      val engine = new Engine(EngineConfig(LanguageVersion.LegacyVersions))
-
-      assert(!LanguageVersion.LegacyVersions.contains(langVersion))
-
-      inside(engine.validatePackages(Map(pkgId -> pkg))) {
-        case Left(err: Error.Package.AllowedLanguageVersion) =>
-          err.packageId shouldBe pkgId
-          err.languageVersion shouldBe langVersion
-          err.allowedLanguageVersions shouldBe LanguageVersion.LegacyVersions
       }
 
     }

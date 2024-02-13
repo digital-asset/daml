@@ -8,11 +8,11 @@ import com.daml.lf.archive.Error as LfArchiveError
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error
+import com.daml.lf.validation.UpgradeError
 import com.daml.lf.{VersionRange, language, validation}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 
 import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
-import com.daml.lf.validation.{UpgradeError}
 
 @Explanation(
   "Errors raised by the Package Management Service on package uploads."
@@ -156,12 +156,18 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           cause = "Generic error (please check the reason string).",
           extraContext = Map("reason" -> reason),
         )
-    final case class Unhandled(throwable: Throwable)(implicit
-        val loggingContext: ContextualizedErrorLogger
+    final case class Unhandled(throwable: Throwable, additionalReason: Option[String] = None)(
+        implicit val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = "Failed with an unknown error cause",
           throwableO = Some(throwable),
-          extraContext = Map("throwable" -> throwable),
+          extraContext = {
+            val context: Map[String, Any] = Map("throwable" -> throwable)
+            additionalReason match {
+              case Some(additionalReason) => context + ("additionalReason" -> additionalReason)
+              case None => context
+            }
+          },
         )
   }
 
@@ -207,10 +213,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
         SelfConsistency.Error(packageIds, missingDependencies)
     }
-
-    def handleUpgradeError(upgrading: Ref.PackageId, upgraded: Ref.PackageId, err: UpgradeError)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ): DamlError = Upgradeability.Error(upgrading, upgraded, err.getMessage)
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
     @Resolution("Inspect the error message and contact support.")
@@ -282,7 +284,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       final case class Error(
           upgradingPackage: Ref.PackageId,
           upgradedPackage: Ref.PackageId,
-          upgradeErrorMessage: String,
+          upgradeError: UpgradeError,
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
@@ -291,7 +293,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             extraContext = Map(
               "upgradingPackage" -> upgradingPackage,
               "upgradedPackage" -> upgradedPackage,
-              "additionalInfo" -> upgradeErrorMessage,
+              "additionalInfo" -> upgradeError.prettyInternal,
             ),
           )
     }

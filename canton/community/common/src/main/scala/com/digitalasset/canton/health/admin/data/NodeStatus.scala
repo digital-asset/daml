@@ -72,7 +72,7 @@ object NodeStatus {
     def uptime: Duration
     def ports: Map[String, Port]
     def active: Boolean
-    def toProtoV30: v30.NodeStatus.Status // explicitly making it public
+    def toProtoV30: v30.StatusResponse.Status // explicitly making it public
     def components: Seq[ComponentStatus]
   }
 
@@ -103,8 +103,8 @@ final case class SimpleStatus(
       ).mkString(System.lineSeparator())
     )
 
-  def toProtoV30: v30.NodeStatus.Status =
-    v30.NodeStatus.Status(
+  def toProtoV30: v30.StatusResponse.Status =
+    v30.StatusResponse.Status(
       uid.toProtoPrimitive,
       Some(DurationConverter.toProtoPrimitive(uptime)),
       ports.fmap(_.unwrap),
@@ -116,7 +116,7 @@ final case class SimpleStatus(
 }
 
 object SimpleStatus {
-  def fromProtoV30(proto: v30.NodeStatus.Status): ParsingResult[SimpleStatus] = {
+  def fromProtoV30(proto: v30.StatusResponse.Status): ParsingResult[SimpleStatus] = {
     for {
       uid <- UniqueIdentifier.fromProtoPrimitive(proto.id, "Status.id")
       uptime <- ProtoConverter
@@ -234,7 +234,7 @@ final case class DomainStatus(
       ).mkString(System.lineSeparator())
     )
 
-  def toProtoV30: v30.NodeStatus.Status = {
+  def toProtoV30: v30.StatusResponse.Status = {
     val participants = connectedParticipants.map(_.toProtoPrimitive)
     SimpleStatus(uid, uptime, ports, active, topologyQueue, components).toProtoV30
       .copy(
@@ -244,7 +244,7 @@ final case class DomainStatus(
 }
 
 object DomainStatus {
-  def fromProtoV30(proto: v30.NodeStatus.Status): ParsingResult[DomainStatus] =
+  def fromProtoV30(proto: v30.StatusResponse.Status): ParsingResult[DomainStatus] =
     for {
       status <- SimpleStatus.fromProtoV30(proto)
       domainStatus <- ProtoConverter
@@ -299,7 +299,7 @@ final case class ParticipantStatus(
       ).mkString(System.lineSeparator())
     )
 
-  def toProtoV30: v30.NodeStatus.Status = {
+  def toProtoV30: v30.StatusResponse.Status = {
     val domains = connectedDomains.map { case (domainId, healthy) =>
       v30.ParticipantStatusInfo.ConnectedDomain(
         domain = domainId.toProtoPrimitive,
@@ -323,7 +323,7 @@ object ParticipantStatus {
   }
 
   def fromProtoV30(
-      proto: v30.NodeStatus.Status
+      proto: v30.StatusResponse.Status
   ): ParsingResult[ParticipantStatus] =
     for {
       status <- SimpleStatus.fromProtoV30(proto)
@@ -360,7 +360,7 @@ final case class SequencerNodeStatus(
     components: Seq[ComponentStatus],
 ) extends NodeStatus.Status {
   override def active: Boolean = sequencer.isActive
-  def toProtoV30: v30.NodeStatus.Status = {
+  def toProtoV30: v30.StatusResponse.Status = {
     val participants = connectedParticipants.map(_.toProtoPrimitive)
     SimpleStatus(uid, uptime, ports, active, topologyQueue, components).toProtoV30.copy(
       extra = v30
@@ -386,7 +386,7 @@ final case class SequencerNodeStatus(
 
 object SequencerNodeStatus {
   def fromProtoV30(
-      sequencerP: v30.NodeStatus.Status
+      sequencerP: v30.StatusResponse.Status
   ): ParsingResult[SequencerNodeStatus] =
     for {
       status <- SimpleStatus.fromProtoV30(sequencerP)
@@ -443,7 +443,7 @@ final case class MediatorNodeStatus(
       ).mkString(System.lineSeparator())
     )
 
-  def toProtoV30: v30.NodeStatus.Status =
+  def toProtoV30: v30.StatusResponse.Status =
     SimpleStatus(uid, uptime, ports, active, topologyQueue, components).toProtoV30.copy(
       extra = v30
         .MediatorNodeStatus(domainId.toProtoPrimitive)
@@ -452,7 +452,7 @@ final case class MediatorNodeStatus(
 }
 
 object MediatorNodeStatus {
-  def fromProtoV30(proto: v30.NodeStatus.Status): ParsingResult[MediatorNodeStatus] =
+  def fromProtoV30(proto: v30.StatusResponse.Status): ParsingResult[MediatorNodeStatus] =
     for {
       status <- SimpleStatus.fromProtoV30(proto)
       mediatorNodeStatus <- ProtoConverter.parse[MediatorNodeStatus, v30.MediatorNodeStatus](

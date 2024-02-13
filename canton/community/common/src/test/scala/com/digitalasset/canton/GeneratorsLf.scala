@@ -16,7 +16,6 @@ import com.digitalasset.canton.protocol.{
   LfTransactionVersion,
   Unicum,
 }
-import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 object GeneratorsLf {
@@ -71,6 +70,7 @@ object GeneratorsLf {
     lfVersionedGlobalKeyGen
   )
 
-  implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] = genArbitrary
+  implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] =
+    Arbitrary(Gen.oneOf(LfTransactionVersion.All))
 
 }

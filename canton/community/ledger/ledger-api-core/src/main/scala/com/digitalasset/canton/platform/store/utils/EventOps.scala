@@ -98,14 +98,6 @@ object EventOps {
           TreeEvent(TreeExercised(exercise.copy(childEventIds = exercise.childEventIds.filter(f)))),
         create => TreeEvent(TreeCreated(create)),
       )
-    def sortChildEventIdsBy(order: Map[String, Int]): TreeEvent =
-      event.kind.fold(
-        exercise =>
-          TreeEvent(
-            TreeExercised(exercise.copy(childEventIds = exercise.childEventIds.sortBy(order)))
-          ),
-        create => TreeEvent(TreeCreated(create)),
-      )
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
     def modifyWitnessParties(f: Seq[String] => Seq[String]): TreeEvent =
       event.kind.fold(
