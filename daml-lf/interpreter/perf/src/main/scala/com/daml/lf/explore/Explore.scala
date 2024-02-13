@@ -74,7 +74,7 @@ object PlaySpeedy {
 
   private def parseArgs(args: Seq[String]): Option[Config] = argsParser.parse(
     args,
-    Config(majorLfVersion = LanguageMajorVersion.V1, names = List()),
+    Config(majorLfVersion = LanguageMajorVersion.V2, names = List()),
   )
 
   private def parseArgsOrDie(args: Seq[String]): Config = {

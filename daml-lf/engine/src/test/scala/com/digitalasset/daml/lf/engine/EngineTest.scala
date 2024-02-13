@@ -719,7 +719,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
         values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
       )
-      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minExplicitDisclosure)
+      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minVersion)
       val unusedContractKey = Value.ValueRecord(
         None,
         ImmArray(
@@ -2311,7 +2311,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadPackage(
       s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
     )
-    val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == majorLanguageVersion)
+    val compatibleLanguageVersions = LanguageVersion.All
     val stablePackages = StablePackages(majorLanguageVersion).allPackages
 
     s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
@@ -2370,31 +2370,12 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
     "reject disallowed packages" in {
       val negativeTestCases = Table(
         ("pkg version", "minVersion", "maxversion"),
-        (LV.v1_6, LV.v1_6, LV.v1_8),
-        (LV.v1_7, LV.v1_6, LV.v1_8),
-        (LV.v1_8, LV.v1_6, LV.v1_8),
-        (LV.v1_dev, LV.v1_6, LV.v1_dev),
         (LV.v2_1, LV.v2_1, LV.v2_dev),
         (LV.v2_dev, LV.v2_1, LV.v2_dev),
-      )
-      val positiveTestCases = Table(
-        ("pkg version", "minVersion", "maxversion"),
-        (LV.v1_6, LV.v1_7, LV.v1_dev),
-        (LV.v1_7, LV.v1_8, LV.v1_8),
-        (LV.v1_8, LV.v1_6, LV.v1_7),
-        (LV.v1_dev, LV.v1_6, LV.v1_8),
-        (LV.v2_dev, LV.v1_6, LV.v1_8),
-        (LV.v2_dev, LV.v1_6, LV.v1_dev),
-        (LV.v1_6, LV.v2_1, LV.v2_dev),
-        (LV.v1_dev, LV.v2_1, LV.v2_dev),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>
         engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultDone[_]]
-      )
-
-      forEvery(positiveTestCases)((v, min, max) =>
-        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultError]
       )
     }
   }
@@ -2528,12 +2509,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
-  def getPackageName(basicTestsPkg: Package): Option[PackageName] = {
-    if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
-      None
-    else
-      Some(basicTestsPkg.metadata.name)
-  }
+  def getPackageName(basicTestsPkg: Package): Option[PackageName] =
+    Some(basicTestsPkg.metadata.name)
 
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(

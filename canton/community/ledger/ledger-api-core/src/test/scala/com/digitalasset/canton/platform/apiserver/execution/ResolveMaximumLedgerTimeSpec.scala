@@ -86,7 +86,6 @@ class ResolveMaximumLedgerTimeSpec
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,
-      agreementText = "",
       version = TransactionVersion.StableVersions.max,
     )
 

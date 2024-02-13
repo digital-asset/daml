@@ -502,21 +502,6 @@ object LedgerApiCommands {
         CommandCompletionServiceGrpc.stub(channel)
     }
 
-    final case class CompletionEnd()
-        extends BaseCommand[CompletionEndRequest, CompletionEndResponse, LedgerOffset] {
-
-      override def createRequest(): Either[String, CompletionEndRequest] =
-        Right(CompletionEndRequest())
-
-      override def submitRequest(
-          service: CommandCompletionServiceStub,
-          request: CompletionEndRequest,
-      ): Future[CompletionEndResponse] =
-        service.completionEnd(request)
-      override def handleResponse(response: CompletionEndResponse): Either[String, LedgerOffset] =
-        response.offset.toRight("Empty CompletionEndResponse received without offset")
-    }
-
     final case class CompletionRequest(
         partyId: LfPartyId,
         offset: LedgerOffset,

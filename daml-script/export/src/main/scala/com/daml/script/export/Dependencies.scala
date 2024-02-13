@@ -46,8 +46,8 @@ object Dependencies {
     *
     * If so then we need to generate replacement instances for standard template and choice instances.
     */
-  def lfMissingInstances(version: LanguageVersion): Boolean =
-    LanguageVersion.Ordering.lt(version, LanguageVersion.v1_8)
+  // TODO(https://github.com/digital-asset/daml/issues/18240): delete this and its transitive uses
+  def lfMissingInstances(_version: LanguageVersion): Boolean = false
 
   final case class ChoiceInstanceSpec(
       arg: Ast.Type,
@@ -96,12 +96,12 @@ object Dependencies {
 
   /** The Daml-LF version to target based on the DALF dependencies.
     *
-    * Chooses the latest LF version among the DALFs but at least 1.14 as that is the minimum supported by damlc.
+    * Chooses the latest LF version among the DALFs but at least 2.1 as that is the minimum supported by damlc.
     * Returns None if no DALFs are given.
     */
   def targetLfVersion(dalfs: Iterable[LanguageVersion]): Option[LanguageVersion] = {
     if (dalfs.isEmpty) { None }
-    else { Some((List(LanguageVersion.v1_14) ++ dalfs).max) }
+    else { Some((List(LanguageVersion.v2_1) ++ dalfs).max) }
   }
 
   def targetFlag(v: LanguageVersion): String =

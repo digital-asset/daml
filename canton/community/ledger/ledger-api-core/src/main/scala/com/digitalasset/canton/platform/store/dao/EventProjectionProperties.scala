@@ -23,12 +23,18 @@ final case class EventProjectionProperties(
     wildcardWitnesses: Set[String],
     // Map(witness -> Map(template -> projection))
     witnessTemplateProjections: Map[String, Map[Identifier, Projection]] = Map.empty,
+    alwaysPopulateCreatedEventBlob: Boolean = false,
 ) {
   def render(witnesses: Set[String], templateId: Identifier): Projection =
     witnesses.iterator
       .flatMap(witnessTemplateProjections.get(_).iterator)
       .flatMap(_.get(templateId).iterator)
-      .foldLeft(Projection(contractArguments = witnesses.exists(wildcardWitnesses)))(_ append _)
+      .foldLeft(
+        Projection(
+          contractArguments = witnesses.exists(wildcardWitnesses),
+          createdEventBlob = alwaysPopulateCreatedEventBlob,
+        )
+      )(_ append _)
 }
 
 object EventProjectionProperties {
@@ -67,6 +73,7 @@ object EventProjectionProperties {
       wildcardWitnesses = wildcardWitnesses(transactionFilter, alwaysPopulateArguments),
       witnessTemplateProjections =
         witnessTemplateProjections(transactionFilter, interfaceImplementedBy, resolveTemplateIds),
+      alwaysPopulateCreatedEventBlob = transactionFilter.alwaysPopulateCreatedEventBlob,
     )
 
   private def wildcardWitnesses(

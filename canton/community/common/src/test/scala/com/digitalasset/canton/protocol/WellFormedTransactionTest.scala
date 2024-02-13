@@ -270,7 +270,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
             signatories = Set(signatory),
             key = Some(
               LfGlobalKeyWithMaintainers
-                .assertBuild(templateId, contractInst.unversioned.arg, Set.empty, shared = true)
+                .assertBuild(templateId, contractInst.unversioned.arg, Set.empty)
             ),
           ),
           ExampleTransactionFactory.exerciseNode(
@@ -282,7 +282,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
                 templateId,
                 contractInst.unversioned.arg,
                 Set.empty,
-                shared = true,
               )
             ),
           ),

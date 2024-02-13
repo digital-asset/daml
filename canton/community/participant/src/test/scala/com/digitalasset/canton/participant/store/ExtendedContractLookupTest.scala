@@ -97,12 +97,12 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
     val transactionId1 = transactionId(1)
     val transactionId2 = transactionId(2)
     val key00: LfGlobalKey =
-      LfGlobalKey.build(instance0Template, ValueUnit, true).value
+      LfGlobalKey.build(instance0Template, ValueUnit).value
     val key1: LfGlobalKey =
-      LfGlobalKey.build(instance0Template, ValueText("abc"), true).value
+      LfGlobalKey.build(instance0Template, ValueText("abc")).value
     val forbiddenKey: LfGlobalKey =
       LfGlobalKey
-        .build(instance0Template, ValueText("forbiddenKey"), true)
+        .build(instance0Template, ValueText("forbiddenKey"))
         .value
     val alice = LfPartyId.assertFromString("alice")
     val bob = LfPartyId.assertFromString("bob")

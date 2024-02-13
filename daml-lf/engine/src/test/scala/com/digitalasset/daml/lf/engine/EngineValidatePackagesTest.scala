@@ -63,21 +63,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     }
 
-    "reject packages with disallowed language version" in {
-
-      val engine = new Engine(EngineConfig(LanguageVersion.LegacyVersions))
-
-      assert(!LanguageVersion.LegacyVersions.contains(langVersion))
-
-      inside(engine.validatePackages(Map(pkgId -> pkg))) {
-        case Left(err: Error.Package.AllowedLanguageVersion) =>
-          err.packageId shouldBe pkgId
-          err.languageVersion shouldBe langVersion
-          err.allowedLanguageVersions shouldBe LanguageVersion.LegacyVersions
-      }
-
-    }
-
     "reject non self-consistent sets of packages" in {
 
       val libraryId = Ref.PackageId.assertFromString("-library-")

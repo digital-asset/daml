@@ -3,12 +3,11 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.daml.metrics.{ExecutorServiceMetrics, HealthMetrics}
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
 
@@ -26,9 +25,6 @@ object Metrics {
 }
 
 final class Metrics(prefix: MetricName, val openTelemetryMetricsFactory: LabeledMetricsFactory) {
-
-  // Note: execution context metrics are disabled due to performance reasons
-  val executorServiceMetrics = new ExecutorServiceMetrics(NoOpMetricsFactory)
 
   object commands extends CommandMetrics(prefix :+ "commands", openTelemetryMetricsFactory)
 

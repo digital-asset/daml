@@ -8,9 +8,9 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.processing.{
   AuthorizedTopologyTransaction,
   EffectiveTime,
@@ -33,7 +33,9 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp](
 ) extends HasVersionedWrapper[StoredTopologyTransactions[TopologyChangeOp]]
     with PrettyPrinting {
 
-  override protected def companionObj = StoredTopologyTransactions
+  override protected def companionObj
+      : HasVersionedMessageCompanionCommon[StoredTopologyTransactions[TopologyChangeOp]] =
+    StoredTopologyTransactions
 
   override def pretty: Pretty[StoredTopologyTransactions.this.type] = prettyOfParam(
     _.result
@@ -66,7 +68,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp](
     transactions.flatMap {
       case sit @ SignedTopologyTransaction(
             TopologyStateUpdate(Add, TopologyStateUpdateElement(_, mapping)),
-            key,
+            _key,
             _,
           ) =>
         collector
@@ -108,22 +110,6 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp](
   def positiveTransactions: PositiveStoredTopologyTransactions = {
     val (adds, _, replaces) = split
     PositiveStoredTopologyTransactions(adds, replaces)
-  }
-
-  /** Split transactions into certificates and everything else (used when uploading to a participant) */
-  def splitCertsAndRest: StoredTopologyTransactions.CertsAndRest[Op] = {
-    val certTypes = Set(
-      DomainTopologyTransactionType.IdentifierDelegation,
-      DomainTopologyTransactionType.NamespaceDelegation,
-    )
-    val empty = Seq.empty[StoredTopologyTransaction[Op]]
-    val (certs, rest) = result.foldLeft((empty, empty)) { case ((certs, rest), tx) =>
-      if (certTypes.contains(tx.transaction.uniquePath.dbType))
-        (certs :+ tx, rest)
-      else
-        (certs, rest :+ tx)
-    }
-    StoredTopologyTransactions.CertsAndRest(certs, rest)
   }
 
   /** The timestamp of the last topology transaction (if there is at least one)

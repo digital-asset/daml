@@ -174,13 +174,6 @@ featureDynamicExercise = Feature
     , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
     }
 
-featurePackageUpgrades :: Feature
-featurePackageUpgrades = Feature
-    { featureName = "Package upgrades POC"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
-    }
-
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -193,7 +186,6 @@ featureExperimental = Feature
 foreverCppFlags :: [T.Text]
 foreverCppFlags =
     [ "DAML_NAT_SYN"
-    , "DAML_NAT_TYPE_ERASURE"
     , "DAML_INTERFACE"
     , "DAML_RIGHT_TO_LEFT_EVALUATION"
     ]
@@ -211,7 +203,6 @@ allFeatures =
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
-    , featurePackageUpgrades
     ]
 
 -- | A map from feature CPP flags to features.

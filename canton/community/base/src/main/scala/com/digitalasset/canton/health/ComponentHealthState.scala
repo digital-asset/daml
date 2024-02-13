@@ -31,14 +31,14 @@ sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrin
   override def pretty: Pretty[ComponentHealthState] =
     ComponentHealthState.prettyComponentHealthState
 
-  def toComponentStatusV0: proto.NodeStatus.ComponentStatus.Status = this match {
+  def toComponentStatusV0: proto.StatusResponse.ComponentStatus.Status = this match {
     case Ok(description) =>
-      proto.NodeStatus.ComponentStatus.Status
-        .Ok(proto.NodeStatus.ComponentStatus.StatusData(description))
+      proto.StatusResponse.ComponentStatus.Status
+        .Ok(proto.StatusResponse.ComponentStatus.StatusData(description))
     case Degraded(degraded) =>
-      proto.NodeStatus.ComponentStatus.Status.Degraded(degraded.toComponentStatusDataV0)
+      proto.StatusResponse.ComponentStatus.Status.Degraded(degraded.toComponentStatusDataV0)
     case Failed(failed) =>
-      proto.NodeStatus.ComponentStatus.Status.Failed(failed.toComponentStatusDataV0)
+      proto.StatusResponse.ComponentStatus.Status.Failed(failed.toComponentStatusDataV0)
   }
 }
 
@@ -117,8 +117,8 @@ object ComponentHealthState extends ShowUtil {
       s"${error.code.codeStr(elc.flatMap(_.traceContext.traceId))}: ${error.cause}"
     }
 
-    def toComponentStatusDataV0: proto.NodeStatus.ComponentStatus.StatusData =
-      proto.NodeStatus.ComponentStatus.StatusData(Some(this.show))
+    def toComponentStatusDataV0: proto.StatusResponse.ComponentStatus.StatusData =
+      proto.StatusResponse.ComponentStatus.StatusData(Some(this.show))
   }
 
   object UnhealthyState {

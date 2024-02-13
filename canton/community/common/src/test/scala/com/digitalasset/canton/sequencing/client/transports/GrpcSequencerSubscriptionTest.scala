@@ -39,7 +39,8 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
                 timestamp = Some(Timestamp()),
                 batch = Some(
                   v30.CompressedBatch(
-                    algorithm = v30.CompressedBatch.CompressionAlgorithm.None,
+                    algorithm =
+                      v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_UNSPECIFIED,
                     compressedBatch = ByteStringUtil.compressGzip(
                       v30
                         .Batch(envelopes =
@@ -64,7 +65,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
           ),
           Seq(
             cryptoproto.Signature(
-              format = cryptoproto.SignatureFormat.RawSignatureFormat,
+              format = cryptoproto.SignatureFormat.SIGNATURE_FORMAT_RAW,
               signature = ByteString.copyFromUtf8("not checked in this test"),
               signedBy = "not checked",
             )
@@ -79,7 +80,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
 
   val ServerName = "sequencer"
 
-  def expectedError(ex: StatusRuntimeException) =
+  def expectedError(ex: StatusRuntimeException): Left[GrpcError, Nothing] =
     Left(GrpcError(RequestDescription, ServerName, ex))
 
   def createSubscription(

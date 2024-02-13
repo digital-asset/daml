@@ -706,7 +706,6 @@ class DemoUI(script: BaseScript, val loggerFactory: NamedLoggerFactory)
     Threading.newExecutionContext(
       "demo-ui",
       noTracingLogger,
-      maybeMetrics = None,
     )
   private implicit val actorSystem: ActorSystem = PekkoUtil.createActorSystem("demo-ui")
   private implicit val sequencerPool: ExecutionSequencerFactory =

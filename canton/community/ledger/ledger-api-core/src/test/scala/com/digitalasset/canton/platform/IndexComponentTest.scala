@@ -15,7 +15,11 @@ import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
-import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{
+  InternalStateServiceProviderImpl,
+  ReadService,
+  Update,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.IndexComponentTest.{TestReadService, TestServices}
@@ -53,8 +57,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
 
   // if we would need multi-db, polimorphism can come here, look for JdbcLedgerDaoBackend
   private val jdbcUrl = s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase};db_close_delay=-1"
-
-  private val multiDomainEnabled = true
 
   private val testServicesRef: AtomicReference[TestServices] = new AtomicReference()
 
@@ -94,7 +96,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          multiDomainEnabled = multiDomainEnabled,
         )
         _indexerHealth <- new IndexerServiceOwner(
           participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),
@@ -136,7 +137,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           maxQueueSize = 10000,
           maxBatchSize = 50,
           parallelism = 5,
-          multiDomainEnabled = multiDomainEnabled,
           loggerFactory = loggerFactory,
         )
         indexService <- new IndexServiceOwner(
@@ -189,7 +189,9 @@ object IndexComponentTest {
 
   val maxUpdateCount = 1000000
 
-  class TestReadService(implicit val materializer: Materializer) extends ReadService {
+  class TestReadService(implicit val materializer: Materializer)
+      extends ReadService
+      with InternalStateServiceProviderImpl {
     private var currentEnd: Int = 0
     private var queue: Vector[(Offset, Traced[Update])] = Vector.empty
     private var subscription: BoundedSourceQueue[(Offset, Traced[Update])] = _

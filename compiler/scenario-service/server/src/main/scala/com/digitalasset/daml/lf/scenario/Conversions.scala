@@ -848,7 +848,7 @@ final class Conversions(
             .build
         )
       case V.ValueInt64(v) => builder.setInt64(v)
-      case V.ValueNumeric(d) => builder.setDecimal(Numeric.toString(d))
+      case V.ValueNumeric(d) => builder.setNumeric(Numeric.toString(d))
       case V.ValueText(t) => builder.setText(t)
       case V.ValueTimestamp(ts) => builder.setTimestamp(ts.micros)
       case V.ValueDate(d) => builder.setDate(d.days)

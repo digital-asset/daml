@@ -36,7 +36,7 @@ final class AdminLedgerClient private (
 
   private val topologyServiceStub =
     AdminLedgerClient.stub(
-      admin_topology_service.TopologyManagerReadServiceXGrpc.stub(channel),
+      admin_topology_service.TopologyManagerReadXServiceGrpc.stub(channel),
       token,
     )
 
@@ -96,7 +96,7 @@ final class AdminLedgerClient private (
             admin_topology_service.BaseQuery(
               filterStore = None,
               proposals = false,
-              operation = TopologyChangeOpX.Replace,
+              operation = TopologyChangeOpX.TOPOLOGY_CHANGE_OP_X_REPLACE_UNSPECIFIED,
               filterOperation = false,
               timeQuery = admin_topology_service.BaseQuery.TimeQuery
                 .HeadState(com.google.protobuf.empty.Empty()),

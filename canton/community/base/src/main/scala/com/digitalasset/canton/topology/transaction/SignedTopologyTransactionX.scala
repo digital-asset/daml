@@ -64,6 +64,11 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
       isProposal,
     )(representativeProtocolVersion)
 
+  def removeSignatures(keys: Set[Fingerprint]): Option[SignedTopologyTransactionX[Op, M]] =
+    NonEmpty
+      .from(signatures.filterNot(sig => keys.contains(sig.signedBy)))
+      .map(updatedSignatures => copy(signatures = updatedSignatures))
+
   def operation: Op = transaction.op
 
   def mapping: M = transaction.mapping

@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
-import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
+import com.daml.lf.language.LanguageMajorVersion.V2
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SBuiltin.{SBCastAnyContract, SBFetchAny}
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
@@ -134,7 +134,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
 private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   val (commonVersion, oldVersion, newVersion) = majorLanguageVersion match {
-    case V1 => (LanguageVersion.default, LanguageVersion.v1_15, LanguageVersion.v1_dev)
     case V2 =>
       (
         LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),

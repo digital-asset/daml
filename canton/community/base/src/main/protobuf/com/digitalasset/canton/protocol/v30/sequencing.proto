@@ -104,8 +104,8 @@ message CompressedBatch {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   enum CompressionAlgorithm {
-    None = 0;
-    Gzip = 1;
+    COMPRESSION_ALGORITHM_UNSPECIFIED = 0;
+    COMPRESSION_ALGORITHM_GZIP = 1;
   }
 
   v30.CompressedBatch.CompressionAlgorithm algorithm = 1;

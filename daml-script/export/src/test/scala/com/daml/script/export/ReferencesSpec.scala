@@ -4,9 +4,10 @@
 package com.daml.script.export
 
 import com.daml.ledger.api.v1.{value => v}
+import com.daml.lf.language.{LanguageVersion, StablePackages}
+
 import java.time.{Instant, LocalDate, OffsetDateTime, ZoneOffset}
 import java.util.concurrent.TimeUnit
-
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{ContractId, Party}
 import com.daml.script.export.TreeUtils.{contractsReferences, treesReferences, valueRefs}
 import com.google.protobuf.empty.Empty
@@ -16,6 +17,8 @@ import org.scalatest.matchers.should.Matchers
 class ReferencesSpec extends AnyFreeSpec with Matchers {
   private def assertMicrosFromInstant(i: Instant): Long =
     TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(i.getNano.toLong)
+
+  private val daTypesPkgId = StablePackages(LanguageVersion.default.major).DA_Types.packageId
 
   "valueRefs" - {
     val nestedId = v.Identifier("pkg-id", "M", "Nested")
@@ -34,7 +37,7 @@ class ReferencesSpec extends AnyFreeSpec with Matchers {
     "tuple" in {
       def tupleId(n: Int): v.Identifier = v
         .Identifier()
-        .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+        .withPackageId(daTypesPkgId)
         .withModuleName("DA.Types")
         .withEntityName(s"Tuple$n")
       def tuple(vals: v.Value*): v.Value = {
@@ -69,12 +72,12 @@ class ReferencesSpec extends AnyFreeSpec with Matchers {
     "either" in {
       val leftId: v.Identifier = v
         .Identifier()
-        .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+        .withPackageId(daTypesPkgId)
         .withModuleName("DA.Types")
         .withEntityName("Left")
       val rightId: v.Identifier = v
         .Identifier()
-        .withPackageId("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+        .withPackageId(daTypesPkgId)
         .withModuleName("DA.Types")
         .withEntityName("Right")
       val variant =

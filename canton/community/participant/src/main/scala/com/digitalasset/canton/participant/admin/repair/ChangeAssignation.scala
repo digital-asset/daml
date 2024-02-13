@@ -377,7 +377,6 @@ private final class ChangeAssignation(
         ),
         transferId = transferId,
         targetDomain = targetDomainId,
-        createTransactionAccepted = false,
         workflowId = None,
         isTransferringParticipant = false,
         hostedStakeholders =

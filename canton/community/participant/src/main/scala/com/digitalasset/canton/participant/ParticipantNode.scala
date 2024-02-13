@@ -108,10 +108,7 @@ object ParticipantNodeBootstrap {
         meteringReportKey = CommunityKey,
         futureSupervisor = arguments.futureSupervisor,
         loggerFactory = arguments.loggerFactory,
-        multiDomainEnabled = multiDomainEnabledForLedgerApiServer,
       )
-
-    protected def multiDomainEnabledForLedgerApiServer: Boolean
 
     protected def createNode(
         arguments: Arguments,

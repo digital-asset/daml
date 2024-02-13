@@ -131,13 +131,11 @@ class SequencerMemberRateLimiterTest extends AnyFlatSpec with BaseTest {
       AboveTrafficLimit(
         sender,
         NonNegativeLong.tryCreate(21),
-        Some(
-          TrafficState(
-            NonNegativeLong.zero,
-            NonNegativeLong.zero,
-            NonNegativeLong.tryCreate(20),
-            eventTimestamp,
-          )
+        TrafficState(
+          NonNegativeLong.zero,
+          NonNegativeLong.zero,
+          NonNegativeLong.tryCreate(20),
+          eventTimestamp,
         ),
       )
     ) -> None
@@ -283,13 +281,11 @@ class SequencerMemberRateLimiterTest extends AnyFlatSpec with BaseTest {
       AboveTrafficLimit(
         sender,
         NonNegativeLong.tryCreate(200L),
-        Some(
-          TrafficState(
-            extraTrafficRemainder = NonNegativeLong.tryCreate(50L),
-            extraTrafficConsumed = NonNegativeLong.zero,
-            baseTrafficRemainder = NonNegativeLong.tryCreate(100L),
-            timestamp = eventTimestamp,
-          )
+        TrafficState(
+          extraTrafficRemainder = NonNegativeLong.tryCreate(50L),
+          extraTrafficConsumed = NonNegativeLong.zero,
+          baseTrafficRemainder = NonNegativeLong.tryCreate(100L),
+          timestamp = eventTimestamp,
         ),
       )
     ) -> Some(topUp)

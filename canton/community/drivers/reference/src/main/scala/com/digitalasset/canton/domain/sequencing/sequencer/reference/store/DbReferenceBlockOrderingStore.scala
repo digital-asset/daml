@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.domain.block.BlockOrderer
 import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.DbReferenceBlockOrderingStore.deserializeBytes
-import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v0 as proto
+import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}

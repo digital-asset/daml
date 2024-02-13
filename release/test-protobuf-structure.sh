@@ -69,6 +69,7 @@ com/daml/ledger/api/v1/transaction_filter.proto
 com/daml/ledger/api/v1/transaction_service.proto
 com/daml/ledger/api/v1/value.proto
 com/daml/ledger/api/v1/version_service.proto
+com/daml/ledger/api/v2/checkpoint.proto
 com/daml/ledger/api/v2/command_completion_service.proto
 com/daml/ledger/api/v2/command_service.proto
 com/daml/ledger/api/v2/command_submission_service.proto

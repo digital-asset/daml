@@ -7,6 +7,7 @@ import cats.instances.option.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
@@ -29,7 +30,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, checked}
+import com.digitalasset.canton.{ProtoDeserializationError, checked, protocol}
 
 import scala.concurrent.Future
 import scala.math.Ordered.orderingToOrdered
@@ -98,14 +99,15 @@ final case class StaticDomainParameters private (
 object StaticDomainParameters
     extends HasProtocolVersionedCompanion[StaticDomainParameters]
     with ProtocolVersionedCompanionDbHelpers[StaticDomainParameters] {
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v30.StaticDomainParameters
-    )(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+  val supportedProtoVersions: protocol.StaticDomainParameters.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+        v30.StaticDomainParameters
+      )(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   override def name: String = "static domain parameters"
 
@@ -199,25 +201,29 @@ object OnboardingRestriction {
   def fromProtoV30(
       onboardingRestrictionP: v30.OnboardingRestriction
   ): ParsingResult[OnboardingRestriction] = onboardingRestrictionP match {
-    case v30.OnboardingRestriction.UnrestrictedOpen => Right(UnrestrictedOpen)
-    case v30.OnboardingRestriction.UnrestrictedLocked => Right(UnrestrictedLocked)
-    case v30.OnboardingRestriction.RestrictedOpen => Right(RestrictedOpen)
-    case v30.OnboardingRestriction.RestrictedLocked => Right(RestrictedLocked)
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN =>
+      Right(UnrestrictedOpen)
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED =>
+      Right(UnrestrictedLocked)
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_OPEN => Right(RestrictedOpen)
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_LOCKED =>
+      Right(RestrictedLocked)
     case v30.OnboardingRestriction.Unrecognized(value) =>
       Left(ProtoDeserializationError.UnrecognizedEnum("onboarding_restriction", value))
-    case v30.OnboardingRestriction.MissingDomainPermissioning =>
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNSPECIFIED =>
       Left(ProtoDeserializationError.FieldNotSet("onboarding_restriction"))
   }
 
   /** Anyone can join */
   final case object UnrestrictedOpen extends OnboardingRestriction {
-    override def toProtoV30: v30.OnboardingRestriction = v30.OnboardingRestriction.UnrestrictedOpen
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN
   }
 
   /** In theory, anyone can join, except now, the registration procedure is closed */
   final case object UnrestrictedLocked extends OnboardingRestriction {
     override def toProtoV30: v30.OnboardingRestriction =
-      v30.OnboardingRestriction.UnrestrictedLocked
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED
   }
 
   /** Only participants on the allowlist can join
@@ -225,12 +231,14 @@ object OnboardingRestriction {
     * Requires the domain owners to issue a valid ParticipantDomainPermission transaction
     */
   final case object RestrictedOpen extends OnboardingRestriction {
-    override def toProtoV30: v30.OnboardingRestriction = v30.OnboardingRestriction.RestrictedOpen
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_OPEN
   }
 
   /** Only participants on the allowlist can join in theory, except now, the registration procedure is closed */
   final case object RestrictedLocked extends OnboardingRestriction {
-    override def toProtoV30: v30.OnboardingRestriction = v30.OnboardingRestriction.RestrictedLocked
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_LOCKED
   }
 
 }
@@ -285,7 +293,7 @@ object OnboardingRestriction {
   * @param sequencerAggregateSubmissionTimeout the maximum time for how long an incomplete aggregate submission request is
   *                                            allowed to stay pending in the sequencer's state before it's removed.
   *                                            Must be at least `participantResponseTimeout` + `mediatorReactionTimeout` in a practical system.
-  * @param onboardingRestrictions current onboarding restrictions for participants
+  * @param onboardingRestriction current onboarding restrictions for participants
   * @throws DynamicDomainParameters$.InvalidDynamicDomainParameters
   *   if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
   */
@@ -441,14 +449,15 @@ final case class DynamicDomainParameters private (
 
 object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDomainParameters] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v30.DynamicDomainParameters
-    )(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+  val supportedProtoVersions: canton.protocol.DynamicDomainParameters.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+        v30.DynamicDomainParameters
+      )(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   override def name: String = "dynamic domain parameters"
 

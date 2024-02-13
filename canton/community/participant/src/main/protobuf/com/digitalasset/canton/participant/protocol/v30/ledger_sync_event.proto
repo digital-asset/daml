@@ -57,7 +57,7 @@ message ConfigurationChangeRejected {
   string submission_id = 1;
   string reason = 2;
   string participant_id = 3;
-  google.protobuf.Timestamp recordTime = 4;
+  google.protobuf.Timestamp record_time = 4;
   Configuration proposed_configuration = 5;
 }
 
@@ -106,7 +106,7 @@ message CompletionInfo {
   repeated string act_as = 1;
   string application_id = 2;
   string command_id = 3;
-  com.digitalasset.canton.protocol.v30.DeduplicationPeriod optDeduplicationPeriod = 4;
+  com.digitalasset.canton.protocol.v30.DeduplicationPeriod opt_deduplication_period = 4;
   string submission_id = 5;
 }
 
@@ -144,9 +144,9 @@ message Parties {
 }
 
 enum CommandKind {
-  Transaction = 0;
-  TransferOut = 1;
-  TransferIn = 2;
+  COMMAND_KIND_TRANSACTION_UNSPECIFIED = 0;
+  COMMAND_KIND_TRANSFER_OUT = 1;
+  COMMAND_KIND_TRANSFER_IN = 2;
 }
 
 message CommandRejected {
@@ -189,11 +189,10 @@ message TransferredIn {
   bytes contract_metadata = 8;
   com.digitalasset.canton.protocol.v30.TransferId transfer_out_id = 9;
   string target_domain = 10;
-  bool create_transaction_accepted = 11;
-  string workflow_id = 12; // optional
-  bool is_transferring_participant = 13;
-  repeated string hosted_stakeholders = 14;
-  int64 transfer_counter = 15;
+  string workflow_id = 11; // optional
+  bool is_transferring_participant = 12;
+  repeated string hosted_stakeholders = 13;
+  int64 transfer_counter = 14;
 }
 
 message ContractsAdded {

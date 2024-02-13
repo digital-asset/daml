@@ -746,6 +746,7 @@ abstract class EventStorageBackendTemplate(
 ) extends EventStorageBackend
     with NamedLogging {
   import EventStorageBackendTemplate.*
+  import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
 
   override def transactionPointwiseQueries: TransactionPointwiseQueries =
     new TransactionPointwiseQueries(
@@ -784,8 +785,6 @@ abstract class EventStorageBackendTemplate(
       pruneAllDivulgedContracts: Boolean,
       incompletReassignmentOffsets: Vector[Offset],
   )(implicit connection: Connection, traceContext: TraceContext): Unit = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-
     val _ =
       SQL"""
           -- Create temporary table for storing incomplete reassignment offsets
@@ -918,7 +917,6 @@ abstract class EventStorageBackendTemplate(
       connection: Connection,
       traceContext: TraceContext,
   ): Unit = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     // Improvement idea:
     // In order to prune an id filter table we query two additional tables: create and consuming events tables.
     // This can be simplified to query only the create events table if we ensure the ordering
@@ -1021,23 +1019,36 @@ abstract class EventStorageBackendTemplate(
   }
 
   private def createIsArchivedOrUnassigned(
-      eventTableName: String,
+      createEventTableName: String,
       pruneUpToInclusive: Offset,
   ): CompositeSql =
-    eventIsArchivedOrUnassigned(eventTableName, pruneUpToInclusive, "domain_id")
+    cSQL"""
+          ${eventIsArchivedOrUnassigned(createEventTableName, pruneUpToInclusive, "domain_id")}
+          and ${activationIsNotDirectlyFollowedByIncompleteUnassign(
+        createEventTableName,
+        "domain_id",
+        pruneUpToInclusive,
+      )}
+          """
 
   private def assignIsArchivedOrUnassigned(
-      eventTableName: String,
+      assignEventTableName: String,
       pruneUpToInclusive: Offset,
   ): CompositeSql =
-    eventIsArchivedOrUnassigned(eventTableName, pruneUpToInclusive, "target_domain_id")
+    cSQL"""
+      ${eventIsArchivedOrUnassigned(assignEventTableName, pruneUpToInclusive, "target_domain_id")}
+      and ${activationIsNotDirectlyFollowedByIncompleteUnassign(
+        assignEventTableName,
+        "target_domain_id",
+        pruneUpToInclusive,
+      )}
+      """
 
   private def eventIsArchivedOrUnassigned(
       eventTableName: String,
       pruneUpToInclusive: Offset,
       eventDomainName: String,
-  ): CompositeSql = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+  ): CompositeSql =
     cSQL"""
           (
             exists (
@@ -1060,9 +1071,7 @@ abstract class EventStorageBackendTemplate(
                 AND unassign_events.event_sequential_id > #$eventTableName.event_sequential_id
               ${QueryStrategy.limitClause(Some(1))}
             )
-          )
-          """
-  }
+          )"""
 
   private def reassignmentIsNotIncomplete(eventTableName: String): CompositeSql =
     cSQL"""
@@ -1102,6 +1111,29 @@ abstract class EventStorageBackendTemplate(
                 ${QueryStrategy.limitClause(Some(1))}
               )
           )"""
+  private def activationIsNotDirectlyFollowedByIncompleteUnassign(
+      activationTableName: String,
+      activationDomainColumnName: String,
+      pruneUpToInclusive: Offset,
+  ): CompositeSql =
+    cSQL"""
+          not exists (
+            SELECT 1
+            FROM temp_incomplete_reassignment_offsets
+            WHERE
+              temp_incomplete_reassignment_offsets.incomplete_offset in (
+                SELECT unassign_events.event_offset
+                FROM participant_events_unassign unassign_events
+                WHERE
+                  -- this one is backed by a (contract_id, domain_id, event_sequential_id) index
+                  unassign_events.contract_id = #$activationTableName.contract_id
+                  AND unassign_events.source_domain_id = #$activationTableName.#$activationDomainColumnName
+                  AND unassign_events.event_sequential_id > #$activationTableName.event_sequential_id
+                  AND unassign_events.event_offset <= $pruneUpToInclusive
+                ORDER BY event_sequential_id ASC
+                ${QueryStrategy.limitClause(Some(1))}
+              )
+          )"""
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(implicit
       connection: Connection,
@@ -1115,7 +1147,6 @@ abstract class EventStorageBackendTemplate(
       untilInclusiveOffset: Offset
   )(connection: Connection): Long = {
     val ledgerEnd = ledgerEndCache()
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
      SELECT
         event_sequential_id_first

@@ -42,19 +42,19 @@ message ParticipantDomainLimits {
 // Note that currently, only transitions from restricted to unrestricted are supported, but not
 // the other way around.
 enum OnboardingRestriction {
-  MissingDomainPermissioning = 0;
+  ONBOARDING_RESTRICTION_UNSPECIFIED = 0;
 
   // Any participant can join the domain
-  UnrestrictedOpen = 1;
+  ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN = 1;
 
   // No participant can currently join the domain
-  UnrestrictedLocked = 2;
+  ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED = 2;
 
   // Only participants with a valid participant domain state can join the domain (allowlisting)
-  RestrictedOpen = 3;
+  ONBOARDING_RESTRICTION_RESTRICTED_OPEN = 3;
 
   // No participant can currently join the restricted domain
-  RestrictedLocked = 4;
+  ONBOARDING_RESTRICTION_RESTRICTED_LOCKED = 4;
 }
 
 message DynamicDomainParameters {

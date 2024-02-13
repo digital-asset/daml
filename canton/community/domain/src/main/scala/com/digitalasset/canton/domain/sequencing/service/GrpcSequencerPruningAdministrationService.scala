@@ -31,9 +31,11 @@ class GrpcSequencerPruningAdministrationService(
     with NamedLogging {
 
   /** Remove data from the Sequencer */
-  override def prune(req: v30.Pruning.Request): Future[v30.Pruning.Response] = {
+  override def prune(
+      req: v30.SequencerPruning.PruneRequest
+  ): Future[v30.SequencerPruning.PruneResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    EitherTUtil.toFuture[StatusException, v30.Pruning.Response] {
+    EitherTUtil.toFuture[StatusException, v30.SequencerPruning.PruneResponse] {
       for {
         requestedTimestamp <- EitherT
           .fromEither[Future](
@@ -50,7 +52,7 @@ class GrpcSequencerPruningAdministrationService(
             case e: PruningError.UnsafePruningPoint =>
               Status.FAILED_PRECONDITION.withDescription(e.message).asException()
           }
-      } yield v30.Pruning.Response(details)
+      } yield v30.SequencerPruning.PruneResponse(details)
     }
   }
   override def locatePruningTimestamp(

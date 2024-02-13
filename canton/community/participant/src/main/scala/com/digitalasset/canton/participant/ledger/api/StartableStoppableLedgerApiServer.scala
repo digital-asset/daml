@@ -4,10 +4,11 @@
 package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -16,10 +17,13 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain.{Filters, TransactionFilter}
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.ledger.localstore.{CachedIdentityProviderConfigStore, *}
+import com.digitalasset.canton.ledger.offset.Offset
+import com.digitalasset.canton.ledger.participant.state.v2.InternalStateService
 import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
   TimedReadService,
   TimedWriteService,
@@ -51,10 +55,13 @@ import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadat
 import com.digitalasset.canton.protocol.UnicumGenerator
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
@@ -73,7 +80,6 @@ class StartableStoppableLedgerApiServer(
     dbConfig: DbSupport.DbConfig,
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
-    multiDomainEnabled: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -141,6 +147,7 @@ class StartableStoppableLedgerApiServer(
     execQueue.execute(
       ledgerApiResource.get match {
         case Some(ledgerApiServerToStop) =>
+          config.syncService.unregisterInternalStateService()
           FutureUtil.logOnFailure(
             ledgerApiServerToStop.release().map { _unit =>
               logger.debug("Successfully stopped ledger API server")
@@ -198,7 +205,6 @@ class StartableStoppableLedgerApiServer(
           executionContext,
           tracer,
           loggerFactory,
-          multiDomainEnabled = multiDomainEnabled,
         )
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       indexerHealth <- new IndexerServiceOwner(
@@ -243,7 +249,6 @@ class StartableStoppableLedgerApiServer(
           maxQueueSize = maxQueueSize.value,
           maxBatchSize = maxBatchSize.value,
           parallelism = parallelism.value,
-          multiDomainEnabled = multiDomainEnabled,
           loggerFactory = loggerFactory,
         )
       }
@@ -261,6 +266,20 @@ class StartableStoppableLedgerApiServer(
         incompleteOffsets = timedReadService.incompleteReassignmentOffsets(_, _)(_),
         contractLoader = contractLoader,
       )
+      _ = timedReadService.registerInternalStateService(new InternalStateService {
+        override def activeContracts(
+            partyIds: Set[LfPartyId],
+            validAt: Option[Offset],
+        )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed] =
+          indexService.getActiveContracts(
+            filter = TransactionFilter(
+              filtersByParty = partyIds.view.map(_ -> Filters.noFilter).toMap,
+              alwaysPopulateCreatedEventBlob = true,
+            ),
+            verbose = false,
+            activeAtO = validAt,
+          )(new LoggingContextWithTrace(LoggingEntries.empty, traceContext))
+      })
       userManagementStore = getUserManagementStore(dbSupport, loggerFactory)
       partyRecordStore = new PersistentPartyRecordStore(
         dbSupport = dbSupport,

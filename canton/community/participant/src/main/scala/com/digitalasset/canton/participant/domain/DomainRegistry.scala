@@ -245,23 +245,6 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
           with DomainRegistryError
     }
 
-    @Explanation(
-      """This error indicates that the domain requires the participant to accept a
-                                service agreement before connecting to it."""
-    )
-    @Resolution(
-      "Use the commands $participant.domains.get_agreement and $participant.domains.accept_agreement to accept the agreement."
-    )
-    object ServiceAgreementAcceptanceFailed
-        extends ErrorCode(
-          id = "SERVICE_AGREEMENT_ACCEPTANCE_FAILED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl(cause = "Service agreement failed")
-          with DomainRegistryError
-    }
-
     // TODO(i5990) actually figure out what the failure reasons are and distinguish them between internal and normal
     @Explanation(
       """This error indicates that the participant to domain handshake has failed."""

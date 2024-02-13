@@ -50,8 +50,8 @@ public class IouMain {
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
-    AtomicReference<ParticipantOffsetV2> acsOffset =
-        new AtomicReference<>(ParticipantOffsetV2.ParticipantBegin.getInstance());
+    AtomicReference<ParticipantOffset> acsOffset =
+        new AtomicReference<>(ParticipantOffset.ParticipantBegin.getInstance());
 
     client
         .getStateClient()
@@ -59,7 +59,7 @@ public class IouMain {
         .blockingForEach(
             response -> {
               response.offset.ifPresent(
-                  offset -> acsOffset.set(new ParticipantOffsetV2.Absolute(offset)));
+                  offset -> acsOffset.set(new ParticipantOffset.Absolute(offset)));
               response.activeContracts.forEach(
                   contract -> {
                     long id = idCounter.getAndIncrement();
@@ -131,7 +131,7 @@ public class IouMain {
 
   private static <U> U submit(LedgerClient client, String party, Update<U> update) {
     var updateSubmission =
-        UpdateSubmissionV2.create(APP_ID, randomUUID().toString(), update).withActAs(party);
+        UpdateSubmission.create(APP_ID, randomUUID().toString(), update).withActAs(party);
 
     return client.getCommandClient().submitAndWaitForResult(updateSubmission).blockingGet();
   }

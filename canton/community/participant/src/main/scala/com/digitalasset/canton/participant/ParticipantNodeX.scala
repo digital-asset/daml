@@ -392,8 +392,6 @@ object ParticipantNodeBootstrapX {
         skipRecipientsCheck = true,
       )
     }
-
-    override protected def multiDomainEnabledForLedgerApiServer: Boolean = true
   }
 }
 

@@ -17,8 +17,8 @@ import scala.annotation.nowarn
 /** Simple representation of the health state of a component, easily (de)serializable (from)to protobuf or JSON
   */
 final case class ComponentStatus(name: String, state: ComponentHealthState) extends PrettyPrinting {
-  def toProtoV30: proto.NodeStatus.ComponentStatus =
-    proto.NodeStatus.ComponentStatus(
+  def toProtoV30: proto.StatusResponse.ComponentStatus =
+    proto.StatusResponse.ComponentStatus(
       name = name,
       status = state.toComponentStatusV0,
     )
@@ -27,20 +27,22 @@ final case class ComponentStatus(name: String, state: ComponentHealthState) exte
 }
 
 object ComponentStatus {
-  def fromProtoV30(dependency: proto.NodeStatus.ComponentStatus): ParsingResult[ComponentStatus] =
+  def fromProtoV30(
+      dependency: proto.StatusResponse.ComponentStatus
+  ): ParsingResult[ComponentStatus] =
     dependency.status match {
-      case proto.NodeStatus.ComponentStatus.Status.Ok(value) =>
+      case proto.StatusResponse.ComponentStatus.Status.Ok(value) =>
         ComponentStatus(
           dependency.name,
           ComponentHealthState.Ok(value.description),
         ).asRight
-      case proto.NodeStatus.ComponentStatus.Status
-            .Degraded(value: proto.NodeStatus.ComponentStatus.StatusData) =>
+      case proto.StatusResponse.ComponentStatus.Status
+            .Degraded(value: proto.StatusResponse.ComponentStatus.StatusData) =>
         ComponentStatus(
           dependency.name,
           Degraded(UnhealthyState(value.description)),
         ).asRight
-      case proto.NodeStatus.ComponentStatus.Status.Failed(value) =>
+      case proto.StatusResponse.ComponentStatus.Status.Failed(value) =>
         ComponentStatus(
           dependency.name,
           Failed(UnhealthyState(value.description)),

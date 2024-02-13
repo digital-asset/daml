@@ -13,7 +13,7 @@ service MediatorInitializationService {
   // If the Mediator is uninitialized it should initialize itself with the provided configuration
   // If the Mediator is already initialized then verify the request is for the domain we're running against,
   // if correct then just return the current key otherwise fail.
-  rpc Initialize(InitializeMediatorRequest) returns (InitializeMediatorResponse);
+  rpc InitializeMediator(InitializeMediatorRequest) returns (InitializeMediatorResponse);
 }
 
 message InitializeMediatorRequest {

@@ -10,8 +10,8 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.domain.api.v30.DomainTimeServiceGrpc.DomainTimeServiceStub
+import com.digitalasset.canton.time.admin.v30
+import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc.DomainTimeServiceStub
 import com.digitalasset.canton.time.{
   AwaitTimeRequest,
   FetchTimeRequest,
@@ -19,7 +19,6 @@ import com.digitalasset.canton.time.{
   NonNegativeFiniteDuration,
 }
 import com.digitalasset.canton.topology.DomainId
-import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -59,7 +58,7 @@ object DomainTimeCommands {
       domainIdO: Option[DomainId],
       time: CantonTimestamp,
       timeout: NonNegativeDuration,
-  ) extends BaseDomainTimeCommand[AwaitTimeRequest, Empty, Unit] {
+  ) extends BaseDomainTimeCommand[AwaitTimeRequest, v30.AwaitTimeResponse, Unit] {
 
     override def createRequest(): Either[String, AwaitTimeRequest] =
       Right(AwaitTimeRequest(domainIdO, time))
@@ -67,10 +66,10 @@ object DomainTimeCommands {
     override def submitRequest(
         service: DomainTimeServiceStub,
         request: AwaitTimeRequest,
-    ): Future[Empty] =
+    ): Future[v30.AwaitTimeResponse] =
       service.awaitTime(request.toProtoV30)
 
-    override def handleResponse(response: Empty): Either[String, Unit] = Right(())
+    override def handleResponse(response: v30.AwaitTimeResponse): Either[String, Unit] = Right(())
 
     override def timeoutType: TimeoutType = CustomClientTimeout(timeout)
   }

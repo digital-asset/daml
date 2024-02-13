@@ -130,7 +130,7 @@ class EnterpriseSequencerRateLimitManagerTest
         AboveTrafficLimit(
           sender,
           NonNegativeLong.tryCreate(eventCost),
-          Some(someState),
+          someState,
         )
       )
 

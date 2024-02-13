@@ -122,7 +122,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
               Seq(
                 (ErrorResource.TemplateId, key.templateId.toString),
                 (ErrorResource.ContractKey, encodedKey),
-                (ErrorResource.SharedKey, GlobalKey.isShared(key).toString),
               )
             }
         }
@@ -173,7 +172,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
               (ErrorResource.TemplateId, err.key.templateId.toString),
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.ContractKey, encodedKey),
-              (ErrorResource.SharedKey, GlobalKey.isShared(err.key).toString),
               (ErrorResource.ContractKeyHash, err.declaredHash.toString),
             )
           }

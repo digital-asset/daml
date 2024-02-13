@@ -11,10 +11,10 @@ import "google/protobuf/timestamp.proto";
 // Definitions shared by at least 2 out of mediator.proto, participant_transaction.proto and participant_transfer.proto
 
 enum ViewType {
-  MissingViewType = 0;
-  TransactionViewType = 1;
-  TransferOutViewType = 2;
-  TransferInViewType = 3;
+  VIEW_TYPE_UNSPECIFIED = 0;
+  VIEW_TYPE_TRANSACTION = 1;
+  VIEW_TYPE_TRANSFER_OUT = 2;
+  VIEW_TYPE_TRANSFER_IN = 3;
 }
 
 message GlobalKey {

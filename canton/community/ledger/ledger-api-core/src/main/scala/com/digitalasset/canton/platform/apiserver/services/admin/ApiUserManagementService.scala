@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 }
 import com.daml.ledger.api.v1.admin.user_management_service as proto
 import com.daml.lf.data.Ref
-import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
+import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.auth.ClaimAdmin

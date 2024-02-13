@@ -14,7 +14,11 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{
+  InternalStateServiceProviderImpl,
+  ReadService,
+  Update,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.LedgerApiServer
@@ -77,7 +81,6 @@ class IndexerBenchmark extends NamedLogging {
               indexerExecutionContext,
               tracer,
               loggerFactory,
-              multiDomainEnabled = false,
             )
             .acquire()
         indexerFactory = new JdbcIndexer.Factory(
@@ -172,7 +175,7 @@ class IndexerBenchmark extends NamedLogging {
   private[this] def createReadService(
       updates: Source[(Offset, Traced[Update]), NotUsed]
   ): ReadService = {
-    new ReadService {
+    new ReadService with InternalStateServiceProviderImpl {
       override def stateUpdates(
           beginAfter: Option[Offset]
       )(implicit traceContext: TraceContext): Source[(Offset, Traced[Update]), NotUsed] = {

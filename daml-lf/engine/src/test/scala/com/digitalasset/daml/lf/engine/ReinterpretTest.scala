@@ -149,27 +149,6 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       val Left(err) = reinterpretCommand(theCommand)
       assert(err.message.contains("Error: functions are not comparable"))
     }
-
-    "rollback version 14 contract creation" in {
-      // LF v2 does not need to ensure compatibility with v1.14
-      assume(majorLanguageVersion == LanguageMajorVersion.V1)
-
-      val choiceName = "Contract14ThenThrow"
-      val theCommand = {
-        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
-        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
-        val cid = toContractId("ReinterpretTests:MySimple:1")
-        ReplayCommand.Exercise(
-          templateId,
-          None,
-          cid,
-          choiceName,
-          ValueRecord(Some(r), ImmArray.Empty),
-        )
-      }
-      val Right(tx) = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
-    }
   }
 }
 

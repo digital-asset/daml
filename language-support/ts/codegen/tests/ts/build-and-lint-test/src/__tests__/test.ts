@@ -10,7 +10,6 @@ import Ledger, {
   Event,
   Stream,
   PartyInfo,
-  Query,
   UserRightHelper,
 } from "@daml/ledger";
 import {
@@ -219,8 +218,7 @@ describe("decoders for recursive types do not loop", () => {
   });
 });
 
-//TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
-test.skip("create + fetch & exercise", async () => {
+test("create + fetch & exercise", async () => {
   const aliceLedger = new Ledger({
     token: ALICE_TOKEN,
     httpBaseUrl: httpBaseUrl(),
@@ -229,9 +227,7 @@ test.skip("create + fetch & exercise", async () => {
     token: BOB_TOKEN,
     httpBaseUrl: httpBaseUrl(),
   });
-  const aliceRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person, {
-    party: ALICE_PARTY,
-  });
+  const aliceRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person);
   const aliceStream = promisifyStream(aliceRawStream);
   // TODO(MH): Move this live marker into `promisifyStream`. Unfortunately,
   // it didn't work the straightforward way and we need to spend more time
@@ -268,13 +264,9 @@ test.skip("create + fetch & exercise", async () => {
   let personContracts = await aliceLedger.query(buildAndLint.Main.Person);
   expect(personContracts).toEqual([alice5Contract]);
 
-  const aliceContracts = await aliceLedger.query(buildAndLint.Main.Person, {
-    party: ALICE_PARTY,
-  });
+  const aliceContracts = await aliceLedger.query(buildAndLint.Main.Person);
   expect(aliceContracts).toEqual(personContracts);
-  const bobContracts = await aliceLedger.query(buildAndLint.Main.Person, {
-    party: BOB_PARTY,
-  });
+  const bobContracts = await bobLedger.query(buildAndLint.Main.Person);
   expect(bobContracts).toEqual([]);
 
   let alice5ContractById = await aliceLedger.fetch(
@@ -283,17 +275,18 @@ test.skip("create + fetch & exercise", async () => {
   );
   expect(alice5ContractById).toEqual(alice5Contract);
 
-  const alice5ContractByKey = await aliceLedger.fetchByKey(
-    buildAndLint.Main.Person,
-    alice5Key,
-  );
-  expect(alice5ContractByKey).toEqual(alice5Contract);
-
-  const bobByKey = await aliceLedger.fetchByKey(
-    buildAndLint.Main.Person,
-    bob4Key,
-  );
-  expect(bobByKey).toBeNull();
+  //TODO enable, when canton supports contract keys https://github.com/DACH-NY/canton/issues/16065
+  // const alice5ContractByKey = await aliceLedger.fetchByKey(
+  //   buildAndLint.Main.Person,
+  //   alice5Key,
+  // );
+  // expect(alice5ContractByKey).toEqual(alice5Contract);
+  //
+  // const bobByKey = await aliceLedger.fetchByKey(
+  //   buildAndLint.Main.Person,
+  //   bob4Key,
+  // );
+  // expect(bobByKey).toBeNull();
 
   // Alice has a birthday and turns 6. The choice returns the new contract id.
   // There are two events: the archival of the old contract and the creation of
@@ -335,16 +328,16 @@ test.skip("create + fetch & exercise", async () => {
   expect(personContracts).toEqual([alice6Contract]);
 
   const alice6Key = { ...alice5Key, _2: "6" };
-  const alice6KeyRawStream = aliceLedger.streamFetchByKey(
-    buildAndLint.Main.Person,
-    alice6Key,
-  );
-  const alice6KeyStream = promisifyStream(alice6KeyRawStream);
-  const alice6KeyStreamLive = pEvent(alice6KeyRawStream, "live");
-  expect(await alice6KeyStream.next()).toEqual([
-    alice6Contract,
-    [{ created: alice6Contract }],
-  ]);
+  // const alice6KeyRawStream = aliceLedger.streamFetchByKey(
+  //   buildAndLint.Main.Person,
+  //   alice6Key,
+  // );
+  // const alice6KeyStream = promisifyStream(alice6KeyRawStream);
+  // const alice6KeyStreamLive = pEvent(alice6KeyRawStream, "live");
+  // expect(await alice6KeyStream.next()).toEqual([
+  //   alice6Contract,
+  //   [{ created: alice6Contract }],
+  // ]);
 
   const personRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person);
   const personStream = promisifyStream(personRawStream);
@@ -356,7 +349,7 @@ test.skip("create + fetch & exercise", async () => {
 
   // end of non-live data, first offset
   expect(await personStreamLive).toEqual([alice6Contract]);
-  expect(await alice6KeyStreamLive).toEqual(alice6Contract);
+  // expect(await alice6KeyStreamLive).toEqual(alice6Contract);
 
   // Bob enters the scene.
   const bob4Contract = await bobLedger.create(buildAndLint.Main.Person, bob4);
@@ -368,9 +361,9 @@ test.skip("create + fetch & exercise", async () => {
   ]);
 
   // Alice changes her name.
-  [result, events] = await aliceLedger.exerciseByKey(
+  [result, events] = await aliceLedger.exercise(
     buildAndLint.Main.Person.Rename,
-    alice6Contract.key,
+    alice6Contract.contractId,
     { newName: "Alice Cooper" },
   );
   expect(result).not.toEqual(alice6Contract.contractId);
@@ -391,17 +384,18 @@ test.skip("create + fetch & exercise", async () => {
     age: "6",
   });
   expect(cooper6Contract.key).toEqual(alice6Key);
+  await aliceStream.next();
   expect(await aliceStream.next()).toEqual([
-    [cooper6Contract],
+    [bob4Contract, cooper6Contract],
     [
       { archived: alice6Archived },
       { created: cooper6Contract, matchedQueries: [0] },
     ],
   ]);
-  expect(await alice6KeyStream.next()).toEqual([
-    cooper6Contract,
-    [{ archived: alice6Archived }, { created: cooper6Contract }],
-  ]);
+  // expect(await alice6KeyStream.next()).toEqual([
+  //   cooper6Contract,
+  //   [{ archived: alice6Archived }, { created: cooper6Contract }],
+  // ]);
   expect(await personStream.next()).toEqual([
     [bob4Contract, cooper6Contract],
     [
@@ -420,13 +414,13 @@ test.skip("create + fetch & exercise", async () => {
   );
   expect(cooper7Archived.contractId).toEqual(cooper6Contract.contractId);
   expect(await aliceStream.next()).toEqual([
-    [],
+    [bob4Contract],
     [{ archived: cooper7Archived }],
   ]);
-  expect(await alice6KeyStream.next()).toEqual([
-    null,
-    [{ archived: cooper7Archived }],
-  ]);
+  // expect(await alice6KeyStream.next()).toEqual([
+  //   null,
+  //   [{ archived: cooper7Archived }],
+  // ]);
   expect(await personStream.next()).toEqual([
     [bob4Contract],
     [{ archived: cooper7Archived }],
@@ -447,7 +441,7 @@ test.skip("create + fetch & exercise", async () => {
   expect(personContracts).toEqual([]);
 
   aliceStream.close();
-  alice6KeyStream.close();
+  // alice6KeyStream.close();
   personStream.close();
 
   const map: Map<buildAndLint.Main.Expr2<Int>, Int> = emptyMap<
@@ -787,32 +781,7 @@ describe("interfaces", () => {
     expect(acs).toContainEqual(expectedAc);
   });
 
-  //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
-  test.skip("sync query with predicate", async () => {
-    const { aliceLedger, expectedView, contract } =
-      await aliceLedgerPayloadContract();
-    function isCt(ev: CreateEvent<Token>) {
-      return ev.contractId === Asset.toInterface(Token, contract.contractId);
-    }
-    // check that Query type accepts removing the brand
-    const succeedingQuery: Query<Token> = {
-      tokenOwner: ALICE_PARTY,
-    };
-    const failingQuery = { tokenOwner: BOB_PARTY };
-
-    const foundCt = (await aliceLedger.query(Token, succeedingQuery)).filter(
-      isCt,
-    );
-    const noCt = (await aliceLedger.query(Token, failingQuery)).filter(isCt);
-    const expectedMatchedContract = {
-      payload: expectedView,
-      templateId: Token.templateId,
-    };
-    expect(foundCt).toMatchObject([expectedMatchedContract]);
-    expect(noCt).toEqual([]);
-  });
-
-  //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
+  //TODO enable, when canton supports fetching the interface view in json-api https://github.com/DACH-NY/canton/issues/13812
   test.skip("fetch", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
@@ -827,12 +796,11 @@ describe("interfaces", () => {
     });
   });
 
-  //TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
-  test.skip("WS query", async () => {
+  test("WS query", async () => {
     const { aliceLedger, expectedView, contract } =
       await aliceLedgerPayloadContract();
     const tokenCid = Asset.toInterface(Token, contract.contractId);
-    const stream = aliceLedger.streamQueries(Token, [expectedView]);
+    const stream = aliceLedger.streamQueries(Token, []);
     type FoundCreate = typeof stream extends Stream<
       object,
       unknown,
@@ -980,8 +948,8 @@ test("createAndExercise", async () => {
   );
 });
 
-//TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
-test.skip("multi-{key,query} stream", async () => {
+//TODO enable, when canton supports contract keys https://github.com/DACH-NY/canton/issues/16065
+test.skip("multi-key stream", async () => {
   const ledger = new Ledger({ token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl() });
 
   function collect<T extends object, K, I extends string, State>(
@@ -1020,18 +988,6 @@ test.skip("multi-{key,query} stream", async () => {
     s.close();
     await p;
   }
-  // Add support for comparison queries
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const streamQueriesWithComparison = ledger.streamQueries.bind(ledger) as (
-    t: any,
-    qs: any,
-  ) => any;
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-  const q = streamQueriesWithComparison(buildAndLint.Main.Counter, [
-    { p: ALICE_PARTY, t: "included" },
-    { c: { "%gt": 5 } },
-  ]);
-  const queryResult = await collect(q);
   const ks = ledger.streamFetchByKeys(buildAndLint.Main.Counter, [
     { _1: ALICE_PARTY, _2: "included" },
     { _1: ALICE_PARTY, _2: "byKey" },
@@ -1056,65 +1012,7 @@ test.skip("multi-{key,query} stream", async () => {
 
   await sleep(500);
 
-  await close(q);
   await close(ks);
-
-  expect(queryResult).toMatchObject([
-    [
-      [{ payload: { c: "0", t: "included" } }],
-      [{ created: { payload: { c: "0", t: "included" } } }],
-    ],
-
-    [
-      [
-        { payload: { c: "0", t: "included" } },
-        { payload: { c: "10", t: "excluded" } },
-      ],
-      [{ archived: {} }, { created: { payload: { c: "10", t: "excluded" } } }],
-    ],
-
-    [
-      [
-        { payload: { c: "0", t: "included" } },
-        { payload: { c: "10", t: "excluded" } },
-      ],
-      [{ archived: {} }],
-    ],
-
-    [
-      [
-        { payload: { c: "0", t: "included" } },
-        { payload: { c: "10", t: "excluded" } },
-        { payload: { c: "6", t: "byKey" } },
-      ],
-      [{ archived: {} }, { created: { payload: { c: "6", t: "byKey" } } }],
-    ],
-
-    [
-      [
-        { payload: { c: "0", t: "included" } },
-        { payload: { c: "6", t: "byKey" } },
-      ],
-      [{ archived: {} }],
-    ],
-
-    [
-      [
-        { payload: { c: "6", t: "byKey" } },
-        { payload: { c: "2", t: "included" } },
-      ],
-      [{ archived: {} }, { created: { payload: { c: "2", t: "included" } } }],
-    ],
-
-    [[{ payload: { c: "6", t: "byKey" } }], [{ archived: {} }]],
-
-    [[], [{ archived: {} }]],
-
-    [
-      [{ payload: { c: "0", t: "included" } }],
-      [{ created: { payload: { c: "0", t: "included" } } }],
-    ],
-  ]);
 
   expect(byKeysResult).toMatchObject([
     [
@@ -1323,16 +1221,13 @@ test("package API", async () => {
   expect(downSuc.byteLength > 0).toBe(true);
 });
 
-//TODO enable, when canton supports queries in json-api https://github.com/DACH-NY/canton/issues/16324
-test.skip("reconnect on timeout, when multiplexing is enabled", async () => {
+test("reconnect on timeout, when multiplexing is enabled", async () => {
   const charlieLedger = new Ledger({
     token: CHARLIE_TOKEN,
     httpBaseUrl: httpBaseUrl(),
     multiplexQueryStreams: true,
   });
-  const charlieRawStream = charlieLedger.streamQuery(buildAndLint.Main.Person, {
-    party: CHARLIE_PARTY,
-  });
+  const charlieRawStream = charlieLedger.streamQuery(buildAndLint.Main.Person);
   const charlieStream = promisifyStream(charlieRawStream);
   const charlieStreamLive = pEvent(charlieRawStream, "live");
   expect(await charlieStreamLive).toEqual([]);

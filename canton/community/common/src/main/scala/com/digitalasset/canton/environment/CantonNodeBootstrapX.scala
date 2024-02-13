@@ -223,7 +223,7 @@ abstract class CantonNodeBootstrapX[
     addCloseable(topologyManager)
     adminServerRegistry
       .addServiceU(
-        adminV30.TopologyManagerReadServiceXGrpc
+        adminV30.TopologyManagerReadXServiceGrpc
           .bindService(
             new GrpcTopologyManagerReadServiceX(
               sequencedTopologyStores :+ authorizedStore,
@@ -235,7 +235,7 @@ abstract class CantonNodeBootstrapX[
       )
     adminServerRegistry
       .addServiceU(
-        adminV30.TopologyManagerWriteServiceXGrpc
+        adminV30.TopologyManagerWriteXServiceGrpc
           .bindService(
             new GrpcTopologyManagerWriteServiceX(
               sequencedTopologyManagers :+ topologyManager,
@@ -251,7 +251,7 @@ abstract class CantonNodeBootstrapX[
       )
     adminServerRegistry
       .addServiceU(
-        adminV30.IdentityInitializationServiceXGrpc
+        adminV30.IdentityInitializationXServiceGrpc
           .bindService(
             new GrpcIdentityInitializationServiceX(
               clock,

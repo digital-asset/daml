@@ -13,18 +13,18 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 final case class TopologyStateForInitResponse(
     topologyTransactions: Traced[GenericStoredTopologyTransactionsX]
 ) {
-  def toProtoV30: v30.TopologyStateForInitResponse =
-    v30.TopologyStateForInitResponse(
+  def toProtoV30: v30.DownloadTopologyStateForInitResponse =
+    v30.DownloadTopologyStateForInitResponse(
       topologyTransactions = Some(topologyTransactions.value.toProtoV30)
     )
 }
 
 object TopologyStateForInitResponse {
 
-  def fromProtoV30(responseP: v30.TopologyStateForInitResponse)(implicit
+  def fromProtoV30(responseP: v30.DownloadTopologyStateForInitResponse)(implicit
       traceContext: TraceContext
   ): ParsingResult[TopologyStateForInitResponse] = {
-    val v30.TopologyStateForInitResponse(
+    val v30.DownloadTopologyStateForInitResponse(
       topologyTransactionsP
     ) = {
       responseP

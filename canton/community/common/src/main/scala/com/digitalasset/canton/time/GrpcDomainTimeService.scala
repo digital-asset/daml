@@ -8,14 +8,13 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.time.admin.v30
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, EitherUtil}
-import com.google.protobuf.empty.Empty
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -48,7 +47,7 @@ private[time] class GrpcDomainTimeService(
     }
   }
 
-  override def awaitTime(requestP: v30.AwaitTimeRequest): Future[Empty] = {
+  override def awaitTime(requestP: v30.AwaitTimeRequest): Future[v30.AwaitTimeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     handle {
       for {
@@ -66,7 +65,7 @@ private[time] class GrpcDomainTimeService(
             .awaitTick(request.timestamp)
             .fold(Future.unit)(_.void)
         )
-      } yield Empty()
+      } yield v30.AwaitTimeResponse()
     }
   }
 

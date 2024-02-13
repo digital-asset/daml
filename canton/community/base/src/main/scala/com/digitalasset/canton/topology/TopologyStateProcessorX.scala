@@ -16,6 +16,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX.GenericValidatedTopologyTransactionX
 import com.digitalasset.canton.topology.store.{
+  SignedTopologyTransactionsX,
   TopologyStoreId,
   TopologyStoreX,
   TopologyTransactionRejection,
@@ -77,6 +78,9 @@ class TopologyStateProcessorX(
       pureCrypto,
       store,
       None,
+      // if transactions are put directly into a store (ie there is no outbox queue)
+      // then the authorization validation is final.
+      validationIsFinal = outboxQueue.isEmpty,
       loggerFactory.append("role", "incoming"),
     )
 
@@ -91,7 +95,7 @@ class TopologyStateProcessorX(
   def validateAndApplyAuthorization(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      transactions: Seq[GenericSignedTopologyTransactionX],
+      transactionsToValidate: Seq[GenericSignedTopologyTransactionX],
       // TODO(#12390) propagate and abort unless we use force
       abortIfCascading: Boolean,
       expectFullAuthorization: Boolean,
@@ -105,6 +109,8 @@ class TopologyStateProcessorX(
     val abortOnError = outboxQueue.nonEmpty
 
     type Lft = Seq[GenericValidatedTopologyTransactionX]
+
+    val transactions = SignedTopologyTransactionsX.compact(transactionsToValidate)
 
     // first, pre-load the currently existing mappings and proposals for the given transactions
     val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)

@@ -53,6 +53,7 @@ sealed trait SimplestPingXCommunityIntegrationTest
   }
 }
 
+// If this test is renamed, update `propose-open-source-code-drop.sh`
 final class SimplestPingReferenceXCommunityIntegrationTest
     extends SimplestPingXCommunityIntegrationTest {
   registerPlugin(

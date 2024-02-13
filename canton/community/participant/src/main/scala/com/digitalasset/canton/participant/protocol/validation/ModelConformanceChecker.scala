@@ -411,7 +411,6 @@ object ModelConformanceChecker {
           LfCreateCommand(unversioned.template, unversioned.arg),
           contract.ledgerCreateTime,
         )(traceContext)
-        .map(_.copy(agreementText = "")) // not used anymore
         .leftMap(DAMLeFailure.apply)
       expected: LfNodeCreate = LfNodeCreate(
         // Do not validate the contract id. The validation would fail due to mismatching seed.
@@ -421,7 +420,6 @@ object ModelConformanceChecker {
         packageName = unversioned.packageName,
         templateId = unversioned.template,
         arg = unversioned.arg,
-        agreementText = "", // not used anymore
         signatories = metadata.signatories,
         stakeholders = metadata.stakeholders,
         keyOpt = metadata.maybeKeyWithMaintainers,

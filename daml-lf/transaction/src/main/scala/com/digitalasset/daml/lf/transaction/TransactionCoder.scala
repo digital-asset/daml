@@ -214,9 +214,7 @@ object TransactionCoder {
       enclosingVersion: TransactionVersion,
       nodeId: NodeId,
       node: Node,
-      disableVersionCheck: Boolean =
-        false, // true allows encoding of bad protos (for testing of decode checks)
-  ): Either[EncodeError, TransactionOuterClass.Node] = {
+  ) = {
 
     val nodeBuilder =
       TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid.asString(nodeId))
@@ -225,20 +223,14 @@ object TransactionCoder {
       case Node.Rollback(children) =>
         val builder = TransactionOuterClass.NodeRollback.newBuilder()
         children.foreach(id => discard(builder.addChildren(encodeNid.asString(id))))
-        for {
-          _ <- Either.cond(
-            test = enclosingVersion >= TransactionVersion.minExceptions || disableVersionCheck,
-            right = (),
-            left = EncodeError(enclosingVersion, isTooOldFor = "rollback nodes"),
-          )
-        } yield nodeBuilder.setRollback(builder).build()
+        Right(nodeBuilder.setRollback(builder).build())
 
       case node: Node.Action =>
         val nodeVersion = node.version
         if (enclosingVersion < nodeVersion)
           Left(
             EncodeError(
-              s"A transaction of version $enclosingVersion cannot contain nodes of newer version ($nodeVersion)"
+              s"A transaction of version ${enclosingVersion.protoValue} cannot contain nodes of newer version ($nodeVersion)"
             )
           )
         else {
@@ -309,11 +301,9 @@ object TransactionCoder {
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
               }
-              if (nodeVersion >= TransactionVersion.minInterfaces) {
-                ne.interfaceId.foreach(iface =>
-                  builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
-                )
-              }
+              ne.interfaceId.foreach(iface =>
+                builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
+              )
               for {
                 encodedPkgName <- encodePackageName(ne.packageName, nodeVersion)
                 _ = builder.setPackageName(encodedPkgName)
@@ -338,11 +328,7 @@ object TransactionCoder {
                       builder.setResultUnversioned,
                     )
                   case None =>
-                    Either.cond(
-                      test = ne.version >= TransactionVersion.minExceptions || disableVersionCheck,
-                      right = (),
-                      left = EncodeError(nodeVersion, isTooOldFor = "NodeExercises without result"),
-                    )
+                    Right(())
                 }
                 _ <- encodeAndSetContractKey(
                   nodeVersion,
@@ -460,13 +446,6 @@ object TransactionCoder {
       case NodeTypeCase.ROLLBACK =>
         val protoRollback = protoNode.getRollback
         for {
-          _ <- Either.cond(
-            test = nodeVersion >= TransactionVersion.minExceptions,
-            right = (),
-            left = DecodeError(
-              s"rollback node (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
-            ),
-          )
           ni <- nodeId
           children <- decodeChildren(decodeNid, protoRollback.getChildrenList)
         } yield ni -> Node.Rollback(children)
@@ -533,13 +512,7 @@ object TransactionCoder {
           templateId <- ValueCoder.decodeIdentifier(protoExe.getTemplateId)
           rvOpt <-
             if (!protoExe.hasResultVersioned && protoExe.getResultUnversioned.isEmpty) {
-              Either.cond(
-                test = nodeVersion >= TransactionVersion.minExceptions,
-                right = None,
-                left = DecodeError(
-                  s"NodeExercises without result (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
-                ),
-              )
+              Right(None)
             } else {
               decodeValue(
                 decodeCid,
@@ -577,7 +550,7 @@ object TransactionCoder {
               protoExe.getByKey
             else false
           interfaceId <-
-            if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasInterfaceId) {
+            if (protoExe.hasInterfaceId) {
               ValueCoder.decodeIdentifier(protoExe.getInterfaceId).map(Some(_))
             } else {
               Right(None)
@@ -699,7 +672,7 @@ object TransactionCoder {
           case Right(nodeVersion) if (txVersion < nodeVersion) =>
             Left(
               DecodeError(
-                s"A transaction of version $txVersion cannot contain node of newer version (${protoNode.getVersion})"
+                s"A transaction of version ${txVersion.protoValue} cannot contain node of newer version (${protoNode.getVersion})"
               )
             )
           case otherwise => otherwise
@@ -945,11 +918,6 @@ object TransactionCoder {
     for {
       versionedBlob <- decodeVersioned(bytes)
       Versioned(version, unversioned) = versionedBlob
-      _ <- Either.cond(
-        version >= TransactionVersion.V14,
-        (),
-        DecodeError(s"version $version does not support FatContractInstance"),
-      )
       proto <- scala.util
         .Try(TransactionOuterClass.FatContractInstance.parseFrom(unversioned))
         .toEither

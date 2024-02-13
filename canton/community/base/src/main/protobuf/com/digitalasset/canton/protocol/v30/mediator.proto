@@ -17,14 +17,14 @@ import "scalapb/scalapb.proto";
 
 message MediatorRejection {
   enum Code {
-    MissingCode = 0;
-    InformeesNotHostedOnActiveParticipant = 1;
-    NotEnoughConfirmingParties = 2;
-    ViewThresholdBelowMinimumThreshold = 3;
-    InvalidRootHashMessage = 4;
-    Timeout = 5;
-    WrongDeclaredMediator = 6;
-    NonUniqueRequestUuid = 7;
+    CODE_UNSPECIFIED = 0;
+    CODE_INFORMEES_NOT_HOSTED_ON_ACTIVE_PARTICIPANT = 1;
+    CODE_NOT_ENOUGH_CONFIRMING_PARTIES = 2;
+    CODE_VIEW_THRESHOLD_BELOW_MINIMUM_THRESHOLD = 3;
+    CODE_VIEW_INVALID_ROOT_HASH_MESSAGE = 4;
+    CODE_TIMEOUT = 5;
+    CODE_WRONG_DECLARED_MEDIATOR = 6;
+    CODE_NON_UNIQUE_REQUEST_UUID = 7;
   }
 }
 

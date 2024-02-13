@@ -168,7 +168,6 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       FutureSupervisor.Noop,
       SuppressingLogger(getClass),
       skipRecipientsCheck = false,
-      multiDomainLedgerAPIEnabled = false,
     )
   }
 
@@ -259,7 +258,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
         domainId = DomainId.tryFromString("da::default"),
       )
 
-      Option(sync.eventTranslationStrategy.augmentTransactionStatistics(event))
+      Option(sync.augmentTransactionStatistics(event))
         .collect({ case ta: TransactionAccepted => ta })
         .flatMap(_.completionInfoO)
         .flatMap(_.statistics)

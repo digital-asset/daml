@@ -40,7 +40,7 @@ class GrpcTopologyManagerWriteServiceX(
     clock: Clock,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends v30.TopologyManagerWriteServiceXGrpc.TopologyManagerWriteServiceX
+    extends v30.TopologyManagerWriteXServiceGrpc.TopologyManagerWriteXService
     with NamedLogging {
 
   override def authorize(request: v30.AuthorizeRequest): Future[v30.AuthorizeResponse] = {

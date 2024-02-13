@@ -15,6 +15,7 @@ import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerId}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   CompletionInfo,
+  InternalStateServiceProviderImpl,
   ReadService,
   TransactionMeta,
   Update,
@@ -43,7 +44,8 @@ final case class EndlessReadService(
 )(implicit traceContext: TraceContext)
     extends ReadService
     with NamedLogging
-    with AutoCloseable {
+    with AutoCloseable
+    with InternalStateServiceProviderImpl {
   import EndlessReadService.*
 
   override def currentHealth(): HealthStatus = blocking(

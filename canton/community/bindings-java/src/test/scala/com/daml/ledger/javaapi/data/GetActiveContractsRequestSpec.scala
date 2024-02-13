@@ -13,7 +13,7 @@ class GetActiveContractsRequestSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 
-  "GetActiveContractsRequestSpec.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
+  "GetActiveContractsRequest.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
     getActiveContractRequestGen
   ) { activeContractRequest =>
     val converted =

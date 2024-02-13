@@ -32,7 +32,7 @@ class GrpcSequencerInitializationServiceX(
 ) extends SequencerInitializationService
     with NamedLogging {
 
-  override def initialize(
+  override def initializeSequencer(
       requestP: InitializeSequencerRequest
   ): Future[InitializeSequencerResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext

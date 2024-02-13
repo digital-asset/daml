@@ -97,12 +97,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       ),
       (TText, ValueText("daml"), SText("daml")),
       (
-        TNumeric(Ast.TNat(Decimal.scale)),
+        TNumeric(Ast.TNat(Numeric.Scale.assertFromInt(10))),
         ValueNumeric(Numeric.assertFromString("10.")),
         SNumeric(Numeric.assertFromString("10.0000000000")),
       ),
-//      TNumeric(TNat(9)) ,
-//        ValueNumeric(Numeric.assertFromString("9.000000000")),
       (TParty, ValueParty("Alice"), SParty("Alice")),
       (
         TContractId(t"Mod:Template"),

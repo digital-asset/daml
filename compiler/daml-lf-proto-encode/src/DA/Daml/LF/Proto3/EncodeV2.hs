@@ -459,21 +459,16 @@ encodeBuiltinExpr = \case
     BECodePointsToText -> builtin P.BuiltinFunctionCODE_POINTS_TO_TEXT
     BETextToParty -> builtin P.BuiltinFunctionTEXT_TO_PARTY
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
-    BETextToNumericLegacy -> builtin P.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY
     BETextToNumeric -> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddNumeric -> builtin P.BuiltinFunctionADD_NUMERIC
     BESubNumeric -> builtin P.BuiltinFunctionSUB_NUMERIC
-    BEMulNumericLegacy -> builtin P.BuiltinFunctionMUL_NUMERIC_LEGACY
     BEMulNumeric -> builtin P.BuiltinFunctionMUL_NUMERIC
-    BEDivNumericLegacy -> builtin P.BuiltinFunctionDIV_NUMERIC_LEGACY
     BEDivNumeric -> builtin P.BuiltinFunctionDIV_NUMERIC
     BERoundNumeric -> builtin P.BuiltinFunctionROUND_NUMERIC
-    BECastNumericLegacy -> builtin P.BuiltinFunctionCAST_NUMERIC_LEGACY
     BECastNumeric -> builtin P.BuiltinFunctionCAST_NUMERIC
-    BEShiftNumericLegacy -> builtin P.BuiltinFunctionSHIFT_NUMERIC_LEGACY
     BEShiftNumeric -> builtin P.BuiltinFunctionSHIFT_NUMERIC
 
     BEScaleBigNumeric -> builtin P.BuiltinFunctionSCALE_BIGNUMERIC
@@ -483,7 +478,6 @@ encodeBuiltinExpr = \case
     BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
     BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
     BEShiftRightBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
-    BEBigNumericToNumericLegacy -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY
     BEBigNumericToNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
     BENumericToBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
 
@@ -494,7 +488,6 @@ encodeBuiltinExpr = \case
     BEModInt64 -> builtin P.BuiltinFunctionMOD_INT64
     BEExpInt64 -> builtin P.BuiltinFunctionEXP_INT64
 
-    BEInt64ToNumericLegacy -> builtin P.BuiltinFunctionINT64_TO_NUMERIC_LEGACY
     BEInt64ToNumeric -> builtin P.BuiltinFunctionINT64_TO_NUMERIC
     BENumericToInt64 -> builtin P.BuiltinFunctionNUMERIC_TO_INT64
 
@@ -761,12 +754,6 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseCid <- encodeExpr exeContractId
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
-    USoftExercise{..} -> do
-        update_SoftExerciseTemplate <- encodeQualTypeConName exeTemplate
-        update_SoftExerciseChoice <- encodeName unChoiceName exeChoice
-        update_SoftExerciseCid <- encodeExpr exeContractId
-        update_SoftExerciseArg <- encodeExpr exeArg
-        pure $ P.UpdateSumSoftExercise P.Update_SoftExercise{..}
     UDynamicExercise{..} -> do
         update_DynamicExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_DynamicExerciseChoiceInternedStr <- encodeNameId unChoiceName exeChoice
@@ -790,10 +777,6 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetch P.Update_Fetch{..}
-    USoftFetch{..} -> do
-        update_SoftFetchTemplate <- encodeQualTypeConName fetTemplate
-        update_SoftFetchCid <- encodeExpr fetContractId
-        pure $ P.UpdateSumSoftFetch P.Update_SoftFetch{..}
     UFetchInterface{..} -> do
         update_FetchInterfaceInterface <- encodeQualTypeConName fetInterface
         update_FetchInterfaceCid <- encodeExpr fetContractId
@@ -1042,7 +1025,7 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
-    defInterfaceCoImplements <- encodeNameMap encodeInterfaceCoImplements intCoImplements
+    let defInterfaceCoImplements = mempty
     defInterfaceView <- encodeType intView
     pure $ P.DefInterface{..}
 
@@ -1052,13 +1035,6 @@ encodeInterfaceMethod InterfaceMethod {..} = do
     interfaceMethodMethodInternedName <- encodeMethodName ifmName
     interfaceMethodType <- encodeType ifmType
     pure $ P.InterfaceMethod{..}
-
-encodeInterfaceCoImplements :: InterfaceCoImplements -> Encode P.DefInterface_CoImplements
-encodeInterfaceCoImplements InterfaceCoImplements {..} = do
-    defInterface_CoImplementsTemplate <- encodeQualTypeConName iciTemplate
-    defInterface_CoImplementsBody <- encodeInterfaceInstanceBody iciBody
-    defInterface_CoImplementsLocation <- traverse encodeSourceLoc iciLocation
-    pure P.DefInterface_CoImplements {..}
 
 encodeUpgradedPackageId :: PackageId -> Encode P.UpgradedPackageId
 encodeUpgradedPackageId upgradedPackageId = do

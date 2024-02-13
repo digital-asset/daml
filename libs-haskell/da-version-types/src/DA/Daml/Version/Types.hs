@@ -87,6 +87,9 @@ sdkVersionToText = V.toText . unwrapSdkVersion
 unresolvedReleaseVersionToString :: UnresolvedReleaseVersion -> String
 unresolvedReleaseVersionToString = V.toString . unwrapUnresolvedReleaseVersion
 
+unresolvedReleaseVersionToText :: UnresolvedReleaseVersion -> Text
+unresolvedReleaseVersionToText = V.toText . unwrapUnresolvedReleaseVersion
+
 class IsVersion a where
     isHeadVersion :: a -> Bool
 

@@ -20,7 +20,10 @@ import scalaz.{@@, Tag}
 
 import scala.collection.immutable
 
-final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
+final case class TransactionFilter(
+    filtersByParty: immutable.Map[Ref.Party, Filters],
+    alwaysPopulateCreatedEventBlob: Boolean = false,
+)
 
 final case class Filters(inclusive: Option[InclusiveFilters])
 

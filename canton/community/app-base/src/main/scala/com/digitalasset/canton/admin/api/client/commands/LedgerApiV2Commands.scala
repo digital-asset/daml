@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.admin.api.client.commands
 
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TemplateFilter}
+import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v2.command_completion_service.{
   CommandCompletionServiceGrpc,
