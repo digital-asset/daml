@@ -71,6 +71,7 @@ da_haskell_library(
         "tls",
         "typed-process",
         "unix-compat",
+        "uri-encode",
         "utf8-string",
         "yaml",
     ] + (["Win32"] if is_windows else []),
