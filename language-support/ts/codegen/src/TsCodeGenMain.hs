@@ -42,6 +42,7 @@ import DA.Daml.Project.Types
 import qualified DA.Daml.Project.Types as DATypes
 import qualified DA.Daml.Assistant.Version as DAVersion
 import qualified DA.Daml.Assistant.Env as DAEnv
+import qualified DA.Daml.Assistant.Util as DAUtil
 
 -- Version of the "@mojotech/json-type-validation" library we're using.
 jtvVersion :: T.Text
@@ -131,7 +132,7 @@ main = do
               Left _ -> fail "Invalid SDK version"
               Right v -> do
                 useCache <- DAEnv.mkUseCache <$> DAEnv.getCachePath <*> DAEnv.getDamlPath
-                DAVersion.resolveReleaseVersion useCache v
+                DAUtil.wrapErr "Getting SDK version for codegen" $ DAVersion.resolveReleaseVersionUnsafe useCache v
         pkgs <- readPackages optInputDars
         case mergePackageMap pkgs of
           Left err -> fail . T.unpack $ err
