@@ -599,17 +599,27 @@ roundCommercial d x =
       then x - diff
       else t
 
+{-# DEPRECATED zero "prefer (0.0: Numeric n)" #-}
 zero: NumericScale n => Numeric n
 zero = intToNumeric 0
 
+{-# DEPRECATED half "prefer (0.5: Numeric n)" #-}
 half: NumericScale n => Numeric n
 half = fromNumeric (0.5: Numeric 1)
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
-round : NumericScale n => Numeric n -> Int
-round x = if x > zero
+round : forall n. NumericScale n => Numeric n -> Int
+round x = if x > intToNumeric 0
     then truncate $ x + half
     else truncate $ x - half
+  where
+    -- Note that for `n = 0`, `half = 0.`, so the result of round is still correct. 
+#ifndef DAML_NAT_TYPE_ERASURE
+    half: Numeric n = primitive @"BEDivNumericLegacy" (intToNumeric @0 1) (intToNumeric @0 2)
+#else
+    half = primitive @"BEDivNumeric" (numericOne @n) (intToNumeric @0 1) (intToNumeric @0 2)
+#endif
+    
 
 -- | Round a `Decimal` down to the nearest integer.
 floor : NumericScale n => Numeric n -> Int
