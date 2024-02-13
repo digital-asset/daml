@@ -44,6 +44,7 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
 import System.Environment.Blank
 import Control.Exception.Safe
+import Control.Exception (mapException)
 import Control.Monad.Extra
 import Data.Maybe
 import Data.Aeson (FromJSON(..), eitherDecodeStrict')
@@ -387,11 +388,17 @@ instance Exception CouldNotResolveReleaseVersion where
 
 resolveReleaseVersion :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO (Either CouldNotResolveReleaseVersion ReleaseVersion)
 resolveReleaseVersion useCache unresolvedVersion = do
-    try (resolveReleaseVersionUnsafe useCache unresolvedVersion)
+    try (resolveReleaseVersionInternal useCache unresolvedVersion)
 
 resolveReleaseVersionUnsafe :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
-resolveReleaseVersionUnsafe _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
-resolveReleaseVersionUnsafe useCache targetVersion = do
+resolveReleaseVersionUnsafe useCache targetVersion = mapException handle $ resolveReleaseVersionInternal useCache targetVersion
+    where
+    handle :: CouldNotResolveReleaseVersion -> AssistantError
+    handle = wrapSomeExceptionWithMsg "Resolve SDK version from release version" . SomeException
+
+resolveReleaseVersionInternal :: HasCallStack => UseCache -> UnresolvedReleaseVersion -> IO ReleaseVersion
+resolveReleaseVersionInternal _ targetVersion | isHeadVersion targetVersion = pure headReleaseVersion
+resolveReleaseVersionInternal useCache targetVersion = do
     mbResolved <- traverse (\damlPath -> resolveReleaseVersionFromDamlPath damlPath targetVersion) (damlPath useCache)
     case mbResolved of
       Just (Just resolved) -> pure resolved
