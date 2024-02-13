@@ -6,6 +6,7 @@ module DA.Daml.Assistant.Cache
     ( cacheAvailableSdkVersions
     , CacheAge (..)
     , UseCache (..)
+    , damlPath
     , cacheWith
     , loadFromCacheWith
     , saveToCacheWith
@@ -53,17 +54,21 @@ data UseCache
   = UseCache
       { overrideTimeout :: Maybe CacheTimeout
       , cachePath :: CachePath
-      , damlPath :: DamlPath
+      , damlPathUnsafe :: DamlPath
       }
   | DontUseCache
   deriving (Show, Eq)
+
+damlPath :: UseCache -> Maybe DamlPath
+damlPath DontUseCache = Nothing
+damlPath UseCache { damlPathUnsafe } = Just damlPathUnsafe
 
 cacheAvailableSdkVersions
     :: UseCache
     -> (Maybe [ReleaseVersion] -> IO [ReleaseVersion])
     -> IO ([ReleaseVersion], CacheAge)
 cacheAvailableSdkVersions DontUseCache getVersions = (, Fresh) <$> getVersions Nothing
-cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPath } getVersions = do
+cacheAvailableSdkVersions UseCache { overrideTimeout, cachePath, damlPathUnsafe = damlPath } getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let configUpdateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
         (neverRefresh, timeout)
