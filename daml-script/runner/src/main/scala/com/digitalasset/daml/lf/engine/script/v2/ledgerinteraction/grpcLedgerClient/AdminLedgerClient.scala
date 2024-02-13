@@ -10,6 +10,8 @@ import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatin
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
+import com.digitalasset.canton.topology.admin.{v30 => admin_topology_service}
+import com.digitalasset.canton.protocol.v30.EnumsX.TopologyChangeOpX
 import com.google.protobuf.ByteString
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
@@ -31,6 +33,12 @@ final class AdminLedgerClient private (
 
   private val packageServiceStub =
     AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)
+
+  private val topologyServiceStub =
+    AdminLedgerClient.stub(
+      admin_topology_service.TopologyManagerReadServiceXGrpc.stub(channel),
+      token,
+    )
 
   def vetDarByHash(darHash: String): Future[Unit] =
     packageServiceStub.vetDar(admin_package_service.VetDarRequest(darHash, true)).map(_ => ())
@@ -78,6 +86,31 @@ final class AdminLedgerClient private (
           case UploadDarResponse.Value.Empty => Left("unexpected empty response")
         }
       }
+
+  // Map from participantName (in the form PAR::name::hash) to list of packages
+  def listVettedPackages(): Future[Map[String, Seq[String]]] = {
+    topologyServiceStub
+      .listVettedPackages(
+        admin_topology_service.ListVettedPackagesRequest(
+          baseQuery = Some(
+            admin_topology_service.BaseQuery(
+              filterStore = None,
+              proposals = false,
+              operation = TopologyChangeOpX.Replace,
+              filterOperation = false,
+              timeQuery = admin_topology_service.BaseQuery.TimeQuery
+                .HeadState(com.google.protobuf.empty.Empty()),
+              filterSignedKey = "",
+              protocolVersion = None,
+            )
+          ),
+          filterParticipant = "",
+        )
+      )
+      .map { resp =>
+        Map.from(resp.results.map { res => (res.item.get.participant, res.item.get.packageIds) })
+      }
+  }
 
   override def close(): Unit = GrpcChannel.close(channel)
 }

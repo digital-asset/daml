@@ -373,6 +373,7 @@ proto_gen(
         "flat_package",
         "grpc",
     ],
+    visibility = ["//daml-script:__subpackages__"],
 )
 
 scala_library(

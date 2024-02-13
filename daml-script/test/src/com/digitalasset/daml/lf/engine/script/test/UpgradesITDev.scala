@@ -50,6 +50,11 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
   val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
   val testCases: Seq[TestCase] = getTestCases(testFileDir)
 
+  private def traverseSequential[A, B](elems: Seq[A])(f: A => Future[B]): Future[Seq[B]] =
+    elems.foldLeft(Future.successful(Seq.empty[B])) { case (comp, elem) =>
+      comp.flatMap { elems => f(elem).map(elems :+ _) }
+    }
+
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     testCases.foreach { testCase =>
@@ -60,37 +65,35 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
           // Connection
           clients <- scriptClients(provideAdminPorts = true)
-
-          // Upload dars
-          _ <- Future.traverse(ledgerPorts) { portInfo =>
-            val adminClient = AdminLedgerClient.singleHost(
-              "localhost",
-              portInfo.adminPort.value,
-              None,
-              LedgerClientChannelConfiguration.InsecureDefaults,
+          adminClients = ledgerPorts.map { portInfo =>
+            (
+              portInfo.ledgerPort.value,
+              AdminLedgerClient.singleHost(
+                "localhost",
+                portInfo.adminPort.value,
+                None,
+                LedgerClientChannelConfiguration.InsecureDefaults,
+              ),
             )
+          }
 
+          _ <- traverseSequential(adminClients) { case (ledgerPort, adminClient) =>
             Future.traverse(deps) { dep =>
+              Thread.sleep(500)
               println(
-                s"Uploading ${dep.versionedName} to participant on port ${portInfo.ledgerPort.value}"
+                s"Uploading ${dep.versionedName} to participant on port ${ledgerPort}"
               )
-              for {
-                Right(uploadHash) <- adminClient.uploadDar(dep.path, dep.versionedName)
-                _ <- RetryStrategy.constant(attempts = 20, waitTime = 1.seconds) { (_, _) =>
-                  adminClient.listDars().flatMap { dars =>
-                    if (
-                      dars.exists { case (_, darHash) =>
-                        uploadHash == darHash
-                      }
-                    )
-                      Future.successful(())
-                    else
-                      Future.failed(new Exception(s"Couldn't upload ${dep.versionedName}"))
-                  }
-                }
-              } yield ()
+              adminClient
+                .uploadDar(dep.path, dep.versionedName)
+                .map(_.left.map(msg => throw new Exception(msg)))
             }
           }
+
+          // Wait for upload
+          _ <- RetryStrategy.constant(attempts = 20, waitTime = 1.seconds) { (_, _) =>
+            assertDepsVetted(adminClients.head._2, deps)
+          }
+          _ = println("All packages vetted on all participants")
 
           // Run tests
           testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
@@ -103,6 +106,19 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
         } yield succeed
       }
     }
+  }
+
+  private def assertDepsVetted(client: AdminLedgerClient, deps: Seq[DataDep]): Future[Unit] = {
+    client
+      .listVettedPackages()
+      .map(_.foreach { case (participantId, packageIds) =>
+        deps.foreach { dep =>
+          if (!packageIds.contains(dep.packageId))
+            throw new Exception(
+              s"Couldn't find package ${dep.versionedName} on participant $participantId"
+            )
+        }
+      })
   }
 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
