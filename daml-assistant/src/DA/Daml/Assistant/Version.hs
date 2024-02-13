@@ -612,19 +612,17 @@ artifactoryVersionLocation releaseVersion apiKey =
         NonEmpty.:|
         [ HttpInstallLocation
             { hilUrl = T.concat
-                [ "https://digitalasset.jfrog.io/artifactory/external-files/daml-enterprise/"
-                , textShow majorVersion <> "." <> textShow minorVersion
-                , "/"
-                , versionToText releaseVersion
+                [ "https://digitalasset.jfrog.io/artifactory/sdk-ee/"
+                , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "/daml-sdk-"
                 , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "-"
                 , osName
-                , "-ee.tar.gz"
+                , "-ee.tar.gz" 
                 ]
             , hilHeaders =
                 [("X-JFrog-Art-Api", T.encodeUtf8 (unwrapArtifactoryApiKey apiKey))]
-            , hilAlternativeName = "Artifactory `external-files` repo"
+            , hilAlternativeName = "Artifactory `sdk-ee` repo (legacy)"
             }
         ]
 
@@ -634,7 +632,7 @@ githubVersionLocation releaseVersion = HttpInstallLocations $ pure
     HttpInstallLocation
         { hilUrl = renderVersionLocation releaseVersion "https://github.com/digital-asset/daml/releases/download"
         , hilHeaders = []
-        , hilAlternativeName = "Github Daml repo"
+        , hilAlternativeName = "Github `daml` repo releases"
         }
 
 alternateVersionLocation :: ReleaseVersion -> Text -> IO (Either Text InstallLocation)
