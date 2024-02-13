@@ -1651,7 +1651,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "SBCacheDisclosedContract" - {
     "updates on ledger cached contract map" - {
-      val version = TransactionVersion.minExplicitDisclosure
+      val version = TransactionVersion.minVersion
       val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
 
       "when no template key is defined" in {

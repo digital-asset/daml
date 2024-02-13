@@ -354,7 +354,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   ): (Value.ContractId, Speedy.ContractInfo) = {
     cId ->
       Speedy.ContractInfo(
-        version = TransactionVersion.minExplicitDisclosure,
+        version = TransactionVersion.minVersion,
         packageName = pkg.name,
         templateId = Dummy,
         value = SRecord(

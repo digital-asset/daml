@@ -719,7 +719,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
         values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
       )
-      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minExplicitDisclosure)
+      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minVersion)
       val unusedContractKey = Value.ValueRecord(
         None,
         ImmArray(
