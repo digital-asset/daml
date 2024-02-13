@@ -605,7 +605,7 @@ round x = if x > zero
     else truncate $ x - half
   where
     -- Note we use multiplication over casting to convert 0.5 from scale 1 to scale n
-    -- Hence, we avoid half (and then round ) to fail for `n = 0` because of loss of precision.
+    -- Hence, we avoid `half` (and then `round`) to fail for `n = 0` because of loss of precision.
     -- Note that for `n = 0`, `half = 0.`, so the result of round is still correct. 
     half = primitive @"BEMulNumeric" (numericOne @n) (numericOne @n) (0.5: Numeric 1)
 
