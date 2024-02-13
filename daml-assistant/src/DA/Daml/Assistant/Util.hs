@@ -34,7 +34,7 @@ wrapErr ctx m = m `catches`
         wrapException err =
             AssistantError
                 { errContext  = Just ctx
-                , errMessage  = Nothing
+                , errMessage  = Just (pack (displayException err))
                 , errInternal = Just (pack (show err))
                 }
 
