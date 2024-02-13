@@ -754,7 +754,7 @@ class AcsCommitmentProcessorTest
     val (remote, contracts, fromExclusive, toInclusive) = params
 
     val crypto =
-      TestingTopology().withSimpleParticipants(remote).build().forOwnerAndDomain(remote)
+      TestingTopologyX().withSimpleParticipants(remote).build().forOwnerAndDomain(remote)
     // we assume that the participant has a single stakeholder group
     val cmt = commitmentsFromStkhdCmts(Seq(stakeholderCommitment(contracts)))
     val snapshotF = crypto.snapshot(CantonTimestamp.Epoch)

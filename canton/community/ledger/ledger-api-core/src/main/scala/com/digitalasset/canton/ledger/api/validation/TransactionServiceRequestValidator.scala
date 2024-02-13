@@ -178,14 +178,13 @@ class TransactionServiceRequestValidator(
   }
 
   // Allow using deprecated Protobuf fields for backwards compatibility
-  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def transactionFilterToPartySet(
       transactionFilter: TransactionFilter
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =
     transactionFilter.filtersByParty
       .collectFirst { case (party, Filters(Some(inclusive))) =>
         invalidArgument(
-          s"$party attempted subscription for templates ${inclusive.templateIds.mkString("[", ", ", "]")}. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
+          s"$party attempted subscription for templates. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
         )
       }
       .fold(partyValidator.requireKnownParties(transactionFilter.filtersByParty.keys))(Left(_))

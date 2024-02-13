@@ -24,7 +24,7 @@ class FlywayMigrationsSpec extends AnyWordSpec {
 
   "Postgres flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
-      assertFlywayMigrationFileHashes(DbType.Postgres, 57)
+      assertFlywayMigrationFileHashes(DbType.Postgres, 1)
     }
   }
 

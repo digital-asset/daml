@@ -359,7 +359,7 @@ class TransferOutProcessingSteps(
     * all topology updates up to the declared timestamp as the sequencer's signing key might change.
     * So a malicious participant could fake a time proof and set a timestamp in the future,
     * which breaks causality.
-    * With parallel processing of messages, deadlocks cannot occur as this waiting runs in parallel with
+    * With unbounded parallel processing of messages, deadlocks cannot occur as this waiting runs in parallel with
     * the request tracker, so time progresses on the target domain and eventually reaches the timestamp.
     */
   // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.

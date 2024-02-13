@@ -31,7 +31,6 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
       Left(invalidArgument("filtersByParty cannot be empty"))
     } else {
       for {
-        _ <- validateAllFilterDefinitionsAreEitherDeprecatedOrCurrent(txFilter)
         convertedFilters <- txFilter.filtersByParty.toList.traverse { case (party, filters) =>
           for {
             key <- requireParty(party)
@@ -45,7 +44,6 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
     }
 
   // Allow using deprecated Protobuf fields for backwards compatibility
-  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
   private def validateFilters(
       filters: Filters,
       upgradingEnabled: Boolean,
@@ -56,14 +54,6 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>
           for {
-            validateIdentifiers <-
-              inclusive.templateIds.toList
-                .traverse(
-                  validateIdentifierWithPackageUpgrading(
-                    _,
-                    includeCreatedEventBlob = false,
-                  )(upgradingEnabled)
-                )
             validatedTemplates <-
               inclusive.templateFilters.toList.traverse(validateTemplateFilter(_, upgradingEnabled))
             validatedInterfaces <-
@@ -71,40 +61,12 @@ class TransactionFilterValidator(upgradingEnabled: Boolean) {
           } yield domain.Filters(
             Some(
               domain.InclusiveFilters(
-                (validateIdentifiers ++ validatedTemplates).toSet,
+                validatedTemplates.toSet,
                 validatedInterfaces.toSet,
               )
             )
           )
       }
-
-  // Allow using deprecated Protobuf fields for backwards compatibility
-  @annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.transaction_filter.*")
-  private def validateAllFilterDefinitionsAreEitherDeprecatedOrCurrent(txFilter: TransactionFilter)(
-      implicit contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Unit] =
-    txFilter.filtersByParty.valuesIterator
-      .flatMap(_.inclusive.iterator)
-      .foldLeft(Right((false, false)): Either[StatusRuntimeException, (Boolean, Boolean)]) {
-        case (Right((deprecatedAcc, currentAcc)), inclusiveFilters) =>
-          val templateIdsPresent = inclusiveFilters.templateIds.nonEmpty
-          val templateFiltersPresent = inclusiveFilters.templateFilters.nonEmpty
-          val interfaceFiltersPayloadFlag =
-            inclusiveFilters.interfaceFilters.exists(_.includeCreatedEventBlob)
-          val deprecated = templateIdsPresent
-          val current = templateFiltersPresent || interfaceFiltersPayloadFlag
-          val deprecatedAggr = deprecated || deprecatedAcc
-          val currentAggr = current || currentAcc
-          if (deprecatedAggr && currentAggr)
-            Left(
-              invalidArgument(
-                "Transaction filter should be defined entirely either with deprecated fields, or with non-deprecated fields. Mixed definition is not allowed."
-              )
-            )
-          else Right((deprecatedAggr, currentAggr))
-        case (err, _) => err
-      }
-      .map(_ => ())
 
   private def validateTemplateFilter(
       filter: TemplateFilter,

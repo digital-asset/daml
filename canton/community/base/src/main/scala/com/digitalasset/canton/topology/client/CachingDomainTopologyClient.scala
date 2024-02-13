@@ -7,7 +7,6 @@ import cats.data.EitherT
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
-import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -16,7 +15,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId, TopologyStoreX}
+import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
@@ -154,43 +153,7 @@ sealed abstract class BaseCachingDomainTopologyClient(
   override def numPendingChanges: Int = parent.numPendingChanges
 }
 
-final class CachingDomainTopologyClientOld(
-    clock: Clock,
-    parent: DomainTopologyClientWithInitOld,
-    cachingConfigs: CachingConfigs,
-    batchingConfig: BatchingConfig,
-    timeouts: ProcessingTimeout,
-    futureSupervisor: FutureSupervisor,
-    loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends BaseCachingDomainTopologyClient(
-      clock,
-      parent,
-      cachingConfigs,
-      batchingConfig,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-    )
-    with DomainTopologyClientWithInitOld {
-  override def observed(
-      sequencedTimestamp: SequencedTime,
-      effectiveTimestamp: EffectiveTime,
-      sequencerCounter: SequencerCounter,
-      transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    if (transactions.nonEmpty) {
-      // if there is a transaction, we insert the effective timestamp as a snapshot
-      appendSnapshot(effectiveTimestamp.value)
-    } else if (snapshots.get().isEmpty) {
-      // if we haven't seen any snapshot yet, we use the sequencer time to seed the first snapshot
-      appendSnapshot(sequencedTimestamp.value)
-    }
-    parent.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
-  }
-
-}
-
+// TODO(#15161) collapse with Base trait
 final class CachingDomainTopologyClientX(
     clock: Clock,
     parent: DomainTopologyClientWithInitX,
@@ -230,53 +193,6 @@ final class CachingDomainTopologyClientX(
 
 object CachingDomainTopologyClient {
 
-  def create(
-      clock: Clock,
-      domainId: DomainId,
-      protocolVersion: ProtocolVersion,
-      store: TopologyStore[TopologyStoreId.DomainStore],
-      initKeys: Map[Member, Seq[SigningPublicKey]],
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-      cachingConfigs: CachingConfigs,
-      batchingConfig: BatchingConfig,
-      timeouts: ProcessingTimeout,
-      futureSupervisor: FutureSupervisor,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): Future[CachingDomainTopologyClientOld] = {
-
-    val dbClient =
-      new StoreBasedDomainTopologyClient(
-        clock,
-        domainId,
-        protocolVersion,
-        store,
-        initKeys,
-        packageDependencies,
-        timeouts,
-        futureSupervisor,
-        loggerFactory,
-      )
-    val caching =
-      new CachingDomainTopologyClientOld(
-        clock,
-        dbClient,
-        cachingConfigs,
-        batchingConfig,
-        timeouts,
-        futureSupervisor,
-        loggerFactory,
-      )
-    store.maxTimestamp().map { x =>
-      x.foreach { case (_, effective) =>
-        caching
-          .updateHead(effective, effective.toApproximate, potentialTopologyChange = true)
-      }
-      caching
-    }
-  }
   def createX(
       clock: Clock,
       domainId: DomainId,

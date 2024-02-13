@@ -421,12 +421,12 @@ class GrpcSequencerService(
         "Batch from participant contains multiple mediators as recipients.",
       )
       _ <- refuseUnless(sender)(
-        noSigningTimestampIfUnauthenticated(
+        noTopologyTimestampIfUnauthenticated(
           sender,
-          request.timestampOfSigningKey,
+          request.topologyTimestamp,
           request.batch.envelopes,
         ),
-        "Requests sent from or to unauthenticated members must not specify the timestamp of the signing key",
+        "Requests sent from or to unauthenticated members must not specify the topology timestamp",
       )
       _ <- request.aggregationRule.traverse_(validateAggregationRule(sender, messageId, _))
     } yield {
@@ -438,16 +438,16 @@ class GrpcSequencerService(
     }
   }
 
-  /** Reject requests that involve unauthenticated members and specify the timestamp of the signing key.
+  /** Reject requests that involve unauthenticated members and specify the topology timestamp.
     * This is because the unauthenticated member typically does not know the domain topology state
-    * and therefore cannot validate that the requested timestamp is within the signing tolerance.
+    * and therefore cannot validate that the requested timestamp is within the topology timestamp tolerance.
     */
-  private def noSigningTimestampIfUnauthenticated(
+  private def noTopologyTimestampIfUnauthenticated(
       sender: Member,
-      timestampOfSigningKey: Option[CantonTimestamp],
+      topologyTimestampO: Option[CantonTimestamp],
       envelopes: Seq[ClosedEnvelope],
   ): Boolean =
-    timestampOfSigningKey.isEmpty || (sender.isAuthenticated && envelopes.forall(
+    topologyTimestampO.isEmpty || (sender.isAuthenticated && envelopes.forall(
       _.recipients.allRecipients.forall {
         case MemberRecipient(m) => m.isAuthenticated
         case _ => true

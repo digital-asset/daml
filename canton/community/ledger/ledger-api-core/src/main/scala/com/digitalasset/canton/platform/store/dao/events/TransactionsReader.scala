@@ -45,7 +45,7 @@ import scala.util.{Failure, Success}
   * @param flatTransactionPointwiseReader Knows how to fetch a flat transaction by its id
   * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id
   * @param dispatcher Executes the queries prepared by this object
-  * @param queryNonPruned
+  * @param queryValidRange
   * @param eventStorageBackend
   * @param metrics
   * @param acsReader Knows how to streams ACS
@@ -57,7 +57,7 @@ private[dao] final class TransactionsReader(
     flatTransactionPointwiseReader: TransactionFlatPointwiseReader,
     treeTransactionPointwiseReader: TransactionTreePointwiseReader,
     dispatcher: DbDispatcher,
-    queryNonPruned: QueryNonPruned,
+    queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     metrics: Metrics,
     acsReader: ACSReader,
@@ -163,14 +163,20 @@ private[dao] final class TransactionsReader(
   ): Future[Long] =
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
-        queryNonPruned.executeSql(
-          query = eventStorageBackend.maxEventSequentialId(activeAt)(connection),
-          minOffsetExclusive = activeAt,
-          error = pruned =>
+        queryValidRange.withOffsetNotBeforePruning(
+          offset = activeAt,
+          errorPruning = pruned =>
             ACSReader.acsBeforePruningErrorReason(
-              acsOffset = activeAt.toHexString,
-              prunedUpToOffset = pruned.toHexString,
+              acsOffset = activeAt,
+              prunedUpToOffset = pruned,
             ),
+          errorLedgerEnd = ledgerEnd =>
+            ACSReader.acsAfterLedgerEndErrorReason(
+              acsOffset = activeAt,
+              ledgerEndOffset = ledgerEnd,
+            ),
+        )(
+          eventStorageBackend.maxEventSequentialId(activeAt)(connection)
         )
       )
 
@@ -180,7 +186,14 @@ private[dao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContextWithTrace): Future[EventsRange] =
     dispatcher
       .executeSql(dbMetrics.getEventSeqIdRange)(implicit connection =>
-        queryNonPruned.executeSql(
+        queryValidRange.withRangeNotPruned(
+          minOffsetExclusive = startExclusive,
+          maxOffsetInclusive = endInclusive,
+          errorPruning = (prunedOffset: Offset) =>
+            s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+          errorLedgerEnd = (ledgerEndOffset: Offset) =>
+            s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+        ) {
           EventsRange(
             startExclusiveOffset = startExclusive,
             startExclusiveEventSeqId = eventStorageBackend.maxEventSequentialId(
@@ -189,11 +202,8 @@ private[dao] final class TransactionsReader(
             endInclusiveOffset = endInclusive,
             endInclusiveEventSeqId =
               eventStorageBackend.maxEventSequentialId(endInclusive)(connection),
-          ),
-          startExclusive,
-          pruned =>
-            s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
+          )
+        }
       )
 
 }

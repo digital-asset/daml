@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.services
 
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
+import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
   SubmitAndWaitRequest,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -19,9 +19,9 @@ trait CommandService {
       loggingContext: LoggingContextWithTrace
   ): Future[Empty]
 
-  def submitAndWaitForTransactionId(
+  def submitAndWaitForUpdateId(
       request: SubmitAndWaitRequest
-  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionIdResponse]
+  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForUpdateIdResponse]
 
   def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest

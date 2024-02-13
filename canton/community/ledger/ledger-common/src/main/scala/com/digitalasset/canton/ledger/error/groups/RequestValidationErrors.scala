@@ -17,7 +17,10 @@ import com.daml.error.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LookupError, Reference}
-import com.digitalasset.canton.ledger.error.LedgerApiErrors.EarliestOffsetMetadataKey
+import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
+  EarliestOffsetMetadataKey,
+  LatestOffsetMetadataKey,
+}
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.RequestValidationErrorGroup
 
 import java.time.Duration
@@ -177,6 +180,23 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause,
           extraContext = Map(EarliestOffsetMetadataKey -> earliestOffset),
+        )
+  }
+
+  @Explanation(
+    "This rejection is given when a read request tries to access data after the ledger end"
+  )
+  @Resolution("Use an offset that is before the ledger end.")
+  object ParticipantDataAccessedAfterLedgerEnd
+      extends ErrorCode(
+        id = "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(override val cause: String, latestOffset: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause,
+          extraContext = Map(LatestOffsetMetadataKey -> latestOffset),
         )
   }
 

@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest,
-}
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
+  SubmitAndWaitRequest,
+}
 import com.daml.lf.data.Ref
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
@@ -64,7 +64,7 @@ class ApiCommandServiceSpec
       for {
         _ <- grpcCommandService.submitAndWait(aSubmitAndWaitRequestWithNoSubmissionId)
         _ <- grpcCommandService.submitAndWaitForTransaction(aSubmitAndWaitRequestWithNoSubmissionId)
-        _ <- grpcCommandService.submitAndWaitForTransactionId(
+        _ <- grpcCommandService.submitAndWaitForUpdateId(
           aSubmitAndWaitRequestWithNoSubmissionId
         )
         _ <- grpcCommandService.submitAndWaitForTransactionTree(
@@ -86,7 +86,7 @@ class ApiCommandServiceSpec
           any[LoggingContextWithTrace]
         )
         requestCaptorSubmitAndWait.value shouldBe expectedSubmitAndWaitRequest("2")
-        verify(mockCommandService).submitAndWaitForTransactionId(
+        verify(mockCommandService).submitAndWaitForUpdateId(
           requestCaptorSubmitAndWait.capture
         )(any[LoggingContextWithTrace])
         requestCaptorSubmitAndWait.value shouldBe expectedSubmitAndWaitRequest("3")
@@ -118,7 +118,7 @@ class ApiCommandServiceSpec
       for {
         _ <- grpcCommandService.submitAndWait(submissionWithDisclosedContracts)
         _ <- grpcCommandService.submitAndWaitForTransaction(submissionWithDisclosedContracts)
-        _ <- grpcCommandService.submitAndWaitForTransactionId(submissionWithDisclosedContracts)
+        _ <- grpcCommandService.submitAndWaitForUpdateId(submissionWithDisclosedContracts)
         _ <- grpcCommandService.submitAndWaitForTransactionTree(submissionWithDisclosedContracts)
       } yield {
         succeed
@@ -143,8 +143,8 @@ object ApiCommandServiceSpec {
     )
   )
 
-  private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequestV1.copy(
-    commands = Some(commandsV1.copy(commands = Seq(aCommand), submissionId = ""))
+  private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequest.copy(
+    commands = Some(commands.copy(commands = Seq(aCommand), submissionId = ""))
   )
 
   private val submissionIdPrefix = "submissionId-"
@@ -170,11 +170,11 @@ object ApiCommandServiceSpec {
     )
       .thenReturn(Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance))
     when(
-      mockCommandService.submitAndWaitForTransactionId(any[SubmitAndWaitRequest])(
+      mockCommandService.submitAndWaitForUpdateId(any[SubmitAndWaitRequest])(
         any[LoggingContextWithTrace]
       )
     )
-      .thenReturn(Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance))
+      .thenReturn(Future.successful(SubmitAndWaitForUpdateIdResponse.defaultInstance))
     when(
       mockCommandService.submitAndWaitForTransactionTree(any[SubmitAndWaitRequest])(
         any[LoggingContextWithTrace]

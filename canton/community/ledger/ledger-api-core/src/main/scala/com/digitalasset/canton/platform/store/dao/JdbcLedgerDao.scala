@@ -13,7 +13,6 @@ import com.daml.logging.entries.LoggingEntry
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.configuration.Configuration
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
@@ -26,12 +25,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
 }
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  LoggingContextWithTrace,
-  NamedLoggerFactory,
-  NamedLogging,
-}
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
@@ -452,20 +446,6 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
-        if (
-          !readStorageBackend.eventStorageBackend.isPruningOffsetValidAgainstMigration(
-            pruneUpToInclusive,
-            pruneAllDivulgedContracts,
-            conn,
-          )
-        ) {
-          throw RequestValidationErrors.OffsetOutOfRange
-            .Reject(
-              "Pruning offset for all divulged contracts needs to be after the migration offset"
-            )(ErrorLoggingContext(logger, loggingContext))
-            .asGrpcError
-        }
-
         readStorageBackend.eventStorageBackend.pruneEvents(
           pruneUpToInclusive,
           pruneAllDivulgedContracts,
@@ -513,7 +493,7 @@ private class JdbcLedgerDao(
       loggerFactory = loggerFactory,
     )
 
-  private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend, loggerFactory)
+  private val queryValidRange = QueryValidRangeImpl(parameterStorageBackend, loggerFactory)
 
   private val globalIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventIdQueries,
@@ -530,7 +510,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     incompleteOffsets = incompleteOffsets,
@@ -543,7 +523,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     metrics = metrics,
@@ -556,7 +536,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     metrics = metrics,
@@ -570,7 +550,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     metrics = metrics,
@@ -596,7 +576,7 @@ private class JdbcLedgerDao(
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
       dispatcher = dbDispatcher,
-      queryNonPruned = queryNonPruned,
+      queryValidRange = queryValidRange,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
       metrics = metrics,
       flatTransactionsStreamReader = flatTransactionsStreamReader,
@@ -635,7 +615,7 @@ private class JdbcLedgerDao(
     new CommandCompletionsReader(
       dbDispatcher,
       readStorageBackend.completionStorageBackend,
-      queryNonPruned,
+      queryValidRange,
       metrics,
       pageSize = completionsPageSize,
       loggerFactory,

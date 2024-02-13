@@ -545,7 +545,7 @@ class SequencerNodeBootstrapX(
             } else EitherT.rightT[Future, String](Set.empty[Member])
           }
 
-          memberAuthServiceFactory = MemberAuthenticationServiceFactory.forX(
+          memberAuthServiceFactory = MemberAuthenticationServiceFactory(
             domainId,
             clock,
             config.publicApi.nonceExpirationTime.asJava,

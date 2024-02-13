@@ -35,3 +35,7 @@ CREATE INDEX idx_event_log_local_offset ON event_log (local_offset_effective_tim
 ALTER TABLE linearized_event_log
  ADD CONSTRAINT foreign_key_event_log FOREIGN KEY (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker)
  REFERENCES event_log(log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) ON DELETE CASCADE;
+
+DROP TABLE topology_transactions CASCADE;
+
+DROP TABLE register_topology_transaction_responses CASCADE;

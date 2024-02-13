@@ -181,4 +181,28 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
       )
   }
 
+  private val SqlSelectMostRecentPruningAndLedgerEnd =
+    SQL"select participant_pruned_up_to_inclusive, #$LedgerEndColumnName from parameters"
+
+  private val PruneUptoInclusiveAndLedgerEndParser
+      : RowParser[ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd] =
+    offset("participant_pruned_up_to_inclusive").? ~ LedgerEndOffsetParser map {
+      case pruneUptoInclusive ~ ledgerEndOffset =>
+        ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd(
+          pruneUptoInclusive = pruneUptoInclusive,
+          ledgerEnd = ledgerEndOffset,
+        )
+    }
+
+  override def prunedUpToInclusiveAndLedgerEnd(
+      connection: Connection
+  ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
+    SqlSelectMostRecentPruningAndLedgerEnd
+      .as(PruneUptoInclusiveAndLedgerEndParser.singleOpt)(connection)
+      .getOrElse(
+        ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd(
+          pruneUptoInclusive = None,
+          ledgerEnd = Offset.beforeBegin,
+        )
+      )
 }

@@ -102,12 +102,12 @@ class ParticipantNodeBootstrapX(
 
   override protected def sequencedTopologyStores: Seq[TopologyStoreX[DomainStore]] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentStateX => s.topologyStore
+      case s: SyncDomainPersistentState => s.topologyStore
     }
 
   override protected def sequencedTopologyManagers: Seq[DomainTopologyManagerX] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentStateX => s.topologyManager
+      case s: SyncDomainPersistentState => s.topologyManager
     }
 
   override protected def customNodeStages(

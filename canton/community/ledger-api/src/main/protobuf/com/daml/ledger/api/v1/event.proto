@@ -60,10 +60,10 @@ message CreatedEvent {
   // Set either:
   //   - if there was a party, which is in the ``witness_parties`` of this event,
   //     and for which an ``InclusiveFilters`` exists with the ``template_id`` of this event
-  //     among the ``template_ids``,
+  //     among the ``template_filters``,
   //   - or if there was a party, which is in the ``witness_parties`` of this event,
   //     and for which a wildcard filter exists (``Filters`` without ``InclusiveFilters``,
-  //     or with an ``InclusiveFilters`` with empty ``template_ids`` and empty ``interface_filters``).
+  //     or with an ``InclusiveFilters`` with empty ``template_filters`` and empty ``interface_filters``).
   // Optional
   Record create_arguments = 4;
 

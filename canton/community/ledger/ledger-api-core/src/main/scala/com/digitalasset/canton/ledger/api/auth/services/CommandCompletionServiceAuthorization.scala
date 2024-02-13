@@ -3,8 +3,12 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
-import com.daml.ledger.api.v1.command_completion_service.*
+import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
+import com.daml.ledger.api.v2.command_completion_service.{
+  CommandCompletionServiceGrpc,
+  CompletionStreamRequest,
+  CompletionStreamResponse,
+}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -12,7 +16,7 @@ import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import scalapb.lenses.Lens
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final class CommandCompletionServiceAuthorization(
     protected val service: CommandCompletionService with AutoCloseable,
@@ -21,9 +25,6 @@ final class CommandCompletionServiceAuthorization(
     extends CommandCompletionService
     with ProxyCloseable
     with GrpcApiService {
-
-  override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
-    authorizer.requirePublicClaims(service.completionEnd)(request)
 
   override def completionStream(
       request: CompletionStreamRequest,
@@ -37,7 +38,4 @@ final class CommandCompletionServiceAuthorization(
 
   override def bindService(): ServerServiceDefinition =
     CommandCompletionServiceGrpc.bindService(this, executionContext)
-
-  override def close(): Unit = service.close()
-
 }

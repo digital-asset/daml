@@ -18,8 +18,8 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{
   GrpcIdentityInitializationServiceX,
   GrpcTopologyAggregationServiceX,
-  GrpcTopologyManagerReadServiceX,
-  GrpcTopologyManagerWriteServiceX,
+  GrpcTopologyManagerReadService,
+  GrpcTopologyManagerWriteService,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -223,9 +223,9 @@ abstract class CantonNodeBootstrapX[
     addCloseable(topologyManager)
     adminServerRegistry
       .addServiceU(
-        adminV30.TopologyManagerReadXServiceGrpc
+        adminV30.TopologyManagerReadServiceGrpc
           .bindService(
-            new GrpcTopologyManagerReadServiceX(
+            new GrpcTopologyManagerReadService(
               sequencedTopologyStores :+ authorizedStore,
               crypto,
               loggerFactory,
@@ -235,9 +235,9 @@ abstract class CantonNodeBootstrapX[
       )
     adminServerRegistry
       .addServiceU(
-        adminV30.TopologyManagerWriteXServiceGrpc
+        adminV30.TopologyManagerWriteServiceGrpc
           .bindService(
-            new GrpcTopologyManagerWriteServiceX(
+            new GrpcTopologyManagerWriteService(
               sequencedTopologyManagers :+ topologyManager,
               authorizedStore,
               getId,

@@ -194,7 +194,7 @@ class StoreBasedTopologySnapshotX(
   ): Future[Seq[DynamicDomainParametersWithValidity]] = store
     .inspect(
       proposals = false,
-      timeQuery = TimeQueryX.Range(None, Some(timestamp)),
+      timeQuery = TimeQuery.Range(None, Some(timestamp)),
       recentTimestampO = None,
       op = Some(TopologyChangeOpX.Replace),
       typ = Some(TopologyMappingX.Code.DomainParametersStateX),
@@ -469,7 +469,7 @@ class StoreBasedTopologySnapshotX(
     store
       .inspect(
         proposals = false,
-        timeQuery = TimeQueryX.Snapshot(timestamp),
+        timeQuery = TimeQuery.Snapshot(timestamp),
         recentTimestampO = None,
         op = Some(TopologyChangeOpX.Replace),
         typ = Some(TopologyMappingX.Code.OwnerToKeyMappingX),

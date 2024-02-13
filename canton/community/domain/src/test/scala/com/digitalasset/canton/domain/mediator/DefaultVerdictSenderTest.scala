@@ -31,6 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   OpenEnvelope,
   Recipients,
 }
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{
   DomainId,
@@ -38,9 +39,7 @@ import com.digitalasset.canton.topology.{
   MediatorId,
   MediatorRef,
   ParticipantId,
-  TestingIdentityFactory,
   TestingIdentityFactoryX,
-  TestingTopology,
   TestingTopologyX,
   UniqueIdentifier,
 }
@@ -254,7 +253,7 @@ class DefaultVerdictSenderTest
 
         identityFactory.forOwnerAndDomain(mediatorId, domainId)
       } else {
-        val topology = TestingTopology(
+        val topology = TestingTopologyX(
           Set(domainId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
@@ -263,10 +262,10 @@ class DefaultVerdictSenderTest
             observer ->
               Map(participant -> ParticipantPermission.Observation),
           ),
-          Set(mediatorId),
+          Set(MediatorGroup(MediatorGroupIndex.zero, Seq(mediatorId), Seq.empty, PositiveInt.one)),
         )
 
-        val identityFactory = TestingIdentityFactory(
+        val identityFactory = TestingIdentityFactoryX(
           topology,
           loggerFactory,
           dynamicDomainParameters = initialDomainParameters,
@@ -285,7 +284,7 @@ class DefaultVerdictSenderTest
         override def sendAsync(
             batch: Batch[DefaultOpenEnvelope],
             sendType: SendType,
-            timestampOfSigningKey: Option[CantonTimestamp],
+            topologyTimestamp: Option[CantonTimestamp],
             maxSequencingTime: CantonTimestamp,
             messageId: MessageId,
             aggregationRule: Option[AggregationRule],

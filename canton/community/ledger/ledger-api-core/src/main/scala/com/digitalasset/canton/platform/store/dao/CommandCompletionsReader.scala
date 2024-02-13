@@ -8,7 +8,7 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
-import com.digitalasset.canton.platform.store.dao.events.QueryNonPruned
+import com.digitalasset.canton.platform.store.dao.events.QueryValidRange
 import com.digitalasset.canton.platform.{ApiOffset, ApplicationId, Party}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -20,7 +20,7 @@ import java.sql.Connection
 private[dao] final class CommandCompletionsReader(
     dispatcher: DbDispatcher,
     storageBackend: CompletionStorageBackend,
-    queryNonPruned: QueryNonPruned,
+    queryValidRange: QueryValidRange,
     metrics: Metrics,
     pageSize: Int,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -45,18 +45,22 @@ private[dao] final class CommandCompletionsReader(
   ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
     val pruneSafeQuery =
       (range: QueryRange[Offset]) => { implicit connection: Connection =>
-        queryNonPruned.executeSql[Vector[CompletionStreamResponse]](
-          query = storageBackend.commandCompletions(
+        queryValidRange.withRangeNotPruned[Vector[CompletionStreamResponse]](
+          minOffsetExclusive = startExclusive,
+          maxOffsetInclusive = endInclusive,
+          errorPruning = (prunedOffset: Offset) =>
+            s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${prunedOffset.toHexString}",
+          errorLedgerEnd = (ledgerEndOffset: Offset) =>
+            s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+        ) {
+          storageBackend.commandCompletions(
             startExclusive = range.startExclusive,
             endInclusive = range.endInclusive,
             applicationId = applicationId,
             parties = parties,
             limit = pageSize,
-          )(connection),
-          minOffsetExclusive = startExclusive,
-          error = (prunedUpTo: Offset) =>
-            s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${prunedUpTo.toHexString}",
-        )
+          )(connection)
+        }
       }
 
     val initialRange = new QueryRange[Offset](

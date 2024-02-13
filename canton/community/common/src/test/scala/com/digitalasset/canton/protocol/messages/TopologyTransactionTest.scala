@@ -19,13 +19,19 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
   private val uid = DefaultTestIdentities.uid
   private val uid2 = UniqueIdentifier.tryFromProtoPrimitive("da1::default1")
-  private val managerId = DefaultTestIdentities.domainManager
+  private val sequencerId = DefaultTestIdentities.sequencerId
   private val domainId = DefaultTestIdentities.domainId
   private val crypto =
-    TestingTopology().build(loggerFactory).forOwnerAndDomain(managerId, domainId)
+    TestingTopologyX(sequencerGroup =
+      SequencerGroup(
+        active = Seq(SequencerId(domainId)),
+        passive = Seq.empty,
+        threshold = PositiveInt.one,
+      )
+    ).build(loggerFactory).forOwnerAndDomain(sequencerId, domainId)
   private val publicKey =
     crypto.currentSnapshotApproximation.ipsSnapshot
-      .signingKey(managerId)
+      .signingKey(sequencerId)
       .futureValue
       .getOrElse(sys.error("no key"))
   private val defaultDynamicDomainParameters = TestDomainParameters.defaultDynamic
@@ -77,8 +83,8 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     }
 
     "key to owner mappings" should {
-      val k1 = mk(OwnerToKeyMappingX(managerId, None, NonEmpty(Seq, publicKey)))
-      val k2 = mk(OwnerToKeyMappingX(managerId, None, NonEmpty(Seq, publicKey)))
+      val k1 = mk(OwnerToKeyMappingX(sequencerId, None, NonEmpty(Seq, publicKey)))
+      val k2 = mk(OwnerToKeyMappingX(sequencerId, None, NonEmpty(Seq, publicKey)))
       runTest(k1, k2)
     }
 

@@ -135,7 +135,7 @@ trait SequencerStoreTest
           expectedMessageId: MessageId,
           expectedRecipients: Set[Member],
           expectedPayload: Payload,
-          expectedSigningTimestamp: Option[CantonTimestamp] = None,
+          expectedTopologyTimestamp: Option[CantonTimestamp] = None,
       ): Future[Assertion] = {
         for {
           senderId <- lookupRegisteredMember(expectedSender)
@@ -148,14 +148,14 @@ trait SequencerStoreTest
                   messageId,
                   recipients,
                   payload,
-                  signingTimestampO,
+                  topologyTimestampO,
                   traceContext,
                 ) =>
               sender shouldBe senderId
               messageId shouldBe expectedMessageId
               recipients.forgetNE should contain.only(recipientIds.toSeq: _*)
               payload shouldBe expectedPayload
-              signingTimestampO shouldBe expectedSigningTimestamp
+              topologyTimestampO shouldBe expectedTopologyTimestamp
             case other =>
               fail(s"Expected deliver event but got $other")
           }
@@ -179,7 +179,7 @@ trait SequencerStoreTest
 
     "DeliverErrorStoreEvent" should {
       "be able to serialize to and deserialize the error from protobuf" in {
-        val error = SequencerErrors.SigningTimestampTooEarly("too early!")
+        val error = SequencerErrors.TopoologyTimestampTooEarly("too early!")
         val errorStatus = error.rpcStatusWithoutLoggingContext()
         val serialized = DeliverErrorStoreEvent.serializeError(error, testedProtocolVersion)
         val deserialized =

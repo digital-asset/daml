@@ -3,12 +3,11 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v1.event_query_service
-import com.daml.ledger.api.v1.event_query_service.EventQueryServiceGrpc.EventQueryService
-import com.daml.ledger.api.v1.event_query_service.{
+import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
+import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryService
+import com.daml.ledger.api.v2.event_query_service.{
   EventQueryServiceGrpc,
   GetEventsByContractIdResponse,
-  GetEventsByContractKeyResponse,
 }
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.Authorizer
@@ -26,24 +25,13 @@ final class EventQueryServiceAuthorization(
     with GrpcApiService {
 
   override def getEventsByContractId(
-      request: event_query_service.GetEventsByContractIdRequest
+      request: GetEventsByContractIdRequest
   ): Future[GetEventsByContractIdResponse] =
     authorizer.requireReadClaimsForAllParties(
       request.requestingParties,
       service.getEventsByContractId,
     )(request)
 
-  override def getEventsByContractKey(
-      request: event_query_service.GetEventsByContractKeyRequest
-  ): Future[GetEventsByContractKeyResponse] =
-    authorizer.requireReadClaimsForAllParties(
-      request.requestingParties,
-      service.getEventsByContractKey,
-    )(request)
-
   override def bindService(): ServerServiceDefinition =
     EventQueryServiceGrpc.bindService(this, executionContext)
-
-  override def close(): Unit = service.close()
-
 }

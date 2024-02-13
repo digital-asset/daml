@@ -34,8 +34,8 @@ import com.digitalasset.canton.participant.sync.LedgerSyncEvent.TransactionAccep
 import com.digitalasset.canton.participant.sync.TimestampedEvent.EventId
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
-  ParticipantTopologyDispatcher,
-  ParticipantTopologyManager,
+  ParticipantTopologyDispatcherX,
+  ParticipantTopologyManagerOps,
 }
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.{
@@ -75,9 +75,9 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     private val syncDomainPersistentStateManager = mock[SyncDomainPersistentStateManager]
     private val domainConnectionConfigStore = mock[DomainConnectionConfigStore]
     private val packageService = mock[PackageService]
-    val topologyManager: ParticipantTopologyManager = mock[ParticipantTopologyManager]
+    val topologyManagerOps: ParticipantTopologyManagerOps = mock[ParticipantTopologyManagerOps]
 
-    private val identityPusher = mock[ParticipantTopologyDispatcher]
+    private val identityPusher = mock[ParticipantTopologyDispatcherX]
     val partyNotifier = mock[LedgerServerPartyNotifier]
     private val syncCrypto = mock[SyncCryptoApiProvider]
     private val multiDomainEventLog = mock[MultiDomainEventLog]
@@ -146,7 +146,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       participantNodeEphemeralState,
       syncDomainPersistentStateManager,
       packageService,
-      topologyManager,
+      topologyManagerOps,
       identityPusher,
       partyNotifier,
       syncCrypto,
@@ -179,7 +179,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
   "Canton sync service" should {
     "emit add party event" in { f =>
       when(
-        f.topologyManager.allocateParty(
+        f.topologyManagerOps.allocateParty(
           any[String255],
           any[PartyId],
           any[ParticipantId],
@@ -219,7 +219,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
         .asScala
 
       val result = fut.map(_ => {
-        verify(f.topologyManager).allocateParty(
+        verify(f.topologyManagerOps).allocateParty(
           eqTo(String255.tryCreate(submissionId)),
           eqTo(partyId),
           eqTo(f.participantId),

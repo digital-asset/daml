@@ -270,7 +270,7 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
 
   override def inspect(
       proposals: Boolean,
-      timeQuery: TimeQueryX,
+      timeQuery: TimeQuery,
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       typ: Option[TopologyMappingX.Code],
@@ -283,12 +283,12 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       asOfFilter(asOf, asOfInclusive = false)(entry.from.value, entry.until.map(_.value))
 
     val filter1: TopologyStoreEntry => Boolean = timeQuery match {
-      case TimeQueryX.HeadState =>
+      case TimeQuery.HeadState =>
         // use recent timestamp to avoid race conditions (as we are looking
         // directly into the store, while the recent time still needs to propagate)
         recentTimestampO.map(mkAsOfFilter).getOrElse(entry => entry.until.isEmpty)
-      case TimeQueryX.Snapshot(asOf) => mkAsOfFilter(asOf)
-      case TimeQueryX.Range(from, until) =>
+      case TimeQuery.Snapshot(asOf) => mkAsOfFilter(asOf)
+      case TimeQuery.Range(from, until) =>
         entry =>
           from.forall(ts => entry.from.value >= ts) && until.forall(ts => entry.from.value <= ts)
     }
@@ -452,7 +452,7 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change]] =
+  ): Future[Seq[TopologyStoreX.Change]] =
     Future {
       blocking {
         synchronized {

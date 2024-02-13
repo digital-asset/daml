@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsDataTime}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.time.TimeProofTestUtil
@@ -19,14 +19,13 @@ import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsProtocol(
     protocolVersion: ProtocolVersion,
-    generatorsDataTime: GeneratorsDataTime,
     generatorsMessages: GeneratorsMessages,
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
+  import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import generatorsDataTime.*
   import generatorsMessages.*
 
   implicit val acknowledgeRequestArb: Arbitrary[AcknowledgeRequest] = Arbitrary(for {
@@ -132,7 +131,7 @@ final class GeneratorsProtocol(
         batch = Batch(envelopes.map(_.closeEnvelope), protocolVersion)
         maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
         aggregationRule <- Gen.option(Arbitrary.arbitrary[AggregationRule])
-        timestampOfSigningKey <-
+        topologyTimestamp <-
           if (aggregationRule.nonEmpty)
             Arbitrary.arbitrary[CantonTimestamp].map(Some(_))
           else Gen.const(None)
@@ -142,7 +141,7 @@ final class GeneratorsProtocol(
         isRequest,
         batch,
         maxSequencingTime,
-        timestampOfSigningKey,
+        topologyTimestamp,
         aggregationRule,
         SubmissionRequest.protocolVersionRepresentativeFor(protocolVersion).representative,
       )

@@ -32,40 +32,28 @@ message Filters {
 
   // If set, then contracts matching any of the ``InclusiveFilters`` match
   // this filter.
-  // If not set, or if ``InclusiveFilters`` has empty ``template_ids`` and empty ``interface_filters``:
+  // If not set, or if ``InclusiveFilters`` has empty ``template_filters`` and empty ``interface_filters``:
   // any contract matches this filter.
   // Optional
   InclusiveFilters inclusive = 1;
 }
 
 // A filter that matches all contracts that are either an instance of one of
-// the ``template_ids`` or that match one of the ``interface_filters``.
+// the ``template_filters`` or that match one of the ``interface_filters``.
 message InclusiveFilters {
-
-  // A collection of templates for which the data will be included in the
-  // ``create_arguments`` of a matching ``CreatedEvent``.
-  // SHOULD NOT contain duplicates.
-  // All ``template_ids`` need to be valid: corresponding templates should be defined in one of
-  // the available packages at the time of the query.
-  // Deprecated in favor of the ``template_filters``. If the ``template_filters`` field is set,
-  // the ``template_ids`` field is ignored.
-  // Optional
-  repeated Identifier template_ids = 1 [deprecated = true];
 
   // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
   // The ``InterfaceFilter`` instances MUST each use a unique ``interface_id``.
   // Optional
-  repeated InterfaceFilter interface_filters = 2;
+  repeated InterfaceFilter interface_filters = 1;
 
   // A collection of templates for which the data will be included in the
   // ``create_arguments`` of a matching ``CreatedEvent``.
   // SHOULD NOT contain duplicate templates.
-  // In contrast to the ``template_ids`` field, one can specify whether the create event payloads
-  // should be provided alongside the create arguments.
   // If a contract is simultaneously selected by a template filter and one or more interface filters,
   // the corresponding ``include_created_event_blob`` are consolidated using an OR operation.
   // Optional
-  repeated TemplateFilter template_filters = 3;
+  repeated TemplateFilter template_filters = 2;
 }
 
 // This filter matches contracts that implement a specific interface.

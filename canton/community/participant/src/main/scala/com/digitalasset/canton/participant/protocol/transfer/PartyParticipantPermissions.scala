@@ -12,7 +12,6 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
-  Disabled,
   Observation,
   Submission,
 }
@@ -101,10 +100,6 @@ private object PartyParticipantPermissions {
           case Submission => submission += participantId
           case Confirmation => confirmation += participantId
           case Observation => other += participantId
-          case Disabled =>
-            throw new IllegalStateException(
-              s"activeParticipantsOf($party) returned a disabled participant $participantId"
-            )
         }
       }
       Permissions(

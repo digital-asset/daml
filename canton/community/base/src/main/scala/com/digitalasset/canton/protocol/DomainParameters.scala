@@ -327,15 +327,15 @@ final case class DynamicDomainParameters private (
         s"mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
     )
 
-  /** In some situations, the sequencer signs transaction with slightly outdated keys.
+  /** In some situations, the sequencer processes submission requests with a slightly outdated topology snapshot.
     * This is to allow recipients to verify sequencer signatures when the sequencer keys have been rolled over and
-    * they have not yet received the new keys.
-    * This parameter determines how much outdated a signing key can be.
+    * they have not yet received the new keys, and to resolve group addresses using a sender-specified snapshot.
+    * This parameter determines how much outdated the signing key or the group address resolution can be.
     * Choose a higher value to avoid that the sequencer refuses to sign and send messages.
-    * Choose a lower value to reduce the latency of sequencer key rollovers.
-    * The sequencer signing tolerance must be at least `participantResponseTimeout + mediatorReactionTimeout`.
+    * Choose a lower value to reduce the latency of sequencer key rollovers and updates of group addresses.
+    * The sequencer topology tolerance must be at least `participantResponseTimeout + mediatorReactionTimeout`.
     */
-  def sequencerSigningTolerance: NonNegativeFiniteDuration =
+  def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
     (participantResponseTimeout + mediatorReactionTimeout) * NonNegativeInt.tryCreate(2)
 
   def automaticTransferInEnabled: Boolean =
@@ -820,7 +820,8 @@ final case class DynamicDomainParametersWithValidity(
 
   def topologyChangeDelay: NonNegativeFiniteDuration = parameters.topologyChangeDelay
   def transferExclusivityTimeout: NonNegativeFiniteDuration = parameters.transferExclusivityTimeout
-  def sequencerSigningTolerance: NonNegativeFiniteDuration = parameters.sequencerSigningTolerance
+  def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
+    parameters.sequencerTopologyTimestampTolerance
 }
 
 /** The class specifies the catch-up parameters governing the catch-up mode of a participant lagging behind with its

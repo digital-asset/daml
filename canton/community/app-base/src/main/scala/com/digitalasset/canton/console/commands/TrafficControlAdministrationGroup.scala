@@ -25,7 +25,7 @@ import com.digitalasset.canton.traffic.MemberTrafficStatus
 
 class TrafficControlAdministrationGroup(
     instance: InstanceReference,
-    topology: TopologyAdministrationGroupX,
+    topology: TopologyAdministrationGroup,
     runner: AdminCommandRunner,
     override val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,

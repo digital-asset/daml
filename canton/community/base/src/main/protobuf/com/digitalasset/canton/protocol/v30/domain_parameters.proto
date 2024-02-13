@@ -1,0 +1,81 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
+import "google/protobuf/duration.proto";
+import "scalapb/scalapb.proto";
+
+// catch-up configuration parameters
+message CatchUpConfig {
+  uint32 catchup_interval_skip = 1;
+  uint32 nr_intervals_to_trigger_catchup = 2;
+}
+
+// individual per participant limits
+message ParticipantDomainLimits {
+  // TODO(#14052) implement per participant rate limits
+  uint32 max_rate = 1;
+
+  // TODO(#14052) implement per participant party limits
+  uint32 max_num_parties = 2;
+
+  // TODO(#14052) implement per participant package limits
+  uint32 max_num_packages = 3;
+}
+
+// Controls how participants can join the domain
+// Note that currently, only transitions from restricted to unrestricted are supported, but not
+// the other way around.
+enum OnboardingRestriction {
+  ONBOARDING_RESTRICTION_UNSPECIFIED = 0;
+
+  // Any participant can join the domain
+  ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN = 1;
+
+  // No participant can currently join the domain
+  ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED = 2;
+
+  // Only participants with a valid participant domain state can join the domain (allowlisting)
+  ONBOARDING_RESTRICTION_RESTRICTED_OPEN = 3;
+
+  // No participant can currently join the restricted domain
+  ONBOARDING_RESTRICTION_RESTRICTED_LOCKED = 4;
+}
+
+message DynamicDomainParameters {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  google.protobuf.Duration participant_response_timeout = 1;
+  google.protobuf.Duration mediator_reaction_timeout = 2;
+  google.protobuf.Duration transfer_exclusivity_timeout = 3;
+  google.protobuf.Duration topology_change_delay = 4;
+  google.protobuf.Duration ledger_time_record_time_tolerance = 5;
+  google.protobuf.Duration reconciliation_interval = 6;
+  google.protobuf.Duration mediator_deduplication_timeout = 7;
+  uint32 max_request_size = 8;
+
+  // topology related validation parameters
+  // permissioned domain: if true, only participants which have been explicitly
+  // put on the allow list can onboard to the domain
+  OnboardingRestriction onboarding_restriction = 9;
+
+  // required packages are the default packages that must be supported by all participants on a domain
+  // TODO(#14054) enable this feature (necessary for canton network such that an SVC can't do a rug-pull)
+  repeated string required_packages = 11;
+
+  // if true, then only the required packages are supported on the given domain
+  // TODO(#14055) enable this feature (was requested by Curtis)
+  bool only_required_packages_permitted = 12;
+
+  ParticipantDomainLimits default_participant_limits = 13;
+
+  // TODO(#14050) implement party hosting limits
+  uint32 default_max_hosting_participants_per_party = 14;
+
+  google.protobuf.Duration sequencer_aggregate_submission_timeout = 15;
+  com.digitalasset.canton.protocol.v30.TrafficControlParameters traffic_control_parameters = 16;
+}
