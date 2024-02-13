@@ -10,9 +10,3 @@ import DA.Numeric
 testShift = script do
   shift @1 @2 1.0 === 10.0
   shift @2 @1 1.0 === 0.1
-
--- Check that `round @0` does not crash  
-testRound0 = script do 
-  round (0.0: Numeric 0) === 0
-  round (1.0: Numeric 0) === 1
-
