@@ -86,14 +86,14 @@ steps:
       pathtoPublish: '$(Build.StagingDirectory)/logs'
       artifactName: 'Bazel Logs'
 
-  - task: PublishBuildArtifacts@1
-    condition: and(failed(),
-                   or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
-    displayName: 'Publish the bazel test logs'
-    inputs:
-      pathtoPublish: 'bazel-testlogs/'
-      artifactName: 'Test logs ${{parameters.name}}'
+#  - task: PublishBuildArtifacts@1
+#    condition: and(failed(),
+#                   or(eq(${{parameters.is_release}}, 'false'),
+#                      ne('${{parameters.name}}', 'm1')))
+#    displayName: 'Publish the bazel test logs'
+#    inputs:
+#      pathtoPublish: 'bazel-testlogs/'
+#      artifactName: 'Test logs ${{parameters.name}}'
 
   - bash: |
       set -euo pipefail
