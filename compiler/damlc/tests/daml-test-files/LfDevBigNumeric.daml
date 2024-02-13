@@ -1,7 +1,8 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module LfStableBigNumeric where
+-- @SINCE-LF 2.dev
+module LfDevBigNumeric where
 
 import Daml.Script
 import qualified DA.BigNumeric as BigNumeric
@@ -16,7 +17,7 @@ template BigNumericResults
 x : BigNumeric
 x = 0.5
 
--- @LEDGER run LfStableBigNumeric.EXPECTED.ledger
+-- @LEDGER run LfDevBigNumeric.EXPECTED.ledger
 run = script do
   alice <- allocateParty "Alice"
   submit alice do
