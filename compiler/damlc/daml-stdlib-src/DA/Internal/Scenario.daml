@@ -1,0 +1,104 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+module DA.Internal.Scenario
+  ( getParty
+  , Scenario
+  , scenario
+  , HasSubmit(..)
+  , pass
+  , passToDate
+  ) where 
+
+import GHC.Types (primitive)
+import GHC.Stack.Types (HasCallStack)
+import DA.Time
+import DA.Date
+import DA.Internal.Time
+import DA.Internal.LF (Scenario)
+#ifdef DAML_EXCEPTIONS
+import DA.Internal.Exception
+#endif
+
+-- | Get the party with the given name. Party names must be non-empty and only
+-- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
+getParty : Text -> Scenario Party
+getParty = primitive @"SGetParty"
+
+instance HasTime Scenario where
+    getTime = primitive @"SGetTime"
+
+instance CanAbort Scenario where
+    abort = fail
+
+instance Functor Scenario where
+    fmap f x = x >>= \v -> pure (f v)
+
+instance Applicative Scenario where
+    pure = primitive @"SPure"
+    f <*> x = f >>= \f -> x >>= \x -> pure (f x)
+
+instance Action Scenario where
+    (>>=) = primitive @"SBind"
+
+instance ActionFail Scenario where
+    fail = primitive @"SAbort"
+
+class HasSubmit m cmds | m -> cmds, cmds -> m where
+  -- | `submit p cmds` submits the commands `cmds` as a single transaction
+  -- from party `p` and returns the value returned by `cmds`.
+  --
+  -- If the transaction fails, `submit` also fails.
+  submit : HasCallStack => Party -> cmds a -> m a
+
+  -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
+  -- from party `p`.
+  --
+  -- It only succeeds if the submitting the transaction fails.
+  submitMustFail : HasCallStack => Party -> cmds a -> m ()
+
+instance HasSubmit Scenario Update where
+  submit = primitive @"SCommit"
+  submitMustFail = primitive @"SMustFailAt"
+
+infixr 0 `submit`
+infixr 0 `submitMustFail`
+
+-- | Declare you are building a scenario.
+scenario : Scenario a -> Scenario a
+scenario = identity
+
+-- | HIDE Pass simulated scenario time by argument
+internal_pass : Int -> Scenario Time
+internal_pass us = primitive @"SPass" us -- passes simulated scenario time by specified number of microseconds
+
+-- | Pass simulated scenario time by argument
+pass : RelTime -> Scenario Time
+pass rt = internal_pass (convertRelTimeToMicroseconds rt) -- passes simulated scenario time by specified time offset
+
+
+-- | Within a `scenario`, pass the simulated scenario to given date.
+passToDate : Date -> Scenario Time
+passToDate d = do
+  now <- timeToMicrosecondsSinceEpoch <$> getTime
+  let t = microsecondsPerDay * dateToDaysSinceEpoch d
+--  assert (now <= t) -- for now we are going to allow moving time backwards because of how tests are currently structured.
+  internal_pass $ t - now
+
+
+#ifdef DAML_EXCEPTIONS
+instance ActionThrow Scenario where
+    throw e = pure () >>= \_ -> throwPure e
+
+instance CanAssert Scenario where
+    assertFail msg = throw (AssertionFailed msg)
+
+#else 
+
+instance CanAssert Scenario where
+    assertFail = fail
+
+#endif
+

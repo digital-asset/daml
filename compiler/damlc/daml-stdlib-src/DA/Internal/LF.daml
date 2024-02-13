@@ -43,6 +43,10 @@ module DA.Internal.LF
   , AnyException
   #endif
 
+  #ifdef DAML_SCENARIOS
+  , Scenario
+  #endif
+
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -93,6 +97,14 @@ partyToText = primitive @"BEToText"
 -- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 partyFromText : Text -> Optional Party
 partyFromText = primitive @"BETextToParty"
+
+#ifdef DAML_SCENARIOS
+-- | The `Scenario` type is for simulating ledger interactions.
+-- The type `Scenario a` describes a set of actions taken by various parties during
+-- the simulated scenario, before returning a value of type `a`.
+data Scenario a =
+  Scenario Opaque
+#endif
 
 -- | The `Date` type represents a date, for example `date 2007 Apr 5`.
 data Date =
