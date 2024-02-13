@@ -6,7 +6,9 @@ package com.daml.lf.validation
 import com.daml.integrationtest.CantonFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.{AsyncWordSpec}
+import org.scalatest.Inspectors
+import org.scalatest.Assertions
 
 import scala.concurrent.{Future}
 import com.google.protobuf.ByteString
@@ -20,6 +22,11 @@ import com.daml.lf.data.Ref.PackageId
 
 import com.daml.lf.archive.{DarReader}
 import scala.util.{Success, Failure}
+
+case class DeferredCantonLogCheck(description: String, check: String => Assertion) {
+  def run(cantonLogSrc: String): Assertion =
+    Assertions.withClue(description)(check(cantonLogSrc))
+}
 
 final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   override lazy val devMode = true;
@@ -40,10 +47,11 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
   }
 
   private def testPackagePair(
+      testDescription: String,
       upgraded: String,
       upgrading: String,
       failureMessage: Option[String],
-  ): Future[Assertion] = {
+  ): Future[DeferredCantonLogCheck] = {
     for {
       client <- defaultLedgerClient()
       (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
@@ -60,10 +68,7 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
-    } yield {
-      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-      val cantonLogSrc = cantonLog.mkString
-      cantonLog.close()
+    } yield DeferredCantonLogCheck(testDescription, (cantonLogSrc: String) => {
       cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
       cantonLogSrc should include(
         s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
@@ -105,182 +110,183 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
           }
         }
       }
-    }
-  }
-
-  override def beforeAll(): Unit = {
-    // Create file for canton logs beforehand so that other processes can read
-    // it
-    val file = new File(s"$cantonTmpDir/canton.log")
-    val _ = file.createNewFile()
-    super.beforeAll()
+    })
   }
 
   "Upload-time Upgradeability Checks" should {
-    "report no upgrade errors for valid upgrade" in {
-      testPackagePair(
-        "test-common/upgrades-ValidUpgrade-v1.dar",
-        "test-common/upgrades-ValidUpgrade-v2.dar",
-        None,
-      )
-    }
-    "report error when module is missing in upgrading package" in {
-      testPackagePair(
-        "test-common/upgrades-MissingModule-v1.dar",
-        "test-common/upgrades-MissingModule-v2.dar",
-        Some(
-          "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
-        ),
-      )
-    }
-    "report error when template is missing in upgrading package" in {
-      testPackagePair(
-        "test-common/upgrades-MissingTemplate-v1.dar",
-        "test-common/upgrades-MissingTemplate-v2.dar",
-        Some(
-          "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
-        ),
-      )
-    }
-    "report error when datatype is missing in upgrading package" in {
-      testPackagePair(
-        "test-common/upgrades-MissingDataCon-v1.dar",
-        "test-common/upgrades-MissingDataCon-v2.dar",
-        Some(
-          "Datatype U appears in package that is being upgraded, but does not appear in the upgrading package."
-        ),
-      )
-    }
-    "report error when choice is missing in upgrading package" in {
-      testPackagePair(
-        "test-common/upgrades-MissingChoice-v1.dar",
-        "test-common/upgrades-MissingChoice-v2.dar",
-        Some(
-          "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package."
-        ),
-      )
-    }
-    "report error when key type changes" in {
-      testPackagePair(
-        "test-common/upgrades-TemplateChangedKeyType-v1.dar",
-        "test-common/upgrades-TemplateChangedKeyType-v2.dar",
-        Some("The upgraded template T cannot change its key type."),
-      )
-    }
-    "report error when record fields change" in {
-      testPackagePair(
-        "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
-        "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
-        Some(
-          "The upgraded datatype Struct has added new fields, but those fields are not Optional."
-        ),
-      )
-    }
+    "Upload DARs and check messages match" in {
+      for {
+        checks: Seq[DeferredCantonLogCheck] <- Future.sequence(Seq(
+          testPackagePair(
+            "report no upgrade errors for valid upgrade",
+            "test-common/upgrades-ValidUpgrade-v1.dar",
+            "test-common/upgrades-ValidUpgrade-v2.dar",
+            None,
+          ),
+          testPackagePair(
+            "report error when module is missing in upgrading package",
+            "test-common/upgrades-MissingModule-v1.dar",
+            "test-common/upgrades-MissingModule-v2.dar",
+            Some(
+              "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
+            ),
+          ),
+          testPackagePair(
+            "report no upgrade errors for valid upgrade",
+            "test-common/upgrades-ValidUpgrade-v1.dar",
+            "test-common/upgrades-ValidUpgrade-v2.dar",
+            None,
+          ),
+          testPackagePair(
+            "report error when module is missing in upgrading package",
+            "test-common/upgrades-MissingModule-v1.dar",
+            "test-common/upgrades-MissingModule-v2.dar",
+            Some(
+              "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
+            ),
+          ),
+          testPackagePair(
+            "report error when template is missing in upgrading package",
+            "test-common/upgrades-MissingTemplate-v1.dar",
+            "test-common/upgrades-MissingTemplate-v2.dar",
+            Some(
+              "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
+            ),
+          ),
+          testPackagePair(
+            "report error when datatype is missing in upgrading package",
+            "test-common/upgrades-MissingDataCon-v1.dar",
+            "test-common/upgrades-MissingDataCon-v2.dar",
+            Some(
+              "Datatype U appears in package that is being upgraded, but does not appear in the upgrading package."
+            ),
+          ),
+          testPackagePair(
+            "report error when choice is missing in upgrading package",
+            "test-common/upgrades-MissingChoice-v1.dar",
+            "test-common/upgrades-MissingChoice-v2.dar",
+            Some(
+              "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package."
+            ),
+          ),
+          testPackagePair(
+            "report error when key type changes",
+            "test-common/upgrades-TemplateChangedKeyType-v1.dar",
+            "test-common/upgrades-TemplateChangedKeyType-v2.dar",
+            Some("The upgraded template T cannot change its key type."),
+          ),
+          testPackagePair(
+            "report error when record fields change",
+            "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
+            "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
+            Some(
+              "The upgraded datatype Struct has added new fields, but those fields are not Optional."
+            ),
+          ),
 
-    // Ported from DamlcUpgrades.hs
-    "Fails when template changes key type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
-        Some("The upgraded template A cannot change its key type."),
-      )
-    }
-    "Fails when template removes key type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
-        Some("The upgraded template A cannot remove its key."),
-      )
-    }
-    "Fails when template adds key type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
-        Some("The upgraded template A cannot add a key."),
-      )
-    }
-    "Fails when new field is added to template without Optional type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
-        Some("The upgraded template A has added new fields, but those fields are not Optional."),
-      )
-    }
-    "Fails when old field is deleted from template" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
-        Some("The upgraded template A is missing some of its original fields."),
-      )
-    }
-    "Fails when existing field in template is changed" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
-        Some("The upgraded template A has changed the types of some of its original fields."),
-      )
-    }
-    "Succeeds when new field with optional type is added to template" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
-        None,
-      )
-    }
-    "Fails when new field is added to template choice without Optional type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
-        Some(
-          "The upgraded input type of choice C on template A has added new fields, but those fields are not Optional."
-        ),
-      )
-    }
-    "Fails when old field is deleted from template choice" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
-        Some(
-          "The upgraded input type of choice C on template A is missing some of its original fields."
-        ),
-      )
-    }
-    "Fails when existing field in template choice is changed" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
-        Some(
-          "The upgraded input type of choice C on template A has changed the types of some of its original fields."
-        ),
-      )
-    }
-    "Fails when template choice changes its return type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
-        Some("The upgraded choice C cannot change its return type."),
-      )
-    }
-    "Succeeds when template choice returns a template which has changed" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
-        "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
-        None,
-      )
-    }
-    "Succeeds when template choice input argument has changed" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
-        "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
-        None,
-      )
-    }
-    "Succeeds when new field with optional type is added to template choice" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
-        None,
-      )
+          // Ported from DamlcUpgrades.hs
+          testPackagePair(
+            "Fails when template changes key type",
+            "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
+            "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
+            Some("The upgraded template A cannot change its key type."),
+          ),
+          testPackagePair(
+            "Fails when template removes key type",
+            "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
+            "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
+            Some("The upgraded template A cannot remove its key."),
+          ),
+          testPackagePair(
+            "Fails when template adds key type",
+            "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
+            "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
+            Some("The upgraded template A cannot add a key."),
+          ),
+          testPackagePair(
+            "Fails when new field is added to template without Optional type",
+            "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
+            "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
+            Some("The upgraded template A has added new fields, but those fields are not Optional."),
+          ),
+          testPackagePair(
+            "Fails when old field is deleted from template",
+            "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
+            "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
+            Some("The upgraded template A is missing some of its original fields."),
+          ),
+          testPackagePair(
+            "Fails when existing field in template is changed",
+            "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
+            "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
+            Some("The upgraded template A has changed the types of some of its original fields."),
+          ),
+          testPackagePair(
+            "Succeeds when new field with optional type is added to template",
+            "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
+            "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
+            None,
+          ),
+          testPackagePair(
+            "Fails when new field is added to template choice without Optional type",
+            "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
+            "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
+            Some(
+              "The upgraded input type of choice C on template A has added new fields, but those fields are not Optional."
+            ),
+          ),
+          testPackagePair(
+            "Fails when old field is deleted from template choice",
+            "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
+            "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
+            Some(
+              "The upgraded input type of choice C on template A is missing some of its original fields."
+            ),
+          ),
+          testPackagePair(
+            "Fails when existing field in template choice is changed",
+            "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
+            "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
+            Some(
+              "The upgraded input type of choice C on template A has changed the types of some of its original fields."
+            ),
+          ),
+          testPackagePair(
+            "Fails when template choice changes its return type",
+            "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
+            "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
+            Some("The upgraded choice C cannot change its return type."),
+          ),
+          testPackagePair(
+            "Succeeds when template choice returns a template which has changed",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
+            None,
+          ),
+          testPackagePair(
+            "Succeeds when template choice input argument has changed",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
+            None,
+          ),
+          testPackagePair(
+            "Succeeds when new field with optional type is added to template choice",
+            "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
+            "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
+            None,
+          ),
+        ))
+      } yield {
+        // Close resource, so that canton relinquishes its log file
+        suiteResource.close()
+
+        // Read log file
+        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
+        val cantonLogSrc = cantonLog.mkString
+        cantonLog.close()
+
+        Inspectors.forAll(checks)(_.run(cantonLogSrc))
+      }
     }
   }
 }
