@@ -150,7 +150,6 @@ autoInstall env@Env{..} = do
                 , iSnapshots = False
                 , iQuiet = QuietInstall False
                 , iAssistant = InstallAssistant Auto
-                , iActivate = ActivateInstall False
                 , iForce = ForceInstall False
                 , iSetPath = SetPath Auto
                 , iBashCompletions = BashCompletions Auto
