@@ -1,8 +1,8 @@
 Transactions: 
-  TX 0 1970-01-01T00:00:00Z (LfStableBigNumeric:22:3)
+  TX 0 1970-01-01T00:00:00Z (LfDevBigNumeric:23:3)
   #0:0
   │   disclosed to (since): 'Alice' (0)
-  └─> 'Alice' creates LfStableBigNumeric:BigNumericResults
+  └─> 'Alice' creates LfDevBigNumeric:BigNumericResults
               with
                 party = 'Alice';
                 values =

@@ -133,8 +133,7 @@ featureUnstable = Feature
 featureBigNumeric :: Feature
 featureBigNumeric = Feature
     { featureName = "BigNumeric type"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
+    , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_BIGNUMERIC"
     }
 

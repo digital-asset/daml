@@ -121,26 +121,6 @@ module BuiltinMod {
     TRACE;
   val coerceContractId: forall (a: *) (b: *). ContractId a -> ContractId b =
     COERCE_CONTRACT_ID;
-  val scaleBignumeric: BigNumeric -> Int64 =
-    SCALE_BIGNUMERIC;
-  val precisionBignumeric: BigNumeric -> Int64 =
-    PRECISION_BIGNUMERIC;
-  val addBignumeric: BigNumeric -> BigNumeric -> BigNumeric =
-    ADD_BIGNUMERIC;
-  val subBignumeric: BigNumeric -> BigNumeric -> BigNumeric =
-    SUB_BIGNUMERIC;
-  val mulBignumeric: BigNumeric -> BigNumeric -> BigNumeric =
-    MUL_BIGNUMERIC;
-  val divBignumeric: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric =
-    DIV_BIGNUMERIC;
-  val shiftRightBignumeric: Int64 -> BigNumeric -> BigNumeric =
-    SHIFT_RIGHT_BIGNUMERIC;
-  val bignumericToNumeric: forall (a: nat). Numeric a -> BigNumeric -> Numeric a =
-    BIGNUMERIC_TO_NUMERIC;
-  val numericToBignumeric: forall (a: nat). Numeric a -> BigNumeric =
-    NUMERIC_TO_BIGNUMERIC;
-  val bignumericToText: BigNumeric -> Text =
-    BIGNUMERIC_TO_TEXT;
   val anyExceptionMessage: AnyException -> Text =
     ANY_EXCEPTION_MESSAGE;
 }
