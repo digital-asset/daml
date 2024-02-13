@@ -492,8 +492,7 @@ projectInstall env projectPath = do
 shouldInstallAssistant :: InstallEnvWithVersion -> Bool
 shouldInstallAssistant InstallEnv{targetVersionM = versionToInstall, ..} =
     let isNewer = maybe True ((< versionToInstall) . unwrapDamlAssistantSdkVersion) assistantVersion
-    in unActivateInstall (iActivate options)
-    || determineAuto (isNewer || missingAssistant || installingFromOutside)
+    in determineAuto (isNewer || missingAssistant || installingFromOutside)
         (unwrapInstallAssistant (iAssistant options))
 
 pattern RawInstallTarget_Project :: RawInstallTarget
@@ -505,12 +504,6 @@ pattern RawInstallTarget_Latest = RawInstallTarget "latest"
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> UseCache -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
 install options damlPath useCache projectPathM assistantVersion = do
-    when (unActivateInstall (iActivate options)) $
-        hPutStr stderr . unlines $
-            [ "WARNING: --activate is deprecated, use --install-assistant=yes instead."
-            , ""
-            ]
-
     missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
     execPath <- getExecutablePath
     damlConfigE <- tryConfig $ readDamlConfig damlPath

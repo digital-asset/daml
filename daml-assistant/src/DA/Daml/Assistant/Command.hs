@@ -114,7 +114,6 @@ installParser = InstallOptions
     <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> completeWith ["latest"] <> help "The SDK version to install, or a tarball to install from directly. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
     <*> flagYesNoAuto "snapshots" False "Pick up snapshot versions with daml install latest." idm
     <*> (InstallAssistant <$> flagYesNoAuto' "install-assistant" "Install associated Daml assistant version. Can be set to \"yes\" (always installs), \"no\" (never installs), or \"auto\" (installs if newer). Default is \"auto\"." idm)
-    <*> iflag ActivateInstall "activate" hidden "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
     <*> fmap SetPath (flagYesNoAuto' "set-path" "Adjust PATH automatically" idm)
