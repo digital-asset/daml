@@ -31,10 +31,10 @@
 -- @INFO range=297:38-297:51; Use zip3
 -- @INFO range=298:53-298:66; Use zip3
 -- @INFO range=311:13-311:20; Evaluate
--- @ERROR range=378:1-378:17; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
--- @ERROR range=382:1-382:18; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
--- @ERROR range=397:1-397:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE -719163).
--- @ERROR range=400:1-400:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE 2932897).
+-- @ERROR range=389:1-389:17; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
+-- @ERROR range=393:1-393:18; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
+-- @ERROR range=408:1-408:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE -719163).
+-- @ERROR range=411:1-411:21; ArithmeticError while evaluating (UNIX_DAYS_TO_DATE 2932897).
 
 module PreludeTest where
 
@@ -341,12 +341,23 @@ testFloor = script do
     floor (0.0 : Decimal) === 0
 
 testRound = script do
+    round (0.5: Numeric 1) === 1
+    round (1.5: Numeric 1) === 2
+    round (-0.5: Numeric 1) === -1
+    round (-1.5: Numeric 1) === -2
+--  -- Check that `round @0` does not crash
+    round (0.0: Numeric 0) === 0
+    round (1.0: Numeric 0) === 1
+    
+testRoundCommercial = script do
     roundCommercial 0 10.5 === (11.0 : Decimal)
     roundCommercial 2 22.105 === (22.110 : Decimal)
-    roundBankers 0 10.5 === (10.0 : Decimal)
-    roundBankers 2 22.105 === (22.100 : Decimal)
     roundCommercial 0 (-10.5) === (-11.0 : Decimal)
     roundCommercial 2 (-22.105) === (-22.110 : Decimal)
+    
+testRoundBankers = script do
+    roundBankers 0 10.5 === (10.0 : Decimal)
+    roundBankers 2 22.105 === (22.100 : Decimal)    
     roundBankers 0 (-10.5) === (-10.0 : Decimal)
     roundBankers 2 (-22.105) === (-22.100 : Decimal)
 
