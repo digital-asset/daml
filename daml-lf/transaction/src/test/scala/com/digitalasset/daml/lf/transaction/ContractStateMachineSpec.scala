@@ -5,7 +5,6 @@ package com.daml
 package lf
 package transaction
 
-import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.ContractStateMachine.{
   ActiveLedgerState,
@@ -48,7 +47,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   val aliceS: Set[Ref.Party] = Set(alice)
   val templateId: Ref.TypeConName = "Template:Id"
   val choiceId: Ref.ChoiceName = "Choice"
-  val pkgName: IdString.PackageName = Ref.PackageName.assertFromString("package-name")
+  val pkgName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
   val txVersion: TransactionVersion = TransactionVersion.maxVersion
   val unit: Value = Value.ValueUnit
 
