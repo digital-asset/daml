@@ -21,6 +21,13 @@ module GenMapMod {
        GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10))
     = GENMAP_INSERT @(RecordMod:Pair Int64 (Numeric 10)) @(VariantMod:Either Int64 (Numeric 10));
 
+  val createContract:
+    Party ->
+      GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) ->
+      Update (ContractId GenMapMod:Box) =
+    \ (p: Party) (x: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10))) ->
+        create @GenMapMod:Box (GenMapMod:Box { x = x, party = p });
+
   val map0: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
     GENMAP_EMPTY @(RecordMod:Pair Int64 (Numeric 10)) @(VariantMod:Either Int64 (Numeric 10));
 
@@ -32,6 +39,15 @@ module GenMapMod {
 
   val map3: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
     GenMapMod:insert RecordMod:pair3 VariantMod:either3 GenMapMod:map2 ;
+
+  val createContracts: Party -> Update Unit = \ (p: Party) ->
+    ubind
+        c0 : ContractId GenMapMod:Box <- GenMapMod:createContract p GenMapMod:map0 ;
+        c1 : ContractId GenMapMod:Box <- GenMapMod:createContract p GenMapMod:map1 ;
+        c2 : ContractId GenMapMod:Box <- GenMapMod:createContract p GenMapMod:map2 ;
+        c3 : ContractId GenMapMod:Box <- GenMapMod:createContract p GenMapMod:map3
+      in
+        upure @Unit () ;
 
   val equal: forall (x:*). x -> x -> Bool = EQUAL;
 

@@ -15,6 +15,11 @@ module RecordMod {
     observers (Nil @Party);
   };
 
+  val createContract:
+    Party -> RecordMod:Pair Int64 (Numeric 10) -> Update (ContractId RecordMod:Box) =
+    \ (bob: Party) (x: RecordMod:Pair Int64 (Numeric 10)) ->
+          create @RecordMod:Box (RecordMod:Box { x = x, party = bob });
+
   val pair1: RecordMod:Pair Int64 (Numeric 10) =
     RecordMod:Pair @Int64 @(Numeric 10) {
       fst = 1,
@@ -32,5 +37,13 @@ module RecordMod {
       fst = -3,
       snd = -3333333333333333333333333333.0000000000
   };
+   
+  val createContracts: Party -> Update Unit =  \(p: Party) ->
+    ubind
+        c1 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair1 ;
+        c2 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair2 ;
+        c3 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair3
+      in
+        upure @Unit () ;
 
 }

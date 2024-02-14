@@ -13,6 +13,13 @@ module VariantMod {
     observers (Nil @Party);
   };
 
+  val createContract:
+    Party ->
+    VariantMod:Either Int64 (Numeric 10)->
+      Update (ContractId VariantMod:Box)
+    = \ (bob: Party) (x: VariantMod:Either Int64 (Numeric 10)) ->
+        create @VariantMod:Box (VariantMod:Box { x = x, party = bob });
+
   val either1: VariantMod:Either Int64 (Numeric 10) =
     VariantMod:Either:Left @Int64 @(Numeric 10) 0;
 
@@ -21,5 +28,15 @@ module VariantMod {
 
   val either3:  VariantMod:Either Int64 (Numeric 10) =
     VariantMod:Either:Right @Int64 @(Numeric 10) -2.2222222222;
+
+  val createContracts: Party -> Update Unit =  \(p: Party) ->
+    ubind
+        c1 : ContractId VariantMod:Box <- VariantMod:createContract p VariantMod:either1 ;
+        c2 : ContractId VariantMod:Box <- VariantMod:createContract p VariantMod:either2 ;
+        c3 : ContractId VariantMod:Box <- VariantMod:createContract p VariantMod:either3
+      in
+        upure @Unit () ;
+
+
 
 }

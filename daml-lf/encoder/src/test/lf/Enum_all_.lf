@@ -13,6 +13,11 @@ module EnumMod {
     observers (Nil @Party);
   };
 
+  val createColoredContract:
+    Party -> EnumMod:Color -> Update (ContractId EnumMod:Box) =
+      \ (p: Party) (color: EnumMod:Color) ->
+        create @EnumMod:Box (EnumMod:Box { x = color, party = p });
+
   enum Nothing = ;
 
   variant @serializable OptionalColor = NoColor: Unit | SomeColor: EnumMod:Color;
@@ -36,5 +41,13 @@ module EnumMod {
     signatories (PartyMod:one (EnumMod:NestedEnumTemplate {party} this));
     observers (Nil @Party);
   };
+
+  val createContracts: Party -> Update Unit = \(p: Party) ->
+    ubind
+      c1 : ContractId EnumMod:Box <- EnumMod:createColoredContract p EnumMod:Color:Red ;
+      c2 : ContractId EnumMod:Box <- EnumMod:createColoredContract p EnumMod:Color:Green ;
+      c3 : ContractId EnumMod:Box <- EnumMod:createColoredContract p EnumMod:Color:Blue
+    in
+      upure @Unit () ;
 
 }
