@@ -228,7 +228,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         new RemoteClock(
           clientConfig,
           config.parameters.timeouts.processing,
-          config.participants.nonEmpty || config.sequencers.nonEmpty || config.mediators.nonEmpty,
           clockLoggerFactory,
         )
       case ClockConfig.WallClock(skewW) =>

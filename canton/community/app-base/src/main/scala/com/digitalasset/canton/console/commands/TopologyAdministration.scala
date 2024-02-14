@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.console.commands
 
-import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
+import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -118,24 +118,4 @@ abstract class OwnerToKeyMappingsGroup(
       newKey: PublicKey,
       synchronize: Option[config.NonNegativeDuration] = Some(commandTimeouts.bounded),
   ): Unit
-}
-
-trait InitNodeId extends ConsoleCommandGroup {
-
-  @Help.Summary("Initialize the node with a unique identifier")
-  @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
-                      |of a user-chosen string and the fingerprint of a signing key. The signing key is the root key
-                      |defining a so-called namespace, where the signing key has the ultimate control over
-                      |issuing new identifiers.
-                      |During initialisation, we have to pick such a unique identifier.
-                      |By default, initialisation happens automatically, but it can be turned off by setting the auto-init
-                      |option to false.
-                      |Automatic node initialisation is usually turned off to preserve the identity of a participant or domain
-                      |node (during major version upgrades) or if the topology transactions are managed through
-                      |a different topology manager than the one integrated into this node.""")
-  def init_id(identifier: Identifier, fingerprint: Fingerprint): UniqueIdentifier =
-    consoleEnvironment.run {
-      runner.adminCommand(TopologyAdminCommands.Init.InitId(identifier.unwrap, fingerprint.unwrap))
-    }
-
 }

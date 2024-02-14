@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.*
+import com.daml.ledger.api.v1.TransactionFilterOuterClass
 import com.google.protobuf.{ByteString, Empty}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
@@ -12,8 +13,6 @@ import java.time.{Duration, Instant, LocalDate}
 import scala.jdk.CollectionConverters.*
 import scala.util.chaining.scalaUtilChainingOps
 
-// Allows using deprecated Protobuf fields for testing
-@annotation.nowarn("cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\..*")
 object Generators {
 
   def valueGen: Gen[v1.ValueOuterClass.Value] =
@@ -345,7 +344,15 @@ object Generators {
       interfaceFilters <- Gen.listOf(interfaceFilterGen)
     } yield v1.TransactionFilterOuterClass.InclusiveFilters
       .newBuilder()
-      .addAllTemplateIds(templateIds.asJava)
+      .addAllTemplateFilters(
+        templateIds
+          .map(templateId =>
+            TransactionFilterOuterClass.TemplateFilter.newBuilder
+              .setTemplateId(templateId)
+              .build
+          )
+          .asJava
+      )
       .addAllInterfaceFilters(interfaceFilters.asJava)
       .build()
 

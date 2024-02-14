@@ -34,7 +34,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
              identity_provider_id,
              resource_version,
              created_at
-         FROM participant_party_records
+         FROM lapi_party_records
          WHERE
              party = ${party: String}
        """
@@ -60,14 +60,14 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     val resourceVersion = partyRecord.resourceVersion
     val createdAt = partyRecord.createdAt
     val internalId: Try[Int] = SQL"""
-         INSERT INTO participant_party_records (party, identity_provider_id, resource_version, created_at)
+         INSERT INTO lapi_party_records (party, identity_provider_id, resource_version, created_at)
          VALUES ($party, $identityProviderId, $resourceVersion, $createdAt)
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.fold(throw _, identity)
   }
 
   override def getPartyAnnotations(internalId: Int)(connection: Connection): Map[String, String] = {
-    ParticipantMetadataBackend.getAnnotations("participant_party_record_annotations")(internalId)(
+    ParticipantMetadataBackend.getAnnotations("lapi_party_record_annotations")(internalId)(
       connection
     )
   }
@@ -75,7 +75,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
   override def addPartyAnnotation(internalId: Int, key: String, value: String, updatedAt: Long)(
       connection: Connection
   ): Unit = {
-    ParticipantMetadataBackend.addAnnotation("participant_party_record_annotations")(
+    ParticipantMetadataBackend.addAnnotation("lapi_party_record_annotations")(
       internalId,
       key,
       value,
@@ -84,7 +84,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
   }
 
   override def deletePartyAnnotations(internalId: Int)(connection: Connection): Unit = {
-    ParticipantMetadataBackend.deleteAnnotations("participant_party_record_annotations")(
+    ParticipantMetadataBackend.deleteAnnotations("lapi_party_record_annotations")(
       internalId
     )(
       connection
@@ -94,14 +94,14 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
   override def compareAndIncreaseResourceVersion(internalId: Int, expectedResourceVersion: Long)(
       connection: Connection
   ): Boolean = {
-    ParticipantMetadataBackend.compareAndIncreaseResourceVersion("participant_party_records")(
+    ParticipantMetadataBackend.compareAndIncreaseResourceVersion("lapi_party_records")(
       internalId,
       expectedResourceVersion,
     )(connection)
   }
 
   override def increaseResourceVersion(internalId: Int)(connection: Connection): Boolean = {
-    ParticipantMetadataBackend.increaseResourceVersion("participant_party_records")(internalId)(
+    ParticipantMetadataBackend.increaseResourceVersion("lapi_party_records")(internalId)(
       connection
     )
   }
@@ -121,7 +121,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     SQL"""
          SELECT
              party
-         FROM participant_party_records
+         FROM lapi_party_records
          WHERE
              $filteredIdentityProviderId AND $filteredParties
        """
@@ -139,7 +139,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     SQL"""
          SELECT
              party
-         FROM participant_party_records
+         FROM lapi_party_records
          WHERE
              $filteredParties
          ORDER BY party
@@ -155,7 +155,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     val idpId = identityProviderId.map(_.value): Option[String]
     val rowsUpdated =
       SQL"""
-         UPDATE participant_party_records
+         UPDATE lapi_party_records
          SET identity_provider_id = $idpId
          WHERE
              internal_id = ${internalId}

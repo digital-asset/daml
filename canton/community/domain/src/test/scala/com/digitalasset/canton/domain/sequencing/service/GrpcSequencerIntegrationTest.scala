@@ -90,7 +90,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val domainId = DefaultTestIdentities.domainId
   private val sequencerId = DefaultTestIdentities.sequencerId
   private val cryptoApi =
-    TestingTopology()
+    TestingTopologyX()
       .withSimpleParticipants(participant)
       .build()
       .forOwnerAndDomain(participant, domainId)

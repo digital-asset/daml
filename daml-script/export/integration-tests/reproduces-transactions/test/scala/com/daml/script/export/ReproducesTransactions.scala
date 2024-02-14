@@ -65,7 +65,7 @@ final class ReproducesTransactions
           Commands(
             applicationId = applicationId.getOrElse(""),
             commandId = UUID.randomUUID().toString(),
-            party = p,
+            actAs = Seq(p),
             commands = Seq(cmd),
           )
         )

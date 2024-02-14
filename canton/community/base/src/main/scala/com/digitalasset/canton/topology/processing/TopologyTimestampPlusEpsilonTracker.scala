@@ -17,13 +17,8 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.*
-import com.digitalasset.canton.topology.store.TopologyStore.Change
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId, TopologyStoreX}
-import com.digitalasset.canton.topology.transaction.{
-  DomainParametersChange,
-  DomainParametersStateX,
-  DomainTopologyTransactionType,
-}
+import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
+import com.digitalasset.canton.topology.transaction.DomainParametersStateX
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 
@@ -246,95 +241,6 @@ class TopologyTimestampPlusEpsilonTracker(
 
 object TopologyTimestampPlusEpsilonTracker {
 
-  def epsilonForTimestamp(
-      store: TopologyStore[TopologyStoreId.DomainStore],
-      asOfExclusive: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[TopologyStore.Change.TopologyDelay] = {
-    FutureUnlessShutdown
-      .outcomeF(
-        store
-          .findPositiveTransactions(
-            asOf = asOfExclusive,
-            asOfInclusive = false,
-            includeSecondary = false,
-            types = Seq(DomainTopologyTransactionType.DomainParameters),
-            filterUid = None,
-            filterNamespace = None,
-          )
-      )
-      .map { txs =>
-        txs.replaces.result
-          .map(x => (x.transaction.transaction.element.mapping, x))
-          .collectFirst { case (change: DomainParametersChange, tx) =>
-            TopologyStore.Change.TopologyDelay(
-              tx.sequenced,
-              tx.validFrom,
-              change.domainParameters.topologyChangeDelay,
-            )
-          }
-          .getOrElse(
-            TopologyStore.Change.TopologyDelay(
-              SequencedTime(CantonTimestamp.MinValue),
-              EffectiveTime(CantonTimestamp.MinValue),
-              DynamicDomainParameters.topologyChangeDelayIfAbsent,
-            )
-          )
-      }
-  }
-
-  /** Initialize tracker
-    *
-    * @param processorTs Timestamp strictly (just) before the first message that will be passed:
-    *                    No sequenced events may have been passed in earlier crash epochs whose
-    *                    timestamp is strictly between `processorTs` and the first message that
-    *                    will be passed if these events affect the topology change delay.
-    *                    Normally, it's the timestamp of the last message that was successfully
-    *                    processed before the one that will be passed first.
-    */
-  def initialize(
-      tracker: TopologyTimestampPlusEpsilonTracker,
-      store: TopologyStore[TopologyStoreId.DomainStore],
-      processorTs: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[EffectiveTime] = for {
-    // find the epsilon of a dpc asOf processorTs (which means it is exclusive)
-    epsilonAtProcessorTs <- epsilonForTimestamp(store, processorTs)
-    // find also all upcoming changes which have effective >= processorTs && sequenced <= processorTs
-    // the change that makes up the epsilon at processorTs would be grabbed by the statement above
-    upcoming <- tracker.performUnlessClosingF(functionFullName)(
-      store
-        .findUpcomingEffectiveChanges(processorTs)
-        .map(_.collect {
-          case tdc: Change.TopologyDelay
-              // filter anything out that might be replayed
-              if tdc.sequenced.value <= processorTs =>
-            tdc
-        })
-    )
-    allPending = (epsilonAtProcessorTs +: upcoming).sortBy(_.sequenced)
-    _ = {
-      tracker.logger.debug(
-        s"Initialising with $allPending"
-      )
-      // Now, replay all the older epsilon updates that might get activated shortly
-      allPending.foreach { change =>
-        tracker
-          .adjustEpsilon(
-            change.effective,
-            change.sequenced,
-            change.epsilon,
-          )
-          .discard[Option[NonNegativeFiniteDuration]]
-      }
-    }
-    eff <- tracker.adjustTimestampForTick(SequencedTime(processorTs))
-  } yield eff
-
   /** Initialize tracker
     *
     * @param processorTs Timestamp strictly (just) before the first message that will be passed:
@@ -360,7 +266,7 @@ object TopologyTimestampPlusEpsilonTracker {
       store
         .findUpcomingEffectiveChanges(processorTs)
         .map(_.collect {
-          case tdc: Change.TopologyDelay
+          case tdc: TopologyStoreX.Change.TopologyDelay
               // filter anything out that might be replayed
               if tdc.sequenced.value <= processorTs =>
             tdc
@@ -391,7 +297,7 @@ object TopologyTimestampPlusEpsilonTracker {
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[TopologyStore.Change.TopologyDelay] = {
+  ): FutureUnlessShutdown[TopologyStoreX.Change.TopologyDelay] = {
     FutureUnlessShutdown
       .outcomeF(
         store
@@ -408,14 +314,14 @@ object TopologyTimestampPlusEpsilonTracker {
         txs.result
           .map(x => (x.transaction.transaction.mapping, x))
           .collectFirst { case (change: DomainParametersStateX, tx) =>
-            TopologyStore.Change.TopologyDelay(
+            TopologyStoreX.Change.TopologyDelay(
               tx.sequenced,
               tx.validFrom,
               change.parameters.topologyChangeDelay,
             )
           }
           .getOrElse(
-            TopologyStore.Change.TopologyDelay(
+            TopologyStoreX.Change.TopologyDelay(
               SequencedTime(CantonTimestamp.MinValue),
               EffectiveTime(CantonTimestamp.MinValue),
               DynamicDomainParameters.topologyChangeDelayIfAbsent,

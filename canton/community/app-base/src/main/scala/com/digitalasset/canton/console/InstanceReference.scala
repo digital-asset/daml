@@ -111,7 +111,7 @@ trait InstanceReference
   @Help.Group("Parties")
   def parties: PartiesAdministrationGroupX
 
-  def topology: TopologyAdministrationGroupX
+  def topology: TopologyAdministrationGroup
 
   private lazy val trafficControl_ =
     new TrafficControlAdministrationGroup(
@@ -502,7 +502,7 @@ abstract class ParticipantReference(
   override def parties: ParticipantPartiesAdministrationGroupX
 
   private lazy val topology_ =
-    new TopologyAdministrationGroupX(
+    new TopologyAdministrationGroup(
       this,
       health.status.successOption.map(_.topologyQueue),
       consoleEnvironment,
@@ -511,7 +511,7 @@ abstract class ParticipantReference(
   @Help.Summary("Topology management related commands")
   @Help.Group("Topology")
   @Help.Description("This group contains access to the full set of topology management commands.")
-  override def topology: TopologyAdministrationGroupX = topology_
+  override def topology: TopologyAdministrationGroup = topology_
 
   @Help.Summary("Commands used for development and testing", FeatureFlag.Testing)
   @Help.Group("Testing")
@@ -736,7 +736,7 @@ abstract class SequencerNodeReference(
     consoleEnvironment.environment.loggerFactory.append("sequencer", name)
 
   private lazy val topology_ =
-    new TopologyAdministrationGroupX(
+    new TopologyAdministrationGroup(
       this,
       health.status.successOption.map(_.topologyQueue),
       consoleEnvironment,
@@ -747,7 +747,7 @@ abstract class SequencerNodeReference(
 
   def sequencerConnection: GrpcSequencerConnection
 
-  override def topology: TopologyAdministrationGroupX = topology_
+  override def topology: TopologyAdministrationGroup = topology_
 
   private lazy val parties_ = new PartiesAdministrationGroupX(this, consoleEnvironment)
 
@@ -1234,14 +1234,14 @@ abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, nam
     )
 
   private lazy val topology_ =
-    new TopologyAdministrationGroupX(
+    new TopologyAdministrationGroup(
       this,
       health.status.successOption.map(_.topologyQueue),
       consoleEnvironment,
       loggerFactory,
     )
 
-  override def topology: TopologyAdministrationGroupX = topology_
+  override def topology: TopologyAdministrationGroup = topology_
 
   private lazy val parties_ = new PartiesAdministrationGroupX(this, consoleEnvironment)
 

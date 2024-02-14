@@ -85,5 +85,5 @@ object HashPurpose {
   val DecentralizedNamespaceNamespace = HashPurpose(37, "DecentralizedNamespace")
   val SignedProtocolMessageSignature = HashPurpose(38, "SignedProtocolMessageSignature")
   val AggregationId = HashPurpose(39, "AggregationId")
-
+  val BftOrderingPbftBlock = HashPurpose(40, "BftOrderingPbftBlock")
 }

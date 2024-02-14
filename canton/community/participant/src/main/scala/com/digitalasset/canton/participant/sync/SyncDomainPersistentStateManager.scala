@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.TopologyXConfig
-import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
+import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.{
   DomainTopologyInitializationCallback,
@@ -22,7 +22,6 @@ import com.digitalasset.canton.participant.domain.{DomainAliasResolution, Domain
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.topology.{
   TopologyComponentFactory,
-  TopologyComponentFactoryOld,
   TopologyComponentFactoryX,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -101,6 +100,7 @@ trait SyncDomainPersistentStateManager extends AutoCloseable with SyncDomainPers
 
 }
 
+// TODO(#15161) collapse with SyncDomainPersistentStateManager and SyncDomainPersistentStateManagerX
 abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentState](
     aliasResolution: DomainAliasResolution,
     storage: Storage,
@@ -253,70 +253,6 @@ abstract class SyncDomainPersistentStateManagerImpl[S <: SyncDomainPersistentSta
     Lifecycle.close(domainStates.values.toSeq :+ aliasResolution: _*)(logger)
 }
 
-class SyncDomainPersistentStateManagerOld(
-    participantId: ParticipantId,
-    aliasResolution: DomainAliasResolution,
-    storage: Storage,
-    indexedStringStore: IndexedStringStore,
-    parameters: ParticipantNodeParameters,
-    pureCrypto: CryptoPureApi,
-    clock: Clock,
-    futureSupervisor: FutureSupervisor,
-    loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentStateOld](
-      aliasResolution,
-      storage,
-      indexedStringStore,
-      parameters,
-      loggerFactory,
-    ) {
-  override protected def mkPersistentState(
-      alias: DomainAlias,
-      domainId: IndexedDomain,
-      protocolVersion: ProtocolVersion,
-  ): SyncDomainPersistentStateOld = SyncDomainPersistentState
-    .createOld(
-      storage,
-      alias,
-      domainId,
-      protocolVersion,
-      pureCrypto,
-      parameters.stores,
-      parameters.cachingConfigs,
-      parameters.batchingConfig,
-      parameters.processingTimeouts,
-      parameters.enableAdditionalConsistencyChecks,
-      indexedStringStore,
-      loggerFactory,
-      futureSupervisor,
-    )
-
-  override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] = {
-    get(domainId).map(state =>
-      new TopologyComponentFactoryOld(
-        participantId,
-        domainId,
-        clock,
-        parameters.processingTimeouts,
-        futureSupervisor,
-        parameters.cachingConfigs,
-        parameters.batchingConfig,
-        state.topologyStore,
-        loggerFactory,
-      )
-    )
-  }
-
-  def domainTopologyStateInitFor(
-      domainId: DomainId,
-      participantId: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, DomainRegistryError, Option[DomainTopologyInitializationCallback]] =
-    EitherT.pure(None)
-}
-
 class SyncDomainPersistentStateManagerX(
     aliasResolution: DomainAliasResolution,
     storage: Storage,
@@ -328,7 +264,7 @@ class SyncDomainPersistentStateManagerX(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentStateX](
+    extends SyncDomainPersistentStateManagerImpl[SyncDomainPersistentState](
       aliasResolution,
       storage,
       indexedStringStore,
@@ -340,7 +276,7 @@ class SyncDomainPersistentStateManagerX(
       alias: DomainAlias,
       domainId: IndexedDomain,
       protocolVersion: ProtocolVersion,
-  ): SyncDomainPersistentStateX = SyncDomainPersistentState
+  ): SyncDomainPersistentState = SyncDomainPersistentState
     .createX(
       storage,
       domainId,

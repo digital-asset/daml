@@ -191,7 +191,7 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
 
   private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
     event match {
-      case DeliverStoreEvent(sender, messageId, recipients, payload, signingTimestampO, _trace) =>
+      case DeliverStoreEvent(sender, messageId, recipients, payload, topologyTimestampO, _trace) =>
         recipients.contains(
           member
         ) // only if they're a recipient (sender should already be a recipient)

@@ -95,7 +95,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def sendAsyncUnauthenticatedOrNot(
       batch: Batch[DefaultOpenEnvelope],
       sendType: SendType = SendType.Other,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       aggregationRule: Option[AggregationRule] = None,
@@ -245,7 +245,7 @@ abstract class SequencerClientImpl(
   override def sendAsyncUnauthenticatedOrNot(
       batch: Batch[DefaultOpenEnvelope],
       sendType: SendType = SendType.Other,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       aggregationRule: Option[AggregationRule] = None,
@@ -256,7 +256,7 @@ abstract class SequencerClientImpl(
         sendAsync(
           batch = batch,
           sendType = sendType,
-          timestampOfSigningKey = timestampOfSigningKey,
+          topologyTimestamp = topologyTimestamp,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,
           aggregationRule = aggregationRule,
@@ -276,7 +276,7 @@ abstract class SequencerClientImpl(
   override def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
       sendType: SendType = SendType.Other,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       aggregationRule: Option[AggregationRule] = None,
@@ -292,7 +292,7 @@ abstract class SequencerClientImpl(
       )
       // TODO(#12950): Validate that group addresses map to at least one member
       _ <- EitherT.cond[Future](
-        timestampOfSigningKey.isEmpty || batch.envelopes.forall(
+        topologyTimestamp.isEmpty || batch.envelopes.forall(
           _.recipients.allRecipients.forall {
             case MemberRecipient(m) => m.isAuthenticated
             case _ => true
@@ -300,14 +300,14 @@ abstract class SequencerClientImpl(
         ),
         (),
         SendAsyncClientError.RequestInvalid(
-          "Requests addressed to unauthenticated members must not specify a timestamp for the signing key"
+          "Requests addressed to unauthenticated members must not specify a topology timestamp"
         ): SendAsyncClientError,
       )
       result <- sendAsyncInternal(
         batch,
         requiresAuthentication = true,
         sendType,
-        timestampOfSigningKey,
+        topologyTimestamp,
         maxSequencingTime,
         messageId,
         aggregationRule,
@@ -366,7 +366,7 @@ abstract class SequencerClientImpl(
       batch: Batch[DefaultOpenEnvelope],
       requiresAuthentication: Boolean,
       sendType: SendType,
-      timestampOfSigningKey: Option[CantonTimestamp],
+      topologyTimestamp: Option[CantonTimestamp],
       maxSequencingTime: CantonTimestamp,
       messageId: MessageId,
       aggregationRule: Option[AggregationRule],
@@ -380,7 +380,7 @@ abstract class SequencerClientImpl(
           sendType.isRequest,
           Batch.closeEnvelopes(batch),
           maxSequencingTime,
-          timestampOfSigningKey,
+          topologyTimestamp,
           aggregationRule,
           SubmissionRequest.protocolVersionRepresentativeFor(protocolVersion),
         )

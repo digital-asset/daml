@@ -122,6 +122,8 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
             indexerLockId = lockIdSeed,
             indexerWorkerLockId = lockIdSeed + 1,
           ),
+          indexerDbDispatcherOverride =
+            None, // this test is meaningful for lock supporting DB backends, not H2
         ).acquire()
       } yield ReadServiceAndIndexer(readService, indexing)
     }

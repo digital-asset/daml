@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.CommandServiceV2Authorization
+import com.digitalasset.canton.ledger.api.auth.services.CommandServiceAuthorization
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v2.command_service._
 import com.google.protobuf.empty.Empty
@@ -66,7 +66,7 @@ object CommandServiceImpl {
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
     )
-    val authImpl = new CommandServiceV2Authorization(impl, authorizer)
+    val authImpl = new CommandServiceAuthorization(impl, authorizer)
     (CommandServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

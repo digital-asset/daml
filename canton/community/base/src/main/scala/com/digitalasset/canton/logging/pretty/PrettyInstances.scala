@@ -4,7 +4,6 @@
 package com.digitalasset.canton.logging.pretty
 
 import cats.Show.Shown
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
 import com.daml.ledger.javaapi.data.Party
@@ -276,13 +275,6 @@ trait PrettyInstances {
       case dedupOffset: DeduplicationPeriod.DeduplicationOffset =>
         s"(offset=${dedupOffset.offset})"
     }
-
-  implicit def prettyCompletion: Pretty[Completion] =
-    prettyOfClass(
-      unnamedParamIfDefined(_.status),
-      param("commandId", _.commandId.singleQuoted),
-      param("transactionId", _.transactionId.singleQuoted, _.transactionId.nonEmpty),
-    )
 
   implicit def prettyCompletionV2: Pretty[com.daml.ledger.api.v2.completion.Completion] =
     prettyOfClass(

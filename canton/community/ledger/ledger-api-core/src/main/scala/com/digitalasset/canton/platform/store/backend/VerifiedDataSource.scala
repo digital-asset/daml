@@ -22,21 +22,34 @@ object VerifiedDataSource {
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): Future[DataSource] = {
-    val logger = TracedLogger(loggerFactory.getLogger(getClass))
     val dataSourceStorageBackend =
       StorageBackendFactory
         .of(dbType = DbType.jdbcType(jdbcUrl), loggerFactory = loggerFactory)
         .createDataSourceStorageBackend
+    apply(
+      dataSourceStorageBackend,
+      DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
+      loggerFactory,
+    )
+  }
+
+  def apply(
+      dataSourceStorageBackend: DataSourceStorageBackend,
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): Future[DataSource] = {
+    val logger = TracedLogger(loggerFactory.getLogger(getClass))
     for {
       dataSource <- RetryStrategy.constant(
         attempts = MaxInitialConnectRetryAttempts,
         waitTime = 1.second,
       ) { (i, _) =>
         Future {
-          val createdDatasource = dataSourceStorageBackend.createDataSource(
-            DataSourceStorageBackend.DataSourceConfig(jdbcUrl),
-            loggerFactory,
-          )
+          val createdDatasource =
+            dataSourceStorageBackend.createDataSource(dataSourceConfig, loggerFactory)
           logger.info(
             s"Attempting to connect to the database (attempt $i/$MaxInitialConnectRetryAttempts)"
           )
@@ -54,7 +67,6 @@ object VerifiedDataSource {
         )
       }
     } yield dataSource
-
   }
 
 }

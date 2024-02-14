@@ -64,11 +64,6 @@ object EnvelopeContent
       content <- (contentP.someEnvelopeContent match {
         case Content.InformeeMessage(messageP) =>
           InformeeMessage.fromProtoV30(context)(messageP)
-        case Content.DomainTopologyTransactionMessage(messageP) =>
-          DomainTopologyTransactionMessage.fromProtoV30(
-            expectedProtocolVersion,
-            messageP,
-          )
         case Content.EncryptedViewMessage(messageP) =>
           EncryptedViewMessage.fromProto(messageP)
         case Content.TransferOutMediatorMessage(messageP) =>
@@ -77,10 +72,6 @@ object EnvelopeContent
           TransferInMediatorMessage.fromProtoV30(context)(messageP)
         case Content.RootHashMessage(messageP) =>
           RootHashMessage.fromProtoV30(SerializedRootHashMessagePayload.fromByteString)(messageP)
-        case Content.RegisterTopologyTransactionRequest(messageP) =>
-          RegisterTopologyTransactionRequest.fromProtoV30(expectedProtocolVersion, messageP)
-        case Content.RegisterTopologyTransactionResponse(messageP) =>
-          RegisterTopologyTransactionResponse.fromProtoV30(messageP)
         case Content.TopologyTransactionsBroadcast(messageP) =>
           TopologyTransactionsBroadcastX.fromProtoV30(expectedProtocolVersion, messageP)
         case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))

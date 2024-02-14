@@ -46,7 +46,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
+import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -112,9 +112,10 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val clock = new WallClock(timeouts, loggerFactory)
+  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(participant)
 
-  private val seedGenerator = new SeedGenerator(pureCrypto)
+  private val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private val transferInProcessingSteps =
     testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)
@@ -123,14 +124,16 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       : Future[(SyncDomainPersistentState, SyncDomainEphemeralState)] = {
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val persistentState =
-      new InMemorySyncDomainPersistentStateOld(
+      new InMemorySyncDomainPersistentStateX(
+        clock,
+        crypto,
         IndexedDomain.tryCreate(targetDomain.unwrap, 1),
         testedProtocolVersion,
-        pureCrypto,
         enableAdditionalConsistencyChecks = true,
-        loggerFactory,
-        timeouts,
-        futureSupervisor,
+        enableTopologyTransactionValidation = false,
+        loggerFactory = loggerFactory,
+        timeouts = timeouts,
+        futureSupervisor = futureSupervisor,
       )
     for {
       _ <- persistentState.parameterStore.setParameters(defaultStaticDomainParameters)
@@ -225,8 +228,8 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       val transferData2 = {
         val fullTransferOutTree = transferOutRequest
           .toFullTransferOutTree(
-            pureCrypto,
-            pureCrypto,
+            crypto.pureCrypto,
+            crypto.pureCrypto,
             seed,
             uuid,
           )
@@ -312,7 +315,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
     "fail when participant does not have submission permission for party" in {
 
-      val failingTopology = TestingTopology(domains = Set(sourceDomain.unwrap))
+      val failingTopology = TestingTopologyX(domains = Set(sourceDomain.unwrap))
         .withReversedTopology(
           Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Observation))
         )
@@ -667,7 +670,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             Right(inRes),
             pendingRequestData,
             state.pendingTransferInSubmissions,
-            pureCrypto,
+            crypto.pureCrypto,
           )
         )("get commit set and contracts to be stored and event failed")
       } yield succeed
@@ -718,7 +721,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
     valueOrFail(
       TransferInProcessingSteps.makeFullTransferInTree(
-        pureCrypto,
+        crypto.pureCrypto,
         seed,
         submitterInfo(submitter),
         stakeholders,

@@ -29,25 +29,16 @@ message Commands {
   string application_id = 2;
 
   // Uniquely identifies the command.
-  // The triple (application_id, party + act_as, command_id) constitutes the change ID for the intended ledger change,
-  // where party + act_as is interpreted as a set of party names.
+  // The triple (application_id, act_as, command_id) constitutes the change ID for the intended ledger change,
+  // where act_as is interpreted as a set of party names.
   // The change ID can be used for matching the intended ledger changes with all their completions.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string command_id = 3;
 
-  // Party on whose behalf the command should be executed.
-  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
-  // to act on behalf of the given party.
-  // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Deprecated in favor of the ``act_as`` field. If both are set, then the effective list of parties on whose
-  // behalf the command should be executed is the union of all parties listed in ``party`` and ``act_as``.
-  // Optional
-  string party = 4;
-
   // Individual elements of this atomic command. Must be non-empty.
   // Required
-  repeated com.daml.ledger.api.v1.Command commands = 5;
+  repeated com.daml.ledger.api.v1.Command commands = 4;
 
   // Specifies the deduplication period for the change ID.
   // If omitted, the participant will assume the configured maximum deduplication time (see
@@ -58,11 +49,11 @@ message Commands {
     // It is interpreted relative to the local clock at some point during the submission's processing.
     // Must be non-negative. Must not exceed the maximum deduplication time (see
     // ``ledger_configuration_service.proto``).
-    google.protobuf.Duration deduplication_duration = 6;
+    google.protobuf.Duration deduplication_duration = 5;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
     // Must be a valid LedgerString (as described in ``participant_offset.proto``).
-    string deduplication_offset = 7;
+    string deduplication_offset = 6;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.
@@ -71,21 +62,19 @@ message Commands {
   // the time the resulting transaction is sequenced, its assigned ledger time is not valid anymore.
   // Must not be set at the same time as min_ledger_time_rel.
   // Optional
-  google.protobuf.Timestamp min_ledger_time_abs = 8;
+  google.protobuf.Timestamp min_ledger_time_abs = 7;
 
   // Same as min_ledger_time_abs, but specified as a duration, starting from the time the command is received by the server.
   // Must not be set at the same time as min_ledger_time_abs.
   // Optional
-  google.protobuf.Duration min_ledger_time_rel = 9;
+  google.protobuf.Duration min_ledger_time_rel = 8;
 
   // Set of parties on whose behalf the command should be executed.
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
   // to act on behalf of each of the given parties.
-  // This field supersedes the ``party`` field. The effective set of parties on whose behalf the command
-  // should be executed is the union of all parties listed in ``party`` and ``act_as``, which must be non-empty.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
-  // Optional
-  repeated string act_as = 10;
+  // Required, must be non-empty.
+  repeated string act_as = 9;
 
   // Set of parties on whose behalf (in addition to all parties listed in ``act_as``) contracts can be retrieved.
   // This affects Daml operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
@@ -96,7 +85,7 @@ message Commands {
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
   // to read contract data on behalf of each of the given parties.
   // Optional
-  repeated string read_as = 11;
+  repeated string read_as = 10;
 
   // A unique identifier to distinguish completions for different submissions with the same change ID.
   // Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
@@ -105,17 +94,17 @@ message Commands {
   //
   // If omitted, the participant or the committer may set a value of their choice.
   // Optional
-  string submission_id = 12;
+  string submission_id = 11;
 
   // Additional contracts used to resolve contract & contract key lookups.
   // Optional
-  repeated com.daml.ledger.api.v1.DisclosedContract disclosed_contracts = 13;
+  repeated com.daml.ledger.api.v1.DisclosedContract disclosed_contracts = 12;
 
   // Must be a valid domain ID
   // Required
-  string domain_id = 14;
+  string domain_id = 13;
 
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
-  repeated string package_id_selection_preference = 15;
+  repeated string package_id_selection_preference = 14;
 }

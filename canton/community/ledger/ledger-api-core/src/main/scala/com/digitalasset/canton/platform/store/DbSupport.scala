@@ -12,9 +12,12 @@ import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSou
 import com.digitalasset.canton.platform.store.backend.{
   DataSourceStorageBackend,
   StorageBackendFactory,
+  VerifiedDataSource,
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.tracing.TraceContext
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 final case class DbSupport(
@@ -59,24 +62,31 @@ object DbSupport {
       serverRole: ServerRole,
       metrics: Metrics,
       loggerFactory: NamedLoggerFactory,
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
   ): ResourceOwner[DbSupport] = {
     val dbType = DbType.jdbcType(dbConfig.jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType, loggerFactory)
-    DbDispatcher
-      .owner(
-        dataSource = storageBackendFactory.createDataSourceStorageBackend
-          .createDataSource(dbConfig.dataSourceConfig, loggerFactory),
-        serverRole = serverRole,
-        connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
-        connectionTimeout = dbConfig.connectionPool.connectionTimeout,
-        metrics = metrics,
-        loggerFactory = loggerFactory,
+    val dataSourceStorageBackend = storageBackendFactory.createDataSourceStorageBackend
+    for {
+      dataSource <- ResourceOwner.forFuture(() =>
+        VerifiedDataSource(dataSourceStorageBackend, dbConfig.dataSourceConfig, loggerFactory)
       )
-      .map(dbDispatcher =>
-        DbSupport(
-          dbDispatcher = dbDispatcher,
-          storageBackendFactory = storageBackendFactory,
+      dbDispatcher <- DbDispatcher
+        .owner(
+          dataSource = dataSource,
+          serverRole = serverRole,
+          connectionPoolSize =
+            if (dbType.supportsParallelWrites) dbConfig.connectionPool.connectionPoolSize
+            else 1,
+          connectionTimeout = dbConfig.connectionPool.connectionTimeout,
+          metrics = metrics,
+          loggerFactory = loggerFactory,
         )
-      )
+    } yield DbSupport(
+      dbDispatcher = dbDispatcher,
+      storageBackendFactory = storageBackendFactory,
+    )
   }
 }

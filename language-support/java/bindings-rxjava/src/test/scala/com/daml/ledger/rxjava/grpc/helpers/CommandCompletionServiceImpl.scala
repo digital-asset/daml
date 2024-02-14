@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.CommandCompletionServiceV2Authorization
+import com.digitalasset.canton.ledger.api.auth.services.CommandCompletionServiceAuthorization
 import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.daml.ledger.api.v2.command_completion_service._
 import io.grpc.ServerServiceDefinition
@@ -37,7 +37,7 @@ object CommandCompletionServiceImpl {
       authorizer: Authorizer,
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, CommandCompletionServiceImpl) = {
     val impl = new CommandCompletionServiceImpl(completions)
-    val authImpl = new CommandCompletionServiceV2Authorization(impl, authorizer)
+    val authImpl = new CommandCompletionServiceAuthorization(impl, authorizer)
     (CommandCompletionServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

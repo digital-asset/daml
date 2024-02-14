@@ -114,8 +114,7 @@ class GrpcLedgerClient(
       Filters(
         Some(
           InclusiveFilters(
-            List(),
-            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)),
+            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true))
           )
         )
       )
@@ -294,7 +293,6 @@ class GrpcLedgerClient(
       commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
 
       apiCommands = Commands(
-        party = actAs.head,
         actAs = actAs.toList,
         readAs = readAs.toList,
         commands = ledgerCommands,

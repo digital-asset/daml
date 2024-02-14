@@ -17,6 +17,7 @@ import com.digitalasset.canton.crypto.{
   Signature,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition, ViewTree, ViewType}
+import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -101,7 +102,6 @@ abstract class ProtocolProcessor[
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-    skipRecipientsCheck: Boolean,
 )(implicit
     ec: ExecutionContext,
     resultCast: SignedMessageContentCast[Result],
@@ -713,9 +713,10 @@ abstract class ProtocolProcessor[
           ephemeral.submissionTracker.cancelRegistration(rootHash, requestId)
           err
         }
-        (snapshot, decisionTime, decryptedViews) = preliminaryChecks
+        (snapshot, decisionTime, uncheckedDecryptedViews) = preliminaryChecks
 
-        steps.DecryptedViews(decryptedViewsWithSignatures, rawDecryptionErrors) = decryptedViews
+        steps.DecryptedViews(decryptedViewsWithSignatures, rawDecryptionErrors) =
+          uncheckedDecryptedViews
         _ = rawDecryptionErrors.foreach { decryptionError =>
           logger.warn(s"Request $rc: Decryption error: $decryptionError")
         }
@@ -728,17 +729,18 @@ abstract class ProtocolProcessor[
           logger.warn(s"Request $rc: Found malformed payload: $incorrectRootHash")
         }
 
-        // TODO(i12643): Remove this flag when no longer needed
+        (submitterMetadataO, submissionDataForTrackerO) = steps.getSubmitterInformation(
+          viewsWithCorrectRootHash.map { case (view, _) => view.unwrap }
+        )
+
         checkRecipientsResult <- EitherT.right(
-          if (skipRecipientsCheck) FutureUnlessShutdown.pure((Seq.empty, viewsWithCorrectRootHash))
-          else
-            FutureUnlessShutdown.outcomeF(
-              recipientsValidator.retainInputsWithValidRecipients(
-                requestId,
-                viewsWithCorrectRootHash,
-                snapshot.ipsSnapshot,
-              )
+          FutureUnlessShutdown.outcomeF(
+            recipientsValidator.retainInputsWithValidRecipients(
+              requestId,
+              viewsWithCorrectRootHash,
+              snapshot.ipsSnapshot,
             )
+          )
         )
         (incorrectRecipients, viewsWithCorrectRootHashAndRecipients) = checkRecipientsResult
 
@@ -750,32 +752,74 @@ abstract class ProtocolProcessor[
 
         _ <- NonEmpty.from(fullViewsWithCorrectRootHashAndRecipients) match {
           case None =>
-            ephemeral.submissionTracker.cancelRegistration(rootHash, requestId)
-            trackAndSendResponsesMalformed(
-              rc,
-              sc,
-              ts,
-              handleRequestData,
-              mediator,
-              snapshot,
-              malformedPayloads,
-            ).mapK(FutureUnlessShutdown.outcomeK)
+            /*
+              If fullViewsWithCorrectRootHashAndRecipients is empty, it does not necessarily mean that we have a
+              malicious submitter (e.g., if there is concurrent topology change). Hence, if we have a submission data,
+              then we will aim to generate a command completion.
+             */
+            submissionDataForTrackerO match {
+              // TODO(i17075): study scenarios exploitable by honest-but-curious sequencers
+              case Some(submissionDataForTracker) =>
+                ephemeral.submissionTracker.provideSubmissionData(
+                  rootHash,
+                  requestId,
+                  submissionDataForTracker,
+                )
+
+                val error =
+                  TransactionProcessor.SubmissionErrors.NoViewWithValidRecipients.Error(ts)
+
+                for {
+                  _ <- EitherT
+                    .right(
+                      observeSequencedRootHash(
+                        submissionDataForTracker.submittingParticipant == participantId
+                      )
+                    )
+                    .mapK(FutureUnlessShutdown.outcomeK)
+                  _ <- stopProcessing(
+                    ts,
+                    rc,
+                    sc,
+                    handleRequestData,
+                    submitterMetadataO,
+                    rootHash,
+                    freshOwnTimelyTxF,
+                    error,
+                  )
+                } yield ()
+
+              case None =>
+                // We were not able to find submitter metadata within the decrypted views with correct root hash.
+                // Either there is no such view, or none of them are root views.
+                // In any case, we don't need to generate a command completion.
+                ephemeral.submissionTracker.cancelRegistration(rootHash, requestId)
+                trackAndSendResponsesMalformed(
+                  rc,
+                  sc,
+                  ts,
+                  handleRequestData,
+                  mediator,
+                  snapshot,
+                  malformedPayloads,
+                ).mapK(FutureUnlessShutdown.outcomeK)
+            }
 
           case Some(goodViewsWithSignatures) =>
             // All views with the same correct root hash declare the same mediator, so it's enough to look at the head
             val (firstView, _) = goodViewsWithSignatures.head1
 
-            val views = goodViewsWithSignatures.forgetNE.map { case (v, _) => v.unwrap }
-
-            val observeF = steps.getSubmissionDataForTracker(views) match {
-              case Some(submissionData) =>
+            val observeF = submissionDataForTrackerO match {
+              case Some(submissionDataForTracker) =>
                 ephemeral.submissionTracker.provideSubmissionData(
                   rootHash,
                   requestId,
-                  submissionData,
+                  submissionDataForTracker,
                 )
 
-                observeSequencedRootHash(submissionData.submittingParticipant == participantId)
+                observeSequencedRootHash(
+                  submissionDataForTracker.submittingParticipant == participantId
+                )
               case None =>
                 // There are no root views
                 ephemeral.submissionTracker.cancelRegistration(
@@ -798,6 +842,8 @@ abstract class ProtocolProcessor[
                 snapshot,
                 mediator,
                 goodViewsWithSignatures,
+                submitterMetadataO,
+                rootHash,
                 malformedPayloads,
                 freshOwnTimelyTxF,
               )
@@ -825,6 +871,63 @@ abstract class ProtocolProcessor[
     }
   }
 
+  private def stopProcessing(
+      ts: CantonTimestamp,
+      rc: RequestCounter,
+      sc: SequencerCounter,
+      handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
+        steps.requestType.PendingRequestData
+      ],
+      submitterMetadataO: Option[steps.ViewSubmitterMetadata],
+      rootHash: RootHash,
+      freshOwnTimelyTxF: FutureUnlessShutdown[Boolean],
+      error: TransactionError,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, steps.RequestError, Unit] = {
+    for {
+      freshOwnTimelyTx <- EitherT.right(freshOwnTimelyTxF)
+
+      (eventO, submissionIdO) = submitterMetadataO
+        .map { submitterMetadata =>
+          steps.eventAndSubmissionIdForRejectedCommand(
+            ts,
+            rc,
+            sc,
+            submitterMetadata,
+            rootHash,
+            freshOwnTimelyTx,
+            error,
+          )
+        }
+        .getOrElse((None, None))
+
+      _ <- EitherT.right(
+        FutureUnlessShutdown.outcomeF(
+          unlessCleanReplay(rc)(
+            ephemeral.recordOrderPublisher.schedulePublication(sc, rc, ts, eventO)
+          )
+        )
+      )
+      pendingSubmissionDataO = submissionIdO.flatMap(submissionId =>
+        // This removal does not interleave with `schedulePendingSubmissionRemoval`
+        // as the sequencer respects the max sequencing time of the request.
+        // TODO(M99) Gracefully handle the case that the sequencer does not respect the max sequencing time.
+        steps.removePendingSubmission(
+          steps.pendingSubmissions(ephemeral),
+          submissionId,
+        )
+      )
+      _ = pendingSubmissionDataO.foreach(
+        steps.postProcessSubmissionRejectedCommand(error, _)
+      )
+      _ <- EitherT.right[steps.RequestError] {
+        handleRequestData.complete(None)
+        invalidRequest(rc, sc, ts)
+      }
+    } yield ()
+  }
+
   private def processRequestWithGoodViews(
       ts: CantonTimestamp,
       rc: RequestCounter,
@@ -835,24 +938,25 @@ abstract class ProtocolProcessor[
       decisionTime: CantonTimestamp,
       snapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorRef,
-      viewsWithSignatures: NonEmpty[
+      fullViewsWithSignatures: NonEmpty[
         Seq[(WithRecipients[steps.FullView], Option[Signature])]
       ],
+      submitterMetadataO: Option[steps.ViewSubmitterMetadata],
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
       freshOwnTimelyTxF: FutureUnlessShutdown[Boolean],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ProtocolProcessor.this.steps.RequestError, Unit] = {
-    val views = viewsWithSignatures.map { case (view, _) => view }
-
-    def continueProcessing(freshOwnTimelyTx: Boolean) =
+    def continueProcessing() =
       for {
+        freshOwnTimelyTx <- EitherT.right(freshOwnTimelyTxF)
         activenessAndPending <- steps
           .computeActivenessSetAndPendingContracts(
             ts,
             rc,
             sc,
-            viewsWithSignatures,
+            fullViewsWithSignatures,
             malformedPayloads,
             snapshot,
             mediator,
@@ -871,57 +975,38 @@ abstract class ProtocolProcessor[
         )
       } yield ()
 
-    def stopProcessing(freshOwnTimelyTx: Boolean) = {
-      SyncServiceAlarm
-        .Warn(
-          s"Request $rc: Chosen mediator $mediator is inactive at $ts. Skipping this request."
-        )
-        .report()
-
-      // The chosen mediator may have become inactive between submission and sequencing.
-      // All honest participants and the mediator will ignore the request,
-      // but the submitting participant still must produce a completion event.
-      val (eventO, submissionIdO) =
-        steps.eventAndSubmissionIdForInactiveMediator(ts, rc, sc, views, freshOwnTimelyTx)
-
-      for {
-        _ <- EitherT.right(
-          FutureUnlessShutdown.outcomeF(
-            unlessCleanReplay(rc)(
-              ephemeral.recordOrderPublisher.schedulePublication(sc, rc, ts, eventO)
-            )
-          )
-        )
-        submissionDataO = submissionIdO.flatMap(submissionId =>
-          // This removal does not interleave with `schedulePendingSubmissionRemoval`
-          // as the sequencer respects the max sequencing time of the request.
-          // TODO(M99) Gracefully handle the case that the sequencer does not respect the max sequencing time.
-          steps.removePendingSubmission(
-            steps.pendingSubmissions(ephemeral),
-            submissionId,
-          )
-        )
-        _ = submissionDataO.foreach(
-          steps.postProcessSubmissionForInactiveMediator(mediator, ts, _)
-        )
-        _ <- EitherT.right[steps.RequestError] {
-          handleRequestData.complete(None)
-          invalidRequest(rc, sc, ts)
-        }
-      } yield ()
-    }
-
     // Check whether the declared mediator is still an active mediator.
     for {
       mediatorIsActive <- EitherT
         .right(snapshot.ipsSnapshot.isMediatorActive(mediator))
         .mapK(FutureUnlessShutdown.outcomeK)
-      freshOwnTimelyTx <- EitherT.right(freshOwnTimelyTxF)
       _ <-
         if (mediatorIsActive)
-          continueProcessing(freshOwnTimelyTx)
-        else
-          stopProcessing(freshOwnTimelyTx)
+          continueProcessing()
+        else {
+          SyncServiceAlarm
+            .Warn(
+              s"Request $rc: Chosen mediator $mediator is inactive at $ts. Skipping this request."
+            )
+            .report()
+
+          // The chosen mediator may have become inactive between submission and sequencing.
+          // All honest participants and the mediator will ignore the request,
+          // but the submitting participant still must produce a completion event.
+          val error =
+            TransactionProcessor.SubmissionErrors.InactiveMediatorError.Error(mediator, ts)
+
+          stopProcessing(
+            ts,
+            rc,
+            sc,
+            handleRequestData,
+            submitterMetadataO,
+            rootHash,
+            freshOwnTimelyTxF,
+            error,
+          )
+        }
     } yield ()
   }
 

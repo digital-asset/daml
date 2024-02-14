@@ -175,7 +175,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
 
             proposalTransactions <- inspect(
               store,
-              TimeQueryX.Range(ts1.some, ts4.some),
+              TimeQuery.Range(ts1.some, ts4.some),
               proposals = true,
             )
             positiveProposals <- findPositiveTransactions(store, ts6, isProposal = true)
@@ -241,33 +241,33 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
 
           for {
             _ <- store.bootstrap(bootstrapTransactions)
-            headStateTransactions <- inspect(store, TimeQueryX.HeadState)
+            headStateTransactions <- inspect(store, TimeQuery.HeadState)
             rangeBetweenTs2AndTs3Transactions <- inspect(
               store,
-              TimeQueryX.Range(ts2.some, ts3.some),
+              TimeQuery.Range(ts2.some, ts3.some),
             )
             snapshotAtTs3Transactions <- inspect(
               store,
-              TimeQueryX.Snapshot(ts3),
+              TimeQuery.Snapshot(ts3),
             )
             decentralizedNamespaceTransactions <- inspect(
               store,
-              TimeQueryX.Range(ts1.some, ts4.some),
+              TimeQuery.Range(ts1.some, ts4.some),
               typ = DecentralizedNamespaceDefinitionX.code.some,
             )
             removalTransactions <- inspect(
               store,
-              timeQuery = TimeQueryX.Range(ts1.some, ts4.some),
+              timeQuery = TimeQuery.Range(ts1.some, ts4.some),
               op = TopologyChangeOpX.Remove.some,
             )
             idDaTransactions <- inspect(
               store,
-              timeQuery = TimeQueryX.Range(ts1.some, ts4.some),
+              timeQuery = TimeQuery.Range(ts1.some, ts4.some),
               idFilter = "da",
             )
             idNamespaceTransactions <- inspect(
               store,
-              timeQuery = TimeQueryX.Range(ts1.some, ts4.some),
+              timeQuery = TimeQuery.Range(ts1.some, ts4.some),
               idFilter = "decentralized-namespace",
               namespaceOnly = true,
             )
@@ -402,7 +402,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
 
             upcomingTransactions shouldBe bootstrapTransactions.result.collect {
               case tx if tx.validFrom.value >= ts4 =>
-                TopologyStore.Change.Other(tx.sequenced, tx.validFrom)
+                TopologyStoreX.Change.Other(tx.sequenced, tx.validFrom)
             }.distinct
 
             expectTransactions(

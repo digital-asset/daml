@@ -13,24 +13,18 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.client.*
-import com.digitalasset.canton.topology.store.{
-  TopologyStore,
-  TopologyStoreCommon,
-  TopologyStoreId,
-  TopologyStoreX,
-}
+import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
-import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
 abstract class GrpcTopologyAggregationServiceCommon[
-    Store <: TopologyStoreCommon[TopologyStoreId.DomainStore, ?, ?, ?]
+    Store <: TopologyStoreX[TopologyStoreId.DomainStore]
 ](
     stores: => Seq[Store],
     ips: IdentityProvidingServiceClient,
@@ -186,30 +180,6 @@ abstract class GrpcTopologyAggregationServiceCommon[
     }
     CantonGrpcUtil.mapErrNew(res)
   }
-}
-
-class GrpcTopologyAggregationService(
-    stores: => Seq[TopologyStore[TopologyStoreId.DomainStore]],
-    ips: IdentityProvidingServiceClient,
-    loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
-    extends GrpcTopologyAggregationServiceCommon[TopologyStore[TopologyStoreId.DomainStore]](
-      stores,
-      ips,
-      loggerFactory,
-    ) {
-  override protected def getTopologySnapshot(
-      asOf: CantonTimestamp,
-      store: TopologyStore[TopologyStoreId.DomainStore],
-  ): TopologySnapshotLoader = new StoreBasedTopologySnapshot(
-    asOf,
-    store,
-    Map(),
-    useStateTxs = true,
-    StoreBasedDomainTopologyClient.NoPackageDependencies,
-    loggerFactory,
-    ProtocolVersionValidation.NoValidation,
-  )
 }
 
 class GrpcTopologyAggregationServiceX(

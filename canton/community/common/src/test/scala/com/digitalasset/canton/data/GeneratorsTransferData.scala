@@ -28,16 +28,15 @@ import scala.concurrent.ExecutionContext
 
 final class GeneratorsTransferData(
     protocolVersion: ProtocolVersion,
-    generatorsDataTime: GeneratorsDataTime,
     generatorsProtocol: GeneratorsProtocol,
     generatorsProtocolSequencing: GeneratorsProtocolSequencing,
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
+  import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import org.scalatest.EitherValues.*
-  import generatorsDataTime.cantonTimestampArb
   import generatorsProtocol.*
   import generatorsProtocolSequencing.*
 

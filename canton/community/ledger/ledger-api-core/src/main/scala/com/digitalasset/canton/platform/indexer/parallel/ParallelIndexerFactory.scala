@@ -51,6 +51,7 @@ object ParallelIndexerFactory {
       readService: ReadService,
       initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
       loggerFactory: NamedLoggerFactory,
+      indexerDbDispatcherOverride: Option[DbDispatcher],
   )(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {
     val logger = TracedLogger(loggerFactory.getLogger(getClass))
     for {
@@ -128,22 +129,26 @@ object ParallelIndexerFactory {
       haCoordinator.protectedExecution { connectionInitializer =>
         val indexingHandleF = initializeHandle(
           for {
-            dbDispatcher <- DbDispatcher
-              .owner(
-                // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
-                // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-                dataSource = dataSourceStorageBackend.createDataSource(
-                  dataSourceConfig = dbConfig.dataSourceConfig,
-                  connectionInitHook = Some(connectionInitializer.initialize),
-                  loggerFactory = loggerFactory,
-                ),
-                serverRole = ServerRole.Indexer,
-                connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
-                connectionTimeout = dbConfig.connectionPool.connectionTimeout,
-                metrics = metrics,
-                loggerFactory = loggerFactory,
+            dbDispatcher <- indexerDbDispatcherOverride
+              .map(ResourceOwner.successful)
+              .getOrElse(
+                DbDispatcher
+                  .owner(
+                    // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+                    // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
+                    dataSource = dataSourceStorageBackend.createDataSource(
+                      dataSourceConfig = dbConfig.dataSourceConfig,
+                      connectionInitHook = Some(connectionInitializer.initialize),
+                      loggerFactory = loggerFactory,
+                    ),
+                    serverRole = ServerRole.Indexer,
+                    connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
+                    connectionTimeout = dbConfig.connectionPool.connectionTimeout,
+                    metrics = metrics,
+                    loggerFactory = loggerFactory,
+                  )
+                  .afterReleased(logger.debug("Indexing DbDispatcher released"))
               )
-              .afterReleased(logger.debug("Indexing DbDispatcher released"))
             _ <- meteringAggregator(dbDispatcher)
               .afterReleased(logger.debug("Metering Aggregator released"))
           } yield dbDispatcher

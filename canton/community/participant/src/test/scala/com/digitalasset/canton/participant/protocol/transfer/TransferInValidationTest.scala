@@ -66,7 +66,7 @@ class TransferInValidationTest
     )
   }
 
-  private val identityFactory = TestingTopology()
+  private val identityFactory = TestingTopologyX()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
@@ -79,7 +79,7 @@ class TransferInValidationTest
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val pureCrypto = TestingIdentityFactoryX.pureCrypto()
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 

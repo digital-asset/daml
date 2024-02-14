@@ -9,6 +9,7 @@ import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.v1.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.scalautil.Statement.discard
@@ -158,7 +159,12 @@ object AcsTxStreams extends NoTracing {
     val filters = Filters(
       Some(
         InclusiveFilters(
-          templateIds = templateIds.map(apiIdentifier),
+          templateFilters = templateIds.map(templateId =>
+            TemplateFilter(
+              templateId = Some(apiIdentifier(templateId)),
+              includeCreatedEventBlob = false,
+            )
+          ),
           interfaceFilters = interfaceIds.map(interfaceId =>
             InterfaceFilter(
               interfaceId = Some(apiIdentifier(interfaceId)),

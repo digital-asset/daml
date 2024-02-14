@@ -34,7 +34,6 @@ import com.digitalasset.canton.platform.store.utils.{
   Telemetry,
 }
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
@@ -49,7 +48,7 @@ class TransactionsFlatStreamReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dbDispatcher: DbDispatcher,
-    queryNonPruned: QueryNonPruned,
+    queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     metrics: Metrics,
@@ -187,17 +186,21 @@ class TransactionsFlatStreamReader(
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(dbMetric) { implicit connection =>
-                queryNonPruned.executeSql(
-                  query = eventStorageBackend.transactionStreamingQueries
+                queryValidRange.withRangeNotPruned(
+                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  maxOffsetInclusive = queryRange.endInclusiveOffset,
+                  errorPruning = (prunedOffset: Offset) =>
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+                ) {
+                  eventStorageBackend.transactionStreamingQueries
                     .fetchEventPayloadsFlat(target = target)(
                       eventSequentialIds = ids,
                       allFilterParties = filteringConstraints.allFilterParties,
-                    )(connection),
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
-                  error = (prunedOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
-                )
-              }(LoggingContextWithTrace(TraceContext.empty))
+                    )(connection)
+                }
+              }
             }
           }
         )

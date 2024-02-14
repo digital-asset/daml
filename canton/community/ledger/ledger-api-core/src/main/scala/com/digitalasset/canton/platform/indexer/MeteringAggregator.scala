@@ -125,7 +125,7 @@ class MeteringAggregator(
 
         val (
           periodIngested, // This is true if the time period is closed fully ingested
-          hasMetering, // This is true if there are transaction_metering records to aggregate
+          hasMetering, // This is true if there are lapi_transaction_metering records to aggregate
           toOffsetEnd, // This is the 'to' offset for the period being aggregated
         ) = maybeMaxOffset match {
           case Some(offset) => (offset <= ingestedLedgerEnd, true, offset)

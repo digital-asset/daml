@@ -24,7 +24,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
     testedProtocolVersion,
   )
 
-  private lazy val defaultTimestampOfSigningKey = Some(
+  private lazy val defaultTopologyTimestamp = Some(
     CantonTimestamp.Epoch.add(Duration.ofSeconds(1))
   )
 
@@ -35,7 +35,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
       isRequest = false,
       Batch.empty(testedProtocolVersion),
       maxSequencingTime = CantonTimestamp.MaxValue,
-      timestampOfSigningKey = defaultTimestampOfSigningKey,
+      topologyTimestamp = defaultTopologyTimestamp,
       Some(defaultAggregationRule),
       testedProtocolVersion,
     )
@@ -77,9 +77,9 @@ class SubmissionRequestTest extends BaseTestWordSpec {
             )
           ),
           defaultSubmissionRequest.copy(maxSequencingTime = CantonTimestamp.Epoch),
-          defaultSubmissionRequest.copy(timestampOfSigningKey = Some(CantonTimestamp.MinValue)),
-          defaultSubmissionRequest.copy(timestampOfSigningKey = Some(CantonTimestamp.MaxValue)),
-          defaultSubmissionRequest.copy(timestampOfSigningKey = Some(CantonTimestamp.Epoch)),
+          defaultSubmissionRequest.copy(topologyTimestamp = Some(CantonTimestamp.MinValue)),
+          defaultSubmissionRequest.copy(topologyTimestamp = Some(CantonTimestamp.MaxValue)),
+          defaultSubmissionRequest.copy(topologyTimestamp = Some(CantonTimestamp.Epoch)),
           defaultSubmissionRequest.copy(aggregationRule =
             Some(
               defaultAggregationRule.copy(eligibleMembers =

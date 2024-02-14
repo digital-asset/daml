@@ -25,7 +25,8 @@ import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   Member,
   ParticipantId,
-  TestingTopology,
+  SequencerGroup,
+  TestingTopologyX,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -55,7 +56,14 @@ trait SequencerStateManagerStoreTest
   private var materializer: Materializer = _
   private lazy val domainId = DefaultTestIdentities.domainId
   private lazy val syncCryptoApi =
-    TestingTopology(domains = Set(domainId))
+    TestingTopologyX(
+      domains = Set(domainId),
+      sequencerGroup = SequencerGroup(
+        active = Seq(DefaultTestIdentities.sequencerId),
+        passive = Seq.empty,
+        threshold = PositiveInt.one,
+      ),
+    )
       .build()
       .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
       .currentSnapshotApproximation

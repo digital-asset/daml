@@ -125,7 +125,6 @@ class SyncDomain(
     trafficStateController: TrafficStateController,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
-    skipRecipientsCheck: Boolean,
 )(implicit ec: ExecutionContext, tracer: Tracer)
     extends NamedLogging
     with StartAndCloseable[Either[SyncDomainInitializationError, Unit]]
@@ -181,7 +180,6 @@ class SyncDomain(
     timeouts,
     loggerFactory,
     futureSupervisor,
-    skipRecipientsCheck = skipRecipientsCheck,
     enableContractUpgrading = parameters.enableContractUpgrading,
   )
 
@@ -199,7 +197,6 @@ class SyncDomain(
     SourceProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
-    skipRecipientsCheck = skipRecipientsCheck,
   )
 
   private val transferInProcessor: TransferInProcessor = new TransferInProcessor(
@@ -216,7 +213,6 @@ class SyncDomain(
     TargetProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
-    skipRecipientsCheck = skipRecipientsCheck,
   )
 
   private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
@@ -969,7 +965,6 @@ object SyncDomain {
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -997,7 +992,6 @@ object SyncDomain {
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): SyncDomain =
       new SyncDomain(
         domainId,
@@ -1023,7 +1017,6 @@ object SyncDomain {
         trafficStateController,
         futureSupervisor,
         loggerFactory,
-        skipRecipientsCheck = skipRecipientsCheck,
       )
   }
 }

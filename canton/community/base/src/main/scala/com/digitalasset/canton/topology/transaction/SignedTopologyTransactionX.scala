@@ -33,7 +33,8 @@ import scala.reflect.ClassTag
   *
   * Whether the key is eligible to authorize the topology transaction depends on the topology state
   */
-final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX](
+@SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
+case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX](
     transaction: TopologyTransactionX[Op, M],
     signatures: NonEmpty[Set[Signature]],
     isProposal: Boolean,
@@ -96,8 +97,8 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
     selectMapping[TargetMapping].flatMap(_.selectOp[TargetOp])
   }
 
-  def toProtoV30: v30.SignedTopologyTransactionX =
-    v30.SignedTopologyTransactionX(
+  def toProtoV30: v30.SignedTopologyTransaction =
+    v30.SignedTopologyTransaction(
       transaction = transaction.getCryptographicEvidence,
       signatures = signatures.toSeq.map(_.toProtoV30),
       proposal = isProposal,
@@ -137,7 +138,7 @@ object SignedTopologyTransactionX
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v30.SignedTopologyTransactionX
+      v30.SignedTopologyTransaction
     )(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -205,9 +206,9 @@ object SignedTopologyTransactionX
 
   def fromProtoV30(
       protocolVersionValidation: ProtocolVersionValidation,
-      transactionP: v30.SignedTopologyTransactionX,
+      transactionP: v30.SignedTopologyTransaction,
   ): ParsingResult[GenericSignedTopologyTransactionX] = {
-    val v30.SignedTopologyTransactionX(txBytes, signaturesP, isProposal) = transactionP
+    val v30.SignedTopologyTransaction(txBytes, signaturesP, isProposal) = transactionP
     for {
       transaction <- TopologyTransactionX.fromByteString(protocolVersionValidation)(txBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(

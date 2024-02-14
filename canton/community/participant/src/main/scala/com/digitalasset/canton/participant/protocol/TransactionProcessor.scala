@@ -68,7 +68,6 @@ class TransactionProcessor(
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-    skipRecipientsCheck: Boolean,
     enableContractUpgrading: Boolean,
 )(implicit val ec: ExecutionContext)
     extends ProtocolProcessor[
@@ -119,7 +118,6 @@ class TransactionProcessor(
       staticDomainParameters.protocolVersion,
       loggerFactory,
       futureSupervisor,
-      skipRecipientsCheck = skipRecipientsCheck,
     ) {
 
   def submit(
@@ -356,6 +354,25 @@ object TransactionProcessor {
             cause = s"Contract with id (${contractId.coid}) could not be authenticated: $message"
           )
           with TransactionSubmissionError
+    }
+
+    @Explanation(
+      "This error occurs when the transaction does not contain a valid set of recipients."
+    )
+    @Resolution(
+      """It is possible that a concurrent change in the relationships between parties and
+        |participants occurred during request submission. Resubmit the request.
+        |"""
+    )
+    object NoViewWithValidRecipients
+        extends ErrorCode(
+          id = "NO_VIEW_WITH_VALID_RECIPIENTS",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      final case class Error(timestamp: CantonTimestamp)
+          extends TransactionErrorImpl(
+            cause = "the request does not contain any view with the expected recipients"
+          )
     }
 
     @Explanation(
