@@ -106,7 +106,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       compiledPkgs.addPackage(defaultPackageId, pkg)
       val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
 
-      val priority = Map(pkgName.get -> defaultPackageId)
+      val priority = Map(pkgName -> defaultPackageId)
 
       forEvery(cmdsByPackageName)(cmd =>
         inside(
@@ -334,7 +334,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       crypto.Hash.hashPrivateKey("test-contract-id"),
       Bytes.assertFromString("deadbeef"),
     )
-  val pkgRef = Ref.PackageRef.Name(pkgName.get)
+  val pkgRef = Ref.PackageRef.Name(pkgName)
   val withoutKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithoutKey")
   val withoutKeyTmplRef: Ref.TypeConRef = Ref.TypeConRef(pkgRef, withoutKeyTmplId.qualifiedName)
   val withKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithKey")

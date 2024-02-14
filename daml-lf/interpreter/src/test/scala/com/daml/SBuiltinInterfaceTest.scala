@@ -164,7 +164,7 @@ final class SBuiltinInterfaceTestHelpers(majorLanguageVersion: LanguageMajorVers
   val Ast.TTyCon(iouId) = t"'$basePkgId':Mod:Iou"
 
   // We assume extraPkg use the same version as basePkg
-  val extraPkgName = basePkg.name.map(_ => Ref.PackageName.assertFromString("-extra-package-name-"))
+  val extraPkgName = Ref.PackageName.assertFromString("-extra-package-name-")
   val extraPkgId = Ref.PackageId.assertFromString("-extra-package-id-")
   require(extraPkgId != basePkgId)
 

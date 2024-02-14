@@ -1085,7 +1085,7 @@ object TransactionSpec {
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = cid,
-      packageName = None,
+      packageName = Ref.PackageName.assertFromString("PkgName"),
       templateId = "DummyModule:dummyName",
       interfaceId = None,
       choiceId = "dummyChoice",
@@ -1106,7 +1106,7 @@ object TransactionSpec {
   def dummyCreateNode(createCid: V.ContractId): Node.Create =
     Node.Create(
       coid = createCid,
-      packageName = None,
+      packageName = Ref.PackageName.assertFromString("PkgName"),
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueContractId(cid("#dummyCid")),
       signatories = Set.empty,

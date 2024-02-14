@@ -1192,10 +1192,7 @@ object Ast {
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
   ) {
-    // package Name if the package support upgrade
-    // TODO: https://github.com/digital-asset/daml/issues/17965
-    //  drop that in daml-3
-    private[lf] val name: Option[Ref.PackageName] = Some(metadata.name)
+    private[lf] val name: Ref.PackageName = metadata.name
   }
 
   final class GenPackageCompanion[E] private[Ast] {

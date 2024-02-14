@@ -13,7 +13,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.HashMap
-import scala.math.Ordering.Implicits._
 
 class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
   // --[Tweaks]--
@@ -94,7 +93,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       key <- Seq(None, Some(samKWM1))
     } yield Node.Create(
       coid = samContractId1,
-      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
+      packageName = somePkgName,
       templateId = samTemplateId1,
       arg = samValue1,
       signatories = samParties1,
@@ -110,7 +109,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       actingParties <- Seq(Set[Party](), Set(samParty1))
     } yield Node.Fetch(
       coid = samContractId1,
-      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
+      packageName = somePkgName,
       templateId = samTemplateId1,
       actingParties = actingParties,
       signatories = samParties2,
@@ -126,7 +125,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       result <- Seq(None, Some(samContractId1))
     } yield Node.LookupByKey(
       templateId = samTemplateId1,
-      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
+      packageName = somePkgName,
       result = result,
       key = samKWM3,
       version = version,
@@ -139,7 +138,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       exerciseResult <- Seq(None, Some(samValue2))
     } yield Node.Exercise(
       targetCoid = samContractId2,
-      packageName = if (version < TransactionVersion.minUpgrade) None else Some(somePkgName),
+      packageName = somePkgName,
       templateId = samTemplateId2,
       // TODO https://github.com/digital-asset/daml/issues/13653
       //   also vary interfaceId (but this requires an interface choice)
