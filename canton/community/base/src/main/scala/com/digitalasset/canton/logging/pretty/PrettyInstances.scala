@@ -323,7 +323,7 @@ trait PrettyInstances {
     paramIfDefined("W3C context", _.asW3CTraceContext),
   )
 
-  implicit val prettyKeyInputError: Pretty[KeyInputError] = {
+  implicit def prettyKeyInputError[Nid]: Pretty[KeyInputError[Nid]] = {
     case InconsistentContractKeyKIError(e: InconsistentContractKey) =>
       prettyOfClass[InconsistentContractKey](unnamedParam(_.key)).treeOf(e)
     case DuplicateContractKeyKIError(e: DuplicateContractKey) =>

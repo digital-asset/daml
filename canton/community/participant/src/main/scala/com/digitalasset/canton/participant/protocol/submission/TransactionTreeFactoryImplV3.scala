@@ -243,7 +243,7 @@ class TransactionTreeFactoryImplV3(
               }
               nextState <- state.csmState
                 .handleNode((), suffixedNode, resolutionForModeOff)
-                .leftMap(ContractKeyResolutionError)
+                .leftMap(ContractKeyResolutionError(_))
             } yield {
               state.csmState = nextState
             }

@@ -153,17 +153,19 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       version = txVersion,
     )
 
-  def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
+  def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError[Unit], X] =
     Left(KeyInputError.inject(InconsistentContractKey(key)))
 
-  def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
+  def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError[Unit], X] =
     Left(KeyInputError.inject(DuplicateContractKey(key)))
 
-  def duplicateContractId[X](contractId: ContractId): Left[KeyInputError, X] =
+  def duplicateContractId[X](contractId: ContractId): Left[KeyInputError[Unit], X] =
     Left(KeyInputError.inject(DuplicateContractId(contractId)))
 
-  def contractNotFound[X](contractId: ContractId): Left[KeyInputError, X] =
-    Left(KeyInputError.inject(ContractNotActive(contractId)))
+  def contractNotActive[X](
+      contractId: ContractId
+  ): Left[KeyInputError[Unit], X] =
+    Left(KeyInputError.inject(ContractNotActive(contractId, ())))
 
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
@@ -429,7 +431,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkExercise(1, consuming = true))
     val _ = builder.add(mkExercise(1, consuming = true))
     val tx = builder.build()
-    val expected = contractNotFound(1)
+    val expected = contractNotActive(1)
     TestCase(
       "ConsumingExerciseAfterConsumingExercise",
       tx,
@@ -446,7 +448,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkExercise(1))
     val _ = builder.add(mkExercise(1, consuming = false))
     val tx = builder.build()
-    val expected = contractNotFound(1)
+    val expected = contractNotActive(1)
     TestCase(
       "NonConsumingExerciseAfterConsumingExercise",
       tx,
@@ -463,7 +465,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val _ = builder.add(mkExercise(1))
     val _ = builder.add(mkFetch(1))
     val tx = builder.build()
-    val expected = contractNotFound(1)
+    val expected = contractNotActive(1)
     TestCase(
       "FetchAfterConsumingExercise",
       tx,
@@ -893,7 +895,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       root: NodeId,
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError[Unit], ContractStateMachine.State[Unit]] = {
     val node = nodes(root)
     for {
       next <- node match {
@@ -923,7 +925,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       roots: Seq[NodeId],
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError[Unit], ContractStateMachine.State[Unit]] = {
     roots match {
       case Seq() => Right(state)
       case root +: tail =>
@@ -959,7 +961,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
 object ContractStateMachineSpec {
   type TestResult =
-    Either[KeyInputError, (Map[GlobalKey, KeyInput], ActiveLedgerState[Unit], Set[ContractId])]
+    Either[KeyInputError[
+      Unit
+    ], (Map[GlobalKey, KeyInput], ActiveLedgerState[Unit], Set[ContractId])]
   case class TestCase(
       name: String,
       transaction: HasTxNodes,

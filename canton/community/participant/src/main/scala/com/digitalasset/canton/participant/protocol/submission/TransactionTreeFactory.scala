@@ -141,9 +141,9 @@ object TransactionTreeFactory {
       prettyOfClass(unnamedParam(_.key))
   }
 
-  final case class ContractKeyResolutionError(error: KeyInputError)
+  final case class ContractKeyResolutionError[Nid](error: KeyInputError[Nid])
       extends TransactionTreeConversionError {
-    override def pretty: Pretty[ContractKeyResolutionError] =
+    override def pretty: Pretty[ContractKeyResolutionError[Nid]] =
       prettyOfClass(unnamedParam(_.error))
   }
 
