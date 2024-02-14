@@ -99,6 +99,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addMethod(companion.generateGetter())
         .addFields(RecordFields(fields).asJava)
         .addMethods(templateMethods.asJava)
+        .addType(FromJsonGenerator.decoderAccessorClass(className, Vector()))
       generateByKeyMethod(className, template.key) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)
