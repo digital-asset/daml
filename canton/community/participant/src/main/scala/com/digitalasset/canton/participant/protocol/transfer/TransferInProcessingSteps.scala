@@ -589,7 +589,7 @@ private[transfer] class TransferInProcessingSteps(
         stakeholders = contract.metadata.stakeholders,
         keyOpt = contract.metadata.maybeKeyWithMaintainers,
         version = contract.contractInstance.version,
-        // TODO(Tudor)
+        // TODO https://github.com/digital-asset/daml/issues/17995
         packageName = Ref.PackageName.assertFromString("dummyReplace")
       )
     val driverContractMetadata = contract.contractSalt

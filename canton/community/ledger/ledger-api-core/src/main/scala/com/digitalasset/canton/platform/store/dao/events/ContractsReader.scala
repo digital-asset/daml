@@ -165,7 +165,7 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
-      // TODO(Tudor)
+      // TODO https://github.com/digital-asset/daml/issues/17995
       packageName = Ref.PackageName.assertFromString("dummyReplace")
     )
   }
@@ -177,7 +177,7 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
-      // TODO(Tudor)
+      // TODO https://github.com/digital-asset/daml/issues/17995
       packageName = Ref.PackageName.assertFromString("dummyReplace")
     )
 }

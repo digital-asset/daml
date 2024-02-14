@@ -908,7 +908,7 @@ final class RepairService(
     keyOpt = None,
     byKey = false,
     version = c.rawContractInstance.contractInstance.version,
-    // TODO(Tudor)
+    // TODO https://github.com/digital-asset/daml/issues/17995
     packageName = Ref.PackageName.assertFromString("dummyReplace")
   )
 
@@ -1321,7 +1321,7 @@ object RepairService {
         )
 
         lfContractInst = LfContractInst(template = template, arg = argsVersionedValue,
-          // TODO(Tudor)
+          // TODO https://github.com/digital-asset/daml/issues/17995
           packageName = Ref.PackageName.assertFromString("dummyReplace"))
 
         serializableRawContractInst <- SerializableRawContractInstance

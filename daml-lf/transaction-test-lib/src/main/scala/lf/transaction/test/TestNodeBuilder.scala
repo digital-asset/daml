@@ -31,7 +31,7 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
-      // TODO(Tudor): Remove
+      // TODO https://github.com/digital-asset/daml/issues/17995
       packageName: PackageName = Ref.PackageName.assertFromString("package-name"),
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
   ): Node.Create = {

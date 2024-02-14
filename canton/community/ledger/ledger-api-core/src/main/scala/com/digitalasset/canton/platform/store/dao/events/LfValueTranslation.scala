@@ -299,7 +299,7 @@ final class LfValueTranslation(
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO(Tudor)
+            // TODO https://github.com/digital-asset/daml/issues/17995
             packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdAt,
@@ -421,7 +421,7 @@ final class LfValueTranslation(
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO(Tudor)
+            // TODO https://github.com/digital-asset/daml/issues/17995
             packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdEvent.ledgerEffectiveTime,

@@ -51,7 +51,6 @@ object TransactionVersion {
   // TODO(https://github.com/digital-asset/daml/issues/18240) move this feature flag to VDev.
   private[lf] val minByKey = V14
 
-  private[lf] val minUpgrade = V31
   private[lf] val minSharedKeys = V31
   private[lf] val minChoiceAuthorizers = VDev
 

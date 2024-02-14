@@ -503,7 +503,7 @@ private[events] object TransactionLogUpdatesConversions {
                   createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
                 ),
                 version = createdEvent.createArgument.version,
-                // TODO(Tudor)
+                // TODO https://github.com/digital-asset/daml/issues/17995
                 packageName = Ref.PackageName.assertFromString("dummyReplace"),
               ),
               createTime = createdEvent.ledgerEffectiveTime,

@@ -45,7 +45,7 @@ object ProcessedDisclosedContract {
         stakeholders = stakeholders,
         keyOpt = keyOpt,
         version = version,
-        // TODO(Tudor)
+        // TODO https://github.com/digital-asset/daml/issues/17995
         packageName = Ref.PackageName.assertFromString("dummyReplace")
       ),
       createdAt = createdAt,
