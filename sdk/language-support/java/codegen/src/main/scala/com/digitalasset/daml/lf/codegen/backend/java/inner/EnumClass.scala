@@ -37,6 +37,7 @@ private[inner] object EnumClass extends StrictLogging {
         .addMethod(generateToValue)
         .addMethods(FromJsonGenerator.forEnum(className, "__enums$").asJava)
         .addMethods(ToJsonGenerator.forEnum(className).asJava)
+        .addType(FromJsonGenerator.decoderAccessorClass(className, Vector()))
       logger.debug("End")
       enumType.build()
     }
