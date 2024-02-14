@@ -173,6 +173,13 @@ featureDynamicExercise = Feature
     , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
     }
 
+featureScenarios :: Feature
+featureScenarios = Feature
+    { featureName = "Scenarios"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_SCENARIOS"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -199,6 +206,7 @@ allFeatures =
     , featureExtendedInterfaces
     , featureChoiceFuncs
     , featureTemplateTypeRepToText
+    , featureScenarios
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise

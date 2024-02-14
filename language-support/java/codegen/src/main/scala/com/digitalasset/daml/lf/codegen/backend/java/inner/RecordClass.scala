@@ -41,6 +41,7 @@ private[inner] object RecordClass extends StrictLogging {
         .addFields(RecordFields(fields).asJava)
         .addField(createPackageIdField(packageId))
         .addMethods(recordMethods.asJava)
+        .addType(FromJsonGenerator.decoderAccessorClass(className, typeParameters))
         .build()
       logger.debug("End")
 
