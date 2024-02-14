@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.CommandSubmissionServiceV2Authorization
+import com.digitalasset.canton.ledger.api.auth.services.CommandSubmissionServiceAuthorization
 import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.api.v2.command_submission_service.{
   CommandSubmissionServiceGrpc,
@@ -41,7 +41,7 @@ object CommandSubmissionServiceImpl {
       ec: ExecutionContext
   ): (ServerServiceDefinition, CommandSubmissionServiceImpl) = {
     val impl = new CommandSubmissionServiceImpl(getResponse)
-    val authImpl = new CommandSubmissionServiceV2Authorization(impl, authorizer)
+    val authImpl = new CommandSubmissionServiceAuthorization(impl, authorizer)
     (CommandSubmissionServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

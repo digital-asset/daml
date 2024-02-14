@@ -15,7 +15,7 @@ import com.daml.ledger.api.v2.package_service.{
   PackageServiceGrpc,
 }
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.PackageServiceV2Authorization
+import com.digitalasset.canton.ledger.api.auth.services.PackageServiceAuthorization
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import io.grpc.ServerServiceDefinition
 
@@ -65,7 +65,7 @@ object PackageServiceImpl {
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, PackageServiceImpl) = {
     val impl =
       new PackageServiceImpl(listPackagesResponse, getPackageResponse, getPackageStatusResponse)
-    val authImpl = new PackageServiceV2Authorization(impl, authorizer)
+    val authImpl = new PackageServiceAuthorization(impl, authorizer)
     (PackageServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

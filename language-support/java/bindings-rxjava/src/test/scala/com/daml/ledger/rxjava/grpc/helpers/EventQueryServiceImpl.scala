@@ -5,7 +5,7 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.EventQueryServiceV2Authorization
+import com.digitalasset.canton.ledger.api.auth.services.EventQueryServiceAuthorization
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryService
 import com.daml.ledger.api.v2.event_query_service.{
   EventQueryServiceGrpc,
@@ -40,7 +40,7 @@ object EventQueryServiceImpl {
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, EventQueryServiceImpl) = {
     val impl =
       new EventQueryServiceImpl(getEventsByContractIdResponse)
-    val authImpl = new EventQueryServiceV2Authorization(impl, authorizer)
+    val authImpl = new EventQueryServiceAuthorization(impl, authorizer)
     (EventQueryServiceGrpc.bindService(authImpl, ec), impl)
   }
 }
