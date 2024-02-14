@@ -3,6 +3,15 @@
 
 {-# LANGUAGE CPP #-}
 
+
+#ifndef DAML_SCENARIO
+
+-- | HIDE
+module DA.Internal.Scenario where
+
+#else
+
+-- | MODE DA.Scenario
 module DA.Internal.Scenario
   ( getParty
   , Scenario
@@ -23,7 +32,7 @@ import DA.Internal.Exception
 #endif
 
 -- | Get the party with the given name. Party names must be non-empty and only
--- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
+-- contain alphanumeric characters, space, `-` (dash) or `_` (underscore).
 getParty : Text -> Scenario Party
 getParty = primitive @"SGetParty"
 
@@ -102,3 +111,4 @@ instance CanAssert Scenario where
 
 #endif
 
+#endif
