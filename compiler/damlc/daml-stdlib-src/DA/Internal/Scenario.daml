@@ -11,7 +11,7 @@ module DA.Internal.Scenario where
 
 #else
 
--- | MODE DA.Scenario
+-- | MOVE DA.Scenario
 module DA.Internal.Scenario
   ( getParty
   , Scenario
