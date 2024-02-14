@@ -4,7 +4,7 @@
 {-# LANGUAGE CPP #-}
 
 
-#ifndef DAML_SCENARIO
+#ifndef DAML_SCENARIOS
 
 -- | HIDE
 module DA.Internal.Scenario where
