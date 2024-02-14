@@ -14,6 +14,9 @@ import com.daml.lf.value.Value.ContractId
   *  - [[AuthFailureDuringExecution]]
   * , and classifies them into three overlapping categories:
   *  - [[CreateError]]
+  *  - [[ExerciseError]]
+  *  - [[FetchError]]
+  *  - [[LookupError]]
   *  - [[KeyInputError]]
   *  - [[TransactionError]]
   */
@@ -48,6 +51,12 @@ object TransactionErrors {
       key: GlobalKey
   ) extends Serializable
       with Product
+
+  /** Signals that within the transaction we got to a point where
+    * we tried to exercise or fetch a contract that is known
+    * to have been archived.
+    */
+  final case class ContractNotActive(contractId: ContractId) extends Serializable with Product
 
   /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
     * was inconsistent with earlier nodes (in execution order). This can happened in case
@@ -102,6 +111,7 @@ object TransactionErrors {
     *   - [[DuplicateContractId]]
     *   - [[DuplicateContractKey]]
     *   - [[InconsistentContractKey]]
+    *   - [[ContractNotActive]]
     */
   sealed trait KeyInputError extends Serializable with Product
 
@@ -117,6 +127,10 @@ object TransactionErrors {
       inconsistentContractKey: InconsistentContractKey
   ) extends KeyInputError
 
+  final case class ContractNotActiveKeyKIError(
+      contractNotActive: ContractNotActive
+  ) extends KeyInputError
+
   object KeyInputError {
     def inject(error: DuplicateContractId): KeyInputError =
       DuplicateContractIdKIError(error)
@@ -127,9 +141,26 @@ object TransactionErrors {
     def inject(error: InconsistentContractKey): KeyInputError =
       InconsistentContractKeyKIError(error)
 
+    def inject(error: ContractNotActive): KeyInputError =
+      ContractNotActiveKeyKIError(error)
+
     def from(error: CreateError): KeyInputError = error match {
       case DuplicateContractIdCreateError(e) => inject(e)
       case DuplicateContractKeyCreateError(e) => inject(e)
+    }
+
+    def from(error: ExerciseError): KeyInputError = error match {
+      case InconsistentContractKeyExerciseError(e) => inject(e)
+      case ContractNotActiveExerciseError(e) => inject(e)
+    }
+
+    def from(error: FetchError): KeyInputError = error match {
+      case InconsistentContractKeyFetchError(e) => inject(e)
+      case ContractNotActiveFetchError(e) => inject(e)
+    }
+
+    def from(error: LookupError): KeyInputError = error match {
+      case InconsistentContractKeyLookupError(e) => inject(e)
     }
   }
 
@@ -153,5 +184,63 @@ object TransactionErrors {
 
     def inject(error: DuplicateContractKey): CreateError =
       DuplicateContractKeyCreateError(error)
+  }
+
+  /** The errors returned by [[ContractStateMachine.State.visitExercise()]]:
+    *   - [[InconsistentContractKey]]
+    *   - [[ContractNotActive]]
+    */
+  sealed trait ExerciseError extends Serializable with Product
+
+  final case class InconsistentContractKeyExerciseError(
+      inconsistentContractKey: InconsistentContractKey
+  ) extends ExerciseError
+
+  final case class ContractNotActiveExerciseError(
+      contractNotActive: ContractNotActive
+  ) extends ExerciseError
+
+  object ExerciseError {
+    def inject(error: InconsistentContractKey): ExerciseError =
+      InconsistentContractKeyExerciseError(error)
+
+    def inject(error: ContractNotActive): ExerciseError =
+      ContractNotActiveExerciseError(error)
+  }
+
+  /** The errors returned by [[ContractStateMachine.State.visitFetch()]]:
+    *   - [[InconsistentContractKey]]
+    *   - [[ContractNotActive]]
+    */
+  sealed trait FetchError extends Serializable with Product
+
+  final case class InconsistentContractKeyFetchError(
+      inconsistentContractKey: InconsistentContractKey
+  ) extends FetchError
+
+  final case class ContractNotActiveFetchError(
+      contractNotActive: ContractNotActive
+  ) extends FetchError
+
+  object FetchError {
+    def inject(error: InconsistentContractKey): FetchError =
+      InconsistentContractKeyFetchError(error)
+
+    def inject(error: ContractNotActive): FetchError =
+      ContractNotActiveFetchError(error)
+  }
+
+  /** The errors returned by [[ContractStateMachine.State.visitLookup()]]:
+    *   - [[InconsistentContractKey]]
+    */
+  sealed trait LookupError extends Serializable with Product
+
+  final case class InconsistentContractKeyLookupError(
+      inconsistentContractKey: InconsistentContractKey
+  ) extends LookupError
+
+  object LookupError {
+    def inject(error: InconsistentContractKey): LookupError =
+      InconsistentContractKeyLookupError(error)
   }
 }
