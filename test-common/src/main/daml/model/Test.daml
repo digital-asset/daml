@@ -3,6 +3,8 @@
 
 -- file that contains the declarations used in the sandbox tests
 
+{-# OPTIONS -Wno-template-agreement #-}
+
 module Test where
 
 import Iou()

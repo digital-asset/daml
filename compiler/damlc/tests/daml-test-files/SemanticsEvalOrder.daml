@@ -10,6 +10,7 @@
 -- the same rule, we use `R_1`, `R_2`, `R_3`, and so on. This is why there is
 -- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
 
+{-# OPTIONS -Wno-template-agreement #-}
 {-# LANGUAGE ApplicativeDo #-}
 
 -- @DOES-NOT-SUPPORT-LF-FEATURE DAML_RIGHT_TO_LEFT_EVALUATION

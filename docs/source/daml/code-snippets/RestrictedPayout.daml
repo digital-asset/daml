@@ -3,6 +3,8 @@
 
 -- The RestrictedPayout example.
 
+{-# OPTIONS -Wno-template-agreement #-}
+
 module RestrictedPayout where
 
 import Daml.Script

@@ -20,7 +20,6 @@ template TwoParties
   with p: Party
        p2: Party
   where
-    agreement show p
     signatory p
     signatory p2
 
@@ -57,7 +56,7 @@ template NoSignatory
   with
     text : Text
   where
-    signatory ([] : [Party]); agreement text
+    signatory ([] : [Party])
 
 template X
   with p: Party
