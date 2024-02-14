@@ -1099,7 +1099,8 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    unused_dependency_checker_mode = "error",
+    # we use "warn" because it seems detect incorrectly that :community_admin-api" is unused
+    unused_dependency_checker_mode = "warn",
     runtime_deps = [":community_reference-driver"],
     deps = [
         ":bindings-java",
