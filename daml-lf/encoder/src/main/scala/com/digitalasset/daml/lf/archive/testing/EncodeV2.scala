@@ -641,6 +641,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case EUpdate(u) =>
           builder.setUpdate(u)
         case EScenario(s) =>
+          assertSince(LV.Features.scenarios, "Scenarios")
           builder.setScenario(s)
         case EToAny(ty, body) =>
           builder.setToAny(PLF.Expr.ToAny.newBuilder().setType(ty).setExpr(body))
