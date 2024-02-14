@@ -36,7 +36,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V2
 
-  // TODO[SW] Migrate existing tests over to inline dars, then remove this
+  // TODO[SW] Migrate existing tests over to inline dars, then remove this and module prefixes
   override protected lazy val darFiles = List(
     rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v1.dar")),
     rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v2.dar")),

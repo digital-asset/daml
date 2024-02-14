@@ -439,7 +439,6 @@ da_scala_test_suite(
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_circe_circe_core",
-        "@maven//:io_circe_circe_generic",
         "@maven//:io_circe_circe_yaml",
         "@maven//:io_circe_circe_yaml_common",
         "@maven//:org_typelevel_cats_core",
