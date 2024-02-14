@@ -87,7 +87,8 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
               s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$failureMessage"
             )
             uploadV2Result match {
-              case None => fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
+              case None =>
+                fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
               case Some(err) => {
                 val msg = err.toString
                 msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
