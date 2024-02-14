@@ -246,7 +246,7 @@ evUpdCreateErr1 = script do
     createCmd (T_EvUpdCreateErr1 p)
   abort "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=259:1-259:16; Template precondition violated
+-- @ERROR range=260:1-260:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
