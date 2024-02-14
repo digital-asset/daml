@@ -89,8 +89,4 @@ object Util {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)
     }
-
-  def sharedKey(version: TransactionVersion): Boolean = {
-    version >= TransactionVersion.minSharedKeys
-  }
 }

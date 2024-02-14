@@ -1700,7 +1700,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val sharedKey = Util.sharedKey(txVersion)
         val (disclosedContract, Some((key, keyWithMaintainers))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val cachedKey = CachedKey(
@@ -1708,7 +1707,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           GlobalKeyWithMaintainers
             .assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
           key,
-          sharedKey,
         )
         val contractInfo = ContractInfo(
           version = txVersion,

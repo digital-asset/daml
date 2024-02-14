@@ -140,7 +140,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
             globalKeyWithMaintainers =
               GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
             key = buildContractSKey(maintainer),
-            shared = Util.sharedKey(TransactionVersion.maxVersion),
           )
         )
       else
@@ -261,7 +260,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
             GlobalKeyWithMaintainers
               .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
             contract,
-            sharedKey,
           )
         )
       else None

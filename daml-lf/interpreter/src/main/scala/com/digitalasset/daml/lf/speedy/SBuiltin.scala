@@ -2067,7 +2067,6 @@ private[lf] object SBuiltin {
       case SStruct(_, vals) =>
         val keyValue = vals.get(keyIdx)
         val lfValue = keyValue.toNormalizedValue(packageTxVersion)
-        val shared = Util.sharedKey(packageTxVersion)
         val gkey = GlobalKey
           .build(templateId, lfValue)
           .getOrElse(
@@ -2080,7 +2079,6 @@ private[lf] object SBuiltin {
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
           ),
           key = keyValue,
-          shared = shared,
         )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }

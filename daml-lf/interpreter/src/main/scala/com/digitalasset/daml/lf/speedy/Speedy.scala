@@ -114,7 +114,6 @@ private[lf] object Speedy {
       packageName: PackageName,
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
-      shared: Boolean,
   ) {
     def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
     def templateId: TypeConName = globalKey.templateId
