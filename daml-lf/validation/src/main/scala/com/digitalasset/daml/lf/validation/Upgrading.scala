@@ -226,6 +226,18 @@ final case class ModuleWithMetadata(module: Ast.Module) {
 }
 
 object TypecheckUpgrades {
+
+  sealed abstract class UploadPhaseCheck
+  object DarCheck extends UploadPhaseCheck {
+    override def toString: String = "dar-check"
+  }
+  object MinimalDarCheck extends UploadPhaseCheck {
+    override def toString: String = "minimal-dar-check"
+  }
+  object MaximalDarCheck extends UploadPhaseCheck {
+    override def toString: String = "maximal-dar-check"
+  }
+
   private def failIf(predicate: Boolean, err: => UpgradeError.Error): Try[Unit] =
     if (predicate)
       fail(err)

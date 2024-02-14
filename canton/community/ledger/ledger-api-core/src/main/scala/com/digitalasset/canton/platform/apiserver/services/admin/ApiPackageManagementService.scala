@@ -13,6 +13,7 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.daml.logging.LoggingContext
+import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -174,39 +175,41 @@ private[apiserver] final class ApiPackageManagementService private (
     .map(_.flatten)
   }
 
-  def strictTypecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], pkgId2: Ref.PackageId, optPkg2: Option[Ast.Package])(implicit
+  def strictTypecheckUpgrades(phase: TypecheckUpgrades.UploadPhaseCheck, optDar1: Option[(Ref.PackageId, Ast.Package)], pkgId2: Ref.PackageId, optPkg2: Option[Ast.Package])(implicit
                                                                                                                       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
-    optDar1 match {
-      case None =>
-        logger.info(s"Typechecking upgrades for $pkgId2 succeeded.")
-        Future.unit
+    LoggingContextWithTrace.withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) { implicit loggingContext =>
+      optDar1 match {
+        case None =>
+          logger.info(s"Typechecking upgrades for $pkgId2 succeeded.")
+          Future.unit
 
-      case Some((pkgId1, pkg1)) =>
-        logger.info(s"Package $pkgId1 claims to upgrade package id $pkgId2")
-        Future.fromTry(TypecheckUpgrades.typecheckUpgrades((pkgId1, pkg1), pkgId2, optPkg2)).recoverWith {
-          case err: UpgradeError =>
-            Future.failed(
-              Validation.Upgradeability
-                .Error(pkgId2, pkgId1, err)
-                .asGrpcError
-            )
-          case NonFatal(err) =>
-            Future.failed(
-              InternalError
-                .Unhandled(
-                  err,
-                  Some(
-                    s"Typechecking upgrades for $pkgId2 failed with unknown error."
-                  ),
-                )
-                .asGrpcError
-            )
-        }
+        case Some((pkgId1, pkg1)) =>
+          logger.info(s"Package $pkgId1 claims to upgrade package id $pkgId2")
+          Future.fromTry(TypecheckUpgrades.typecheckUpgrades((pkgId1, pkg1), pkgId2, optPkg2)).recoverWith {
+            case err: UpgradeError =>
+              Future.failed(
+                Validation.Upgradeability
+                  .Error(pkgId2, pkgId1, err)
+                  .asGrpcError
+              )
+            case NonFatal(err) =>
+              Future.failed(
+                InternalError
+                  .Unhandled(
+                    err,
+                    Some(
+                      s"Typechecking upgrades for $pkgId2 failed with unknown error."
+                    ),
+                  )
+                  .asGrpcError
+              )
+          }
+      }
     }
   }
 
-  def typecheckUpgrades(optDar1: Option[(Ref.PackageId, Ast.Package)], optDar2: Option[(Ref.PackageId, Ast.Package)])(implicit
+  def typecheckUpgrades(typecheckPhase: TypecheckUpgrades.UploadPhaseCheck, optDar1: Option[(Ref.PackageId, Ast.Package)], optDar2: Option[(Ref.PackageId, Ast.Package)])(implicit
                                                                                                                       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
     (optDar1, optDar2) match {
@@ -214,7 +217,7 @@ private[apiserver] final class ApiPackageManagementService private (
         Future.unit
 
       case (Some((pkgId1, pkg1)), Some((pkgId2, pkg2))) =>
-        strictTypecheckUpgrades(Some((pkgId1, pkg1)), pkgId2, Some(pkg2))
+        strictTypecheckUpgrades(typecheckPhase, Some((pkgId1, pkg1)), pkgId2, Some(pkg2))
     }
   }
 
@@ -228,11 +231,11 @@ private[apiserver] final class ApiPackageManagementService private (
       case Some(upgradedPackageId) =>
         for {
           optUpgradedDar <- lookupDar(upgradedPackageId)
-          _ <- strictTypecheckUpgrades(optUpgradingDar, upgradedPackageId, optUpgradedDar.map(_._2))
+          _ <- strictTypecheckUpgrades(TypecheckUpgrades.DarCheck, optUpgradingDar, upgradedPackageId, optUpgradedDar.map(_._2))
           optMaximalDar <- maximalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(optMaximalDar, optUpgradingDar)
+          _ <- typecheckUpgrades(TypecheckUpgrades.MaximalDarCheck, optMaximalDar, optUpgradingDar)
           optMinimalDar <- minimalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(optUpgradingDar, optMinimalDar)
+          _ <- typecheckUpgrades(TypecheckUpgrades.MinimalDarCheck, optUpgradingDar, optMinimalDar)
         } yield ()
 
       case None =>
