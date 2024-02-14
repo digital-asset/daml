@@ -108,14 +108,6 @@ final class UpgradesIT extends AsyncWordSpec with Matchers with Inside with Cant
     }
   }
 
-  override def beforeAll(): Unit = {
-    // Create file for canton logs beforehand so that other processes can read
-    // it
-    val file = new File(s"$cantonTmpDir/canton.log")
-    val _ = file.createNewFile()
-    super.beforeAll()
-  }
-
   "Upload-time Upgradeability Checks" should {
     "report no upgrade errors for valid upgrade" in {
       testPackagePair(
