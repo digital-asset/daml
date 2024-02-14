@@ -10,9 +10,7 @@ import com.daml.lf.crypto
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, SubmissionId}
-import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -39,7 +37,6 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutor,
 }
 import com.digitalasset.canton.platform.apiserver.services.{
-  ApiCommandSubmissionService,
   ErrorCause,
   RejectionGenerators,
   TimeProviderType,
@@ -49,7 +46,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -70,31 +67,18 @@ private[apiserver] object CommandSubmissionServiceImpl {
   )(implicit
       executionContext: ExecutionContext,
       tracer: Tracer,
-  ): (ApiCommandSubmissionService & GrpcApiService, CommandSubmissionService) = {
-    val apiSubmissionService = new CommandSubmissionServiceImpl(
-      writeService,
-      timeProvider,
-      timeProviderType,
-      ledgerConfigurationSubscription,
-      seedService,
-      commandExecutor,
-      checkOverloaded,
-      metrics,
-      loggerFactory,
-    )
-    new ApiCommandSubmissionService(
-      service = apiSubmissionService,
-      currentLedgerTime = () => timeProvider.getCurrentTime,
-      currentUtcTime = () => Instant.now,
-      maxDeduplicationDuration =
-        () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
-      submissionIdGenerator = SubmissionIdGenerator.Random,
-      metrics = metrics,
-      telemetry = telemetry,
-      loggerFactory = loggerFactory,
-      commandsValidator = commandsValidator,
-    ) -> apiSubmissionService
-  }
+  ): CommandSubmissionService & AutoCloseable = new CommandSubmissionServiceImpl(
+    writeService,
+    timeProvider,
+    timeProviderType,
+    ledgerConfigurationSubscription,
+    seedService,
+    commandExecutor,
+    checkOverloaded,
+    metrics,
+    loggerFactory,
+  )
+
 }
 
 private[apiserver] final class CommandSubmissionServiceImpl private[services] (

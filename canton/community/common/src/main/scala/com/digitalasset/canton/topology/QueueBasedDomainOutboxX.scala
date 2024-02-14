@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandleCommon
+import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -32,10 +32,7 @@ class QueueBasedDomainOutboxX(
     val domainId: DomainId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
-    val handle: RegisterTopologyTransactionHandleCommon[
-      GenericSignedTopologyTransactionX,
-      TopologyTransactionsBroadcastX.State,
-    ],
+    val handle: RegisterTopologyTransactionHandle,
     val targetClient: DomainTopologyClientWithInit,
     val domainOutboxQueue: DomainOutboxQueue,
     val targetStore: TopologyStoreX[TopologyStoreId.DomainStore],

@@ -8,6 +8,7 @@ import cats.syntax.alternative.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -90,6 +91,8 @@ trait ProcessingSteps[
 
   type FullView = RequestViewType#FullView
 
+  type ViewSubmitterMetadata = RequestViewType#ViewSubmitterMetadata
+
   /** The type of data needed to generate the pending data and response in [[constructPendingDataAndResponse]].
     * The data is created by [[decryptViews]]
     */
@@ -152,10 +155,12 @@ trait ProcessingSteps[
       requestTs: CantonTimestamp,
   ): Either[RequestError with ResultError, CantonTimestamp]
 
-  /** Return the submission data needed by the SubmissionTracker to decide on transaction validity */
-  def getSubmissionDataForTracker(
-      views: Seq[FullView]
-  ): Option[SubmissionTracker.SubmissionData]
+  /** Return the submitter metadata along with the submission data needed by the SubmissionTracker
+    *  to decide on transaction validity
+    */
+  def getSubmitterInformation(
+      views: Seq[DecryptedView]
+  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData])
 
   def participantResponseDeadlineFor(
       parameters: DynamicDomainParametersWithValidity,
@@ -378,37 +383,44 @@ trait ProcessingSteps[
       traceContext: TraceContext
   ): EitherT[Future, RequestError, CheckActivenessAndWritePendingContracts]
 
-  /** Phase 3, step 2 (some good views, but the chosen mediator is inactive)
+  /** Phase 3, step 2:
+    * Some good views, but we are rejecting (e.g. because the chosen mediator
+    * is inactive or there are no valid recipients).
     *
-    * @param ts         The timestamp of the request
-    * @param rc         The [[com.digitalasset.canton.RequestCounter]] of the request
-    * @param sc         The [[com.digitalasset.canton.SequencerCounter]] of the request
-    * @param fullViews The decrypted views from step 1 with the right root hash
+    * @param ts The timestamp of the request
+    * @param rc The [[com.digitalasset.canton.RequestCounter]] of the request
+    * @param sc The [[com.digitalasset.canton.SequencerCounter]] of the request
+    * @param submitterMetadata Metadata of the submitter
+    * @param rootHash Root hash of the transaction
+    * @param error Error to be included in the generated event
+    * @param freshOwnTimelyTx The resolved status from [[com.digitalasset.canton.participant.protocol.SubmissionTracker.register]]
+    *
     * @return The optional rejection event to be published in the event log,
     *         and the optional submission ID corresponding to this request
     */
-  def eventAndSubmissionIdForInactiveMediator(
+  def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
       rc: RequestCounter,
       sc: SequencerCounter,
-      fullViews: NonEmpty[Seq[WithRecipients[FullView]]],
+      submitterMetadata: ViewSubmitterMetadata,
+      rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
+      error: TransactionError,
   )(implicit
       traceContext: TraceContext
   ): (Option[TimestampedEvent], Option[PendingSubmissionId])
 
-  /** Phase 3, step 2 (submission where the chosen mediator is inactive)
+  /** Phase 3, step 2 (rejected submission, e.g. chosen mediator is inactive, invalid recipients)
     *
-    * Called if the chosen mediator is inactive and [[eventAndSubmissionIdForInactiveMediator]]
+    * Called when we are rejecting the submission and [[eventAndSubmissionIdForRejectedCommand]]
     * returned a submission ID that was pending.
     *
     * @param pendingSubmission The [[PendingSubmissionData]] for the submission ID returned by
-    *                          [[eventAndSubmissionIdForInactiveMediator]]
+    *                          [[eventAndSubmissionIdForRejectedCommand]]
     * @see com.digitalasset.canton.participant.protocol.ProcessingSteps.postProcessResult
     */
-  def postProcessSubmissionForInactiveMediator(
-      declaredMediator: MediatorRef,
-      timestamp: CantonTimestamp,
+  def postProcessSubmissionRejectedCommand(
+      error: TransactionError,
       pendingSubmission: PendingSubmissionData,
   )(implicit
       traceContext: TraceContext

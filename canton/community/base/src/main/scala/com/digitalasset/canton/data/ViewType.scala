@@ -18,6 +18,8 @@ sealed trait ViewType extends Product with Serializable with PrettyPrinting {
 
   type FullView <: ViewTree
 
+  type ViewSubmitterMetadata
+
   type Processor = RequestProcessor[this.type]
 
   def toProtoEnum: v30.ViewType
@@ -44,6 +46,8 @@ object ViewType {
 
     override type FullView = FullTransactionViewTree
 
+    override type ViewSubmitterMetadata = SubmitterMetadata
+
     override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_TRANSACTION
   }
   type TransactionViewType = TransactionViewType.type
@@ -51,6 +55,7 @@ object ViewType {
   sealed trait TransferViewType extends ViewType {
     type View <: TransferViewTree with HasVersionedToByteString
     type FullView = View
+    override type ViewSubmitterMetadata = TransferSubmitterMetadata
   }
 
   case object TransferOutViewType extends TransferViewType {

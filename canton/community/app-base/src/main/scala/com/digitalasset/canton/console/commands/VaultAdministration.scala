@@ -249,7 +249,7 @@ class SecretKeyAdministration(
       owner: Member,
   ): Seq[PublicKey] =
     topologyAdmin match {
-      case tx: TopologyAdministrationGroupX =>
+      case tx: TopologyAdministrationGroup =>
         tx.owner_to_key_mappings
           .list(
             filterStore = AuthorizedStore.filterName,
@@ -462,7 +462,7 @@ class PublicKeyAdministration(
   @Help.Summary("List active owners with keys for given search arguments.")
   @Help.Description("""This command allows deep inspection of the topology state.
       |The response includes the public keys.
-      |Optional filterKeyOwnerType type can be 'ParticipantId.Code' , 'MediatorId.Code','SequencerId.Code', 'DomainTopologyManagerId.Code'.
+      |Optional filterKeyOwnerType type can be 'ParticipantId.Code' , 'MediatorId.Code','SequencerId.Code'.
       |""")
   def list_owners(
       filterKeyOwnerUid: String = "",

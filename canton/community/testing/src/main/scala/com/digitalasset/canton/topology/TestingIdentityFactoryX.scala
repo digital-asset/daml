@@ -60,7 +60,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   * Now, in order to conveniently create a static topology for testing, we provide a
   * <ul>
   *   <li>[[TestingTopologyX]] which allows us to define a certain static topology</li>
-  *   <li>[[TestingIdentityFactory]] which consumes a static topology and delivers all necessary components and
+  *   <li>[[TestingIdentityFactoryX]] which consumes a static topology and delivers all necessary components and
   *       objects that a unit test might need.</li>
   *   <li>[[DefaultTestIdentities]] which provides a predefined set of identities that can be used for unit tests.</li>
   * </ul>
@@ -197,6 +197,7 @@ final case class TestingTopologyX(
     new TestingIdentityFactoryX(this, loggerFactory, domainParameters)
 }
 
+// TODO(#15161): merge with base trait
 class TestingIdentityFactoryX(
     topology: TestingTopologyX,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -454,7 +455,7 @@ class TestingOwnerWithKeysX(
     initEc: ExecutionContext,
 ) extends NoTracing {
 
-  val cryptoApi = TestingIdentityFactory(loggerFactory).forOwnerAndDomain(keyOwner)
+  val cryptoApi = TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(keyOwner)
 
   object SigningKeys {
 
@@ -582,6 +583,16 @@ class TestingOwnerWithKeysX(
         ParticipantPermissionX.Confirmation,
         None,
         None,
+      )
+    )
+
+    val p1p1 = mkAdd(
+      PartyToParticipantX(
+        PartyId(UniqueIdentifier(Identifier.tryCreate("one"), Namespace(key1.id))),
+        None,
+        PositiveInt.one,
+        Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
+        groupAddressing = false,
       )
     )
 

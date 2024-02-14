@@ -38,12 +38,12 @@ class EventReaderQueries(
 
     val tables = List(
       SelectTable(
-        tableName = "participant_events_create",
+        tableName = "lapi_events_create",
         selectColumns =
           s"$selectColumnsForFlatTransactionsCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
       ),
       SelectTable(
-        tableName = "participant_events_consuming_exercise",
+        tableName = "lapi_events_consuming_exercise",
         selectColumns =
           s"$selectColumnsForFlatTransactionsExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
       ),
@@ -103,7 +103,7 @@ class EventReaderQueries(
         SQL"""
         WITH max_event AS (
             SELECT max(c.event_sequential_id) AS sequential_id
-            FROM participant_events_create c
+            FROM lapi_events_create c
             WHERE c.create_key_hash = $keyHash
             AND c.event_sequential_id < $endExclusiveSeqId)
         SELECT  #$selectColumnsForFlatTransactionsCreate,
@@ -111,7 +111,7 @@ class EventReaderQueries(
                 flat_event_witnesses event_witnesses,
                 command_id
         FROM max_event
-        JOIN participant_events_create c on c.event_sequential_id = max_event.sequential_id
+        JOIN lapi_events_create c on c.event_sequential_id = max_event.sequential_id
       """
       query.as(createdFlatEventParser(intRequestingParties, stringInterning).singleOpt)(
         conn
@@ -135,7 +135,7 @@ class EventReaderQueries(
                   #${queryStrategy.constBooleanSelect(true)} exercise_consuming,
                   flat_event_witnesses event_witnesses,
                   command_id
-          FROM participant_events_consuming_exercise
+          FROM lapi_events_consuming_exercise
           WHERE contract_id = $contractId
         """
     query.as(archivedFlatEventParser(intRequestingParties, stringInterning).singleOpt)(conn)

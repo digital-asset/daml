@@ -48,7 +48,7 @@ class TransactionsTreeStreamReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dbDispatcher: DbDispatcher,
-    queryNonPruned: QueryNonPruned,
+    queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     metrics: Metrics,
@@ -189,17 +189,21 @@ class TransactionsTreeStreamReader(
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(metric) { implicit connection =>
-                queryNonPruned.executeSql(
-                  query = eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsTree(
+                queryValidRange.withRangeNotPruned(
+                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  maxOffsetInclusive = queryRange.endInclusiveOffset,
+                  errorPruning = (prunedOffset: Offset) =>
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+                ) {
+                  eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsTree(
                     target = target
                   )(
                     eventSequentialIds = ids,
                     allFilterParties = requestingParties,
-                  )(connection),
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
-                  error = (prunedOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
-                )
+                  )(connection)
+                }
               }
             }
           }

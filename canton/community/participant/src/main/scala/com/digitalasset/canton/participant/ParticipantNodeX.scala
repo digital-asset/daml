@@ -83,7 +83,6 @@ class ParticipantNodeBootstrapX(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
-    skipRecipientsCheck: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -102,12 +101,12 @@ class ParticipantNodeBootstrapX(
 
   override protected def sequencedTopologyStores: Seq[TopologyStoreX[DomainStore]] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentStateX => s.topologyStore
+      case s: SyncDomainPersistentState => s.topologyStore
     }
 
   override protected def sequencedTopologyManagers: Seq[DomainTopologyManagerX] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentStateX => s.topologyManager
+      case s: SyncDomainPersistentState => s.topologyManager
     }
 
   override protected def customNodeStages(
@@ -295,7 +294,6 @@ class ParticipantNodeBootstrapX(
         participantOps,
         packageDependencyResolver,
         componentFactory,
-        skipRecipientsCheck,
       ).map {
         case (
               partyNotifier,
@@ -389,7 +387,6 @@ object ParticipantNodeBootstrapX {
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
         ledgerApiServerFactory = ledgerApiServerFactory,
-        skipRecipientsCheck = true,
       )
     }
   }

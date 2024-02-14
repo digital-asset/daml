@@ -27,7 +27,6 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
   PartyInfo,
 }
 import com.digitalasset.canton.topology.processing.{
-  TopologyTransactionProcessingSubscriber,
   TopologyTransactionProcessingSubscriberCommon,
   TopologyTransactionProcessingSubscriberX,
 }
@@ -547,10 +546,6 @@ trait TopologySnapshot
     with MembersTopologySnapshotClient { this: BaseTopologySnapshotClient with NamedLogging => }
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
-
-trait DomainTopologyClientWithInitOld
-    extends DomainTopologyClientWithInit
-    with TopologyTransactionProcessingSubscriber
 
 trait DomainTopologyClientWithInitX
     extends DomainTopologyClientWithInit

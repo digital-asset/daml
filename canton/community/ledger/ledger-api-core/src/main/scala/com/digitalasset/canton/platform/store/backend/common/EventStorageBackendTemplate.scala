@@ -821,7 +821,7 @@ abstract class EventStorageBackendTemplate(
     pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
           -- Create events (only for contracts archived before the specified offset)
-          delete from participant_events_create delete_events
+          delete from lapi_events_create delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive and
             ${createIsArchivedOrUnassigned("delete_events", pruneUpToInclusive)}"""
@@ -830,7 +830,7 @@ abstract class EventStorageBackendTemplate(
     pruneWithLogging(queryDescription = "Assign events pruning") {
       SQL"""
           -- Assigned events
-          delete from participant_events_assign delete_events
+          delete from lapi_events_assign delete_events
           where
             -- do not prune incomplete
             ${reassignmentIsNotIncomplete("delete_events")}
@@ -852,12 +852,12 @@ abstract class EventStorageBackendTemplate(
       pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
         SQL"""
             -- Immediate divulgence pruning
-            delete from participant_events_create c
+            delete from lapi_events_create c
             where event_offset <= $pruneUpToInclusive
             -- Only prune create events which did not have a locally hosted party before their creation offset
             and not exists (
               select 1
-              from party_entries p
+              from lapi_party_entries p
               where p.typ = 'accept'
               and p.ledger_offset <= c.event_offset
               and #${queryStrategy.isTrue("p.is_local")}
@@ -871,7 +871,7 @@ abstract class EventStorageBackendTemplate(
     pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
       SQL"""
           -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise delete_events
+          delete from lapi_events_consuming_exercise delete_events
           where
             -- do not prune if it is preceeded in the same domain by an incomplete assign
             -- this is needed so that incomplete assign is not resulting in an active contract
@@ -882,7 +882,7 @@ abstract class EventStorageBackendTemplate(
     pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
       SQL"""
           -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise delete_events
+          delete from lapi_events_non_consuming_exercise delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive"""
     }
@@ -890,7 +890,7 @@ abstract class EventStorageBackendTemplate(
     pruneWithLogging(queryDescription = "Transaction Meta pruning") {
       SQL"""
            DELETE FROM
-              participant_transaction_meta m
+              lapi_transaction_meta m
            WHERE
             m.event_offset <= $pruneUpToInclusive
          """
@@ -899,7 +899,7 @@ abstract class EventStorageBackendTemplate(
     pruneWithLogging(queryDescription = "Unassign events pruning") {
       SQL"""
           -- Unassigned events
-          delete from participant_events_unassign delete_events
+          delete from lapi_events_unassign delete_events
           where
             -- do not prune incomplete
             ${reassignmentIsNotIncomplete("delete_events")}
@@ -926,7 +926,7 @@ abstract class EventStorageBackendTemplate(
             DELETE FROM
               #$tableName id_filter
             WHERE EXISTS (
-              SELECT * from participant_events_create c
+              SELECT * from lapi_events_create c
               WHERE
               c.event_offset <= $pruneUpToInclusive
               AND ${createIsArchivedOrUnassigned("c", pruneUpToInclusive)}
@@ -945,7 +945,7 @@ abstract class EventStorageBackendTemplate(
             DELETE FROM
               #$idFilterTableName id_filter
             WHERE EXISTS (
-              SELECT * FROM participant_events_consuming_exercise events
+              SELECT * FROM lapi_events_consuming_exercise events
             WHERE
               events.event_offset <= $pruneUpToInclusive
               AND
@@ -961,7 +961,7 @@ abstract class EventStorageBackendTemplate(
             DELETE FROM
               #$idFilterTableName id_filter
             WHERE EXISTS (
-              SELECT * FROM participant_events_non_consuming_exercise events
+              SELECT * FROM lapi_events_non_consuming_exercise events
             WHERE
               events.event_offset <= $pruneUpToInclusive
               AND
@@ -969,31 +969,31 @@ abstract class EventStorageBackendTemplate(
             )"""
 
     pruneWithLogging("Pruning id filter create stakeholder table") {
-      pruneIdFilterCreate("pe_create_id_filter_stakeholder")
+      pruneIdFilterCreate("lapi_pe_create_id_filter_stakeholder")
     }
     pruneWithLogging("Pruning id filter create non-stakeholder informee table") {
-      pruneIdFilterCreate("pe_create_id_filter_non_stakeholder_informee")
+      pruneIdFilterCreate("lapi_pe_create_id_filter_non_stakeholder_informee")
     }
     pruneWithLogging("Pruning id filter consuming stakeholder table") {
       pruneIdFilterConsuming(
-        idFilterTableName = "pe_consuming_id_filter_stakeholder"
+        idFilterTableName = "lapi_pe_consuming_id_filter_stakeholder"
       )
     }
     pruneWithLogging("Pruning id filter consuming non-stakeholders informee table") {
       pruneIdFilterConsuming(
-        idFilterTableName = "pe_consuming_id_filter_non_stakeholder_informee"
+        idFilterTableName = "lapi_pe_consuming_id_filter_non_stakeholder_informee"
       )
     }
     pruneWithLogging("Pruning id filter non-consuming informee table") {
       pruneIdFilterNonConsuming(
-        idFilterTableName = "pe_non_consuming_id_filter_informee"
+        idFilterTableName = "lapi_pe_non_consuming_id_filter_informee"
       )
     }
     pruneWithLogging("Pruning id filter assign stakeholder table") {
       SQL"""
-          DELETE FROM pe_assign_id_filter_stakeholder id_filter
+          DELETE FROM lapi_pe_assign_id_filter_stakeholder id_filter
           WHERE EXISTS (
-            SELECT * from participant_events_assign assign
+            SELECT * from lapi_events_assign assign
             WHERE
               assign.event_offset <= $pruneUpToInclusive
               AND ${assignIsArchivedOrUnassigned("assign", pruneUpToInclusive)}
@@ -1003,9 +1003,9 @@ abstract class EventStorageBackendTemplate(
     }
     pruneWithLogging("Pruning id filter unassign stakeholder table") {
       SQL"""
-          DELETE FROM pe_unassign_id_filter_stakeholder id_filter
+          DELETE FROM lapi_pe_unassign_id_filter_stakeholder id_filter
           WHERE EXISTS (
-            SELECT * from participant_events_unassign unassign
+            SELECT * from lapi_events_unassign unassign
             WHERE
             unassign.event_offset <= $pruneUpToInclusive
             AND ${reassignmentIsNotIncomplete("unassign")}
@@ -1052,7 +1052,7 @@ abstract class EventStorageBackendTemplate(
     cSQL"""
           (
             exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              SELECT 1 FROM lapi_events_consuming_exercise archive_events
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive
                 -- please note: this is the only indexed contraint, this is enough since there can be at most one archival
@@ -1061,7 +1061,7 @@ abstract class EventStorageBackendTemplate(
             )
             or
             exists (
-              SELECT 1 FROM participant_events_unassign unassign_events
+              SELECT 1 FROM lapi_events_unassign unassign_events
               WHERE
                 unassign_events.event_offset <= $pruneUpToInclusive
                 AND unassign_events.contract_id = #$eventTableName.contract_id
@@ -1101,7 +1101,7 @@ abstract class EventStorageBackendTemplate(
             WHERE
               temp_incomplete_reassignment_offsets.incomplete_offset in (
                 SELECT assign_events.event_offset
-                FROM participant_events_assign assign_events
+                FROM lapi_events_assign assign_events
                 WHERE
                   -- this one is backed by a (contract_id, event_sequential_id) index only
                   assign_events.contract_id = #$deactivationTableName.contract_id
@@ -1123,7 +1123,7 @@ abstract class EventStorageBackendTemplate(
             WHERE
               temp_incomplete_reassignment_offsets.incomplete_offset in (
                 SELECT unassign_events.event_offset
-                FROM participant_events_unassign unassign_events
+                FROM lapi_events_unassign unassign_events
                 WHERE
                   -- this one is backed by a (contract_id, domain_id, event_sequential_id) index
                   unassign_events.contract_id = #$activationTableName.contract_id
@@ -1151,7 +1151,7 @@ abstract class EventStorageBackendTemplate(
      SELECT
         event_sequential_id_first
      FROM
-        participant_transaction_meta
+        lapi_transaction_meta
      WHERE
         ${queryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset)}
         AND event_offset <= ${ledgerEnd._1}
@@ -1177,7 +1177,7 @@ abstract class EventStorageBackendTemplate(
       .toSet
     SQL"""
         SELECT *
-        FROM participant_events_assign assign_evs
+        FROM lapi_events_assign assign_evs
         WHERE assign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
         ORDER BY assign_evs.event_sequential_id -- deliver in index order
         """
@@ -1195,7 +1195,7 @@ abstract class EventStorageBackendTemplate(
       .toSet
     SQL"""
           SELECT *
-          FROM participant_events_unassign unassign_evs
+          FROM lapi_events_unassign unassign_evs
           WHERE unassign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
           ORDER BY unassign_evs.event_sequential_id -- deliver in index order
           """
@@ -1214,12 +1214,12 @@ abstract class EventStorageBackendTemplate(
       .toSet
     SQL"""
         SELECT *
-        FROM participant_events_assign assign_evs
+        FROM lapi_events_assign assign_evs
         WHERE
           assign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
           AND NOT EXISTS (  -- check not archived as of snapshot in the same domain
                 SELECT 1
-                FROM participant_events_consuming_exercise consuming_evs
+                FROM lapi_events_consuming_exercise consuming_evs
                 WHERE
                   assign_evs.contract_id = consuming_evs.contract_id
                   AND assign_evs.target_domain_id = consuming_evs.domain_id
@@ -1227,7 +1227,7 @@ abstract class EventStorageBackendTemplate(
               )
           AND NOT EXISTS (  -- check not unassigned after as of snapshot in the same domain
                 SELECT 1
-                FROM participant_events_unassign unassign_evs
+                FROM lapi_events_unassign unassign_evs
                 WHERE
                   assign_evs.contract_id = unassign_evs.contract_id
                   AND assign_evs.target_domain_id = unassign_evs.source_domain_id
@@ -1252,12 +1252,12 @@ abstract class EventStorageBackendTemplate(
       .toSet
     SQL"""
         SELECT *
-        FROM participant_events_create create_evs
+        FROM lapi_events_create create_evs
         WHERE
           create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
           AND NOT EXISTS (  -- check not archived as of snapshot in the same domain
                 SELECT 1
-                FROM participant_events_consuming_exercise consuming_evs
+                FROM lapi_events_consuming_exercise consuming_evs
                 WHERE
                   create_evs.contract_id = consuming_evs.contract_id
                   AND create_evs.domain_id = consuming_evs.domain_id
@@ -1265,7 +1265,7 @@ abstract class EventStorageBackendTemplate(
               )
           AND NOT EXISTS (  -- check not unassigned as of snapshot in the same domain
                 SELECT 1
-                FROM participant_events_unassign unassign_evs
+                FROM lapi_events_unassign unassign_evs
                 WHERE
                   create_evs.contract_id = unassign_evs.contract_id
                   AND create_evs.domain_id = unassign_evs.source_domain_id
@@ -1286,7 +1286,7 @@ abstract class EventStorageBackendTemplate(
       limit: Int,
   )(connection: Connection): Vector[Long] =
     TransactionStreamingQueries.fetchEventIds(
-      tableName = "pe_assign_id_filter_stakeholder",
+      tableName = "lapi_pe_assign_id_filter_stakeholder",
       witness = stakeholder,
       templateIdO = templateId,
       startExclusive = startExclusive,
@@ -1303,7 +1303,7 @@ abstract class EventStorageBackendTemplate(
       limit: Int,
   )(connection: Connection): Vector[Long] =
     TransactionStreamingQueries.fetchEventIds(
-      tableName = "pe_unassign_id_filter_stakeholder",
+      tableName = "lapi_pe_unassign_id_filter_stakeholder",
       witness = stakeholder,
       templateIdO = templateId,
       startExclusive = startExclusive,
@@ -1317,7 +1317,7 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
-        FROM participant_events_assign
+        FROM lapi_events_assign
         WHERE
           event_offset ${queryStrategy.anyOfStrings(offsets)}
         ORDER BY event_sequential_id -- deliver in index order
@@ -1329,7 +1329,7 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
-        FROM participant_events_unassign
+        FROM lapi_events_unassign
         WHERE
           event_offset ${queryStrategy.anyOfStrings(offsets)}
         ORDER BY event_sequential_id -- deliver in index order
@@ -1341,7 +1341,7 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT MIN(assign_evs.event_sequential_id) as event_sequential_id
-        FROM participant_events_assign assign_evs
+        FROM lapi_events_assign assign_evs
         WHERE contract_id ${queryStrategy.anyOfStrings(contractIds)}
         GROUP BY contract_id
         ORDER BY event_sequential_id
@@ -1353,7 +1353,7 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
-        FROM participant_events_create
+        FROM lapi_events_create
         WHERE
           contract_id ${queryStrategy.anyOfStrings(contractIds)}
         ORDER BY event_sequential_id -- deliver in index order

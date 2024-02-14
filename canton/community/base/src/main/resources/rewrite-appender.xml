@@ -53,14 +53,7 @@
             <maxLevel>INFO</maxLevel>
             <contains>Failure in pending cache update for key</contains>
         </rewrite>
-        <!-- ledger-api-indexer's append-only schema runs "vacuum analyze" which raises warnings on postgres system tables
-        in a couple of tests where migration is not run by a superuser, database or table owner, e.g.:
-        DB: skipping "pg_statistic" - only superuser or database owner can vacuum it -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>can vacuum it</contains>
-        </rewrite>
+
         <!-- Warnings emitted by caffeine when trying to load an entry for the async cache -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>
@@ -86,14 +79,6 @@
             <logger>com.digitalasset.canton.platform.store.appendonlydao.DbDispatcher</logger>
             <contains>INDEX_DB_SQL_NON_TRANSIENT_ERROR</contains>
             <exceptionMessage>MERGE INTO packages USING DUAL on package_id</exceptionMessage>
-            <maxLevel>INFO</maxLevel>
-        </rewrite>
-
-        <!-- Index-db postgres migration script 114 renames identifiers by appending _old making them exceed the 63 character limit
-        -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor</logger>
-            <contains>will be truncated to "participant_events_non_consuming_exercise_</contains>
             <maxLevel>INFO</maxLevel>
         </rewrite>
 

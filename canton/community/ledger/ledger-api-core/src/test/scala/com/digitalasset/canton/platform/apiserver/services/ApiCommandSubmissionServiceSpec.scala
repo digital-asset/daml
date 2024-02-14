@@ -130,7 +130,13 @@ class ApiCommandSubmissionServiceSpec
       commandSubmissionService: CommandSubmissionService & AutoCloseable
   ) =
     new ApiCommandSubmissionService(
-      commandSubmissionService,
+      commandSubmissionService = commandSubmissionService,
+      commandsValidator = CommandsValidator(
+        ledgerId = LedgerId(ledgerId),
+        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
+        upgradingEnabled = false,
+      ),
+      writeService = null,
       currentLedgerTime = () => Instant.EPOCH,
       currentUtcTime = () => Instant.EPOCH,
       maxDeduplicationDuration = () => Some(Duration.ZERO),
@@ -138,11 +144,6 @@ class ApiCommandSubmissionServiceSpec
       metrics = Metrics.ForTesting,
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
       loggerFactory = loggerFactory,
-      commandsValidator = CommandsValidator(
-        ledgerId = LedgerId(ledgerId),
-        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
-        upgradingEnabled = false,
-      ),
     )
 }
 
@@ -161,8 +162,8 @@ object ApiCommandSubmissionServiceSpec {
     )
   )
 
-  private val aSubmitRequest = submitRequestV1.copy(
-    commands = Some(commandsV1.copy(commands = Seq(aCommand)))
+  private val aSubmitRequest = submitRequest.copy(
+    commands = Some(commands.copy(commands = Seq(aCommand)))
   )
 
   def createMockCommandSubmissionService: CommandSubmissionService & AutoCloseable = {

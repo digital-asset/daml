@@ -15,19 +15,7 @@ import com.digitalasset.canton.data.ActionDescription.{
 }
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.protocol.{
-  ConfirmationPolicy,
-  CreatedContract,
-  GeneratorsProtocol,
-  InputContract,
-  LfChoiceName,
-  LfContractId,
-  LfGlobalKey,
-  LfHash,
-  LfTemplateId,
-  LfTransactionVersion,
-  RollbackContext,
-}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPartyId}
@@ -36,18 +24,17 @@ import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsData(
     protocolVersion: ProtocolVersion,
-    generatorsDataTime: GeneratorsDataTime,
     generatorsProtocol: GeneratorsProtocol,
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
+  import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
-  import org.scalatest.OptionValues.*
+  import com.digitalasset.canton.topology.GeneratorsTopology.*
   import generatorsProtocol.*
-  import generatorsDataTime.*
+  import org.scalatest.OptionValues.*
 
   // If this pattern match is not exhaustive anymore, update the generator below
   {

@@ -1311,11 +1311,11 @@ object TransferStoreTest extends EitherValues with NoTracing {
   )
   private implicit val _ec: ExecutionContext = ec
   val cryptoFactory =
-    TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
+    TestingIdentityFactoryX(loggerFactoryNotUsed).forOwnerAndDomain(
       DefaultTestIdentities.sequencerId
     )
   val sequencerKey =
-    TestingIdentityFactory(loggerFactoryNotUsed)
+    TestingIdentityFactoryX(loggerFactoryNotUsed)
       .newSigningPublicKey(DefaultTestIdentities.sequencerId)
       .fingerprint
   val privateCrypto = cryptoFactory.crypto.privateCrypto

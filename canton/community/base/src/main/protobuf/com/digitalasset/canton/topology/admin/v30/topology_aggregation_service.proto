@@ -67,7 +67,7 @@ message ListPartiesResponse {
     message ParticipantDomains {
       message DomainPermissions {
         string domain = 1;
-        com.digitalasset.canton.protocol.v30.ParticipantPermission permission = 2;
+        com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission permission = 2;
       }
 
       string participant = 1;

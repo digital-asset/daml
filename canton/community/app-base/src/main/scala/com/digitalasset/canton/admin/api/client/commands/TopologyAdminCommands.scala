@@ -12,9 +12,8 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
-import com.digitalasset.canton.topology.admin.v30old.InitializationServiceGrpc.InitializationServiceStub
-import com.digitalasset.canton.topology.admin.{v30, v30old}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.ManagedChannel
 
@@ -104,31 +103,6 @@ object TopologyAdminCommands {
       //  command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
 
-    }
-  }
-
-  object Init {
-
-    final case class InitId(identifier: String, fingerprint: String)
-        extends GrpcAdminCommand[v30old.InitIdRequest, v30old.InitIdResponse, UniqueIdentifier] {
-      override type Svc = InitializationServiceStub
-
-      override def createService(channel: ManagedChannel): InitializationServiceStub =
-        v30old.InitializationServiceGrpc.stub(channel)
-
-      override def createRequest(): Either[String, v30old.InitIdRequest] =
-        Right(v30old.InitIdRequest(identifier, fingerprint, instance = ""))
-
-      override def submitRequest(
-          service: InitializationServiceStub,
-          request: v30old.InitIdRequest,
-      ): Future[v30old.InitIdResponse] =
-        service.initId(request)
-
-      override def handleResponse(
-          response: v30old.InitIdResponse
-      ): Either[String, UniqueIdentifier] =
-        UniqueIdentifier.fromProtoPrimitive_(response.uniqueIdentifier)
     }
   }
 }

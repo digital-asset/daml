@@ -7,6 +7,7 @@ import cats.syntax.flatMap.*
 import cats.syntax.option.*
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   AsymmetricEncrypted,
@@ -34,6 +35,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.EncryptedView.CompressedView
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
@@ -53,7 +55,7 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.processing.SequencedTime
+import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionTestFactoryX}
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
@@ -374,20 +376,18 @@ trait MessageDispatcherTest {
     ): Fixture =
       Fixture.mk(mkMd, initRc, cleanReplaySequencerCounter)
 
-    val idTx = DomainTopologyTransactionMessage
-      .tryCreate(
-        transactions = Nil,
-        crypto = TestingTopology()
-          .withDomains(domainId)
-          .withSimpleParticipants(participantId)
-          .build()
-          .forOwnerAndDomain(participantId, domainId)
-          .currentSnapshotApproximation,
-        domainId = domainId,
-        protocolVersion = testedProtocolVersion,
-        notSequencedAfter = CantonTimestamp.Epoch,
-      )
-      .futureValue
+    val factoryX =
+      new TopologyTransactionTestFactoryX(loggerFactory, initEc = executionContext)
+    val idTx = TopologyTransactionsBroadcastX.create(
+      domainId,
+      Seq(
+        Broadcast(
+          String255.tryCreate("some request"),
+          List(factoryX.ns1k1_k1),
+        )
+      ),
+      testedProtocolVersion,
+    )
 
     val rawCommitment = mock[AcsCommitment]
     when(rawCommitment.domainId).thenReturn(domainId)
@@ -983,7 +983,7 @@ trait MessageDispatcherTest {
             view -> Recipients.cc(participantId),
             rootHashMessage -> Recipients.cc(participantId, mediatorId),
             commitment -> Recipients.cc(participantId),
-            idTx -> Recipients.cc(participantId),
+            // We used to include a DomainTopologyTransactionMessage which no longer exist in 3.x
           ) -> Seq(),
           Batch.of[ProtocolMessage](
             testedProtocolVersion,

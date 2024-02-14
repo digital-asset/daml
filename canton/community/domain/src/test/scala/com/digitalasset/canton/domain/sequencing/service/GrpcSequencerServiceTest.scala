@@ -92,7 +92,7 @@ class GrpcSequencerServiceTest
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT(()))
     val cryptoApi: DomainSyncCryptoClient =
-      TestingIdentityFactory(loggerFactory).forOwnerAndDomain(member)
+      TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(member)
     val subscriptionPool: SubscriptionPool[Subscription] =
       mock[SubscriptionPool[GrpcManagedSubscription[?]]]
 
@@ -629,7 +629,7 @@ class GrpcSequencerServiceTest
 
     "reject requests to unauthenticated members with a signing key timestamps" in { implicit env =>
       val request = defaultRequest
-        .focus(_.timestampOfSigningKey)
+        .focus(_.topologyTimestamp)
         .replace(Some(CantonTimestamp.ofEpochSecond(1)))
         .focus(_.batch)
         .replace(
@@ -649,18 +649,18 @@ class GrpcSequencerServiceTest
       loggerFactory.assertLogs(
         sendAndCheckError(request) { case SendAsyncError.RequestRefused(message) =>
           message should include(
-            "Requests sent from or to unauthenticated members must not specify the timestamp of the signing key"
+            "Requests sent from or to unauthenticated members must not specify the topology timestamp"
           )
         },
         _.warningMessage should include(
-          "Requests sent from or to unauthenticated members must not specify the timestamp of the signing key"
+          "Requests sent from or to unauthenticated members must not specify the topology timestamp"
         ),
       )
     }
 
     "reject unauthenticated eligible members in aggregation rule" in { implicit env =>
       val request = defaultRequest
-        .focus(_.timestampOfSigningKey)
+        .focus(_.topologyTimestamp)
         .replace(Some(CantonTimestamp.ofEpochSecond(1)))
         .focus(_.aggregationRule)
         .replace(
@@ -686,7 +686,7 @@ class GrpcSequencerServiceTest
 
     "reject unachievable threshold in aggregation rule" in { implicit env =>
       val request = defaultRequest
-        .focus(_.timestampOfSigningKey)
+        .focus(_.topologyTimestamp)
         .replace(Some(CantonTimestamp.ofEpochSecond(1)))
         .focus(_.aggregationRule)
         .replace(
@@ -708,7 +708,7 @@ class GrpcSequencerServiceTest
 
     "reject uneligible sender in aggregation rule" in { implicit env =>
       val request = defaultRequest
-        .focus(_.timestampOfSigningKey)
+        .focus(_.topologyTimestamp)
         .replace(Some(CantonTimestamp.ofEpochSecond(1)))
         .focus(_.aggregationRule)
         .replace(
@@ -768,7 +768,7 @@ class GrpcSequencerServiceTest
       val request = defaultRequest
         .focus(_.sender)
         .replace(unauthenticatedMember)
-        .focus(_.timestampOfSigningKey)
+        .focus(_.topologyTimestamp)
         .replace(Some(CantonTimestamp.Epoch))
         .focus(_.batch)
         .replace(
@@ -789,11 +789,11 @@ class GrpcSequencerServiceTest
         sendAndCheckError(request, authenticated = false) {
           case SendAsyncError.RequestRefused(message) =>
             message should include(
-              "Requests sent from or to unauthenticated members must not specify the timestamp of the signing key"
+              "Requests sent from or to unauthenticated members must not specify the topology timestamp"
             )
         }(new Environment(unauthenticatedMember)),
         _.warningMessage should include(
-          "Requests sent from or to unauthenticated members must not specify the timestamp of the signing key"
+          "Requests sent from or to unauthenticated members must not specify the topology timestamp"
         ),
       )
     }

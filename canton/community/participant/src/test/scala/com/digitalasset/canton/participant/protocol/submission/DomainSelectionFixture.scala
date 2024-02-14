@@ -68,12 +68,12 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
         packages: Seq[LfPackageId] = Seq(),
     ): TopologySnapshot = {
       val participants = topology.values.flatten
-      val testingIdentityFactory = TestingTopology(
+      val testingIdentityFactory = TestingTopologyX(
         topology = topology.map { case (partyId, participantIds) =>
           partyId -> participantIds.map(_ -> Submission).toMap
         },
         participants = participants.map(_ -> ParticipantAttributes(Submission)).toMap,
-        packages = participants.view.map(VettedPackages(_, packages)).toSeq,
+        packages = participants.view.map(_ -> packages).toMap,
       ).build()
 
       testingIdentityFactory.topologySnapshot()

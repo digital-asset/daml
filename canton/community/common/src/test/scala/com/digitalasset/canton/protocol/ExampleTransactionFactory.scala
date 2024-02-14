@@ -28,19 +28,19 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDurat
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
   Submission,
 }
-import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, VettedPackages}
 import com.digitalasset.canton.topology.{
   DomainId,
   MediatorId,
   MediatorRef,
   ParticipantId,
-  TestingIdentityFactory,
-  TestingTopology,
+  TestingIdentityFactoryX,
+  TestingTopologyX,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -324,8 +324,8 @@ object ExampleTransactionFactory {
   val commandId: CommandId = DefaultDamlValues.commandId()
   val workflowId: WorkflowId = WorkflowId.assertFromString("testWorkflowId")
 
-  val defaultTestingTopology: TestingTopology =
-    TestingTopology(
+  val defaultTestingTopology: TestingTopologyX =
+    TestingTopologyX(
       topology = Map(
         submitter -> Map(submittingParticipant -> Submission),
         signatory -> Map(
@@ -336,12 +336,14 @@ object ExampleTransactionFactory {
         ),
       ),
       participants = Map(submittingParticipant -> ParticipantAttributes(Submission)),
-      packages = Seq(submittingParticipant, signatoryParticipant).map(
-        VettedPackages(_, Seq(ExampleTransactionFactory.packageId))
-      ),
+      packages = Seq(submittingParticipant, signatoryParticipant)
+        .map(
+          _ -> Seq(ExampleTransactionFactory.packageId)
+        )
+        .toMap,
     )
 
-  def defaultTestingIdentityFactory: TestingIdentityFactory =
+  def defaultTestingIdentityFactory: TestingIdentityFactoryX =
     defaultTestingTopology.build()
 
   // Topology

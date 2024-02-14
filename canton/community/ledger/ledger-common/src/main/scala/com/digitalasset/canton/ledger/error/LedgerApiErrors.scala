@@ -16,6 +16,7 @@ import org.slf4j.event.Level
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
   val EarliestOffsetMetadataKey = "earliest_offset"
+  val LatestOffsetMetadataKey = "latest_offset"
 
   @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.

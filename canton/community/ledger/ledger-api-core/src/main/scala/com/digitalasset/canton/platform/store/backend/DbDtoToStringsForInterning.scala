@@ -65,7 +65,7 @@ object DbDtoToStringsForInterning {
 
       case dbDto: DbDto.PartyEntry =>
         // Party identifiers not only interned on demand: we also intern as we see parties created,
-        // since this information is stored in the party_entries as well
+        // since this information is stored in the lapi_party_entries as well
         dbDto.party.iterator
 
       case _ => Iterator.empty

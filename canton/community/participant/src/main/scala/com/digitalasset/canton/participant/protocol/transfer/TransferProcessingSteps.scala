@@ -13,6 +13,7 @@ import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
 import com.digitalasset.canton.data.ViewType.TransferViewType
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
+import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
@@ -23,14 +24,12 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   NoMediatorError,
   ProcessorError,
 }
-import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
   ProtocolProcessor,
   SubmissionTracker,
-  TransactionProcessor,
 }
 import com.digitalasset.canton.participant.store.TransferStore.TransferStoreError
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
@@ -46,7 +45,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, WithRecipients}
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
@@ -105,14 +104,11 @@ trait TransferProcessingSteps[
   ): Option[PendingTransferSubmission] =
     pendingSubmissions.remove(pendingSubmissionId)
 
-  override def postProcessSubmissionForInactiveMediator(
-      declaredMediator: MediatorRef,
-      ts: CantonTimestamp,
+  override def postProcessSubmissionRejectedCommand(
+      error: TransactionError,
       pendingSubmission: PendingTransferSubmission,
-  )(implicit traceContext: TraceContext): Unit = {
-    val error = SubmissionErrors.InactiveMediatorError.Error(declaredMediator, ts)
+  )(implicit traceContext: TraceContext): Unit =
     pendingSubmission.transferCompletion.success(error.rpcStatus())
-  }
 
   override def postProcessResult(
       verdict: Verdict,
@@ -203,19 +199,18 @@ trait TransferProcessingSteps[
   )(implicit traceContext: TraceContext): Future[List[LfPartyId]] =
     snapshot.hostedOn(stakeholders.toSet, participantId).map(_.keySet.toList)
 
-  override def eventAndSubmissionIdForInactiveMediator(
+  override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
       rc: RequestCounter,
       sc: SequencerCounter,
-      fullViews: NonEmpty[Seq[WithRecipients[FullView]]],
+      submitterMetadata: ViewSubmitterMetadata,
+      rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
+      error: TransactionError,
   )(implicit
       traceContext: TraceContext
   ): (Option[TimestampedEvent], Option[PendingSubmissionId]) = {
-    val someView = fullViews.head1
-    val mediator = someView.unwrap.mediator
-    val submitterMetadata = someView.unwrap.submitterMetadata
-
+    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(error.rpcStatus())
     val isSubmittingParticipant = submitterMetadata.submittingParticipant == participantId
 
     lazy val completionInfo = CompletionInfo(
@@ -227,12 +222,6 @@ trait TransferProcessingSteps[
       statistics = None,
     )
 
-    lazy val rejection = LedgerSyncEvent.CommandRejected.FinalReason(
-      TransactionProcessor.SubmissionErrors.InactiveMediatorError
-        .Error(mediator, ts)
-        .rpcStatus()
-    )
-
     val tse = Option.when(isSubmittingParticipant)(
       TimestampedEvent(
         LedgerSyncEvent
@@ -242,7 +231,7 @@ trait TransferProcessingSteps[
       )
     )
 
-    (tse, fullViews.head1.unwrap.rootHash.some)
+    (tse, rootHash.some)
   }
 
   override def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
@@ -291,9 +280,14 @@ trait TransferProcessingSteps[
   ): Either[TransferProcessorError, CantonTimestamp] =
     parameters.decisionTimeFor(requestTs).leftMap(TransferParametersError(parameters.domainId, _))
 
-  override def getSubmissionDataForTracker(
-      views: Seq[FullView]
-  ): Option[SubmissionTracker.SubmissionData] = None // Currently not used for transfers
+  override def getSubmitterInformation(
+      views: Seq[DecryptedView]
+  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
+    val submitterMetadataO = views.map(_.submitterMetadata).headOption
+    val submissionDataForTrackerO = None // Currently not used for transfers
+
+    (submitterMetadataO, submissionDataForTrackerO)
+  }
 
   override def participantResponseDeadlineFor(
       parameters: DynamicDomainParametersWithValidity,

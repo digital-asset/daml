@@ -3,10 +3,14 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.experimental_features.ExperimentalCommitterEventLog.CommitterEventLogType.CENTRALIZED
-import com.daml.ledger.api.v1.experimental_features.*
-import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
-import com.daml.ledger.api.v1.version_service.*
+import com.daml.ledger.api.v2.experimental_features.*
+import com.daml.ledger.api.v2.version_service.VersionServiceGrpc.VersionService
+import com.daml.ledger.api.v2.version_service.{
+  FeaturesDescriptor,
+  GetLedgerApiVersionResponse,
+  UserManagementFeature,
+  *,
+}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
@@ -22,13 +26,12 @@ import com.digitalasset.canton.platform.apiserver.LedgerFeatures
 import com.digitalasset.canton.platform.config.UserManagementServiceConfig
 import io.grpc.ServerServiceDefinition
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private[apiserver] final class ApiVersionService private (
+private[apiserver] final class ApiVersionService(
     ledgerFeatures: LedgerFeatures,
     userManagementServiceConfig: UserManagementServiceConfig,
     telemetry: Telemetry,
@@ -61,32 +64,7 @@ private[apiserver] final class ApiVersionService private (
       ),
       experimental = Some(
         ExperimentalFeatures.of(
-          selfServiceErrorCodes = Some(ExperimentalSelfServiceErrorCodes()): @nowarn(
-            "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.experimental_features\\..*"
-          ),
-          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
-          commandDeduplication = Some(
-            CommandDeduplicationFeatures.of(
-              Some(
-                CommandDeduplicationPeriodSupport.of(
-                  offsetSupport =
-                    CommandDeduplicationPeriodSupport.OffsetSupport.OFFSET_NATIVE_SUPPORT,
-                  durationSupport =
-                    CommandDeduplicationPeriodSupport.DurationSupport.DURATION_CONVERT_TO_OFFSET,
-                )
-              ),
-              CommandDeduplicationType.ASYNC_AND_CONCURRENT_SYNC,
-              maxDeduplicationDurationEnforced = false,
-            )
-          ),
-          optionalLedgerId = Some(ExperimentalOptionalLedgerId()),
-          contractIds = Some(ExperimentalContractIds.defaultInstance),
-          committerEventLog = Some(ExperimentalCommitterEventLog.of(eventLogType = CENTRALIZED)),
-          explicitDisclosure = Some(ExperimentalExplicitDisclosure.of(true)),
-          userAndPartyLocalMetadataExtensions =
-            Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
-          acsActiveAtOffset = Some(AcsActiveAtOffsetFeature(supported = true)),
-          templateFilters = Some(TransactionsWithTemplateFilters(supported = true)),
+          staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime))
         )
       ),
     )
@@ -127,19 +105,4 @@ private[apiserver] final class ApiVersionService private (
 
   override def close(): Unit = ()
 
-}
-
-private[apiserver] object ApiVersionService {
-  def create(
-      ledgerFeatures: LedgerFeatures,
-      userManagementServiceConfig: UserManagementServiceConfig,
-      telemetry: Telemetry,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(
-      ledgerFeatures,
-      userManagementServiceConfig = userManagementServiceConfig,
-      telemetry = telemetry,
-      loggerFactory = loggerFactory,
-    )
 }

@@ -20,10 +20,7 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.participant.topology.{
-  ParticipantTopologyManager,
-  TopologyComponentFactory,
-}
+import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -33,7 +30,6 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,
   TopologyStoreX,
 }
-import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Add, Remove}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
   AuthorizedTopologyManagerX,
@@ -44,7 +40,6 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfPackageId}
 import org.mockito.ArgumentMatchersSugar
-import org.mockito.captor.ArgCaptor
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -195,127 +190,6 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         )
       ).thenReturn(EitherT.rightT(unvettedForDomainSnapshot))
     }
-  }
-}
-
-class PackageOpsTest extends PackageOpsTestBase {
-  protected type T = TestSetup
-  protected def buildSetup: T = new TestSetup()
-  protected def sutName: String = classOf[PackageOpsImpl].getSimpleName
-
-  s"$sutName.vetPackages" should {
-    "vet the requested packages" when {
-      "if some of them are unvetted" in withTestSetup { env =>
-        import env.*
-        val topologyStateUpdateArgCaptor = ArgCaptor[TopologyStateUpdate[Add]]
-        when(
-          topologyManager.authorize(
-            topologyStateUpdateArgCaptor.capture,
-            eqTo(None),
-            eqTo(testedProtocolVersion),
-            eqTo(false),
-            eqTo(false),
-          )(anyTraceContext)
-        )
-          .thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
-
-        packageOps
-          .vetPackages(packagesToBeVetted, synchronize = false)
-          .value
-          .unwrap
-          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            inside(topologyStateUpdateArgCaptor.value.element.mapping) {
-              case VettedPackages(`participantId`, `packagesToBeVetted`) => succeed
-            }
-          })
-      }
-    }
-
-    "not vet the packages" when {
-      "when all of them are already vetted" in withTestSetup { env =>
-        import env.*
-        when(
-          topologyManager
-            .unvettedPackages(eqTo(participantId), eqTo(packagesToBeVetted.toSet))(anyTraceContext)
-        ).thenReturn(Future.successful(Set.empty))
-
-        packageOps
-          .vetPackages(packagesToBeVetted, synchronize = false)
-          .value
-          .unwrap
-          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            verify(topologyManager).unvettedPackages(any[ParticipantId], any[Set[LfPackageId]])(
-              anyTraceContext
-            )
-            verifyNoMoreInteractions(topologyManager)
-            succeed
-          })
-      }
-    }
-  }
-
-  s"$sutName.revokeVettingForPackages" should {
-    "create a vetting revocation transaction and authorize it with the topology manager" in withTestSetup {
-      env =>
-        import env.*
-        packageOps
-          .revokeVettingForPackages(
-            mainPkg = pkgId1,
-            packages = packagesToBeUnvetted,
-            darDescriptor = DarDescriptor(hash, String255.tryCreate("darname")),
-          )
-          .value
-          .unwrap
-          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            verify(topologyManager).authorize(
-              eqTo(revocationTxMock),
-              eqTo(None),
-              eqTo(testedProtocolVersion),
-              eqTo(true),
-              eqTo(false),
-            )(anyTraceContext)
-
-            succeed
-          })
-    }
-  }
-
-  protected class TestSetup extends CommonTestSetup {
-    val topologyManager = mock[ParticipantTopologyManager]
-
-    val packageOps = new PackageOpsImpl(
-      participantId,
-      headAuthorizedTopologySnapshot,
-      stateManager,
-      topologyManager,
-      testedProtocolVersion,
-      loggerFactory,
-    )
-
-    when(
-      topologyManager
-        .unvettedPackages(eqTo(participantId), eqTo(packagesToBeVetted.toSet))(anyTraceContext)
-    )
-      .thenReturn(Future.successful(packagesToBeVetted.toSet))
-
-    val revocationTxMock = mock[TopologyTransaction[Remove]]
-    when(
-      topologyManager.genTransaction(
-        eqTo(TopologyChangeOp.Remove),
-        eqTo(VettedPackages(participantId, packagesToBeUnvetted)),
-        eqTo(testedProtocolVersion),
-      )(anyTraceContext)
-    ).thenReturn(EitherT.rightT(revocationTxMock))
-
-    when(
-      topologyManager.authorize(
-        eqTo(revocationTxMock),
-        eqTo(None),
-        eqTo(testedProtocolVersion),
-        eqTo(true),
-        eqTo(false),
-      )(anyTraceContext)
-    ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
   }
 }
 

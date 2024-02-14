@@ -29,7 +29,7 @@ private[backend] object MeteringParameterStorageBackendImpl
       case None =>
         logger.debug(s"Initializing ledger metering end to $init")
         discard(
-          SQL"""insert into metering_parameters(
+          SQL"""insert into lapi_metering_parameters(
               ledger_metering_end,
               ledger_metering_timestamp
             ) values (
@@ -52,7 +52,7 @@ private[backend] object MeteringParameterStorageBackendImpl
       LedgerMeteringEnd(ledgerMeteringEnd, ledgerMeteringTimestamp)
     }
 
-    SQL"""SELECT ledger_metering_end, ledger_metering_timestamp FROM metering_parameters"""
+    SQL"""SELECT ledger_metering_end, ledger_metering_timestamp FROM lapi_metering_parameters"""
       .as(LedgerMeteringEndParser.singleOpt)(connection)
 
   }
@@ -71,7 +71,7 @@ private[backend] object MeteringParameterStorageBackendImpl
     discard(
       SQL"""
         UPDATE
-          metering_parameters
+          lapi_metering_parameters
         SET
           ledger_metering_end = ${ledgerMeteringEnd.offset},
           ledger_metering_timestamp = ${ledgerMeteringEnd.timestamp}

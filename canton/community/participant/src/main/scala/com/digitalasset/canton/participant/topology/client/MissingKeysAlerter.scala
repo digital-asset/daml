@@ -39,19 +39,6 @@ class MissingKeysAlerter(
     }
   }
 
-  def attachToTopologyProcessorOld(): TopologyTransactionProcessingSubscriber =
-    new TopologyTransactionProcessingSubscriber {
-      override def observed(
-          sequencedTimestamp: SequencedTime,
-          effectiveTimestamp: EffectiveTime,
-          sequencerCounter: SequencerCounter,
-          transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        FutureUnlessShutdown.pure(
-          processTransactions(effectiveTimestamp.value, transactions)
-        )
-    }
-
   def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriberX =
     new TopologyTransactionProcessingSubscriberX {
       override def observed(
@@ -64,26 +51,6 @@ class MissingKeysAlerter(
           processTransactionsX(effectiveTimestamp.value, transactions)
         )
     }
-
-  private def processTransactions(
-      timestamp: CantonTimestamp,
-      transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-  )(implicit traceContext: TraceContext): Unit = {
-    // scan state and alarm if the domain suggest that I use a key which I don't have
-    transactions.view
-      .filter(_.operation == TopologyChangeOp.Add)
-      .map(_.transaction.element.mapping)
-      .foreach {
-        case ParticipantState(side, `domainId`, `participantId`, permission)
-            if side != RequestSide.To =>
-          logger.info(
-            s"Domain $domainId update my participant permission as of $timestamp to $permission"
-          )
-        case okm @ OwnerToKeyMapping(`participantId`, _) =>
-          alertOnMissingKey(okm.key.fingerprint, okm.key.purpose)
-        case _ => ()
-      }
-  }
 
   private def processTransactionsX(
       timestamp: CantonTimestamp,

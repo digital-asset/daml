@@ -17,6 +17,7 @@ import com.digitalasset.canton.data.{
   ViewTree,
   ViewTypeTest,
 }
+import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
@@ -132,9 +133,10 @@ class TestProcessingSteps(
     .decisionTimeFor(requestTs)
     .leftMap(err => TestProcessorError(DomainParametersError(parameters.domainId, err)))
 
-  override def getSubmissionDataForTracker(
+  override def getSubmitterInformation(
       views: Seq[DecryptedView]
-  ): Option[SubmissionTracker.SubmissionData] = submissionDataForTrackerO
+  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) =
+    (None, submissionDataForTrackerO)
 
   override def participantResponseDeadlineFor(
       parameters: DynamicDomainParametersWithValidity,
@@ -267,12 +269,14 @@ class TestProcessingSteps(
       traceContext: com.digitalasset.canton.tracing.TraceContext
   ): Seq[com.digitalasset.canton.protocol.messages.MediatorResponse] = Seq.empty
 
-  override def eventAndSubmissionIdForInactiveMediator(
+  override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
       rc: RequestCounter,
       sc: SequencerCounter,
-      fullViews: NonEmpty[Seq[WithRecipients[DecryptedView]]],
+      submitterMetadata: ViewSubmitterMetadata,
+      rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
+      error: TransactionError,
   )(implicit traceContext: TraceContext): (Option[TimestampedEvent], Option[PendingSubmissionId]) =
     (None, None)
 
@@ -297,9 +301,8 @@ class TestProcessingSteps(
     EitherT.pure[Future, TestProcessingError](result)
   }
 
-  override def postProcessSubmissionForInactiveMediator(
-      declaredMediator: MediatorRef,
-      timestamp: CantonTimestamp,
+  override def postProcessSubmissionRejectedCommand(
+      error: TransactionError,
       pendingSubmission: Unit,
   )(implicit traceContext: TraceContext): Unit = ()
 

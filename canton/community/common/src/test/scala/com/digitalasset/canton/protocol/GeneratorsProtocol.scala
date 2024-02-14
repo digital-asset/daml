@@ -8,7 +8,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{GeneratorsDataTime, ViewPosition}
+import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.TrafficControlParameters
@@ -19,8 +19,7 @@ import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsProtocol(
-    protocolVersion: ProtocolVersion,
-    generatorsDataTime: GeneratorsDataTime,
+    protocolVersion: ProtocolVersion
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
@@ -29,7 +28,6 @@ final class GeneratorsProtocol(
   import com.digitalasset.canton.time.GeneratorsTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import org.scalatest.EitherValues.*
-  import generatorsDataTime.*
 
   implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] = {
     Arbitrary(for {
