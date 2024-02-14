@@ -4,8 +4,6 @@
 package com.daml.lf
 package transaction
 
-import scala.math.Ordered.orderingToOrdered
-
 object Util {
 
   import value.Value
