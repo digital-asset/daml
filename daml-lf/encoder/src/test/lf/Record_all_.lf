@@ -15,15 +15,6 @@ module RecordMod {
     observers (Nil @Party);
   };
 
-  val createContract:
-    RecordMod:Pair Int64 (Numeric 10)->
-      Scenario (ContractId RecordMod:Box)
-    = \ (x: RecordMod:Pair Int64 (Numeric 10)) ->
-        sbind
-          bob : Party <- sget_party "Bob"
-        in
-          commit @(ContractId RecordMod:Box) bob (create @RecordMod:Box (RecordMod:Box { x = x, party = bob }));
-
   val pair1: RecordMod:Pair Int64 (Numeric 10) =
     RecordMod:Pair @Int64 @(Numeric 10) {
       fst = 1,
@@ -41,13 +32,5 @@ module RecordMod {
       fst = -3,
       snd = -3333333333333333333333333333.0000000000
   };
-   
-  val createContracts: Scenario Unit =
-    sbind
-        c1 : ContractId RecordMod:Box <- RecordMod:createContract RecordMod:pair1 ;
-        c2 : ContractId RecordMod:Box <- RecordMod:createContract RecordMod:pair2 ;
-        c3 : ContractId RecordMod:Box <- RecordMod:createContract RecordMod:pair3
-      in
-        spure @Unit () ;
 
 }
