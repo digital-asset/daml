@@ -127,7 +127,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         contractIdVersion,
       )
     val unicumHash =
-      if (contractIdVersion == AuthenticatedContractIdVersionV2) {
+      if (contractIdVersion == AuthenticatedContractIdVersionV3) {
         computeUnicumV2Hash(
           ledgerCreateTime = ledgerCreateTime,
           metadata,
@@ -165,7 +165,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       contractIdVersion: CantonContractIdVersion,
   ): Either[String, Unicum] = {
     val contractSaltSize = contractSalt.size
-    if (contractIdVersion == AuthenticatedContractIdVersionV2) {
+    if (contractIdVersion == AuthenticatedContractIdVersionV3) {
       Either.cond(
         contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
         Unicum(

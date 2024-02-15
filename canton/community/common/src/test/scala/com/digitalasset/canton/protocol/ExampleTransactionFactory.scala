@@ -397,7 +397,7 @@ class ExampleTransactionFactory(
     extends EitherValues {
 
   private val protocolVersion = versionOverride.getOrElse(BaseTest.testedProtocolVersion)
-  private val cantonContractIdVersion = AuthenticatedContractIdVersionV2
+  private val cantonContractIdVersion = AuthenticatedContractIdVersionV3
   private val random = new Random(0)
 
   private def createWithConfirmationPolicy(

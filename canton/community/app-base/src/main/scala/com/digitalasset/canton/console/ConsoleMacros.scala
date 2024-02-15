@@ -398,7 +398,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         metadata: ContractMetadata,
     ): ContractId.V1 = {
       val unicumGenerator = new UnicumGenerator(cryptoPureApi)
-      val cantonContractIdVersion = AuthenticatedContractIdVersionV2
+      val cantonContractIdVersion = AuthenticatedContractIdVersionV3
       val unicum = unicumGenerator
         .recomputeUnicum(
           contractSalt,

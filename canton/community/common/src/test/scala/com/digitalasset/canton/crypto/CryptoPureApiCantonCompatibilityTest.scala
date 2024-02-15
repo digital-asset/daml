@@ -5,7 +5,7 @@ package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV2,
+  AuthenticatedContractIdVersionV3,
   ExampleTransactionFactory,
   Unicum,
 }
@@ -17,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
   */
 class CryptoPureApiCantonCompatibilityTest extends AnyWordSpec with BaseTest {
 
-  private val cantonContractIdVersion = AuthenticatedContractIdVersionV2
+  private val cantonContractIdVersion = AuthenticatedContractIdVersionV3
   private val longString =
     (('a' to 'z').mkString + ('A' to 'Z').mkString + ('0' to '9').mkString + ":") * 10
 

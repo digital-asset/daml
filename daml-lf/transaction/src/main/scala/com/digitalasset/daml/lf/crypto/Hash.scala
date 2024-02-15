@@ -313,21 +313,28 @@ object Hash {
     handleError(assertHashContractKey(templateId, key))
 
   // This function assumes that `arg` is well typed, i.e. :
-  // 1 - `templateId` is the identifier for a template with a contract argument of type τ
-  // 2 - `arg` is a value of type τ
+  // 1 - `packageName` is the package name defined in the metadata of the package containing template `templateId`
+  // 2 - `templateId` is the identifier for a template with a contract argument of type τ
+  // 3 - `arg` is a value of type τ
   // The hash is not stable under suffixing of contract IDs
   @throws[HashingError]
-  def assertHashContractInstance(templateId: Ref.Identifier, arg: Value): Hash =
+  def assertHashContractInstance(
+      packageName: Ref.PackageName,
+      templateId: Ref.Identifier,
+      arg: Value,
+  ): Hash =
     builder(Purpose.ContractInstance, aCid2Bytes)
+      .add(packageName)
       .addIdentifier(templateId)
       .addTypedValue(arg)
       .build
 
   def hashContractInstance(
+      packageName: Ref.PackageName,
       templateId: Ref.Identifier,
       arg: Value,
   ): Either[HashingError, Hash] =
-    handleError(assertHashContractInstance(templateId, arg))
+    handleError(assertHashContractInstance(packageName, templateId, arg))
 
   def hashChangeId(
       applicationId: Ref.ApplicationId,
