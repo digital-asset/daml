@@ -12,7 +12,6 @@ import com.daml.ledger.api.v1.value.{
   Value as ApiValue,
 }
 import com.daml.lf.data.Bytes
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -299,8 +298,6 @@ final class LfValueTranslation(
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO https://github.com/digital-asset/daml/issues/17995
-            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdAt,
           cantonData = Bytes.fromByteArray(driverMetadataBytes),
@@ -421,8 +418,6 @@ final class LfValueTranslation(
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO https://github.com/digital-asset/daml/issues/17995
-            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdEvent.ledgerEffectiveTime,
           cantonData = Bytes.fromByteArray(driverMetadataBytes),

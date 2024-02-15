@@ -16,22 +16,13 @@ create table dars (
 --  * The package_id is in the daml_packages table
 --  * The corresponding DAR from the dars table contains the package with id package_id
 create table dar_packages (
-                              dar_hash_hex varchar(300) not null,
-                              package_id varchar(300) not null,
+    dar_hash_hex varchar(300) not null,
+    package_id varchar(300) not null,
 
-                              foreign key (dar_hash_hex) references dars(hash_hex) on delete cascade,
-                              foreign key (package_id) references daml_packages(package_id) on delete cascade,
+    foreign key (dar_hash_hex) references dars(hash_hex) on delete cascade,
+    foreign key (package_id) references daml_packages(package_id) on delete cascade,
 
-                              primary key (dar_hash_hex, package_id)
-);
-
-create table crypto_hmac_secret (
-    hmac_secret_id integer default 1,
-    data binary large object not null,
-
-    -- We only support a single stored HMAC secret right now, enforced through an ID that must be 1.
-    primary key (hmac_secret_id),
-    constraint hmac_secret_only_one check (hmac_secret_id = 1)
+    primary key (dar_hash_hex, package_id)
 );
 
 create table crypto_private_keys (
@@ -42,13 +33,17 @@ create table crypto_private_keys (
     -- Protobuf serialized key including metadata
     data binary large object not null,
     -- optional name of the key
-    name varchar(300)
+    name varchar(300),
+    -- Add a new optional wrapper_key_id field to store the encryption key id for the encrypted private store
+    wrapper_key_id varchar(300)
 );
 
-create table crypto_certs (
-    cert_id varchar(300) primary key,
-    -- PEM serialized certificate
-    data binary large object not null
+-- Store metadata information about KMS keys
+CREATE TABLE kms_metadata_store (
+    fingerprint varchar(300) not null,
+    kms_key_id varchar(300) not null,
+    purpose smallint not null,
+    primary key (fingerprint)
 );
 
 create table crypto_public_keys (
@@ -62,11 +57,7 @@ create table crypto_public_keys (
     name varchar(300)
 );
 
-create table accepted_agreements (domain_id varchar(300) not null, agreement_id varchar(300) not null);
-create table service_agreements (domain_id varchar(300) not null, agreement_id varchar(300) not null, agreement_text varchar not null);
 
-create unique index idx_service_agreements on service_agreements(domain_id, agreement_id);
-create unique index idx_accepted_agreements on accepted_agreements(domain_id, agreement_id);
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table contracts (
@@ -75,6 +66,7 @@ create table contracts (
     contract_id varchar(300) not null,
     -- The contract is serialized using the LF contract proto serializer.
     instance binary large object not null,
+    contract_salt binary large object,
     -- Metadata: signatories, stakeholders, keys
     -- Stored as a Protobuf blob as H2 will only support typed arrays in 1.4.201
     -- TODO(#3256): change when H2 is upgraded
@@ -142,7 +134,10 @@ create index idx_sequencer_state_manager_events_ts on sequencer_state_manager_ev
 -- is updated when sequencer is pruned meaning that earlier events can no longer be read (and likely no longer exist)
 create table sequencer_state_manager_lower_bound (
     single_row_lock char(1) not null default 'X' primary key check(single_row_lock = 'X'),
-    ts bigint not null
+    ts bigint not null,
+    -- track the age of the initial topology's timestamp or NULL if not available
+    -- when available, the timestamp limits how long the sequencer creates tombstones.
+    ts_initial_topology BIGINT NULL
 );
 
 -- provides a serial enumeration of static strings so we don't store the same string over and over in the db
@@ -156,45 +151,6 @@ create table static_strings (
     source int NOT NULL,
     unique(string, source)
 );
-
--- stores the topology state transactions
-create table topology_transactions (
-    -- serial identifier used to preserve insertion order
-    id serial not null primary key,
-    -- the id of the store
-    store_id varchar(300) not null,
-    -- type of transaction (refer to DomainTopologyTransaction companion object)
-    transaction_type int not null,
-    -- the namespace this transaction is operating on
-    namespace varchar(300) not null,
-    -- the optional identifier this transaction is operating on (yields a uid together with namespace)
-    -- a null value is represented as "", as null is never equal in indexes for postgres, which would
-    -- break the unique index
-    identifier varchar(300) not null,
-    -- the optional element-id of this transaction (signed topology transactions have one)
-    -- same not null logic as for identifier
-    element_id varchar(300) not null,
-    -- the optional secondary uid (only used by party to participant mappings to compute cascading updates)
-    secondary_namespace varchar(300) null,
-    secondary_identifier varchar(300) null,
-    -- validity window, UTC timestamp in microseconds relative to EPOCH
-    -- so Add transactions have an effect for valid_from < t <= valid_until
-    -- a remove will have valid_from = valid_until
-    valid_from bigint not null,
-    valid_until bigint null,
-    -- operation
-    -- 1: Add
-    -- 2: Remove
-    operation int not null,
-    -- The raw transaction, serialized using the proto serializer.
-    instance binary large object not null,
-    -- flag / reason why this transaction is being ignored
-    -- therefore: if this field is NULL, then the transaction is included. if it is non-null, the reason why it is invalid is included
-    ignore_reason varchar null,
-    -- index used for idempotency during crash recovery
-    unique (store_id, transaction_type, namespace, identifier, element_id, valid_from, operation)
-);
-CREATE INDEX topology_transactions_idx ON topology_transactions (store_id, transaction_type, namespace, identifier, element_id, valid_until, valid_from);
 
 -- Stores the identity of the node - its assigned member identity and its instance
 -- This table should always have at most one entry which is a unique identifier for the member which consists of a string identifier and a fingerprint of a signing key
@@ -251,6 +207,7 @@ create table active_contracts (
     request_counter bigint not null,
     -- optional remote domain id in case of transfers
     remote_domain_id int,
+    transfer_counter bigint default null,
     primary key (domain_id, contract_id, ts, request_counter, change)
 );
 
@@ -309,19 +266,21 @@ create table sequencer_client_pending_sends (
 );
 
 create table participant_domain_connection_configs(
-      domain_alias varchar(300) not null primary key,
-      config binary large object -- the protobuf-serialized versioned domain connection config
+    domain_alias varchar(300) not null primary key,
+    config binary large object, -- the protobuf-serialized versioned domain connection config
+    status char(1) default 'A' not null
 );
 
 -- used to register all domains that a participant connects to
 create table participant_domains(
-      -- to keep track of the order domains were registered
-      order_number serial not null primary key,
-      -- domain human readable alias
-      alias varchar(300) not null unique,
-      -- domain node id
-      domain_id varchar(300) not null unique,
-      CONSTRAINT participant_domains_unique unique (alias, domain_id)
+    -- to keep track of the order domains were registered
+    order_number serial not null primary key,
+    -- domain human readable alias
+    alias varchar(300) not null unique,
+    -- domain node id
+    domain_id varchar(300) not null unique,
+    status char(1) default 'A' not null,
+    CONSTRAINT participant_domains_unique unique (alias, domain_id)
 );
 
 create table event_log (
@@ -330,8 +289,12 @@ create table event_log (
     -- If zero, it refers to the production participant event log.
     -- If negative, it refers to a participant event log used in tests only.
     log_id int not null,
-    local_offset bigint not null,
-    primary key (log_id, local_offset),
+    local_offset_tie_breaker bigint not null,
+    -- timestamp, micros from epoch
+    local_offset_effective_time bigint NOT NULL DEFAULT 0,
+    -- 0 for requests, 1 for topology events
+    local_offset_discriminator smallint NOT NULL DEFAULT 0,
+    primary key (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker),
     -- UTC timestamp of the event in microseconds relative to EPOCH
     ts bigint not null,
     -- sequencer counter corresponding to the underlying request, if there is one
@@ -351,26 +314,13 @@ create table event_log (
     -- LedgerSyncEvent serialized using protobuf
     content binary large object not null,
     -- TraceContext is serialized using protobuf
-    trace_context binary large object not null,
-    -- Causality change associated with the event, if there is one
-    causality_update binary large object
+    trace_context binary large object not null
+
 );
 -- Not strictly required, but sometimes useful.
 create index idx_event_log_timestamp on event_log (log_id, ts);
 create unique index idx_event_log_event_id on event_log (event_id);
-
--- TODO(i4027): merge this into the event_log table once we have enter and leave events
-create table transfer_causality_updates (
-    -- Corresponds to an entry in the event_log table.
-    log_id int not null,
-    -- Request counter corresponding to the causality update
-    request_counter bigint not null,
-    primary key (log_id,request_counter),
-    -- The request timestamp corresponding to the causality update
-    request_timestamp bigint not null,
-    -- The CausalityUpdate, serialized with protobuf
-    causality_update binary large object not null
-);
+CREATE INDEX idx_event_log_local_offset ON event_log (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker);
 
 -- Persist a single, linearized, multi-domain event log for the local participant
 create table linearized_event_log (
@@ -379,35 +329,16 @@ create table linearized_event_log (
     -- Corresponds to an entry in the event_log table.
     log_id int not null,
     -- Offset in the event log instance designated by log_id
-    local_offset bigint not null,
-    constraint foreign_key_event_log foreign key (log_id, local_offset) references event_log(log_id, local_offset) on delete cascade,
+    local_offset_tie_breaker bigint not null,
     -- The participant's local time when the event was published, in microseconds relative to EPOCH.
     -- Increases monotonically with the global offset
-    publication_time bigint not null
+    publication_time bigint not null,
+    local_offset_effective_time bigint NOT NULL DEFAULT 0, -- timestamp, micros from epoch
+    local_offset_discriminator smallint NOT NULL DEFAULT 0, -- 0 for requests, 1 for topology events
+    constraint foreign_key_event_log foreign key (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) references event_log(log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) on delete cascade
 );
-create unique index idx_linearized_event_log_offset on linearized_event_log (log_id, local_offset);
+create unique index idx_linearized_event_log_offset ON linearized_event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker);
 create index idx_linearized_event_log_publication_time on linearized_event_log (publication_time, global_offset);
-
--- For a party p on a domain d, store the causal dependencies on other domains introduced at a given request counter
-create table per_party_causal_dependencies (
-    -- Arbitrary primary key
-    id bigserial primary key not null,
-    -- The party p
-    party_id varchar not null,
-    -- The domain of p
-    owning_domain_id varchar not null,
-    -- The timestamp on owning_domain_id where the causal dependency is introduced
-    constraint_ts bigint not null,
-    -- The request counter where the causal dependency is introduced, or null if the participant is not connected to owning_domain_id
-    request_counter bigint,
-    -- If the causal dependency comes from a transfer in, what is the origin domain?
-    transfer_origin_domain_if_present varchar,
-    -- The domain for the constraint
-    domain_id varchar not null,
-    -- The timestamp that the p has observed on domain_id
-    domain_ts bigint not null
-);
--- TODO(i7072): Add indices for this table
 
 -- H2 does not (yet) support partial indices, so we index everything
 create index idx_event_log_associated_domain on event_log (log_id, associated_domain, ts);
@@ -416,16 +347,15 @@ create table transfers (
     -- transfer id
     target_domain varchar(300) not null,
     origin_domain varchar(300) not null,
-    -- UTC timestamp in microseconds relative to EPOCH
-    request_timestamp bigint not null,
-    primary key (target_domain, origin_domain, request_timestamp),
 
     -- transfer data
-
+    source_protocol_version integer not null,
     -- UTC timestamp in microseconds relative to EPOCH
     transfer_out_timestamp bigint not null,
     transfer_out_request_counter bigint not null,
     transfer_out_request binary large object not null,
+    transfer_out_global_offset bigint,
+    transfer_in_global_offset bigint,
     -- UTC timestamp in microseconds relative to EPOCH
     transfer_out_decision_time bigint not null,
     contract binary large object not null,
@@ -436,7 +366,8 @@ create table transfers (
     -- defined if transfer was completed
     time_of_completion_request_counter bigint,
     -- UTC timestamp in microseconds relative to EPOCH
-    time_of_completion_timestamp bigint
+    time_of_completion_timestamp bigint,
+    primary key (target_domain, origin_domain, transfer_out_timestamp)
 );
 
 -- stores all requests for the request journal
@@ -558,27 +489,6 @@ create table static_domain_parameters (
     params binary large object not null
 );
 
--- 'unassigned' comes before 'assigned' so that comparisons `(timestamp, change) <= (bound, 'unassigned')`
--- -- select only unassignments if the timestamp matches the bound.
-create type key_status as enum ('unassigned', 'assigned');
-
--- Maintains the number of active contracts for a given key (by hash) as a journal
-create table contract_key_journal (
-    -- For uniformity with other tables, we store the domain ID with the allocation count,
-    -- even though the contract key journal is currently used only for domains with unique contract key (UCK) semantics
-    -- and participants can connect only to one UCK domain.
-    domain_id int not null,
-    contract_key_hash varchar(300) not null,
-    status key_status not null,
-    -- Timestamp of the time of change in microsecond precision relative to EPOCH
-    ts bigint not null,
-    -- Request counter of the time of change
-    request_counter bigint not null,
-    primary key (domain_id, contract_key_hash, ts, request_counter)
-);
-
-CREATE index contract_key_journal_dirty_request_reset_idx ON contract_key_journal (domain_id, ts, request_counter);
-
 -- Data about the last pruning operations
 create table pruning_operation (
     -- dummy field to enforce a single row
@@ -592,13 +502,27 @@ create table pruning_operation (
 -- with the timestamp of the last event in it
 create table sequencer_block_height (
     height bigint primary key check(height >= -1),
-    latest_event_ts bigint not null
+    latest_event_ts bigint not null,
+    -- The column latest_topology_client_ts denotes the sequencing timestamp of an event
+    -- addressed to the sequencer's topology client such that
+    -- there is no update to the domain topology state (by sequencing time) between this timestamp
+    -- and the last event in the block.
+    -- NULL if no such timestamp is known, e.g., because this block was added before this column was added.
+    latest_topology_client_ts bigint
 );
 
 create table sequencer_initial_state (
     member varchar(300) primary key,
     counter bigint not null
 );
+
+create table mediator_deduplication_store (
+    mediator_id varchar(300) not null,
+    uuid varchar(36) not null,
+    request_time bigint not null,
+    expire_after bigint not null
+);
+create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(expire_after, mediator_id);
 
 create type pruning_phase as enum ('started', 'completed');
 
@@ -608,6 +532,7 @@ create table active_contract_pruning (
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
+  succeeded bigint null,
   primary key (domain_id)
 );
 
@@ -617,6 +542,7 @@ create table commitment_pruning (
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
+  succeeded bigint null,
   primary key (domain_id)
 );
 
@@ -626,6 +552,7 @@ create table contract_key_pruning (
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
+  succeeded bigint null,
   primary key (domain_id)
 );
 
@@ -635,6 +562,7 @@ create table sequenced_event_store_pruning (
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
+  succeeded bigint null,
   primary key (client)
 );
 
@@ -659,17 +587,6 @@ create table head_sequencer_counters (
   ts bigint not null
 );
 
-create table service_agreement_acceptances (
-  agreement_id varchar(300) not null,
-  participant_id varchar(300) not null,
-  -- Signature of the participant
-  signature binary large object not null,
-  -- Time of acceptance as UTC timestamp in microseconds relative to EPOCH
-  ts bigint not null,
-
-  -- We only store the first acceptance of an agreement for a participant
-  primary key (agreement_id, participant_id)
-);
 
 -- we create a unique integer id for each member that is more efficient to use in the events table
 -- members can read all events from `registered_ts`
@@ -706,6 +623,7 @@ create table sequencer_counter_checkpoints (
    member integer not null,
    counter bigint not null,
    ts bigint not null,
+   latest_topology_client_ts bigint,
    primary key (member, counter)
 );
 
@@ -741,7 +659,7 @@ create table sequencer_events (
     -- optional topology timestamp for deliver events
     topology_timestamp bigint null,
     -- optional error message for deliver error
-    error_message varchar null,
+    error binary large object,
     -- trace context associated with the event
     trace_context binary large object not null
 );
@@ -749,11 +667,6 @@ create table sequencer_events (
 -- Sequence of local offsets used by the participant event publisher
 create sequence participant_event_publisher_local_offsets minvalue 0 start with 0;
 
-create table register_topology_transaction_responses (
-  request_id varchar(300) primary key,
-  response binary large object not null,
-  completed boolean not null
-);
 
 -- store nonces that have been requested for authentication challenges
 create table sequencer_authentication_nonces (
@@ -798,10 +711,10 @@ create table in_flight_submission (
     -- Optional; omitted if other code paths ensure that an event is produced
     -- Must be null if sequencing_timeout is not set.
     tracking_data binary large object,
-
+    root_hash_hex varchar(300) DEFAULT NULL,
     trace_context binary large object not null
 );
-
+CREATE INDEX idx_in_flight_submission_root_hash ON in_flight_submission (root_hash_hex);
 create index idx_in_flight_submission_timeout on in_flight_submission (submission_domain, sequencing_timeout);
 create index idx_in_flight_submission_sequencing on in_flight_submission (submission_domain, sequencing_time);
 create index idx_in_flight_submission_message_id on in_flight_submission (submission_domain, message_id);
@@ -811,18 +724,7 @@ create table participant_settings(
   max_dirty_requests integer,
   max_rate integer,
   max_deduplication_duration binary large object, -- non-negative finite duration
-  -- whether the participant provides unique-contract key semantics
-  -- Don't pre-fill the table from what we find in the domain alias store. We do that dynamically at startup
-  -- because we can't parse the Protobuf-encoded domain parameters in a SQL script to detect
-  -- whether the participant has previously been connected to a UCK domain
-  unique_contract_keys boolean
-);
-
-create table domain_sequencer_config
-(
-    -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
-    lock char(1) not null default 'X' primary key check (lock = 'X'),
-    sequencer_connection binary large object not null
+  max_burst_factor double precision not null default 0.5
 );
 
 create table command_deduplication (
@@ -871,4 +773,199 @@ create table sequencer_domain_configuration (
   lock char(1) not null default 'X' primary key check (lock = 'X'),
   domain_id varchar(300) not null,
   static_domain_parameters binary large object not null
+);
+
+CREATE TABLE pruning_schedules(
+    -- node_type is one of "PAR", "MED", or "SEQ"
+    -- since mediator and sequencer sometimes share the same db
+    node_type varchar(3) not null primary key,
+    cron varchar(300) not null,
+    max_duration bigint not null, -- positive number of seconds
+    retention bigint not null -- positive number of seconds
+);
+
+-- Tables for new submission tracker
+CREATE TABLE fresh_submitted_transaction (
+    domain_id integer not null,
+    root_hash_hex varchar(300) not null,
+    request_id bigint not null,
+    max_sequencing_time bigint not null,
+    primary key (domain_id, root_hash_hex)
+);
+
+CREATE TABLE fresh_submitted_transaction_pruning (
+    domain_id integer not null,
+    phase pruning_phase not null,
+    -- UTC timestamp in microseconds relative to EPOCH
+    ts bigint not null,
+    succeeded bigint null,
+    primary key (domain_id)
+);
+
+-- participant_pruning_schedules with pruning flag specific to participant pruning
+CREATE TABLE participant_pruning_schedules (
+    -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
+    lock char(1) not null default 'X' primary key check (lock = 'X'),
+    cron varchar(300) not null,
+    max_duration bigint not null, -- positive number of seconds
+    retention bigint not null, -- positive number of seconds
+    prune_internally_only boolean NOT NULL DEFAULT false -- whether to prune only canton-internal stores not visible to ledger api
+);
+
+
+-- TODO(#15155) Move this to stable when releasing BFT: BEGIN
+CREATE TABLE in_flight_aggregation(
+                                      aggregation_id varchar(300) not null primary key,
+    -- UTC timestamp in microseconds relative to EPOCH
+                                      max_sequencing_time bigint not null,
+    -- serialized aggregation rule,
+                                      aggregation_rule binary large object not null
+);
+
+CREATE INDEX in_flight_aggregation_max_sequencing_time on in_flight_aggregation(max_sequencing_time);
+
+CREATE TABLE in_flight_aggregated_sender(
+    aggregation_id varchar(300) not null,
+    sender varchar(300) not null,
+    -- UTC timestamp in microseconds relative to EPOCH
+    sequencing_timestamp bigint not null,
+    signatures binary large object not null,
+    primary key (aggregation_id, sender),
+    constraint foreign_key_in_flight_aggregated_sender foreign key (aggregation_id) references in_flight_aggregation(aggregation_id) on delete cascade
+);
+
+-- stores the topology-x state transactions
+CREATE TABLE topology_transactions_x (
+    -- serial identifier used to preserve insertion order
+    id bigserial not null primary key,
+    -- the id of the store
+    store_id varchar(300) not null,
+    -- the timestamp at which the transaction is sequenced by the sequencer
+    -- UTC timestamp in microseconds relative to EPOCH
+    sequenced bigint not null,
+    -- type of transaction (refer to TopologyMappingX.Code)
+    transaction_type int not null,
+    -- the namespace this transaction is operating on
+    namespace varchar(300) not null,
+    -- the optional identifier this transaction is operating on (yields a uid together with namespace)
+    -- a null value is represented as "", as null is never equal in indexes for postgres, which would
+    -- break the unique index
+    identifier varchar(300) not null,
+    -- The topology mapping key hash, to uniquify and aid efficient lookups.
+    -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
+    mapping_key_hash varchar(300) not null,
+    -- the serial_counter describes the change order within transactions of the same mapping_key_hash
+    -- (redundant also embedded in instance)
+    serial_counter int not null,
+    -- validity window, UTC timestamp in microseconds relative to EPOCH
+    -- so `TopologyChangeOpX.Replace` transactions have an effect for valid_from < t <= valid_until
+    -- a `TopologyChangeOpX.Remove` will have valid_from = valid_until
+    valid_from bigint not null,
+    valid_until bigint null,
+    -- operation
+    -- 1: Remove
+    -- 2: Replace (upsert/merge semantics)
+    operation int not null,
+    -- The raw transaction, serialized using the proto serializer.
+    instance binary large object not null,
+    -- The transaction hash, to uniquify and aid efficient lookups.
+    -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
+    tx_hash varchar(300) not null,
+    -- flag / reason why this transaction is being rejected
+    -- therefore: if this field is NULL, then the transaction is included. if it is non-null shows the reason why it is invalid
+    rejection_reason varchar(300) null,
+    -- is_proposal indicates whether the transaction still needs BFT-consensus
+    -- false if and only if the transaction is accepted
+    -- (redundant also embedded in instance)
+    is_proposal boolean not null,
+    representative_protocol_version integer not null,
+    -- the hash of the transaction's signatures. this disambiguates multiple transactions/proposals with the same
+    -- tx_hash but different signatures
+    hash_of_signatures varchar(300) not null,
+    -- index used for idempotency during crash recovery
+    -- TODO(#12390) should mapping_key_hash rather be tx_hash?
+    unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures)
+);
+CREATE INDEX topology_transactions_x_idx ON topology_transactions_x (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
+-- TODO(#14061): Decide whether we want additional indices by mapping_key_hash and tx_hash (e.g. for update/removal and lookups)
+-- TODO(#14061): Come up with columns/indexing for efficient ParticipantId => Seq[PartyId] lookup
+
+-- update the sequencer_state_manager_events to store traffic information per event
+-- this will be needed to re-hydrate the sequencer from a specific point in time deterministically
+-- adds extra traffic remainder at the time of the event
+alter table sequencer_state_manager_events
+    add column extra_traffic_remainder bigint;
+-- adds total extra traffic consumed at the time of the event
+alter table sequencer_state_manager_events
+    add column extra_traffic_consumed bigint;
+-- adds base traffic remainder at the time of the event
+alter table sequencer_state_manager_events
+    add column base_traffic_remainder bigint;
+
+-- adds extra traffic remainder per event in sequenced event store
+-- this way the participant can replay event and reconstruct the correct traffic state
+-- adds extra traffic remainder at the time of the event
+alter table sequenced_events
+    add column extra_traffic_remainder bigint;
+-- adds total extra traffic consumed at the time of the event
+alter table sequenced_events
+    add column extra_traffic_consumed bigint;
+
+-- adds initial traffic info per member for when a sequencer gets onboarded
+-- initial extra traffic remainder
+alter table sequencer_initial_state
+    add column extra_traffic_remainder bigint;
+-- initial total extra traffic consumed
+alter table sequencer_initial_state
+    add column extra_traffic_consumed bigint;
+-- initial base traffic remainder
+alter table sequencer_initial_state
+    add column base_traffic_remainder bigint;
+-- timestamp of the initial traffic state
+alter table sequencer_initial_state
+    add column sequenced_timestamp bigint;
+
+-- Store the top up events per member as they get sequenced in the topology state
+-- Allows to efficiently query top ups without replaying the topology state
+create table top_up_events (
+    -- member the traffic limit belongs to
+                               member varchar(300) not null,
+    -- timestamp at which the limit is effective
+                               effective_timestamp bigint not null,
+    -- the total traffic limit at that time
+                               extra_traffic_limit bigint not null,
+    -- serial number of the topology transaction effecting the top up
+    -- used to disambiguate between top ups with the same effective timestamp
+                               serial bigint not null,
+    -- top ups should have unique serial per member
+                               primary key (member, serial)
+);
+
+create index top_up_events_idx ON top_up_events (member);
+
+--   BFT Ordering Tables
+
+-- Stores metadata for epochs completed in entirety
+-- Individual blocks/transactions exist in separate table
+create table completed_epochs (
+    -- strictly-increasing, contiguous epoch number
+    epoch_number bigint not null primary key ,
+    -- first block sequence number (globally) of the epoch
+    start_block_number bigint not null,
+    -- number of total blocks in the epoch
+    epoch_length integer not null
+);
+
+-- Stores consensus state for active epoch
+create table active_epoch (
+    -- epoch number that consensus is actively working on
+    epoch_number bigint not null,
+    -- global sequence number of the ordered block
+    block_number bigint not null primary key
+);
+
+create table availability_batch(
+    id varchar(300) not null,
+    batch binary large object not null,
+    primary key (id)
 );

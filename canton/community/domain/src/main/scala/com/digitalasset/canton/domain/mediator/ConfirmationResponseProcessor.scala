@@ -89,7 +89,7 @@ private[mediator] class ConfirmationResponseProcessor(
       events: Seq[Traced[MediatorEvent]]
   ): Seq[MediatorResultLog] =
     events
-      .collect { case tr @ Traced(MediatorEvent.Response(_, timestamp, response, _)) =>
+      .collect { case tr @ Traced(MediatorEvent.Response(_, timestamp, response, _, _)) =>
         (response.message.sender, timestamp, tr.traceContext, response.message.localVerdict)
       }
       .groupBy { case (sender, ts, traceContext, _) => (sender, ts, traceContext) }
@@ -150,13 +150,20 @@ private[mediator] class ConfirmationResponseProcessor(
                 rootHashMessages,
                 batchAlsoContainsTopologyXTransaction,
               )
-            case MediatorEvent.Response(counter, timestamp, response, recipients) =>
+            case MediatorEvent.Response(
+                  counter,
+                  timestamp,
+                  response,
+                  topologyTimestamp,
+                  recipients,
+                ) =>
               processResponse(
                 timestamp,
                 counter,
                 participantResponseDeadline,
                 decisionTime,
                 response,
+                topologyTimestamp,
                 recipients,
               )
             case MediatorEvent.Timeout(_counter, timestamp, requestId) =>
@@ -607,6 +614,7 @@ private[mediator] class ConfirmationResponseProcessor(
       participantResponseDeadline: CantonTimestamp,
       decisionTime: CantonTimestamp,
       signedResponse: SignedProtocolMessage[MediatorResponse],
+      topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
   )(implicit traceContext: TraceContext): Future[Unit] =
     withSpan("ConfirmationResponseProcessor.processResponse") { implicit traceContext => span =>
@@ -645,6 +653,22 @@ private[mediator] class ConfirmationResponseProcessor(
             )
             OptionT.none[Future, Unit]
           }
+        _ <- {
+          // To ensure that a mediator group address is resolved in the same way as for the request
+          // we require that the topology timestamp on the response submission request is set to the
+          // request's sequencing time. The sequencer communicates this timestamp to the client
+          // via the timestamp of signing key.
+          if (topologyTimestamp.contains(response.requestId.unwrap))
+            OptionT.some[Future](())
+          else {
+            MediatorError.MalformedMessage
+              .Reject(
+                s"Request ${response.requestId}, sender ${response.sender}: Discarding mediator response because the topology timestamp is not set to the request id [$topologyTimestamp]"
+              )
+              .report()
+            OptionT.none
+          }
+        }
 
         responseAggregation <- mediatorState.fetch(response.requestId).orElse {
           // This can happen after a fail-over or as part of an attack.

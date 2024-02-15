@@ -54,10 +54,11 @@ private[mediator] trait MediatorEventDeduplicator {
       callerCloseContext: CloseContext,
   ): Future[(Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])], Future[Unit])] =
     MonadUtil
-      .sequentialTraverse(envelopesByEvent) { case (event, envelopes) =>
-        implicit val traceContext: TraceContext = event.traceContext
-        rejectDuplicates(event.value.timestamp, envelopes)(traceContext, callerCloseContext).map {
-          case (uniqueEnvelopes, storeF) => (event, uniqueEnvelopes) -> storeF
+      .sequentialTraverse(envelopesByEvent) { case (tracedProtocolEvent, envelopes) =>
+        implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
+        val (event, _) = tracedProtocolEvent.value
+        rejectDuplicates(event.timestamp, envelopes)(traceContext, callerCloseContext).map {
+          case (uniqueEnvelopes, storeF) => (tracedProtocolEvent, uniqueEnvelopes) -> storeF
         }
       }
       .map(_.separate)

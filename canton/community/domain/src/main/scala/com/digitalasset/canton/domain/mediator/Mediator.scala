@@ -315,7 +315,12 @@ private[mediator] class Mediator(
               } else Future.unit
             }
 
-            (Traced(openEvent)(closedSignedEvent.traceContext), rejectionsF)
+            (
+              Traced(openEvent -> closedSignedEvent.signedEvent.timestampOfSigningKey)(
+                closedSignedEvent.traceContext
+              ),
+              rejectionsF,
+            )
           }
 
           val (tracedOpenEvents, rejectionsF) = tracedOpenEventsWithRejectionsF.unzip

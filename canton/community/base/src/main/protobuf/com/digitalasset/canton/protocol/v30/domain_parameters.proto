@@ -10,7 +10,7 @@ import "google/protobuf/duration.proto";
 import "scalapb/scalapb.proto";
 
 // catch-up configuration parameters
-message CatchUpConfig {
+message AcsCommitmentsCatchUpConfig {
   uint32 catchup_interval_skip = 1;
   uint32 nr_intervals_to_trigger_catchup = 2;
 }

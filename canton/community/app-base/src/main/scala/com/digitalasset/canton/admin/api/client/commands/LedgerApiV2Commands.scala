@@ -145,6 +145,12 @@ object LedgerApiV2Commands {
           case _: UpdateService.UnassignedWrapper => None
         }
     }
+    object UpdateWrapper {
+      def isUnassigedWrapper(wrapper: UpdateWrapper): Boolean = wrapper match {
+        case UnassignedWrapper(_, _) => true
+        case _ => false
+      }
+    }
     final case class TransactionTreeWrapper(transactionTree: TransactionTree)
         extends UpdateTreeWrapper {
       override def updateId: String = transactionTree.updateId
@@ -155,6 +161,9 @@ object LedgerApiV2Commands {
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
       def unassignId: String = reassignment.getUnassignedEvent.unassignId
+      def offset: ParticipantOffset = ParticipantOffset(
+        ParticipantOffset.Value.Absolute(reassignment.offset)
+      )
     }
     object ReassignmentWrapper {
       def apply(reassignment: Reassignment): ReassignmentWrapper = {

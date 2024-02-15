@@ -70,7 +70,7 @@ import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
-import com.digitalasset.canton.protocol.CatchUpConfig
+import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
@@ -868,8 +868,8 @@ object CantonConfig {
       deriveReader[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigReader: ConfigReader[DomainParametersConfig] =
       deriveReader[DomainParametersConfig]
-    lazy implicit val catchUpParametersConfigReader: ConfigReader[CatchUpConfig] =
-      deriveReader[CatchUpConfig]
+    lazy implicit val acsCommitmentsCatchUpConfigReader: ConfigReader[AcsCommitmentsCatchUpConfig] =
+      deriveReader[AcsCommitmentsCatchUpConfig]
     lazy implicit val deadlockDetectionConfigReader: ConfigReader[DeadlockDetectionConfig] =
       deriveReader[DeadlockDetectionConfig]
 
@@ -1251,8 +1251,8 @@ object CantonConfig {
       deriveWriter[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigWriter: ConfigWriter[DomainParametersConfig] =
       deriveWriter[DomainParametersConfig]
-    lazy implicit val catchUpParametersConfigWriter: ConfigWriter[CatchUpConfig] =
-      deriveWriter[CatchUpConfig]
+    lazy implicit val acsCommitmentsCatchUpConfigWriter: ConfigWriter[AcsCommitmentsCatchUpConfig] =
+      deriveWriter[AcsCommitmentsCatchUpConfig]
     lazy implicit val deadlockDetectionConfigWriter: ConfigWriter[DeadlockDetectionConfig] =
       deriveWriter[DeadlockDetectionConfig]
 

@@ -338,6 +338,44 @@ template DecimalRounding
   where
     signatory party
 
+template Delegated
+  with
+    owner : Party
+    k : Text
+  where
+    signatory owner
+
+    choice Recreate: ()
+      controller owner
+      do create this
+         return ()
+
+template Delegation
+  with
+    owner : Party
+    delegate : Party
+  where
+    signatory owner
+    observer delegate
+
+    nonconsuming choice FetchDelegated: Delegated
+      with delegated: ContractId Delegated
+      controller delegate
+      do fetch delegated
+
+template ShowDelegated
+  with
+    owner: Party
+    delegate: Party
+  where
+    signatory owner
+    observer delegate
+    choice ShowIt : ()
+      with delegatedId: ContractId Delegated
+      controller owner
+      do fetch delegatedId
+         return ()
+
 template Witnesses
   with
     p_signatory: Party
