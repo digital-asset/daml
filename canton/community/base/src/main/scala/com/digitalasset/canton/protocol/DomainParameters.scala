@@ -57,13 +57,13 @@ object DomainParameters {
   }
 }
 
-/** @param catchUpParameters   Optional parameters of type [[com.digitalasset.canton.protocol.CatchUpConfig]].
-  *                            Defined starting with protobuf version v2 and protocol version v6.
-  *                            If None, the catch-up mode is disabled: the participant does not trigger the
-  *                            catch-up mode when lagging behind.
-  *                            If not None, it specifies the number of reconciliation intervals that the
-  *                            participant skips in catch-up mode, and the number of catch-up intervals
-  *                            intervals a participant should lag behind in order to enter catch-up mode.
+/** @param AcsCommitmentsCatchUp Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
+  *                              Defined starting with protobuf version v2 and protocol version v6.
+  *                              If None, the catch-up mode is disabled: the participant does not trigger the
+  *                              catch-up mode when lagging behind.
+  *                              If not None, it specifies the number of reconciliation intervals that the
+  *                              participant skips in catch-up mode, and the number of catch-up intervals
+  *                              intervals a participant should lag behind in order to enter catch-up mode.
   */
 final case class StaticDomainParameters private (
     requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
@@ -72,7 +72,7 @@ final case class StaticDomainParameters private (
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     protocolVersion: ProtocolVersion,
-    catchUpParameters: Option[CatchUpConfig],
+    acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig],
 ) extends HasProtocolVersionedWrapper[StaticDomainParameters] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -93,7 +93,7 @@ final case class StaticDomainParameters private (
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
       requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
       protocolVersion = protocolVersion.toProtoPrimitive,
-      catchUpParameters = catchUpParameters.map(_.toProtoV30),
+      acsCommitmentsCatchUp = acsCommitmentsCatchUp.map(_.toProtoV30),
     )
 }
 object StaticDomainParameters
@@ -118,7 +118,7 @@ object StaticDomainParameters
       requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
       requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
       protocolVersion: ProtocolVersion,
-      catchUpParameters: Option[CatchUpConfig],
+      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig],
   ): StaticDomainParameters = StaticDomainParameters(
     requiredSigningKeySchemes = requiredSigningKeySchemes,
     requiredEncryptionKeySchemes = requiredEncryptionKeySchemes,
@@ -126,7 +126,7 @@ object StaticDomainParameters
     requiredHashAlgorithms = requiredHashAlgorithms,
     requiredCryptoKeyFormats = requiredCryptoKeyFormats,
     protocolVersion = protocolVersion,
-    catchUpParameters = catchUpParameters,
+    acsCommitmentsCatchUp = acsCommitmentsCatchUp,
   )
 
   private def requiredKeySchemes[P, A](
@@ -146,7 +146,7 @@ object StaticDomainParameters
       requiredHashAlgorithmsP,
       requiredCryptoKeyFormatsP,
       protocolVersionP,
-      catchUpParametersP,
+      acsCommitmentsCatchUpP,
     ) = domainParametersP
 
     for {
@@ -176,7 +176,9 @@ object StaticDomainParameters
         CryptoKeyFormat.fromProtoEnum,
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
-      catchUpParameters <- catchUpParametersP.traverse(CatchUpConfig.fromProtoV30)
+      acsCommitmentsCatchUp <- acsCommitmentsCatchUpP.traverse(
+        AcsCommitmentsCatchUpConfig.fromProtoV30
+      )
     } yield StaticDomainParameters(
       requiredSigningKeySchemes,
       requiredEncryptionKeySchemes,
@@ -184,7 +186,7 @@ object StaticDomainParameters
       requiredHashAlgorithms,
       requiredCryptoKeyFormats,
       protocolVersion,
-      catchUpParameters,
+      acsCommitmentsCatchUp,
     )
   }
 }
@@ -843,31 +845,31 @@ final case class DynamicDomainParametersWithValidity(
   *                                    `catchUpIntervalSkip`.value` * `nrIntervalsToTriggerCatchUp`, and
   *                                    `catchUpModeEnabled` is true, then the participant triggers catch-up mode.
   */
-final case class CatchUpConfig(
+final case class AcsCommitmentsCatchUpConfig(
     catchUpIntervalSkip: PositiveInt,
     nrIntervalsToTriggerCatchUp: PositiveInt,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[CatchUpConfig] = prettyOfClass(
+  override def pretty: Pretty[AcsCommitmentsCatchUpConfig] = prettyOfClass(
     param("catchUpIntervalSkip", _.catchUpIntervalSkip),
     param("nrIntervalsToTriggerCatchUp", _.nrIntervalsToTriggerCatchUp),
   )
 
-  def toProtoV30: v30.CatchUpConfig = v30.CatchUpConfig(
+  def toProtoV30: v30.AcsCommitmentsCatchUpConfig = v30.AcsCommitmentsCatchUpConfig(
     catchUpIntervalSkip.value,
     nrIntervalsToTriggerCatchUp.value,
   )
 }
 
-object CatchUpConfig {
+object AcsCommitmentsCatchUpConfig {
   def fromProtoV30(
-      value: v30.CatchUpConfig
-  ): ParsingResult[CatchUpConfig] = {
-    val v30.CatchUpConfig(catchUpIntervalSkipP, nrIntervalsToTriggerCatchUpP) = value
+      value: v30.AcsCommitmentsCatchUpConfig
+  ): ParsingResult[AcsCommitmentsCatchUpConfig] = {
+    val v30.AcsCommitmentsCatchUpConfig(catchUpIntervalSkipP, nrIntervalsToTriggerCatchUpP) = value
     for {
       catchUpIntervalSkip <- ProtoConverter.parsePositiveInt(catchUpIntervalSkipP)
       nrIntervalsToTriggerCatchUp <- ProtoConverter.parsePositiveInt(
         nrIntervalsToTriggerCatchUpP
       )
-    } yield CatchUpConfig(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
+    } yield AcsCommitmentsCatchUpConfig(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
   }
 }

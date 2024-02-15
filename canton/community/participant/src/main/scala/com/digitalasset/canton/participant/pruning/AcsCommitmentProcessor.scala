@@ -38,7 +38,12 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{CatchUpConfig, LfContractId, LfHash, WithContractHash}
+import com.digitalasset.canton.protocol.{
+  AcsCommitmentsCatchUpConfig,
+  LfContractId,
+  LfHash,
+  WithContractHash,
+}
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
 import com.digitalasset.canton.sequencing.client.{SendType, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
@@ -136,13 +141,14 @@ import scala.math.Ordering.Implicits.*
   * When a participant's ACS commitment processor falls behind some counter participants' processors, the participant
   * has the option to enter a so-called "catch-up mode". In catch-up mode, the participant skips sending and
   * checking commitments for some reconciliation intervals. The parameter governing catch-up mode is:
-  * @param catchUpConfig                Optional parameters of type
-  *                                     [[com.digitalasset.canton.protocol.CatchUpConfig]].
-  *                                     If None, the catch-up mode is disabled: the participant does not trigger the
-  *                                     catch-up mode when lagging behind.
-  *                                     If not None, it specifies the number of reconciliation intervals that the
-  *                                     participant skips in catch-up mode, and the number of catch-up intervals
-  *                                     intervals a participant should lag behind in order to enter catch-up mode.
+  *
+  * @param acsCommitmentsCatchUpConfig Optional parameters of type
+  *                      [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
+  *                      If None, the catch-up mode is disabled: the participant does not trigger the
+  *                      catch-up mode when lagging behind.
+  *                      If not None, it specifies the number of reconciliation intervals that the
+  *                      participant skips in catch-up mode, and the number of catch-up intervals
+  *                      intervals a participant should lag behind in order to enter catch-up mode.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class AcsCommitmentProcessor(
@@ -155,7 +161,9 @@ class AcsCommitmentProcessor(
     pruningObserver: TraceContext => Unit,
     metrics: PruningMetrics,
     protocolVersion: ProtocolVersion,
-    @VisibleForTesting private[pruning] val catchUpConfig: Option[CatchUpConfig],
+    @VisibleForTesting private[pruning] val acsCommitmentsCatchUpConfig: Option[
+      AcsCommitmentsCatchUpConfig
+    ],
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     activeContractStore: ActiveContractStore,
@@ -287,10 +295,10 @@ class AcsCommitmentProcessor(
   @volatile private[this] var catchUpToTimestamp = CantonTimestamp.MinValue
 
   private def catchUpInProgress(crtTimestamp: CantonTimestamp): Boolean =
-    catchUpConfig.isDefined && catchUpToTimestamp >= crtTimestamp
+    acsCommitmentsCatchUpConfig.isDefined && catchUpToTimestamp >= crtTimestamp
 
   private def caughtUpToBoundary(timestamp: CantonTimestamp): Boolean =
-    catchUpConfig.isDefined && timestamp == catchUpToTimestamp
+    acsCommitmentsCatchUpConfig.isDefined && timestamp == catchUpToTimestamp
 
   /** Detects whether the participant should trigger or exit catch-up.
     * In case a catch-up should start, returns the catch-up timestamp; the participant will catch up to the
@@ -300,7 +308,7 @@ class AcsCommitmentProcessor(
   private def computeCatchUpTimestamp(
       completedPeriodTimestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] = {
-    if (catchUpConfig.isDefined) {
+    if (acsCommitmentsCatchUpConfig.isDefined) {
       for {
         catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp)
       } yield {
@@ -430,7 +438,7 @@ class AcsCommitmentProcessor(
       // sequentially on the `dbQueue`. Moreover, the outer `performPublish` queue inserts `processCompletedPeriod`
       // sequentially in the order of the timestamps, which is the key to ensuring that it
       // grows monotonically and that catch-ups are towards the future.
-      if (catchUpConfig.isDefined && computingCatchUpTimestamp.isCompleted) {
+      if (acsCommitmentsCatchUpConfig.isDefined && computingCatchUpTimestamp.isCompleted) {
         computingCatchUpTimestamp.value.foreach { v =>
           v.fold(
             exc => logger.error(s"Error when computing the catch up timestamp", exc),
@@ -1070,7 +1078,7 @@ class AcsCommitmentProcessor(
   private def laggingTooFarBehind(
       completedPeriodTimestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] = {
-    catchUpConfig match {
+    acsCommitmentsCatchUpConfig match {
       case Some(cfg) =>
         for {
           sortedReconciliationIntervals <- sortedReconciliationIntervalsProvider

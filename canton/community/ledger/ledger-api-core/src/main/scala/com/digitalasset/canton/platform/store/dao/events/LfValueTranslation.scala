@@ -292,6 +292,8 @@ final class LfValueTranslation(
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,
+            // TODO https://github.com/digital-asset/daml/issues/17995
+            packageName = Ref.PackageName.assertFromString("dummyReplace"),
             templateId = templateId,
             arg = createArgument.unversioned,
             agreementText = raw.partial.agreementText.getOrElse(""),
@@ -299,8 +301,6 @@ final class LfValueTranslation(
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO https://github.com/digital-asset/daml/issues/17995
-            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdAt,
           cantonData = Bytes.fromByteArray(driverMetadataBytes),
@@ -414,6 +414,8 @@ final class LfValueTranslation(
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,
+            // TODO https://github.com/digital-asset/daml/issues/17995
+            packageName = Ref.PackageName.assertFromString("dummyReplace"),
             templateId = createdEvent.templateId,
             arg = createArgument.unversioned,
             agreementText = createdEvent.agreementText.getOrElse(""),
@@ -421,8 +423,6 @@ final class LfValueTranslation(
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO https://github.com/digital-asset/daml/issues/17995
-            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdEvent.ledgerEffectiveTime,
           cantonData = Bytes.fromByteArray(driverMetadataBytes),

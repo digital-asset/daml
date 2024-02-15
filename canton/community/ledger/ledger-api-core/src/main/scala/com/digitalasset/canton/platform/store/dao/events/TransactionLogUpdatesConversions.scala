@@ -494,6 +494,8 @@ private[events] object TransactionLogUpdatesConversions {
             FatContractInstance.fromCreateNode(
               Node.Create(
                 coid = createdEvent.contractId,
+                // TODO https://github.com/digital-asset/daml/issues/17995
+                packageName = Ref.PackageName.assertFromString("dummyReplace"),
                 templateId = createdEvent.templateId,
                 arg = createdEvent.createArgument.unversioned,
                 agreementText = createdEvent.createAgreementText.getOrElse(""),
@@ -503,8 +505,6 @@ private[events] object TransactionLogUpdatesConversions {
                   createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
                 ),
                 version = createdEvent.createArgument.version,
-                // TODO https://github.com/digital-asset/daml/issues/17995
-                packageName = Ref.PackageName.assertFromString("dummyReplace"),
               ),
               createTime = createdEvent.ledgerEffectiveTime,
               cantonData = driverMetadataBytes,

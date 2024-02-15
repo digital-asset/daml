@@ -553,10 +553,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
         contractInstance = Versioned(
           unusedTxVersion,
           ContractInstance(
+            // TODO https://github.com/digital-asset/daml/issues/17995
+            packageName = Ref.PackageName.assertFromString("dummyReplace"),
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
-            // TODO https://github.com/digital-asset/daml/issues/17995
-            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
         ),
         originalMetadata = ContractMetadata.tryCreate(

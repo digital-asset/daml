@@ -82,7 +82,7 @@ message StaticDomainParameters {
   repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 4;
   repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 5;
   int32 protocol_version = 6;
-  CatchUpConfig catch_up_parameters = 7;
+  AcsCommitmentsCatchUpConfig acs_commitments_catch_up = 7;
 }
 
 message Envelope {

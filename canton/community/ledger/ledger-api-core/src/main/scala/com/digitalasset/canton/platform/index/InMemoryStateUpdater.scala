@@ -235,10 +235,10 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Created(
               contractId = createdEvent.contractId,
               contract = Contract(
+                // TODO https://github.com/digital-asset/daml/issues/17995
+                packageName = Ref.PackageName.assertFromString("dummyReplace"),
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
-                // TODO https://github.com/digital-asset/daml/issues/17995
-                packageName = Ref.PackageName.assertFromString("dummyReplace")
               ),
               globalKey = createdEvent.contractKey.map(k =>
                 Key.assertBuild(createdEvent.templateId, k.unversioned)

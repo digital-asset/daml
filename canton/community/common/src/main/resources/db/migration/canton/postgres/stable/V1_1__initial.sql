@@ -771,20 +771,6 @@ create table participant_settings(
   max_burst_factor double precision not null default 0.5
 );
 
-create table domain_manager_node_settings
-(
-    -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
-    lock char(1) not null default 'X' primary key check (lock = 'X'),
-    sequencer_connection bytea not null,
-    static_domain_parameters bytea not null
-);
-
-create table domain_node_settings (
-    lock char(1) not null default 'X' primary key check (lock = 'X'),
-    static_domain_parameters bytea not null
-);
-
-
 create table command_deduplication (
   -- hash of the change ID (application_id + command_id + act_as) as a hex string
   change_id_hash varchar(300) collate "C" primary key,

@@ -348,7 +348,6 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
   override def onClosed(): Unit = {
     Lifecycle.close(
       timeAdjuster,
-      store,
       serializer,
     )(logger)
   }

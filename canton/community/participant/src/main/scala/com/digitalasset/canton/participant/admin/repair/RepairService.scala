@@ -10,8 +10,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.value.{Identifier, Record}
-import com.daml.lf.data.{Bytes, ImmArray}
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -891,6 +890,8 @@ final class RepairService(
 
   private def toArchive(c: SerializableContract): LfNodeExercises = LfNodeExercises(
     targetCoid = c.contractId,
+    // TODO https://github.com/digital-asset/daml/issues/17995
+    packageName = Ref.PackageName.assertFromString("dummyReplace"),
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
     interfaceId = None,
     choiceId = LfChoiceName.assertFromString("Archive"),
@@ -908,8 +909,6 @@ final class RepairService(
     keyOpt = None,
     byKey = false,
     version = c.rawContractInstance.contractInstance.version,
-    // TODO https://github.com/digital-asset/daml/issues/17995
-    packageName = Ref.PackageName.assertFromString("dummyReplace")
   )
 
   private def writeContractsPurgedEvent(
@@ -1320,9 +1319,10 @@ object RepairService {
           argsValue,
         )
 
-        lfContractInst = LfContractInst(template = template, arg = argsVersionedValue,
+        lfContractInst = LfContractInst(
           // TODO https://github.com/digital-asset/daml/issues/17995
-          packageName = Ref.PackageName.assertFromString("dummyReplace"))
+          packageName = Ref.PackageName.assertFromString("dummyReplace"),
+          template = template, arg = argsVersionedValue)
 
         serializableRawContractInst <- SerializableRawContractInstance
           .create(lfContractInst)

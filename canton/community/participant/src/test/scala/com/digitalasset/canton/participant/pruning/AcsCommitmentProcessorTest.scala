@@ -227,7 +227,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       overrideDefaultSortedReconciliationIntervalsProvider: Option[
         SortedReconciliationIntervalsProvider
       ] = None,
-      catchUpModeEnabled: Boolean = false,
+      acsCommitmentsCatchUpModeEnabled: Boolean = false,
   )(implicit ec: ExecutionContext): (
       AcsCommitmentProcessor,
       AcsCommitmentStore,
@@ -263,9 +263,9 @@ sealed trait AcsCommitmentProcessorBaseTest
         constantSortedReconciliationIntervalsProvider(interval)
       }
 
-    val catchUpConfig =
-      if (catchUpModeEnabled)
-        Some(CatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1)))
+    val acsCommitmentsCatchUpConfig =
+      if (acsCommitmentsCatchUpModeEnabled)
+        Some(AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1)))
       else None
 
     val acsCommitmentProcessor = new AcsCommitmentProcessor(
@@ -278,7 +278,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       _ => (),
       ParticipantTestMetrics.pruning,
       testedProtocolVersion,
-      catchUpConfig,
+      acsCommitmentsCatchUpConfig,
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
       futureSupervisor,
@@ -1892,7 +1892,7 @@ class AcsCommitmentProcessorTest
     "use catch-up logic correctly:" must {
 
       def checkCatchUpModeCfgCorrect(processor: pruning.AcsCommitmentProcessor): Assertion = {
-        processor.catchUpConfig match {
+        processor.acsCommitmentsCatchUpConfig match {
           case Some(cfg) =>
             assert(cfg.nrIntervalsToTriggerCatchUp == PositiveInt.tryCreate(1))
             assert(cfg.catchUpIntervalSkip == PositiveInt.tryCreate(2))
@@ -1925,7 +1925,12 @@ class AcsCommitmentProcessorTest
         )
 
         val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 
@@ -2015,7 +2020,12 @@ class AcsCommitmentProcessorTest
         )
 
         val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 
@@ -2104,7 +2114,12 @@ class AcsCommitmentProcessorTest
         )
 
         val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 
@@ -2219,7 +2234,12 @@ class AcsCommitmentProcessorTest
         )
 
         val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 

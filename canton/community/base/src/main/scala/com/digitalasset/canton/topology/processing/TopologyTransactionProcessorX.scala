@@ -77,10 +77,6 @@ class TopologyTransactionProcessorX(
     loggerFactory,
   )
 
-  override def onClosed(): Unit = {
-    super.onClosed()
-  }
-
   override protected def epsilonForTimestamp(asOfExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Change.TopologyDelay] =
