@@ -9,29 +9,29 @@ import com.digitalasset.canton.examples.java.iou.Iou
 import org.scalatest.wordspec.AnyWordSpec
 
 class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
-  "AuthenticatedContractIdVersionV2" when {
+  "AuthenticatedContractIdVersionV3" when {
     val discriminator = ExampleTransactionFactory.lfHash(1)
     val hash =
       Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
 
     val unicum = Unicum(hash)
-    val cid = AuthenticatedContractIdVersionV2.fromDiscriminator(discriminator, unicum)
+    val cid = AuthenticatedContractIdVersionV3.fromDiscriminator(discriminator, unicum)
 
     "creating a contract ID from discriminator and unicum" should {
       "succeed" in {
         cid.coid shouldBe (
           LfContractId.V1.prefix.toHexString +
             discriminator.bytes.toHexString +
-            AuthenticatedContractIdVersionV2.versionPrefixBytes.toHexString +
+            AuthenticatedContractIdVersionV3.versionPrefixBytes.toHexString +
             unicum.unwrap.toHexString
         )
       }
     }
 
-    "ensuring canton contract id of AuthenticatedContractIdVersionV2" should {
-      "return a AuthenticatedContractIdVersionV2" in {
+    "ensuring canton contract id of AuthenticatedContractIdVersionV3" should {
+      "return a AuthenticatedContractIdVersionV3" in {
         CantonContractIdVersion.ensureCantonContractId(cid) shouldBe Right(
-          AuthenticatedContractIdVersionV2
+          AuthenticatedContractIdVersionV3
         )
       }
     }
@@ -43,7 +43,7 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
         val hash =
           Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
         val unicum = Unicum(hash)
-        val lfCid = AuthenticatedContractIdVersionV2.fromDiscriminator(discriminator, unicum)
+        val lfCid = AuthenticatedContractIdVersionV3.fromDiscriminator(discriminator, unicum)
 
         val apiCid = lfCid.toContractIdUnchecked[Iou]
         val lfCid2 = apiCid.toLf

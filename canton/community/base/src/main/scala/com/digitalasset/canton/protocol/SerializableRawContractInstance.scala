@@ -45,6 +45,7 @@ final case class SerializableRawContractInstance private (
 
   lazy val contractHash: LfHash =
     LfHash.assertHashContractInstance(
+      contractInstance.unversioned.packageName,
       contractInstance.unversioned.template,
       contractInstance.unversioned.arg,
     )

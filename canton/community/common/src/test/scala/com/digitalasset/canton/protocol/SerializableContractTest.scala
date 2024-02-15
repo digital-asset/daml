@@ -63,7 +63,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
     val invalidFormatContractId = LfContractId.assertFromString("00" * 34)
 
     val authenticatedContractId =
-      AuthenticatedContractIdVersionV2.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
+      AuthenticatedContractIdVersionV3.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
 
     val disclosedContract = ProcessedDisclosedContract(
       templateId = templateId,

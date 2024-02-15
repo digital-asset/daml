@@ -22,10 +22,10 @@ import java.util.UUID
 class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
 
   classOf[SerializableContractAuthenticatorImpl].getSimpleName when {
-    "provided with aAuthenticatedContractIdVersionV2 authenticator" should {
-      "using a AuthenticatedContractIdVersionV2 contract id" should {
+    "provided with aAuthenticatedContractIdVersionV3 authenticator" should {
+      "using a AuthenticatedContractIdVersionV3 contract id" should {
         "correctly authenticate the contract" in new WithContractAuthenticator(
-          AuthenticatedContractIdVersionV2
+          AuthenticatedContractIdVersionV3
         ) {
           contractAuthenticator.authenticate(contract) shouldBe Right(())
         }
@@ -33,7 +33,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
 
       "using a generic contract id" should {
         "correctly authenticate the contract" in new WithContractAuthenticator(
-          AuthenticatedContractIdVersionV2
+          AuthenticatedContractIdVersionV3
         ) {
           val nonAuthenticatedContractId = ExampleTransactionFactory.suffixedId(1, 2)
           contractAuthenticator.authenticate(
@@ -43,9 +43,9 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
     }
 
-    "provided with a AuthenticatedContractIdVersionV2 authenticator" should {
+    "provided with a AuthenticatedContractIdVersionV3 authenticator" should {
       "using a contract with a mismatching salt" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedSalt = TestSalt.generateSalt(1337)
           testFailedAuthentication(
             _.copy(contractSalt = Some(changedSalt)),
@@ -54,8 +54,8 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
         }
       }
 
-      "using a AuthenticatedContractIdVersionV2 with a missing salt" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+      "using a AuthenticatedContractIdVersionV3 with a missing salt" should {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           contractAuthenticator.authenticate(contract.copy(contractSalt = None)) shouldBe Left(
             s"Contract salt missing in serializable contract with authenticating contract id ($contractId)"
           )
@@ -63,7 +63,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
 
       "using a contract with changed ledger time" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedLedgerTime = ledgerTime.add(Duration.ofDays(1L))
           testFailedAuthentication(
             _.copy(ledgerCreateTime = LedgerCreateTime(changedLedgerTime)),
@@ -73,7 +73,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
 
       "using a contract with changed contents" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedContractInstance = ExampleTransactionFactory.contractInstance(
             Seq(ExampleTransactionFactory.suffixedId(1, 2))
           )
@@ -88,9 +88,9 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
     }
 
-    "provided with a AuthenticatedContractIdVersionV2 authenticator" should {
+    "provided with a AuthenticatedContractIdVersionV3 authenticator" should {
       "using a contract that has mismatching signatories" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedSignatories = signatories - alice
           // As observers == stakeholders -- signatories, we also need to ensure that alice is not a stakeholder - or unicum's will be calculated incorrectly
           testFailedAuthentication(
@@ -108,7 +108,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
 
       "using a contract that has mismatching observers" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedObservers = observers ++ Set(LfPartyId.assertFromString("observer::changed"))
           testFailedAuthentication(
             contract =>
@@ -125,7 +125,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
 
       "using a contract with a missing contract key" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           testFailedAuthentication(
             contract =>
               contract.copy(metadata =
@@ -138,7 +138,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
 
       "using a contract that has a mismatching contract key hash" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedContractKey = ExampleTransactionFactory.globalKeyWithMaintainers(
             key = LfGlobalKey.assertBuild(
               defaultTemplateId,
@@ -161,7 +161,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
 
       "using a contract that has mismatching contract key maintainers" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedContractKey =
             ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set(alice))
           testFailedAuthentication(
@@ -179,7 +179,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
       }
 
       "using a contract that has missing contract key maintainers" should {
-        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV2) {
+        "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV3) {
           val changedContractKey =
             ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set.empty)
           testFailedAuthentication(

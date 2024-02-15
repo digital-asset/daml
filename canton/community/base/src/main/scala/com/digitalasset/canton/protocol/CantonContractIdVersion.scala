@@ -32,12 +32,12 @@ object CantonContractIdVersion {
   }
 
   def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] = {
-    if (contractSuffix.startsWith(AuthenticatedContractIdVersionV2.versionPrefixBytes)) {
-      Right(AuthenticatedContractIdVersionV2)
+    if (contractSuffix.startsWith(AuthenticatedContractIdVersionV3.versionPrefixBytes)) {
+      Right(AuthenticatedContractIdVersionV3)
     } else {
       Left(
         s"""Suffix ${contractSuffix.toHexString} does not start with one of the supported prefixes:
-            | ${AuthenticatedContractIdVersionV2.versionPrefixBytes}
+            | ${AuthenticatedContractIdVersionV3.versionPrefixBytes}
             |""".stripMargin.replaceAll("\r|\n", "")
       )
     }
@@ -58,9 +58,9 @@ sealed trait CantonContractIdVersion extends Serializable with Product {
     LfContractId.V1(discriminator, unicum.toContractIdSuffix(this))
 }
 
-case object AuthenticatedContractIdVersionV2 extends CantonContractIdVersion {
-  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V5+)
-  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x02.toByte))
+case object AuthenticatedContractIdVersionV3 extends CantonContractIdVersion {
+  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V30+)
+  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x03.toByte))
 
   val isAuthenticated: Boolean = true
 }
