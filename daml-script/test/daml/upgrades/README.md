@@ -30,6 +30,9 @@ template Upgraded with
   where
     signatory p
 ```
+NOTE: hpp will often struggle if your macro (`V1(<code>)`) body starts with whitespace, to avoid putting your indentation within the body.
+In most cases, lines containing only whitespace will be ignored. Similarly, multiline macros do not always work, so consider one macro per line.
+
 With these comments, the modules can be imported via modules prefixes. Each module path will be prefixed with `V1` .. `Vn` for importing.  
 i.e.
 ```

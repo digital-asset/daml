@@ -326,22 +326,6 @@ da_scala_library(
 ]
 
 daml_compile(
-    name = "upgrades-my-templates-v1",
-    srcs = [":daml/upgrades/v1/MyTemplates.daml"],
-    project_name = "upgrades-my-templates",
-    target = "2.dev",
-    version = "1.0.0",
-)
-
-daml_compile(
-    name = "upgrades-my-templates-v2",
-    srcs = [":daml/upgrades/v2/MyTemplates.daml"],
-    project_name = "upgrades-my-templates",
-    target = "2.dev",
-    version = "2.0.0",
-)
-
-daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
     dependencies = [
@@ -424,8 +408,6 @@ da_scala_test_suite(
         ":script-test-no-ledger.dar",
         ":upgrade-test-files",
         ":upgrade-test-lib.dar",
-        ":upgrades-my-templates-v1.dar",
-        ":upgrades-my-templates-v2.dar",
         "//compiler/damlc",
         "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",

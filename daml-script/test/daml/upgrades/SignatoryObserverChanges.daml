@@ -1,0 +1,106 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module SignatoryObserverChanges (main) where
+
+import UpgradeTestLib
+import qualified V1.SignatoryObserverChanges as V1
+import qualified V2.SignatoryObserverChanges as V2
+import DA.Text
+
+{- PACKAGE
+name: signatory-observer-changes
+versions: 2
+modules:
+  - name: SignatoryObserverChanges
+    contents: |
+      template SignatoryObserverChangesTemplate
+        with
+          signatories : [Party]
+          observers : [Party]
+          replacementSignatories : [Party]
+          replacementObservers : [Party]
+        where
+          signatory V1(signatories)V2(replacementSignatories)
+          observer V1(observers)V2(replacementObservers)
+
+          V2(choice InvalidUpgradeStakeholdersCall : () with )
+            V2(controller signatory this)
+            V2(do pure ())
+-}
+
+main : Script ()
+main = tests
+  [ ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
+  , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
+  , ("Fails if the signatories set gets smaller", smallerSignatoryUpgrade)
+  , ("Succeeds if the observers don't change", unchangeObserverUpgrade)
+  , ("Fails if the observers set gets larger", largerObserverUpgrade)
+  , ("Fails if the observers set gets smaller", smallerObserverUpgrade)
+  , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
+  ]
+
+-- Given a function that maps a set of 3 parties to the pre-upgrade and post-upgrade signatory set
+-- and the same for observers
+-- along side an expected result flag (success or failure), test the upgrade behaviour
+signatoryObserverUpgrade
+  :  Bool
+  -> ((Party, Party, Party) -> ([Party], [Party]))
+  -> ((Party, Party, Party) -> ([Party], [Party]))
+  -> Script ()
+signatoryObserverUpgrade shouldSucceed sigF obsF = do
+  alice <- allocatePartyOn "alice" participant0
+  bob <- allocatePartyOn "bob" participant0
+  charlie <- allocatePartyOn "charlie" participant0
+  let (preSignatories, postSignatories) = sigF (alice, bob, charlie)
+      (preObservers, postObservers) = obsF (alice, bob, charlie)
+
+  cid <- submitMulti [alice, bob, charlie] [] $ createExactCmd V1.SignatoryObserverChangesTemplate with
+    signatories = preSignatories
+    observers = preObservers
+    replacementSignatories = postSignatories
+    replacementObservers = postObservers
+
+  let cidV2 = coerceContractId @V1.SignatoryObserverChangesTemplate @V2.SignatoryObserverChangesTemplate cid
+  res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
+  case (res, shouldSucceed) of
+    (Right _, True) -> pure ()
+    (Left (DevError Upgrade msg), False)
+      | "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
+      -> pure ()
+    _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "Upgrade error") <> " but got " <> show res
+
+unchanged : (Party, Party, Party) -> ([Party], [Party])
+unchanged (alice, bob, charlie) = ([alice], [alice])
+
+signatoryUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Script ()
+signatoryUpgrade shouldSucceed f = signatoryObserverUpgrade shouldSucceed f unchanged
+
+observerUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Script ()
+observerUpgrade shouldSucceed = signatoryObserverUpgrade shouldSucceed unchanged
+
+unchangedSignatoryUpgrade : Script ()
+unchangedSignatoryUpgrade = signatoryUpgrade True unchanged
+
+largerSignatoryUpgrade : Script ()
+largerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
+
+smallerSignatoryUpgrade : Script ()
+smallerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
+
+unchangeObserverUpgrade : Script ()
+unchangeObserverUpgrade = observerUpgrade True unchanged
+
+largerObserverUpgrade : Script ()
+largerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
+
+smallerObserverUpgrade : Script ()
+smallerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
+
+canRemoveObserversThatAreSignatories : Script ()
+canRemoveObserversThatAreSignatories =
+  signatoryObserverUpgrade
+    True
+    (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob, charlie])) -- signatories
+    (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])) -- observers
+

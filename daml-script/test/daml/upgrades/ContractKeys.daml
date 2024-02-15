@@ -1,0 +1,89 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ContractKeys (main) where
+
+import UpgradeTestLib
+import qualified V1.ContractKeys as V1
+import qualified V2.ContractKeys as V2
+
+{- PACKAGE
+name: contract-key-upgrades
+versions: 2
+modules:
+  - name: ContractKeys
+    contents: |
+      data UnchangedKeyKey = UnchangedKeyKey with
+          p : Party
+          n : Int
+        deriving (Eq, Show)
+
+      template UnchangedKey
+        with
+          party : Party
+          n : Int
+          V2(newField : Optional Text)
+        where
+          signatory party
+          key (UnchangedKeyKey party n) : UnchangedKeyKey
+          maintainer key.p
+
+          choice UnchangedKeyCall : Text
+            controller party
+            do pure V1("V1")V2("V2")
+
+      template UnchangedKeyHelper
+        with
+          party : Party
+        where
+          signatory party
+          choice UnchangedKeyFetch : (ContractId UnchangedKey, UnchangedKey) with
+              k : UnchangedKeyKey
+            controller party
+            do fetchByKey k
+          
+          choice UnchangedKeyExercise : Text with
+              k : UnchangedKeyKey
+            controller party
+            do exerciseByKey @UnchangedKey k UnchangedKeyCall
+-}
+
+main : Script ()
+main = tests
+  [ ("Query an unchanged old key for a new contract", queryKeyUnchanged)
+  , ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
+  , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
+  , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
+  ]
+
+queryKeyUnchanged : Script ()
+queryKeyUnchanged = do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
+  keyRes <- queryContractKey a $ V2.UnchangedKeyKey a 1
+  case keyRes of
+    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.UnchangedKey a 1 None -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.UnchangedKey a 1 None) <> ", got " <> show keyRes
+
+exerciseCmdKeyUnchanged : Script ()
+exerciseCmdKeyUnchanged = do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
+  res <- a `submit` exerciseByKeyExactCmd @V2.UnchangedKey (V2.UnchangedKeyKey a 1) V2.UnchangedKeyCall
+  res === "V2"
+
+fetchKeyUnchanged : Script ()
+fetchKeyUnchanged = do
+  a <- allocateParty "alice"
+  cid <- a `submit` createCmd (V1.UnchangedKey a 1)
+  (foundCid, foundContract) <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyFetch $ V2.UnchangedKeyKey a 1)
+  foundContract === V2.UnchangedKey a 1 None
+  show foundCid === show cid
+
+exerciseUpdateKeyUnchanged : Script ()
+exerciseUpdateKeyUnchanged = do
+  a <- allocateParty "alice"
+  _ <- a `submit` createCmd (V1.UnchangedKey a 1)
+  res <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyExercise $ V2.UnchangedKeyKey a 1)
+  res === "V2"
+

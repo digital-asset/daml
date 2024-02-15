@@ -36,11 +36,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V2
 
-  // TODO[SW] Migrate existing tests over to inline dars, then remove this and module prefixes
-  override protected lazy val darFiles = List(
-    rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v1.dar")),
-    rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v2.dar")),
-  )
+  override protected lazy val darFiles = List()
 
   lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.dev.dar")
   lazy val upgradeTestLibDar: Path = rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar"))
@@ -242,11 +238,8 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
          |  - ${damlScriptDar.toString}
          |data-dependencies:
          |  - ${upgradeTestLibDar.toString}
-         |${darFiles.map("  - " + _).mkString("\n")}
          |${dataDeps.map(d => "  - " + d.path.toString).mkString("\n")}
          |module-prefixes:
-         |  upgrades-my-templates-1.0.0: V1
-         |  upgrades-my-templates-2.0.0: V2
          |${dataDeps.map(d => s"  ${d.versionedName}: ${d.prefix}").mkString("\n")}
          |""".stripMargin
     Files.write(dir.resolve("daml.yaml"), fileContent.getBytes(StandardCharsets.UTF_8))

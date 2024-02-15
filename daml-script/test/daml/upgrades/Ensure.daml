@@ -1,0 +1,69 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Ensure (main) where
+
+import UpgradeTestLib
+import qualified V1.EnsureChanges as V1
+import qualified V2.EnsureChanges as V2
+import DA.Exception
+
+{- PACKAGE
+name: ensure-changes
+versions: 2
+modules:
+  - name: EnsureChanges
+    contents: |
+      template EnsureChangesTemplate
+        with
+          v1Valid : Bool
+          v2Valid : Bool
+          party : Party
+        where
+          signatory party
+          ensure V1(v1Valid)V2(v2Valid)
+
+          choice EnsureChangesCall : Text 
+            controller party
+            do pure V1("V1")V2("V2")
+-}
+
+main : Script ()
+main = tests
+  [ ("Fails if the ensure clause changes such that V1 is not longer valid", ensureClauseBecomesInvalid)
+  , ("Succeeds when implicitly creating a V1 contract such that the ensure clause only passes in V2", onlyV2EnsureClauseRequiredForImplicitUpgrade)
+  , ("Fails when explicitly calling a V1 choice on a V2 contract that doesn't pass the ensure clause in V1", ensureClauseDowngradeToNoLongerValid)
+  ]
+
+testForPreconditionFailed
+  : forall t2 t1 c2 r
+  . (Template t1, HasEnsure t1, Choice t2 c2 r, Show r)
+  => (Party -> t1)
+  -> c2
+  -> Bool
+  -> Script ()
+testForPreconditionFailed makeV1Contract v2Choice explicitPackageIds = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (makeV1Contract a)
+  let cidV2 = coerceContractId @t1 @t2 cid
+  res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
+  case res of
+    Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
+    res -> assertFail $ "Expected PreconditionFailed, got " <> show res
+
+ensureClauseBecomesInvalid : Script ()
+ensureClauseBecomesInvalid =
+  testForPreconditionFailed @V2.EnsureChangesTemplate (V1.EnsureChangesTemplate True False) V2.EnsureChangesCall False
+
+onlyV2EnsureClauseRequiredForImplicitUpgrade : Script ()
+onlyV2EnsureClauseRequiredForImplicitUpgrade = do
+  a <- allocatePartyOn "alice" participant0
+  -- The V1 should be implicitly upgraded to V2 before evaluating the ensure clause.
+  a `submit` createCmd (V1.EnsureChangesTemplate False True a)
+  pure ()
+
+ensureClauseDowngradeToNoLongerValid : Script ()
+ensureClauseDowngradeToNoLongerValid =
+  testForPreconditionFailed @V1.EnsureChangesTemplate (V2.EnsureChangesTemplate False True) V1.EnsureChangesCall True

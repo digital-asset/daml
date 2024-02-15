@@ -73,7 +73,7 @@ final class AdminLedgerClient private (
       .uploadDar(
         admin_package_service.UploadDarRequest(
           data = ByteString.readFrom(new FileInputStream(path.toFile)),
-          filename = name,
+          filename = name + ".dar",
           vetAllPackages = true,
           synchronizeVetting = true,
         )
