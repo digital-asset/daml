@@ -54,7 +54,6 @@ com/daml/ledger/api/v1/command_service.proto
 com/daml/ledger/api/v1/command_submission_service.proto
 com/daml/ledger/api/v1/commands.proto
 com/daml/ledger/api/v1/completion.proto
-com/daml/ledger/api/v1/contract_metadata.proto
 com/daml/ledger/api/v1/event.proto
 com/daml/ledger/api/v1/event_query_service.proto
 com/daml/ledger/api/v1/experimental_features.proto

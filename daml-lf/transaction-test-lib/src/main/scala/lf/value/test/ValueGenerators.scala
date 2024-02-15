@@ -67,16 +67,13 @@ object ValueGenerators {
     segments <- Gen.listOfN(n, dottedNameSegmentGen)
   } yield DottedName.assertFromSegments(segments)
 
-  def pkgNameGen(version: TransactionVersion): Gen[Option[PackageName]] =
-    if (version < TransactionVersion.minUpgrade)
-      None
-    else
-      for {
-        n <- Gen.choose(1, 64)
-        pkgName <- Gen
-          .listOfN(n, Gen.alphaNumChar)
-          .map(s => PackageName.assertFromString(s.mkString))
-      } yield Some(pkgName)
+  val pkgNameGen: Gen[PackageName] =
+    for {
+      n <- Gen.choose(1, 64)
+      pkgName <- Gen
+        .listOfN(n, Gen.alphaNumChar)
+        .map(s => PackageName.assertFromString(s.mkString))
+    } yield pkgName
 
   // generate a junk identifier
   val idGen: Gen[Identifier] = for {
@@ -268,7 +265,7 @@ object ValueGenerators {
     for {
       template <- idGen
       arg <- versionedValueGen
-      pkgName <- pkgNameGen(arg.version)
+      pkgName <- pkgNameGen
     } yield arg.map(Value.ContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(templateId: TypeConName): Gen[GlobalKeyWithMaintainers] = {
@@ -304,7 +301,7 @@ object ValueGenerators {
   ): Gen[Node.Create] =
     for {
       coid <- coidGen
-      packageName <- pkgNameGen(version)
+      packageName <- pkgNameGen
       templateId <- idGen
       arg <- valueGen()
       signatories <- genNonEmptyParties
@@ -330,7 +327,7 @@ object ValueGenerators {
   def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] =
     for {
       coid <- coidGen
-      pkgName <- pkgNameGen(version)
+      pkgName <- pkgNameGen
       templateId <- idGen
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
@@ -372,7 +369,7 @@ object ValueGenerators {
   ): Gen[Node.Exercise] =
     for {
       targetCoid <- coidGen
-      pkgName <- pkgNameGen(version)
+      pkgName <- pkgNameGen
       templateId <- idGen
       interfaceId <- Gen.option(idGen)
       choiceId <- nameGen
@@ -415,7 +412,7 @@ object ValueGenerators {
     for {
       version <- transactionVersionGen()
       targetCoid <- coidGen
-      pkgName <- pkgNameGen(version)
+      pkgName <- pkgNameGen
       templateId <- idGen
       key <- keyWithMaintainersGen(templateId)
       result <- Gen.option(targetCoid)

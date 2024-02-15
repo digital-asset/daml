@@ -17,6 +17,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   ParticipantDataSourceConfig,
 }
 import com.digitalasset.canton.platform.store.FlywayMigrations
+import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.tracing.TraceContext
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -38,6 +39,7 @@ final class IndexerServiceOwner(
     startupMode: IndexerStartupMode,
     dataSourceProperties: DataSourceProperties,
     highAvailability: HaConfig,
+    indexerDbDispatcherOverride: Option[DbDispatcher],
 )(implicit materializer: Materializer, traceContext: TraceContext)
     extends ResourceOwner[ReportsHealth]
     with NamedLogging {
@@ -62,6 +64,7 @@ final class IndexerServiceOwner(
       loggerFactory,
       dataSourceProperties,
       highAvailability,
+      indexerDbDispatcherOverride,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

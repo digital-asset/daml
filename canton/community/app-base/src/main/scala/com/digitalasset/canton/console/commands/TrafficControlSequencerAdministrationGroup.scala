@@ -19,7 +19,7 @@ import com.digitalasset.canton.topology.*
 
 class TrafficControlSequencerAdministrationGroup(
     instance: InstanceReference,
-    topology: TopologyAdministrationGroupX,
+    topology: TopologyAdministrationGroup,
     runner: AdminCommandRunner,
     override val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,

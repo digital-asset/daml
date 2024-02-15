@@ -2509,8 +2509,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
-  def getPackageName(basicTestsPkg: Package): Option[PackageName] =
-    Some(basicTestsPkg.metadata.name)
+  def getPackageName(basicTestsPkg: Package): PackageName =
+    basicTestsPkg.metadata.name
 
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(

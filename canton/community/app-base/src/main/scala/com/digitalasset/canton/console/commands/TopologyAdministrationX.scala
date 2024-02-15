@@ -41,7 +41,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
   StoredTopologyTransactionsX,
-  TimeQueryX,
+  TimeQuery,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
@@ -59,7 +59,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
 
-trait InitNodeIdX extends ConsoleCommandGroup {
+trait InitNodeId extends ConsoleCommandGroup {
 
   @Help.Summary("Initialize the node with a unique identifier")
   @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
@@ -79,7 +79,7 @@ trait InitNodeIdX extends ConsoleCommandGroup {
 
 }
 
-class TopologyAdministrationGroupX(
+class TopologyAdministrationGroup(
     instance: InstanceReference,
     topologyQueueStatus: => Option[TopologyQueueStatus],
     consoleEnvironment: ConsoleEnvironment,
@@ -90,7 +90,7 @@ class TopologyAdministrationGroupX(
       consoleEnvironment,
       loggerFactory,
     )
-    with InitNodeIdX
+    with InitNodeId
     with Helpful
     with FeatureFlagFilter {
 
@@ -197,7 +197,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = AuthorizedStore.filterName,
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
@@ -252,14 +252,14 @@ class TopologyAdministrationGroupX(
       def list(
           filterStore: String = "",
           proposals: Boolean = false,
-          timeQuery: TimeQueryX = TimeQueryX.HeadState,
+          timeQuery: TimeQuery = TimeQuery.HeadState,
           operation: Option[TopologyChangeOpX] = None,
           filterDomain: String = "",
           filterSigningKey: String = "",
           protocolVersion: Option[String] = None,
-      ): Seq[ListPurgeTopologyTransactionXResult] = consoleEnvironment.run {
+      ): Seq[ListPurgeTopologyTransactionResult] = consoleEnvironment.run {
         adminCommand(
-          TopologyAdminCommandsX.Read.PurgeTopologyTransactionX(
+          TopologyAdminCommandsX.Read.PurgeTopologyTransaction(
             BaseQueryX(
               filterStore,
               proposals,
@@ -358,7 +358,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterNamespace: String = "",
         filterSigningKey: String = "",
@@ -408,6 +408,9 @@ class TopologyAdministrationGroupX(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
     ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
       val ownersNE = NonEmpty
         .from(owners)
@@ -424,7 +427,14 @@ class TopologyAdministrationGroupX(
           ownersNE,
         )
         .valueOr(error => consoleEnvironment.run(GenericCommandError(error)))
-      authorize(decentralizedNamespace, store, mustFullyAuthorize, signedBy.toList, serial)
+      authorize(
+        decentralizedNamespace,
+        store,
+        mustFullyAuthorize,
+        signedBy.toList,
+        serial,
+        synchronize,
+      )
     }
 
     def authorize(
@@ -433,20 +443,23 @@ class TopologyAdministrationGroupX(
         mustFullyAuthorize: Boolean = false,
         signedBy: Seq[Fingerprint],
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] =
-      consoleEnvironment.run(
-        adminCommand {
-          TopologyAdminCommandsX.Write.Propose(
-            decentralizedNamespace,
-            signedBy = signedBy.toList,
-            serial = serial,
-            change = TopologyChangeOpX.Replace,
-            mustFullyAuthorize = mustFullyAuthorize,
-            forceChange = false,
-            store = store,
-          )
-        }
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
+
+      val command = TopologyAdminCommandsX.Write.Propose(
+        decentralizedNamespace,
+        signedBy = signedBy.toList,
+        serial = serial,
+        change = TopologyChangeOpX.Replace,
+        mustFullyAuthorize = mustFullyAuthorize,
+        forceChange = false,
+        store = store,
       )
+
+      synchronisation.runAdminCommand(synchronize)(command)
+    }
 
     def join(
         decentralizedNamespace: Fingerprint,
@@ -585,7 +598,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterNamespace: String = "",
         filterSigningKey: String = "",
@@ -664,7 +677,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
@@ -699,7 +712,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterKeyOwnerType: Option[MemberCode] = None,
         filterKeyOwnerUid: String = "",
@@ -1168,7 +1181,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParty: String = "",
         filterParticipant: String = "",
@@ -1198,7 +1211,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         // TODO(#14048) should be filterDomain and filterParticipant
         filterUid: String = "",
@@ -1345,7 +1358,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
@@ -1389,7 +1402,7 @@ class TopologyAdministrationGroupX(
         filterMember: String = instance.id.filterString,
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
@@ -1421,25 +1434,27 @@ class TopologyAdministrationGroupX(
         member: Member = instance.id.member,
         serial: Option[PositiveInt] = None,
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
     ): SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX] = {
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommandsX.Write.Propose(
-            TrafficControlStateX
-              .create(
-                domainId,
-                member,
-                newTotalTrafficAmount,
-              ),
-            signedBy = signedBy.toList,
-            serial = serial,
-            change = TopologyChangeOpX.Replace,
-            mustFullyAuthorize = true,
-            forceChange = false,
-            store = domainId.filterString,
-          )
-        )
-      }
+
+      val command = TopologyAdminCommandsX.Write.Propose(
+        TrafficControlStateX
+          .create(
+            domainId,
+            member,
+            newTotalTrafficAmount,
+          ),
+        signedBy = signedBy.toList,
+        serial = serial,
+        change = TopologyChangeOpX.Replace,
+        mustFullyAuthorize = true,
+        forceChange = false,
+        store = domainId.filterString,
+      )
+
+      synchronisation.runAdminCommand(synchronize)(command)
     }
   }
 
@@ -1449,7 +1464,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
@@ -1653,7 +1668,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParticipant: String = "",
         filterSigningKey: String = "",
@@ -1710,28 +1725,31 @@ class TopologyAdministrationGroupX(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, AuthorityOfX] =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommandsX.Write.Propose(
-            AuthorityOfX(
-              partyId,
-              domainId,
-              PositiveInt.tryCreate(threshold),
-              parties,
-            ),
-            signedBy = signedBy.toList,
-            serial = serial,
-            store = store,
-            mustFullyAuthorize = mustFullyAuthorize,
-          )
-        )
-      }
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): SignedTopologyTransactionX[TopologyChangeOpX, AuthorityOfX] = {
+
+      val command = TopologyAdminCommandsX.Write.Propose(
+        AuthorityOfX(
+          partyId,
+          domainId,
+          PositiveInt.tryCreate(threshold),
+          parties,
+        ),
+        signedBy = signedBy.toList,
+        serial = serial,
+        store = store,
+        mustFullyAuthorize = mustFullyAuthorize,
+      )
+
+      synchronisation.runAdminCommand(synchronize)(command)
+    }
 
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParty: String = "",
         filterSigningKey: String = "",
@@ -1759,7 +1777,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
@@ -1892,7 +1910,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
@@ -1969,7 +1987,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
@@ -1997,7 +2015,7 @@ class TopologyAdministrationGroupX(
           list(
             filterStore = domainId.filterString,
             proposals = false,
-            timeQuery = TimeQueryX.HeadState,
+            timeQuery = TimeQuery.HeadState,
             operation = Some(TopologyChangeOpX.Replace),
             filterDomain = domainId.filterString,
           )
@@ -2062,7 +2080,7 @@ class TopologyAdministrationGroupX(
         )
       )
 
-      def waitForParameters(ref: TopologyAdministrationGroupX): Unit =
+      def waitForParameters(ref: TopologyAdministrationGroup): Unit =
         synchronize
           .foreach(timeout =>
             ConsoleMacros.utils.retry_until_true(timeout)(
@@ -2071,7 +2089,7 @@ class TopologyAdministrationGroupX(
                 val headState = ref.domain_parameters
                   .list(
                     filterStore = domainId.filterString,
-                    timeQuery = TimeQueryX.HeadState,
+                    timeQuery = TimeQuery.HeadState,
                     operation = Some(TopologyChangeOpX.Replace),
                     filterDomain = domainId.filterString,
                   )
@@ -2083,7 +2101,7 @@ class TopologyAdministrationGroupX(
             )
           )
 
-      waitForParameters(TopologyAdministrationGroupX.this)
+      waitForParameters(TopologyAdministrationGroup.this)
       waitForParticipants
         .filter(p =>
           p.health.running() && p.health.initialized() && p.domains.is_connected(domainId)
@@ -2268,7 +2286,7 @@ class TopologyAdministrationGroupX(
           domainId.filterString,
           // We can't specify a lower bound in range because that would be compared against validFrom.
           // (But we need to compare to validUntil).
-          timeQuery = TimeQueryX.Range(None, None),
+          timeQuery = TimeQuery.Range(None, None),
         )
 
         // This serves as a lower bound of validFrom for the next topology transaction.

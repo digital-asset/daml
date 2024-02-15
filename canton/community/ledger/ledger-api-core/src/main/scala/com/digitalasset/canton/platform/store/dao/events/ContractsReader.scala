@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
@@ -164,6 +165,8 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
+      // TODO https://github.com/digital-asset/daml/issues/17995
+      packageName = Ref.PackageName.assertFromString("dummyReplace")
     )
   }
 
@@ -174,5 +177,7 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
+      // TODO https://github.com/digital-asset/daml/issues/17995
+      packageName = Ref.PackageName.assertFromString("dummyReplace")
     )
 }

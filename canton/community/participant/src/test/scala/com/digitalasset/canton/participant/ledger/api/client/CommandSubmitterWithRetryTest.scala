@@ -33,7 +33,7 @@ class CommandSubmitterWithRetryTest
     workflowId = "workflowId",
     applicationId = "applicationId",
     commandId = "commandId",
-    party = "party",
+    actAs = Seq("party"),
     commands = Nil,
   )
 

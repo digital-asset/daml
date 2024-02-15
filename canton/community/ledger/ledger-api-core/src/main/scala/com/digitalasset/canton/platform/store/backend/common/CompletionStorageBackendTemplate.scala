@@ -68,7 +68,7 @@ class CompletionStorageBackendTemplate(
           domain_id,
           trace_context
         FROM
-          participant_command_completions
+          lapi_command_completions
         WHERE
           ${queryStrategy.offsetIsBetween(
           nonNullableColumn = "completion_offset",
@@ -194,7 +194,7 @@ class CompletionStorageBackendTemplate(
   )(connection: Connection, traceContext: TraceContext): Unit = {
     pruneWithLogging(queryDescription = "Command completions pruning") {
       import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-      SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
+      SQL"delete from lapi_command_completions where completion_offset <= $pruneUpToInclusive"
     }(connection, traceContext)
   }
 

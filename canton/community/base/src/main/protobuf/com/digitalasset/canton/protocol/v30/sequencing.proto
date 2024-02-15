@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "com/digitalasset/canton/protocol/v30/domain_params.proto";
+import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "google/protobuf/timestamp.proto";
@@ -76,13 +76,13 @@ message AggregationRule {
 message StaticDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
-  repeated com.digitalasset.canton.crypto.v30.SigningKeyScheme required_signing_key_schemes = 2;
-  repeated com.digitalasset.canton.crypto.v30.EncryptionKeyScheme required_encryption_key_schemes = 3;
-  repeated com.digitalasset.canton.crypto.v30.SymmetricKeyScheme required_symmetric_key_schemes = 4;
-  repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 5;
-  repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 6;
-  int32 protocol_version = 7;
-  CatchUpConfig catch_up_parameters = 8;
+  repeated com.digitalasset.canton.crypto.v30.SigningKeyScheme required_signing_key_schemes = 1;
+  repeated com.digitalasset.canton.crypto.v30.EncryptionKeyScheme required_encryption_key_schemes = 2;
+  repeated com.digitalasset.canton.crypto.v30.SymmetricKeyScheme required_symmetric_key_schemes = 3;
+  repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 4;
+  repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 5;
+  int32 protocol_version = 6;
+  CatchUpConfig catch_up_parameters = 7;
 }
 
 message Envelope {
@@ -133,6 +133,6 @@ message SubmissionRequest {
   bool is_request = 3;
   CompressedBatch batch = 4;
   google.protobuf.Timestamp max_sequencing_time = 5;
-  google.protobuf.Timestamp timestamp_of_signing_key = 6;
+  google.protobuf.Timestamp topology_timestamp = 6;
   v30.AggregationRule aggregation_rule = 7; // optional
 }

@@ -367,9 +367,11 @@ daml_doc_test(
         "--import-source=no",
     ],
     ignored_srcs = [
-        "LibraryModules.daml",
-        "DA/Experimental/*.daml",
-        "DA/Time/Types.daml",
         "DA/Action/State/Type.daml",
+        "DA/Experimental/*.daml",
+        "DA/Internal/Scenario.daml",
+        "DA/Scenario.daml",
+        "DA/Time/Types.daml",
+        "LibraryModules.daml",
     ],
 )

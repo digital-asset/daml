@@ -241,7 +241,7 @@ class PersistentPartyRecordStore(
     val now = epochMicroseconds()
     // Step 1: Update resource version
     // NOTE: We starts by writing to the 'resource_version' attribute
-    //       of 'participant_party_records' to effectively obtain an exclusive lock for
+    //       of 'lapi_party_records' to effectively obtain an exclusive lock for
     //       updating this party-record for the rest of the transaction.
     val _ = partyRecordUpdate.metadataUpdate.resourceVersionO match {
       case Some(expectedResourceVersion) =>

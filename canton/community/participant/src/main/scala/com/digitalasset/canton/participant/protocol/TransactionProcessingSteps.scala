@@ -203,12 +203,17 @@ class TransactionProcessingSteps(
   ): Either[TransactionProcessorError, CantonTimestamp] =
     parameters.decisionTimeFor(requestTs).leftMap(DomainParametersError(parameters.domainId, _))
 
-  override def getSubmissionDataForTracker(
-      views: Seq[FullView]
-  ): Option[SubmissionTracker.SubmissionData] =
-    views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) =>
+  override def getSubmitterInformation(
+      views: Seq[DecryptedView]
+  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
+    val submitterMetadataO =
+      views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) => meta }
+    val submissionDataForTrackerO = submitterMetadataO.map(meta =>
       SubmissionTracker.SubmissionData(meta.submittingParticipant, meta.maxSequencingTime)
-    }
+    )
+
+    (submitterMetadataO, submissionDataForTrackerO)
+  }
 
   override def participantResponseDeadlineFor(
       parameters: DynamicDomainParametersWithValidity,
@@ -1039,26 +1044,21 @@ class TransactionProcessingSteps(
       )
     )
 
-  override def eventAndSubmissionIdForInactiveMediator(
+  override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
       rc: RequestCounter,
       sc: SequencerCounter,
-      fullViews: NonEmpty[Seq[WithRecipients[FullView]]],
+      submitterMetadata: ViewSubmitterMetadata,
+      _rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
+      error: TransactionError,
   )(implicit
       traceContext: TraceContext
   ): (Option[TimestampedEvent], Option[PendingSubmissionId]) = {
-    val someView = fullViews.head1
-    val mediator = someView.unwrap.mediator
-    val submitterMetadataO = someView.unwrap.tree.submitterMetadata.unwrap.toOption
-    submitterMetadataO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx)).map {
-      completionInfo =>
-        val rejection = LedgerSyncEvent.CommandRejected.FinalReason(
-          TransactionProcessor.SubmissionErrors.InactiveMediatorError
-            .Error(mediator, ts)
-            .rpcStatus()
-        )
+    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(error.rpcStatus())
 
+    completionInfoFromSubmitterMetadataO(submitterMetadata, freshOwnTimelyTx).map {
+      completionInfo =>
         TimestampedEvent(
           LedgerSyncEvent.CommandRejected(
             ts.toLf,
@@ -1073,9 +1073,8 @@ class TransactionProcessingSteps(
     } -> None // Transaction processing doesn't use pending submissions
   }
 
-  override def postProcessSubmissionForInactiveMediator(
-      declaredMediator: MediatorRef,
-      ts: CantonTimestamp,
+  override def postProcessSubmissionRejectedCommand(
+      error: TransactionError,
       pendingSubmission: Nothing,
   )(implicit
       traceContext: TraceContext

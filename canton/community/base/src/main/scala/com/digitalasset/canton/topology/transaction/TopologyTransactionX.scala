@@ -20,24 +20,26 @@ import slick.jdbc.SetParameter
 import scala.reflect.ClassTag
 
 /** Replace or Remove */
-sealed trait TopologyChangeOpX extends TopologyChangeOpCommon {
-  def toProto: v30.EnumsX.TopologyChangeOpX
+sealed trait TopologyChangeOpX extends Product with Serializable with PrettyPrinting {
+  def toProto: v30.Enums.TopologyChangeOp
 
   final def select[TargetOp <: TopologyChangeOpX](implicit
       O: ClassTag[TargetOp]
   ): Option[TargetOp] = O.unapply(this)
+
+  override def pretty: Pretty[TopologyChangeOpX.this.type] = adHocPrettyInstance
 }
 
 object TopologyChangeOpX {
 
   /** Adds or replaces an existing record */
   final case object Replace extends TopologyChangeOpX {
-    override def toProto: v30.EnumsX.TopologyChangeOpX =
-      v30.EnumsX.TopologyChangeOpX.TOPOLOGY_CHANGE_OP_X_REPLACE_UNSPECIFIED
+    override def toProto: v30.Enums.TopologyChangeOp =
+      v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE_UNSPECIFIED
   }
   final case object Remove extends TopologyChangeOpX {
-    override def toProto: v30.EnumsX.TopologyChangeOpX =
-      v30.EnumsX.TopologyChangeOpX.TOPOLOGY_CHANGE_OP_X_REMOVE
+    override def toProto: v30.Enums.TopologyChangeOp =
+      v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE
   }
 
   type Remove = Remove.type
@@ -51,12 +53,12 @@ object TopologyChangeOpX {
   ): Option[TopologyChangeOpX] = Some(tx.transaction.op)
 
   def fromProtoV30(
-      protoOp: v30.EnumsX.TopologyChangeOpX
+      protoOp: v30.Enums.TopologyChangeOp
   ): ParsingResult[TopologyChangeOpX] =
     protoOp match {
-      case v30.EnumsX.TopologyChangeOpX.TOPOLOGY_CHANGE_OP_X_REMOVE => Right(Remove)
-      case v30.EnumsX.TopologyChangeOpX.TOPOLOGY_CHANGE_OP_X_REPLACE_UNSPECIFIED => Right(Replace)
-      case v30.EnumsX.TopologyChangeOpX.Unrecognized(x) => Left(UnrecognizedEnum(protoOp.name, x))
+      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE => Right(Remove)
+      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE_UNSPECIFIED => Right(Replace)
+      case v30.Enums.TopologyChangeOp.Unrecognized(x) => Left(UnrecognizedEnum(protoOp.name, x))
     }
 
   implicit val setParameterTopologyChangeOp: SetParameter[TopologyChangeOpX] = (v, pp) =>
@@ -128,7 +130,7 @@ final case class TopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
 
   override def toByteStringUnmemoized: ByteString = super[HasProtocolVersionedWrapper].toByteString
 
-  def toProtoV30: v30.TopologyTransactionX = v30.TopologyTransactionX(
+  def toProtoV30: v30.TopologyTransaction = v30.TopologyTransaction(
     operation = op.toProto,
     serial = serial.value,
     mapping = Some(mapping.toProtoV30),
@@ -169,7 +171,7 @@ object TopologyTransactionX
 
   val supportedProtoVersions: transaction.TopologyTransactionX.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransactionX)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TopologyTransaction)(
         supportedProtoVersionMemoized(_)(fromProtoV30),
         _.toProtoV30.toByteString,
       )
@@ -185,10 +187,10 @@ object TopologyTransactionX
     None,
   )
 
-  private def fromProtoV30(transactionP: v30.TopologyTransactionX)(
+  private def fromProtoV30(transactionP: v30.TopologyTransaction)(
       bytes: ByteString
   ): ParsingResult[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]] = {
-    val v30.TopologyTransactionX(opP, serialP, mappingP) = transactionP
+    val v30.TopologyTransaction(opP, serialP, mappingP) = transactionP
     for {
       mapping <- ProtoConverter.parseRequired(TopologyMappingX.fromProtoV30, "mapping", mappingP)
       serial <- ProtoConverter.parsePositiveInt(serialP)

@@ -6,7 +6,7 @@ CREATE ALIAS array_intersection FOR "com.digitalasset.canton.platform.store.back
 ---------------------------------------------------------------------------------------------------
 -- Parameters table
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE parameters (
+CREATE TABLE lapi_parameters (
   participant_id VARCHAR NOT NULL,
   ledger_end VARCHAR NOT NULL,
   ledger_end_sequential_id BIGINT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE parameters (
 ---------------------------------------------------------------------------------------------------
 -- Configurations table
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE configuration_entries (
+CREATE TABLE lapi_configuration_entries (
     ledger_offset VARCHAR PRIMARY KEY NOT NULL,
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR NOT NULL,
@@ -26,19 +26,19 @@ CREATE TABLE configuration_entries (
     configuration BINARY LARGE OBJECT NOT NULL,
     rejection_reason VARCHAR,
 
-    CONSTRAINT configuration_entries_check_reason
+    CONSTRAINT lapi_configuration_entries_check_reason
         CHECK (
           (typ = 'accept' AND rejection_reason IS NULL) OR
           (typ = 'reject' AND rejection_reason IS NOT NULL)
         )
 );
 
-CREATE INDEX idx_configuration_submission ON configuration_entries (submission_id);
+CREATE INDEX lapi_configuration_submission_idx ON lapi_configuration_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Packages table
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE packages (
+CREATE TABLE lapi_packages (
     package_id VARCHAR PRIMARY KEY NOT NULL,
     upload_id VARCHAR NOT NULL,
     source_description VARCHAR,
@@ -48,12 +48,12 @@ CREATE TABLE packages (
     package BINARY LARGE OBJECT NOT NULL
 );
 
-CREATE INDEX idx_packages_ledger_offset ON packages (ledger_offset);
+CREATE INDEX lapi_packages_ledger_offset_idx ON lapi_packages (ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Package entries table
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE package_entries (
+CREATE TABLE lapi_package_entries (
     ledger_offset VARCHAR PRIMARY KEY NOT NULL,
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR,
@@ -67,12 +67,12 @@ CREATE TABLE package_entries (
         )
 );
 
-CREATE INDEX idx_package_entries ON package_entries (submission_id);
+CREATE INDEX lapi_package_entries_idx ON lapi_package_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Party entries table
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE party_entries (
+CREATE TABLE lapi_party_entries (
     ledger_offset VARCHAR PRIMARY KEY NOT NULL,
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR,
@@ -90,14 +90,14 @@ CREATE TABLE party_entries (
         )
 );
 
-CREATE INDEX idx_party_entries ON party_entries (submission_id);
-CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
-CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
+CREATE INDEX lapi_party_entries_idx ON lapi_party_entries (submission_id);
+CREATE INDEX lapi_party_entries_party_and_ledger_offset_idx ON lapi_party_entries(party, ledger_offset);
+CREATE INDEX lapi_party_entries_party_id_and_ledger_offset_idx ON lapi_party_entries(party_id, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Completions table
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_command_completions (
+CREATE TABLE lapi_command_completions (
     completion_offset VARCHAR NOT NULL,
     record_time BIGINT NOT NULL,
     application_id VARCHAR NOT NULL,
@@ -128,12 +128,12 @@ CREATE TABLE participant_command_completions (
     trace_context BINARY LARGE OBJECT
 );
 
-CREATE INDEX participant_command_completions_application_id_offset_idx ON participant_command_completions USING btree (application_id, completion_offset);
+CREATE INDEX lapi__command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: create
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_events_create (
+CREATE TABLE lapi_events_create (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
     ledger_effective_time bigint NOT NULL,    -- transaction metadata
@@ -181,21 +181,21 @@ CREATE TABLE participant_events_create (
 );
 
 -- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_create_event_offset ON participant_events_create (event_offset);
+CREATE INDEX lapi_events_create_event_offset_idx ON lapi_events_create (event_offset);
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create (event_sequential_id);
+CREATE INDEX lapi_events_create_event_sequential_id_idx ON lapi_events_create (event_sequential_id);
 
 -- lookup by contract id
-CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create (contract_id);
+CREATE INDEX lapi_events_create_contract_id_idx ON lapi_events_create (contract_id);
 
 -- lookup by contract_key
-CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events_create (create_key_hash, event_sequential_id);
+CREATE INDEX lapi_events_create_create_key_hash_idx ON lapi_events_create (create_key_hash, event_sequential_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: consuming exercise
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_events_consuming_exercise (
+CREATE TABLE lapi_events_consuming_exercise (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
     ledger_effective_time bigint NOT NULL,    -- transaction metadata
@@ -242,18 +242,18 @@ CREATE TABLE participant_events_consuming_exercise (
 );
 
 -- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_events_consuming_exercise (event_offset);
+CREATE INDEX lapi_events_consuming_exercise_event_offset_idx ON lapi_events_consuming_exercise (event_offset);
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise (event_sequential_id);
+CREATE INDEX lapi_events_consuming_exercise_event_sequential_id_idx ON lapi_events_consuming_exercise (event_sequential_id);
 
 -- lookup by contract id
-CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
+CREATE INDEX lapi_events_consuming_exercise_contract_id_idx ON lapi_events_consuming_exercise (contract_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_events_non_consuming_exercise (
+CREATE TABLE lapi_events_non_consuming_exercise (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
     ledger_effective_time bigint NOT NULL,    -- transaction metadata
@@ -300,12 +300,12 @@ CREATE TABLE participant_events_non_consuming_exercise (
 );
 
 -- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise (event_offset);
+CREATE INDEX lapi_events_non_consuming_exercise_event_offset_idx ON lapi_events_non_consuming_exercise (event_offset);
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise (event_sequential_id);
+CREATE INDEX lapi_events_non_consuming_exercise_event_sequential_id_idx ON lapi_events_non_consuming_exercise (event_sequential_id);
 
-CREATE TABLE string_interning (
+CREATE TABLE lapi_string_interning (
     internal_id integer PRIMARY KEY NOT NULL,
     external_string text
 );
@@ -313,7 +313,7 @@ CREATE TABLE string_interning (
 ---------------------------------------------------------------------------------------------------
 -- Events table: Unassign
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_events_unassign (
+CREATE TABLE lapi_events_unassign (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
 
@@ -346,18 +346,18 @@ CREATE TABLE participant_events_unassign (
 );
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_unassign_event_sequential_id ON participant_events_unassign (event_sequential_id);
+CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassign (event_sequential_id);
 
 -- multi-column index supporting per contract per domain lookup before/after sequential id query
-CREATE INDEX participant_events_unassign_contract_id_composite ON participant_events_unassign (contract_id, source_domain_id, event_sequential_id);
+CREATE INDEX lapi_events_unassign_contract_id_composite_idx ON lapi_events_unassign (contract_id, source_domain_id, event_sequential_id);
 
 -- covering index for queries resolving offsets to sequential IDs. For temporary incomplete reassignments implementation.
-CREATE INDEX participant_events_unassign_event_offset ON participant_events_unassign (event_offset, event_sequential_id);
+CREATE INDEX lapi_events_unassign_event_offset_idx ON lapi_events_unassign (event_offset, event_sequential_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: Assign
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_events_assign (
+CREATE TABLE lapi_events_assign (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
 
@@ -400,100 +400,100 @@ CREATE TABLE participant_events_assign (
 );
 
 -- sequential_id index for paging
-CREATE INDEX participant_events_assign_event_sequential_id ON participant_events_assign (event_sequential_id);
+CREATE INDEX lapi_events_assign_event_sequential_id_idx ON lapi_events_assign (event_sequential_id);
 
 -- covering index for queries resolving offsets to sequential IDs. For temporary incomplete reassignments implementation.
-CREATE INDEX participant_events_assign_event_offset ON participant_events_assign (event_offset, event_sequential_id);
+CREATE INDEX lapi_events_assign_event_offset_idx ON lapi_events_assign (event_offset, event_sequential_id);
 
 -- index for queries resolving contract ID to sequential IDs.
-CREATE INDEX participant_events_assign_event_contract_id ON participant_events_assign (contract_id, event_sequential_id);
+CREATE INDEX lapi_events_assign_event_contract_id_idx ON lapi_events_assign (contract_id, event_sequential_id);
 
 -----------------------------
 -- Filter tables for events
 -----------------------------
 
 -- create stakeholders
-CREATE TABLE pe_create_id_filter_stakeholder (
+CREATE TABLE lapi_pe_create_id_filter_stakeholder (
     event_sequential_id BIGINT NOT NULL,
     template_id INTEGER NOT NULL,
     party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_create_id_filter_stakeholder_pts_idx ON pe_create_id_filter_stakeholder(party_id, template_id, event_sequential_id);
-CREATE INDEX pe_create_id_filter_stakeholder_pt_idx ON pe_create_id_filter_stakeholder(party_id, event_sequential_id);
-CREATE INDEX pe_create_id_filter_stakeholder_s_idx ON pe_create_id_filter_stakeholder(event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_pts_idx ON lapi_pe_create_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_pt_idx ON lapi_pe_create_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_s_idx ON lapi_pe_create_id_filter_stakeholder(event_sequential_id);
 
-CREATE TABLE pe_create_id_filter_non_stakeholder_informee (
+CREATE TABLE lapi_pe_create_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_create_id_filter_non_stakeholder_informee_ps_idx ON pe_create_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
-CREATE INDEX pe_create_id_filter_non_stakeholder_informee_s_idx ON pe_create_id_filter_non_stakeholder_informee(event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_ps_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_s_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(event_sequential_id);
 
-CREATE TABLE pe_consuming_id_filter_stakeholder (
-   event_sequential_id BIGINT NOT NULL,
-   template_id INTEGER NOT NULL,
-   party_id INTEGER NOT NULL
-);
-CREATE INDEX pe_consuming_id_filter_stakeholder_pts_idx ON pe_consuming_id_filter_stakeholder(party_id, template_id, event_sequential_id);
-CREATE INDEX pe_consuming_id_filter_stakeholder_ps_idx  ON pe_consuming_id_filter_stakeholder(party_id, event_sequential_id);
-CREATE INDEX pe_consuming_id_filter_stakeholder_s_idx   ON pe_consuming_id_filter_stakeholder(event_sequential_id);
-
-CREATE TABLE pe_unassign_id_filter_stakeholder (
+CREATE TABLE lapi_pe_consuming_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_unassign_id_filter_stakeholder_pts_idx ON pe_unassign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
-CREATE INDEX pe_unassign_id_filter_stakeholder_ps_idx  ON pe_unassign_id_filter_stakeholder(party_id, event_sequential_id);
-CREATE INDEX pe_unassign_id_filter_stakeholder_s_idx   ON pe_unassign_id_filter_stakeholder(event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_pts_idx ON lapi_pe_consuming_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ps_idx  ON lapi_pe_consuming_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_s_idx   ON lapi_pe_consuming_id_filter_stakeholder(event_sequential_id);
 
-CREATE TABLE pe_assign_id_filter_stakeholder (
+CREATE TABLE lapi_pe_unassign_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_assign_id_filter_stakeholder_pts_idx ON pe_assign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
-CREATE INDEX pe_assign_id_filter_stakeholder_ps_idx  ON pe_assign_id_filter_stakeholder(party_id, event_sequential_id);
-CREATE INDEX pe_assign_id_filter_stakeholder_s_idx   ON pe_assign_id_filter_stakeholder(event_sequential_id);
+CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_pts_idx ON lapi_pe_unassign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ps_idx  ON lapi_pe_unassign_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_s_idx   ON lapi_pe_unassign_id_filter_stakeholder(event_sequential_id);
 
-CREATE TABLE pe_consuming_id_filter_non_stakeholder_informee (
+CREATE TABLE lapi_pe_assign_id_filter_stakeholder (
+   event_sequential_id BIGINT NOT NULL,
+   template_id INTEGER NOT NULL,
+   party_id INTEGER NOT NULL
+);
+CREATE INDEX lapi_pe_assign_id_filter_stakeholder_pts_idx ON lapi_pe_assign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_assign_id_filter_stakeholder_ps_idx  ON lapi_pe_assign_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_assign_id_filter_stakeholder_s_idx   ON lapi_pe_assign_id_filter_stakeholder(event_sequential_id);
+
+CREATE TABLE lapi_pe_consuming_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_consuming_id_filter_non_stakeholder_informee_ps_idx ON pe_consuming_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
-CREATE INDEX pe_consuming_id_filter_non_stakeholder_informee_s_idx ON pe_consuming_id_filter_non_stakeholder_informee(event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_ps_idx ON lapi_pe_consuming_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_s_idx ON lapi_pe_consuming_id_filter_non_stakeholder_informee(event_sequential_id);
 
-CREATE TABLE pe_non_consuming_id_filter_informee (
+CREATE TABLE lapi_pe_non_consuming_id_filter_informee (
    event_sequential_id BIGINT NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX pe_non_consuming_id_filter_informee_ps_idx ON pe_non_consuming_id_filter_informee(party_id, event_sequential_id);
-CREATE INDEX pe_non_consuming_id_filter_informee_s_idx ON pe_non_consuming_id_filter_informee(event_sequential_id);
+CREATE INDEX lapi_pe_non_consuming_id_filter_informee_ps_idx ON lapi_pe_non_consuming_id_filter_informee(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx ON lapi_pe_non_consuming_id_filter_informee(event_sequential_id);
 
-CREATE TABLE participant_transaction_meta(
+CREATE TABLE lapi_transaction_meta(
     transaction_id VARCHAR NOT NULL,
     event_offset VARCHAR NOT NULL,
     event_sequential_id_first BIGINT NOT NULL,
     event_sequential_id_last BIGINT NOT NULL
 );
-CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
-CREATE INDEX participant_transaction_meta_event_offset_idx ON participant_transaction_meta(event_offset);
+CREATE INDEX lapi_transaction_meta_tid_idx ON lapi_transaction_meta(transaction_id);
+CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta(event_offset);
 
-CREATE TABLE transaction_metering (
+CREATE TABLE lapi_transaction_metering (
     application_id VARCHAR NOT NULL,
     action_count INTEGER NOT NULL,
     metering_timestamp BIGINT NOT NULL,
     ledger_offset VARCHAR NOT NULL
 );
 
-CREATE INDEX transaction_metering_ledger_offset ON transaction_metering(ledger_offset);
+CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_metering(ledger_offset);
 
-CREATE TABLE metering_parameters (
+CREATE TABLE lapi_metering_parameters (
     ledger_metering_end VARCHAR,
     ledger_metering_timestamp BIGINT NOT NULL
 );
 
-CREATE TABLE participant_metering (
+CREATE TABLE lapi_participant_metering (
     application_id VARCHAR NOT NULL,
     from_timestamp BIGINT NOT NULL,
     to_timestamp BIGINT NOT NULL,
@@ -501,7 +501,7 @@ CREATE TABLE participant_metering (
     ledger_offset VARCHAR NOT NULL
 );
 
-CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_metering(from_timestamp, to_timestamp, application_id);
+CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_participant_metering(from_timestamp, to_timestamp, application_id);
 
 
 -- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that
@@ -509,7 +509,7 @@ CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_mete
 ---------------------------------------------------------------------------------------------------
 -- Participant local store: identity provider configurations
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_identity_provider_config
+CREATE TABLE lapi_identity_provider_config
 (
     identity_provider_id VARCHAR(255) PRIMARY KEY NOT NULL,
     issuer               VARCHAR                  NOT NULL UNIQUE,
@@ -521,17 +521,17 @@ CREATE TABLE participant_identity_provider_config
 ---------------------------------------------------------------------------------------------------
 -- Participant local store: users
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_users (
+CREATE TABLE lapi_users (
     internal_id          INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id              VARCHAR(256)        NOT NULL UNIQUE,
     primary_party        VARCHAR(512),
-    identity_provider_id VARCHAR(255)        REFERENCES participant_identity_provider_config (identity_provider_id),
+    identity_provider_id VARCHAR(255)        REFERENCES lapi_identity_provider_config (identity_provider_id),
     is_deactivated       BOOLEAN             NOT NULL,
     resource_version     BIGINT              NOT NULL,
     created_at           BIGINT              NOT NULL
 );
-CREATE TABLE participant_user_rights (
-    user_internal_id    INTEGER             NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
+CREATE TABLE lapi_user_rights (
+    user_internal_id    INTEGER             NOT NULL REFERENCES lapi_users (internal_id) ON DELETE CASCADE,
     user_right          INTEGER             NOT NULL,
     for_party           VARCHAR(512),
     for_party2          VARCHAR(512)        GENERATED ALWAYS AS (CASE
@@ -542,33 +542,33 @@ CREATE TABLE participant_user_rights (
     granted_at          BIGINT              NOT NULL,
     UNIQUE (user_internal_id, user_right, for_party2)
 );
-CREATE TABLE participant_user_annotations (
-    internal_id         INTEGER             NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
+CREATE TABLE lapi_user_annotations (
+    internal_id         INTEGER             NOT NULL REFERENCES lapi_users (internal_id) ON DELETE CASCADE,
     name                VARCHAR(512)        NOT NULL,
     -- 256k = 256*1024 = 262144
     val                 VARCHAR(262144),
     updated_at          BIGINT              NOT NULL,
     UNIQUE (internal_id, name)
 );
-INSERT INTO participant_users(user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at)
+INSERT INTO lapi_users(user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at)
     VALUES ('participant_admin', NULL, NULL, false, 0,  0);
-INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
+INSERT INTO lapi_user_rights(user_internal_id, user_right, for_party, granted_at)
     SELECT internal_id, 1, NULL, 0
-    FROM participant_users
+    FROM lapi_users
     WHERE user_id = 'participant_admin';
 
 ---------------------------------------------------------------------------------------------------
 -- Participant local store: party records
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE participant_party_records (
+CREATE TABLE lapi_party_records (
     internal_id          INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     party                VARCHAR(512)        NOT NULL UNIQUE,
-    identity_provider_id VARCHAR(255)        REFERENCES participant_identity_provider_config (identity_provider_id),
+    identity_provider_id VARCHAR(255)        REFERENCES lapi_identity_provider_config (identity_provider_id),
     resource_version     BIGINT              NOT NULL,
     created_at           BIGINT              NOT NULL
 );
-CREATE TABLE participant_party_record_annotations (
-    internal_id         INTEGER             NOT NULL REFERENCES participant_party_records (internal_id) ON DELETE CASCADE,
+CREATE TABLE lapi_party_record_annotations (
+    internal_id         INTEGER             NOT NULL REFERENCES lapi_party_records (internal_id) ON DELETE CASCADE,
     name                VARCHAR(512)        NOT NULL,
     -- 256k = 256*1024 = 262144
     val                 VARCHAR(262144),

@@ -173,6 +173,11 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
         connection: Connection
     ): Option[Offset] =
       throw new UnsupportedOperationException
+
+    override def prunedUpToInclusiveAndLedgerEnd(
+        connection: Connection
+    ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
+      throw new UnsupportedOperationException
   }
 }
 

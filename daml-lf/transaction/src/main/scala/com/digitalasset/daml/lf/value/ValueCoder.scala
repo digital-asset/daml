@@ -45,7 +45,7 @@ object ValueCoder {
       EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
-  abstract class EncodeCid private[lf] {
+  sealed abstract class EncodeCid private[lf] {
     private[lf] def encode(contractId: ContractId): proto.ContractId
   }
 
@@ -54,7 +54,7 @@ object ValueCoder {
       proto.ContractId.newBuilder.setContractId(cid.coid).build
   }
 
-  abstract class DecodeCid private[lf] {
+  sealed abstract class DecodeCid private[lf] {
     def decodeOptional(
         structForm: proto.ContractId
     ): Either[DecodeError, Option[Value.ContractId]]
@@ -87,11 +87,13 @@ object ValueCoder {
         stringToCidString(structForm.getContractId).map(Some(_))
   }
 
+  @deprecated("use CidDecoder", since = "3.0.0")
   val NoCidDecoder: DecodeCid = new DecodeCid {
     override def decodeOptional(structForm: ValueOuterClass.ContractId) = Right(None)
   }
 
   // To be use only when certain the value does not contain Contract Ids
+  @deprecated("use CidEncoder", since = "3.0.0")
   val UnsafeNoCidEncoder: EncodeCid = new EncodeCid {
     override private[lf] def encode(contractId: ContractId) =
       InternalError.runtimeException(NameOf.qualifiedNameOfCurrentFunc, "unexpected contract ID")
@@ -146,12 +148,11 @@ object ValueCoder {
     * converts the value to the type usable by engine/interpreter.
     *
     * @param protoValue0 the value to be read
-    * @param decodeCid a function to decode stringified contract ids
     * @tparam Cid ContractId type
     * @return either error or [VersionedValue]
     */
   def decodeVersionedValue(
-      decodeCid: DecodeCid,
+      decodeCid: DecodeCid = CidDecoder,
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, VersionedValue] =
     for {
@@ -185,6 +186,9 @@ object ValueCoder {
         Right(value)
     }
 
+  def decodeValue(protoValue0: proto.VersionedValue): Either[DecodeError, Value] =
+    decodeValue(CidDecoder, protoValue0)
+
   def decodeValue(
       decodeCid: DecodeCid,
       version: TransactionVersion,
@@ -196,10 +200,13 @@ object ValueCoder {
     * to engine/interpreter usable Value type
     *
     * @param protoValue0 the value to be read
-    * @param decodeCid a function to decode stringified contract ids
     * @tparam Cid ContractId type
     * @return either error or Value
     */
+
+  def decodeValue(version: TransactionVersion, bytes: ByteString): Either[DecodeError, Value] =
+    decodeValue(CidDecoder, version, bytes)
+
   private[this] def decodeValue(
       decodeCid: DecodeCid,
       version: TransactionVersion,
@@ -337,7 +344,6 @@ object ValueCoder {
   /** Serializes [[VersionedValue]] to protobuf.
     *
     * @param versionedValue value to be written
-    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
@@ -346,6 +352,11 @@ object ValueCoder {
       versionedValue: VersionedValue,
   ): Either[EncodeError, proto.VersionedValue] =
     encodeVersionedValue(encodeCid, versionedValue.version, versionedValue.unversioned)
+
+  def encodeVersionedValue(
+      versionedValue: VersionedValue
+  ): Either[EncodeError, proto.VersionedValue] =
+    encodeVersionedValue(CidEncoder, versionedValue.version, versionedValue.unversioned)
 
   def encodeVersionedValue(
       encodeCid: EncodeCid,
@@ -359,6 +370,12 @@ object ValueCoder {
       builder.setVersion(encodeValueVersion(version)).setValue(bytes).build()
     }
 
+  def encodeVersionedValue(
+      version: TransactionVersion,
+      value: Value,
+  ): Either[EncodeError, proto.VersionedValue] =
+    encodeVersionedValue(CidEncoder, version, value)
+
   /** Serialize a Value to protobuf
     *
     * @param v0 value to be written
@@ -368,7 +385,7 @@ object ValueCoder {
     * @return protocol buffer serialized values
     */
   def encodeValue(
-      encodeCid: EncodeCid,
+      encodeCid: EncodeCid = CidEncoder,
       valueVersion: TransactionVersion,
       v0: Value,
   ): Either[EncodeError, ByteString] = {

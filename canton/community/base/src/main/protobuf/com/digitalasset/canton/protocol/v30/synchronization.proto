@@ -37,15 +37,10 @@ message EnvelopeContent {
 
   oneof some_envelope_content {
     v30.InformeeMessage informee_message = 1;
-    v30.EncryptedViewMessage encrypted_view_message = 3;
-    // TODO(#15208) remove once the legacy topology management is removed
-    v30.DomainTopologyTransactionMessage domain_topology_transaction_message = 5;
-    v30.TransferOutMediatorMessage transfer_out_mediator_message = 6;
-    v30.TransferInMediatorMessage transfer_in_mediator_message = 7;
-    v30.RootHashMessage root_hash_message = 8;
-    // TODO(#15208) remove once the legacy topology management is removed
-    v30.RegisterTopologyTransactionRequest register_topology_transaction_request = 9;
-    v30.RegisterTopologyTransactionResponse register_topology_transaction_response = 10;
-    v30.TopologyTransactionsBroadcastX topology_transactions_broadcast = 12;
+    v30.EncryptedViewMessage encrypted_view_message = 2;
+    v30.TransferOutMediatorMessage transfer_out_mediator_message = 3;
+    v30.TransferInMediatorMessage transfer_in_mediator_message = 4;
+    v30.RootHashMessage root_hash_message = 5;
+    v30.TopologyTransactionsBroadcast topology_transactions_broadcast = 6;
   }
 }

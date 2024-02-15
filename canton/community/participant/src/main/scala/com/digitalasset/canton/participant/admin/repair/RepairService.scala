@@ -11,6 +11,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.lf.data.{Bytes, ImmArray}
+import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -907,6 +908,8 @@ final class RepairService(
     keyOpt = None,
     byKey = false,
     version = c.rawContractInstance.contractInstance.version,
+    // TODO https://github.com/digital-asset/daml/issues/17995
+    packageName = Ref.PackageName.assertFromString("dummyReplace")
   )
 
   private def writeContractsPurgedEvent(
@@ -1317,7 +1320,9 @@ object RepairService {
           argsValue,
         )
 
-        lfContractInst = LfContractInst(template = template, arg = argsVersionedValue)
+        lfContractInst = LfContractInst(template = template, arg = argsVersionedValue,
+          // TODO https://github.com/digital-asset/daml/issues/17995
+          packageName = Ref.PackageName.assertFromString("dummyReplace"))
 
         serializableRawContractInst <- SerializableRawContractInstance
           .create(lfContractInst)

@@ -50,6 +50,7 @@ import com.digitalasset.canton.platform.indexer.{
 }
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadataStore
 import com.digitalasset.canton.protocol.UnicumGenerator
@@ -207,6 +208,18 @@ class StartableStoppableLedgerApiServer(
           loggerFactory,
         )
       timedReadService = new TimedReadService(config.syncService, config.metrics)
+      dbSupport <- DbSupport
+        .owner(
+          serverRole = ServerRole.ApiServer,
+          metrics = config.metrics,
+          dbConfig = dbConfig,
+          loggerFactory = loggerFactory,
+        )
+      indexerDbDispatcherOverride = Option.when(
+        dbSupport.storageBackendFactory == H2StorageBackendFactory
+      )(
+        dbSupport.dbDispatcher
+      )
       indexerHealth <- new IndexerServiceOwner(
         config.participantId,
         participantDataSourceConfig,
@@ -229,14 +242,8 @@ class StartableStoppableLedgerApiServer(
           postgres = config.serverConfig.postgresDataSource,
         ),
         highAvailability = config.indexerHaConfig,
+        indexerDbDispatcherOverride = indexerDbDispatcherOverride,
       )
-      dbSupport <- DbSupport
-        .owner(
-          serverRole = ServerRole.ApiServer,
-          metrics = config.metrics,
-          dbConfig = dbConfig,
-          loggerFactory = loggerFactory,
-        )
       contractLoader <- {
         import config.cantonParameterConfig.ledgerApiServerParameters.contractLoader.*
         ContractLoader.create(

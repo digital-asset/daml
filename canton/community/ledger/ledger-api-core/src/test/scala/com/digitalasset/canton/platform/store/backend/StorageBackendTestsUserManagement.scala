@@ -58,9 +58,9 @@ private[backend] trait StorageBackendTestsUserManagement
     }
   }
 
-  override def resourceVersionTableName: String = "participant_users"
+  override def resourceVersionTableName: String = "lapi_users"
 
-  override def resourceAnnotationsTableName: String = "participant_user_annotations"
+  override def resourceAnnotationsTableName: String = "lapi_user_annotations"
 
   it should "update existing user's primaryParty attribute" in {
     val user = newDbUser(createdAt = 123, primaryPartyOverride = Some(None))

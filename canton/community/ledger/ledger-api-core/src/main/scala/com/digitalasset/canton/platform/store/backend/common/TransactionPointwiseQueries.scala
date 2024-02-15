@@ -40,7 +40,7 @@ class TransactionPointwiseQueries(
             t.event_sequential_id_first,
             t.event_sequential_id_last
          FROM
-            participant_transaction_meta t
+            lapi_transaction_meta t
          WHERE
             t.transaction_id = $transactionId
             AND
@@ -59,11 +59,11 @@ class TransactionPointwiseQueries(
       witnessesColumn = "flat_event_witnesses",
       tables = List(
         SelectTable(
-          tableName = "participant_events_create",
+          tableName = "lapi_events_create",
           selectColumns = selectColumnsForFlatTransactionsCreate,
         ),
         SelectTable(
-          tableName = "participant_events_consuming_exercise",
+          tableName = "lapi_events_consuming_exercise",
           selectColumns = selectColumnsForFlatTransactionsExercise,
         ),
       ),
@@ -83,17 +83,17 @@ class TransactionPointwiseQueries(
       witnessesColumn = "tree_event_witnesses",
       tables = List(
         SelectTable(
-          tableName = "participant_events_create",
+          tableName = "lapi_events_create",
           selectColumns =
             s"$selectColumnsForTransactionTreeCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
         ),
         SelectTable(
-          tableName = "participant_events_consuming_exercise",
+          tableName = "lapi_events_consuming_exercise",
           selectColumns =
             s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
         ),
         SelectTable(
-          tableName = "participant_events_non_consuming_exercise",
+          tableName = "lapi_events_non_consuming_exercise",
           selectColumns =
             s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
         ),
@@ -132,7 +132,7 @@ class TransactionPointwiseQueries(
                 e.command_id
               FROM
                 #$tableName e
-              JOIN parameters p
+              JOIN lapi_parameters p
               ON
                 p.participant_pruned_up_to_inclusive IS NULL
                 OR

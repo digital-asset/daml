@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelCo
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
 import com.digitalasset.canton.topology.admin.{v30 => admin_topology_service}
-import com.digitalasset.canton.protocol.v30.EnumsX.TopologyChangeOpX
+import com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp
 import com.google.protobuf.ByteString
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
@@ -36,7 +36,7 @@ final class AdminLedgerClient private (
 
   private val topologyServiceStub =
     AdminLedgerClient.stub(
-      admin_topology_service.TopologyManagerReadXServiceGrpc.stub(channel),
+      admin_topology_service.TopologyManagerReadServiceGrpc.stub(channel),
       token,
     )
 
@@ -96,7 +96,7 @@ final class AdminLedgerClient private (
             admin_topology_service.BaseQuery(
               filterStore = None,
               proposals = false,
-              operation = TopologyChangeOpX.TOPOLOGY_CHANGE_OP_X_REPLACE_UNSPECIFIED,
+              operation = TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE_UNSPECIFIED,
               filterOperation = false,
               timeQuery = admin_topology_service.BaseQuery.TimeQuery
                 .HeadState(com.google.protobuf.empty.Empty()),

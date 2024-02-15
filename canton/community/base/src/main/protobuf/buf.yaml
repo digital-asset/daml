@@ -8,8 +8,6 @@ breaking:
     # TODO(#14048) remove once we finalize the protobufs
     - com/digitalasset/canton/topology/admin/
 lint:
-  ignore:
-    - com/digitalasset/canton/topology/admin/v30old
   ignore_only:
     # TODO(i16943) Remove coupling between sequencer subscription endpoints
     RPC_REQUEST_RESPONSE_UNIQUE:

@@ -39,7 +39,6 @@ object LanguageVersion {
 
   object Features {
     val default = v2_1
-    val bigNumeric = v2_1
     val exceptions = v2_1
     val packageUpgrades = v2_1
     val choiceFuncs = v2_dev
@@ -51,6 +50,11 @@ object LanguageVersion {
 
     /** Guards in interfaces */
     val extendedInterfaces = v2_dev
+
+    /** BigNumeric */
+    val bigNumeric = v2_dev
+
+    val scenarios = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate

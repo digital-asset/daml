@@ -510,6 +510,112 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
     }
 
+    "observing PartyToParticipant mappings" should {
+      "allow participants to unilaterally disassociate themselves from parties" in {
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        val validator = mk(store)
+        import Factory.*
+
+        val pid2 = ParticipantId(UniqueIdentifier(Identifier.tryCreate("participant2"), ns2))
+        val participant2HostsParty1 = mkAddMultiKey(
+          PartyToParticipantX(
+            party1b, // lives in the namespace of p1, corresponding to `SigningKeys.key1`
+            None,
+            threshold = PositiveInt.two,
+            Seq(
+              HostingParticipant(participant1, ParticipantPermissionX.Submission),
+              HostingParticipant(pid2, ParticipantPermissionX.Submission),
+            ),
+            groupAddressing = false,
+          ),
+          // both the party's owner and the participant sign
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+          serial = PositiveInt.one,
+        )
+
+        val unhostingMapping = PartyToParticipantX(
+          party1b,
+          None,
+          threshold = PositiveInt.two,
+          Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
+          groupAddressing = false,
+        )
+        val participant2RemovesItselfUnilaterally = mkAdd(
+          unhostingMapping,
+          // only the unhosting participant signs
+          SigningKeys.key2,
+          serial = PositiveInt.two,
+        )
+
+        val participant2RemovedFullyAuthorized = mkAddMultiKey(
+          unhostingMapping,
+          // both the unhosting participant as well as the party's owner signs
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+          serial = PositiveInt.two,
+        )
+
+        val ptpMappingHash = participant2HostsParty1.mapping.uniqueKey
+        import monocle.syntax.all.*
+        for {
+          _ <- store.update(
+            SequencedTime(ts(0)),
+            EffectiveTime(ts(0)),
+            removeMapping = Set.empty,
+            removeTxs = Set.empty,
+            additions = List(ns1k1_k1, ns2k2_k2).map(
+              ValidatedTopologyTransactionX(_)
+            ),
+          )
+          hostingResult <- validator.validateAndUpdateHeadAuthState(
+            ts(1),
+            List(participant2HostsParty1),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = false,
+          )
+
+          // unilateral unhosting by participant2 only signed by the participant
+          unhostingResult <- validator.validateAndUpdateHeadAuthState(
+            ts(2),
+            List(participant2RemovesItselfUnilaterally),
+            transactionsInStore = Map(ptpMappingHash -> participant2HostsParty1),
+            expectFullAuthorization = false,
+          )
+
+          // it is still allowed to have a mix of signatures for unhosting
+          unhostingMixedResult <- validator.validateAndUpdateHeadAuthState(
+            ts(2),
+            List(participant2RemovedFullyAuthorized),
+            transactionsInStore = Map(ptpMappingHash -> participant2HostsParty1),
+            expectFullAuthorization = false,
+          )
+
+          // the participant being removed may not sign if anything else changes
+          unhostingAndThresholdChangeResult <- validator.validateAndUpdateHeadAuthState(
+            ts(2),
+            List(
+              mkAddMultiKey(
+                unhostingMapping
+                  .focus(_.threshold)
+                  .replace(PositiveInt.one),
+                NonEmpty(Set, SigningKeys.key2),
+              )
+            ),
+            transactionsInStore = Map(ptpMappingHash -> participant2HostsParty1),
+            expectFullAuthorization = false,
+          )
+        } yield {
+          check(hostingResult._2, Seq(None))
+          check(unhostingResult._2, Seq(None))
+          check(unhostingMixedResult._2, Seq(None))
+          check(
+            unhostingAndThresholdChangeResult._2,
+            Seq(Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint)))),
+          )
+        }
+      }
+    }
+
     "evolving decentralized namespace definitions with threshold > 1" should {
       "succeed if proposing lower threshold and number of owners" in {
         val store =

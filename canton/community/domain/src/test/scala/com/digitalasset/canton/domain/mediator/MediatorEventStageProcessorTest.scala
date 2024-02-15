@@ -71,8 +71,8 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
       loggerFactory,
     )
 
-    val domainSyncCryptoApi: DomainSyncCryptoClient = new TestingIdentityFactory(
-      TestingTopology(),
+    val domainSyncCryptoApi: DomainSyncCryptoClient = new TestingIdentityFactoryX(
+      TestingTopologyX(),
       loggerFactory,
       dynamicDomainParameters,
     ).forOwnerAndDomain(

@@ -43,7 +43,7 @@ trait SequencerClientSend {
   def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
       sendType: SendType = SendType.Other,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       aggregationRule: Option[AggregationRule] = None,

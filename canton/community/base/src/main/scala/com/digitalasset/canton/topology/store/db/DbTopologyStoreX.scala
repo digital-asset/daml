@@ -48,10 +48,9 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     val storeId: StoreId,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
-    override protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(100),
+    protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(100),
 )(implicit ec: ExecutionContext)
     extends TopologyStoreX[StoreId]
-    with DbTopologyStoreCommon[StoreId]
     with DbStore {
 
   import DbStorage.Implicits.BuilderChain.*
@@ -247,7 +246,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   override def inspect(
       proposals: Boolean,
-      timeQuery: TimeQueryX,
+      timeQuery: TimeQuery,
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       typ: Option[TopologyMappingX.Code],
@@ -259,13 +258,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     logger.debug(s"Inspecting store for type=$typ, filter=$idFilter, time=$timeQuery")
 
     val timeFilter: SQLActionBuilderChain = timeQuery match {
-      case TimeQueryX.HeadState =>
+      case TimeQuery.HeadState =>
         getHeadStateQuery(recentTimestampO)
-      case TimeQueryX.Snapshot(asOf) =>
+      case TimeQuery.Snapshot(asOf) =>
         asOfQuery(asOf = asOf, asOfInclusive = false)
-      case TimeQueryX.Range(None, None) =>
+      case TimeQuery.Range(None, None) =>
         sql"" // The case below inserts an additional `AND` that we don't want
-      case TimeQueryX.Range(from, until) =>
+      case TimeQuery.Range(from, until) =>
         sql" AND " ++ ((from.toList.map(ts => sql"valid_from >= $ts") ++ until.toList.map(ts =>
           sql"valid_from <= $ts"
         ))
@@ -455,7 +454,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change]] = {
+  ): Future[Seq[TopologyStoreX.Change]] = {
     logger.debug(s"Querying upcoming effective changes as of $asOfInclusive")
 
     queryForTransactions(
@@ -749,6 +748,74 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         )
       })
       .map(StoredTopologyTransactionsX(_))
+  }
+
+  override def currentDispatchingWatermark(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] = {
+    val query =
+      sql"SELECT watermark_ts FROM topology_dispatching WHERE store_id =$transactionStoreIdName"
+        .as[CantonTimestamp]
+        .headOption
+    storage.query(query, functionFullName)
+
+  }
+
+  override def updateDispatchingWatermark(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    val query = storage.profile match {
+      case _: DbStorage.Profile.Postgres =>
+        sqlu"""insert into topology_dispatching (store_id, watermark_ts)
+                    VALUES ($transactionStoreIdName, $timestamp)
+                 on conflict (store_id) do update
+                  set
+                    watermark_ts = $timestamp
+                 """
+      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
+        sqlu"""merge into topology_dispatching
+                  using dual
+                  on (store_id = $transactionStoreIdName)
+                  when matched then
+                    update set
+                       watermark_ts = $timestamp
+                  when not matched then
+                    insert (store_id, watermark_ts)
+                    values ($transactionStoreIdName, $timestamp)
+                 """
+    }
+    storage.update_(query, functionFullName)
+
+  }
+
+  protected def asOfQuery(asOf: CantonTimestamp, asOfInclusive: Boolean): SQLActionBuilder =
+    if (asOfInclusive)
+      sql" AND valid_from <= $asOf AND (valid_until is NULL OR $asOf < valid_until)"
+    else
+      sql" AND valid_from < $asOf AND (valid_until is NULL OR $asOf <= valid_until)"
+
+  protected def getHeadStateQuery(
+      recentTimestampO: Option[CantonTimestamp]
+  ): SQLActionBuilderChain = recentTimestampO match {
+    case Some(value) => asOfQuery(value, asOfInclusive = false)
+    case None => sql" AND valid_until is NULL"
+  }
+
+  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+  protected def andIdFilter(
+      previousFilter: SQLActionBuilderChain,
+      idFilter: String,
+      namespaceOnly: Boolean,
+  ): SQLActionBuilderChain = if (idFilter.isEmpty) previousFilter
+  else if (namespaceOnly) {
+    previousFilter ++ sql" AND namespace LIKE ${idFilter + "%"}"
+  } else {
+    val (prefix, suffix) = UniqueIdentifier.splitFilter(idFilter, "%")
+    val tmp = previousFilter ++ sql" AND identifier like $prefix "
+    if (suffix.sizeCompare(1) > 0) {
+      tmp ++ sql" AND namespace like $suffix "
+    } else
+      tmp
   }
 
 }

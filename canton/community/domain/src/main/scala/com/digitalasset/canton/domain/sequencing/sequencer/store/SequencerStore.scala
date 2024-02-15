@@ -133,7 +133,7 @@ sealed trait StoreEvent[+PayloadReference] extends HasTraceContext {
 
 /** Structure for storing a deliver events.
   * @param members should include the sender and event recipients as they all will read the event
-  * @param signingTimestampO The timestamp of the snapshot to be used for determining the signing key of this event
+  * @param topologyTimestampO The timestamp of the snapshot to be used for determining the signing key of this event, resolving group addresses, and for checking signatures on envelopes
   *                          [[scala.None]] means that the sequencing timestamp should be used.
   */
 final case class DeliverStoreEvent[P](
@@ -141,7 +141,7 @@ final case class DeliverStoreEvent[P](
     messageId: MessageId,
     override val members: NonEmpty[SortedSet[SequencerMemberId]],
     payload: P,
-    signingTimestampO: Option[CantonTimestamp],
+    topologyTimestampO: Option[CantonTimestamp],
     override val traceContext: TraceContext,
 ) extends StoreEvent[P] {
   def mapPayload[Q](map: P => Q): DeliverStoreEvent[Q] = copy(payload = map(payload))
@@ -167,7 +167,7 @@ object DeliverStoreEvent {
       messageId: MessageId,
       members: Set[SequencerMemberId],
       payload: Payload,
-      signingTimestampO: Option[CantonTimestamp],
+      topologyTimestampO: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): DeliverStoreEvent[Payload] = {
     // ensure that sender is a recipient
     val recipientsWithSender = NonEmpty(SortedSet, sender, members.toSeq: _*)
@@ -176,7 +176,7 @@ object DeliverStoreEvent {
       messageId,
       recipientsWithSender,
       payload,
-      signingTimestampO,
+      topologyTimestampO,
       traceContext,
     )
   }

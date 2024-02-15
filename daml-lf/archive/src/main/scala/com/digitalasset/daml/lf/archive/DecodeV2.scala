@@ -1197,6 +1197,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.SCENARIO =>
+          assertSince(LV.Features.scenarios, "Scenarios")
           bindWork(decodeScenario(lfExpr.getScenario, definition)) { scenario =>
             Ret(EScenario(scenario))
           }
@@ -1861,7 +1862,6 @@ private[lf] object DecodeV2 {
   }
 
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
-    import LV.Features._
     import PLF.PrimType._
     List(
       BuiltinTypeInfo(UNIT, BTUnit),
@@ -1872,7 +1872,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(PARTY, BTParty),
       BuiltinTypeInfo(LIST, BTList),
       BuiltinTypeInfo(UPDATE, BTUpdate),
-      BuiltinTypeInfo(SCENARIO, BTScenario),
+      BuiltinTypeInfo(SCENARIO, BTScenario, minVersion = LV.Features.scenarios),
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),
@@ -1882,9 +1882,9 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(NUMERIC, BTNumeric),
       BuiltinTypeInfo(ANY, BTAny),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep),
-      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
-      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = bigNumeric),
-      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
+      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
+      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
+      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = LV.Features.exceptions),
     )
   }
 
@@ -1974,7 +1974,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric),
+      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),

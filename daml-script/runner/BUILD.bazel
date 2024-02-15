@@ -81,6 +81,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
+        "//daml-lf/transaction:value_proto_java",
         "//daml-script/converter",
         "//ledger-service/lf-value-json",
         "//libs-scala/auth-utils",

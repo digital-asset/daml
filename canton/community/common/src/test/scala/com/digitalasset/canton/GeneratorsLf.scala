@@ -6,6 +6,7 @@ package com.digitalasset.canton
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV2,
   ExampleTransactionFactory,
@@ -16,11 +17,19 @@ import com.digitalasset.canton.protocol.{
   LfTransactionVersion,
   Unicum,
 }
+import com.digitalasset.canton.topology.PartyId
 import org.scalacheck.{Arbitrary, Gen}
 
 object GeneratorsLf {
+  import com.digitalasset.canton.data.GeneratorsDataTime.*
+  import com.digitalasset.canton.topology.GeneratorsTopology.*
+
   implicit val lfPartyIdArb: Arbitrary[LfPartyId] = Arbitrary(
-    com.digitalasset.canton.topology.GeneratorsTopology.partyIdArb.arbitrary.map(_.toLf)
+    Arbitrary.arbitrary[PartyId].map(_.toLf)
+  )
+
+  implicit val lfTimestampArb: Arbitrary[LfTimestamp] = Arbitrary(
+    Arbitrary.arbitrary[CantonTimestamp].map(_.underlying)
   )
 
   implicit val lfContractIdArb: Arbitrary[LfContractId] = Arbitrary(

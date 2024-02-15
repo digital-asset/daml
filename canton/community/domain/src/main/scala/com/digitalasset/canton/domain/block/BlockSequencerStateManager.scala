@@ -63,7 +63,7 @@ trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
 
   type CreateSubscription = Either[CreateSubscriptionError, Sequencer.EventSource]
 
-  val maybeLowerSigningTimestampBound: Option[CantonTimestamp]
+  val maybeLowerTopologyTimestampBound: Option[CantonTimestamp]
 
   private[domain] def firstSequencerCounterServableForSequencer: SequencerCounter
 
@@ -110,7 +110,7 @@ class BlockSequencerStateManager(
     val store: SequencerBlockStore,
     enableInvariantCheck: Boolean,
     private val initialMemberCounters: MemberCounters,
-    override val maybeLowerSigningTimestampBound: Option[CantonTimestamp],
+    override val maybeLowerTopologyTimestampBound: Option[CantonTimestamp],
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, closeContext: CloseContext)
@@ -684,7 +684,7 @@ object BlockSequencerStateManager {
   ): Future[BlockSequencerStateManager] =
     for {
       counters <- store.initialMemberCounters
-      maybeLowerSigningTimestampBound <- store.getInitialTopologySnapshotTimestamp
+      maybeLowerTopologyTimestampBound <- store.getInitialTopologySnapshotTimestamp
     } yield {
 
       new BlockSequencerStateManager(
@@ -694,7 +694,7 @@ object BlockSequencerStateManager {
         store = store,
         enableInvariantCheck = enableInvariantCheck,
         initialMemberCounters = counters,
-        maybeLowerSigningTimestampBound = maybeLowerSigningTimestampBound,
+        maybeLowerTopologyTimestampBound = maybeLowerTopologyTimestampBound,
         timeouts = timeouts,
         loggerFactory = loggerFactory,
       )

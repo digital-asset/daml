@@ -245,7 +245,6 @@ trait ParticipantNodeBootstrapCommon {
       topologyManager: ParticipantTopologyManagerOps,
       packageDependencyResolver: PackageDependencyResolver,
       componentFactory: ParticipantComponentBootstrapFactory,
-      skipRecipientsCheck: Boolean,
   )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
     FutureUnlessShutdown,
     String,
@@ -439,7 +438,6 @@ trait ParticipantNodeBootstrapCommon {
         sequencerInfoLoader,
         arguments.futureSupervisor,
         loggerFactory,
-        skipRecipientsCheck,
       )
 
       _ = {

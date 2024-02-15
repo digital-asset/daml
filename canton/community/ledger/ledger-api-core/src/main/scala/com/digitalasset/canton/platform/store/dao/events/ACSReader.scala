@@ -53,6 +53,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.scaladsl.Source
 
+import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
@@ -72,7 +73,7 @@ class ACSReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dispatcher: DbDispatcher,
-    queryNonPruned: QueryNonPruned,
+    queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
@@ -120,6 +121,20 @@ class ACSReader(
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
     val (activeAtOffset, activeAtEventSeqId) = activeAt
+    def withValidatedActiveAt[T](query: => T)(implicit connection: Connection) =
+      queryValidRange.withOffsetNotBeforePruning(
+        activeAtOffset,
+        pruned =>
+          ACSReader.acsBeforePruningErrorReason(
+            acsOffset = activeAtOffset,
+            prunedUpToOffset = pruned,
+          ),
+        ledgerEnd =>
+          ACSReader.acsAfterLedgerEndErrorReason(
+            acsOffset = activeAtOffset,
+            ledgerEndOffset = ledgerEnd,
+          ),
+      )(query)
 
     val allFilterParties = filter.allFilterParties
     val decomposedFilters = FilterUtils.decomposeFilters(filter).toVector
@@ -201,26 +216,21 @@ class ACSReader(
     ): Future[Vector[EventStorageBackend.RawActiveContract]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreated) { connection =>
-            val result = queryNonPruned.executeSql(
-              eventStorageBackend.activeContractCreateEventBatchV2(
-                eventSequentialIds = ids,
-                allFilterParties = allFilterParties,
-                endInclusive = activeAtEventSeqId,
-              )(connection),
-              activeAtOffset,
-              pruned =>
-                ACSReader.acsBeforePruningErrorReason(
-                  acsOffset = activeAtOffset.toHexString,
-                  prunedUpToOffset = pruned.toHexString,
-                ),
-            )(connection, implicitly)
-            logger.debug(
-              s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
-            )
-            result
+          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreated) {
+            implicit connection =>
+              val result = withValidatedActiveAt(
+                eventStorageBackend.activeContractCreateEventBatchV2(
+                  eventSequentialIds = ids,
+                  allFilterParties = allFilterParties,
+                  endInclusive = activeAtEventSeqId,
+                )(connection)
+              )
+              logger.debug(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                    .map(last => s"until $last")
+                    .getOrElse("")}"
+              )
+              result
           }
         )
       )
@@ -230,26 +240,21 @@ class ACSReader(
     ): Future[Vector[EventStorageBackend.RawActiveContract]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssigned) { connection =>
-            val result = queryNonPruned.executeSql(
-              eventStorageBackend.activeContractAssignEventBatch(
-                eventSequentialIds = ids,
-                allFilterParties = allFilterParties,
-                endInclusive = activeAtEventSeqId,
-              )(connection),
-              activeAtOffset,
-              pruned =>
-                ACSReader.acsBeforePruningErrorReason(
-                  acsOffset = activeAtOffset.toHexString,
-                  prunedUpToOffset = pruned.toHexString,
-                ),
-            )(connection, implicitly)
-            logger.debug(
-              s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
-            )
-            result
+          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssigned) {
+            implicit connection =>
+              val result = withValidatedActiveAt(
+                eventStorageBackend.activeContractAssignEventBatch(
+                  eventSequentialIds = ids,
+                  allFilterParties = allFilterParties,
+                  endInclusive = activeAtEventSeqId,
+                )(connection)
+              )
+              logger.debug(
+                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+                    .map(last => s"until $last")
+                    .getOrElse("")}"
+              )
+              result
           }
         )
       )
@@ -297,19 +302,13 @@ class ACSReader(
           globalPayloadQueriesLimiter.execute(
             dispatcher.executeSql(
               metrics.index.db.reassignmentStream.fetchEventAssignPayloads
-            ) { connection =>
-              val result = queryNonPruned.executeSql(
+            ) { implicit connection =>
+              val result = withValidatedActiveAt(
                 eventStorageBackend.assignEventBatch(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
-                )(connection),
-                activeAtOffset,
-                pruned =>
-                  ACSReader.acsBeforePruningErrorReason(
-                    acsOffset = activeAtOffset.toHexString,
-                    prunedUpToOffset = pruned.toHexString,
-                  ),
-              )(connection, implicitly)
+                )(connection)
+              )
               logger.debug(
                 s"assignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
                     .map(last => s"until $last")
@@ -327,19 +326,13 @@ class ACSReader(
         globalPayloadQueriesLimiter.execute(
           dispatcher.executeSql(
             metrics.index.db.reassignmentStream.fetchEventUnassignPayloads
-          ) { connection =>
-            val result = queryNonPruned.executeSql(
+          ) { implicit connection =>
+            val result = withValidatedActiveAt(
               eventStorageBackend.unassignEventBatch(
                 eventSequentialIds = ids,
                 allFilterParties = allFilterParties,
-              )(connection),
-              activeAtOffset,
-              pruned =>
-                ACSReader.acsBeforePruningErrorReason(
-                  acsOffset = activeAtOffset.toHexString,
-                  prunedUpToOffset = pruned.toHexString,
-                ),
-            )(connection, implicitly)
+              )(connection)
+            )
             logger.debug(
               s"assignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
                   .map(last => s"until $last")
@@ -391,26 +384,21 @@ class ACSReader(
       else
         globalPayloadQueriesLimiter.execute(
           dispatcher
-            .executeSql(metrics.index.db.flatTxStream.fetchEventCreatePayloads) { connection =>
-              val result = queryNonPruned.executeSql(
-                eventStorageBackend.transactionStreamingQueries
-                  .fetchEventPayloadsFlat(EventPayloadSourceForFlatTx.Create)(
-                    eventSequentialIds = ids,
-                    allFilterParties = allFilterParties,
-                  )(connection),
-                activeAtOffset,
-                pruned =>
-                  ACSReader.acsBeforePruningErrorReason(
-                    acsOffset = activeAtOffset.toHexString,
-                    prunedUpToOffset = pruned.toHexString,
-                  ),
-              )(connection, implicitly)
-              logger.debug(
-                s"fetchEventPayloadsFlat for Create returned ${ids.size}/${result.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-              result
+            .executeSql(metrics.index.db.flatTxStream.fetchEventCreatePayloads) {
+              implicit connection =>
+                val result = withValidatedActiveAt(
+                  eventStorageBackend.transactionStreamingQueries
+                    .fetchEventPayloadsFlat(EventPayloadSourceForFlatTx.Create)(
+                      eventSequentialIds = ids,
+                      allFilterParties = allFilterParties,
+                    )(connection)
+                )
+                logger.debug(
+                  s"fetchEventPayloadsFlat for Create returned ${ids.size}/${result.size} ${ids.lastOption
+                      .map(last => s"until $last")
+                      .getOrElse("")}"
+                )
+                result
             }
         )
     }
@@ -669,7 +657,10 @@ class ACSReader(
 
 object ACSReader {
 
-  def acsBeforePruningErrorReason(acsOffset: String, prunedUpToOffset: String): String =
-    s"Active contracts request at offset $acsOffset precedes pruned offset $prunedUpToOffset"
+  def acsBeforePruningErrorReason(acsOffset: Offset, prunedUpToOffset: Offset): String =
+    s"Active contracts request at offset ${acsOffset.toHexString} precedes pruned offset ${prunedUpToOffset.toHexString}"
+
+  def acsAfterLedgerEndErrorReason(acsOffset: Offset, ledgerEndOffset: Offset): String =
+    s"Active contracts request at offset ${acsOffset.toHexString} preceded by ledger end offset ${ledgerEndOffset.toHexString}"
 
 }

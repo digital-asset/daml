@@ -144,7 +144,7 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
       override def sendAsync(
           batch: Batch[DefaultOpenEnvelope],
           sendType: SendType,
-          timestampOfSigningKey: Option[CantonTimestamp],
+          topologyTimestamp: Option[CantonTimestamp],
           maxSequencingTime: CantonTimestamp,
           messageId: MessageId,
           aggregationRule: Option[AggregationRule],

@@ -202,7 +202,6 @@ object ApiConversions {
       workflowId = commands.workflowId,
       applicationId = commands.applicationId,
       commandId = commands.commandId,
-      party = commands.party,
       commands = commands.commands,
       deduplicationPeriod = commands.deduplicationPeriod match {
         case CommandsV2.DeduplicationPeriod.Empty =>

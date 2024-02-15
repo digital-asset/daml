@@ -427,9 +427,8 @@ requestTests run runScripts = testGroup "requests"
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
                     , "1.0"
-                    , ": (Additive a, IsNumeric a)"
-                    , "=> a"
-                    , "```"
+                    , ": NumericScale n"
+                    , "=> Numeric n"                    , "```"
                     , "* * *"
                     ]
               , _range = Just $ Range (Position 1 27) (Position 1 30)

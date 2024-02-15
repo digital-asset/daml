@@ -17,7 +17,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] val txVersion = TransactionVersion.maxVersion
 
   private[this] val transactionSeed = crypto.Hash.hashPrivateKey("PartialTransactionSpec")
-  private[this] val pkgName = Some(data.Ref.PackageName.assertFromString("-package-name-"))
+  private[this] val pkgName = data.Ref.PackageName.assertFromString("-package-name-")
   private[this] val templateId = data.Ref.Identifier.assertFromString("pkg:Mod:Template")
   private[this] val choiceId = data.Ref.Name.assertFromString("choice")
   private[this] val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("My contract"))

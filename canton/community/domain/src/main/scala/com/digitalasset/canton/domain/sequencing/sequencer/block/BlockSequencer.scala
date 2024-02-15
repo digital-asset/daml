@@ -109,7 +109,7 @@ class BlockSequencer(
       protocolVersion,
       cryptoApi,
       topologyClientMember,
-      stateManager.maybeLowerSigningTimestampBound,
+      stateManager.maybeLowerTopologyTimestampBound,
       rateLimitManager,
       orderingTimeFixMode,
       loggerFactory,
@@ -165,22 +165,22 @@ class BlockSequencer(
     case Failure(ex) => noTracingLogger.error("Sequencer flow has failed", ex)
   }
 
-  private object TimestampOfSigningKeyCheck
+  private object TopologyTimestampCheck
 
-  private def ensureTimestampOfSigningKeyPresentForAggregationRuleAndSignatures(
+  private def ensureTopologyTimestampPresentForAggregationRuleAndSignatures(
       submission: SubmissionRequest
-  ): EitherT[Future, SendAsyncError, TimestampOfSigningKeyCheck.type] =
+  ): EitherT[Future, SendAsyncError, TopologyTimestampCheck.type] =
     EitherT.cond[Future](
-      submission.aggregationRule.isEmpty || submission.timestampOfSigningKey.isDefined ||
+      submission.aggregationRule.isEmpty || submission.topologyTimestamp.isDefined ||
         submission.batch.envelopes.forall(_.signatures.isEmpty),
-      TimestampOfSigningKeyCheck,
+      TopologyTimestampCheck,
       SendAsyncError.RequestInvalid(
-        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `timestampOfSigningKey` is not defined. Please set the `timestampOfSigningKey` for the submission."
+        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `topologyTimestamp` is not defined. Please set the `topologyTimestamp` for the submission."
       ): SendAsyncError,
     )
 
   private def validateMaxSequencingTime(
-      _timestampOfSigningKeyCheck: TimestampOfSigningKeyCheck.type,
+      _topologyTimestampCheck: TopologyTimestampCheck.type,
       submission: SubmissionRequest,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     val estimatedSequencingTimestamp = clock.now
@@ -193,13 +193,13 @@ class BlockSequencer(
               s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimatedSequencingTimestamp"
             ),
           )
-          // We can't easily use snapshot(timestampOfSigningKey), because the effective last snapshot transaction
-          // visible in the BlockSequencer can be behind the timestampOfSigningKey and tracking that there's an
+          // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction
+          // visible in the BlockSequencer can be behind the topologyTimestamp and tracking that there's an
           // intermediate topology change is impossible here (will need to communicate with the BlockUpdateGenerator).
-          // If timestampOfSigningKey happens to be ahead of current topology's timestamp we grab the latter
+          // If topologyTimestamp happens to be ahead of current topology's timestamp we grab the latter
           // to prevent a deadlock.
           topologyTimestamp = cryptoApi.approximateTimestamp.min(
-            submission.timestampOfSigningKey.getOrElse(CantonTimestamp.MaxValue)
+            submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
           )
           snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
           domainParameters <- EitherT(
@@ -247,9 +247,9 @@ class BlockSequencer(
     )
 
     for {
-      timestampOfSigningKeyCheck <-
-        ensureTimestampOfSigningKeyPresentForAggregationRuleAndSignatures(submission)
-      _ <- validateMaxSequencingTime(timestampOfSigningKeyCheck, submission)
+      topologyTimestampCheck <-
+        ensureTopologyTimestampPresentForAggregationRuleAndSignatures(submission)
+      _ <- validateMaxSequencingTime(topologyTimestampCheck, submission)
       memberCheck <- EitherT.right[SendAsyncError](
         cryptoApi.currentSnapshotApproximation.ipsSnapshot
           .allMembers()

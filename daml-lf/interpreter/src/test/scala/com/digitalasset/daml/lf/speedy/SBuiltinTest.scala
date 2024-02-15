@@ -1833,11 +1833,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     """
 
   val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
-  val pkgName =
-    if (txVersion < TransactionVersion.minUpgrade)
-      None
-    else
-      Some(Ref.PackageName.assertFromString("-sbuiltin-test-"))
+  val pkgName = Ref.PackageName.assertFromString("-sbuiltin-test-")
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(

@@ -18,7 +18,11 @@ import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.topology.{DefaultTestIdentities, MediatorRef, TestingIdentityFactory}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  MediatorRef,
+  TestingIdentityFactoryX,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -173,7 +177,7 @@ trait DbFinalizedResponseStoreTest
     with FinalizedResponseStoreTest {
   this: DbTest =>
 
-  val pureCryptoApi: CryptoPureApi = TestingIdentityFactory.pureCrypto()
+  val pureCryptoApi: CryptoPureApi = TestingIdentityFactoryX.pureCrypto()
 
   def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*

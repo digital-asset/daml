@@ -10,7 +10,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
@@ -111,16 +111,24 @@ class ProtocolProcessorTest
   )
   private val party = PartyId(UniqueIdentifier.tryFromProtoPrimitive("party::participant"))
   private val domain = DefaultTestIdentities.domainId
-  private val topology: TestingTopology = TestingTopology(
+  private val topology: TestingTopologyX = TestingTopologyX(
     Set(domain),
     Map(
       party.toLf -> Map(
         participant -> ParticipantPermission.Submission
       )
     ),
+    Set(
+      MediatorGroup(
+        NonNegativeInt.zero,
+        Seq(DefaultTestIdentities.mediator),
+        Seq(),
+        PositiveInt.one,
+      )
+    ),
   )
   private val crypto =
-    TestingIdentityFactory(topology, loggerFactory, TestDomainParameters.defaultDynamic)
+    TestingIdentityFactoryX(topology, loggerFactory, TestDomainParameters.defaultDynamic)
       .forOwnerAndDomain(participant, domain)
   private val mockSequencerClient = mock[SequencerClient]
   when(
@@ -217,12 +225,15 @@ class ProtocolProcessorTest
   ): (TestInstance, SyncDomainPersistentState, SyncDomainEphemeralState) = {
 
     val multiDomainEventLog = mock[MultiDomainEventLog]
+    val clock = new WallClock(timeouts, loggerFactory)
     val persistentState =
-      new InMemorySyncDomainPersistentStateOld(
+      new InMemorySyncDomainPersistentStateX(
+        clock,
+        crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
         testedProtocolVersion,
-        crypto.crypto.pureCrypto,
         enableAdditionalConsistencyChecks = true,
+        enableTopologyTransactionValidation = false,
         loggerFactory,
         timeouts,
         futureSupervisor,
@@ -234,7 +245,6 @@ class ProtocolProcessorTest
         )
       }
     val indexedStringStore = InMemoryIndexedStringStore()
-    val clock = new WallClock(timeouts, loggerFactory)
     implicit val mat: Materializer = mock[Materializer]
     val nodePersistentState = timeouts.default.await("creating node persistent state")(
       ParticipantNodePersistentState
@@ -335,7 +345,6 @@ class ProtocolProcessorTest
         testedProtocolVersion,
         loggerFactory,
         FutureSupervisor.Noop,
-        skipRecipientsCheck = false,
       )(
         directExecutionContext: ExecutionContext,
         TransactionResultMessage.transactionResultMessageCast,
@@ -475,8 +484,8 @@ class ProtocolProcessorTest
     }
 
     "fail if there is no active mediator" in {
-      val crypto2 = TestingIdentityFactory(
-        TestingTopology(mediators = Set.empty),
+      val crypto2 = TestingIdentityFactoryX(
+        TestingTopologyX(mediatorGroups = Set.empty),
         loggerFactory,
         parameters.parameters,
       ).forOwnerAndDomain(participant, domain)
@@ -719,8 +728,8 @@ class ProtocolProcessorTest
     } in {
       // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
 
-      val testCrypto = TestingIdentityFactory(
-        topology.copy(mediators = Set.empty), // Topology without any mediator active
+      val testCrypto = TestingIdentityFactoryX(
+        topology.copy(mediatorGroups = Set.empty), // Topology without any mediator active
         loggerFactory,
         parameters.parameters,
       ).forOwnerAndDomain(participant, domain)

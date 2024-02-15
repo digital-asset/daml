@@ -738,8 +738,8 @@ create table sequencer_events (
     -- null if the event is a deliver error
     -- intentionally not creating a foreign key here for performance reasons
     payload_id bigint null,
-    -- optional signing timestamp for deliver events
-    signing_timestamp bigint null,
+    -- optional topology timestamp for deliver events
+    topology_timestamp bigint null,
     -- optional error message for deliver error
     error_message varchar null,
     -- trace context associated with the event

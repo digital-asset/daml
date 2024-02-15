@@ -127,7 +127,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildDisclosedHouseContract(
       owner: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
@@ -162,7 +162,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
   def buildDisclosedCaveContract(
       owner: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = caveTemplateId,
   ): Speedy.ContractInfo = {
     Speedy.ContractInfo(
@@ -205,7 +205,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildContract(
       owner: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
   ): Versioned[ContractInstance] = {
     val contractFields = templateId match {
@@ -239,7 +239,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildHouseContractInfo(
       signatory: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,

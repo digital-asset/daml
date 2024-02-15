@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{Member, ParticipantId, TestingTopology}
+import com.digitalasset.canton.topology.{Member, ParticipantId, TestingTopologyX}
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext, LfPartyId}
 
 import scala.annotation.tailrec
@@ -41,7 +41,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
   lazy val participant2: ParticipantId = ParticipantId("participant2")
 
   lazy val snapshot: TopologySnapshot =
-    TestingTopology(topology =
+    TestingTopologyX(topology =
       Map(
         inactive -> Map.empty,
         party1 -> Map(participant1 -> ParticipantPermission.Submission),

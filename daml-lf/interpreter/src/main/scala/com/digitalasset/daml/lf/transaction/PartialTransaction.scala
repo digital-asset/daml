@@ -142,7 +142,7 @@ private[lf] object PartialTransaction {
     */
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
-      packageName: Option[PackageName],
+      packageName: PackageName,
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
       contractKey: Option[GlobalKeyWithMaintainers],
@@ -449,7 +449,7 @@ private[speedy] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
-      packageName: Option[PackageName],
+      packageName: PackageName,
       templateId: TypeConName,
       targetId: Value.ContractId,
       contract: ContractInfo,

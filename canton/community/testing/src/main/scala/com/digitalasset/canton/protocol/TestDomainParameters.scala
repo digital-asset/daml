@@ -12,8 +12,8 @@ import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.{
   DomainId,
   SequencerId,
-  TestingIdentityFactory,
-  TestingTopology,
+  TestingIdentityFactoryX,
+  TestingTopologyX,
 }
 
 /** Domain parameters used for unit testing with sane default values. */
@@ -23,8 +23,8 @@ object TestDomainParameters {
       clock: Clock,
       transformDefaults: DynamicDomainParameters => DynamicDomainParameters =
         identity[DynamicDomainParameters],
-  ) = TestingIdentityFactory(
-    TestingTopology(),
+  ) = TestingIdentityFactoryX(
+    TestingTopologyX(),
     loggerFactory,
     transformDefaults(DynamicDomainParameters.initialValues(clock, BaseTest.testedProtocolVersion)),
   )

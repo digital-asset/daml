@@ -34,6 +34,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   DbConfig,
   ParticipantDataSourceConfig,
 }
+import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import org.apache.pekko.NotUsed
@@ -97,6 +98,24 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
         )
+        dbSupport <- DbSupport
+          .owner(
+            serverRole = ServerRole.ApiServer,
+            metrics = Metrics.ForTesting,
+            dbConfig = DbConfig(
+              jdbcUrl = jdbcUrl,
+              connectionPool = ConnectionPoolConfig(
+                connectionPoolSize = 10,
+                connectionTimeout = 250.millis,
+              ),
+            ),
+            loggerFactory = loggerFactory,
+          )
+        indexerDbDispatcherOverride = Option.when(
+          dbSupport.storageBackendFactory == H2StorageBackendFactory
+        )(
+          dbSupport.dbDispatcher
+        )
         _indexerHealth <- new IndexerServiceOwner(
           participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),
           participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
@@ -113,20 +132,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             indexerConfig.ingestionParallelism.unwrap
           ),
           highAvailability = HaConfig(),
+          indexerDbDispatcherOverride = indexerDbDispatcherOverride,
         )
-        dbSupport <- DbSupport
-          .owner(
-            serverRole = ServerRole.ApiServer,
-            metrics = Metrics.ForTesting,
-            dbConfig = DbConfig(
-              jdbcUrl = jdbcUrl,
-              connectionPool = ConnectionPoolConfig(
-                connectionPoolSize = 10,
-                connectionTimeout = 250.millis,
-              ),
-            ),
-            loggerFactory = loggerFactory,
-          )
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
             inMemoryState.ledgerEndCache,

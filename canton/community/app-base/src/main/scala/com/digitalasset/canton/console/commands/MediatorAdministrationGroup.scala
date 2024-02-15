@@ -129,8 +129,7 @@ class MediatorPruningAdministrationGroup(
 }
 
 class MediatorXSetupGroup(consoleCommandGroup: ConsoleCommandGroup)
-    extends ConsoleCommandGroup.Impl(consoleCommandGroup)
-    with InitNodeId {
+    extends ConsoleCommandGroup.Impl(consoleCommandGroup) {
   @Help.Summary("Assign a mediator to a domain")
   def assign(
       domainId: DomainId,

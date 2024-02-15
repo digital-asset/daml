@@ -50,6 +50,7 @@ object JdbcIndexer {
       loggerFactory: NamedLoggerFactory,
       dataSourceProperties: DataSourceProperties,
       highAvailability: HaConfig,
+      indexerDbDispatcherOverride: Option[DbDispatcher] = None,
   )(implicit materializer: Materializer) {
 
     def initialized(
@@ -99,7 +100,10 @@ object JdbcIndexer {
           maxInputBufferSize = config.maxInputBufferSize.unwrap,
           inputMappingParallelism = config.inputMappingParallelism.unwrap,
           batchingParallelism = config.batchingParallelism.unwrap,
-          ingestionParallelism = config.ingestionParallelism.unwrap,
+          ingestionParallelism =
+            // override is just there for H2
+            if (indexerDbDispatcherOverride.isDefined) 1
+            else config.ingestionParallelism.unwrap,
           submissionBatchSize = config.submissionBatchSize,
           maxTailerBatchSize = config.maxTailerBatchSize,
           maxOutputBatchedBufferSize = config.maxOutputBatchedBufferSize,
@@ -142,6 +146,7 @@ object JdbcIndexer {
               ),
             ),
         loggerFactory = loggerFactory,
+        indexerDbDispatcherOverride = indexerDbDispatcherOverride,
       )
 
       indexer
