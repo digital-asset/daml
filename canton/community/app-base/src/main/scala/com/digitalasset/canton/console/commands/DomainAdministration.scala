@@ -511,7 +511,7 @@ trait DomainAdministration {
 
         if (waitDuration > Duration.ZERO) {
           logger.info(
-            show"Found incompatible past domain parameters. Waiting for $waitDuration..."
+            show"Found incompatible past domain parameters. Waiting for $waitDuration before updating ledgerTimeRecordTimeTolerance..."
           )
 
           // Use the clock instead of Threading.sleep to support sim clock based tests.

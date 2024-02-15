@@ -7,12 +7,12 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
+import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.TimedLoadGauge
@@ -25,14 +25,15 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
 import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class DbContractKeyJournal(
     override protected val storage: DbStorage,
     override val domainId: IndexedDomain,
-    maxContractIdSqlInListSize: PositiveNumeric[Int],
+    batching: BatchingConfig,
     batchingParametersConfig: PrunableByTimeParameters,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -68,7 +69,7 @@ class DbContractKeyJournal(
             val inClauses = DbStorage.toInClauses_(
               "contract_key_hash",
               keysNel,
-              maxContractIdSqlInListSize,
+              batching.maxItemsInSqlClause,
             )
             val queries = inClauses.map { inClause =>
               val query =
@@ -115,46 +116,54 @@ class DbContractKeyJournal(
 
   override def addKeyStateUpdates(updates: Map[LfGlobalKey, (Status, TimeOfChange)])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ContractKeyJournalError, Unit] =
-    processingTime.eitherTEvent {
-      import DbStorage.Implicits.BuilderChain.*
+  ): EitherT[Future, ContractKeyJournalError, Unit] = {
+    MonadUtil.batchedSequentialTraverse_(
+      parallelism = batching.parallelism,
+      chunkSize = batching.maxItemsInSqlClause,
+    )(
+      updates.keySet.toSeq
+    ) { keyUpdates =>
+      processingTime.eitherTEvent {
+        import DbStorage.Implicits.BuilderChain.*
+        // Keep trying to insert the updates until all updates are in the DB or an exception occurs or we've found an inconsistency.
+        // This is not necessarily something we expect to happen but has been added here to catch programming
+        // or other errors.
+        val fut =
+          Monad[Future].tailRecM[LazyList[LfGlobalKey], Either[ContractKeyJournalError, Unit]](
+            updates.keySet.to(LazyList)
+          ) { remainingKeys =>
+            if (remainingKeys.isEmpty) {
+              Future.successful(Either.right(Either.right(())))
+            } else {
+              val values =
+                storage.profile match {
+                  case _: DbStorage.Profile.Oracle =>
+                    remainingKeys
+                      .map { key =>
+                        val (status, toc) = updates(key)
+                        sql"select $domainId domain_id, $key contract_key_hash, ${checked(
+                            status
+                          )} status, ${toc.timestamp} ts, ${toc.rc} request_counter from dual"
+                      }
+                      .intercalate(sql" union all ")
+                  case _ =>
+                    remainingKeys
+                      .map { key =>
+                        val (status, toc) = updates(key)
+                        sql"""($domainId, $key, CAST(${checked(
+                            status
+                          )} as key_status), ${toc.timestamp}, ${toc.rc})"""
+                      }
+                      .intercalate(sql", ")
+                }
 
-      // Keep trying to insert the updates until all updates are in the DB or an exception occurs or we've found an inconsistency.
-      val fut =
-        Monad[Future].tailRecM[LazyList[LfGlobalKey], Either[ContractKeyJournalError, Unit]](
-          updates.keySet.to(LazyList)
-        ) { remainingKeys =>
-          if (remainingKeys.isEmpty) { Future.successful(Either.right(Either.right(()))) }
-          else {
-            val values =
-              storage.profile match {
-                case _: DbStorage.Profile.Oracle =>
-                  remainingKeys
-                    .map { key =>
-                      val (status, toc) = updates(key)
-                      sql"select $domainId domain_id, $key contract_key_hash, ${checked(
-                          status
-                        )} status, ${toc.timestamp} ts, ${toc.rc} request_counter from dual"
-                    }
-                    .intercalate(sql" union all ")
-                case _ =>
-                  remainingKeys
-                    .map { key =>
-                      val (status, toc) = updates(key)
-                      sql"""($domainId, $key, CAST(${checked(
-                          status
-                        )} as key_status), ${toc.timestamp}, ${toc.rc})"""
-                    }
-                    .intercalate(sql", ")
-              }
-
-            val updatesCount = remainingKeys.length
-            val query = storage.profile match {
-              case _: DbStorage.Profile.H2 =>
-                sql"""
+              val updatesCount = remainingKeys.length
+              val query = storage.profile match {
+                case _: DbStorage.Profile.H2 =>
+                  sql"""
                   merge into contract_key_journal as journal
                   using (select * from (values """ ++ values ++
-                  sql""") as upds(domain_id, contract_key_hash, status, ts, request_counter)) as source
+                    sql""") as upds(domain_id, contract_key_hash, status, ts, request_counter)) as source
                   on journal.domain_id = source.domain_id and
                      journal.contract_key_hash = source.contract_key_hash and
                      journal.ts = source.ts and
@@ -163,71 +172,78 @@ class DbContractKeyJournal(
                     insert (domain_id, contract_key_hash, status, ts, request_counter)
                      values (source.domain_id, source.contract_key_hash, source.status, source.ts, source.request_counter);
                   """
-              case _: DbStorage.Profile.Postgres =>
-                sql"""
+                case _: DbStorage.Profile.Postgres =>
+                  sql"""
                   insert into contract_key_journal(domain_id, contract_key_hash, status, ts, request_counter)
                   values """ ++ values ++
-                  sql"""
+                    sql"""
                   on conflict (domain_id, contract_key_hash, ts, request_counter) do nothing;
                   """
-              case _: DbStorage.Profile.Oracle =>
-                sql"""
+                case _: DbStorage.Profile.Oracle =>
+                  sql"""
                       merge into contract_key_journal ckj USING (with UPDATES as(""" ++ values ++
-                  sql""") select * from UPDATES) S on ( ckj.domain_id=S.domain_id and ckj.contract_key_hash=S.contract_key_hash and ckj.ts=S.ts and ckj.request_counter=S.request_counter)
+                    sql""") select * from UPDATES) S on ( ckj.domain_id=S.domain_id and ckj.contract_key_hash=S.contract_key_hash and ckj.ts=S.ts and ckj.request_counter=S.request_counter)
                        when not matched then
                        insert (domain_id, contract_key_hash, status, ts, request_counter)
                        values (S.domain_id, S.contract_key_hash, S.status, S.ts, S.request_counter)
                      """
-            }
+              }
 
-            storage.update(query.asUpdate, functionFullName).flatMap { rowCount =>
-              if (rowCount == updatesCount) Future.successful(Either.right(Either.right(())))
-              else {
-                val keysQ = remainingKeys.map(key => sql"$key").intercalate(sql", ")
-                val (tss, rcs) =
-                  remainingKeys.collect(updates).map(_._2).map(toc => (toc.timestamp, toc.rc)).unzip
-                val tsQ = tss.map(ts => sql"$ts").intercalate(sql", ")
-                val rcQ = rcs.map(rc => sql"$rc").intercalate(sql", ")
-                // We read all keys to be written rather than those keys mapped to a different value
-                // so that we find out if some key is still missing in the DB.
+              storage.update(query.asUpdate, functionFullName).flatMap { rowCount =>
+                if (rowCount == updatesCount) Future.successful(Either.right(Either.right(())))
+                else {
+                  val keysQ = remainingKeys.map(key => sql"$key").intercalate(sql", ")
+                  val (tss, rcs) =
+                    remainingKeys
+                      .collect(updates)
+                      .map(_._2)
+                      .map(toc => (toc.timestamp, toc.rc))
+                      .unzip
+                  val tsQ = tss.map(ts => sql"$ts").intercalate(sql", ")
+                  val rcQ = rcs.map(rc => sql"$rc").intercalate(sql", ")
+                  // We read all keys to be written rather than those keys mapped to a different value
+                  // so that we find out if some key is still missing in the DB.
 
-                val keyStatesQ =
-                  sql"""
+                  val keyStatesQ =
+                    sql"""
                 select contract_key_hash, status
                 from contract_key_journal
                 where domain_id = $domainId and contract_key_hash in (""" ++ keysQ ++
-                    sql""") and ts in (""" ++ tsQ ++ sql""") and request_counter in (""" ++ rcQ ++ sql""")
+                      sql""") and ts in (""" ++ tsQ ++ sql""") and request_counter in (""" ++ rcQ ++
+                      sql""")
                 """
-                storage.query(keyStatesQ.as[(LfHash, Status)], functionFullName).map {
-                  keysWithStatus =>
-                    val found = keysWithStatus.map { case (keyHash, status) =>
-                      keyHash -> status
-                    }.toMap
-                    val wrongOrMissing = remainingKeys.traverse { key =>
-                      found.get(key.hash) match {
-                        case None => Either.right(Some(key))
-                        case Some(status) =>
-                          val (newStatus, toc) = checked(updates(key))
-                          Either.cond(
-                            status == newStatus,
-                            None,
-                            InconsistentKeyAllocationStatus(key, toc, status, newStatus),
-                          )
+                  storage.query(keyStatesQ.as[(LfHash, Status)], functionFullName).map {
+                    keysWithStatus =>
+                      val found = keysWithStatus.map { case (keyHash, status) =>
+                        keyHash -> status
+                      }.toMap
+                      val wrongOrMissing = remainingKeys.traverse { key =>
+                        found.get(key.hash) match {
+                          case None => Either.right(Some(key))
+                          case Some(status) =>
+                            val (newStatus, toc) = checked(updates(key))
+                            Either.cond(
+                              status == newStatus,
+                              None,
+                              InconsistentKeyAllocationStatus(key, toc, status, newStatus),
+                            )
+                        }
                       }
-                    }
-                    wrongOrMissing match {
-                      case Left(wrong) => Either.right(Either.left(wrong))
-                      case Right(missingO) =>
-                        val missing = missingO.flattenOption
-                        Either.cond(missing.isEmpty, Either.right(()), missing)
-                    }
+                      wrongOrMissing match {
+                        case Left(wrong) => Either.right(Either.left(wrong))
+                        case Right(missingO) =>
+                          val missing = missingO.flattenOption
+                          Either.cond(missing.isEmpty, Either.right(()), missing)
+                      }
+                  }
                 }
               }
             }
           }
-        }
-      EitherTUtil.fromFuture(fut, DbContractKeyJournalError).subflatMap(Predef.identity)
+        EitherTUtil.fromFuture(fut, DbContractKeyJournalError).subflatMap(Predef.identity)
+      }
     }
+  }
 
   override def doPrune(
       beforeAndIncluding: CantonTimestamp,

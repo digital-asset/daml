@@ -94,7 +94,7 @@ abstract class DbSyncDomainPersistentStateCommon(
   val contractKeyJournal: DbContractKeyJournal = new DbContractKeyJournal(
     storage,
     domainId,
-    batching.maxItemsInSqlClause,
+    batching,
     parameters.journalPruning.toInternal,
     timeouts,
     loggerFactory,
