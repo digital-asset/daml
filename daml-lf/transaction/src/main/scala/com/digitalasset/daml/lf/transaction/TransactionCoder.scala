@@ -19,11 +19,11 @@ import scala.jdk.CollectionConverters._
 
 object TransactionCoder {
 
-  abstract class EncodeNid private[lf] {
+  sealed abstract class EncodeNid private[lf] {
     def asString(id: NodeId): String
   }
 
-  abstract class DecodeNid private[lf] {
+  sealed abstract class DecodeNid private[lf] {
     def fromString(s: String): Either[DecodeError, NodeId]
   }
 
@@ -85,11 +85,10 @@ object TransactionCoder {
   /** Encodes a contract instance with the help of the contractId encoding function
     *
     * @param coinst    the contract instance to be encoded
-    * @param encodeCid function to encode a cid to protobuf
     * @return protobuf wire format contract instance
     */
   def encodeContractInstance(
-      encodeCid: ValueCoder.EncodeCid,
+      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
       coinst: Versioned[Value.ContractInstance],
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     for {
@@ -122,7 +121,7 @@ object TransactionCoder {
     * @return contract instance value
     */
   def decodeContractInstance(
-      decodeCid: ValueCoder.DecodeCid,
+      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
       protoCoinst: TransactionOuterClass.ContractInstance,
   ): Either[DecodeError, Versioned[Value.ContractInstance]] =
     for {
@@ -138,7 +137,7 @@ object TransactionCoder {
     val builder = TransactionOuterClass.KeyWithMaintainers.newBuilder()
     key.maintainers.foreach(builder.addMaintainers(_))
     ValueCoder
-      .encodeValue(ValueCoder.UnsafeNoCidEncoder, version, key.value)
+      .encodeValue(valueVersion = version, v0 = key.value)
       .map(builder.setKeyUnversioned(_).build())
   }
 
@@ -167,15 +166,13 @@ object TransactionCoder {
     *
     * @param nodeId    node id of the node to be encoded
     * @param node      the node to be encoded
-    * @param encodeNid node id encoding to string
-    * @param encodeCid contract id encoding to string
     * @tparam Nid node id type
     * @tparam Cid contract id type
     * @return protocol buffer format node
     */
   private[lf] def encodeNode(
-      encodeNid: EncodeNid,
-      encodeCid: ValueCoder.EncodeCid,
+      encodeNid: EncodeNid = NidEncoder,
+      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
       enclosingVersion: TransactionVersion,
       nodeId: NodeId,
       node: Node,
@@ -325,9 +322,8 @@ object TransactionCoder {
     for {
       maintainers <- toPartySet(keyWithMaintainers.getMaintainersList)
       value <- decodeValue(
-        ValueCoder.NoCidDecoder,
-        version,
-        keyWithMaintainers.getKeyUnversioned,
+        version = version,
+        unversionedProto = keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
         .build(templateId, value)
@@ -345,9 +341,8 @@ object TransactionCoder {
       maintainers <- toPartyTreeSet(keyWithMaintainers.getMaintainersList)
       _ <- Either.cond(maintainers.nonEmpty, (), DecodeError("key without maintainers"))
       value <- decodeValue(
-        ValueCoder.NoCidDecoder,
-        version,
-        keyWithMaintainers.getKeyUnversioned,
+        version = version,
+        unversionedProto = keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
         .build(templateId, value)
@@ -369,7 +364,7 @@ object TransactionCoder {
 
   // package private for test, do not use outside TransactionCoder
   private[lf] def decodeValue(
-      decodeCid: ValueCoder.DecodeCid,
+      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
       version: TransactionVersion,
       unversionedProto: => ByteString,
   ): Either[DecodeError, Value] =
@@ -378,15 +373,11 @@ object TransactionCoder {
   /** read a [[Node[Nid]] from protobuf
     *
     * @param protoNode protobuf encoded node
-    * @param decodeNid function to read node id from String
-    * @param decodeCid function to read contract id from String
-    * @tparam Nid Node id type
-    * @tparam Cid Contract id type
     * @return decoded GenNode
     */
   private[lf] def decodeVersionedNode(
-      decodeNid: DecodeNid,
-      decodeCid: ValueCoder.DecodeCid,
+      decodeNid: DecodeNid = NidDecoder,
+      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
       transactionVersion: TransactionVersion,
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, (NodeId, Node)] =
@@ -568,15 +559,13 @@ object TransactionCoder {
   /** Encode a [[Transaction[Nid]]] to protobuf using [[TransactionVersion]] provided by the libary.
     *
     * @param tx        the transaction to be encoded
-    * @param encodeNid node id encoding function
-    * @param encodeCid contract id encoding function
     * @tparam Nid node id type
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
   def encodeTransaction(
-      encodeNid: EncodeNid,
-      encodeCid: ValueCoder.EncodeCid,
+      encodeNid: EncodeNid = NidEncoder,
+      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
       tx: VersionedTransaction,
   ): Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
@@ -588,15 +577,13 @@ object TransactionCoder {
   /** Encode a transaction to protobuf using [[TransactionVersion]] provided by in the [[VersionedTransaction]] argument.
     *
     * @param transaction the transaction to be encoded
-    * @param encodeNid   node id encoding function
-    * @param encodeCid   contract id encoding function
     * @tparam Nid node id type
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
   private[transaction] def encodeTransactionWithCustomVersion(
-      encodeNid: EncodeNid,
-      encodeCid: ValueCoder.EncodeCid,
+      encodeNid: EncodeNid = NidEncoder,
+      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
       transaction: VersionedTransaction,
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
     val builder = TransactionOuterClass.Transaction
@@ -650,15 +637,13 @@ object TransactionCoder {
     * Supported transaction versions configured in [[TransactionVersion]].
     *
     * @param protoTx   protobuf encoded transaction
-    * @param decodeNid node id decoding function
-    * @param decodeCid contract id decoding function
     * @tparam Nid node id type
     * @tparam Cid contract id type
     * @return decoded transaction
     */
   def decodeTransaction(
-      decodeNid: DecodeNid,
-      decodeCid: ValueCoder.DecodeCid,
+      decodeNid: DecodeNid = NidDecoder,
+      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
       protoTx: TransactionOuterClass.Transaction,
   ): Either[DecodeError, VersionedTransaction] =
     for {
@@ -676,13 +661,11 @@ object TransactionCoder {
     * [[TransactionCoder.decodeTransaction]].
     *
     * @param protoTx   protobuf encoded transaction
-    * @param decodeNid node id decoding function
-    * @param decodeCid contract id decoding function
     * @tparam Nid node id type
     * @tparam Cid contract id type
     * @return decoded transaction
     */
-  private def decodeTransaction(
+  private[this] def decodeTransaction(
       decodeNid: DecodeNid,
       decodeCid: ValueCoder.DecodeCid,
       txVersion: TransactionVersion,
@@ -760,7 +743,7 @@ object TransactionCoder {
   ): Either[DecodeError, GlobalKey] =
     for {
       tmplId <- ValueCoder.decodeIdentifier(rawTmplId)
-      value <- ValueCoder.decodeValue(ValueCoder.NoCidDecoder, nodeVersion, rawKey)
+      value <- ValueCoder.decodeValue(version = nodeVersion, bytes = rawKey)
       key <- GlobalKey
         .build(tmplId, value)
         .left
@@ -890,7 +873,7 @@ object TransactionCoder {
         .map(DecodeError)
       pkgName <- decodePackageName(proto.getPackageName)
       templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
-      createArg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getCreateArg)
+      createArg <- ValueCoder.decodeValue(version = version, bytes = proto.getCreateArg)
       keyWithMaintainers <-
         if (proto.hasContractKeyWithMaintainers)
           strictDecodeKeyWithMaintainers(version, templateId, proto.getContractKeyWithMaintainers)

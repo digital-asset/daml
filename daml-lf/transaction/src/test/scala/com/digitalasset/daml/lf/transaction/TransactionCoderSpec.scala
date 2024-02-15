@@ -47,18 +47,14 @@ class TransactionCoderSpec
           val versionedNode = normalizeCreate(createNode.updateVersion(nodeVersion))
           val Right(encodedNode) = TransactionCoder
             .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              txVersion,
-              NodeId(0),
-              versionedNode,
+              enclosingVersion = txVersion,
+              nodeId = NodeId(0),
+              node = versionedNode,
             )
 
           TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            txVersion,
-            encodedNode,
+            transactionVersion = txVersion,
+            protoNode = encodedNode,
           ) shouldBe Right((NodeId(0), versionedNode))
       }
     }
@@ -70,20 +66,16 @@ class TransactionCoderSpec
           val encodedNode =
             TransactionCoder
               .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                txVersion,
-                NodeId(0),
-                versionedNode,
+                enclosingVersion = txVersion,
+                nodeId = NodeId(0),
+                node = versionedNode,
               )
               .toOption
               .get
           TransactionCoder
             .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              txVersion,
-              encodedNode,
+              transactionVersion = txVersion,
+              protoNode = encodedNode,
             ) shouldBe Right((NodeId(0), versionedNode))
       }
     }
@@ -95,18 +87,14 @@ class TransactionCoderSpec
           val Right(encodedNode) =
             TransactionCoder
               .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                txVersion,
-                NodeId(0),
-                normalizedNode,
+                enclosingVersion = txVersion,
+                nodeId = NodeId(0),
+                node = normalizedNode,
               )
           TransactionCoder
             .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              txVersion,
-              encodedNode,
+              transactionVersion = txVersion,
+              protoNode = encodedNode,
             ) shouldBe Right((NodeId(0), normalizedNode))
       }
     }
@@ -118,18 +106,14 @@ class TransactionCoderSpec
           val Right(encodedNode) =
             TransactionCoder
               .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                txVersion,
-                NodeId(0),
-                normalizedNode,
+                enclosingVersion = txVersion,
+                nodeId = NodeId(0),
+                node = normalizedNode,
               )
           TransactionCoder
             .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              txVersion,
-              encodedNode,
+              transactionVersion = txVersion,
+              protoNode = encodedNode,
             ) shouldBe Right((NodeId(0), normalizedNode))
         }
       }
@@ -145,9 +129,7 @@ class TransactionCoderSpec
         inside(
           TransactionCoder
             .encodeTransactionWithCustomVersion(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              tx2,
+              transaction = tx2
             )
         ) {
           case Left(EncodeError(msg)) =>
@@ -157,9 +139,7 @@ class TransactionCoderSpec
             val decodedVersionedTx = assertRight(
               TransactionCoder
                 .decodeTransaction(
-                  TransactionCoder.NidDecoder,
-                  ValueCoder.CidDecoder,
-                  encodedTx,
+                  protoTx = encodedTx
                 )
             )
             decodedVersionedTx shouldBe tx2
@@ -173,22 +153,18 @@ class TransactionCoderSpec
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
               TransactionCoder
                 .encodeTransactionWithCustomVersion(
-                  TransactionCoder.NidEncoder,
-                  ValueCoder.CidEncoder,
-                  VersionedTransaction(
+                  transaction = VersionedTransaction(
                     TransactionVersion.VDev,
                     tx.nodes.view.mapValues(updateVersion(_, TransactionVersion.VDev)).toMap,
                     tx.roots,
-                  ),
+                  )
                 )
             ).toBuilder.setVersion(badTxVer).build()
 
             encodedTxWithBadTxVer.getVersion shouldEqual badTxVer
 
             TransactionCoder.decodeTransaction(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              encodedTxWithBadTxVer,
+              protoTx = encodedTxWithBadTxVer
             ) shouldEqual Left(
               DecodeError(s"Unsupported transaction version '$badTxVer'")
             )
@@ -221,16 +197,12 @@ class TransactionCoderSpec
 
         val decoded = TransactionCoder
           .decodeTransaction(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            TransactionCoder
+            protoTx = TransactionCoder
               .encodeTransaction(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                tx,
+                tx = tx
               )
               .toOption
-              .get,
+              .get
           )
           .toOption
           .get
@@ -249,11 +221,9 @@ class TransactionCoderSpec
 
           TransactionCoder
             .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              txVersion,
-              nodeId,
-              normalizedNode,
+              enclosingVersion = txVersion,
+              nodeId = nodeId,
+              node = normalizedNode,
             ) shouldBe Symbol("left")
       }
     }
@@ -270,11 +240,9 @@ class TransactionCoderSpec
           val nodeVersion = node.version
           val encodeVersion = ValueCoder.encodeValueVersion(version)
           val Right(encodedNode) = TransactionCoder.encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            NodeId(0),
-            normalizeNode(node),
+            enclosingVersion = nodeVersion,
+            nodeId = NodeId(0),
+            node = normalizeNode(node),
           )
           val encodedFetch = encodedNode.getFetch
 
@@ -287,10 +255,8 @@ class TransactionCoderSpec
             .build()
 
           TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            nodeVersion,
-            encodedNode.toBuilder.setFetch(testCase).build(),
+            transactionVersion = nodeVersion,
+            protoNode = encodedNode.toBuilder.setFetch(testCase).build(),
           ) shouldBe a[Left[_, _]]
         }
       }
@@ -302,11 +268,9 @@ class TransactionCoderSpec
           val nodeVersion = node.version
           val encodeVersion = ValueCoder.encodeValueVersion(version)
           val Right(encodedNode) = TransactionCoder.encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            NodeId(0),
-            normalizeNode(node),
+            enclosingVersion = nodeVersion,
+            nodeId = NodeId(0),
+            node = normalizeNode(node),
           )
           val encodedLookup = encodedNode.getLookupByKey
 
@@ -319,10 +283,8 @@ class TransactionCoderSpec
             .build()
 
           TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            nodeVersion,
-            encodedNode.toBuilder.setLookupByKey(testCase).build(),
+            transactionVersion = nodeVersion,
+            protoNode = encodedNode.toBuilder.setLookupByKey(testCase).build(),
           ) shouldBe a[Left[_, _]]
         }
       }
@@ -344,11 +306,9 @@ class TransactionCoderSpec
 
         val Right(encoded) = TransactionCoder
           .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            nodeId,
-            normalizedNode,
+            enclosingVersion = nodeVersion,
+            nodeId = nodeId,
+            node = normalizedNode,
           )
 
         TransactionCoder.decodeNodeVersion(txVersion, encoded) shouldBe Right(nodeVersion)
@@ -366,11 +326,9 @@ class TransactionCoderSpec
 
         val Right(encoded) = TransactionCoder
           .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            v2,
-            nodeId,
-            normalizedNode,
+            enclosingVersion = v2,
+            nodeId = nodeId,
+            node = normalizedNode,
           )
 
         TransactionCoder.decodeNodeVersion(v1, encoded) shouldBe a[Left[_, _]]
@@ -424,9 +382,9 @@ class TransactionCoderSpec
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
         val instance = normalizedCreate.versionedCoinst
         val Right(encoded) =
-          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, instance)
+          TransactionCoder.encodeContractInstance(coinst = instance)
         val Right(decoded) =
-          TransactionCoder.decodeContractInstance(ValueCoder.CidDecoder, encoded)
+          TransactionCoder.decodeContractInstance(protoCoinst = encoded)
 
         decoded shouldBe instance
       }
@@ -704,18 +662,14 @@ class TransactionCoderSpec
 
         val Right(encoded) = TransactionCoder
           .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            nodeId,
-            normalizedNode,
+            enclosingVersion = nodeVersion,
+            nodeId = nodeId,
+            node = normalizedNode,
           )
 
         TransactionCoder.decodeVersionedNode(
-          TransactionCoder.NidDecoder,
-          ValueCoder.CidDecoder,
-          txVersion,
-          encoded,
+          transactionVersion = txVersion,
+          protoNode = encoded,
         ) shouldBe Symbol("left")
 
       }
@@ -734,18 +688,14 @@ class TransactionCoderSpec
 
         val result = TransactionCoder
           .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            node.version,
-            nodeId,
-            normalizedNode,
+            enclosingVersion = node.version,
+            nodeId = nodeId,
+            node = normalizedNode,
           )
         inside(result) { case Right(encoded) =>
           val result = TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            node.version,
-            encoded,
+            transactionVersion = node.version,
+            protoNode = encoded,
           )
           result shouldBe Right(
             nodeId -> normalizedNode.copy(
@@ -769,18 +719,14 @@ class TransactionCoderSpec
 
         val result = TransactionCoder
           .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            node.version,
-            nodeId,
-            normalizedNode,
+            enclosingVersion = node.version,
+            nodeId = nodeId,
+            node = normalizedNode,
           )
         inside(result) { case Right(encoded) =>
           val result = TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            node.version,
-            encoded,
+            transactionVersion = node.version,
+            protoNode = encoded,
           )
           result shouldBe Right(
             nodeId -> normalizedNode.copy(

@@ -37,8 +37,8 @@ class ValueCoderSpec
       val value0 = ValueText("a" * (1024 * 1024 * 1024))
       val value1 = ValueList(FrontStack(value0, value0))
 
-      ValueCoder.encodeValue(ValueCoder.CidEncoder, ver, value0) shouldBe a[Right[_, _]]
-      ValueCoder.encodeValue(ValueCoder.CidEncoder, ver, value1) shouldBe a[Left[_, _]]
+      ValueCoder.encodeValue(valueVersion = ver, v0 = value0) shouldBe a[Right[_, _]]
+      ValueCoder.encodeValue(valueVersion = ver, v0 = value1) shouldBe a[Left[_, _]]
     }
   }
 
@@ -65,14 +65,12 @@ class ValueCoderSpec
             val Right(dec) = Numeric.fromBigDecimal(s, d)
             val value = ValueNumeric(dec)
             val recoveredNumeric = ValueCoder.decodeValue(
-              ValueCoder.CidDecoder,
-              TransactionVersion.minVersion,
-              assertRight(
+              version = TransactionVersion.minVersion,
+              bytes = assertRight(
                 ValueCoder
                   .encodeValue(
-                    ValueCoder.CidEncoder,
-                    TransactionVersion.minVersion,
-                    value,
+                    valueVersion = TransactionVersion.minVersion,
+                    v0 = value,
                   )
               ),
             ) match {
@@ -174,20 +172,18 @@ class ValueCoderSpec
       // We double check that 100 is the maximum
       ValueCoder
         .encodeValue(
-          ValueCoder.CidEncoder,
-          TransactionVersion.maxVersion,
-          toNat(1, n), // 101
+          valueVersion = TransactionVersion.maxVersion,
+          v0 = toNat(1, n), // 101
         ) shouldBe a[Left[_, _]]
 
       val encoded = assertRight(
         ValueCoder
-          .encodeValue(ValueCoder.CidEncoder, TransactionVersion.maxVersion, n)
+          .encodeValue(valueVersion = TransactionVersion.maxVersion, v0 = n)
       )
 
       ValueCoder.decodeValue(
-        ValueCoder.CidDecoder,
-        TransactionVersion.maxVersion,
-        encoded,
+        version = TransactionVersion.maxVersion,
+        bytes = encoded,
       ) shouldBe Right(n)
     }
   }
@@ -196,10 +192,10 @@ class ValueCoderSpec
     val normalizedValue = transaction.Util.assertNormalizeValue(value0, version)
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValue(ValueCoder.CidEncoder, Versioned(version, value0))
+        .encodeVersionedValue(versionedValue = Versioned(version, value0))
     )
     val decoded: VersionedValue = assertRight(
-      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded)
+      ValueCoder.decodeVersionedValue(protoValue0 = encoded)
     )
 
     decoded shouldEqual Versioned(version, normalizedValue)
@@ -209,7 +205,7 @@ class ValueCoderSpec
     val encodedSentOverWire: proto.VersionedValue =
       proto.VersionedValue.parseFrom(encoded.toByteArray)
     val decodedSentOverWire: VersionedValue = assertRight(
-      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encodedSentOverWire)
+      ValueCoder.decodeVersionedValue(protoValue0 = encodedSentOverWire)
     )
 
     decodedSentOverWire shouldEqual Versioned(version, normalizedValue)
