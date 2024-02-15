@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.value.{
   Value as ApiValue,
 }
 import com.daml.lf.data.Bytes
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -291,6 +292,8 @@ final class LfValueTranslation(
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,
+            // TODO https://github.com/digital-asset/daml/issues/17995
+            packageName = Ref.PackageName.assertFromString("dummyReplace"),
             templateId = templateId,
             arg = createArgument.unversioned,
             agreementText = raw.partial.agreementText.getOrElse(""),
@@ -411,6 +414,8 @@ final class LfValueTranslation(
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,
+            // TODO https://github.com/digital-asset/daml/issues/17995
+            packageName = Ref.PackageName.assertFromString("dummyReplace"),
             templateId = createdEvent.templateId,
             arg = createArgument.unversioned,
             agreementText = createdEvent.agreementText.getOrElse(""),

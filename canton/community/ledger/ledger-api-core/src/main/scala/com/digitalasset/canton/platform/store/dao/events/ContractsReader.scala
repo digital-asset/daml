@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
@@ -11,10 +12,7 @@ import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
-import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
-  RawArchivedContract,
-  RawCreatedContract,
-}
+import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{RawArchivedContract, RawCreatedContract}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.ContractsReader.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
@@ -162,6 +160,8 @@ private[dao] object ContractsReader {
       s"Failed to deserialize create argument for contract ${contractId.coid}",
     )
     Contract(
+      // TODO https://github.com/digital-asset/daml/issues/17995
+      packageName = Ref.PackageName.assertFromString("dummyReplace"),
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
     )
@@ -172,6 +172,8 @@ private[dao] object ContractsReader {
       createArgument: Value,
   ): Contract =
     Contract(
+      // TODO https://github.com/digital-asset/daml/issues/17995
+      packageName = Ref.PackageName.assertFromString("dummyReplace"),
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
     )
