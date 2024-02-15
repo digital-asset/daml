@@ -1,3 +1,6 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module DataChanges (main) where
@@ -31,6 +34,8 @@ main = tests
   , ("Fails if nested fields are removed", templateFieldsRemovedNested)
   , ("Fails if nested non-optional fields are added", templateNonOptionalFieldsAddedNested)
   , ("Succeeds if a nested variant is unchanged", templateVariantUnchanged)
+  , ("Succeeds if a nested variant is upgraded and extended", templateVariantUpgradeFromOld)
+  , ("Succeeds if a nested variant is an old case when downgrading", templateVariantDowngradeFromOld)
   , ("Fails if a nested variant is a removed case", templateVariantUpgradeToRemoved)
   , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
   ]
@@ -260,3 +265,20 @@ templateVariantDowngradeFromNew = do
   case res of
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
+
+templateVariantUpgradeFromOld : Script ()
+templateVariantUpgradeFromOld =
+  templateInvalidChange
+    @V2.VariantAdditional
+    True
+    (`V1.VariantAdditional` V1.VariantAdditionalData1)
+    V2.VariantAdditionalCall
+
+templateVariantDowngradeFromOld : Script ()
+templateVariantDowngradeFromOld =
+  templateInvalidChange
+    @V1.VariantAdditional
+    True
+    (`V2.VariantAdditional` V2.VariantAdditionalData1)
+    V1.VariantAdditionalCall
+
