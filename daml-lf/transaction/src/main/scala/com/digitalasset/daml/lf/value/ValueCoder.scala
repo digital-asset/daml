@@ -7,17 +7,16 @@ package value
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.daml.lf.transaction.{Versioned, TransactionVersion}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
-import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf
 import com.google.protobuf.{ByteString, CodedInputStream}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Try, Success, Failure}
 
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances
@@ -45,59 +44,34 @@ object ValueCoder {
       EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
-  sealed abstract class EncodeCid private[lf] {
-    private[lf] def encode(contractId: ContractId): proto.ContractId
-  }
+  private[lf] def encodeCoid(cid: ContractId): proto.ContractId =
+    proto.ContractId.newBuilder.setContractId(cid.coid).build
 
-  object CidEncoder extends EncodeCid {
-    private[lf] def encode(cid: ContractId): proto.ContractId =
-      proto.ContractId.newBuilder.setContractId(cid.coid).build
-  }
+  object CidEncoder
+  type EncodeCid = CidEncoder.type
 
-  sealed abstract class DecodeCid private[lf] {
-    def decodeOptional(
-        structForm: proto.ContractId
-    ): Either[DecodeError, Option[Value.ContractId]]
+  private[lf] def decodeCoid(cid: proto.ContractId): Either[DecodeError, ContractId] =
+    Value.ContractId
+      .fromString(cid.getContractId)
+      .left
+      .map(_ => //
+        DecodeError(s"""cannot parse contractId "${cid.getContractId}"""")
+      )
 
-    final def decode(
-        structForm: proto.ContractId
-    ): Either[DecodeError, Value.ContractId] =
-      decodeOptional(structForm).flatMap {
-        case Some(cid) => Right(cid)
-        case None => Left(DecodeError("Missing required field contract_id"))
-      }
-  }
+  private[lf] def decodeOptionalCoid(
+      cid: proto.ContractId
+  ): Either[DecodeError, Option[ContractId]] =
+    if (cid.getContractId.isEmpty)
+      Right(None)
+    else
+      decodeCoid(cid).map(Some(_))
 
-  val CidDecoder: DecodeCid = new DecodeCid {
-
-    private def stringToCidString(s: String): Either[DecodeError, Value.ContractId] =
-      Value.ContractId
-        .fromString(s)
-        .left
-        .map(_ => //
-          DecodeError(s"""cannot parse contractId "$s"""")
-        )
-
-    override def decodeOptional(
-        structForm: proto.ContractId
-    ): Either[DecodeError, Option[ContractId]] =
-      if (structForm.getContractId.isEmpty)
-        Right(None)
-      else
-        stringToCidString(structForm.getContractId).map(Some(_))
-  }
-
-  @deprecated("use CidDecoder", since = "3.0.0")
-  val NoCidDecoder: DecodeCid = new DecodeCid {
-    override def decodeOptional(structForm: ValueOuterClass.ContractId) = Right(None)
-  }
+  object CidDecoder
+  type DecodeCid = CidDecoder.type
 
   // To be use only when certain the value does not contain Contract Ids
   @deprecated("use CidEncoder", since = "3.0.0")
-  val UnsafeNoCidEncoder: EncodeCid = new EncodeCid {
-    override private[lf] def encode(contractId: ContractId) =
-      InternalError.runtimeException(NameOf.qualifiedNameOfCurrentFunc, "unexpected contract ID")
-  }
+  val UnsafeNoCidEncoder: EncodeCid = CidEncoder
 
   /** Simple encoding to wire of identifiers
     * @param id identifier value
@@ -207,6 +181,7 @@ object ValueCoder {
   def decodeValue(version: TransactionVersion, bytes: ByteString): Either[DecodeError, Value] =
     decodeValue(CidDecoder, version, bytes)
 
+  @scala.annotation.nowarn("cat=unused")
   private[this] def decodeValue(
       decodeCid: DecodeCid,
       version: TransactionVersion,
@@ -263,7 +238,7 @@ object ValueCoder {
             val party = Party.fromString(protoValue.getParty)
             party.fold(e => throw Err("error decoding party: " + e), ValueParty)
           case proto.Value.SumCase.CONTRACT_ID_STRUCT =>
-            val cid = decodeCid.decode(protoValue.getContractIdStruct)
+            val cid = decodeCoid(protoValue.getContractIdStruct)
             cid.fold(
               e => throw Err("error decoding contractId: " + e.errorMessage),
               ValueContractId(_),
@@ -384,6 +359,7 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
+  @scala.annotation.nowarn("cat=unused")
   def encodeValue(
       encodeCid: EncodeCid = CidEncoder,
       valueVersion: TransactionVersion,
@@ -423,7 +399,7 @@ object ValueCoder {
           case ValueTimestamp(t) =>
             builder.setTimestamp(t.micros).build()
           case ValueContractId(coid) =>
-            builder.setContractIdStruct(encodeCid.encode(coid)).build()
+            builder.setContractIdStruct(encodeCoid(coid)).build()
           case ValueList(elems) =>
             val listBuilder = proto.List.newBuilder()
             elems.foreach(elem => {
