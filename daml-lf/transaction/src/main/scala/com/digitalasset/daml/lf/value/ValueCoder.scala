@@ -44,24 +44,23 @@ object ValueCoder {
       EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
-  private[lf] def encodeCoid(cid: ContractId): proto.ContractId =
-    proto.ContractId.newBuilder.setContractId(cid.coid).build
-
   object CidEncoder
   type EncodeCid = CidEncoder.type
 
-  private[lf] def decodeCoid(cid: proto.ContractId): Either[DecodeError, ContractId] =
+  private[lf] def decodeCoid(bytes: ByteString): Either[DecodeError, ContractId] = {
+    val cid = Bytes.fromByteString(bytes)
     Value.ContractId
-      .fromString(cid.getContractId)
+      .fromBytes(cid)
       .left
       .map(_ => //
-        DecodeError(s"""cannot parse contractId "${cid.getContractId}"""")
+        DecodeError(s"""cannot parse contractId "${cid.toHexString}"""")
       )
+  }
 
   private[lf] def decodeOptionalCoid(
-      cid: proto.ContractId
+      cid: ByteString
   ): Either[DecodeError, Option[ContractId]] =
-    if (cid.getContractId.isEmpty)
+    if (cid.isEmpty)
       Right(None)
     else
       decodeCoid(cid).map(Some(_))
@@ -237,8 +236,8 @@ object ValueCoder {
           case proto.Value.SumCase.PARTY =>
             val party = Party.fromString(protoValue.getParty)
             party.fold(e => throw Err("error decoding party: " + e), ValueParty)
-          case proto.Value.SumCase.CONTRACT_ID_STRUCT =>
-            val cid = decodeCoid(protoValue.getContractIdStruct)
+          case proto.Value.SumCase.CONTRACT_ID =>
+            val cid = decodeCoid(protoValue.getContractId)
             cid.fold(
               e => throw Err("error decoding contractId: " + e.errorMessage),
               ValueContractId(_),
@@ -399,7 +398,7 @@ object ValueCoder {
           case ValueTimestamp(t) =>
             builder.setTimestamp(t.micros).build()
           case ValueContractId(coid) =>
-            builder.setContractIdStruct(encodeCoid(coid)).build()
+            builder.setContractId(coid.toBytes.toByteString).build()
           case ValueList(elems) =>
             val listBuilder = proto.List.newBuilder()
             elems.foreach(elem => {

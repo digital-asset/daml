@@ -176,7 +176,7 @@ object TransactionCoder {
               val builder = TransactionOuterClass.NodeCreate.newBuilder()
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
-              discard(builder.setContractIdStruct(ValueCoder.encodeCoid(nc.coid)))
+              discard(builder.setContractId(nc.coid.toBytes.toByteString))
               for {
                 _ <- encodeValue(encodeCid, nodeVersion, nc.arg).map(arg =>
                   builder
@@ -196,7 +196,7 @@ object TransactionCoder {
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
               nf.stakeholders.foreach(builder.addStakeholders)
               nf.signatories.foreach(builder.addSignatories)
-              discard(builder.setContractIdStruct(ValueCoder.encodeCoid(nf.coid)))
+              discard(builder.setContractId(nf.coid.toBytes.toByteString))
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(nf.byKey))
               }
@@ -214,7 +214,7 @@ object TransactionCoder {
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               discard(
                 builder
-                  .setContractIdStruct(ValueCoder.encodeCoid(ne.targetCoid))
+                  .setContractId(ne.targetCoid.toBytes.toByteString)
                   .setChoice(ne.choiceId)
                   .setTemplateId(ValueCoder.encodeIdentifier(ne.templateId))
                   .setPackageName(ne.packageName)
@@ -271,9 +271,7 @@ object TransactionCoder {
             case nlbk @ Node.LookupByKey(_, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeLookupByKey.newBuilder()
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nlbk.templateId)))
-              nlbk.result.foreach(cid =>
-                discard(builder.setContractIdStruct(ValueCoder.encodeCoid(cid)))
-              )
+              nlbk.result.foreach(cid => discard(builder.setContractId(cid.toBytes.toByteString)))
               discard(builder.setPackageName(nlbk.packageName))
               for {
                 encodedKey <- encodeKeyWithMaintainers(nlbk.version, nlbk.key)
@@ -378,7 +376,7 @@ object TransactionCoder {
         for {
           ni <- nodeId
           pkgName <- decodePackageName(protoCreate.getPackageName)
-          c <- ValueCoder.decodeCoid(protoCreate.getContractIdStruct)
+          c <- ValueCoder.decodeCoid(protoCreate.getContractId)
           tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
           arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
           stakeholders <- toPartySet(protoCreate.getStakeholdersList)
@@ -404,7 +402,7 @@ object TransactionCoder {
           ni <- nodeId
           pkgName <- decodePackageName(protoFetch.getPackageName)
           templateId <- ValueCoder.decodeIdentifier(protoFetch.getTemplateId)
-          c <- ValueCoder.decodeCoid(protoFetch.getContractIdStruct)
+          c <- ValueCoder.decodeCoid(protoFetch.getContractId)
           actingParties <- toPartySet(protoFetch.getActorsList)
           stakeholders <- toPartySet(protoFetch.getStakeholdersList)
           signatories <- toPartySet(protoFetch.getSignatoriesList)
@@ -451,7 +449,7 @@ object TransactionCoder {
               protoExe.getKeyWithMaintainers,
             )
           ni <- nodeId
-          targetCoid <- ValueCoder.decodeCoid(protoExe.getContractIdStruct)
+          targetCoid <- ValueCoder.decodeCoid(protoExe.getContractId)
           children <- decodeChildren(decodeNid, protoExe.getChildrenList)
           cv <- decodeValue(
             decodeCid,
@@ -510,7 +508,7 @@ object TransactionCoder {
               templateId,
               protoLookupByKey.getKeyWithMaintainers,
             )
-          cid <- ValueCoder.decodeOptionalCoid(protoLookupByKey.getContractIdStruct)
+          cid <- ValueCoder.decodeOptionalCoid(protoLookupByKey.getContractId)
         } yield ni -> Node.LookupByKey(pkgName, templateId, key, cid, nodeVersion)
       case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
     }
@@ -806,10 +804,7 @@ object TransactionCoder {
       }
     } yield {
       val builder = TransactionOuterClass.FatContractInstance.newBuilder()
-      contractId match {
-        case cid: Value.ContractId.V1 =>
-          discard(builder.setContractId(cid.toBytes.toByteString))
-      }
+      discard(builder.setContractId(contractId.toBytes.toByteString))
       discard(builder.setPackageName(packageName))
       discard(builder.setTemplateId(ValueCoder.encodeIdentifier(templateId)))
       discard(builder.setCreateArg(encodedArg))
@@ -840,10 +835,7 @@ object TransactionCoder {
         .left
         .map(e => DecodeError(s"exception $e while decoding the object"))
       _ <- ensureNoUnknownFields(proto)
-      contractId <- Value.ContractId.V1
-        .fromBytes(data.Bytes.fromByteString(proto.getContractId))
-        .left
-        .map(DecodeError)
+      contractId <- ValueCoder.decodeCoid(proto.getContractId)
       pkgName <- decodePackageName(proto.getPackageName)
       templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
       createArg <- ValueCoder.decodeValue(version = version, bytes = proto.getCreateArg)

@@ -67,7 +67,7 @@ message Value {
 
         Optional optional = 14;
 
-        ContractId contract_id_struct = 15;
+        bytes contract_id = 15;
 
         Map map = 16;
 
