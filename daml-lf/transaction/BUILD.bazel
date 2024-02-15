@@ -10,38 +10,14 @@ load(
     "lf_scalacopts_stricter",
 )
 
-#
-# Transaction and value protocol buffers
-#
-
-proto_jars(
-    name = "value_proto",
-    srcs = ["src/main/protobuf/com/daml/lf/value.proto"],
-    maven_artifact_prefix = "daml-lf-value",
-    maven_group = "com.daml",
-    strip_import_prefix = "src/main/protobuf/",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@com_google_protobuf//:empty_proto",
-    ],
-)
-
 proto_jars(
     name = "transaction_proto",
-    srcs = ["src/main/protobuf/com/daml/lf/transaction.proto"],
+    srcs = glob(["src/main/protobuf/com/daml/lf/**/*.proto"]),
     maven_artifact_prefix = "daml-lf-transaction",
     maven_group = "com.daml",
-    proto_deps = [
-        ":value_proto",
-    ],
     strip_import_prefix = "src/main/protobuf/",
-    visibility = ["//visibility:public"],
+    deps = ["@com_google_protobuf//:empty_proto"],
 )
-
-#
-# Transaction library providing a high-level scala transaction
-# data structure and associated utilities.
-#
 
 da_scala_library(
     name = "transaction",
@@ -52,9 +28,9 @@ da_scala_library(
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
+    exports = [":transaction_proto_java"],
     deps = [
         ":transaction_proto_java",
-        ":value_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/crypto",
@@ -81,7 +57,6 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        ":value_proto_java",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction-test-lib",
@@ -106,8 +81,6 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        ":transaction_proto_java",
-        ":value_proto_java",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/language",
