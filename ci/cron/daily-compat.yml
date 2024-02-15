@@ -201,7 +201,7 @@ jobs:
           canton_version_to_commitish() {
             canton_version=$1
             STABLE_REGEX="\d+\.\d+\.\d+"
-            SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
+            SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot(\.\d+)+\.v[0-9a-f]{8}$"
             if (echo "$1" | grep -q -P "${SNAPSHOT_REGEX}"); then
               # Extracting commit (short) sha from snapshot version
               echo "${canton_version: -8}"
