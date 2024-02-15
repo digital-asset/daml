@@ -60,6 +60,8 @@ da_scala_test_suite(
     ),
     data = [
         "//test-common:dar-files-default",
+        "//test-common:upgrades-CommonVersionFailure-v1a.dar",
+        "//test-common:upgrades-CommonVersionFailure-v1b.dar",
         "//test-common:upgrades-MissingChoice-v1.dar",
         "//test-common:upgrades-MissingChoice-v2.dar",
         "//test-common:upgrades-MissingDataCon-v1.dar",

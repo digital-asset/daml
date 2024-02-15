@@ -121,6 +121,32 @@ da_scala_dar_resources_library(
 
 [
     [
+        daml_compile(
+            name = "upgrades-{}-v1a".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1a/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v1b".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1b/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "CommonVersionFailure",
+    ]
+]
+
+[
+    [
         [
             dar_to_java(
                 name = "%s-tests-%s.java-codegen" % (test_name, target),
