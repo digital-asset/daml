@@ -27,7 +27,6 @@ import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   TransactionVersion,
-  Util,
   TransactionErrors => TxErr,
 }
 import com.daml.lf.value.{Value => V}

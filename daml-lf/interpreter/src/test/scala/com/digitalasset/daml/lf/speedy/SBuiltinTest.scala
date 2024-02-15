@@ -17,13 +17,7 @@ import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-  Util,
-  Versioned,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.prop.TableDrivenPropertyChecks
