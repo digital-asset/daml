@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.participant.store.ContractKeyJournalTest
 import com.digitalasset.canton.resource.DbStorage
@@ -32,7 +33,10 @@ trait DbContractKeyJournalTest extends AsyncWordSpec with BaseTest with Contract
       new DbContractKeyJournal(
         storage,
         IndexedDomain.tryCreate(DomainId.tryFromString("contract-key-journal::default"), 1),
-        PositiveNumeric.tryCreate(10),
+        BatchingConfig(
+          maxItemsInSqlClause = PositiveNumeric.tryCreate(1),
+          parallelism = PositiveNumeric.tryCreate(2),
+        ),
         PrunableByTimeParameters.testingParams,
         timeouts,
         loggerFactory,
