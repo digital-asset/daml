@@ -73,7 +73,7 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            project_name = "upgrades-example",
+            project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
             visibility = ["//visibility:public"],
@@ -82,7 +82,7 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            project_name = "upgrades-example",
+            project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation

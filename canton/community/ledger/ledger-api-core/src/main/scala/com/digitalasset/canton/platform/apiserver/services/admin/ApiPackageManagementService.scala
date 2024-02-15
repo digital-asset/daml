@@ -147,21 +147,14 @@ private[apiserver] final class ApiPackageManagementService private (
     } yield optPackage
   }
 
-  private def minimalVersionedDar(dar: (Ref.PackageId, Ast.Package))(implicit
-                                                                loggingContext: LoggingContextWithTrace
-  ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
+  private def existingVersionedPackageId(dar: (Ref.PackageId, Ast.Package)): Option[Ref.PackageId] = {
     val (_, pkg) = dar
     val pkgName = pkg.metadata.name
     val pkgVersion = pkg.metadata.version
-    packageMetadataStore.getSnapshot.getUpgradablePackageMap.collect { case (pkgId, (`pkgName`, pkgVersion)) =>
-      (pkgId, pkgVersion)
-    }.minByOption { case (_, version) =>
-      pkgVersion < version
-    }.traverse { case (pId, _) => lookupDar(pId) }
-    .map(_.flatten)
+    packageMetadataStore.getSnapshot.getUpgradablePackageMap.collectFirst { case (pkgId, (`pkgName`, `pkgVersion`)) => pkgId }
   }
 
-  private def maximalVersionedDar(dar: (Ref.PackageId, Ast.Package))(implicit
+  private def minimalVersionedDar(upgradedPackageId: Ref.PackageId, dar: (Ref.PackageId, Ast.Package))(implicit
                                                                 loggingContext: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
     val (_, pkg) = dar
@@ -169,10 +162,26 @@ private[apiserver] final class ApiPackageManagementService private (
     val pkgVersion = pkg.metadata.version
     packageMetadataStore.getSnapshot.getUpgradablePackageMap.collect { case (pkgId, (`pkgName`, pkgVersion)) =>
       (pkgId, pkgVersion)
-    }.maxByOption { case (_, version) =>
-      pkgVersion > version
-    }.traverse { case (pId, _) => lookupDar(pId) }
-    .map(_.flatten)
+    }
+      .filter { case (pkgId, version) => pkgVersion < version && upgradedPackageId != pkgId }
+      .minByOption { case (_, version) => version }
+      .traverse { case (pId, _) => lookupDar(pId) }
+      .map(_.flatten)
+  }
+
+  private def maximalVersionedDar(upgradedPackageId: Ref.PackageId, dar: (Ref.PackageId, Ast.Package))(implicit
+                                                                loggingContext: LoggingContextWithTrace
+  ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
+    val (_, pkg) = dar
+    val pkgName = pkg.metadata.name
+    val pkgVersion = pkg.metadata.version
+    packageMetadataStore.getSnapshot.getUpgradablePackageMap.collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      (pkgId, pkgVersion)
+    }
+      .filter { case (pkgId, version) => pkgVersion > version && upgradedPackageId != pkgId }
+      .maxByOption { case (_, version) => version }
+      .traverse { case (pId, _) => lookupDar(pId) }
+      .map(_.flatten)
   }
 
   def strictTypecheckUpgrades(phase: TypecheckUpgrades.UploadPhaseCheck, optDar1: Option[(Ref.PackageId, Ast.Package)], pkgId2: Ref.PackageId, optPkg2: Option[Ast.Package])(implicit
@@ -181,7 +190,6 @@ private[apiserver] final class ApiPackageManagementService private (
     LoggingContextWithTrace.withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) { implicit loggingContext =>
       optDar1 match {
         case None =>
-          logger.info(s"Typechecking upgrades for $pkgId2 succeeded.")
           Future.unit
 
         case Some((pkgId1, pkg1)) =>
@@ -227,20 +235,28 @@ private[apiserver] final class ApiPackageManagementService private (
     val (upgradingPackageId, upgradingPackage) = upgradingDar.main
     val optUpgradingDar = Some((upgradingPackageId, upgradingPackage))
     logger.info(s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}.")
-    upgradingPackage.metadata.upgradedPackageId match {
-      case Some(upgradedPackageId) =>
-        for {
-          optUpgradedDar <- lookupDar(upgradedPackageId)
-          _ <- strictTypecheckUpgrades(TypecheckUpgrades.DarCheck, optUpgradingDar, upgradedPackageId, optUpgradedDar.map(_._2))
-          optMaximalDar <- maximalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(TypecheckUpgrades.MaximalDarCheck, optMaximalDar, optUpgradingDar)
-          optMinimalDar <- minimalVersionedDar(upgradingDar.main)
-          _ <- typecheckUpgrades(TypecheckUpgrades.MinimalDarCheck, optUpgradingDar, optMinimalDar)
-        } yield ()
+    existingVersionedPackageId(upgradingDar.main) match {
+      case Some(uploadedPackageId) =>
+        logger.info(s"Package $upgradingPackageId can not be uploaded - $uploadedPackageId is already uploaded and at version ${upgradingPackage.metadata.version}")
+        Future.failed(Validation.UpgradeVersion.Error(uploadedPackageId, upgradingPackageId, upgradingPackage.metadata.version).asGrpcError)
 
       case None =>
-        logger.info(s"Package $upgradingPackageId does not upgrade anything.")
-        Future(())
+        upgradingPackage.metadata.upgradedPackageId match {
+          case Some(upgradedPackageId) =>
+            for {
+              optUpgradedDar <- lookupDar(upgradedPackageId)
+              _ <- strictTypecheckUpgrades(TypecheckUpgrades.DarCheck, optUpgradingDar, upgradedPackageId, optUpgradedDar.map(_._2))
+              optMaximalDar <- maximalVersionedDar(upgradedPackageId, upgradingDar.main)
+              _ <- typecheckUpgrades(TypecheckUpgrades.MaximalDarCheck, optMaximalDar, optUpgradingDar)
+              optMinimalDar <- minimalVersionedDar(upgradedPackageId, upgradingDar.main)
+              _ <- typecheckUpgrades(TypecheckUpgrades.MinimalDarCheck, optUpgradingDar, optMinimalDar)
+              _ = logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
+            } yield ()
+
+          case None =>
+            logger.info(s"Package $upgradingPackageId does not upgrade anything.")
+            Future.unit
+        }
     }
   }
 

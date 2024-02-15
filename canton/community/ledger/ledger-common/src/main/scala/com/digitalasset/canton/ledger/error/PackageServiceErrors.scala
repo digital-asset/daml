@@ -297,5 +297,31 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             ),
           )
     }
+
+    @Explanation(
+      """This error indicates that the Dar upload failed upgrade checks because a package with the same version and package name has been previously uploaded."""
+    )
+    @Resolution("Inspect the error message and contact support.")
+    object UpgradeVersion
+      extends ErrorCode(
+        id = "KNOWN_DAR_VERSION",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+      final case class Error(
+                              uploadedPackage: Ref.PackageId,
+                              existingPackage: Ref.PackageId,
+                              packageVersion: Ref.PackageVersion,
+                            )(implicit
+                              val loggingContext: ContextualizedErrorLogger
+                            ) extends DamlError(
+        cause =
+          "A DAR with the same version number has previously been uploaded.",
+        extraContext = Map(
+          "uploadedPackage" -> uploadedPackage,
+          "existingPackage" -> existingPackage,
+          "packageVersion" -> packageVersion,
+        ),
+      )
+    }
   }
 }
