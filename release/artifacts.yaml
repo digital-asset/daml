@@ -33,13 +33,7 @@
   type: jar-proto
 - target: //daml-lf/transaction:transaction
   type: jar-scala
-- target: //daml-lf/transaction:transaction_proto_jar
-  type: jar-lib
 - target: //daml-lf/transaction:transaction_proto_java
-  type: jar-proto
-- target: //daml-lf/transaction:value_proto_jar
-  type: jar-lib
-- target: //daml-lf/transaction:value_proto_java
   type: jar-proto
 - target: //daml-lf/transaction-test-lib:transaction-test-lib
   type: jar-scala
