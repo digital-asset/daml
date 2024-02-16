@@ -246,6 +246,7 @@ object UpdateToDbDto {
                       u.contractMetadata.get(create.coid).map(_.toByteArray),
                     domain_id = domainId,
                     trace_context = serializedTraceContext,
+                    record_time = u.recordTime.micros,
                   )
                 ) ++ stakeholders.iterator.map(
                   DbDto.IdFilterCreateStakeholder(
@@ -305,6 +306,7 @@ object UpdateToDbDto {
                     event_sequential_id = 0, // this is filled later
                     domain_id = domainId,
                     trace_context = serializedTraceContext,
+                    record_time = u.recordTime.micros,
                   )
                 ) ++ {
                   if (exercise.consuming) {
@@ -373,6 +375,7 @@ object UpdateToDbDto {
                   reassignment_counter = u.reassignmentInfo.reassignmentCounter,
                   assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
                   trace_context = serializedTraceContext,
+                  record_time = u.recordTime.micros,
                 )
               ) ++ flatEventWitnesses.map(
                 DbDto.IdFilterUnassignStakeholder(
@@ -421,6 +424,7 @@ object UpdateToDbDto {
                   unassign_id = u.reassignmentInfo.unassignId.toMicros.toString,
                   reassignment_counter = u.reassignmentInfo.reassignmentCounter,
                   trace_context = serializedTraceContext,
+                  record_time = u.recordTime.micros,
                 )
               ) ++ flatEventWitnesses.map(
                 DbDto.IdFilterAssignStakeholder(

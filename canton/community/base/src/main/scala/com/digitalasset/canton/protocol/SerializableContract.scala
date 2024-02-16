@@ -74,9 +74,8 @@ case class SerializableContract(
   )
 
   def toLf: LfNodeCreate = LfNodeCreate(
-    // TODO https://github.com/digital-asset/daml/issues/17995
-    packageName = Ref.PackageName.assertFromString("dummyReplace"),
     coid = contractId,
+    packageName = Ref.PackageName.assertFromString("default"),
     templateId = rawContractInstance.contractInstance.unversioned.template,
     arg = rawContractInstance.contractInstance.unversioned.arg,
     signatories = metadata.signatories,

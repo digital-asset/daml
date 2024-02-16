@@ -153,7 +153,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   private[this] def newBuilder(): NodeIdTransactionBuilder = new NodeIdTransactionBuilder
 
   protected final val someContractInstance =
-    ContractInstance(template = someTemplateId, arg = someContractArgument)
+    ContractInstance(
+      packageName = Ref.PackageName.assertFromString("default"),
+      template = someTemplateId,
+      arg = someContractArgument,
+    )
   protected final val someVersionedContractInstance = Versioned(txVersion, someContractInstance)
 
   protected final val otherTemplateId = testIdentifier("Dummy")
@@ -217,6 +221,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Node.Create =
     Node.Create(
       coid = absCid,
+      packageName = Ref.PackageName.assertFromString("default"),
       templateId = templateId,
       arg = contractArgument,
       agreementText = someAgreement,
@@ -232,6 +237,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = targetCid,
+      packageName = Ref.PackageName.assertFromString("default"),
       templateId = someTemplateId,
       interfaceId = None,
       choiceId = someChoiceName,
@@ -255,6 +261,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Node.Fetch =
     Node.Fetch(
       coid = contractId,
+      packageName = Ref.PackageName.assertFromString("default"),
       templateId = someTemplateId,
       actingParties = Set(party),
       signatories = Set(party),
@@ -661,6 +668,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val createNodeId = txBuilder.add(
       Node.Create(
         coid = txBuilder.newCid,
+        packageName = Ref.PackageName.assertFromString("default"),
         templateId = someTemplateId,
         arg = someContractArgument,
         agreementText = someAgreement,
@@ -698,6 +706,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val archiveNodeId = txBuilder.add(
       Node.Exercise(
         targetCoid = contractId,
+        packageName = Ref.PackageName.assertFromString("default"),
         templateId = someTemplateId,
         interfaceId = None,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
@@ -742,6 +751,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
         templateId = someTemplateId,
+        packageName = Ref.PackageName.assertFromString("default"),
         key = GlobalKeyWithMaintainers
           .assertBuild(someTemplateId, someContractKey(party, key), Set(party)),
         result = result,
@@ -770,6 +780,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val fetchNodeId = txBuilder.add(
       Node.Fetch(
         coid = contractId,
+        packageName = Ref.PackageName.assertFromString("default"),
         templateId = someTemplateId,
         actingParties = Set(party),
         signatories = Set(party),

@@ -69,7 +69,7 @@ trait BaseError extends LocationMixin {
       overrideCode: Option[io.grpc.Status.Code] = None
   )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.status.Status = {
     import scala.jdk.CollectionConverters.*
-    val status0: com.google.rpc.Status = code.asGrpcStatus(this)
+    val status0: com.google.rpc.Status = ErrorCode.asGrpcStatus(this)
 
     val details: Seq[com.google.protobuf.Any] = status0.getDetailsList.asScala.toSeq
     val detailsScalapb = details.map(com.google.protobuf.any.Any.fromJavaProto)
@@ -89,10 +89,10 @@ trait ContextualizedError extends BaseError {
   protected def errorContext: ContextualizedErrorLogger
 
   def asGrpcStatus: Status =
-    code.asGrpcStatus(this)(errorContext)
+    ErrorCode.asGrpcStatus(this)(errorContext)
 
   def asGrpcError: StatusRuntimeException =
-    code.asGrpcError(this)(errorContext)
+    ErrorCode.asGrpcError(this)(errorContext)
 
 }
 

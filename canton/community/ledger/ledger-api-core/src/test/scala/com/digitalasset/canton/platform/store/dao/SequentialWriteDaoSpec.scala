@@ -234,6 +234,7 @@ object SequentialWriteDaoSpec {
     driver_metadata = None,
     domain_id = "x::domain",
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   private val someEventExercise = DbDto.EventExercise(
@@ -263,6 +264,7 @@ object SequentialWriteDaoSpec {
     event_sequential_id = 0,
     domain_id = "x::domain",
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   val singlePartyFixture: Option[Update.PublicPackageUploadRejected] =

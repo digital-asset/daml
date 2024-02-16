@@ -34,6 +34,7 @@ object TransactionLogUpdate {
     * @param offset The transaction's offset in the ledger.
     * @param events The transaction events, in execution order.
     * @param completionDetails The successful submission's completion details.
+    * @param recordTime The time at which the transaction was recorded.
     */
   final case class TransactionAccepted(
       transactionId: String,
@@ -44,6 +45,7 @@ object TransactionLogUpdate {
       events: Vector[Event],
       completionDetails: Option[CompletionDetails],
       domainId: Option[String],
+      recordTime: Timestamp,
   ) extends TransactionLogUpdate
 
   /** A rejected submission.
@@ -61,6 +63,7 @@ object TransactionLogUpdate {
       commandId: String,
       workflowId: String,
       offset: Offset,
+      recordTime: Timestamp,
       completionDetails: Option[CompletionDetails],
       reassignmentInfo: ReassignmentInfo,
       reassignment: ReassignmentAccepted.Reassignment,

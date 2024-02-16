@@ -628,7 +628,7 @@ class DomainOutboxXFactorySingleCreate(
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(outboxRef.get.toList: _*)(logger)
+    Lifecycle.close(outboxRef.get.toList*)(logger)
 }
 
 final case class PendingTransactions[TX](

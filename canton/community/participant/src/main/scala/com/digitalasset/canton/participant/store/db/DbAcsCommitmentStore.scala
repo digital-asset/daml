@@ -655,7 +655,7 @@ class DbIncrementalCommitmentStore(
     val operations = List(insertRt(rt), storeUpdates(updateList), deleteCommitments(deleteList))
 
     storage.queryAndUpdate(
-      DBIO.seq(operations: _*).transactionally.withTransactionIsolation(Serializable),
+      DBIO.seq(operations*).transactionally.withTransactionIsolation(Serializable),
       operationName = "commitments: incremental commitments snapshot update",
     )
   }

@@ -220,7 +220,11 @@ class StoreBackedCommandExecutorSpec
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
         LfTransactionVersion.maxVersion,
-        ContractInstance(template = identifier, arg = Value.ValueTrue),
+        ContractInstance(
+          packageName = Ref.PackageName.assertFromString("default"),
+          template = identifier,
+          arg = Value.ValueTrue,
+        ),
       ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),

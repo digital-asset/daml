@@ -172,6 +172,7 @@ private[store] object StorageBackendTestValues {
       driver_metadata = driverMetadata,
       domain_id = domainId,
       trace_context = traceContext,
+      record_time = someTime.micros,
     )
   }
 
@@ -220,6 +221,7 @@ private[store] object StorageBackendTestValues {
       event_sequential_id = eventSequentialId,
       domain_id = domainId,
       trace_context = traceContext,
+      record_time = someTime.micros,
     )
   }
 
@@ -262,6 +264,7 @@ private[store] object StorageBackendTestValues {
       unassign_id = "123456789",
       reassignment_counter = 1000L,
       trace_context = traceContext,
+      record_time = someTime.micros,
     )
   }
 
@@ -293,6 +296,7 @@ private[store] object StorageBackendTestValues {
       reassignment_counter = 1000L,
       assignment_exclusivity = Some(11111),
       trace_context = traceContext,
+      record_time = someTime.micros,
     )
   }
 

@@ -170,7 +170,7 @@ object DeliverStoreEvent {
       topologyTimestampO: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): DeliverStoreEvent[Payload] = {
     // ensure that sender is a recipient
-    val recipientsWithSender = NonEmpty(SortedSet, sender, members.toSeq: _*)
+    val recipientsWithSender = NonEmpty(SortedSet, sender, members.toSeq*)
     DeliverStoreEvent(
       sender,
       messageId,

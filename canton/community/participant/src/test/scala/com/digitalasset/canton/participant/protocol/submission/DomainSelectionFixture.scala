@@ -148,7 +148,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
 
       private val value =
         inputContractIds.map[NodeWrapper](buildExerciseNode(version, _, signatory, observer))
-      val tx: LfVersionedTransaction = toVersionedTransaction(value *)
+      val tx: LfVersionedTransaction = toVersionedTransaction(value*)
 
     }
 

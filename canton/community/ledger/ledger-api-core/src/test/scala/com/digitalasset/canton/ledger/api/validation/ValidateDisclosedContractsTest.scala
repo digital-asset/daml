@@ -281,6 +281,7 @@ object ValidateDisclosedContractsTest {
       create = Node.Create(
         coid = lf.lfContractId,
         templateId = lf.templateId,
+        packageName = Ref.PackageName.assertFromString("default"),
         arg = lf.createArg,
         agreementText = "",
         signatories = api.signatories,

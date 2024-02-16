@@ -68,7 +68,7 @@ object DeprecatedConfigUtils {
             // Get current config value
             cursorConfigValue <- cursor.asConfigValue
             // Get the config value at "from" (deprecated path we want to move)
-            cursorAtFrom <- cursor.fluent.at(fromPathSegment: _*).cursor
+            cursorAtFrom <- cursor.fluent.at(fromPathSegment*).cursor
             fromValueOpt = cursorAtFrom.valueOpt
             adjustedConfig = fromValueOpt
               .map { deprecated =>
@@ -111,7 +111,7 @@ object DeprecatedConfigUtils {
           // Get current config value
           cursorConfigValue <- cursor.asConfigValue
           // Get the config value at "path"
-          cursorAtFrom <- cursor.fluent.at(fromPathSegment: _*).cursor
+          cursorAtFrom <- cursor.fluent.at(fromPathSegment*).cursor
           fromValueOpt = cursorAtFrom.valueOpt
           _ = fromValueOpt.map { fromValue =>
             if (deprecated.isDeprecatedValue(fromValue))

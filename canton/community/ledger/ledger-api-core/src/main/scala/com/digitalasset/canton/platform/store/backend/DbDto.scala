@@ -39,6 +39,7 @@ object DbDto {
       driver_metadata: Option[Array[Byte]],
       domain_id: String,
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class EventExercise(
@@ -68,6 +69,7 @@ object DbDto {
       event_sequential_id: Long,
       domain_id: String,
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class EventAssign(
@@ -96,6 +98,7 @@ object DbDto {
       unassign_id: String,
       reassignment_counter: Long,
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class EventUnassign(
@@ -114,6 +117,7 @@ object DbDto {
       reassignment_counter: Long,
       assignment_exclusivity: Option[Long],
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class ConfigurationEntry(

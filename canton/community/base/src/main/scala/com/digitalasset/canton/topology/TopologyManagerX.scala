@@ -315,7 +315,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
       keys <- (signingKeys match {
         case first +: rest =>
           // TODO(#12945) should we check whether this node could sign with keys that are required in addition to the ones provided in signingKeys, and fetch those keys?
-          EitherT.pure(NonEmpty.mk(Set, first, rest: _*))
+          EitherT.pure(NonEmpty.mk(Set, first, rest*))
         case _empty =>
           // TODO(#12945) get signing keys for transaction.
           EitherT.leftT(

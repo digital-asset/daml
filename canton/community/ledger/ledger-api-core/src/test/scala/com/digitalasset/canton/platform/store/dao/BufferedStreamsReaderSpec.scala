@@ -475,6 +475,7 @@ object BufferedStreamsReaderSpec {
       events = Vector(null),
       completionDetails = None,
       domainId = None,
+      recordTime = Timestamp.Epoch,
     )
 
   private def offset(idx: Long): Offset = {

@@ -38,7 +38,7 @@ private[postgresql] object PGSchema {
     override def insert[FROM](tableName: String)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      PGTable.transposedInsert(tableName)(fields: _*)
+      PGTable.transposedInsert(tableName)(fields*)
 
     override def idempotentInsert[FROM](
         tableName: String,
@@ -47,7 +47,7 @@ private[postgresql] object PGSchema {
     )(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      PGTable.idempotentTransposedInsert(tableName, keyFieldIndex, ordering)(fields: _*)
+      PGTable.idempotentTransposedInsert(tableName, keyFieldIndex, ordering)(fields*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(PGFieldStrategy)

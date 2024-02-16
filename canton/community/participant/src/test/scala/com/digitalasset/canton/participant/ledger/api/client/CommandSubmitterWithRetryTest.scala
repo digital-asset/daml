@@ -107,7 +107,7 @@ class CommandSubmitterWithRetryTest
         }
       val errorStatus = CommandServiceClient
         .statusFromThrowable(
-          errorCode
+          ErrorCode
             .asGrpcError(new BaseError() {
               override def code: ErrorCode = errorCode
               override def cause: String = "now try that"

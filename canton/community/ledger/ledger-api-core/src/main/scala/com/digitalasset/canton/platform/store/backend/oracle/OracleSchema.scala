@@ -33,7 +33,7 @@ private[oracle] object OracleSchema {
     override def insert[FROM](tableName: String)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      Table.batchedInsert(tableName)(fields: _*)
+      Table.batchedInsert(tableName)(fields*)
 
     override def idempotentInsert[FROM](
         tableName: String,
@@ -42,7 +42,7 @@ private[oracle] object OracleSchema {
     )(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      OracleTable.idempotentInsert(tableName, keyFieldIndex, ordering)(fields: _*)
+      OracleTable.idempotentInsert(tableName, keyFieldIndex, ordering)(fields*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(OracleFieldStrategy)

@@ -81,10 +81,10 @@ object Recipients {
     * members that "see" each other.
     */
   def cc(first: Member, others: Member*): Recipients =
-    Recipients(NonEmpty(Seq, RecipientsTree.leaf(NonEmpty(Set, first, others: _*))))
+    Recipients(NonEmpty(Seq, RecipientsTree.leaf(NonEmpty(Set, first, others*))))
 
   def cc(recipient: Recipient, others: Recipient*): Recipients = {
-    Recipients(NonEmpty.mk(Seq, RecipientsTree(NonEmpty.mk(Set, recipient, others *), Seq.empty)))
+    Recipients(NonEmpty.mk(Seq, RecipientsTree(NonEmpty.mk(Set, recipient, others*), Seq.empty)))
   }
 
   /** Create a [[com.digitalasset.canton.sequencing.protocol.Recipients]] representing independent groups of members
@@ -101,7 +101,7 @@ object Recipients {
 
   def ofSet[T <: Member](set: Set[T]): Option[Recipients] = {
     val members = set.toList
-    NonEmpty.from(members).map(list => Recipients.cc(list.head1, list.tail1: _*))
+    NonEmpty.from(members).map(list => Recipients.cc(list.head1, list.tail1*))
   }
 
 }

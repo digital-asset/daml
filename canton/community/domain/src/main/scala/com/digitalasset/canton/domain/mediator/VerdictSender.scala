@@ -379,7 +379,7 @@ private[mediator] class DefaultVerdictSender(
               .trySignAndCreate(rejection, snapshot, protocolVersion)
               .map(_ -> recipients)
           }
-        batch = Batch.of(protocolVersion, envs *)
+        batch = Batch.of(protocolVersion, envs*)
         // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow rhms with inconsistent mediators from other than participant domain nodes)
         mediatorRefO = // we always use RHMs to figure out mediator ref, to address rejections from a correct mediator that participants that received the RHMs expect
           rootHashMessages.headOption // one RHM is enough because sequencer checks that all RHMs specify the same mediator recipient

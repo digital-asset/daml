@@ -511,7 +511,7 @@ trait HasSupportedProtoVersions[ValueClass] {
         head: (ProtoVersion, ProtoCodec),
         tail: (ProtoVersion, ProtoCodec)*
     ): SupportedProtoVersions = SupportedProtoVersions.fromNonEmpty(
-      NonEmpty.mk(Seq, head, tail: _*)
+      NonEmpty.mk(Seq, head, tail*)
     )
 
     /*

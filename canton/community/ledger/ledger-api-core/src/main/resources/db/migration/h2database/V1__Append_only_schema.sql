@@ -177,7 +177,8 @@ CREATE TABLE lapi_events_create (
     driver_metadata BINARY LARGE OBJECT,
 
     domain_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -238,7 +239,8 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_result_compression SMALLINT,
 
     domain_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -296,7 +298,8 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_result_compression SMALLINT,
 
     domain_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -342,7 +345,9 @@ CREATE TABLE lapi_events_unassign (
 
     -- * unassigned specific
     assignment_exclusivity BIGINT,
-    trace_context BINARY LARGE OBJECT
+
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- sequential_id index for paging
@@ -396,7 +401,9 @@ CREATE TABLE lapi_events_assign (
     create_key_value_compression SMALLINT,
     ledger_effective_time BIGINT NOT NULL,
     driver_metadata BINARY LARGE OBJECT NOT NULL,
-    trace_context BINARY LARGE OBJECT
+
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- sequential_id index for paging

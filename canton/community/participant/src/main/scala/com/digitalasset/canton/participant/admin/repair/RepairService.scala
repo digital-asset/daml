@@ -19,9 +19,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
-import com.digitalasset.canton.ledger.api.validation.{
-  StricterValueValidator as LedgerApiValueValidator
-}
+import com.digitalasset.canton.ledger.api.validation.StricterValueValidator as LedgerApiValueValidator
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -890,9 +888,8 @@ final class RepairService(
 
   private def toArchive(c: SerializableContract): LfNodeExercises = LfNodeExercises(
     targetCoid = c.contractId,
-    // TODO https://github.com/digital-asset/daml/issues/17995
-    packageName = Ref.PackageName.assertFromString("dummyReplace"),
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
+    packageName = Ref.PackageName.assertFromString("default"),
     interfaceId = None,
     choiceId = LfChoiceName.assertFromString("Archive"),
     consuming = true,
@@ -1320,9 +1317,10 @@ object RepairService {
         )
 
         lfContractInst = LfContractInst(
-          // TODO https://github.com/digital-asset/daml/issues/17995
-          packageName = Ref.PackageName.assertFromString("dummyReplace"),
-          template = template, arg = argsVersionedValue)
+          packageName = Ref.PackageName.assertFromString("default"),
+          template = template,
+          arg = argsVersionedValue,
+        )
 
         serializableRawContractInst <- SerializableRawContractInstance
           .create(lfContractInst)

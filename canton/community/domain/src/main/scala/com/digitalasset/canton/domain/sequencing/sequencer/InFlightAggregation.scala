@@ -89,7 +89,7 @@ final case class InFlightAggregation private (
         .map { case (sender, aggregationBySender) =>
           AggregatedSender(sender, aggregationBySender)
         }
-        .to(Seq): _*
+        .to(Seq)*
     ),
   )
 

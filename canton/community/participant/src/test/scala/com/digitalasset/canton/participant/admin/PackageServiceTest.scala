@@ -114,7 +114,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
         packages <- packageStore.listPackages()
         dar <- packageStore.getDar(hash)
       } yield {
-        packages should contain.only(expectedPackageIdsAndState *)
+        packages should contain.only(expectedPackageIdsAndState*)
         dar shouldBe Some(Dar(DarDescriptor(hash, darName), bytes))
       }
     }
@@ -140,7 +140,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
         packages <- packageStore.listPackages()
         dar <- packageStore.getDar(hash)
       } yield {
-        packages should contain.only(expectedPackageIdsAndState: _*)
+        packages should contain.only(expectedPackageIdsAndState*)
         dar shouldBe Some(Dar(DarDescriptor(hash, darName), bytes))
       }
     }

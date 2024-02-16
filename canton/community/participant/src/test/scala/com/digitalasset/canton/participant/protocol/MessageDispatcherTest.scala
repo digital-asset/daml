@@ -901,7 +901,7 @@ trait MessageDispatcherTest {
                   entry.shouldBeCantonErrorCode(SyncServiceAlarm)
                   entry.warningMessage should include(alarm)
                 }
-              ): _*
+              )*
             )
           }.futureValue
         }
@@ -1022,7 +1022,7 @@ trait MessageDispatcherTest {
                     entry.shouldBeCantonErrorCode(SyncServiceAlarm)
                     entry.warningMessage should include(alarm)
                   }
-                ): _*
+                )*
               )
             }
           }

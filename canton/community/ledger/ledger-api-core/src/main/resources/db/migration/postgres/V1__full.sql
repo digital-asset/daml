@@ -224,7 +224,8 @@ CREATE TABLE lapi_events_assign (
     driver_metadata bytea not null,
 
     create_key_maintainers integer[],
-    trace_context bytea
+    trace_context bytea,
+    record_time bigint not null
 );
 
 -- index for queries resolving contract ID to sequential IDs.
@@ -282,7 +283,8 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_result_compression smallint,
 
     domain_id integer not null,
-    trace_context bytea
+    trace_context bytea,
+    record_time bigint not null
 );
 
 -- lookup by contract id
@@ -338,7 +340,8 @@ CREATE TABLE lapi_events_create (
     driver_metadata bytea,
     domain_id integer not null,
     create_key_maintainers integer[],
-    trace_context bytea
+    trace_context bytea,
+    record_time bigint not null
 );
 
 -- lookup by contract id
@@ -399,7 +402,8 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_result_compression smallint,
 
     domain_id integer not null,
-    trace_context bytea
+    trace_context bytea,
+    record_time bigint not null
 );
 
 -- offset index: used to translate to sequential_id
@@ -441,7 +445,8 @@ CREATE TABLE lapi_events_unassign (
     -- * unassigned specific
     assignment_exclusivity bigint,
 
-    trace_context bytea
+    trace_context bytea,
+    record_time bigint not null
 );
 
 -- multi-column index supporting per contract per domain lookup before/after sequential id query

@@ -72,7 +72,7 @@ class DefaultVerdictSenderTest
   )
   val expectedMediatorGroupAggregationRule = Some(
     AggregationRule(
-      NonEmpty.mk(Seq, mediatorGroup.active(0), mediatorGroup.active.tail *),
+      NonEmpty.mk(Seq, mediatorGroup.active(0), mediatorGroup.active.tail*),
       PositiveInt.tryCreate(2),
       testedProtocolVersion,
     )

@@ -87,7 +87,7 @@ class CommandSubmissionServiceImplSpec
   }
 
   private val transaction = SubmittedTransaction(
-    TreeTransactionBuilder.toVersionedTransaction(nodes *)
+    TreeTransactionBuilder.toVersionedTransaction(nodes*)
   )
 
   behavior of "submit"

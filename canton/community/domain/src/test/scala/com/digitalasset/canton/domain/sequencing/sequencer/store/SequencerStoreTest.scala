@@ -105,7 +105,7 @@ trait SequencerStoreTest
           DeliverStoreEvent(
             senderId,
             messageId,
-            NonEmpty(SortedSet, senderId, recipientIds.toSeq: _*),
+            NonEmpty(SortedSet, senderId, recipientIds.toSeq*),
             payloadId,
             None,
             traceContext,
@@ -153,7 +153,7 @@ trait SequencerStoreTest
                 ) =>
               sender shouldBe senderId
               messageId shouldBe expectedMessageId
-              recipients.forgetNE should contain.only(recipientIds.toSeq: _*)
+              recipients.forgetNE should contain.only(recipientIds.toSeq*)
               payload shouldBe expectedPayload
               topologyTimestampO shouldBe expectedTopologyTimestamp
             case other =>

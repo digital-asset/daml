@@ -93,7 +93,7 @@ object LfTransactionBuilder {
         }
       )
       .map { case (rootNodes, nodeMap, _actuallyUsedPkgs) =>
-        LfTransaction(nodes = HashMap(nodeMap.toSeq: _*), roots = rootNodes.to(ImmArray))
+        LfTransaction(nodes = HashMap(nodeMap.toSeq*), roots = rootNodes.to(ImmArray))
       }
       .runA(initialState)
 }
