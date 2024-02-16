@@ -117,8 +117,6 @@ in rec {
 
     node2nix  = pkgs.nodePackages.node2nix;
 
-    chromedriver = pkgs.chromedriver;
-
     # Python development
     pip3        = pkgs.python38Packages.pip;
     python      = pkgs.python38Packages.python;
