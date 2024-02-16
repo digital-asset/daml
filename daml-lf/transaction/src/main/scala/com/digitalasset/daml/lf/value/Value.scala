@@ -204,13 +204,14 @@ object Value {
 
   sealed abstract class ContractId extends Product with Serializable {
     def coid: String
+    def toBytes: Bytes
   }
 
   object ContractId {
     final case class V1 private (discriminator: crypto.Hash, suffix: Bytes)
         extends ContractId
         with data.NoCopy {
-      lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
+      override lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"ContractId($coid)"
     }
@@ -266,6 +267,8 @@ object Value {
 
     def assertFromString(s: String): ContractId =
       assertRight(fromString(s))
+
+    def fromBytes(bytes: Bytes): Either[String, ContractId] = V1.fromBytes(bytes)
 
     implicit val `Cid Order`: Order[ContractId] = new Order[ContractId] {
       override def order(a: ContractId, b: ContractId) =

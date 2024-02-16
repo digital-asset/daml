@@ -73,7 +73,7 @@ message NodeCreate {
     repeated string stakeholders = 3;
     repeated string signatories = 4;
     KeyWithMaintainers key_with_maintainers = 5;
-    com.daml.lf.value.ContractId contract_id_struct = 6;
+    bytes contract_id = 6;
 }
 
 message NodeFetch {
@@ -84,7 +84,7 @@ message NodeFetch {
     repeated string stakeholders = 3;
     repeated string signatories = 4;
     reserved 5; // was value_version
-    com.daml.lf.value.ContractId contract_id_struct = 6;
+    bytes contract_id = 6;
     KeyWithMaintainers key_with_maintainers = 8;
     bool by_key = 9;
 }
@@ -105,7 +105,7 @@ message NodeExercise {
     repeated string stakeholders = 8;
     repeated string signatories = 9;
     reserved 10; // was controllers
-    com.daml.lf.value.ContractId contract_id_struct = 11;
+    bytes contract_id = 11;
     oneof result {
         com.daml.lf.value.VersionedValue result_versioned = 12; // *must not be used*
         bytes result_unversioned = 17;
@@ -123,7 +123,7 @@ message NodeLookupByKey {
     com.daml.lf.value.Identifier template_id = 1;
     KeyWithMaintainers key_with_maintainers = 2;
     reserved 3; // was contract_id
-    com.daml.lf.value.ContractId contract_id_struct = 4;
+    bytes contract_id = 4;
 }
 
 message NodeRollback {
