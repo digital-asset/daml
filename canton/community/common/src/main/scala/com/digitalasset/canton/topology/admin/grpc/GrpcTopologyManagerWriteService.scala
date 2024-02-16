@@ -241,6 +241,8 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
           DynamicDomainParameters.fromProtoV0(parametersV0)
         case Parameters.ParametersV1(parametersV1) =>
           DynamicDomainParameters.fromProtoV1(parametersV1)
+        case Parameters.ParametersV2(parametersV2) =>
+          DynamicDomainParameters.fromProtoV2(parametersV2)
       }
 
     } yield DomainParametersChange(DomainId(uid), domainParameters)

@@ -421,7 +421,7 @@ class CantonSyncService(
       span.setAttribute("submission_id", submissionId)
       pruneInternally(pruneUpToInclusive)
         .fold(
-          err => PruningResult.NotPruned(err.code.asGrpcStatus(err)),
+          err => PruningResult.NotPruned(ErrorCode.asGrpcStatus(err)),
           _ => PruningResult.ParticipantPruned,
         )
         .onShutdown(

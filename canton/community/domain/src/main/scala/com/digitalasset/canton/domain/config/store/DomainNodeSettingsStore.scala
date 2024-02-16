@@ -14,6 +14,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import slick.jdbc.SetParameter
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -60,8 +61,8 @@ class DbDomainNodeSettingsStore(
   private val singleRowLockValue: String1 = String1.fromChar('X')
 
   // reset configuration
-  // TODO(#15153) necessary for upgrading to 2.5. remove with 3.0
-  {
+  private val runFixPreviousSettingsOnce = new AtomicBoolean(true)
+  private def fixPreviousSettingsOnce(): Unit = if (runFixPreviousSettingsOnce.getAndSet(false)) {
     import TraceContext.Implicits.Empty.*
     fixPreviousSettings(resetToConfig, timeouts.unbounded) { _ =>
       saveSettings(StoredDomainNodeSettings(staticDomainParametersFromConfig))
@@ -70,7 +71,10 @@ class DbDomainNodeSettingsStore(
 
   override def fetchSettings(implicit
       traceContext: TraceContext
-  ): EitherT[Future, BaseNodeSettingsStoreError, Option[StoredDomainNodeSettings]] =
+  ): EitherT[Future, BaseNodeSettingsStoreError, Option[StoredDomainNodeSettings]] = {
+    // we need to run this here since we introduced HA into the domain manager, as the pool
+    // might not be active, so would throw a PassiveInstanceException, taking the entire node down
+    fixPreviousSettingsOnce()
     EitherTUtil.fromFuture(
       storage
         .query(
@@ -81,6 +85,7 @@ class DbDomainNodeSettingsStore(
         .map(_.map(StoredDomainNodeSettings)),
       BaseNodeSettingsStoreError.DbError,
     )
+  }
 
   override def saveSettings(
       settings: StoredDomainNodeSettings

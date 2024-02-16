@@ -55,11 +55,6 @@ final class GeneratorsProtocol(
         StaticDomainParameters.defaultMaxRequestSizeFrom,
       )
 
-      catchUpParameters <- defaultValueGen(
-        protocolVersion,
-        StaticDomainParameters.defaultCatchUpParameters,
-      )
-
       parameters = StaticDomainParameters.create(
         maxRequestSize,
         uniqueContractKeys,
@@ -71,7 +66,6 @@ final class GeneratorsProtocol(
         protocolVersion,
         reconciliationInterval,
         maxRatePerParticipant,
-        catchUpParameters,
       )
 
     } yield parameters)
@@ -107,6 +101,11 @@ final class GeneratorsProtocol(
         DynamicDomainParameters.defaultMaxRequestSizeUntil,
       )
 
+      catchUpConfig <- defaultValueArb(
+        representativePV,
+        DynamicDomainParameters.defaultCatchUpConfigUntil,
+      )
+
       // Starting from pv=4, there is an additional constraint on the mediatorDeduplicationTimeout
       updatedMediatorDeduplicationTimeout =
         if (protocolVersion > ProtocolVersion.v3)
@@ -129,6 +128,7 @@ final class GeneratorsProtocol(
         maxRatePerParticipant,
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
+        catchUpConfig,
       )(representativePV)
 
     } yield dynamicDomainParameters

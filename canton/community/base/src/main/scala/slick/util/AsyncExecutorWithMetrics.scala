@@ -454,3 +454,23 @@ class AsyncExecutorWithMetrics(
   }
 
 }
+
+object AsyncExecutorWithMetrics {
+  def createSingleThreaded(
+      name: String,
+      metrics: DbQueueMetrics,
+      logger: Logger,
+  ): AsyncExecutorWithMetrics & AsyncExecutorWithShutdown =
+    new AsyncExecutorWithMetrics(
+      name = s"${name}DatabaseExecutor",
+      minThreads = 1,
+      maxThreads = 1,
+      queueSize = 1000,
+      maxConnections = 1,
+      logQueryCost = None,
+      metrics = metrics,
+      scheduler = None,
+      logger = logger,
+      warnOnSlowQueryO = None,
+    )
+}

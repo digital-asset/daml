@@ -3,12 +3,14 @@
 
 package com.daml.error
 
-import com.daml.error.utils.ErrorDetails
+import com.daml.error.utils.{DeserializedCantonError, ErrorDetails}
 import com.google.rpc.Status
 import io.grpc.Status.Code
+import org.scalatest.EitherValues
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
@@ -18,7 +20,9 @@ class ErrorCodeSpec
     with Matchers
     with Eventually
     with IntegrationPatience
-    with ErrorsAssertions {
+    with ErrorsAssertions
+    with ScalaCheckDrivenPropertyChecks
+    with EitherValues {
 
   object FooErrorCodeSecuritySensitive
       extends ErrorCode(
@@ -167,11 +171,11 @@ class ErrorCodeSpec
         val testedError = TestedError()
 
         assertStatus(
-          actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
+          actual = ErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
           expected = expectedStatus,
         )
         assertError(
-          actual = testedErrorCode.asGrpcError(testedError)(errorLoggerBig),
+          actual = ErrorCode.asGrpcError(testedError)(errorLoggerBig),
           expectedStatusCode = testedErrorCode.category.grpcCode.value,
           expectedMessage = "FOO_ERROR_CODE(8,123corre): cause123",
           expectedDetails = details,
@@ -188,20 +192,19 @@ class ErrorCodeSpec
           )
           .setCode(testedErrorCode.category.grpcCode.value.value())
           .addDetails(requestInfo.toRpcAny)
-          .addDetails(retryInfo.toRpcAny)
           .build()
         val testedError = FooError()
         testedError.logWithContext(Map.empty)(errorLoggerBig)
 
         assertStatus(
-          actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
+          actual = ErrorCode.asGrpcStatus(testedError)(errorLoggerBig),
           expected = expectedStatus,
         )
         assertError(
-          actual = testedErrorCode.asGrpcError(testedError)(errorLoggerBig),
+          actual = ErrorCode.asGrpcError(testedError)(errorLoggerBig),
           expectedStatusCode = testedErrorCode.category.grpcCode.value,
           expectedMessage = BaseError.SecuritySensitiveMessage(Some("123correlationId")),
-          expectedDetails = Seq(requestInfo, retryInfo),
+          expectedDetails = Seq(requestInfo),
         )
       }
 
@@ -213,7 +216,7 @@ class ErrorCodeSpec
 
         override def context: Map[String, String] =
           super.context ++ Map(
-            ("y" * ErrorCode.MaxContentBytes) -> ("y" * ErrorCode.MaxContentBytes)
+            ("y" * ErrorCode.MaxErrorContentBytes) -> ("y" * ErrorCode.MaxErrorContentBytes)
           )
 
         override def retryable: Option[ErrorCategoryRetry] = Some(
@@ -226,7 +229,7 @@ class ErrorCodeSpec
               ErrorResource.CommandId -> "commandId1",
               ErrorResource.CommandId -> "commandId2",
               ErrorResource.Party -> "party1",
-              ErrorResource.Party -> ("x" * ErrorCode.MaxContentBytes),
+              ErrorResource.Party -> ("x" * ErrorCode.MaxErrorContentBytes),
             )
 
         override def definiteAnswerO: Option[Boolean] = Some(false)
@@ -235,8 +238,8 @@ class ErrorCodeSpec
         correlationId = Some("123correlationId"),
         properties = Map(
           "loggingEntryKey" -> "loggingEntryValue",
-          "loggingEntryValueTooBig" -> ("x" * ErrorCode.MaxContentBytes),
-          ("x" * ErrorCode.MaxContentBytes) -> "loggingEntryKeyTooBig",
+          "loggingEntryValueTooBig" -> ("x" * ErrorCode.MaxErrorContentBytes),
+          ("x" * ErrorCode.MaxErrorContentBytes) -> "loggingEntryKeyTooBig",
         ),
       )
       val requestInfo = ErrorDetails.RequestInfoDetail("123correlationId")
@@ -254,9 +257,9 @@ class ErrorCodeSpec
               "category" -> testedErrorCode.category.asInt.toString,
               "definite_answer" -> "false",
               "loggingEntryKey" -> "loggingEntryValue",
-              "loggingEntryValueTooBig" -> ("x" * 474 + "..."),
+              "loggingEntryValueTooBig" -> ("x" * 849 + "..."),
               "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" -> "loggingEntryKeyTooBig",
-              "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" -> ("y" * 1321 + "..."),
+              "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" -> ("y" * 809 + "..."),
             ),
           ),
         requestInfo,
@@ -274,15 +277,60 @@ class ErrorCodeSpec
         .build()
 
       assertStatus(
-        actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerOversized),
+        actual = ErrorCode.asGrpcStatus(testedError)(errorLoggerOversized),
         expected = expectedStatus,
       )
       assertError(
-        actual = testedErrorCode.asGrpcError(testedError)(errorLoggerOversized),
+        actual = ErrorCode.asGrpcError(testedError)(errorLoggerOversized),
         expectedStatusCode = testedErrorCode.category.grpcCode.value,
         expectedMessage = expectedMessage,
         expectedDetails = expectedDetails,
       )
+    }
+
+    "do not exceed the safe-to-serialize limit" in {
+      implicit val generatorDrivenConfig: PropertyCheckConfiguration =
+        PropertyCheckConfiguration(minSuccessful = 100)
+
+      // The description gets added to the io.grpc.Status and to the StatusProto as well
+      // so we must leave some space for it
+      forAll(ErrorGenerator.defaultErrorGen) { err =>
+        whenever(
+          ErrorCode
+            // Ensure we evaluate the test only for errors that must be truncated
+            .asGrpcStatus(err, ErrorCode.MaxErrorContentBytes * 10)(err.errorContext)
+            .getSerializedSize > ErrorCode.MaxErrorContentBytes
+        ) {
+          val protoResult = err.asGrpcStatus
+          val serializedSize = protoResult.getSerializedSize
+
+          serializedSize should be <= ErrorCode.MaxErrorContentBytes withClue s"for $err"
+        }
+      }
+    }
+
+    "truncate the trace-id if abnormaly large" in {
+      val errWithLargeTraceId =
+        ErrorGenerator.defaultErrorGen.sample.value.copy(traceId = Some("x" * 1000)).asGrpcStatus
+
+      DeserializedCantonError
+        .fromGrpcStatus(com.google.rpc.status.Status.fromJavaProto(errWithLargeTraceId))
+        .value
+        .traceId
+        .value shouldBe ("x" * 253 + "...")
+    }
+
+    "truncate the correlation-id if abnormaly large" in {
+      val errWithLargeTraceId =
+        ErrorGenerator.defaultErrorGen.sample.value
+          .copy(correlationId = Some("x" * 1000))
+          .asGrpcStatus
+
+      DeserializedCantonError
+        .fromGrpcStatus(com.google.rpc.status.Status.fromJavaProto(errWithLargeTraceId))
+        .value
+        .correlationId
+        .value shouldBe ("x" * 253 + "...")
     }
   }
 
@@ -319,11 +367,11 @@ class ErrorCodeSpec
     val testedError = TestedError()
 
     assertStatus(
-      actual = testedErrorCode.asGrpcStatus(testedError)(errorLoggerSmall),
+      actual = ErrorCode.asGrpcStatus(testedError)(errorLoggerSmall),
       expected = expected,
     )
     assertError(
-      actual = testedErrorCode.asGrpcError(testedError)(errorLoggerSmall),
+      actual = ErrorCode.asGrpcError(testedError)(errorLoggerSmall),
       expectedStatusCode = testedErrorCode.category.grpcCode.value,
       expectedMessage = s"FOO_ERROR_CODE(8,$idTruncated): cause123",
       expectedDetails = details,

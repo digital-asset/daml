@@ -10,7 +10,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, Unrecogni
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.PrettyInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{DynamicDomainParameters, v0, v1}
+import com.digitalasset.canton.protocol.{DynamicDomainParameters, v0, v1, v2}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.*
@@ -630,6 +630,10 @@ final case class DomainParametersChange(
     domain = domainId.toProtoPrimitive,
     Option(domainParameters.toProtoV1),
   )
+  private[transaction] def toProtoV2: v2.DomainParametersChange = v2.DomainParametersChange(
+    domain = domainId.toProtoPrimitive,
+    Option(domainParameters.toProtoV2),
+  )
 
   override def dbType: DomainTopologyTransactionType = DomainParametersChange.dbType
 
@@ -656,6 +660,16 @@ object DomainParametersChange {
       uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
       domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
       domainParameters <- DynamicDomainParameters.fromProtoV1(domainParametersP)
+    } yield DomainParametersChange(DomainId(uid), domainParameters)
+  }
+
+  private[transaction] def fromProtoV2(
+      value: v2.DomainParametersChange
+  ): ParsingResult[DomainParametersChange] = {
+    for {
+      uid <- UniqueIdentifier.fromProtoPrimitive(value.domain, "domain")
+      domainParametersP <- value.domainParameters.toRight(FieldNotSet("domainParameters"))
+      domainParameters <- DynamicDomainParameters.fromProtoV2(domainParametersP)
     } yield DomainParametersChange(DomainId(uid), domainParameters)
   }
 }

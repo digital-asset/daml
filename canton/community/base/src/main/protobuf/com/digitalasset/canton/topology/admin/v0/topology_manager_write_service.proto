@@ -9,6 +9,7 @@ import "com/digitalasset/canton/crypto/v0/crypto.proto";
 import "com/digitalasset/canton/protocol/v0/sequencing.proto";
 import "com/digitalasset/canton/protocol/v0/topology.proto";
 import "com/digitalasset/canton/protocol/v1/sequencing.proto";
+import "com/digitalasset/canton/protocol/v2/domain_params.proto";
 
 /**
  * Write operations on the local topology manager.
@@ -205,5 +206,6 @@ message DomainParametersChangeAuthorization {
   oneof parameters {
     com.digitalasset.canton.protocol.v0.DynamicDomainParameters parameters_v0 = 3;
     com.digitalasset.canton.protocol.v1.DynamicDomainParameters parameters_v1 = 4;
+    com.digitalasset.canton.protocol.v2.DynamicDomainParameters parameters_v2 = 5;
   }
 }

@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.protocol.v2;
 
-import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "google/protobuf/duration.proto";
 import "scalapb/scalapb.proto";
 
 // catch-up configuration parameters
@@ -14,15 +14,17 @@ message CatchUpConfig {
   uint32 nr_intervals_to_trigger_catchup = 2;
 }
 
-message StaticDomainParameters {
+message DynamicDomainParameters {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  bool unique_contract_keys = 1;
-  repeated com.digitalasset.canton.crypto.v0.SigningKeyScheme required_signing_key_schemes = 2;
-  repeated com.digitalasset.canton.crypto.v0.EncryptionKeyScheme required_encryption_key_schemes = 3;
-  repeated com.digitalasset.canton.crypto.v0.SymmetricKeyScheme required_symmetric_key_schemes = 4;
-  repeated com.digitalasset.canton.crypto.v0.HashAlgorithm required_hash_algorithms = 5;
-  repeated com.digitalasset.canton.crypto.v0.CryptoKeyFormat required_crypto_key_formats = 6;
-  int32 protocol_version = 7;
-  CatchUpConfig catch_up_parameters = 8;
+  google.protobuf.Duration participant_response_timeout = 1;
+  google.protobuf.Duration mediator_reaction_timeout = 2;
+  google.protobuf.Duration transfer_exclusivity_timeout = 3;
+  google.protobuf.Duration topology_change_delay = 4;
+  google.protobuf.Duration ledger_time_record_time_tolerance = 5;
+  google.protobuf.Duration reconciliation_interval = 6;
+  google.protobuf.Duration mediator_deduplication_timeout = 7;
+  uint32 max_rate_per_participant = 8;
+  uint32 max_request_size = 9;
+  CatchUpConfig catch_up_parameters = 10;
 }
