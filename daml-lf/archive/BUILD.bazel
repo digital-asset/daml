@@ -129,6 +129,7 @@ da_scala_library(
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
