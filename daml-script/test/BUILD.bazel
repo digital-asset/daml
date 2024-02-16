@@ -392,6 +392,7 @@ filegroup(
 
 da_scala_test_suite(
     name = "test-dev",
+    size = "large",
     srcs = glob(
         ["src/com/**/*Dev*.scala"],
     ),
