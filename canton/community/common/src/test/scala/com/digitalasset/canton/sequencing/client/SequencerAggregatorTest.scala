@@ -518,7 +518,7 @@ class SequencerAggregatorTest
       events: OrdinarySerializedEvent*
   ): Assertion = clue("Expected a single combined downstream message from multiple sequencers") {
     aggregator.eventQueue.size() shouldBe 1
-    aggregator.eventQueue.take() shouldBe combinedMessage(aggregator, events *)
+    aggregator.eventQueue.take() shouldBe combinedMessage(aggregator, events*)
   }
 
   private def assertNoMessageDownstream(aggregator: SequencerAggregator): Assertion =

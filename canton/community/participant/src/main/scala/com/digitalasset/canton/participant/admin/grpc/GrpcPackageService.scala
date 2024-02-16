@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.error.ErrorCode
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.{DarDescription as ProtoDarDescription, *}
 import com.digitalasset.canton.crypto.Hash
@@ -52,7 +53,7 @@ class GrpcPackageService(
     )
     EitherTUtil.toFuture(
       ret
-        .leftMap(err => err.code.asGrpcError(err))
+        .leftMap(ErrorCode.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     )
   }
@@ -78,7 +79,7 @@ class GrpcPackageService(
             request.force,
           )
           .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
-          .leftMap(err => err.code.asGrpcError(err))
+          .leftMap(ErrorCode.asGrpcError)
       } yield {
         RemovePackageResponse(success = Some(Empty()))
       }

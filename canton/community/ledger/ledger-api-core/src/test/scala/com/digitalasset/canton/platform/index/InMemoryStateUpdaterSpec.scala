@@ -235,6 +235,7 @@ object InMemoryStateUpdaterSpec {
         events = Vector(),
         completionDetails = None,
         domainId = Some(domainId1.toProtoPrimitive),
+        recordTime = Timestamp.Epoch,
       )
     )(emptyTraceContext)
 
@@ -244,6 +245,7 @@ object InMemoryStateUpdaterSpec {
         commandId = "",
         workflowId = workflowId,
         offset = offset(7L),
+        recordTime = Timestamp.Epoch,
         completionDetails = None,
         reassignmentInfo = ReassignmentInfo(
           sourceDomain = SourceDomainId(domainId1),
@@ -289,6 +291,7 @@ object InMemoryStateUpdaterSpec {
         commandId = "",
         workflowId = workflowId,
         offset = offset(8L),
+        recordTime = Timestamp.Epoch,
         completionDetails = None,
         reassignmentInfo = ReassignmentInfo(
           sourceDomain = SourceDomainId(domainId2),
@@ -392,6 +395,7 @@ object InMemoryStateUpdaterSpec {
           events = (1 to 3).map(_ => mock[TransactionLogUpdate.Event]).toVector,
           completionDetails = Some(tx_accepted_completionDetails),
           domainId = None,
+          recordTime = Timestamp(1),
         )
       )(emptyTraceContext)
 

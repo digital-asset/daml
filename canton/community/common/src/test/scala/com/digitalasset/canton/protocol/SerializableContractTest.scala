@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.data.Bytes
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
@@ -89,7 +89,11 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             .create(
               LfVersioned(
                 transactionVersion,
-                LfValue.ContractInstance(template = templateId, arg = LfValue.ValueNil),
+                LfValue.ContractInstance(
+                  packageName = Ref.PackageName.assertFromString("default"),
+                  template = templateId,
+                  arg = LfValue.ValueNil,
+                ),
               )
             )
             .value,

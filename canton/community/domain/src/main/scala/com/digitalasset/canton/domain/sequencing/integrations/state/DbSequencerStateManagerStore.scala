@@ -348,7 +348,7 @@ class DbSequencerStateManagerStore(
       )
     }
 
-    DBIO.seq(inserts.toSeq: _*).transactionally
+    DBIO.seq(inserts.toSeq*).transactionally
   }
 
   override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit

@@ -158,7 +158,7 @@ object SignedProtocolMessage
       moreSignatures: Signature*
   ): SignedProtocolMessage[M] = SignedProtocolMessage(
     TypedSignedProtocolMessageContent(message, protocolVersion),
-    NonEmpty(Seq, signature, moreSignatures: _*),
+    NonEmpty(Seq, signature, moreSignatures*),
     protocolVersion,
   )
 

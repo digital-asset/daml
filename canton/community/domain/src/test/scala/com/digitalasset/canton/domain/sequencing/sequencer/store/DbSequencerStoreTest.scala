@@ -61,7 +61,7 @@ object DbSequencerStoreTest {
           "acknowledgements",
           "lower_bound",
         )
-          .map(name => sqlu"truncate table sequencer_#$name"): _*
+          .map(name => sqlu"truncate table sequencer_#$name")*
       ),
       functionFullName,
     )

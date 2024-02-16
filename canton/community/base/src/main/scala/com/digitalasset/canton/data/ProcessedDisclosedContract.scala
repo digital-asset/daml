@@ -38,9 +38,8 @@ object ProcessedDisclosedContract {
   ): ProcessedDisclosedContract =
     ProcessedDisclosedContract(
       create = Node.Create(
-        // TODO https://github.com/digital-asset/daml/issues/17995
-        packageName = Ref.PackageName.assertFromString("dummyReplace"),
-          templateId = templateId,
+        packageName = Ref.PackageName.assertFromString("default"),
+        templateId = templateId,
         coid = contractId,
         arg = argument,
         signatories = signatories,

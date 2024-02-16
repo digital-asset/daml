@@ -66,6 +66,7 @@ object DisclosedContractCreator {
 
     val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
       create = Node.Create(
+        packageName = Ref.PackageName.assertFromString("default"),
         coid = lf.lfContractId,
         templateId = lf.templateId,
         arg = lf.createArg,

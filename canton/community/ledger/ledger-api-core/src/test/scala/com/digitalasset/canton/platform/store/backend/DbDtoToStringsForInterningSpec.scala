@@ -116,6 +116,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       driver_metadata = None,
       domain_id = "domain2",
       trace_context = serializableTraceContext,
+      record_time = 1,
     ),
     DbDto.EventExercise(
       consuming = true,
@@ -144,6 +145,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       exercise_result_compression = Some(1),
       domain_id = "domain3",
       trace_context = serializableTraceContext,
+      record_time = 1,
     ),
     DbDto.CommandCompletion(
       completion_offset = "64",
@@ -213,6 +215,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       unassign_id = "",
       reassignment_counter = 0,
       trace_context = serializableTraceContext,
+      record_time = 0,
     ),
     DbDto.EventUnassign(
       event_offset = "",
@@ -230,6 +233,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       reassignment_counter = 0,
       assignment_exclusivity = None,
       trace_context = serializableTraceContext,
+      record_time = 0,
     ),
   )
 

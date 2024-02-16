@@ -297,8 +297,8 @@ object MerkleTreeTest {
   }
 
   final case class InnerNode1(override val subtrees: MerkleTree[_]*)
-      extends AbstractInnerNode[InnerNode1](InnerNode1.apply, subtrees: _*) {}
+      extends AbstractInnerNode[InnerNode1](InnerNode1.apply, subtrees*) {}
 
   final case class InnerNode2(override val subtrees: MerkleTree[_]*)
-      extends AbstractInnerNode[InnerNode2](InnerNode2.apply, subtrees: _*) {}
+      extends AbstractInnerNode[InnerNode2](InnerNode2.apply, subtrees*) {}
 }

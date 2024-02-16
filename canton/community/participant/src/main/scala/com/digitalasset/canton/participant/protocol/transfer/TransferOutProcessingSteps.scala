@@ -223,7 +223,7 @@ class TransferOutProcessingSteps(
         viewMessage -> recipientsT,
         rootHashMessage -> rootHashRecipients,
       )
-      TransferSubmission(Batch.of(sourceDomainProtocolVersion.v, messages: _*), rootHash)
+      TransferSubmission(Batch.of(sourceDomainProtocolVersion.v, messages*), rootHash)
     }
   }
 

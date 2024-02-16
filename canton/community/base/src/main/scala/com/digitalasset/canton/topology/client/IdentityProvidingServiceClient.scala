@@ -598,13 +598,20 @@ trait DomainTopologyClientWithInit
       awaitTimestampFn: (CantonTimestamp, Boolean) => Option[F[Unit]],
       logWarning: F[Unit] => Boolean = Function.const(true),
   )(implicit traceContext: TraceContext, monad: Monad[F]): F[TopologySnapshotLoader] = {
+    // Keep current value, in case we need it in the log entry below
+    val topoKnownUntilTs = topologyKnownUntilTimestamp
+
     val syncF = awaitTimestampFn(timestamp, true) match {
       case None => monad.unit
       // No need to log a warning if the future we get is due to a shutdown in progress
       case Some(fut) =>
         if (logWarning(fut)) {
           logger.warn(
-            s"Unsynchronized access to topology snapshot at $timestamp, topology known until=$topologyKnownUntilTimestamp"
+            s"Unsynchronized access to topology snapshot at $timestamp, topology known until=$topoKnownUntilTs"
+          )
+          logger.debug(
+            s"Stack trace",
+            new Exception("Stack trace for unsynchronized topology snapshot access"),
           )
         }
         fut

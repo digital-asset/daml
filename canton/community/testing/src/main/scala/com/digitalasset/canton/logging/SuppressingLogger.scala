@@ -107,13 +107,13 @@ class SuppressingLogger private[logging] (
       within: => Any,
       assertions: (LogEntry => Assertion)*
   )(implicit c: ClassTag[T], pos: source.Position): Assertion =
-    assertLogs(checkThrowable[T](the[Throwable] thrownBy within), assertions: _*)
+    assertLogs(checkThrowable[T](the[Throwable] thrownBy within), assertions*)
 
   def assertThrowsAndLogsSuppressing[T <: Throwable](rule: SuppressionRule)(
       within: => Any,
       assertions: (LogEntry => Assertion)*
   )(implicit c: ClassTag[T], pos: source.Position): Assertion =
-    assertLogs(rule)(checkThrowable[T](the[Throwable] thrownBy within), assertions: _*)
+    assertLogs(rule)(checkThrowable[T](the[Throwable] thrownBy within), assertions*)
 
   def assertThrowsAndLogsAsync[T <: Throwable](
       within: => Future[_],
@@ -127,7 +127,7 @@ class SuppressingLogger private[logging] (
         case Failure(c(t)) => Success(assertion(t))
         case Failure(t) => fail(s"Exception has wrong type. Expected type: $c. Got: $t.", t)
       }(directExecutionContext),
-      entryChecks: _*
+      entryChecks*
     )
 
   def assertThrowsAndLogsSeq[T <: Throwable](
@@ -140,7 +140,7 @@ class SuppressingLogger private[logging] (
       within: => Any,
       assertions: (LogEntry => Assertion)*
   )(implicit c: ClassTag[T], pos: source.Position): Assertion =
-    checkThrowable[T](assertLogsUnordered(the[Throwable] thrownBy within, assertions: _*))
+    checkThrowable[T](assertLogsUnordered(the[Throwable] thrownBy within, assertions*))
 
   private def checkThrowable[T <: Throwable](
       within: => Throwable
@@ -202,7 +202,7 @@ class SuppressingLogger private[logging] (
   def assertLogs[A](within: => A, assertions: (LogEntry => Assertion)*)(implicit
       pos: source.Position
   ): A =
-    assertLogs(rule = SuppressionRule.LevelAndAbove(WARN))(within, assertions: _*)
+    assertLogs(rule = SuppressionRule.LevelAndAbove(WARN))(within, assertions*)
 
   /** Asserts that the sequence of logs captured by the suppression rule meets a given sequence of assertions.
     * Use this if the expected sequence of logs is deterministic.
@@ -365,7 +365,7 @@ class SuppressingLogger private[logging] (
   def assertLogsUnordered[A](within: => A, assertions: (LogEntry => Assertion)*)(implicit
       pos: source.Position
   ): A =
-    assertLogsUnorderedOptional(within, assertions.map(LogEntryOptionality.Required -> _): _*)
+    assertLogsUnorderedOptional(within, assertions.map(LogEntryOptionality.Required -> _)*)
 
   /** Asserts that the sequence of logged warnings/errors matches a set of assertions.
     * Use this if the order of logged warnings/errors is nondeterministic and some of them are optional.

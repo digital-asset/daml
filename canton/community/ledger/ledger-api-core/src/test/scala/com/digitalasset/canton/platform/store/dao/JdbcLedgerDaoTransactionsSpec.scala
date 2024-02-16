@@ -72,7 +72,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
           inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
             created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-            created.witnessParties should contain only (tx.actAs: _*)
+            created.witnessParties should contain only (tx.actAs*)
             created.agreementText.getOrElse("") shouldBe createNode.agreementText
             created.contractKey shouldBe None
             created.createArguments shouldNot be(None)
@@ -107,7 +107,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           inside(exercise.transaction.nodes.headOption) {
             case Some((nodeId, exerciseNode: Node.Exercise)) =>
               archived.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
-              archived.witnessParties should contain only (exercise.actAs: _*)
+              archived.witnessParties should contain only (exercise.actAs*)
               archived.contractId shouldBe exerciseNode.targetCoid.coid
               archived.templateId shouldNot be(None)
           }

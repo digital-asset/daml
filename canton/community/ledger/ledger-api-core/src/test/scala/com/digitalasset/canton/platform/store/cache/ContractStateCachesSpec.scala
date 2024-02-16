@@ -181,7 +181,11 @@ class ContractStateCachesSpec
       Some(templateId),
       ImmArray(None -> ValueInt64(id.toLong)),
     )
-    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
+    val contractInstance = ContractInstance(
+      packageName = Ref.PackageName.assertFromString("default"),
+      template = templateId,
+      arg = contractArgument,
+    )
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{State, WithSuffixes, WithoutSuffixes}
@@ -228,6 +228,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           LfNodeExercises(
             targetCoid = suffixedId(2, -1),
             templateId = templateId,
+            packageName = Ref.PackageName.assertFromString("default"),
             interfaceId = None,
             choiceId = LfChoiceName.assertFromString("choice"),
             consuming = false,

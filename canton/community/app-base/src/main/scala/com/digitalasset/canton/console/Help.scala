@@ -85,7 +85,7 @@ object Help {
   ): String = {
     // type extractor
     val items = getItems(instance, baseTopic, scope)
-    format(items: _*)
+    format(items*)
   }
 
   def forMethod[T: ClassTag](

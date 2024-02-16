@@ -71,7 +71,7 @@ final case class DomainConnectionConfig(
       connection: String,
       additionalConnections: String*
   ): Either[String, DomainConnectionConfig] =
-    addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_)): _*)
+    addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_))*)
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
@@ -81,7 +81,7 @@ final case class DomainConnectionConfig(
     sequencerConnections <- sequencerConnections.addEndpoints(
       sequencerAlias,
       connection,
-      additionalConnections: _*
+      additionalConnections*
     )
   } yield (
     copy(sequencerConnections = sequencerConnections)

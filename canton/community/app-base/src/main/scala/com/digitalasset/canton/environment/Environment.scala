@@ -521,7 +521,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         closeHeadlessHealthAdministration :+ executionSequencerFactory :+ closeActorSystem :+ closeExecutionContext :+
         closeScheduler
     logger.info("Closing environment...")
-    Lifecycle.close((instances.toSeq): _*)(logger)
+    Lifecycle.close((instances.toSeq)*)(logger)
   })
 }
 

@@ -419,7 +419,7 @@ trait MessageDispatcher { this: NamedLogging =>
       )
       (rootHashMessagesSentToAMediator, allMediators) = filtered
       result <- (rootHashMessagesSentToAMediator: @unchecked) match {
-        case Seq(rootHashMessage, furtherRHMs @ _*) =>
+        case Seq(rootHashMessage, furtherRHMs*) =>
           val mediator: MediatorRef = allMediators.headOption.getOrElse {
             ErrorUtil.internalError(
               new RuntimeException(

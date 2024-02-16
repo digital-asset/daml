@@ -360,6 +360,7 @@ object EventStorageBackend {
       workflowId: String,
       domainId: String,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
       event: E,
   )
 
@@ -404,6 +405,7 @@ object EventStorageBackend {
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 
   final case class RawAssignEvent(
@@ -417,6 +419,7 @@ object EventStorageBackend {
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 }
 

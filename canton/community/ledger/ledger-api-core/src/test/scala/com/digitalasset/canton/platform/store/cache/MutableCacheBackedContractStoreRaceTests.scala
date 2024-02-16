@@ -302,7 +302,11 @@ private object MutableCacheBackedContractStoreRaceTests {
   private def contract(idx: Long): Contract = {
     val templateId = Identifier.assertFromString(s"somePackage:someModule:someEntity")
     val contractArgument = Value.ValueInt64(idx)
-    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
+    val contractInstance = ContractInstance(
+      packageName = Ref.PackageName.assertFromString("default"),
+      template = templateId,
+      arg = contractArgument,
+    )
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

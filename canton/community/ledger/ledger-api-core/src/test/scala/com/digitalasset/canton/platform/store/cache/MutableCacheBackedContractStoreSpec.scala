@@ -5,9 +5,9 @@ package com.digitalasset.canton.platform.store.cache
 
 import com.daml.ledger.resources.Resource
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.digitalasset.canton.ledger.offset.Offset
@@ -388,7 +388,11 @@ object MutableCacheBackedContractStoreSpec {
       Some(templateId),
       ImmArray.Empty,
     )
-    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
+    val contractInstance = ContractInstance(
+      packageName = Ref.PackageName.assertFromString("default"),
+      template = templateId,
+      arg = contractArgument,
+    )
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

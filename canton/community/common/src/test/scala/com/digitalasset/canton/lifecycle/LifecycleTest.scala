@@ -53,13 +53,13 @@ class LifecycleTest extends AnyWordSpec with BaseTest {
 
       "throw and log" in {
         val thrown = loggerFactory.assertLogs(
-          the[ShutdownFailedException] thrownBy close(closeables: _*)(logger),
+          the[ShutdownFailedException] thrownBy close(closeables*)(logger),
           closeables.map[LogEntry => Assertion](closeable =>
             entry => {
               entry.warningMessage shouldBe s"Closing '${closeable.description}' failed! Reason:"
               entry.throwable shouldBe Some(closeable.t)
             }
-          ): _*
+          )*
         )
         thrown.getMessage shouldBe "Unable to close Seq('component-1', 'component-2', 'component-3')."
       }

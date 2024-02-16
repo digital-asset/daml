@@ -114,7 +114,7 @@ class SequencerAggregatorPekkoTest
 
       val aggregator = mkAggregatorPekko()
       val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-      factory.add(mkEvents(SequencerCounter.Genesis, 3) *)
+      factory.add(mkEvents(SequencerCounter.Genesis, 3)*)
 
       val config = OrderedBucketMergeConfig(
         PositiveInt.one,
@@ -232,8 +232,8 @@ class SequencerAggregatorPekkoTest
         .run()
 
       val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-      factory.add(mkEvents(SequencerCounter.Genesis, 3) *)
-      factory.add(mkEvents(SequencerCounter.Genesis + 2, 3) *)
+      factory.add(mkEvents(SequencerCounter.Genesis, 3)*)
+      factory.add(mkEvents(SequencerCounter.Genesis + 2, 3)*)
       val config1 = OrderedBucketMergeConfig(
         PositiveInt.one,
         NonEmpty(Map, sequencerAlice -> Config("V1")(factory)),
@@ -279,9 +279,9 @@ class SequencerAggregatorPekkoTest
         val signatureCarlos = fakeSignatureFor("Carlos")
 
         val events = mkEvents(SequencerCounter.Genesis, 3)
-        factoryAlice.add(events.take(1).map(_.copy(signatures = NonEmpty(Set, signatureAlice))) *)
-        factoryBob.add(events.slice(1, 2).map(_.copy(signatures = NonEmpty(Set, signatureBob))) *)
-        factoryCarlos.add(events.take(3).map(_.copy(signatures = NonEmpty(Set, signatureCarlos))) *)
+        factoryAlice.add(events.take(1).map(_.copy(signatures = NonEmpty(Set, signatureAlice)))*)
+        factoryBob.add(events.slice(1, 2).map(_.copy(signatures = NonEmpty(Set, signatureBob)))*)
+        factoryCarlos.add(events.take(3).map(_.copy(signatures = NonEmpty(Set, signatureCarlos)))*)
 
         val config = OrderedBucketMergeConfig(
           PositiveInt.tryCreate(2),
@@ -372,13 +372,13 @@ class SequencerAggregatorPekkoTest
 
       val events = mkEvents(initialCounter, 4)
       val events1 = events.take(2)
-      factoryAlice.add(events.map(_.copy(signatures = NonEmpty(Set, signatureAlice))) *)
-      factoryBob.add(events1.map(_.copy(signatures = NonEmpty(Set, signatureBob))) *)
+      factoryAlice.add(events.map(_.copy(signatures = NonEmpty(Set, signatureAlice)))*)
+      factoryBob.add(events1.map(_.copy(signatures = NonEmpty(Set, signatureBob)))*)
 
       val events2 = events.drop(1)
-      factoryBob.add(events2.drop(1).map(_.copy(signatures = NonEmpty(Set, signatureBob))) *)
+      factoryBob.add(events2.drop(1).map(_.copy(signatures = NonEmpty(Set, signatureBob)))*)
       factoryCarlos.add(
-        events2.take(2).map(_.copy(signatures = NonEmpty(Set, signatureCarlos))) *
+        events2.take(2).map(_.copy(signatures = NonEmpty(Set, signatureCarlos)))*
       )
 
       source.offer(config1) shouldBe QueueOfferResult.Enqueued
@@ -418,7 +418,7 @@ class SequencerAggregatorPekkoTest
       val aggregator = mkAggregatorPekko()
       val health = new TestAtomicHealthComponent("forward-health-signal-test")
       val factory = new TestSequencerSubscriptionFactoryPekko(health, loggerFactory)
-      factory.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+      factory.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
       factory.add(Error(UnretryableError))
       val config = OrderedBucketMergeConfig(
         PositiveInt.one,
@@ -478,9 +478,9 @@ class SequencerAggregatorPekkoTest
       val factoryBob = new TestSequencerSubscriptionFactoryPekko(healthBob, loggerFactory)
       val factoryCarlos = new TestSequencerSubscriptionFactoryPekko(healthCarlos, loggerFactory)
 
-      factoryAlice.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
-      factoryBob.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
-      factoryCarlos.add((0 to 2).map(sc => Event(SequencerCounter(sc))) *)
+      factoryAlice.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
+      factoryBob.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
+      factoryCarlos.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
 
       val config = OrderedBucketMergeConfig(
         PositiveInt.tryCreate(2),
@@ -578,15 +578,15 @@ class SequencerAggregatorPekkoTest
 
       factoryAlice1.add(
         mkEvents(SequencerCounter.Genesis, 1)
-          .map(_.copy(signatures = NonEmpty(Set, signatureAlice))) *
+          .map(_.copy(signatures = NonEmpty(Set, signatureAlice)))*
       )
       factoryBob1.add(
         mkEvents(SequencerCounter.Genesis, 1)
-          .map(_.copy(signatures = NonEmpty(Set, signatureBob))) *
+          .map(_.copy(signatures = NonEmpty(Set, signatureBob)))*
       )
       factoryCarlos.add(
         mkEvents(SequencerCounter.Genesis + 3, 1)
-          .map(_.copy(signatures = NonEmpty(Set, signatureCarlos))) *
+          .map(_.copy(signatures = NonEmpty(Set, signatureCarlos)))*
       )
 
       val config1 = OrderedBucketMergeConfig(
@@ -629,8 +629,8 @@ class SequencerAggregatorPekkoTest
         val factoryBob2 =
           TestSequencerSubscriptionFactoryPekko(loggerFactory.append("factory", "bob-2"))
 
-        factoryAlice2.add(mkEvents(SequencerCounter.Genesis + 1, 1) *)
-        factoryBob2.add(mkEvents(SequencerCounter.Genesis + 2, 1) *)
+        factoryAlice2.add(mkEvents(SequencerCounter.Genesis + 1, 1)*)
+        factoryBob2.add(mkEvents(SequencerCounter.Genesis + 2, 1)*)
         val config2 = OrderedBucketMergeConfig(
           PositiveInt.tryCreate(2),
           NonEmpty(

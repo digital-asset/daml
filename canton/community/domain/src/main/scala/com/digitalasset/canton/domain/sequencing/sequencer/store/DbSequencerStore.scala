@@ -139,17 +139,17 @@ class DbSequencerStore(
         GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
           .andThen(_.map(_.asInstanceOf[OracleArray].getIntArray))
           .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq: _*))))
+          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
       case _: H2 =>
         GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
           .andThen(_.map(_.getArray.asInstanceOf[Array[AnyRef]].map(toInt)))
           .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq: _*))))
+          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
       case _: Postgres =>
         GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
           .andThen(_.map(_.getArray.asInstanceOf[Array[AnyRef]].map(Int.unbox)))
           .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq: _*))))
+          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
     }
   }
 
@@ -729,7 +729,7 @@ class DbSequencerStore(
         sql"select node_index from sequencer_watermarks where sequencer_online = ${true}".as[Int],
         functionFullName,
       )
-      .map(items => SortedSet(items: _*))
+      .map(items => SortedSet(items*))
 
   override def readEvents(
       memberId: SequencerMemberId,

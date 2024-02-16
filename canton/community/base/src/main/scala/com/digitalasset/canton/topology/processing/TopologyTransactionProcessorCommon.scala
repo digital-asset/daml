@@ -138,7 +138,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
       )
       val tail = upcoming.map(x => (x.effective, x.effective.toApproximate))
 
-      NonEmpty(Seq, head, tail *).sortBy { case (effectiveTime, _) => effectiveTime.value }
+      NonEmpty(Seq, head, tail*).sortBy { case (effectiveTime, _) => effectiveTime.value }
     }
 
     for {

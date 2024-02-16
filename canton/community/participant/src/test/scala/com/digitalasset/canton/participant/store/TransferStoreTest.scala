@@ -741,7 +741,7 @@ trait TransferStoreTest {
         val addTransfersET = transfersData.parTraverse(store.addTransfer)
 
         def lift(stakeholder: LfPartyId, others: LfPartyId*): Option[NonEmpty[Set[LfPartyId]]] =
-          Option(NonEmpty(Set, stakeholder, others: _*))
+          Option(NonEmpty(Set, stakeholder, others*))
 
         def stakeholdersOf(incompleteTransfers: Seq[IncompleteTransferData]): Seq[Set[LfPartyId]] =
           incompleteTransfers.map(_.contract.metadata.stakeholders)
