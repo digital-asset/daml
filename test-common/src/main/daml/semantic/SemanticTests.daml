@@ -9,6 +9,9 @@
 -- in Daml, therefore we do not test model conformance such as the behavior
 -- of malformed transactions or transactions with exercise before create
 -- inconsistency.
+
+{-# OPTIONS -Wno-template-agreement #-}
+
 module SemanticTests where
 
 ------------------------------------------------------------

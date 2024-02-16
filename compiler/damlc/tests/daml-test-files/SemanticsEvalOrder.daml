@@ -10,6 +10,7 @@
 -- the same rule, we use `R_1`, `R_2`, `R_3`, and so on. This is why there is
 -- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
 
+{-# OPTIONS -Wno-template-agreement #-}
 {-# LANGUAGE ApplicativeDo #-}
 
 -- @DOES-NOT-SUPPORT-LF-FEATURE DAML_RIGHT_TO_LEFT_EVALUATION
@@ -245,7 +246,7 @@ evUpdCreateErr1 = script do
     createCmd (T_EvUpdCreateErr1 p)
   abort "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=259:1-259:16; Template precondition violated
+-- @ERROR range=260:1-260:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party

@@ -1,12 +1,14 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS -Wno-template-agreement #-}
+
 module LfStableEvalAgreement where
 
 import Daml.Script
 
 -- @LEDGER run LfStableEvalAgreement.EXPECTED.ledger
--- @ERROR range=10:1-10:4; ArithmeticError
+-- @ERROR range=12:1-12:4; ArithmeticError
 run = script do
   alice <- allocateParty "Alice"
   submit alice do createCmd BadAgreement with p = alice

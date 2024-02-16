@@ -34,6 +34,17 @@ and ensure that the release notes and documentation has been included as part of
       `{-# OPTIONS -Wno-retroactive-interface-instances #-}`
       ```
 
+* 'agreement' declarations in template definitions are now deprecated and
+  support for this feature will be removed in an upcoming release. Users are
+  encouraged to remove these declarations from their code.
+
+    * The deprecation warning can be turned off by adding the following snippet
+      at the top of a file that uses this feature:
+
+      ```daml
+      `{-# OPTIONS -Wno-template-agreement #-}`
+      ```
+
 # Release of Daml 3.0.0
 
 ## Bugfixes
