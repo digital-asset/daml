@@ -358,5 +358,61 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
         assertPackageUpgradeCheck(None),
       )
     }
+
+    "Succeeds when v1 upgrades to v2 and then v3" in {
+      testPackagePair(
+        "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
+        "test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+      testPackagePair(
+        "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
+        "test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Succeeds when v1 upgrades to v3 and then v2" in {
+      testPackagePair(
+        "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
+        "test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar",
+        assertPackageUpgradeCheck(None),
+      )
+      testPackagePair(
+        "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
+        "test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Fails when v1 upgrades to v2, but v3 does not upgrade v2" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded template T has added new fields, but those fields are not Optional.")
+        ),
+      )
+    }
+
+    "Fails when v1 upgrades to v3, but v3 does not upgrade v2" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded template T has added new fields, but those fields are not Optional.")
+        ),
+      )
+    }
   }
 }
