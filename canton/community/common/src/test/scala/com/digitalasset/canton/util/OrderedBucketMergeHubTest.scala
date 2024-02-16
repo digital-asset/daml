@@ -309,7 +309,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
 
     sink.request(10)
     sink.expectNext() shouldBe NewConfiguration(
-      addMaterialized(config, (1 to sources).map(i => s"subsource-$i") *),
+      addMaterialized(config, (1 to sources).map(i => s"subsource-$i")*),
       0,
     )
 

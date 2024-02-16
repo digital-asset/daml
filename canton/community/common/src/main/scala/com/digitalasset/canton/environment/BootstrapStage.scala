@@ -157,7 +157,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
     stageResult.getAndSet(None).foreach { res =>
       Lifecycle.close(res)(logger)
     }
-    Lifecycle.close(closeables.getAndSet(Seq.empty).reverse *)(logger)
+    Lifecycle.close(closeables.getAndSet(Seq.empty).reverse*)(logger)
   }
 
 }

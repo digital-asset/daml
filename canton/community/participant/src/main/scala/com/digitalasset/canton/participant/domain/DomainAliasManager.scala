@@ -73,13 +73,13 @@ class DomainAliasManager private (
     *
     * Note: this includes inactive domains! Use [[connectionStateForDomain]] to check the status
     */
-  override def aliases: Set[DomainAlias] = Set(domainAliasMap.get().keySet().asScala.toSeq: _*)
+  override def aliases: Set[DomainAlias] = Set(domainAliasMap.get().keySet().asScala.toSeq*)
 
   /** Return known domain ids
     *
     * Note: this includes inactive domains! Use [[connectionStateForDomain]] to check the status
     */
-  def ids: Set[DomainId] = Set(domainAliasMap.get().values().asScala.toSeq: _*)
+  def ids: Set[DomainId] = Set(domainAliasMap.get().values().asScala.toSeq*)
 
   private def addMapping(domainAlias: DomainAlias, domainId: DomainId)(implicit
       traceContext: TraceContext

@@ -27,6 +27,7 @@ object LfTransactionBuilder {
   val defaultPackageId: LfPackageId = LfPackageId.assertFromString("pkg")
   val defaultTemplateId: Ref.Identifier =
     Ref.Identifier(defaultPackageId, QualifiedName.assertFromString("module:template"))
+  val defaultPackageName: Ref.PackageName = Ref.PackageName.assertFromString("pkgName")
   val defaultInterfaceId: LfInterfaceId = defaultTemplateId
 
   val defaultGlobalKey: LfGlobalKey = LfGlobalKey.assertBuild(
@@ -93,7 +94,7 @@ object LfTransactionBuilder {
         }
       )
       .map { case (rootNodes, nodeMap, _actuallyUsedPkgs) =>
-        LfTransaction(nodes = HashMap(nodeMap.toSeq: _*), roots = rootNodes.to(ImmArray))
+        LfTransaction(nodes = HashMap(nodeMap.toSeq*), roots = rootNodes.to(ImmArray))
       }
       .runA(initialState)
 }

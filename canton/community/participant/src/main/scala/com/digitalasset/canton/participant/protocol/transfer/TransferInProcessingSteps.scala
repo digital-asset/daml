@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import com.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.data.Bytes
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DecryptionError as _, EncryptionError as _, *}
 import com.digitalasset.canton.data.ViewType.TransferInViewType
@@ -231,7 +231,7 @@ private[transfer] class TransferInProcessingSteps(
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
-      TransferSubmission(Batch.of(targetProtocolVersion.v, messages: _*), rootHash)
+      TransferSubmission(Batch.of(targetProtocolVersion.v, messages*), rootHash)
     }
 
     result.mapK(FutureUnlessShutdown.outcomeK).widen[Submission]
@@ -582,9 +582,8 @@ private[transfer] class TransferInProcessingSteps(
     val createNode: LfNodeCreate =
       LfNodeCreate(
         coid = contract.contractId,
-        // TODO https://github.com/digital-asset/daml/issues/17995
-        packageName = Ref.PackageName.assertFromString("dummyReplace"),
         templateId = contractInst.template,
+        packageName = contractInst.packageName,
         arg = contractInst.arg,
         signatories = contract.metadata.signatories,
         stakeholders = contract.metadata.stakeholders,

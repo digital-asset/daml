@@ -119,6 +119,10 @@ message CreatedEvent {
   // Ledger effective time of the transaction that created the contract.
   // Required
   google.protobuf.Timestamp created_at = 14;
+
+  // The package name of the created contract.
+  // Required
+  string package_name = 15;
 }
 
 // View of a create event matched by an interface filter.

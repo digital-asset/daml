@@ -540,7 +540,7 @@ class ConfirmationResponseProcessorTestV5
       def example(
           rootHashMessages: (RootHashMessage[SerializedRootHashMessagePayload], Recipients)*
       ) =
-        exampleForRequest(informeeMessage, rootHashMessages: _*)
+        exampleForRequest(informeeMessage, rootHashMessages*)
 
       val batchWithoutRootHashMessages = example()
       val batchWithWrongRootHashMessage =

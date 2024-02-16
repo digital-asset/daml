@@ -35,7 +35,7 @@ sealed trait SequencerConnection extends PrettyPrinting {
       connection: String,
       additionalConnections: String*
   ): Either[String, SequencerConnection] =
-    addEndpoints(new URI(connection), additionalConnections.map(new URI(_)) *)
+    addEndpoints(new URI(connection), additionalConnections.map(new URI(_))*)
 
   def addEndpoints(
       connection: URI,
@@ -94,7 +94,7 @@ final case class GrpcSequencerConnection(
   ): Either[String, SequencerConnection] =
     for {
       newEndpoints <- Endpoint
-        .fromUris(NonEmpty(Seq, connection, additionalConnections: _*))
+        .fromUris(NonEmpty(Seq, connection, additionalConnections*))
     } yield copy(endpoints = endpoints ++ newEndpoints._1)
 
   override def addEndpoints(

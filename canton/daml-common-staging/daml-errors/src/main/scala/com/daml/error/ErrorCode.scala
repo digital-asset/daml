@@ -4,16 +4,15 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.MaxCauseLogLength
-import com.daml.error.utils.ErrorDetails
+import com.daml.error.SerializableErrorCodeComponents.validateTraceIdAndCorrelationId
+import com.google.rpc.Status
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import org.slf4j.event.Level
 
 import scala.annotation.StaticAnnotation
-import scala.jdk.CollectionConverters.*
-import scala.util.control.NoStackTrace
-import scala.util.matching.Regex
+import scala.util.control.{NoStackTrace, NonFatal}
 
 /** Error Code Definition
   *
@@ -67,74 +66,6 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     ErrorCodeMsg(id, category.asInt, correlationId, truncatedCause)
   }
 
-  def asGrpcStatus(
-      err: BaseError
-  )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.Status = {
-    val statusInfo = getStatusInfo(err)(loggingContext)
-    // Provide error id and context via ErrorInfo
-    val errorInfo =
-      if (code.category.securitySensitive) {
-        None
-      } else {
-        val errorInfo = ErrorDetails.ErrorInfoDetail(
-          errorCodeId = id,
-          metadata = statusInfo.contextMap ++
-            err.definiteAnswerO.fold(Map.empty[String, String])(value =>
-              Map(
-                GrpcStatuses.DefiniteAnswerKey -> value.toString
-              )
-            ),
-        )
-        Some(errorInfo)
-      }
-    // Build retry info
-    val retryInfo = err.retryable.map(r =>
-      ErrorDetails.RetryInfoDetail(
-        duration = r.duration
-      )
-    )
-    // Build request info
-    val requestInfo = statusInfo.correlationId.orElse(statusInfo.traceId).map { correlationId =>
-      ErrorDetails.RequestInfoDetail(correlationId = correlationId)
-    }
-    // Build resource infos
-    val resourceInfos =
-      if (code.category.securitySensitive) Seq()
-      else
-        ErrorCode
-          .truncateResourcesForTransport(err.resources)
-          .map { case (resourceType, resourceValue) =>
-            ErrorDetails.ResourceInfoDetail(
-              typ = resourceType.asString,
-              name = resourceValue,
-            )
-          }
-    val allDetails: Seq[ErrorDetails.ErrorDetail] =
-      errorInfo.toList ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfos
-    // Build status
-    val status = com.google.rpc.Status
-      .newBuilder()
-      .setCode(statusInfo.grpcStatusCode.value())
-      .setMessage(statusInfo.message)
-      .addAllDetails(allDetails.map(_.toRpcAny).asJava)
-      .build()
-    status
-  }
-
-  def asGrpcError(err: BaseError)(implicit
-      loggingContext: ContextualizedErrorLogger
-  ): StatusRuntimeException = {
-    val status = asGrpcStatus(err)(loggingContext)
-    // Builder methods for metadata are not exposed, so going route via creating an exception
-    val e = StatusProto.toStatusRuntimeException(status)
-    // Stripping stacktrace
-    err match {
-      case _: DamlError =>
-        new ErrorCode.LoggedApiException(e.getStatus, e.getTrailers)
-      case _ => new ErrorCode.ApiException(e.getStatus, e.getTrailers)
-    }
-  }
-
   /** Log level of the error code
     *
     * Generally, the log level is defined by the error category.
@@ -144,32 +75,6 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   /** True if this error may appear on the API */
   protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
-
-  private[error] def getStatusInfo(
-      err: BaseError
-  )(implicit loggingContext: ContextualizedErrorLogger): ErrorCode.StatusInfo = {
-    val correlationId = loggingContext.correlationId
-    val traceId = loggingContext.traceId
-    val message =
-      if (code.category.securitySensitive) {
-        BaseError.SecuritySensitiveMessage(correlationId, traceId)
-      } else
-        code.toMsg(err.cause, correlationId)
-    val grpcStatusCode = category.grpcCode
-      .getOrElse {
-        loggingContext.warn(s"Passing non-grpc error via grpc $id ")
-        Code.INTERNAL
-      }
-    val contextMap = ErrorCode.truncateContext(err) + ("category" -> category.asInt.toString)
-
-    ErrorCode.StatusInfo(
-      grpcStatusCode = grpcStatusCode,
-      message = message,
-      contextMap = contextMap,
-      correlationId = correlationId,
-      traceId = traceId,
-    )
-  }
 
   /** The error conveyance doc string provides a statement about the form this error will be returned to the user */
   def errorConveyanceDocString: Option[String] = {
@@ -212,9 +117,73 @@ object ErrorCodeMsg {
 }
 
 object ErrorCode {
-  private val ValidMetadataKeyRegex: Regex = "[^(a-zA-Z0-9-_)]".r
-  val MaxContentBytes = 2000
+
+  /** The maximum size (in characters) of the self-service error description. */
   val MaxCauseLogLength = 512
+
+  /**  Maximum size (in bytes) of the [[com.google.rpc.Status]] proto that a self-service error code can be serialized into.
+    *
+    *  We choose this value with the following considerations:
+    *  -  The serialized error Status proto is packed into a [[io.grpc.Metadata]] together with the error description,
+    *  which is then enriched with additional gRPC-internal entries and converted into HTTP2 headers for transmission.
+    *  - The default maximum gRPC metadata size is 8KB (for both clients and servers). We MUST ensure that we don't
+    *  exceed this value for error-returning gRPC metadata, otherwise INTERNAL errors may be reported on both the client and server.
+    *  - The error description is packed twice in the serialized metadata
+    *  (see [[ErrorCode.asGrpcError]] and how it creates a [[io.grpc.StatusRuntimeException]]).
+    *
+    *  Conservatively we allow a buffer of > 3KB for gRPC and gRPC->HTTP2 internals overhead.
+    *  (considering a [[MaxErrorContentBytes]] maximum Status proto size and - [[MaxCauseLogLength]] - description size).
+    *
+    *  Note: instead of increasing this value, consider limiting better the error contents.
+    */
+  val MaxErrorContentBytes = 4096
+
+  def asGrpcError(err: BaseError)(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    val status = asGrpcStatus(err)(loggingContext)
+    // Builder methods for metadata are not exposed, so going route via creating an exception
+    val e = StatusProto.toStatusRuntimeException(status)
+    // Stripping stacktrace
+    err match {
+      case _: DamlError =>
+        new ErrorCode.LoggedApiException(e.getStatus, e.getTrailers)
+      case _ => new ErrorCode.ApiException(e.getStatus, e.getTrailers)
+    }
+  }
+
+  def asGrpcStatus(err: BaseError)(implicit loggingContext: ContextualizedErrorLogger): Status =
+    asGrpcStatus(err, MaxErrorContentBytes)
+
+  private[error] def asGrpcStatus(err: BaseError, maxSerializedErrorSize: Int)(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): Status =
+    try
+      SerializableErrorCodeComponents(
+        errorCode = err.code,
+        loggingContext = loggingContext,
+        rawCorrelationId = loggingContext.correlationId,
+        rawTraceId = loggingContext.traceId,
+        cause = err.cause,
+        definiteAnswer = err.definiteAnswerO,
+        errorResources = err.resources,
+        contextMap = err.context ++ loggingContext.properties,
+        retryableInfo = err.retryable.map(_.duration),
+      ).toStatusProto(maxSerializedErrorSize)
+    catch {
+      case NonFatal(e) =>
+        val (traceId, correlationId) =
+          validateTraceIdAndCorrelationId(loggingContext.traceId, loggingContext.correlationId)
+
+        loggingContext.error(s"Error building gRPC status for error $err", e)
+        com.google.rpc.Status
+          .newBuilder()
+          .setCode(Code.INTERNAL.value())
+          .setMessage(
+            BaseError.SecuritySensitiveMessage(correlationId = correlationId, traceId = traceId)
+          )
+          .build()
+    }
 
   class ApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends StatusRuntimeException(status, metadata)
@@ -224,62 +193,6 @@ object ErrorCode {
     */
   class LoggedApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends ApiException(status, metadata)
-
-  final case class StatusInfo(
-      grpcStatusCode: io.grpc.Status.Code,
-      message: String,
-      contextMap: Map[String, String],
-      correlationId: Option[String],
-      traceId: Option[String],
-  )
-
-  private def truncateContext(
-      error: BaseError
-  )(implicit loggingContext: ContextualizedErrorLogger): Map[String, String] = {
-    val raw: Seq[(String, String)] =
-      (error.context ++ loggingContext.properties
-        + ("tid" -> loggingContext.traceId.getOrElse(""))).toSeq
-        .filter(_._2.nonEmpty)
-        .sortBy(_._2.length)
-
-    val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)
-    // truncate smart, starting with the smallest value strings such that likely only truncate the largest args
-    raw
-      .foldLeft((Map.empty[String, String], 0)) { case ((map, free), (k, v)) =>
-        val adjustedKey = ValidMetadataKeyRegex.replaceAllIn(k, "").take(63)
-        val maxSize = free + maxPerEntry - adjustedKey.length
-        val truncatedValue = if (maxSize >= v.length || v.isEmpty) v else v.take(maxSize) + "..."
-        // Note that we silently discard empty context values and we automatically make the
-        // key "gRPC compliant"
-        if (v.isEmpty || adjustedKey.isEmpty) {
-          (map, free + maxPerEntry)
-        } else {
-          // Keep track of "free space" such that we can keep larger values around
-          val newFree = free + maxPerEntry - adjustedKey.length - truncatedValue.length
-          (map + (adjustedKey -> truncatedValue), newFree)
-        }
-      }
-      ._1
-  }
-
-  /** Truncate resource information such that we don't exceed a max error size */
-  def truncateResourcesForTransport(
-      resources: Seq[(ErrorResource, String)]
-  ): Seq[(ErrorResource, String)] = {
-    resources
-      .foldLeft((Seq.empty[(ErrorResource, String)], 0)) { case ((acc, spent), elem) =>
-        val tot = elem._1.asString.length + elem._2.length
-        val newSpent = tot + spent
-        if (newSpent < ErrorCode.MaxContentBytes) {
-          (acc :+ elem, newSpent)
-        } else {
-          // Note we silently drop resource info.
-          (acc, spent)
-        }
-      }
-      ._1
-  }
-
 }
 
 // Use these annotations to add more information to the documentation for an error on the website

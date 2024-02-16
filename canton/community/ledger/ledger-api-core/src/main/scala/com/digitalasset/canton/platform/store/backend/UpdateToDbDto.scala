@@ -222,6 +222,7 @@ object UpdateToDbDto {
                     event_id = Some(eventId.toLedgerString),
                     contract_id = create.coid.coid,
                     template_id = Some(templateId),
+                    package_name = create.packageName,
                     flat_event_witnesses = stakeholders,
                     tree_event_witnesses = informees,
                     create_argument = Some(createArgument)
@@ -246,6 +247,7 @@ object UpdateToDbDto {
                       u.contractMetadata.get(create.coid).map(_.toByteArray),
                     domain_id = domainId,
                     trace_context = serializedTraceContext,
+                    record_time = u.recordTime.micros,
                   )
                 ) ++ stakeholders.iterator.map(
                   DbDto.IdFilterCreateStakeholder(
@@ -305,6 +307,7 @@ object UpdateToDbDto {
                     event_sequential_id = 0, // this is filled later
                     domain_id = domainId,
                     trace_context = serializedTraceContext,
+                    record_time = u.recordTime.micros,
                   )
                 ) ++ {
                   if (exercise.consuming) {
@@ -373,6 +376,7 @@ object UpdateToDbDto {
                   reassignment_counter = u.reassignmentInfo.reassignmentCounter,
                   assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
                   trace_context = serializedTraceContext,
+                  record_time = u.recordTime.micros,
                 )
               ) ++ flatEventWitnesses.map(
                 DbDto.IdFilterUnassignStakeholder(
@@ -395,6 +399,7 @@ object UpdateToDbDto {
                   submitter = u.reassignmentInfo.submitter,
                   contract_id = assign.createNode.coid.coid,
                   template_id = templateId,
+                  package_name = assign.createNode.packageName,
                   flat_event_witnesses = flatEventWitnesses,
                   create_argument = createArgument,
                   create_signatories = assign.createNode.signatories.map(_.toString),
@@ -421,6 +426,7 @@ object UpdateToDbDto {
                   unassign_id = u.reassignmentInfo.unassignId.toMicros.toString,
                   reassignment_counter = u.reassignmentInfo.reassignmentCounter,
                   trace_context = serializedTraceContext,
+                  record_time = u.recordTime.micros,
                 )
               ) ++ flatEventWitnesses.map(
                 DbDto.IdFilterAssignStakeholder(

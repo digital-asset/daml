@@ -252,7 +252,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       for (_ <- 1 to retries) {
         factory.add(Error(RetryableError))
       }
-      factory.add((1 to 10).map(sc => Event(SequencerCounter(sc.toLong))) *)
+      factory.add((1 to 10).map(sc => Event(SequencerCounter(sc.toLong)))*)
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {

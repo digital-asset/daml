@@ -44,10 +44,20 @@ class BufferedCommandCompletionsReader(
       parties: Set[Party],
       applicationId: String,
   ): Option[CompletionStreamResponse] = (transactionLogUpdate.value match {
-    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, Some(completionDetails), _) =>
+    case TransactionLogUpdate.TransactionAccepted(
+          _,
+          _,
+          _,
+          _,
+          _,
+          _,
+          Some(completionDetails),
+          _,
+          _,
+        ) =>
       Some(completionDetails)
     case TransactionLogUpdate.TransactionRejected(_, completionDetails) => Some(completionDetails)
-    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, None, _) =>
+    case TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, None, _, _) =>
       // Completion details missing highlights submitter is not local to this participant
       None
     case u: TransactionLogUpdate.ReassignmentAccepted => u.completionDetails

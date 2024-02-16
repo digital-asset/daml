@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteUnassigned,
 }
 import com.daml.lf.data.Time
+import com.digitalasset.canton.LfPackageName
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.protocol.LfContractId
@@ -140,6 +141,7 @@ object LedgerApiTypeWrappers {
   /** Holder of "core" contract defining fields (particularly those relevant for importing contracts) */
   final case class ContractData(
       templateId: TemplateId,
+      packageName: LfPackageName,
       createArguments: Record,
       // track signatories and observers for use as auth validation by daml engine
       signatories: Set[String],

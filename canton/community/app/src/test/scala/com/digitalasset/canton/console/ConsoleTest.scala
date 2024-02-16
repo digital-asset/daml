@@ -134,7 +134,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       )
 
     def runOrFail(commands: String*): Unit = {
-      val (result, stderr) = run(commands: _*)
+      val (result, stderr) = run(commands*)
 
       // fail if unexpected content was printed to stderr (this likely indicates an error of some form which wasn't bubbled up through the interpreter)
       assertExpectedStdErrorOutput(stderr)

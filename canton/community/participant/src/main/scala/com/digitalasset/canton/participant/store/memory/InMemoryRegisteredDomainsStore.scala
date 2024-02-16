@@ -56,7 +56,7 @@ class InMemoryRegisteredDomainsStore(override protected val loggerFactory: Named
   ): Future[Map[DomainAlias, DomainId]] = blocking {
     lock.synchronized {
       import scala.jdk.CollectionConverters.*
-      Future.successful(Map(domainAliasMap.asScala.toSeq: _*))
+      Future.successful(Map(domainAliasMap.asScala.toSeq*))
     }
   }
 

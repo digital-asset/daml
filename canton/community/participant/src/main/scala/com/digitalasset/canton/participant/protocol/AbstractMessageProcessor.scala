@@ -100,7 +100,7 @@ abstract class AbstractMessageProcessor(
         )
         maxSequencingTime = requestId.unwrap.add(domainParameters.participantResponseTimeout.unwrap)
         _ <- sequencerClient.sendAsync(
-          Batch.of(protocolVersion, messages *),
+          Batch.of(protocolVersion, messages*),
           topologyTimestamp = Some(requestId.unwrap),
           maxSequencingTime = maxSequencingTime,
           messageId = messageId.getOrElse(MessageId.randomMessageId()),

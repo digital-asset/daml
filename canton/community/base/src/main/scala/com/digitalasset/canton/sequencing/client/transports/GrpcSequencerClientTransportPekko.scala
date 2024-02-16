@@ -176,7 +176,7 @@ class GrpcSequencerClientTransportPekko(
       traceContext: TraceContext
   ): Throwable PartialFunction Either[GrpcSequencerSubscriptionError, Nothing] = {
     case s: StatusRuntimeException =>
-      val grpcError = if (s.getStatus.getCode() == io.grpc.Status.CANCELLED) {
+      val grpcError = if (s.getStatus.getCode == io.grpc.Status.CANCELLED.getCode) {
         // Since recoverOnError sits before the kill switch in the stream,
         // this error will be passed downstream only if the cancellation came from the server.
         // For if the subscription was cancelled by the client via the kill switch,

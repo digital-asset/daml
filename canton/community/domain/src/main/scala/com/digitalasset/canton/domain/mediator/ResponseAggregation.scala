@@ -198,7 +198,7 @@ final case class ResponseAggregation[VKEY](
               show"$requestId($keyName $viewKey): Received a rejection (or reached consortium thresholds) for parties: $newRejectionsFullVotes"
             )
             val nextRejections =
-              NonEmpty(List, (newRejectionsFullVotes -> rejection), rejections *)
+              NonEmpty(List, (newRejectionsFullVotes -> rejection), rejections*)
             val stillPending =
               pendingConfirmingParties.filterNot(cp => newRejectionsFullVotes.contains(cp.party))
             val nextViewState = ViewState(

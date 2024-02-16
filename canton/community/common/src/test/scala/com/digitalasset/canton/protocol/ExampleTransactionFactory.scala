@@ -69,6 +69,7 @@ object ExampleTransactionFactory {
   val languageVersion = LfTransactionBuilder.defaultLanguageVersion
   val packageId = LfTransactionBuilder.defaultPackageId
   val templateId = LfTransactionBuilder.defaultTemplateId
+  val packageName = LfTransactionBuilder.defaultPackageName
   val someOptUsedPackages = Some(Set(packageId))
   val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
   val transactionVersion = LfTransactionBuilder.defaultTransactionVersion
@@ -86,8 +87,13 @@ object ExampleTransactionFactory {
   def contractInstance(
       capturedIds: Seq[LfContractId] = Seq.empty,
       templateId: LfTemplateId = templateId,
+      packageName: LfPackageName = packageName,
   ): LfContractInst =
-    LfContractInst(template = templateId, arg = versionedValueCapturing(capturedIds.toList))
+    LfContractInst(
+      packageName = packageName,
+      template = templateId,
+      arg = versionedValueCapturing(capturedIds.toList),
+    )
 
   val veryDeepValue: Value = {
     def deepValue(depth: Int): Value =
@@ -99,7 +105,7 @@ object ExampleTransactionFactory {
     LfVersioned(transactionVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfContractInst =
-    LfContractInst(template = templateId, arg = veryDeepVersionedValue)
+    LfContractInst(packageName = packageName, template = templateId, arg = veryDeepVersionedValue)
 
   def globalKey(
       templateId: LfTemplateId,
@@ -127,6 +133,7 @@ object ExampleTransactionFactory {
   ): LfNodeFetch =
     LfNodeFetch(
       coid = cid,
+      packageName = packageName,
       templateId = templateId,
       actingParties = actingParties,
       signatories = signatories,
@@ -146,6 +153,7 @@ object ExampleTransactionFactory {
     val unversionedContractInst = contractInstance.unversioned
     LfNodeCreate(
       coid = cid,
+      packageName = unversionedContractInst.packageName,
       templateId = unversionedContractInst.template,
       arg = unversionedContractInst.arg,
       signatories = signatories,
@@ -168,9 +176,11 @@ object ExampleTransactionFactory {
       key: Option[LfGlobalKeyWithMaintainers] = None,
       byKey: Boolean = false,
       templateId: LfTemplateId = templateId,
+      packageName: LfPackageName = packageName,
   ): LfNodeExercises =
     LfNodeExercises(
       targetCoid = targetCoid,
+      packageName = packageName,
       templateId = templateId,
       interfaceId = None,
       choiceId = LfChoiceName.assertFromString("choice"),
@@ -215,6 +225,8 @@ object ExampleTransactionFactory {
   ): LfNodeLookupByKey =
     LfNodeLookupByKey(
       templateId = key.templateId,
+      // TODO(#16362): This should be taken from the LfGlobalKey which currently does not have it
+      packageName = packageName,
       key = LfGlobalKeyWithMaintainers(key, maintainers),
       result = resolution,
       version = transactionVersion,
@@ -227,7 +239,7 @@ object ExampleTransactionFactory {
   )() // avoiding dependency on SeedService.staticRandom after move to ledger api server
 
   def transaction(rootIndices: Seq[Int], nodes: LfNode*): LfVersionedTransaction =
-    transactionFrom(rootIndices, 0, nodes: _*)
+    transactionFrom(rootIndices, 0, nodes*)
 
   def transactionFrom(
       rootIndices: Seq[Int],
@@ -238,7 +250,7 @@ object ExampleTransactionFactory {
 
     val nodesMap = HashMap(nodes.zipWithIndex.map { case (node, index) =>
       (nodeId(index + startIndex), node)
-    }: _*)
+    }*)
 
     val version = protocol.maxTransactionVersion(
       NonEmpty
@@ -638,7 +650,7 @@ class ExampleTransactionFactory(
       rootIndices: Seq[Int],
       nodes: LfNode*
   ): (LfVersionedTransaction, TransactionMetadata) = {
-    val tx = transaction(rootIndices, nodes: _*)
+    val tx = transaction(rootIndices, nodes*)
     val seeds = inventSeeds(tx)
     (tx, mkMetadata(seeds))
   }
@@ -1201,7 +1213,7 @@ class ExampleTransactionFactory(
     )
 
     override def versionedUnsuffixedTransaction: LfVersionedTransaction =
-      transaction(examples.map(_.nodeId.index), examples.map(_.lfNode): _*)
+      transaction(examples.map(_.nodeId.index), examples.map(_.lfNode)*)
 
     override def keyResolver: LfKeyResolver = Map.empty // No keys involved here
 
@@ -1225,10 +1237,10 @@ class ExampleTransactionFactory(
     override def viewWithSubviews: Seq[(TransactionView, Seq[TransactionView])] =
       rootViews.map(view => view -> Seq(view))
 
-    override def transactionTree: GenTransactionTree = genTransactionTree(rootViews: _*)
+    override def transactionTree: GenTransactionTree = genTransactionTree(rootViews*)
 
     override def fullInformeeTree: FullInformeeTree =
-      mkFullInformeeTree(rootViews.map(blindedForInformeeTree(_)): _*)
+      mkFullInformeeTree(rootViews.map(blindedForInformeeTree(_))*)
 
     override def reinterpretedSubtransactions: Seq[
       (
@@ -1241,7 +1253,7 @@ class ExampleTransactionFactory(
       examples.zipWithIndex.map { case (example, i) =>
         val rootViewsWithOneViewUnblinded = blindedRootViews.updated(i, rootViews(i))
         (
-          rootTransactionViewTree(rootViewsWithOneViewUnblinded: _*),
+          rootTransactionViewTree(rootViewsWithOneViewUnblinded*),
           (transactionFrom(Seq(i), i, example.reinterpretedNode), example.metadata, Map.empty),
           Witnesses(NonEmpty(List, example.view0.viewCommonData.tryUnwrap.informees)),
         )
@@ -1251,7 +1263,7 @@ class ExampleTransactionFactory(
     override def rootTransactionViewTrees: Seq[FullTransactionViewTree] = transactionViewTrees
 
     override def versionedSuffixedTransaction: LfVersionedTransaction =
-      transaction(0 until rootViewCount, examples.map(_.node): _*)
+      transaction(0 until rootViewCount, examples.map(_.node)*)
   }
 
   /** Transaction structure:

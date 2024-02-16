@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.data.Bytes
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
@@ -16,7 +16,6 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
   private val alice = LfPartyId.assertFromString("Alice")
   private val bob = LfPartyId.assertFromString("Bob")
 
-  private val languageVersion = ExampleTransactionFactory.languageVersion
   private val templateId = ExampleTransactionFactory.templateId
 
   "SerializableContractInstance" should {
@@ -65,8 +64,10 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
     val authenticatedContractId =
       AuthenticatedContractIdVersionV2.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
 
+    val pkgName = Ref.PackageName.assertFromString("pkgName")
     val disclosedContract = ProcessedDisclosedContract(
       templateId = templateId,
+      packageName = pkgName,
       contractId = authenticatedContractId,
       argument = LfValue.ValueNil,
       createdAt = createdAt,
@@ -89,7 +90,11 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             .create(
               LfVersioned(
                 transactionVersion,
-                LfValue.ContractInstance(template = templateId, arg = LfValue.ValueNil),
+                LfValue.ContractInstance(
+                  packageName = pkgName,
+                  template = templateId,
+                  arg = LfValue.ValueNil,
+                ),
               )
             )
             .value,

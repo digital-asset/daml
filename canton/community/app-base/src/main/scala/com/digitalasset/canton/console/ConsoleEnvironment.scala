@@ -261,7 +261,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   /** Print help for items in the top level scope.
     */
   def help(): Unit = {
-    consoleOutput.info(Help.format(featureSetReference.get().filteredHelpItems: _*))
+    consoleOutput.info(Help.format(featureSetReference.get().filteredHelpItems*))
   }
 
   /** Print detailed help for a top-level item in the top level scope.

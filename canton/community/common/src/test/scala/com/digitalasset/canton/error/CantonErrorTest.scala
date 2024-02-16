@@ -55,9 +55,7 @@ class CantonErrorTest extends BaseTestWordSpec {
       status.context("arg") shouldBe "testArg"
       status.code.id shouldBe MyCode.id
       status.code.category shouldBe MyCode.category
-
     }
-
   }
 
   "canton error codes" should {
@@ -115,6 +113,15 @@ class CantonErrorTest extends BaseTestWordSpec {
       val status = sre.getStatus
       status.getDescription shouldBe s"${LogEntry.SECURITY_SENSITIVE_MESSAGE_ON_API} <no-correlation-id> with tid <no-tid>"
       status.getCode shouldBe Code.INVALID_ARGUMENT
+
+      val deserializedCantonError = DecodedCantonError.fromStatusRuntimeException(sre).value
+
+      deserializedCantonError.resources shouldBe empty
+      deserializedCantonError.code.category.securitySensitive shouldBe true
+      deserializedCantonError.code.id shouldBe "NA"
+      deserializedCantonError.context shouldBe empty
+      deserializedCantonError.correlationId shouldBe empty
+      deserializedCantonError.traceId shouldBe empty
       Option(status.getCause) shouldBe None
     }
   }

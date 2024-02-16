@@ -87,7 +87,7 @@ class MediatorEventDeduplicatorTest
     }.toSet
 
   private def deduplicationData(requestTime: CantonTimestamp, is: Int*): Set[DeduplicationData] =
-    deduplicationData(is.map(_ -> requestTime): _*)
+    deduplicationData(is.map(_ -> requestTime)*)
 
   private def mkMediatorRequest(uuid: UUID): OpenEnvelope[MediatorRequest] = {
     import Pretty.*

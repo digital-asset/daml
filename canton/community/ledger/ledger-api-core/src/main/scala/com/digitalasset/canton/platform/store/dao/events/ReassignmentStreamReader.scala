@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.metrics.{DatabaseMetrics, Timed}
+import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -196,6 +197,7 @@ class ReassignmentStreamReader(
           event = Reassignment.Event.UnassignedEvent(
             TransactionsReader.toUnassignedEvent(rawUnassignEvent)
           ),
+          recordTime = Some(TimestampConversion.fromLf(rawUnassignEvent.recordTime)),
         )
       },
       timer = dbMetrics.reassignmentStream.translationTimer,
@@ -223,6 +225,7 @@ class ReassignmentStreamReader(
                   createdEvent,
                 )
               ),
+              recordTime = Some(TimestampConversion.fromLf(rawAssignEvent.recordTime)),
             )
           )
       ),

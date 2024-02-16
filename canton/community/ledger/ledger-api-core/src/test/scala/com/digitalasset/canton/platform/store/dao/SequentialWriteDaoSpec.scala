@@ -9,6 +9,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.{
   DbDto,
@@ -219,6 +220,7 @@ object SequentialWriteDaoSpec {
     event_id = None,
     contract_id = "1",
     template_id = None,
+    package_name = "2",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_argument = None,
@@ -234,6 +236,7 @@ object SequentialWriteDaoSpec {
     driver_metadata = None,
     domain_id = "x::domain",
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   private val someEventExercise = DbDto.EventExercise(
@@ -263,6 +266,7 @@ object SequentialWriteDaoSpec {
     event_sequential_id = 0,
     domain_id = "x::domain",
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   val singlePartyFixture: Option[Update.PublicPackageUploadRejected] =
@@ -293,13 +297,17 @@ object SequentialWriteDaoSpec {
 
   private val dbDtoToStringsForInterningFixture: Iterable[DbDto] => DomainStringIterators = {
     case iterable if iterable.size == 5 =>
-      new DomainStringIterators(Iterator.empty, List("1").iterator, Iterator.empty)
-    case _ => new DomainStringIterators(Iterator.empty, Iterator.empty, Iterator.empty)
+      new DomainStringIterators(Iterator.empty, List("1").iterator, Iterator.empty, Iterator("2"))
+    case _ =>
+      new DomainStringIterators(Iterator.empty, Iterator.empty, Iterator.empty, Iterator.empty)
   }
 
   private val stringInterningViewFixture: StringInterning with InternizingStringInterningView = {
     new StringInterning with InternizingStringInterningView {
       override def templateId: StringInterningDomain[Ref.Identifier] =
+        throw new NotImplementedException
+
+      override def packageName: StringInterningDomain[PackageName] =
         throw new NotImplementedException
 
       override def party: StringInterningDomain[Party] = throw new NotImplementedException

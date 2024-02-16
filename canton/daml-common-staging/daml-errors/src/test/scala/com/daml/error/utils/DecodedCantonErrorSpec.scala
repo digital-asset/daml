@@ -151,7 +151,7 @@ class DecodedCantonErrorSpec
     val grpcAwareErrorCats = ErrorCategory.all.filter(_.grpcCode.nonEmpty)
     Table(
       "error category",
-      grpcAwareErrorCats: _*
+      grpcAwareErrorCats*
     )
   }
 

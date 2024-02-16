@@ -24,6 +24,7 @@ object DbDto {
       event_id: Option[String],
       contract_id: String,
       template_id: Option[String],
+      package_name: String,
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_argument: Option[Array[Byte]],
@@ -39,6 +40,7 @@ object DbDto {
       driver_metadata: Option[Array[Byte]],
       domain_id: String,
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class EventExercise(
@@ -68,6 +70,7 @@ object DbDto {
       event_sequential_id: Long,
       domain_id: String,
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class EventAssign(
@@ -78,6 +81,7 @@ object DbDto {
       submitter: Option[String],
       contract_id: String,
       template_id: String,
+      package_name: String,
       flat_event_witnesses: Set[String],
       create_argument: Array[Byte],
       create_signatories: Set[String],
@@ -96,6 +100,7 @@ object DbDto {
       unassign_id: String,
       reassignment_counter: Long,
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class EventUnassign(
@@ -114,6 +119,7 @@ object DbDto {
       reassignment_counter: Long,
       assignment_exclusivity: Option[Long],
       trace_context: Array[Byte],
+      record_time: Long,
   ) extends DbDto
 
   final case class ConfigurationEntry(

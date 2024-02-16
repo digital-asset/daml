@@ -5,7 +5,6 @@ package com.digitalasset.canton.protocol
 
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
-import com.daml.lf.data.Ref
 import com.daml.lf.value.ValueCoder
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.crypto.Salt
@@ -74,9 +73,8 @@ case class SerializableContract(
   )
 
   def toLf: LfNodeCreate = LfNodeCreate(
-    // TODO https://github.com/digital-asset/daml/issues/17995
-    packageName = Ref.PackageName.assertFromString("dummyReplace"),
     coid = contractId,
+    packageName = rawContractInstance.contractInstance.unversioned.packageName,
     templateId = rawContractInstance.contractInstance.unversioned.template,
     arg = rawContractInstance.contractInstance.unversioned.arg,
     signatories = metadata.signatories,

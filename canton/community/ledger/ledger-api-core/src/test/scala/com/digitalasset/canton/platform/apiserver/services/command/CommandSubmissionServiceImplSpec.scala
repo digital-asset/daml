@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command
 import com.daml.lf
 import com.daml.lf.command.ApiCommands as LfCommands
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.{Identifier, PackageName}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.Error as LfError
@@ -87,7 +87,7 @@ class CommandSubmissionServiceImplSpec
   }
 
   private val transaction = SubmittedTransaction(
-    TreeTransactionBuilder.toVersionedTransaction(nodes *)
+    TreeTransactionBuilder.toVersionedTransaction(nodes*)
   )
 
   behavior of "submit"
@@ -221,6 +221,7 @@ class CommandSubmissionServiceImplSpec
       )
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
+      packageName = PackageName.assertFromString("pkg-name"),
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
       createdAt = Timestamp.Epoch,
