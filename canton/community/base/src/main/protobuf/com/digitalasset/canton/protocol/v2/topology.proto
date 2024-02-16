@@ -1,0 +1,32 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v2;
+
+import "com/digitalasset/canton/protocol/v1/topology.proto";
+import "com/digitalasset/canton/protocol/v2/domain_params.proto";
+import "scalapb/scalapb.proto";
+
+message DomainParametersChange {
+  // domain affected by the new domain parameters
+  string domain = 1;
+  DynamicDomainParameters domain_parameters = 2;
+}
+
+message DomainGovernanceTransaction {
+  // the element of this topology transaction
+  oneof mapping {
+    DomainParametersChange domain_parameters_change = 1;
+  }
+}
+
+message TopologyTransaction {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  oneof transaction {
+    v1.TopologyStateUpdate state_update = 1;
+    DomainGovernanceTransaction domain_governance = 2;
+  }
+}

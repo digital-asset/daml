@@ -4,6 +4,7 @@
 package com.digitalasset.canton.error
 
 import com.daml.error.*
+import com.daml.error.utils.DeserializedCantonError
 import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.error.TestGroup.NestedGroup.MyCode.MyError
 import com.digitalasset.canton.error.TestGroup.NestedGroup.{MyCode, TestAlarmErrorCode}
@@ -55,9 +56,7 @@ class CantonErrorTest extends BaseTestWordSpec {
       status.context("arg") shouldBe "testArg"
       status.id shouldBe MyCode.id
       status.category shouldBe MyCode.category
-
     }
-
   }
 
   "canton error codes" should {
@@ -115,6 +114,21 @@ class CantonErrorTest extends BaseTestWordSpec {
       val status = sre.getStatus
       status.getDescription shouldBe s"${LogEntry.SECURITY_SENSITIVE_MESSAGE_ON_API} <no-correlation-id> with tid <no-tid>"
       status.getCode shouldBe Code.INVALID_ARGUMENT
+
+      val deserializedCantonError = DeserializedCantonError
+        .fromGrpcStatus(
+          com.google.rpc.status.Status.fromJavaProto(
+            io.grpc.protobuf.StatusProto.fromThrowable(sre)
+          )
+        )
+        .value
+
+      deserializedCantonError.resources shouldBe empty
+      deserializedCantonError.code.category.securitySensitive shouldBe true
+      deserializedCantonError.code.id shouldBe "NA"
+      deserializedCantonError.context shouldBe empty
+      deserializedCantonError.correlationId shouldBe empty
+      deserializedCantonError.traceId shouldBe empty
       Option(status.getCause) shouldBe None
     }
   }

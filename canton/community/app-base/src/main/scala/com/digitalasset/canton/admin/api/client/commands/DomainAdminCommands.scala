@@ -105,16 +105,6 @@ object DomainAdminCommands {
               staticDomainParametersInternal
             )
           } yield staticDomainParametersConfig).leftMap(_.toString)
-
-        case Parameters.ParametersV2(parametersV2) =>
-          (for {
-            staticDomainParametersInternal <- StaticDomainParametersInternal.fromProtoV2(
-              parametersV2
-            )
-            staticDomainParametersConfig <- StaticDomainParametersConfig(
-              staticDomainParametersInternal
-            )
-          } yield staticDomainParametersConfig).leftMap(_.toString)
       }
     }
   }

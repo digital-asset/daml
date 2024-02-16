@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.error.ErrorCode
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
@@ -51,7 +52,7 @@ class GrpcPackageService(
     )
     EitherTUtil.toFuture(
       ret
-        .leftMap(err => err.code.asGrpcError(err))
+        .leftMap(ErrorCode.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     )
   }
@@ -77,7 +78,7 @@ class GrpcPackageService(
             request.force,
           )
           .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
-          .leftMap(err => err.code.asGrpcError(err))
+          .leftMap(ErrorCode.asGrpcError)
       } yield {
         RemovePackageResponse(success = Some(Empty()))
       }

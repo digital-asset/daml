@@ -96,7 +96,7 @@ abstract class TopologyAdministrationGroupCommon(
     /** run a topology change command synchronized and wait until the node becomes idle again */
     private[console] def run[T](timeout: Option[NonNegativeDuration])(func: => T): T = {
       val ret = func
-      ConsoleMacros.utils.synchronize_topology(timeout)(consoleEnvironment)
+      timeout.foreach(tm => ConsoleMacros.utils.synchronize_topology(Some(tm))(consoleEnvironment))
       ret
     }
   }

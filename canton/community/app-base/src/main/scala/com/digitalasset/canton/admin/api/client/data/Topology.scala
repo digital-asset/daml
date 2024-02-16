@@ -248,6 +248,7 @@ object ListDomainParametersChangeResult {
       case Parameters.Empty => Left(ProtoDeserializationError.FieldNotSet("parameters"))
       case Parameters.V0(v0) => DynamicDomainParametersInternal.fromProtoV0(v0)
       case Parameters.V1(v1) => DynamicDomainParametersInternal.fromProtoV1(v1)
+      case Parameters.V2(v2) => DynamicDomainParametersInternal.fromProtoV2(v2)
     }
     item <- DynamicDomainParameters(dynamicDomainParametersInternal)
   } yield ListDomainParametersChangeResult(context, item)

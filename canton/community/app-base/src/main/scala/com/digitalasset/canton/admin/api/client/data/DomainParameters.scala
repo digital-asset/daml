@@ -16,6 +16,7 @@ import com.digitalasset.canton.protocol.{
   StaticDomainParameters as StaticDomainParametersInternal,
   v0 as protocolV0,
   v1 as protocolV1,
+  v2 as protocolV2,
 }
 import com.digitalasset.canton.topology.admin.v0
 import com.digitalasset.canton.topology.admin.v0.DomainParametersChangeAuthorization
@@ -49,7 +50,6 @@ sealed trait StaticDomainParameters {
       maxRatePerParticipant: NonNegativeInt,
       reconciliationInterval: PositiveDurationSeconds,
       maxRequestSize: MaxRequestSize,
-      catchUpParameters: Option[CatchUpConfig],
   ): StaticDomainParametersInternal =
     StaticDomainParametersInternal.create(
       maxRatePerParticipant = maxRatePerParticipant,
@@ -72,7 +72,6 @@ sealed trait StaticDomainParameters {
       ),
       protocolVersion = protocolVersion,
       reconciliationInterval = reconciliationInterval.toInternal,
-      catchUpParameters = catchUpParameters,
     )
 }
 
@@ -93,7 +92,6 @@ sealed abstract case class StaticDomainParametersV0(
       maxRatePerParticipant,
       reconciliationInterval,
       MaxRequestSize(maxInboundMessageSize),
-      None,
     )
 }
 
@@ -110,25 +108,6 @@ sealed abstract case class StaticDomainParametersV1(
     StaticDomainParametersInternal.defaultMaxRatePerParticipant,
     StaticDomainParametersInternal.defaultReconciliationInterval.toConfig,
     StaticDomainParametersInternal.defaultMaxRequestSize,
-    None,
-  )
-}
-
-sealed abstract case class StaticDomainParametersV2(
-    uniqueContractKeys: Boolean,
-    requiredSigningKeySchemes: Set[SigningKeyScheme],
-    requiredEncryptionKeySchemes: Set[EncryptionKeyScheme],
-    requiredSymmetricKeySchemes: Set[SymmetricKeyScheme],
-    requiredHashAlgorithms: Set[HashAlgorithm],
-    requiredCryptoKeyFormats: Set[CryptoKeyFormat],
-    protocolVersion: ProtocolVersion,
-    catchUpParameters: Option[CatchUpConfig],
-) extends StaticDomainParameters {
-  override private[canton] def toInternal: StaticDomainParametersInternal = toInternal(
-    StaticDomainParametersInternal.defaultMaxRatePerParticipant,
-    StaticDomainParametersInternal.defaultReconciliationInterval.toConfig,
-    StaticDomainParametersInternal.defaultMaxRequestSize,
-    catchUpParameters,
   )
 }
 
@@ -175,24 +154,6 @@ object StaticDomainParameters {
           requiredCryptoKeyFormats =
             domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
           protocolVersion = domain.protocolVersion,
-        ) {}
-      )
-    else if (protoVersion == 2)
-      Right(
-        new StaticDomainParametersV2(
-          uniqueContractKeys = domain.uniqueContractKeys,
-          requiredSigningKeySchemes =
-            domain.requiredSigningKeySchemes.forgetNE.map(_.transformInto[SigningKeyScheme]),
-          requiredEncryptionKeySchemes =
-            domain.requiredEncryptionKeySchemes.forgetNE.map(_.transformInto[EncryptionKeyScheme]),
-          requiredSymmetricKeySchemes =
-            domain.requiredSymmetricKeySchemes.forgetNE.map(_.transformInto[SymmetricKeyScheme]),
-          requiredHashAlgorithms =
-            domain.requiredHashAlgorithms.forgetNE.map(_.transformInto[HashAlgorithm]),
-          requiredCryptoKeyFormats =
-            domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
-          protocolVersion = domain.protocolVersion,
-          catchUpParameters = domain.catchUpParameters,
         ) {}
       )
     else
@@ -363,7 +324,7 @@ final case class DynamicDomainParametersV1(
     val protoV = protoVersion(protocolVersion)
     // TODO(#15152) Adapt when support for pv < 6 is dropped
     // TODO(#15153) Adapt when support for pv=6 is dropped
-    if (protoV == 1 || protoV == 2)
+    if (protoV == 1)
       Right(
         protocolV1.DynamicDomainParameters(
           participantResponseTimeout = Some(participantResponseTimeout.toProtoPrimitive),
@@ -379,7 +340,85 @@ final case class DynamicDomainParametersV1(
       ).map(DomainParametersChangeAuthorization.Parameters.ParametersV1)
     else
       Left(
-        s"Cannot convert DynamicDomainParametersV1 to Protobuf when domain protocol version is $protocolVersion"
+        s"Cannot convert DynamicDomainParameters to Protobuf when domain protocol version is $protocolVersion"
+      )
+  }
+}
+
+final case class DynamicDomainParametersV2(
+    participantResponseTimeout: NonNegativeFiniteDuration,
+    mediatorReactionTimeout: NonNegativeFiniteDuration,
+    transferExclusivityTimeout: NonNegativeFiniteDuration,
+    topologyChangeDelay: NonNegativeFiniteDuration,
+    ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+    mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
+    reconciliationInterval: PositiveDurationSeconds,
+    maxRatePerParticipant: NonNegativeInt,
+    maxRequestSize: NonNegativeInt,
+    catchUpConfig: Option[CatchUpConfig],
+) extends DynamicDomainParameters {
+
+  override def maxRequestSizeV1: Option[NonNegativeInt] = Some(maxRequestSize)
+  override def maxRatePerParticipantV1: Option[NonNegativeInt] = Some(maxRatePerParticipant)
+
+  override def updateMaxRate(maxRatePerParticipant: NonNegativeInt): DynamicDomainParameters =
+    copy(maxRatePerParticipant = maxRatePerParticipant)
+
+  if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
+    throw new InvalidDynamicDomainParameters(
+      s"The ledgerTimeRecordTimeTolerance ($ledgerTimeRecordTimeTolerance) must be at most half of the " +
+        s"mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
+    )
+
+  // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
+  override private[canton] def compatibleWithNewLedgerTimeRecordTimeTolerance(
+      newLedgerTimeRecordTimeTolerance: NonNegativeFiniteDuration
+  ): Boolean = {
+    // If false, a new request may receive the same ledger time as a previous request and the previous
+    // request may be evicted too early from the mediator's deduplication store.
+    // Thus, an attacker may assign the same UUID to both requests.
+    // See i9028 for a detailed design. (This is the second clause of item 2 of Lemma 2).
+    ledgerTimeRecordTimeTolerance + newLedgerTimeRecordTimeTolerance <= mediatorDeduplicationTimeout
+  }
+
+  override def update(
+      participantResponseTimeout: NonNegativeFiniteDuration = participantResponseTimeout,
+      mediatorReactionTimeout: NonNegativeFiniteDuration = mediatorReactionTimeout,
+      transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
+      topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
+      ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
+  ): DynamicDomainParameters = this.copy(
+    participantResponseTimeout = participantResponseTimeout,
+    mediatorReactionTimeout = mediatorReactionTimeout,
+    transferExclusivityTimeout = transferExclusivityTimeout,
+    topologyChangeDelay = topologyChangeDelay,
+    ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
+  )
+
+  override def toProto(
+      protocolVersion: ProtocolVersion
+  ): Either[String, DomainParametersChangeAuthorization.Parameters] = {
+    val protoV = protoVersion(protocolVersion)
+    // TODO(#15152) Adapt when support for pv < 6 is dropped
+    // TODO(#15153) Adapt when support for pv=6 is dropped
+    if (protoV == 2)
+      Right(
+        protocolV2.DynamicDomainParameters(
+          participantResponseTimeout = Some(participantResponseTimeout.toProtoPrimitive),
+          mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
+          transferExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
+          topologyChangeDelay = Some(topologyChangeDelay.toProtoPrimitive),
+          ledgerTimeRecordTimeTolerance = Some(ledgerTimeRecordTimeTolerance.toProtoPrimitive),
+          mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
+          reconciliationInterval = Some(reconciliationInterval.toProtoPrimitive),
+          maxRatePerParticipant = maxRatePerParticipant.unwrap,
+          maxRequestSize = maxRequestSize.unwrap,
+          catchUpParameters = catchUpConfig.map(_.toProtoV2),
+        )
+      ).map(DomainParametersChangeAuthorization.Parameters.ParametersV2)
+    else
+      Left(
+        s"Cannot convert DynamicDomainParameters to Protobuf when domain protocol version is $protocolVersion"
       )
   }
 }
@@ -402,8 +441,10 @@ object DynamicDomainParameters {
       Right(domain.transformInto[DynamicDomainParametersV0])
     // TODO(#15152) Adapt when support for pv < 6 is dropped
     // TODO(#15153) Adapt when support for pv=6 is dropped
-    else if (protoVersion == 1 || protoVersion == 2)
+    else if (protoVersion == 1)
       Right(domain.transformInto[DynamicDomainParametersV1])
+    else if (protoVersion == 2)
+      Right(domain.transformInto[DynamicDomainParametersV2])
     else
       Left(ProtoDeserializationError.VersionError("DynamicDomainParameters", protoVersion))
   }

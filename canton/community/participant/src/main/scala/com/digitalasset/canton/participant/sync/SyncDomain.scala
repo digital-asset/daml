@@ -249,7 +249,6 @@ class SyncDomain(
       journalGarbageCollector.observer(_),
       pruningMetrics,
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.catchUpParameters,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,

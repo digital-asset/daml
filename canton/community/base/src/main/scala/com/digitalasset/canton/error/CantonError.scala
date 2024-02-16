@@ -80,10 +80,10 @@ trait BaseCantonError extends BaseError {
   def log()(implicit loggingContext: ErrorLoggingContext): Unit = logWithContext()(loggingContext)
 
   def asGrpcError(implicit loggingContext: ErrorLoggingContext): StatusRuntimeException =
-    code.asGrpcError(this)(loggingContext)
+    ErrorCode.asGrpcError(this)(loggingContext)
 
   def asGoogleGrpcStatus(implicit loggingContext: ErrorLoggingContext): com.google.rpc.Status =
-    code.asGrpcStatus(this)(loggingContext)
+    ErrorCode.asGrpcStatus(this)(loggingContext)
 
 }
 
@@ -140,7 +140,7 @@ trait CantonError extends BaseCantonError {
   def log(): Unit = logWithContext()(loggingContext)
 
   def asGrpcError: StatusRuntimeException =
-    code.asGrpcError(this)(loggingContext)
+    ErrorCode.asGrpcError(this)(loggingContext)
 
   // automatically log the error on generation
   if (logOnCreation) {

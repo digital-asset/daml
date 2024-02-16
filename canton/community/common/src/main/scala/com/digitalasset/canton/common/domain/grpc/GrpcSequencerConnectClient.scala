@@ -207,6 +207,5 @@ object GrpcSequencerConnectClient {
       Left(ProtoDeserializationError.FieldNotSet("GetDomainParameters.parameters"))
     case Parameters.ParametersV0(parametersV0) => StaticDomainParameters.fromProtoV0(parametersV0)
     case Parameters.ParametersV1(parametersV1) => StaticDomainParameters.fromProtoV1(parametersV1)
-    case Parameters.ParametersV2(parametersV2) => StaticDomainParameters.fromProtoV2(parametersV2)
   }
 }
