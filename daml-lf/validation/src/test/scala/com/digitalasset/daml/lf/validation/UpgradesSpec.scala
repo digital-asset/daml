@@ -89,6 +89,20 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
     }
   }
 
+  private def assertDuplicatePackageUpload()(
+      testPackageV1Id: PackageId,
+      uploadV1Result: Option[Throwable],
+      testPackageV2Id: PackageId,
+      uploadV2Result: Option[Throwable],
+  )(cantonLogSrc: String): Assertion = {
+    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
+    uploadV1Result should be(empty)
+    cantonLogSrc should include(
+      s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
+    )
+    uploadV2Result should be(empty)
+  }
+
   private def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
       testPackageV1Id: PackageId,
       uploadV1Result: Option[Throwable],
@@ -161,6 +175,13 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
   }
 
   "Upload-time Upgradeability Checks" should {
+    "uploading the same package multiple times succeeds" in {
+      testPackagePair(
+        "test-common/upgrades-ValidUpgrade-v1.dar",
+        "test-common/upgrades-ValidUpgrade-v1.dar",
+        assertDuplicatePackageUpload(),
+      )
+    }
     "uploads against the same package name must be version unique" in {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",

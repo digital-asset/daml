@@ -237,8 +237,13 @@ private[apiserver] final class ApiPackageManagementService private (
     logger.info(s"Uploading DAR file for $upgradingPackageId in submission ID ${loggingContext.serializeFiltered("submissionId")}.")
     existingVersionedPackageId(upgradingDar.main) match {
       case Some(uploadedPackageId) =>
-        logger.info(s"Package $upgradingPackageId can not be uploaded - $uploadedPackageId is already uploaded and at version ${upgradingPackage.metadata.version}")
-        Future.failed(Validation.UpgradeVersion.Error(uploadedPackageId, upgradingPackageId, upgradingPackage.metadata.version).asGrpcError)
+        if (uploadedPackageId == upgradingPackageId) {
+          logger.info(s"Ignoring upload of package $upgradingPackageId as it has been previously uploaded")
+          Future.unit
+        } else {
+          logger.info(s"Package $upgradingPackageId can not be uploaded - $uploadedPackageId is already uploaded and at version ${upgradingPackage.metadata.version}")
+          Future.failed(Validation.UpgradeVersion.Error(uploadedPackageId, upgradingPackageId, upgradingPackage.metadata.version).asGrpcError)
+        }
 
       case None =>
         upgradingPackage.metadata.upgradedPackageId match {
