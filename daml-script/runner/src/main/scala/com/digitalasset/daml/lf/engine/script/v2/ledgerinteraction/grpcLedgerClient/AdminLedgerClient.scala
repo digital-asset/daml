@@ -16,8 +16,7 @@ import com.google.protobuf.ByteString
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
-import java.io.{Closeable, FileInputStream}
-import java.nio.file.Path
+import java.io.{Closeable, File, FileInputStream}
 import scala.concurrent.{ExecutionContext, Future}
 
 final class AdminLedgerClient private (
@@ -68,12 +67,12 @@ final class AdminLedgerClient private (
   def unvetDar(name: String): Future[Unit] =
     findDarHash(name).flatMap(unvetDarByHash)
 
-  def uploadDar(path: Path, name: String): Future[Either[String, String]] =
+  def uploadDar(file: File): Future[Either[String, String]] =
     packageServiceStub
       .uploadDar(
         admin_package_service.UploadDarRequest(
-          data = ByteString.readFrom(new FileInputStream(path.toFile)),
-          filename = name + ".dar",
+          data = ByteString.readFrom(new FileInputStream(file)),
+          filename = file.getName,
           vetAllPackages = true,
           synchronizeVetting = true,
         )

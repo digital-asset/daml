@@ -80,7 +80,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
                 s"Uploading ${dep.versionedName} to participant on port ${ledgerPort}"
               )
               adminClient
-                .uploadDar(dep.path, dep.versionedName)
+                .uploadDar(dep.path.toFile)
                 .map(_.left.map(msg => throw new Exception(msg)))
             }
           }
