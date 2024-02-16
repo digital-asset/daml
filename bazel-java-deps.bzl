@@ -67,8 +67,8 @@ circe_version = "0.14.2"
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
-            "ch.qos.logback:logback-classic:1.4.5",
-            "ch.qos.logback:logback-core:1.4.5",
+            "ch.qos.logback:logback-classic:1.4.14",
+            "ch.qos.logback:logback-core:1.4.14",
             "com.auth0:java-jwt:4.2.1",
             "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.6".format(scala_major_version),
