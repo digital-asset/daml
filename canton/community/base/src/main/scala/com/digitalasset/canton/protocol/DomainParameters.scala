@@ -605,6 +605,7 @@ final case class DynamicDomainParameters private (
       param("topology change delay", _.topologyChangeDelay),
       param("ledger time record time tolerance", _.ledgerTimeRecordTimeTolerance),
     )
+
   }
 }
 
