@@ -57,10 +57,6 @@ if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
   tag_filter="$tag_filter,-dev-canton-test"
 fi
 
-if [ "$IS_FORK" = "True" ]; then
-  tag_filter="${tag_filter},-canton-ee"
-fi
-
 # remove possible leading comma
 tag_filter="${tag_filter#,}"
 

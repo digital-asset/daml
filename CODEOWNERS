@@ -27,7 +27,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 /compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
 /libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
 /ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da @paulbrauner-da
-/test-common/canton/            @garyverhaegen-da @remyhaemmerle-da
+/test-common/canton/            @remyhaemmerle-da
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da @paulbrauner-da

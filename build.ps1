@@ -63,8 +63,7 @@ bazel build //... `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
   `-`-build_event_json_file build-events.json `
-  `-`-build_event_publish_all_actions `
-  `-`-build_tag_filters=-canton-ee
+  `-`-build_event_publish_all_actions
 
 bazel shutdown
 
@@ -86,7 +85,7 @@ if ($env:SKIP_TESTS -ceq "False") {
 
     $FEWER_TESTS_FILTER = "-main-only"
 
-    $tag_filter = "-dev-canton-test,-canton-ee"
+    $tag_filter = "-dev-canton-test"
     switch ($env:TEST_MODE) {
       'main' {
           Write-Output "Running all tests because TEST_MODE is 'main'"
