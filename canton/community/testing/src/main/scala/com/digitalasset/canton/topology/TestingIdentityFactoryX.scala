@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
@@ -92,7 +93,7 @@ final case class TestingTopologyX(
       )
     ),
     sequencerGroup: SequencerGroup = SequencerGroup(
-      active = Seq(DefaultTestIdentities.sequencerIdX),
+      active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerIdX),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     ),
@@ -232,7 +233,7 @@ class TestingIdentityFactoryX(
     val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
 
     val domainMembers =
-      (topology.sequencerGroup.active ++ topology.sequencerGroup.passive ++ topology.mediators.toSeq)
+      (topology.sequencerGroup.active.forgetNE ++ topology.sequencerGroup.passive ++ topology.mediators.toSeq)
         .flatMap(m => genKeyCollection(m))
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
@@ -255,10 +256,10 @@ class TestingIdentityFactoryX(
           .create(
             domainId,
             threshold = topology.sequencerGroup.threshold,
-            active = topology.sequencerGroup.active,
+            active = topology.sequencerGroup.active.forgetNE,
             observers = topology.sequencerGroup.passive,
           )
-          .getOrElse(sys.error("creating SequencerDomainStateX should not have failed"))
+          .valueOr(err => sys.error(s"creating SequencerDomainStateX should not have failed: $err"))
       )
 
     val partyDataTx = partyToParticipantTxs()

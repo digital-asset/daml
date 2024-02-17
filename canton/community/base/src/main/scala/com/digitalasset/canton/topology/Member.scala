@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology
 import cats.kernel.Order
 import cats.syntax.either.*
 import com.daml.ledger.javaapi.data.Party
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -419,7 +420,7 @@ object DomainTopologyManagerId {
 }
 
 final case class SequencerGroup(
-    active: Seq[SequencerId],
+    active: NonEmpty[Seq[SequencerId]],
     passive: Seq[SequencerId],
     threshold: PositiveInt,
 )

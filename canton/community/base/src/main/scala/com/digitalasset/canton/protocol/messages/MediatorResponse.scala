@@ -107,7 +107,7 @@ case class MediatorResponse private (
         )
   }
 
-  override def signingTimestamp: CantonTimestamp = requestId.unwrap
+  override def signingTimestamp: Option[CantonTimestamp] = Some(requestId.unwrap)
 
   protected override def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString

@@ -10,7 +10,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
@@ -96,7 +96,7 @@ object RootHashMessageRecipients extends HasLoggerName {
   def recipientsAreValid(
       recipients: Recipients,
       participantId: ParticipantId,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       participantIsAddressByPartyGroupAddress: (
           Seq[LfPartyId],
           ParticipantId,
@@ -104,9 +104,9 @@ object RootHashMessageRecipients extends HasLoggerName {
   ): FutureUnlessShutdown[Boolean] =
     recipients.asSingleGroup match {
       case Some(group) =>
-        if (group == NonEmpty.mk(Set, MemberRecipient(participantId), mediator.toRecipient))
+        if (group == NonEmpty.mk(Set, MemberRecipient(participantId), mediator))
           FutureUnlessShutdown.pure(true)
-        else if (group.contains(mediator.toRecipient) && group.size >= 2) {
+        else if (group.contains(mediator) && group.size >= 2) {
           val informeeParty = group.collect { case ParticipantsOfParty(party) =>
             party.toLf
           }
@@ -122,7 +122,7 @@ object RootHashMessageRecipients extends HasLoggerName {
 
   def wrongAndCorrectRecipients(
       recipientsList: Seq[Recipients],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ): (Seq[RecipientsTree], Seq[NonEmpty[Set[Recipient]]]) = {
     val (wrongRecipients, correctRecipients) = recipientsList.flatMap { recipients =>
       recipients.trees.toList.map {
@@ -137,9 +137,8 @@ object RootHashMessageRecipients extends HasLoggerName {
           }
           val groupAddressingBeingUsed = groupAddressCount > 0
           Either.cond(
-            ((group.size == 2) || (groupAddressingBeingUsed && group.size >= 2)) && group.contains(
-              mediator.toRecipient
-            ) && (participantCount + groupAddressCount > 0),
+            ((group.size == 2) || (groupAddressingBeingUsed && group.size >= 2)) &&
+              group.contains(mediator) && (participantCount + groupAddressCount > 0),
             group,
             tree,
           )

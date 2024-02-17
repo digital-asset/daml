@@ -24,6 +24,8 @@ object DisclosedContractCreator {
   private object api {
     val templateId: Identifier =
       Identifier("package", moduleName = "module", entityName = "entity")
+    val packageName: String = "pkg-name"
+
     val contractId: String = "00" + "00" * 31 + "ef"
     val alice: Ref.Party = Ref.Party.assertFromString("alice")
     val bob: Ref.Party = Ref.Party.assertFromString("bob")
@@ -43,6 +45,7 @@ object DisclosedContractCreator {
         Ref.DottedName.assertFromString(api.templateId.entityName),
       ),
     )
+    private val packageName: Ref.PackageName = Ref.PackageName.assertFromString(api.packageName)
     private val createArg: ValueRecord = ValueRecord(
       tycon = Some(templateId),
       fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> ValueTrue),
@@ -66,9 +69,9 @@ object DisclosedContractCreator {
 
     val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
       create = Node.Create(
-        packageName = Ref.PackageName.assertFromString("default"),
         coid = lf.lfContractId,
         templateId = lf.templateId,
+        packageName = packageName,
         arg = lf.createArg,
         agreementText = "",
         signatories = api.signatories,

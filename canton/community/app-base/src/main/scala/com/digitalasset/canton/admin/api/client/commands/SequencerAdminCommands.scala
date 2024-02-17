@@ -5,6 +5,7 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.domain.admin
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerPruningStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
@@ -67,5 +68,31 @@ object SequencerAdminCommands {
         .traverse(com.digitalasset.canton.traffic.MemberTrafficStatus.fromProtoV30)
         .leftMap(_.toString)
         .map(SequencerTrafficStatus)
+  }
+
+  final case class SetTrafficControlBalance(
+      member: Member,
+      newTrafficBalance: NonNegativeLong,
+      serial: NonNegativeLong,
+  ) extends BaseSequencerAdministrationCommands[
+        admin.v30.SetTrafficBalanceRequest,
+        admin.v30.SetTrafficBalanceResponse,
+        Unit,
+      ] {
+    override def createRequest(): Either[String, admin.v30.SetTrafficBalanceRequest] = Right(
+      admin.v30.SetTrafficBalanceRequest(
+        member = member.toProtoPrimitive,
+        serial = serial.value,
+        totalTrafficBalance = newTrafficBalance.value,
+      )
+    )
+    override def submitRequest(
+        service: admin.v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: admin.v30.SetTrafficBalanceRequest,
+    ): Future[admin.v30.SetTrafficBalanceResponse] =
+      service.setTrafficBalance(request)
+    override def handleResponse(
+        response: admin.v30.SetTrafficBalanceResponse
+    ): Either[String, Unit] = Right(())
   }
 }

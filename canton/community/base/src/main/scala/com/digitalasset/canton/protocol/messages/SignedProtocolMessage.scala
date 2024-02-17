@@ -33,7 +33,6 @@ import com.digitalasset.canton.version.{
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordered.orderingToOrdered
 
 /** There can be any number of signatures.
   * Every signature covers the serialization of the `typedMessage` and needs to be valid.
@@ -58,44 +57,24 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
       snapshot: SyncCryptoApi,
       member: Member,
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
-    if (
-      representativeProtocolVersion >=
-        companionObj.protocolVersionRepresentativeFor(ProtocolVersion.v30)
-    ) {
-      // TODO(#12390) Properly check the signatures, i.e. there shouldn't be multiple signatures from the same member on the same envelope
-      ClosedEnvelope.verifySignatures(
-        snapshot,
-        member,
-        typedMessage.getCryptographicEvidence,
-        signatures,
-      )
-    } else {
-      val hashPurpose = message.hashPurpose
-      val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
-      snapshot.verifySignatures(hash, member, signatures)
-    }
+    // TODO(#12390) Properly check the signatures, i.e. there shouldn't be multiple signatures from the same member on the same envelope
+    ClosedEnvelope.verifySignatures(
+      snapshot,
+      member,
+      typedMessage.getCryptographicEvidence,
+      signatures,
+    )
 
   def verifySignature(
       snapshot: SyncCryptoApi,
       mediatorGroupIndex: MediatorGroupIndex,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
-    if (
-      representativeProtocolVersion >=
-        companionObj.protocolVersionRepresentativeFor(ProtocolVersion.v30)
-    ) {
-
-      ClosedEnvelope.verifySignatures(
-        snapshot,
-        mediatorGroupIndex,
-        typedMessage.getCryptographicEvidence,
-        signatures,
-      )
-    } else {
-      val hashPurpose = message.hashPurpose
-      val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
-      snapshot.verifySignatures(hash, mediatorGroupIndex, signatures)
-    }
-  }
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+    ClosedEnvelope.verifySignatures(
+      snapshot,
+      mediatorGroupIndex,
+      typedMessage.getCryptographicEvidence,
+      signatures,
+    )
 
   def copy[MM <: SignedProtocolMessageContent](
       typedMessage: TypedSignedProtocolMessageContent[MM] = this.typedMessage,

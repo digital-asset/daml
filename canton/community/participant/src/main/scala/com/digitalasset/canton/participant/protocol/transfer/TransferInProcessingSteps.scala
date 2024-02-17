@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import com.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.data.Bytes
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DecryptionError as _, EncryptionError as _, *}
 import com.digitalasset.canton.data.ViewType.TransferInViewType
@@ -110,7 +110,7 @@ private[transfer] class TransferInProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -221,13 +221,13 @@ private[transfer] class TransferInProcessingSteps(
           checked(
             NonEmptyUtil.fromUnsafe(
               recipientsSet.toSeq.map(participant =>
-                NonEmpty(Set, mediator.toRecipient, MemberRecipient(participant))
+                NonEmpty(Set, mediator, MemberRecipient(participant))
               )
             )
           )
         )
       val messages = Seq[(ProtocolMessage, Recipients)](
-        mediatorMessage -> Recipients.cc(mediator.toRecipient),
+        mediatorMessage -> Recipients.cc(mediator),
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
@@ -288,7 +288,7 @@ private[transfer] class TransferInProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -347,7 +347,7 @@ private[transfer] class TransferInProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -463,7 +463,7 @@ private[transfer] class TransferInProcessingSteps(
                 )
             )
             .leftMap(e => FailedToCreateResponse(transferId, e): TransferProcessorError)
-            .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator.toRecipient)))
+            .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator)))
       }
     } yield {
       StorePendingDataAndSendResponseAndCreateTimeout(
@@ -583,7 +583,7 @@ private[transfer] class TransferInProcessingSteps(
       LfNodeCreate(
         coid = contract.contractId,
         templateId = contractInst.template,
-        packageName = Ref.PackageName.assertFromString("default"),
+        packageName = contractInst.packageName,
         arg = contractInst.arg,
         signatories = contract.metadata.signatories,
         stakeholders = contract.metadata.stakeholders,
@@ -667,7 +667,7 @@ object TransferInProcessingSteps {
       isTransferringParticipant: Boolean,
       transferId: TransferId,
       hostedStakeholders: Set[LfPartyId],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ) extends PendingTransfer
       with PendingRequestData
 
@@ -680,7 +680,7 @@ object TransferInProcessingSteps {
       transferCounter: TransferCounterO,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorRef,
+      targetMediator: MediatorsOfDomain,
       transferOutResult: DeliveredTransferOutResult,
       transferInUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,

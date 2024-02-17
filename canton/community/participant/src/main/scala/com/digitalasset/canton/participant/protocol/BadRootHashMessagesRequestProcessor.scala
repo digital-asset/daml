@@ -13,8 +13,8 @@ import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.protocol.messages.{LocalReject, MediatorResponse}
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.sequencing.protocol.Recipients
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, Recipients}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -47,7 +47,7 @@ class BadRootHashMessagesRequestProcessor(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
       rootHash: RootHash,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       reject: LocalReject,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
@@ -69,7 +69,7 @@ class BadRootHashMessagesRequestProcessor(
         signedRejection <- FutureUnlessShutdown.outcomeF(signResponse(snapshot, rejection))
         _ <- sendResponses(
           requestId,
-          Seq(signedRejection -> Recipients.cc(mediator.toRecipient)),
+          Seq(signedRejection -> Recipients.cc(mediator)),
         ).mapK(FutureUnlessShutdown.outcomeK)
           .valueOr(
             // This is a best-effort response anyway, so we merely log the failure and continue

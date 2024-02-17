@@ -24,7 +24,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
   private val crypto =
     TestingTopologyX(sequencerGroup =
       SequencerGroup(
-        active = Seq(SequencerId(domainId)),
+        active = NonEmpty.mk(Seq, SequencerId(domainId)),
         passive = Seq.empty,
         threshold = PositiveInt.one,
       )

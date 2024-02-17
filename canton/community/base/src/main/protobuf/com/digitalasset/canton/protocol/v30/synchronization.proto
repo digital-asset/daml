@@ -22,6 +22,7 @@ message TypedSignedProtocolMessageContent {
     bytes malformed_mediator_request_result = 4;
     bytes transfer_result = 5;
     bytes acs_commitment = 6;
+    bytes set_traffic_balance = 7;
   }
 }
 

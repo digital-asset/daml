@@ -91,20 +91,6 @@ final case class SubmissionRequest private (
     )
     .valueOr(err => throw new IllegalArgumentException(err.message))
 
-  def isConfirmationRequest(mediator: Member): Boolean =
-    batch.envelopes.exists(
-      _.recipients.allRecipients.forgetNE == Set(MemberRecipient(mediator))
-    ) && batch.envelopes.exists(e =>
-      e.recipients.allRecipients.forgetNE != Set(MemberRecipient(mediator))
-    )
-
-  def isConfirmationResponse(mediator: Member): Boolean =
-    batch.envelopes.nonEmpty && batch.envelopes.forall(
-      _.recipients.allRecipients.forgetNE == Set(MemberRecipient(mediator))
-    )
-
-  def isMediatorResult(mediator: Member): Boolean = batch.envelopes.nonEmpty && sender == mediator
-
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 

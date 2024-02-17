@@ -222,6 +222,7 @@ object UpdateToDbDto {
                     event_id = Some(eventId.toLedgerString),
                     contract_id = create.coid.coid,
                     template_id = Some(templateId),
+                    package_name = create.packageName,
                     flat_event_witnesses = stakeholders,
                     tree_event_witnesses = informees,
                     create_argument = Some(createArgument)
@@ -398,6 +399,7 @@ object UpdateToDbDto {
                   submitter = u.reassignmentInfo.submitter,
                   contract_id = assign.createNode.coid.coid,
                   template_id = templateId,
+                  package_name = assign.createNode.packageName,
                   flat_event_witnesses = flatEventWitnesses,
                   create_argument = createArgument,
                   create_signatories = assign.createNode.signatories.map(_.toString),

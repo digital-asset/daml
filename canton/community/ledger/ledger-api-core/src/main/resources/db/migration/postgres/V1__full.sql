@@ -203,6 +203,7 @@ CREATE TABLE lapi_events_assign (
     -- * shared event information
     contract_id text not null,
     template_id integer not null,
+    package_name integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
 
     -- * common reassignment
@@ -323,6 +324,7 @@ CREATE TABLE lapi_events_create (
     -- * shared event information
     contract_id text not null,
     template_id integer not null,
+    package_name integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
 

@@ -27,9 +27,10 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipient}
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, OpenEnvelope, Recipient}
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.store.SessionKeyStoreWithInMemoryCache
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -56,7 +57,7 @@ class ConfirmationRequestFactoryTest
 
   // General dummy parameters
   private val domain: DomainId = DefaultTestIdentities.domainId
-  private val mediator: MediatorRef = MediatorRef(DefaultTestIdentities.mediator)
+  private val mediator: MediatorsOfDomain = MediatorsOfDomain(MediatorGroupIndex.zero)
   private val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch
   private val workflowId: Option[WorkflowId] = Some(
     WorkflowId.assertFromString("workflowIdConfirmationRequestFactoryTest")
@@ -122,7 +123,7 @@ class ConfirmationRequestFactoryTest
           submitterInfo: SubmitterInfo,
           _confirmationPolicy: ConfirmationPolicy,
           _workflowId: Option[WorkflowId],
-          _mediator: MediatorRef,
+          _mediator: MediatorsOfDomain,
           transactionSeed: SaltSeed,
           transactionUuid: UUID,
           _topologySnapshot: TopologySnapshot,
@@ -152,7 +153,7 @@ class ConfirmationRequestFactoryTest
           subaction: WellFormedTransaction[WithoutSuffixes],
           rootPosition: ViewPosition,
           confirmationPolicy: ConfirmationPolicy,
-          mediator: MediatorRef,
+          mediator: MediatorsOfDomain,
           submittingParticipantO: Option[ParticipantId],
           salts: Iterable[Salt],
           transactionUuid: UUID,

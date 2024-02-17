@@ -60,6 +60,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{CursorPrehead, IndexedDomain}
 import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration, WallClock}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
@@ -383,7 +384,7 @@ class ProtocolProcessorTest
   private lazy val someRequestBatch = RequestAndRootHashMessage(
     NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
     rootHashMessage,
-    MediatorRef(DefaultTestIdentities.mediator),
+    MediatorsOfDomain(MediatorGroupIndex.zero),
     isReceipt = false,
   )
 
@@ -508,11 +509,7 @@ class ProtocolProcessorTest
     }
 
     "transit to confirmed" in {
-      val pd = TestPendingRequestData(
-        rc,
-        requestSc,
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-      )
+      val pd = TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
       val before = ephemeral.requestJournal.query(rc).value.futureValue
@@ -532,11 +529,8 @@ class ProtocolProcessorTest
     }
 
     "leave the request state unchanged when doing a clean replay" in {
-      val pendingData = TestPendingRequestData(
-        rc,
-        requestSc,
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-      )
+      val pendingData =
+        TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(
           overrideConstructedPendingRequestDataO = Some(pendingData),
@@ -570,11 +564,7 @@ class ProtocolProcessorTest
     }
 
     "trigger a timeout when the result doesn't arrive" in {
-      val pd = TestPendingRequestData(
-        rc,
-        requestSc,
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-      )
+      val pd = TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
 
@@ -633,7 +623,7 @@ class ProtocolProcessorTest
           OpenEnvelope(viewMessageWrongRH, someRecipients)(testedProtocolVersion),
         ),
         rootHashMessage,
-        MediatorRef(DefaultTestIdentities.mediator),
+        MediatorsOfDomain(MediatorGroupIndex.zero),
         isReceipt = false,
       )
 
@@ -670,7 +660,7 @@ class ProtocolProcessorTest
           OpenEnvelope(viewMessageDecryptError, someRecipients)(testedProtocolVersion),
         ),
         rootHashMessage,
-        MediatorRef(DefaultTestIdentities.mediator),
+        MediatorsOfDomain(MediatorGroupIndex.zero),
         isReceipt = false,
       )
 
@@ -698,11 +688,11 @@ class ProtocolProcessorTest
     } in {
       // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
 
-      val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
+      val otherMediatorGroup = MediatorsOfDomain(MediatorGroupIndex.one)
       val requestBatch = RequestAndRootHashMessage(
         NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
         rootHashMessage,
-        MediatorRef(otherMediatorId),
+        otherMediatorGroup,
         isReceipt = false,
       )
 
@@ -713,7 +703,7 @@ class ProtocolProcessorTest
             .processRequest(requestId.unwrap, rc, requestSc, requestBatch)
             .onShutdown(fail()),
           _.errorMessage should include(
-            s"Mediator ${DefaultTestIdentities.mediator} declared in views is not the recipient $otherMediatorId of the root hash message"
+            s"Mediator ${MediatorsOfDomain(MediatorGroupIndex.zero)} declared in views is not the recipient $otherMediatorGroup of the root hash message"
           ),
         )
         .futureValue
@@ -742,7 +732,7 @@ class ProtocolProcessorTest
             .onShutdown(fail()),
           _.shouldBeCantonError(
             SyncServiceAlarm,
-            _ shouldBe s"Request $rc: Chosen mediator ${DefaultTestIdentities.mediator} is inactive at ${requestId.unwrap}. Skipping this request.",
+            _ shouldBe s"Request $rc: Chosen mediator ${MediatorsOfDomain(MediatorGroupIndex.zero)} is inactive at ${requestId.unwrap}. Skipping this request.",
           ),
         )
         .futureValue
@@ -922,11 +912,7 @@ class ProtocolProcessorTest
         .complete(
           Some(
             WrappedPendingRequestData(
-              TestPendingRequestData(
-                rc,
-                requestSc,
-                MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-              )
+              TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
             )
           )
         )
@@ -941,7 +927,7 @@ class ProtocolProcessorTest
       when(mockSignedProtocolMessage.message).thenReturn(trm)
       when(
         mockSignedProtocolMessage
-          .verifySignature(any[SyncCryptoApi], any[Member])(anyTraceContext)
+          .verifySignature(any[SyncCryptoApi], any[MediatorGroupIndex])(anyTraceContext)
       )
         .thenReturn(EitherT.rightT(()))
       sut
@@ -1048,7 +1034,7 @@ class ProtocolProcessorTest
             CleanReplayData(
               rc,
               requestSc,
-              MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+              MediatorsOfDomain(MediatorGroupIndex.one),
             )
           )
         )

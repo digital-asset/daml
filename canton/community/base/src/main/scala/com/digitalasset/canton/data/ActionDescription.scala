@@ -239,7 +239,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       interfaceId <- interfaceIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
       version <- lfVersionFromProtoVersioned(versionP)
       chosenValue <- ValueCoder
-        .decodeValue(ValueCoder.CidDecoder, version, chosenValueB)
+        .decodeValue(version, chosenValueB)
         .leftMap(err => ValueDeserializationError("chosen_value", err.errorMessage))
       actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
       seed <- LfHash.fromProtoPrimitive("node_seed", seedP)
@@ -317,7 +317,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       transactionVersion: LfTransactionVersion,
   ): Either[String, ByteString] =
     ValueCoder
-      .encodeValue(ValueCoder.CidEncoder, transactionVersion, chosenValue)
+      .encodeValue(valueVersion = transactionVersion, v0 = chosenValue)
       .leftMap(_.errorMessage)
 
   final case class CreateActionDescription(

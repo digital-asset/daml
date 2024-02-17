@@ -39,6 +39,7 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -64,7 +65,7 @@ class StoreBackedCommandExecutorSpec
   ).toLfBytes(ProtocolVersion.dev)
   val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
-
+  val packageName: PackageName = PackageName.assertFromString("pkg-name")
   private val processedDisclosedContracts = ImmArray(
   )
 
@@ -220,11 +221,7 @@ class StoreBackedCommandExecutorSpec
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
         LfTransactionVersion.maxVersion,
-        ContractInstance(
-          packageName = Ref.PackageName.assertFromString("default"),
-          template = identifier,
-          arg = Value.ValueTrue,
-        ),
+        ContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
       ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
@@ -244,6 +241,7 @@ class StoreBackedCommandExecutorSpec
 
     val disclosedContract: domain.DisclosedContract = domain.UpgradableDisclosedContract(
       templateId = identifier,
+      packageName = packageName,
       contractId = disclosedContractId,
       argument = ValueTrue,
       createdAt = mock[Timestamp],

@@ -384,15 +384,14 @@ object MutableCacheBackedContractStoreSpec {
 
   private def contract(templateName: String): Contract = {
     val templateId = Identifier.assertFromString(s"some:template:$templateName")
+    val packageName = Ref.PackageName.assertFromString("pkg-name")
+
     val contractArgument = ValueRecord(
       Some(templateId),
       ImmArray.Empty,
     )
-    val contractInstance = ContractInstance(
-      packageName = Ref.PackageName.assertFromString("default"),
-      template = templateId,
-      arg = contractArgument,
-    )
+    val contractInstance =
+      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

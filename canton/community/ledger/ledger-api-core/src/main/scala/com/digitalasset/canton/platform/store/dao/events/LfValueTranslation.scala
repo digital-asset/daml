@@ -11,9 +11,9 @@ import com.daml.ledger.api.v1.value.{
   Record as ApiRecord,
   Value as ApiValue,
 }
+import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.*
@@ -44,6 +44,7 @@ import com.digitalasset.canton.platform.{
   Identifier as LfIdentifier,
   ModuleName as LfModuleName,
   PackageId as LfPackageId,
+  PackageName as LfPackageName,
   QualifiedName as LfQualifiedName,
   Value as LfValue,
 }
@@ -274,6 +275,7 @@ final class LfValueTranslation(
           moduleName <- DottedName.fromString(apiTemplateId.moduleName)
           entityName <- DottedName.fromString(apiTemplateId.entityName)
           templateId = Identifier(packageId, LfQualifiedName(moduleName, entityName))
+          packageName <- LfPackageName.fromString(raw.partial.packageName)
           signatories <- raw.partial.signatories.traverse(Party.fromString).map(_.toSet)
           observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
           maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
@@ -291,8 +293,8 @@ final class LfValueTranslation(
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,
-            packageName = Ref.PackageName.assertFromString("default"),
             templateId = templateId,
+            packageName = packageName,
             arg = createArgument.unversioned,
             agreementText = raw.partial.agreementText.getOrElse(""),
             signatories = signatories,
@@ -412,8 +414,8 @@ final class LfValueTranslation(
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,
-            packageName = Ref.PackageName.assertFromString("default"),
             templateId = createdEvent.templateId,
+            packageName = createdEvent.packageName,
             arg = createArgument.unversioned,
             agreementText = createdEvent.agreementText.getOrElse(""),
             signatories = signatories,

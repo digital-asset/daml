@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
 import cats.implicits.toFunctorFilterOps
+import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -33,7 +34,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencerErrors,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorId, MediatorRef, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{MediatorId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -246,56 +247,55 @@ private[mediator] class DefaultVerdictSender(
     }
 
   private def shouldSendVerdict(
-      mediatorRef: MediatorRef,
+      mediatorGroup: MediatorsOfDomain,
       topologySnapshot: TopologySnapshot,
-  )(implicit traceContext: TraceContext): Future[Boolean] = mediatorRef match {
-    case MediatorRef.Single(_) => Future.successful(true)
-    case MediatorRef.Group(MediatorsOfDomain(mediatorGroupIndex)) =>
-      topologySnapshot.mediatorGroup(mediatorGroupIndex).map { groupO =>
-        groupO
-          .getOrElse(
-            // This has been checked in the `validateRequest`
-            ErrorUtil.invalidState(
-              s"Unexpected absent mediator group $mediatorGroupIndex."
-            )
+  )(implicit traceContext: TraceContext): Future[Boolean] = {
+    val mediatorGroupIndex = mediatorGroup.group
+    topologySnapshot.mediatorGroup(mediatorGroupIndex).map { groupO =>
+      groupO
+        .getOrElse(
+          // This has been checked in the `validateRequest`
+          ErrorUtil.invalidState(
+            s"Unexpected absent mediator group $mediatorGroupIndex."
           )
-          .active
-          .contains(mediatorId)
-      }
+        )
+        .active
+        .contains(mediatorId)
+    }
   }
 
   private def groupAggregationRule(
       topologySnapshot: TopologySnapshot,
-      mediatorRef: MediatorRef,
+      mediatorGroup: MediatorsOfDomain,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Option[AggregationRule]] =
-    mediatorRef match {
-      case MediatorRef.Group(MediatorsOfDomain(index)) =>
-        for {
-          mediatorGroup <- EitherT(
-            topologySnapshot
-              .mediatorGroup(index)
-              .map(
-                _.toRight(
-                  s"Mediator group $index does not exist in topology at ${topologySnapshot.timestamp}"
-                )
-              )
-          )
-          activeNE = NonEmpty
-            .from(mediatorGroup.active)
-            .getOrElse(
-              ErrorUtil.invalidState(
-                "MediatorGroup is expected to have at least 1 active member at this point"
-              )
+  ): EitherT[Future, String, Option[AggregationRule]] = {
+    val index = mediatorGroup.group
+    for {
+      mediatorGroup <- EitherT(
+        topologySnapshot
+          .mediatorGroup(index)
+          .map(
+            _.toRight(
+              s"Mediator group $index does not exist in topology at ${topologySnapshot.timestamp}"
             )
-        } yield {
-          Some(AggregationRule(activeNE, mediatorGroup.threshold, protocolVersion))
-        }
-      case MediatorRef.Single(_) =>
-        EitherT.right[String](Future.successful(Option.empty[AggregationRule]))
+          )
+      )
+    } yield {
+      val activeNE = NonEmpty
+        .from(mediatorGroup.active)
+        .getOrElse(
+          ErrorUtil.invalidState(
+            "MediatorGroup is expected to have at least 1 active member at this point"
+          )
+        )
+      // We need aggregation only if the mediator group is truly decentralized
+      Option.when(mediatorGroup.threshold.unwrap > 1)(
+        AggregationRule(activeNE, mediatorGroup.threshold, protocolVersion)
+      )
     }
+  }
 
   override def sendReject(
       requestId: RequestId,
@@ -381,13 +381,12 @@ private[mediator] class DefaultVerdictSender(
           }
         batch = Batch.of(protocolVersion, envs*)
         // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow rhms with inconsistent mediators from other than participant domain nodes)
-        mediatorRefO = // we always use RHMs to figure out mediator ref, to address rejections from a correct mediator that participants that received the RHMs expect
+        mediatorGroupO = // we always use RHMs to figure out the mediator group, to address rejections from a correct mediator that participants that received the RHMs expect
           rootHashMessages.headOption // one RHM is enough because sequencer checks that all RHMs specify the same mediator recipient
             .map { rhm =>
               rhm.recipients.allRecipients
-                .collectFirst {
-                  case MemberRecipient(mediatorId: MediatorId) => MediatorRef(mediatorId)
-                  case mediatorsOfDomain: MediatorsOfDomain => MediatorRef(mediatorsOfDomain)
+                .collectFirst { case mediatorsOfDomain: MediatorsOfDomain =>
+                  mediatorsOfDomain
                 }
                 .getOrElse {
                   ErrorUtil.invalidState(
@@ -395,33 +394,30 @@ private[mediator] class DefaultVerdictSender(
                   )
                 }
             }
-        _ <- {
-          mediatorRefO match {
-            case Some(mediatorRef) =>
-              for {
-                aggregationRuleO <- groupAggregationRule(
-                  snapshot.ipsSnapshot,
-                  mediatorRef,
-                  protocolVersion,
-                )
-                  .valueOr(reason =>
-                    ErrorUtil.invalidState(
-                      s"MediatorReject not sent. Failed to determine group aggregation rule for mediator $mediatorRef due to: $reason"
-                    )
+        _ <- mediatorGroupO.traverse_ {
+          // if no mediator could be detected from RHMs, participants will also detect this and there's not need to send a reject
+          mediatorGroup =>
+            for {
+              aggregationRuleO <- groupAggregationRule(
+                snapshot.ipsSnapshot,
+                mediatorGroup,
+                protocolVersion,
+              )
+                .valueOr(reason =>
+                  ErrorUtil.invalidState(
+                    s"MediatorReject not sent. Failed to determine group aggregation rule for mediator $mediatorGroup due to: $reason"
                   )
-                sendVerdict <- shouldSendVerdict(mediatorRef, snapshot.ipsSnapshot)
-              } yield {
-                sendResultBatch(
-                  requestId,
-                  batch,
-                  decisionTime,
-                  aggregationRule = aggregationRuleO,
-                  sendVerdict,
                 )
-              }
-            case None => // if no mediator could be detected from RHMs, participants will also detect this and there's not need to send a reject
-              Future.unit
-          }
+              sendVerdict <- shouldSendVerdict(mediatorGroup, snapshot.ipsSnapshot)
+            } yield {
+              sendResultBatch(
+                requestId,
+                batch,
+                decisionTime,
+                aggregationRule = aggregationRuleO,
+                sendVerdict,
+              )
+            }
         }
       } yield ()
     } else Future.unit

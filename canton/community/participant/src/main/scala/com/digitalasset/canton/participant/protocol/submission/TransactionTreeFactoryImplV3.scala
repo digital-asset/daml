@@ -21,7 +21,8 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 }
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
@@ -55,7 +56,7 @@ class TransactionTreeFactoryImplV3(
     ContractStateMachine.initial[Unit](ContractKeyUniquenessMode.Off)
 
   protected[submission] class State private (
-      override val mediator: MediatorRef,
+      override val mediator: MediatorsOfDomain,
       override val transactionUUID: UUID,
       override val ledgerTime: CantonTimestamp,
       override protected val salts: Iterator[Salt],
@@ -101,7 +102,7 @@ class TransactionTreeFactoryImplV3(
   private[submission] object State {
     private[submission] def submission(
         transactionSeed: SaltSeed,
-        mediator: MediatorRef,
+        mediator: MediatorsOfDomain,
         transactionUUID: UUID,
         ledgerTime: CantonTimestamp,
         nextSaltIndex: Int,
@@ -114,7 +115,7 @@ class TransactionTreeFactoryImplV3(
     }
 
     private[submission] def validation(
-        mediator: MediatorRef,
+        mediator: MediatorsOfDomain,
         transactionUUID: UUID,
         ledgerTime: CantonTimestamp,
         salts: Iterable[Salt],
@@ -124,7 +125,7 @@ class TransactionTreeFactoryImplV3(
 
   override protected def stateForSubmission(
       transactionSeed: SaltSeed,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       keyResolver: LfKeyResolver,
@@ -140,7 +141,7 @@ class TransactionTreeFactoryImplV3(
     )
 
   override protected def stateForValidation(
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       salts: Iterable[Salt],

@@ -124,7 +124,7 @@ abstract sealed case class AcsCommitment private (
 
   @transient override protected lazy val companionObj: AcsCommitment.type = AcsCommitment
 
-  override def signingTimestamp: CantonTimestamp = period.toInclusive.forgetRefinement
+  override def signingTimestamp: Option[CantonTimestamp] = Some(period.toInclusive.forgetRefinement)
 
   protected def toProtoV30: v30.AcsCommitment = {
     v30.AcsCommitment(

@@ -600,7 +600,7 @@ class DomainSnapshotSyncCryptoApi(
             )
           )
           .fold(
-            x => x.invalid[MediatorId],
+            _.invalid[MediatorId],
             _ => keyMember(signature.signedBy).valid[SignatureCheckError],
           )
       })

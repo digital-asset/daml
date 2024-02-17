@@ -38,7 +38,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.SessionKeyStore
-import com.digitalasset.canton.topology.MediatorRef
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter}
@@ -142,7 +141,7 @@ trait ProcessingSteps[
     */
   def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SubmissionError, Submission]
@@ -378,7 +377,7 @@ trait ProcessingSteps[
       ],
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, RequestError, CheckActivenessAndWritePendingContracts]
@@ -455,7 +454,7 @@ trait ProcessingSteps[
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -611,13 +610,13 @@ object ProcessingSteps {
   trait PendingRequestData {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
-    def mediator: MediatorRef
+    def mediator: MediatorsOfDomain
   }
 
   object PendingRequestData {
     def unapply(
         arg: PendingRequestData
-    ): Some[(RequestCounter, SequencerCounter, MediatorRef)] = {
+    ): Some[(RequestCounter, SequencerCounter, MediatorsOfDomain)] = {
       Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator))
     }
   }

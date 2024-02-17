@@ -20,6 +20,7 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
@@ -419,18 +420,12 @@ trait MediatorDomainStateClient {
     })
 
   def isMediatorActive(
-      mediator: MediatorRef
-  )(implicit traceContext: TraceContext): Future[Boolean] = {
-    mediator match {
-      case MediatorRef.Single(mediatorId) =>
-        isMediatorActive(mediatorId)
-      case MediatorRef.Group(mediatorsOfDomain) =>
-        mediatorGroup(mediatorsOfDomain.group).map {
-          case Some(group) => group.isActive
-          case None => false
-        }
+      mediator: MediatorsOfDomain
+  )(implicit traceContext: TraceContext): Future[Boolean] =
+    mediatorGroup(mediator.group).map {
+      case Some(group) => group.isActive
+      case None => false
     }
-  }
 
   def mediatorGroupsOfAll(
       groups: Seq[MediatorGroupIndex]

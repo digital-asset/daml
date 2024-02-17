@@ -51,7 +51,7 @@ class GrpcTrafficControlServiceTest
       response.trafficState shouldBe Some(status.toProtoV30)
     }
 
-    "return FAILED_PRECONDITION if the domain is not found" in {
+    "return NOT_FOUND if the domain is not found" in {
       val (service, syncService) = setupTest
       val did = DefaultTestIdentities.domainId
       when(syncService.readySyncDomainById(did)).thenReturn(None)
@@ -60,7 +60,7 @@ class GrpcTrafficControlServiceTest
           service.trafficControlState(TrafficControlStateRequest(did.toProtoPrimitive))
         }
       }
-      response.getStatus.getCode.value() shouldBe io.grpc.Status.FAILED_PRECONDITION.getCode.value()
+      response.getStatus.getCode.value() shouldBe io.grpc.Status.NOT_FOUND.getCode.value()
     }
 
     "return NOT_FOUND if traffic state is not available" in {

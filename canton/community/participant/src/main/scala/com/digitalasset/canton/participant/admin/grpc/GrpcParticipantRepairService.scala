@@ -18,8 +18,8 @@ import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairServi
   ValidExportAcsRequest,
 }
 import com.digitalasset.canton.participant.admin.inspection
-import com.digitalasset.canton.participant.admin.repair.RepairServiceError
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
+import com.digitalasset.canton.participant.admin.repair.{EnsureValidContractIds, RepairServiceError}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.LfContractId
@@ -118,6 +118,7 @@ object GrpcParticipantRepairService {
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
       force: Boolean, // if true, does not check whether `timestamp` is clean
   )
+
 }
 
 final class GrpcParticipantRepairService(
@@ -162,8 +163,6 @@ final class GrpcParticipantRepairService(
         )
         RepairServiceError.SerializationError.Error(domainId, contractId)
     }
-
-  private final val AcsSnapshotTemporaryFileNamePrefix = "temporary-canton-acs-snapshot"
 
   /** purge contracts
     */
@@ -277,7 +276,7 @@ final class GrpcParticipantRepairService(
   ): StreamObserver[ImportAcsRequest] = {
     // TODO(i12481): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
-    val workflowIdPrefix = new AtomicReference[String]
+    val request = new AtomicReference[ImportAcsRequest]
 
     new StreamObserver[ImportAcsRequest] {
       override def onNext(value: ImportAcsRequest): Unit = {
@@ -286,7 +285,7 @@ final class GrpcParticipantRepairService(
             outputStream.close()
             responseObserver.onError(exception)
           case Success(_) =>
-            workflowIdPrefix.set(value.workflowIdPrefix)
+            request.set(value)
         }
       }
 
@@ -302,7 +301,15 @@ final class GrpcParticipantRepairService(
             activeContracts <- EitherT.fromEither[Future](
               loadFromByteString(ByteString.copyFrom(outputStream.toByteArray))
             )
-            contractsByDomain = activeContracts
+            req = request.get()
+            activeContractsWithRemapping <- EnsureValidContractIds(
+              loggerFactory,
+              sync.protocolVersionGetter,
+              Option.when(req.allowContractIdSuffixRecomputation)(sync.pureCryptoApi),
+            )(activeContracts)
+            (activeContractsWithValidContractIds, contractIdRemapping) =
+              activeContractsWithRemapping
+            contractsByDomain = activeContractsWithValidContractIds
               .grouped(GrpcParticipantRepairService.DefaultBatchSize)
               .map(_.groupBy(_.domainId)) // TODO(#14822): group by domain first, and then batch
             _ <- LazyList
@@ -330,23 +337,26 @@ final class GrpcParticipantRepairService(
                         ),
                         ignoreAlreadyAdded = true,
                         ignoreStakeholderCheck = true,
-                        workflowIdPrefix = Option(workflowIdPrefix.get()),
+                        workflowIdPrefix = Option(req.workflowIdPrefix),
                       )
                     )
                   } yield ()
               })
-          } yield ()
+          } yield contractIdRemapping
 
           resultE.value.flatMap {
             case Left(error) => Future.failed(ImportAcsError.Error(error).asGrpcError)
-            case Right(_) => Future.successful(())
+            case Right(contractIdRemapping) =>
+              Future.successful(
+                contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
+              )
           }
         }
 
         Try(Await.result(res, processingTimeout.unbounded.duration)) match {
           case Failure(exception) => responseObserver.onError(exception)
-          case Success(_) =>
-            responseObserver.onNext(ImportAcsResponse())
+          case Success(contractIdRemapping) =>
+            responseObserver.onNext(ImportAcsResponse(contractIdRemapping))
             responseObserver.onCompleted()
         }
         outputStream.close()

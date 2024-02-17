@@ -256,14 +256,14 @@ private[backend] trait StorageBackendTestsPruning
     def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
-        FilterCreateStakeholder(1, 2),
         FilterCreateStakeholder(1, 3),
+        FilterCreateStakeholder(1, 4),
       ),
-      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 5)),
       consuming = Vector(EventConsuming(2)),
       consumingFilterStakeholder = Vector(
-        FilterConsumingStakeholder(2, 2),
         FilterConsumingStakeholder(2, 3),
+        FilterConsumingStakeholder(2, 4),
       ),
       txMeta = txMeta,
     )
@@ -328,14 +328,12 @@ private[backend] trait StorageBackendTestsPruning
     def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
-        FilterCreateStakeholder(1, 2),
         FilterCreateStakeholder(1, 3),
+        FilterCreateStakeholder(1, 4),
       ),
-      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 5)),
       unassign = Vector(EventUnassign(2)),
-      unassignFilter = Vector(
-        FilterUnassign(2, 2)
-      ),
+      unassignFilter = Vector(FilterUnassign(2, 3)),
       txMeta = txMeta,
     )
 
@@ -446,21 +444,21 @@ private[backend] trait StorageBackendTestsPruning
     def assertAllDataPresent(txMeta: Seq[TxMeta]): Assertion = assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
-        FilterCreateStakeholder(1, 2),
         FilterCreateStakeholder(1, 3),
+        FilterCreateStakeholder(1, 4),
       ),
-      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 5)),
       consuming = Vector(EventConsuming(2), EventConsuming(3), EventConsuming(6)),
       consumingFilterStakeholder = Vector(
-        FilterConsumingStakeholder(2, 2),
-        FilterConsumingStakeholder(3, 2),
-        FilterConsumingStakeholder(6, 2),
+        FilterConsumingStakeholder(2, 3),
+        FilterConsumingStakeholder(3, 3),
+        FilterConsumingStakeholder(6, 3),
       ),
       unassign = Vector(EventUnassign(4), EventUnassign(5), EventUnassign(7)),
       unassignFilter = Vector(
-        FilterUnassign(4, 2),
-        FilterUnassign(5, 2),
-        FilterUnassign(7, 2),
+        FilterUnassign(4, 3),
+        FilterUnassign(5, 3),
+        FilterUnassign(7, 3),
       ),
       txMeta = txMeta,
     )
@@ -505,18 +503,16 @@ private[backend] trait StorageBackendTestsPruning
     assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
-        FilterCreateStakeholder(1, 2),
         FilterCreateStakeholder(1, 3),
+        FilterCreateStakeholder(1, 4),
       ),
-      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 5)),
       consuming = Vector(EventConsuming(6)),
       consumingFilterStakeholder = Vector(
-        FilterConsumingStakeholder(6, 2)
+        FilterConsumingStakeholder(6, 3)
       ),
       unassign = Vector(EventUnassign(7)),
-      unassignFilter = Vector(
-        FilterUnassign(7, 2)
-      ),
+      unassignFilter = Vector(FilterUnassign(7, 3)),
       txMeta = Vector(
         TxMeta("00000007"),
         TxMeta("00000008"),
@@ -528,14 +524,12 @@ private[backend] trait StorageBackendTestsPruning
     assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
-        FilterCreateStakeholder(1, 2),
         FilterCreateStakeholder(1, 3),
+        FilterCreateStakeholder(1, 4),
       ),
-      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 5)),
       unassign = Vector(EventUnassign(7)),
-      unassignFilter = Vector(
-        FilterUnassign(7, 2)
-      ),
+      unassignFilter = Vector(FilterUnassign(7, 3)),
     )
     // Prune at the end (to verify that additional events are related)
     pruneEventsSql(offset(8), pruneAllDivulgedContracts = true)
@@ -590,7 +584,7 @@ private[backend] trait StorageBackendTestsPruning
       consuming = Vector(EventConsuming(2)),
       consumingFilterStakeholder = Vector(
         FilterConsumingStakeholder(2, 3),
-        FilterConsumingStakeholder(2, 6),
+        FilterConsumingStakeholder(2, 7),
       ),
       txMeta = txMeta,
     )

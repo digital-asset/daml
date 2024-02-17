@@ -85,6 +85,9 @@ message ActiveContract {
 message ImportAcsRequest {
   bytes acs_snapshot = 1;
   string workflow_id_prefix = 2;
+  bool allow_contract_id_suffix_recomputation = 3;
 }
 
-message ImportAcsResponse {}
+message ImportAcsResponse {
+  map<string, string> contract_id_mapping = 1;
+}
