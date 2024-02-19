@@ -4,8 +4,6 @@
 package com.daml.lf
 package transaction
 
-import scala.math.Ordered.orderingToOrdered
-
 object Util {
 
   import value.Value
@@ -89,8 +87,4 @@ object Util {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)
     }
-
-  def sharedKey(version: TransactionVersion): Boolean = {
-    version >= TransactionVersion.minSharedKeys
-  }
 }
