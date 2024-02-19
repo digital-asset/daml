@@ -222,7 +222,7 @@ object ValueCoder {
         throw Err(s"$description is not supported by transaction version $version")
 
     def assertNoUnknownFields(msg: com.google.protobuf.Message) =
-      ensureNoUnknownFields(msg).left.foreach(e => throw Err("error decoding decimal: " + e))
+      ensureNoUnknownFields(msg).left.foreach(e => throw Err(e.errorMessage))
 
     def go(nesting: Int, protoValue: proto.Value): Value = {
       if (nesting > MAXIMUM_NESTING) {
@@ -250,7 +250,7 @@ object ValueCoder {
           case proto.Value.SumCase.NUMERIC =>
             Numeric
               .fromString(protoValue.getNumeric)
-              .fold(e => throw Err("error decoding decimal: " + e), ValueNumeric)
+              .fold(e => throw Err("error decoding numeric: " + e), ValueNumeric)
           case proto.Value.SumCase.PARTY =>
             val party = Party.fromString(protoValue.getParty)
             party.fold(e => throw Err("error decoding party: " + e), ValueParty)
