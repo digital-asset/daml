@@ -51,7 +51,7 @@ da_scala_library(
     ],
 )
 
-updrage_test_file = "src/test/scala/com/digitalasset/daml/lf/validation/UpgradesSpec.scala"
+upgrade_test_file = "src/test/scala/com/digitalasset/daml/lf/validation/UpgradesSpec.scala"
 
 da_scala_test_suite(
     name = "tests",
@@ -60,7 +60,7 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*SpecUtil.scala",
-            updrage_test_file,
+            upgrade_test_file,
         ],
     ),
     data = [],
@@ -81,7 +81,7 @@ da_scala_test_suite(
 da_scala_test(
     name = "upgrade-tests",
     size = "large",
-    srcs = [updrage_test_file],
+    srcs = [upgrade_test_file],
     data = [
         "//test-common:dar-files-default",
         "//test-common:upgrades-MissingChoice-v1.dar",
