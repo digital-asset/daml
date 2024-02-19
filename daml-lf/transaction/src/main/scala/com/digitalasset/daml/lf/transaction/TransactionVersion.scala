@@ -16,8 +16,8 @@ sealed abstract class TransactionVersion private (
   */
 object TransactionVersion {
 
-  case object V31 extends TransactionVersion("301", 301)
-  case object VDev extends TransactionVersion("3dev", Int.MaxValue)
+  case object V31 extends TransactionVersion("3.1", 1)
+  case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
   val All = List(V31, VDev)
 

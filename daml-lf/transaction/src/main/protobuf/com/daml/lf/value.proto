@@ -21,120 +21,114 @@ message VersionedValue {
     bytes value = 2;
 }
 
-// The universe of serializable Daml-LF values.
-// architecture-handbook-entry-begin: Value
-message Value {
-    oneof sum {
-        Record record = 1;
-
-        Variant variant = 2;
-
-        List list = 4;
-
-        sint64 int64 = 5;
-
-        // Between v1 and v5 this field expressed a number in base-10 with up
-        // to 28 digits before the decimal point and up to 10 after the decimal
-        // point.
-        //
-        // Starting from v5 this field expressed a number in base-10 with at most
-        // 38 digits from which at most 37 can be used in the right hand side
-        // of the decimal point.
-        //
-        // See value.rst for the exact syntaxes.
-        string numeric = 6; // the field was named decimal in SDK 0.13.26 or earlier
-
-        string text = 8;
-
-        // microseconds since the UNIX epoch. can go backwards. fixed
-        // since the vast majority of values will be greater than
-        // 2^28, since currently the number of microseconds since the
-        // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
-        // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
-        // https://www.ietf.org/rfc/rfc3339.txt
-        sfixed64 timestamp = 9;
-
-        string party = 10;
-
-        bool bool = 11;
-
-        google.protobuf.Empty unit = 12;
-
-        // days since the unix epoch. can go backwards. limited from
-        // 0001-01-01 to 9999-12-31, also to be compatible with
-        // https://www.ietf.org/rfc/rfc3339.txt
-        int32 date = 13;
-
-        Optional optional = 14;
-
-        bytes contract_id = 15;
-
-        Map map = 16;
-
-        Enum enum = 17;
-
-        GenMap gen_map = 18;
-    }
-    reserved 3; // was `contract_id`
-}
-// architecture-handbook-entry-end: Value
-
-message Record {
-    Identifier record_id = 1; // *must not be used*
-    repeated RecordField fields = 2;
-}
-
-message RecordField {
-    string label = 1; // *must not be used*
-    Value value = 2;
-}
-
 // Each component of the module name and the name have additional
 // lexical restrictions besides non-emptiness -- see the value.rst
 // spec for more info.
 message Identifier {
-    string package_id = 1; // non-empty
-    repeated string module_name = 2; // at least length 1
-    repeated string name = 3; // at least length 1
+  string package_id = 1; // non-empty
+  repeated string module_name = 2; // at least length 1
+  repeated string name = 3; // at least length 1
 }
 
-message Variant {
-    Identifier variant_id = 1; // *must not be used*
-    string constructor = 2;
-    Value value = 3;
-}
+// The universe of serializable Daml-LF values.
+// architecture-handbook-entry-begin: Value
+message Value {
+  oneof sum {
 
-message Enum {
-    Identifier enum_id = 1; // *must not be used*
-    string value = 2;
-}
+    // literals
 
-message ContractId {
-    string contract_id = 1;
-    reserved 2; // was `relative`
-}
+    google.protobuf.Empty unit = 1;
 
-message List {
+    bool bool = 2;
+
+    sint64 int64 = 3;
+
+    // days since the unix epoch. can go backwards. limited from
+    // 0001-01-01 to 9999-12-31, also to be compatible with
+    // https://www.ietf.org/rfc/rfc3339.txt
+    int32 date = 4;
+
+    // microseconds since the UNIX epoch. can go backwards. fixed
+    // since the vast majority of values will be greater than
+    // 2^28, since currently the number of microseconds since the
+    // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
+    // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
+    // https://www.ietf.org/rfc/rfc3339.txt
+    sfixed64 timestamp = 5;
+
+    // This field expressed a number in base-10 with at most
+    // 38 digits from which at most 37 can be used in the right hand side
+    // of the decimal point.
+    //
+    // See value.rst for the exact syntaxes.
+    string numeric = 6; // the field was named decimal in SDK 0.13.26 or earlier
+
+    string party = 7;
+
+    string text = 8;
+
+    bytes contract_id = 9;
+
+    // native data structures
+
+    Optional optional = 10;
+
+    List list = 11;
+
+    Map map = 12;
+
+    TextMap text_map = 13;
+
+    // user-defined datas
+
+    Record record = 14;
+
+    Variant variant = 15;
+
+    Enum enum = 16;
+  }
+
+  message Record {
+    repeated Field fields = 1;
+
+    message Field {
+        Value value = 1;
+    }
+  }
+
+
+  message Variant {
+    string constructor = 1;
+    Value value = 2;
+  }
+
+  message Enum {
+    string value = 1;
+  }
+
+  message List {
     repeated Value elements = 1;
-}
+  }
 
-message Optional {
+  message Optional {
     Value value = 1; // optional
-}
+  }
 
-message Map {
+  message TextMap {
     message Entry {
-        string key = 1;
-        Value value = 2;
+      string key = 1;
+      Value value = 2;
     }
 
     repeated Entry entries = 1;
-}
+  }
 
-message GenMap {
+  message Map {
     message Entry {
-        Value key = 1;
-        Value value = 2;
+      Value key = 1;
+      Value value = 2;
     }
     repeated Entry entries = 1;
+  }
 }
+
