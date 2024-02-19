@@ -158,23 +158,14 @@ object TransactionCoder {
           node match {
 
             case nc @ Node.Create(_, _, _, _, _, _, _, _, _) =>
-              val builder = TransactionOuterClass.NodeCreate.newBuilder()
-              nc.stakeholders.foreach(builder.addStakeholders)
-              nc.signatories.foreach(builder.addSignatories)
-              discard(builder.setContractId(nc.coid.toBytes.toByteString))
+              val fatContractInstance = FatContractInstance.fromCreateNode(
+                create = nc,
+                createTime = data.Time.Timestamp.Epoch,
+                cantonData = data.Bytes.Empty,
+              )
               for {
-                _ <- encodeValue(nodeVersion, nc.arg).map(arg =>
-                  builder
-                    .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
-                    .setArgUnversioned(arg)
-                )
-                _ = builder.setPackageName(nc.packageName)
-                _ <- encodeAndSetContractKey(
-                  nodeVersion,
-                  nc.keyOpt,
-                  builder.setKeyWithMaintainers,
-                )
-              } yield nodeBuilder.setCreate(builder).build()
+                unversioned <- encodeFatContractInstanceInternal(fatContractInstance)
+              } yield nodeBuilder.setCreate(unversioned).build()
 
             case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
@@ -350,30 +341,21 @@ object TransactionCoder {
           children <- decodeChildren(protoRollback.getChildrenList)
         } yield ni -> Node.Rollback(children)
       case NodeTypeCase.CREATE =>
-        val protoCreate = protoNode.getCreate
         for {
           ni <- nodeId
-          pkgName <- decodePackageName(protoCreate.getPackageName)
-          c <- ValueCoder.decodeCoid(protoCreate.getContractId)
-          tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
-          arg <- ValueCoder.decodeValue(nodeVersion, protoCreate.getArgUnversioned)
-          stakeholders <- toPartySet(protoCreate.getStakeholdersList)
-          signatories <- toPartySet(protoCreate.getSignatoriesList)
-          keyOpt <- decodeOptionalKeyWithMaintainers(
-            nodeVersion,
-            tmplId,
-            protoCreate.getKeyWithMaintainers,
+          createNode = protoNode.getCreate
+          _ <- Either.cond(
+            createNode.getCreatedAt == 0L,
+            (),
+            DecodeError("unexpected create_at field in createNode"),
           )
-        } yield ni -> Node.Create(
-          coid = c,
-          packageName = pkgName,
-          templateId = tmplId,
-          arg = arg,
-          signatories = signatories,
-          stakeholders = stakeholders,
-          keyOpt = keyOpt,
-          version = nodeVersion,
-        )
+          _ <- Either.cond(
+            createNode.getCantonData.isEmpty,
+            (),
+            DecodeError("unexpected canton_data field in createNode"),
+          )
+          fatContractInstance <- decodeFatContractInstance(nodeVersion, createNode)
+        } yield ni -> fatContractInstance.toCreateNode
       case NodeTypeCase.FETCH =>
         val protoFetch = protoNode.getFetch
         for {
@@ -664,52 +646,6 @@ object TransactionCoder {
     else
       decodeVersion(node.getVersion)
 
-  private[this] def keyHash(
-      nodeVersion: TransactionVersion,
-      rawTmplId: ValueOuterClass.Identifier,
-      rawKey: ByteString,
-  ): Either[DecodeError, GlobalKey] =
-    for {
-      tmplId <- ValueCoder.decodeIdentifier(rawTmplId)
-      value <- ValueCoder.decodeValue(version = nodeVersion, bytes = rawKey)
-      key <- GlobalKey
-        .build(tmplId, value)
-        .left
-        .map(hashErr => DecodeError(hashErr.msg))
-    } yield key
-
-  /*
-   * Fast decoder for contract key of Create node.
-   * Does not decode or validate the rest of the node.
-   */
-  def nodeKey(
-      nodeVersion: TransactionVersion,
-      protoCreate: TransactionOuterClass.NodeCreate,
-  ): Either[DecodeError, Option[GlobalKey]] = {
-    if (protoCreate.hasKeyWithMaintainers) {
-      val rawTmplId = protoCreate.getTemplateId
-      val rawKey = protoCreate.getKeyWithMaintainers.getKeyUnversioned
-      keyHash(nodeVersion, rawTmplId, rawKey).map(Some(_))
-    } else {
-      Right(None)
-    }
-  }
-
-  /*
-   * Fast decoder for contract key of Exercise node.
-   * Does not decode or validate the rest of the node.
-   */
-  def nodeKey(
-      nodeVersion: TransactionVersion,
-      protoExercise: TransactionOuterClass.NodeExercise,
-  ): Either[DecodeError, Option[GlobalKey]] =
-    if (protoExercise.hasKeyWithMaintainers) {
-      val rawKey = protoExercise.getKeyWithMaintainers.getKeyUnversioned
-      keyHash(nodeVersion, protoExercise.getTemplateId, rawKey).map(Some(_))
-    } else {
-      Right(None)
-    }
-
   private[transaction] def encodeVersioned(
       version: TransactionVersion,
       payload: ByteString,
@@ -734,9 +670,9 @@ object TransactionCoder {
       payload = proto.getPayload
     } yield Versioned(version, payload)
 
-  def encodeFatContractInstance(
+  def encodeFatContractInstanceInternal(
       contractInstance: FatContractInstance
-  ): Either[EncodeError, ByteString] = {
+  ): Either[EncodeError, TransactionOuterClass.FatContractInstance] = {
     import contractInstance._
     for {
       encodedArg <- ValueCoder.encodeValue(version, createArg)
@@ -757,9 +693,16 @@ object TransactionCoder {
       nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
       discard(builder.setCreatedAt(createdAt.micros))
       discard(builder.setCantonData(cantonData.toByteString))
-      encodeVersioned(version, builder.build().toByteString)
+      builder.build()
     }
   }
+
+  def encodeFatContractInstance(
+      contractInstance: FatContractInstance
+  ): Either[EncodeError, ByteString] =
+    for {
+      unversioned <- encodeFatContractInstanceInternal(contractInstance)
+    } yield encodeVersioned(contractInstance.version, unversioned.toByteString)
 
   private[lf] def assertEncodeFatContractInstance(
       contractInstance: FatContractInstance
@@ -769,15 +712,11 @@ object TransactionCoder {
       data.Bytes.fromByteString,
     )
 
-  def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
+  private[lf] def decodeFatContractInstance(
+      version: TransactionVersion,
+      proto: TransactionOuterClass.FatContractInstance,
+  ): Either[DecodeError, FatContractInstance] =
     for {
-      versionedBlob <- decodeVersioned(bytes)
-      Versioned(version, unversioned) = versionedBlob
-      proto <- scala.util
-        .Try(TransactionOuterClass.FatContractInstance.parseFrom(unversioned))
-        .toEither
-        .left
-        .map(e => DecodeError(s"exception $e while decoding the object"))
       _ <- ValueCoder.ensureNoUnknownFields(proto)
       contractId <- ValueCoder.decodeCoid(proto.getContractId)
       pkgName <- decodePackageName(proto.getPackageName)
@@ -810,7 +749,7 @@ object TransactionCoder {
       createdAt <- data.Time.Timestamp.fromLong(proto.getCreatedAt).left.map(DecodeError)
       cantonData = proto.getCantonData
     } yield FatContractInstanceImpl(
-      version = versionedBlob.version,
+      version = version,
       contractId = contractId,
       packageName = pkgName,
       templateId = templateId,
@@ -821,5 +760,17 @@ object TransactionCoder {
       contractKeyWithMaintainers = keyWithMaintainers,
       cantonData = data.Bytes.fromByteString(cantonData),
     )
+
+  def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
+    for {
+      versionedBlob <- decodeVersioned(bytes)
+      Versioned(version, unversioned) = versionedBlob
+      proto <- scala.util
+        .Try(TransactionOuterClass.FatContractInstance.parseFrom(unversioned))
+        .toEither
+        .left
+        .map(e => DecodeError(s"exception $e while decoding the object"))
+      fatContractInstance <- decodeFatContractInstance(version, proto)
+    } yield fatContractInstance
 
 }

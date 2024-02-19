@@ -40,40 +40,38 @@ message ContractInstance {
 // architecture-handbook-entry-begin: Nodes
 
 message Node {
-    string node_id = 1;
+    string version = 1;
+
+    string node_id = 2;
 
     oneof node_type {
-        NodeCreate create = 3;
+        FatContractInstance create = 3;
         NodeFetch fetch = 4;
         NodeExercise exercise = 5;
         NodeLookupByKey lookup_by_key = 6;
         NodeRollback rollback = 7;
     }
-
-    string version = 63;
 }
 
-message KeyWithMaintainers {
-    oneof key {
-        com.daml.lf.value.VersionedValue key_versioned = 1; // *must not be used*
-        bytes key_unversioned = 3;
-    }
-    repeated string maintainers = 2; // the maintainers induced by the key
-}
-
+// A self contains representation of a committed contract.
 message NodeCreate {
-    reserved 1; // was contract_id
-    ContractInstance contract_instance = 2; // *must not be used*
-    string package_name = 10; // required *since dev*
-    com.daml.lf.value.Identifier template_id = 7;
-    bytes arg_unversioned = 8;
-    // TODO: https://github.com/digital-asset/daml/issues/18240
-    //  remove agreement text for the proto
-    string agreement = 9;
-    repeated string stakeholders = 3;
-    repeated string signatories = 4;
-    KeyWithMaintainers key_with_maintainers = 5;
-    bytes contract_id = 6;
+  bytes contract_id = 1;
+  string package_name = 2;
+  com.daml.lf.value.Identifier template_id = 3;
+
+  bytes create_arg = 4;
+
+  repeated string key_maintainers = 9; // required *since dev*
+
+  repeated string non_maintainer_signatories = 5;
+
+  repeated string non_signatory_stakeholders = 6;
+
+  bytes key = 10; // required *since dev*
+
+  sfixed64 created_at = 7; // optional
+
+  bytes canton_data = 8;// optional
 }
 
 message NodeFetch {
@@ -156,4 +154,13 @@ message FatContractInstance {
   sfixed64 created_at = 7;
 
   bytes canton_data = 8;
+}
+
+
+message KeyWithMaintainers {
+  oneof key {
+    com.daml.lf.value.VersionedValue key_versioned = 1; // *must not be used*
+    bytes key_unversioned = 3;
+  }
+  repeated string maintainers = 2; // the maintainers induced by the key
 }

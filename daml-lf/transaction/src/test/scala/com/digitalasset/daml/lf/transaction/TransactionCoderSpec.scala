@@ -7,13 +7,13 @@ package transaction
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{PackageName, Party, Identifier}
+import com.daml.lf.data.Ref.{Party, Identifier, PackageName}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
 import com.daml.lf.value.{Value, ValueCoder}
 import com.google.protobuf
-import com.google.protobuf.{ByteString, Message}
+import com.google.protobuf.{Message, ByteString}
 import org.scalacheck.{Gen, Arbitrary}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -44,18 +44,25 @@ class TransactionCoderSpec
     "do Node.Create" in {
       forAll(malformedCreateNodeGen(), versionInIncreasingOrder()) {
         case (createNode, (nodeVersion, txVersion)) =>
-          val versionedNode = normalizeCreate(createNode.updateVersion(nodeVersion))
-          val Right(encodedNode) = TransactionCoder
-            .encodeNode(
-              enclosingVersion = txVersion,
-              nodeId = NodeId(0),
-              node = versionedNode,
-            )
+          try {
+            val versionedNode = normalizeCreate(createNode.updateVersion(nodeVersion))
+            val Right(encodedNode) = TransactionCoder
+              .encodeNode(
+                enclosingVersion = txVersion,
+                nodeId = NodeId(0),
+                node = versionedNode,
+              )
 
-          TransactionCoder.decodeVersionedNode(
-            transactionVersion = txVersion,
-            protoNode = encodedNode,
-          ) shouldBe Right((NodeId(0), versionedNode))
+            TransactionCoder.decodeVersionedNode(
+              transactionVersion = txVersion,
+              protoNode = encodedNode,
+            ) shouldBe Right((NodeId(0), versionedNode))
+          } catch {
+            case scala.util.control.NonFatal(e) =>
+              val x = e.getStackTrace
+              x.foreach(x => println(x.toString))
+              throw e
+          }
       }
     }
 
@@ -870,11 +877,19 @@ class TransactionCoderSpec
 
   private[this] def normalizeCreate(
       create: Node.Create
-  ): Node.Create =
+  ): Node.Create = {
+    val maintainers = create.keyOpt.fold(Set.empty[Party])(_.maintainers)
+    val signatories0 = create.signatories ++ maintainers
+    val signatories =
+      if (signatories0.isEmpty) Set(Party.assertFromString("alice")) else signatories0
+    val stakeholders = signatories ++ create.stakeholders
     create.copy(
+      signatories = signatories0,
+      stakeholders = stakeholders,
       arg = normalize(create.arg, create.version),
       keyOpt = create.keyOpt.map(normalizeKey(_, create.version)),
     )
+  }
 
   private[this] def normalizeFetch(fetch: Node.Fetch) =
     fetch.copy(
