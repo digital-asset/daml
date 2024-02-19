@@ -66,10 +66,8 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
       for {
         _ <- Future(())
         client = AdminLedgerClient.singleHost(
-          "localhost",
-          ledgerPorts(0).adminPort.value,
-          config.adminToken,
-          config.tlsClientConfig.client(),
+          ledgerPorts(0).adminPort,
+          config,
         )
         (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
         (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)

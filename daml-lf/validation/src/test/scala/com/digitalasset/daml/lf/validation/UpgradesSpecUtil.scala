@@ -7,16 +7,15 @@
 package com.daml.lf.validation
 
 import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
-import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
 import io.grpc.Channel
-import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 import java.io.Closeable
 import scala.concurrent.{ExecutionContext, Future}
 import com.google.protobuf.ByteString
-import io.netty.handler.ssl.SslContext
+import com.daml.ports.Port
+import com.daml.integrationtest.CantonConfig
 
 private[validation] final class AdminLedgerClient(
     val channel: Channel,
@@ -48,25 +47,13 @@ object AdminLedgerClient {
     token.fold(stub)(authenticatingStub(stub, _))
 
   def singleHost(
-      hostIp: String,
-      port: Int,
-      token: Option[String] = None,
-      sslContext: Option[SslContext] = None,
-      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+      port: Port,
+      cantonConfig: CantonConfig,
   )(implicit
       ec: ExecutionContext
   ): AdminLedgerClient =
-    fromBuilder(
-      LedgerClientChannelConfiguration(sslContext, maxInboundMessageSize).builderFor(hostIp, port),
-      token,
-    )
-
-  def fromBuilder(
-      builder: NettyChannelBuilder,
-      token: Option[String] = None,
-  )(implicit ec: ExecutionContext): AdminLedgerClient =
     new AdminLedgerClient(
-      GrpcChannel.withShutdownHook(builder),
-      token,
+      GrpcChannel.withShutdownHook(cantonConfig.channelBuilder(port)),
+      cantonConfig.adminToken,
     )
 }
