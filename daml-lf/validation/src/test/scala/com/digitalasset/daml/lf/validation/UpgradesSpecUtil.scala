@@ -1,3 +1,6 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // Temporary stand-in for the real admin api clients defined in canton. Needed only for upgrades testing
 // We should intend to replace this as soon as possible
 
@@ -15,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.google.protobuf.ByteString
 import io.netty.handler.ssl.SslContext
 
-private[validation] final class AdminLedgerClient (
+private[validation] final class AdminLedgerClient(
     val channel: Channel,
     token: Option[String],
 )(implicit ec: ExecutionContext)
@@ -25,10 +28,15 @@ private[validation] final class AdminLedgerClient (
     AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)
 
   def uploadDar(bytes: ByteString, filename: String): Future[Unit] = {
-    packageServiceStub.uploadDar(
-      admin_package_service.UploadDarRequest(
-        bytes, filename, false, false
-      ))
+    packageServiceStub
+      .uploadDar(
+        admin_package_service.UploadDarRequest(
+          bytes,
+          filename,
+          false,
+          false,
+        )
+      )
       .map(_ => ())
   }
 
@@ -50,7 +58,7 @@ object AdminLedgerClient {
   ): AdminLedgerClient =
     fromBuilder(
       LedgerClientChannelConfiguration(sslContext, maxInboundMessageSize).builderFor(hostIp, port),
-      token
+      token,
     )
 
   def fromBuilder(

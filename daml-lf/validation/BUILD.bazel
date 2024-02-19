@@ -62,15 +62,15 @@ da_scala_library(
         [
             "//canton:community_admin-api_proto_scala",
         ],
+    scaladoc = False,
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:community_admin-api",
         "//canton:community_ledger_ledger-common",
         "//canton:ledger_api_proto_scala",
-        "//canton:community_admin-api",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
     ],
-    scaladoc = False,
 )
 
 upgrade_test_file = "src/test/scala/com/digitalasset/daml/lf/validation/UpgradesSpec.scala"
@@ -157,6 +157,9 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts,
     deps = [
+        ":validation",
+        ":validation-test-lib",
+        ":validation-upgrades-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_ledger_ledger-common",
         "//canton:ledger_api_proto_scala",
@@ -171,7 +174,6 @@ da_scala_test(
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
-        ":validation-upgrades-test-lib",
     ],
 )
 

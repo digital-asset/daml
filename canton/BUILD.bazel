@@ -330,7 +330,10 @@ proto_gen(
         "flat_package",
         "grpc",
     ],
-    visibility = ["//daml-script:__subpackages__", "//daml-lf/validation:__subpackages__"],
+    visibility = [
+        "//daml-lf/validation:__subpackages__",
+        "//daml-script:__subpackages__",
+    ],
 )
 
 filegroup(
