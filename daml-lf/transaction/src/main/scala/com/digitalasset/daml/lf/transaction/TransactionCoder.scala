@@ -26,19 +26,12 @@ object TransactionCoder {
       .parseInt(s)
       .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(NodeId(idx)))
 
-  object NidEncoder
-  type EncodeNid = NidEncoder.type
-
-  object NidDecoder
-  type DecodeNid = NidDecoder.type
-
   def encodeVersionedValue(
-      cidEncoder: ValueCoder.EncodeCid,
       enclosingVersion: TransactionVersion,
       value: Value.VersionedValue,
   ): Either[EncodeError, ValueOuterClass.VersionedValue] =
     if (enclosingVersion == value.version)
-      ValueCoder.encodeVersionedValue(cidEncoder, value)
+      ValueCoder.encodeVersionedValue(value)
     else
       Left(
         EncodeError(
@@ -47,11 +40,10 @@ object TransactionCoder {
       )
 
   private[this] def encodeValue(
-      cidEncoder: ValueCoder.EncodeCid,
       nodeVersion: TransactionVersion,
       value: Value,
   ): Either[EncodeError, ByteString] =
-    ValueCoder.encodeValue(cidEncoder, nodeVersion, value)
+    ValueCoder.encodeValue(nodeVersion, value)
 
   /** Encodes a contract instance with the help of the contractId encoding function
     *
@@ -59,11 +51,10 @@ object TransactionCoder {
     * @return protobuf wire format contract instance
     */
   def encodeContractInstance(
-      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
-      coinst: Versioned[Value.ContractInstance],
+      coinst: Versioned[Value.ContractInstance]
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     for {
-      value <- ValueCoder.encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
+      value <- ValueCoder.encodeVersionedValue(coinst.version, coinst.unversioned.arg)
     } yield TransactionOuterClass.ContractInstance
       .newBuilder()
       .setPackageName(coinst.unversioned.packageName)
@@ -88,16 +79,14 @@ object TransactionCoder {
   /** Decode a contract instance from wire format
     *
     * @param protoCoinst protocol buffer encoded contract instance
-    * @param decodeCid   cid decoding function
     * @return contract instance value
     */
   def decodeContractInstance(
-      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
-      protoCoinst: TransactionOuterClass.ContractInstance,
+      protoCoinst: TransactionOuterClass.ContractInstance
   ): Either[DecodeError, Versioned[Value.ContractInstance]] =
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
-      value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
+      value <- ValueCoder.decodeVersionedValue(protoCoinst.getArgVersioned)
       pkgName <- decodePackageName(protoCoinst.getPackageName)
     } yield value.map(arg => Value.ContractInstance(pkgName, id, arg))
 
@@ -126,12 +115,11 @@ object TransactionCoder {
   }
 
   private[this] def encodeAndSetValue(
-      encodeCid: ValueCoder.EncodeCid,
       version: TransactionVersion,
       value: Value,
       setUnversioned: ByteString => GeneratedMessageV3.Builder[_],
   ): Either[EncodeError, Unit] =
-    encodeValue(encodeCid, version, value).map(v => discard(setUnversioned(v)))
+    encodeValue(version, value).map(v => discard(setUnversioned(v)))
 
   /** encodes a [[Node[Nid]] to protocol buffer
     *
@@ -141,10 +129,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protocol buffer format node
     */
-  @scala.annotation.nowarn("cat=unused")
   private[lf] def encodeNode(
-      encodeNid: EncodeNid = NidEncoder,
-      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
       enclosingVersion: TransactionVersion,
       nodeId: NodeId,
       node: Node,
@@ -178,7 +163,7 @@ object TransactionCoder {
               nc.signatories.foreach(builder.addSignatories)
               discard(builder.setContractId(nc.coid.toBytes.toByteString))
               for {
-                _ <- encodeValue(encodeCid, nodeVersion, nc.arg).map(arg =>
+                _ <- encodeValue(nodeVersion, nc.arg).map(arg =>
                   builder
                     .setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
                     .setArgUnversioned(arg)
@@ -245,7 +230,6 @@ object TransactionCoder {
                   left = EncodeError(nodeVersion, isTooOldFor = "explicit choice-authorizers"),
                 )
                 _ <- encodeAndSetValue(
-                  encodeCid,
                   nodeVersion,
                   ne.chosenValue,
                   builder.setArgUnversioned,
@@ -253,7 +237,6 @@ object TransactionCoder {
                 _ <- ne.exerciseResult match {
                   case Some(value) =>
                     encodeAndSetValue(
-                      encodeCid,
                       nodeVersion,
                       value,
                       builder.setResultUnversioned,
@@ -334,11 +317,10 @@ object TransactionCoder {
 
   // package private for test, do not use outside TransactionCoder
   private[lf] def decodeValue(
-      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
       version: TransactionVersion,
       unversionedProto: => ByteString,
   ): Either[DecodeError, Value] =
-    ValueCoder.decodeValue(decodeCid, version, unversionedProto)
+    ValueCoder.decodeValue(version, unversionedProto)
 
   /** read a [[Node[Nid]] from protobuf
     *
@@ -346,19 +328,15 @@ object TransactionCoder {
     * @return decoded GenNode
     */
   private[lf] def decodeVersionedNode(
-      decodeNid: DecodeNid = NidDecoder,
-      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
       transactionVersion: TransactionVersion,
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, (NodeId, Node)] =
     for {
       nodeVersion <- decodeNodeVersion(transactionVersion, protoNode)
-      node <- decodeNode(decodeNid, decodeCid, nodeVersion, protoNode)
+      node <- decodeNode(nodeVersion, protoNode)
     } yield node
 
   private[this] def decodeNode(
-      decodeNid: DecodeNid,
-      decodeCid: ValueCoder.DecodeCid,
       nodeVersion: TransactionVersion,
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, (NodeId, Node)] = {
@@ -369,7 +347,7 @@ object TransactionCoder {
         val protoRollback = protoNode.getRollback
         for {
           ni <- nodeId
-          children <- decodeChildren(decodeNid, protoRollback.getChildrenList)
+          children <- decodeChildren(protoRollback.getChildrenList)
         } yield ni -> Node.Rollback(children)
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
@@ -378,7 +356,7 @@ object TransactionCoder {
           pkgName <- decodePackageName(protoCreate.getPackageName)
           c <- ValueCoder.decodeCoid(protoCreate.getContractId)
           tmplId <- ValueCoder.decodeIdentifier(protoCreate.getTemplateId)
-          arg <- ValueCoder.decodeValue(decodeCid, nodeVersion, protoCreate.getArgUnversioned)
+          arg <- ValueCoder.decodeValue(nodeVersion, protoCreate.getArgUnversioned)
           stakeholders <- toPartySet(protoCreate.getStakeholdersList)
           signatories <- toPartySet(protoCreate.getSignatoriesList)
           keyOpt <- decodeOptionalKeyWithMaintainers(
@@ -437,7 +415,6 @@ object TransactionCoder {
               Right(None)
             } else {
               decodeValue(
-                decodeCid,
                 nodeVersion,
                 protoExe.getResultUnversioned,
               ).map(v => Some(v))
@@ -450,9 +427,8 @@ object TransactionCoder {
             )
           ni <- nodeId
           targetCoid <- ValueCoder.decodeCoid(protoExe.getContractId)
-          children <- decodeChildren(decodeNid, protoExe.getChildrenList)
+          children <- decodeChildren(protoExe.getChildrenList)
           cv <- decodeValue(
-            decodeCid,
             nodeVersion,
             protoExe.getArgUnversioned,
           )
@@ -514,10 +490,8 @@ object TransactionCoder {
     }
   }
 
-  @scala.annotation.nowarn("cat=unused")
   private[this] def decodeChildren(
-      decodeNid: DecodeNid,
-      strList: ProtocolStringList,
+      strList: ProtocolStringList
   ): Either[DecodeError, ImmArray[NodeId]] = {
     strList.asScala
       .foldLeft[Either[DecodeError, BackStack[NodeId]]](Right(BackStack.empty)) {
@@ -535,14 +509,10 @@ object TransactionCoder {
     * @return protobuf encoded transaction
     */
   def encodeTransaction(
-      encodeNid: EncodeNid = NidEncoder,
-      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
-      tx: VersionedTransaction,
+      tx: VersionedTransaction
   ): Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
-      encodeNid,
-      encodeCid,
-      tx,
+      tx
     )
 
   /** Encode a transaction to protobuf using [[TransactionVersion]] provided by in the [[VersionedTransaction]] argument.
@@ -553,9 +523,7 @@ object TransactionCoder {
     * @return protobuf encoded transaction
     */
   private[transaction] def encodeTransactionWithCustomVersion(
-      encodeNid: EncodeNid = NidEncoder,
-      encodeCid: ValueCoder.EncodeCid = ValueCoder.CidEncoder,
-      transaction: VersionedTransaction,
+      transaction: VersionedTransaction
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
     val builder = TransactionOuterClass.Transaction
       .newBuilder()
@@ -569,8 +537,6 @@ object TransactionCoder {
         for {
           builder <- builderOrError
           encodedNode <- encodeNode(
-            encodeNid,
-            encodeCid,
             transaction.version,
             nid,
             transaction.nodes(nid),
@@ -613,18 +579,11 @@ object TransactionCoder {
     * @return decoded transaction
     */
   def decodeTransaction(
-      decodeNid: DecodeNid = NidDecoder,
-      decodeCid: ValueCoder.DecodeCid = ValueCoder.CidDecoder,
-      protoTx: TransactionOuterClass.Transaction,
+      protoTx: TransactionOuterClass.Transaction
   ): Either[DecodeError, VersionedTransaction] =
     for {
       version <- decodeVersion(protoTx.getVersion)
-      tx <- decodeTransaction(
-        decodeNid,
-        decodeCid,
-        version,
-        protoTx,
-      )
+      tx <- decodeTransaction(version, protoTx)
     } yield tx
 
   /** Reads a [[Transaction[Nid]]] from protobuf. Does not check if
@@ -637,8 +596,6 @@ object TransactionCoder {
     * @return decoded transaction
     */
   private[this] def decodeTransaction(
-      decodeNid: DecodeNid,
-      decodeCid: ValueCoder.DecodeCid,
       txVersion: TransactionVersion,
       protoTx: TransactionOuterClass.Transaction,
   ): Either[DecodeError, VersionedTransaction] = {
@@ -653,7 +610,7 @@ object TransactionCoder {
       .foldLeft[Either[DecodeError, HashMap[NodeId, Node]]](Right(HashMap.empty)) {
         case (Left(e), _) => Left(e)
         case (Right(acc), s) =>
-          decodeVersionedNode(decodeNid, decodeCid, txVersion, s).map(acc + _)
+          decodeVersionedNode(txVersion, s).map(acc + _)
       }
     for {
       rs <- roots
@@ -782,7 +739,7 @@ object TransactionCoder {
   ): Either[EncodeError, ByteString] = {
     import contractInstance._
     for {
-      encodedArg <- ValueCoder.encodeValue(ValueCoder.CidEncoder, version, createArg)
+      encodedArg <- ValueCoder.encodeValue(version, createArg)
       encodedKeyOpt <- contractKeyWithMaintainers match {
         case None =>
           Right(None)
