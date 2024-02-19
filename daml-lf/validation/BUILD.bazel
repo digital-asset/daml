@@ -68,9 +68,9 @@ da_scala_library(
         "//canton:community_admin-api",
         "//canton:community_ledger_ledger-common",
         "//canton:ledger_api_proto_scala",
-        "@maven//:io_grpc_grpc_netty",
         "//libs-scala/ports",
         "//test-common/canton/it-lib",
+        "@maven//:io_grpc_grpc_netty",
     ],
 )
 
