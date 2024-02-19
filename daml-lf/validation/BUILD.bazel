@@ -80,7 +80,7 @@ da_scala_test_suite(
 #  this test should not use canton and be part of the suite above
 da_scala_test(
     name = "upgrade-tests",
-    size = "large",
+    size = "medium",
     srcs = [upgrade_test_file],
     data = [
         "//test-common:dar-files-default",
