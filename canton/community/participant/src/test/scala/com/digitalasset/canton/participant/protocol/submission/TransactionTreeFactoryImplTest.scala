@@ -63,7 +63,7 @@ final class TransactionTreeFactoryImplTest extends AsyncWordSpec with BaseTest {
       submitterInfo,
       factory.confirmationPolicy,
       Some(WorkflowId.assertFromString("testWorkflowId")),
-      factory.mediatorRef,
+      factory.mediatorGroup,
       factory.transactionSeed,
       factory.transactionUuid,
       snapshot,

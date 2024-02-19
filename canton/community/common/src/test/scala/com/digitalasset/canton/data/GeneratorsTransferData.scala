@@ -4,10 +4,12 @@
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, HashPurpose, Salt, TestHash}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
   DeliveredTransferOutResult,
+  SetTrafficBalanceMessage,
   SignedProtocolMessage,
   TransferResult,
   Verdict,
@@ -15,10 +17,11 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   GeneratorsProtocol as GeneratorsProtocolSequencing,
+  MediatorsOfDomain,
   SignedContent,
   TimeProof,
 }
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import magnolify.scalacheck.auto.*
@@ -34,6 +37,7 @@ final class GeneratorsTransferData(
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
+  import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import org.scalatest.EitherValues.*
@@ -75,7 +79,7 @@ final class GeneratorsTransferData(
       salt <- Arbitrary.arbitrary[Salt]
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
 
-      targetMediator <- Arbitrary.arbitrary[MediatorRef]
+      targetMediator <- Arbitrary.arbitrary[MediatorsOfDomain]
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
@@ -101,7 +105,7 @@ final class GeneratorsTransferData(
       salt <- Arbitrary.arbitrary[Salt]
       sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
 
-      sourceMediator <- Arbitrary.arbitrary[MediatorRef]
+      sourceMediator <- Arbitrary.arbitrary[MediatorsOfDomain]
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       adminParties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
@@ -212,6 +216,21 @@ final class GeneratorsTransferData(
         targetProtocolVersion,
         transferCounter,
       )
+  )
+
+  implicit val setTrafficBalanceArb: Arbitrary[SetTrafficBalanceMessage] = Arbitrary(
+    for {
+      member <- Arbitrary.arbitrary[Member]
+      serial <- Arbitrary.arbitrary[NonNegativeLong]
+      trafficBalance <- Arbitrary.arbitrary[NonNegativeLong]
+      domainId <- Arbitrary.arbitrary[DomainId]
+    } yield SetTrafficBalanceMessage.apply(
+      member,
+      serial,
+      trafficBalance,
+      domainId,
+      protocolVersion,
+    )
   )
 
 }

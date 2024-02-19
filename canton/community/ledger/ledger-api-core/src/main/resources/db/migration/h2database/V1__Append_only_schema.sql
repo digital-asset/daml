@@ -157,6 +157,7 @@ CREATE TABLE lapi_events_create (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -381,6 +382,7 @@ CREATE TABLE lapi_events_assign (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
 
     -- * common reassignment

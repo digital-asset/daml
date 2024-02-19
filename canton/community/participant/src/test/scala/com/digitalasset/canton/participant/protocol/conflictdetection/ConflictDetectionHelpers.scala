@@ -23,7 +23,8 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -61,14 +62,14 @@ private[protocol] trait ConflictDetectionHelpers {
       store: TransferStore =
         new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory),
   )(
-      entries: (TransferId, MediatorId)*
+      entries: (TransferId, MediatorsOfDomain)*
   )(implicit traceContext: TraceContext): Future[TransferCache] = {
     Future
       .traverse(entries) { case (transferId, sourceMediator) =>
         for {
           transfer <- TransferStoreTest.mkTransferDataForDomain(
             transferId,
-            MediatorRef(sourceMediator),
+            sourceMediator,
             targetDomainId = TransferStoreTest.targetDomain,
           )
           result <- store

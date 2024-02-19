@@ -26,8 +26,9 @@ trait SignedProtocolMessageContent
   def hashPurpose: HashPurpose
 
   /** The timestamp of the [[com.digitalasset.canton.crypto.SyncCryptoApi]] used for signing this message.
+    * If no timestamp is provided, the head snapshot will be used. This is only used for security tests.
     */
-  def signingTimestamp: CantonTimestamp
+  def signingTimestamp: Option[CantonTimestamp]
 
   override def pretty: Pretty[this.type] = prettyOfObject[SignedProtocolMessageContent]
 }

@@ -69,6 +69,10 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       "domain7",
       "domain8",
     ).sorted
+    iterators.packageNames.toList.sorted shouldBe List(
+      "25.1",
+      "87.1",
+    ).sorted
   }
 
   private val serializableTraceContext =
@@ -101,6 +105,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       event_id = Some("23"),
       contract_id = "24",
       template_id = Some("25"),
+      package_name = "25.1",
       flat_event_witnesses = Set("26", "27", "28"),
       tree_event_witnesses = Set("29", "30", "31"),
       create_argument = None,
@@ -197,6 +202,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       submitter = Option("s1"),
       contract_id = "",
       template_id = "87",
+      package_name = "87.1",
       flat_event_witnesses = Set("88", "89"),
       create_argument = Array.empty,
       create_signatories = Set("90", "91"),

@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.store
 import com.daml.lf.CantonOnly
 import com.daml.lf.transaction.{Node, TransactionCoder, TransactionOuterClass, Versioned}
 import com.daml.lf.value.Value.ContractInstance
-import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.canton.protocol
 import com.digitalasset.canton.protocol.{
@@ -29,30 +28,27 @@ private[store] object DamlLfSerializers {
       versionedTransaction: LfVersionedTransaction
   ): Either[EncodeError, ByteString] =
     TransactionCoder
-      .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, versionedTransaction)
+      .encodeTransaction(tx = versionedTransaction)
       .map(_.toByteString)
 
   def deserializeTransaction(bytes: ByteString): Either[DecodeError, LfVersionedTransaction] =
     TransactionCoder
       .decodeTransaction(
-        TransactionCoder.NidDecoder,
-        ValueCoder.CidDecoder,
-        TransactionOuterClass.Transaction.parseFrom(bytes),
+        protoTx = TransactionOuterClass.Transaction.parseFrom(bytes)
       )
 
   def serializeContract(
       contract: LfContractInst
   ): Either[EncodeError, ByteString] =
     TransactionCoder
-      .encodeContractInstance(ValueCoder.CidEncoder, contract)
+      .encodeContractInstance(coinst = contract)
       .map(_.toByteString)
 
   def deserializeContract(
       bytes: ByteString
   ): Either[DecodeError, Versioned[ContractInstance]] =
     TransactionCoder.decodeContractInstance(
-      ValueCoder.CidDecoder,
-      TransactionOuterClass.ContractInstance.parseFrom(bytes),
+      protoCoinst = TransactionOuterClass.ContractInstance.parseFrom(bytes)
     )
 
   private def deserializeNode(
@@ -61,8 +57,6 @@ private[store] object DamlLfSerializers {
     for {
       version <- TransactionCoder.decodeVersion(proto.getVersion)
       idAndNode <- CantonOnly.decodeVersionedNode(
-        TransactionCoder.NidDecoder,
-        ValueCoder.CidDecoder,
         version,
         proto,
       )
@@ -105,8 +99,6 @@ private[store] object DamlLfSerializers {
   ): Either[EncodeError, ByteString] =
     CantonOnly
       .encodeNode(
-        TransactionCoder.NidEncoder,
-        ValueCoder.CidEncoder,
         node.version,
         LfNodeId(0),
         node,

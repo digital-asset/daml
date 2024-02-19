@@ -4,11 +4,19 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v30
+import com.digitalasset.canton.domain.admin.v30.{
+  SetTrafficBalanceRequest,
+  SetTrafficBalanceResponse,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
+import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -19,6 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcSequencerAdministrationService(
     sequencer: Sequencer,
+    sequencerClient: SequencerClient,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -94,5 +103,33 @@ class GrpcSequencerAdministrationService(
         _ <- EitherT.right(sequencer.disableMember(member))
       } yield v30.DisableMemberResponse()
     }
+  }
+
+  /** Update the traffic balance of a member
+    * The top up will only become valid once authorized by all sequencers of the domain
+    */
+  override def setTrafficBalance(
+      requestP: SetTrafficBalanceRequest
+  ): Future[
+    SetTrafficBalanceResponse
+  ] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result = {
+      for {
+        member <- wrapErrUS(Member.fromProtoPrimitive(requestP.member, "member"))
+        serial <- wrapErrUS(ProtoConverter.parseNonNegativeLong(requestP.serial))
+        totalTrafficBalance <- wrapErrUS(
+          ProtoConverter.parseNonNegativeLong(requestP.totalTrafficBalance)
+        )
+        highestMaxSequencingTimestamp <- sequencer
+          .setTrafficBalance(member, serial, totalTrafficBalance, sequencerClient)
+          .leftWiden[CantonError]
+      } yield SetTrafficBalanceResponse(
+        maxSequencingTimestamp = Some(highestMaxSequencingTimestamp.toProtoPrimitive)
+      )
+    }
+
+    mapErrNewEUS(result)
   }
 }

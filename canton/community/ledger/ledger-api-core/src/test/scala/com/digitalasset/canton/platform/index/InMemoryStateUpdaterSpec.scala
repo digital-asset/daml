@@ -265,6 +265,7 @@ object InMemoryStateUpdaterSpec {
             contractId = someCreateNode.coid,
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
             templateId = templateId,
+            packageName = packageName,
             commandId = "",
             workflowId = workflowId,
             contractKey = None,
@@ -467,11 +468,14 @@ object InMemoryStateUpdaterSpec {
   private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
   private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
 
+  private val packageName = Ref.PackageName.assertFromString("pkg-name")
+
   private val someCreateNode = {
     val contractId = TransactionBuilder.newCid
     TestNodeBuilder
       .create(
         id = contractId,
+        packageName = packageName,
         templateId = templateId,
         argument = Value.ValueUnit,
         signatories = Set(party1),

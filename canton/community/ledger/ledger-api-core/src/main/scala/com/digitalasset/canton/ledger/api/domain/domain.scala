@@ -145,6 +145,7 @@ final case class NonUpgradableDisclosedContract(
 
 final case class UpgradableDisclosedContract(
     templateId: Ref.TypeConName,
+    packageName: Ref.PackageName,
     contractId: Lf.ContractId,
     argument: Value,
     createdAt: Timestamp,

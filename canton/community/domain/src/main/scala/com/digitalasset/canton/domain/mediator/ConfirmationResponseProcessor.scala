@@ -385,7 +385,7 @@ private[mediator] class ConfirmationResponseProcessor(
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: ErrorLoggingContext
-  ): EitherT[Future, Option[MediatorVerdict.MediatorReject], MediatorRef] = {
+  ): EitherT[Future, Option[MediatorVerdict.MediatorReject], MediatorsOfDomain] = {
 
     def rejectWrongMediator(hint: => String): Option[MediatorVerdict.MediatorReject] = {
       Some(
@@ -400,36 +400,27 @@ private[mediator] class ConfirmationResponseProcessor(
       )
     }
 
-    (request.mediator match {
-      case MediatorRef.Single(declaredMediatorId) =>
-        EitherTUtil.condUnitET[Future](
-          declaredMediatorId == mediatorId,
-          rejectWrongMediator(show"incorrect mediator id"),
-        )
-      case MediatorRef.Group(declaredMediatorGroup) =>
-        for {
-          mediatorGroupO <- EitherT.right(
-            topologySnapshot.mediatorGroup(declaredMediatorGroup.group)(loggingContext)
-          )
-          mediatorGroup <- EitherT.fromOption[Future](
-            mediatorGroupO,
-            rejectWrongMediator(show"unknown mediator group"),
-          )
-          _ <- EitherTUtil.condUnitET[Future](
-            mediatorGroup.isActive,
-            rejectWrongMediator(show"inactive mediator group"),
-          )
-          _ <- EitherTUtil.condUnitET[Future](
-            mediatorGroup.active.contains(mediatorId) || mediatorGroup.passive.contains(mediatorId),
-            rejectWrongMediator(show"this mediator not being part of the mediator group"),
-          )
-
-        } yield ()
-    }).map(_ => request.mediator)
+    for {
+      mediatorGroupO <- EitherT.right(
+        topologySnapshot.mediatorGroup(request.mediator.group)(loggingContext)
+      )
+      mediatorGroup <- EitherT.fromOption[Future](
+        mediatorGroupO,
+        rejectWrongMediator(show"unknown mediator group"),
+      )
+      _ <- EitherTUtil.condUnitET[Future](
+        mediatorGroup.isActive,
+        rejectWrongMediator(show"inactive mediator group"),
+      )
+      _ <- EitherTUtil.condUnitET[Future](
+        mediatorGroup.active.contains(mediatorId) || mediatorGroup.passive.contains(mediatorId),
+        rejectWrongMediator(show"this mediator not being part of the mediator group"),
+      )
+    } yield request.mediator
   }
 
   private def checkRootHashMessages(
-      validMediator: MediatorRef,
+      validMediator: MediatorsOfDomain,
       requestId: RequestId,
       request: MediatorRequest,
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
@@ -687,13 +678,13 @@ private[mediator] class ConfirmationResponseProcessor(
             // in the `BlockUpdateGenerator`
             // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow such messages from other than participant domain nodes)
             recipients.allRecipients.sizeCompare(1) == 0 &&
-            recipients.allRecipients.contains(responseAggregation.request.mediator.toRecipient)
+            recipients.allRecipients.contains(responseAggregation.request.mediator)
           ) {
             OptionT.some[Future](())
           } else {
             MediatorError.MalformedMessage
               .Reject(
-                s"Request ${response.requestId}, sender ${response.sender}: Discarding mediator response with wrong recipients ${recipients}, expected ${responseAggregation.request.mediator.toRecipient}"
+                s"Request ${response.requestId}, sender ${response.sender}: Discarding mediator response with wrong recipients ${recipients}, expected ${responseAggregation.request.mediator}"
               )
               .report()
             OptionT.none[Future, Unit]

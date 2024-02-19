@@ -52,9 +52,8 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -172,7 +171,7 @@ abstract class ProtocolProcessor[
 
   private def chooseMediator(
       recentSnapshot: TopologySnapshot
-  )(implicit traceContext: TraceContext): EitherT[Future, NoMediatorError, MediatorRef] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, NoMediatorError, MediatorsOfDomain] = {
     val fut = for {
       allMediatorGroups <- recentSnapshot.mediatorGroups()
       allActiveMediatorGroups = allMediatorGroups.filter(_.isActive)
@@ -195,10 +194,9 @@ abstract class ProtocolProcessor[
           // and then the modulo is negative. We must ensure that it's positive!
           if (mod < 0) mod + mediatorCount else mod
         }
-        val mediator = checked(allActiveMediatorGroups(chosenIndex))
-        val chosen = MediatorRef(mediator)
-        logger.debug(s"Chose the mediator $chosen")
-        Right(chosen)
+        val chosen = checked(allActiveMediatorGroups(chosenIndex)).index
+        logger.debug(s"Chose the mediator group $chosen")
+        Right(MediatorsOfDomain(chosen))
       }
     }
     EitherT(fut)
@@ -937,7 +935,7 @@ abstract class ProtocolProcessor[
       ],
       decisionTime: CantonTimestamp,
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       fullViewsWithSignatures: NonEmpty[
         Seq[(WithRecipients[steps.FullView], Option[Signature])]
       ],
@@ -1017,7 +1015,7 @@ abstract class ProtocolProcessor[
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       snapshot: DomainSnapshotSyncCryptoApi,
       decisionTime: CantonTimestamp,
       contractsAndContinue: steps.CheckActivenessAndWritePendingContracts,
@@ -1154,7 +1152,7 @@ abstract class ProtocolProcessor[
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
-      mediatorRef: MediatorRef,
+      mediatorGroup: MediatorsOfDomain,
       snapshot: DomainSnapshotSyncCryptoApi,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): EitherT[Future, steps.RequestError, Unit] = {
@@ -1171,7 +1169,7 @@ abstract class ProtocolProcessor[
         _ = ephemeral.requestTracker.tick(sc, ts)
 
         responses = steps.constructResponsesForMalformedPayloads(requestId, malformedPayloads)
-        recipients = Recipients.cc(mediatorRef.toRecipient)
+        recipients = Recipients.cc(mediatorGroup)
         messages <- EitherT.right(responses.parTraverse { response =>
           signResponse(snapshot, response).map(_ -> recipients)
         })
@@ -1385,21 +1383,7 @@ abstract class ProtocolProcessor[
     ): Future[Boolean] =
       for {
         snapshot <- crypto.awaitSnapshot(requestId.unwrap)
-        res <- {
-          pendingRequestData.mediator match {
-            case MediatorRef.Single(mediatorId) =>
-              resultE.merge
-                .verifySignature(
-                  snapshot,
-                  mediatorId,
-                )
-                .value
-            case MediatorRef.Group(MediatorsOfDomain(mediatorGroupIndex: MediatorGroupIndex)) =>
-              (for {
-                signatureCheck <- resultE.merge.verifySignature(snapshot, mediatorGroupIndex)
-              } yield signatureCheck).value
-          }
-        }
+        res <- resultE.merge.verifySignature(snapshot, pendingRequestData.mediator.group).value
       } yield {
         res match {
           case Left(err) =>
@@ -1853,13 +1837,13 @@ object ProtocolProcessor {
     override def requestCounter: RequestCounter = unwrap.requestCounter
     override def requestSequencerCounter: SequencerCounter = unwrap.requestSequencerCounter
     override def isCleanReplay: Boolean = false
-    override def mediator: MediatorRef = unwrap.mediator
+    override def mediator: MediatorsOfDomain = unwrap.mediator
   }
 
   final case class CleanReplayData(
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
-      override val mediator: MediatorRef,
+      override val mediator: MediatorsOfDomain,
   ) extends PendingRequestDataOrReplayData[Nothing] {
     override def isCleanReplay: Boolean = true
   }

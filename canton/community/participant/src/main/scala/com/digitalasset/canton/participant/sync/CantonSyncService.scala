@@ -267,7 +267,7 @@ class CantonSyncService(
     sync.ready
   }
 
-  private def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
+  private[canton] def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
     aliasManager.domainIdForAlias(alias).flatMap(connectedDomainsMap.get)
 
   private val domainRouter =
@@ -1833,8 +1833,6 @@ object SyncServiceError extends SyncServiceErrorGroup {
   abstract class MigrationErrors extends ErrorGroup()
 
   abstract class DomainRegistryErrorGroup extends ErrorGroup()
-
-  abstract class TrafficControlErrorGroup extends ErrorGroup()
 
   final case class SyncServiceFailedDomainConnection(
       domain: DomainAlias,

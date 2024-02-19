@@ -314,6 +314,7 @@ private[dao] object TransactionsReader {
           observers = rawCreatedEvent.observers.toList,
           agreementText = rawCreatedEvent.agreementText.orElse(Some("")),
           createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
+          packageName = rawCreatedEvent.packageName,
         )
       )
 

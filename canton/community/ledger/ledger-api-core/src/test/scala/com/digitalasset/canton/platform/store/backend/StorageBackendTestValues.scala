@@ -48,6 +48,7 @@ private[store] object StorageBackendTestValues {
   val someTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template")
   val someTemplateId2: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template2")
   val someTemplateId3: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template3")
+  val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("pkg-name")
   val someIdentityParams: ParameterStorageBackend.IdentityParams =
     ParameterStorageBackend.IdentityParams(someParticipantId)
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
@@ -157,6 +158,7 @@ private[store] object StorageBackendTestValues {
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
       contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
+      package_name = somePackageName.toString,
       flat_event_witnesses = stakeholders,
       tree_event_witnesses = informees,
       create_argument = Some(someSerializedDamlLfValue),
@@ -246,6 +248,7 @@ private[store] object StorageBackendTestValues {
       submitter = Option(someParty),
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
+      package_name = somePackageName.toString,
       flat_event_witnesses = Set(signatory, observer),
       create_argument = someSerializedDamlLfValue,
       create_signatories = Set(signatory),

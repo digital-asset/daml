@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import com.daml.lf.command.ApiCommands as LfCommands
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.{Identifier, PackageName}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
@@ -71,6 +71,7 @@ class LedgerTimeAwareCommandExecutorSpec
   private val processedDisclosedContracts = ImmArray(
     ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
+      packageName = PackageName.assertFromString("pkg-name"),
       contractId = cid,
       argument = Value.ValueNil,
       createdAt = Time.Timestamp.Epoch,

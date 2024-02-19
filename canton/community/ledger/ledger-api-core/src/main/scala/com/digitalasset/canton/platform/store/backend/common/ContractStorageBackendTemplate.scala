@@ -92,6 +92,7 @@ class ContractStorageBackendTemplate(
       : RowParser[(ContractId, ContractStorageBackend.RawCreatedContract)] =
     (str("contract_id")
       ~ int("template_id")
+      ~ int("package_name")
       ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?
@@ -103,9 +104,10 @@ class ContractStorageBackendTemplate(
       ~ array[Int]("create_key_maintainers").?
       ~ byteArray("driver_metadata").?)
       .map {
-        case coid ~ internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ agreementText ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
+        case coid ~ internedTemplateId ~ internedPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ agreementText ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
           ContractId.assertFromString(coid) -> RawCreatedContract(
-            templateId = stringInterning.templateId.unsafe.externalize(internalTemplateId),
+            templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
+            packageName = stringInterning.packageName.unsafe.externalize(internedPackageName),
             flatEventWitnesses =
               flatEventWitnesses.view.map(stringInterning.party.externalize).toSet,
             createArgument = createArgument,
@@ -131,6 +133,7 @@ class ContractStorageBackendTemplate(
          SELECT
            contract_id,
            template_id,
+           package_name,
            flat_event_witnesses,
            create_argument,
            create_argument_compression,
@@ -168,6 +171,7 @@ class ContractStorageBackendTemplate(
          SELECT
            contract_id,
            template_id,
+           package_name,
            flat_event_witnesses,
            create_argument,
            create_argument_compression,

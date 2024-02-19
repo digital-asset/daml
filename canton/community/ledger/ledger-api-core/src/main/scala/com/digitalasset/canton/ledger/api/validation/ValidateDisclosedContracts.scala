@@ -90,6 +90,7 @@ class ValidateDisclosedContracts {
         UpgradableDisclosedContract(
           contractId = validatedContractId,
           templateId = templateId,
+          packageName = packageName,
           argument = createArg,
           createdAt = createdAt,
           keyHash = contractKeyWithMaintainers.map(_.globalKey.hash),

@@ -120,6 +120,7 @@ class SerializationDeserializationTest
           TestHash,
         )
         testProtocolVersioned(Batch)
+        testProtocolVersioned(SetTrafficBalanceMessage)
         testMemoizedProtocolVersionedWithCtx(
           SubmissionRequest,
           MaxRequestSizeToDeserialize.NoLimit,

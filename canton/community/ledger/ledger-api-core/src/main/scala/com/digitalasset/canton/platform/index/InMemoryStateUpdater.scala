@@ -7,7 +7,6 @@ import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -248,7 +247,7 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Created(
               contractId = createdEvent.contractId,
               contract = Contract(
-                packageName = Ref.PackageName.assertFromString("default"),
+                packageName = createdEvent.packageName,
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
               ),
@@ -309,6 +308,7 @@ private[platform] object InMemoryStateUpdater {
           contractId = create.coid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
+          packageName = create.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
@@ -476,6 +476,7 @@ private[platform] object InMemoryStateUpdater {
               contractId = create.coid,
               ledgerEffectiveTime = assign.ledgerEffectiveTime,
               templateId = create.templateId,
+              packageName = create.packageName,
               commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
               workflowId = u.workflowId.getOrElse(""),
               contractKey =

@@ -62,31 +62,39 @@ class ConfirmationResponseProcessorTestV5
   protected val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
   protected val activeMediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator", "two"))
   protected val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
+  protected val activeMediator4 = MediatorId(UniqueIdentifier.tryCreate("mediator", "four"))
 
   private def mediatorGroup0(mediators: MediatorId*) =
     MediatorGroup(MediatorGroupIndex.zero, mediators, Seq.empty, PositiveInt.one)
 
   protected val mediatorGroup: MediatorGroup = MediatorGroup(
-    index = NonNegativeInt.zero,
+    index = MediatorGroupIndex.zero,
     active = Seq(
       activeMediator1,
       activeMediator2,
     ),
-    passive = Seq(
-      passiveMediator3
-    ),
+    passive = Seq(passiveMediator3),
     threshold = PositiveInt.tryCreate(2),
+  )
+  protected val mediatorGroup2: MediatorGroup = MediatorGroup(
+    index = MediatorGroupIndex.one,
+    active = Seq(activeMediator4),
+    passive = Seq.empty,
+    threshold = PositiveInt.one,
   )
 
   protected val sequencer = SequencerId(UniqueIdentifier.tryCreate("sequencer", "one"))
 
-  protected val sequencerGroup = SequencerGroup(active = Seq(sequencer), Seq.empty, PositiveInt.one)
+  protected val sequencerGroup =
+    SequencerGroup(active = NonEmpty.mk(Seq, sequencer), Seq.empty, PositiveInt.one)
 
   private lazy val mediatorId: MediatorId = activeMediator2
-  private lazy val mediatorRef: MediatorRef = MediatorRef(mediatorGroup)
+  private lazy val mediatorGroupRecipient: MediatorsOfDomain = MediatorsOfDomain(
+    mediatorGroup.index
+  )
 
   protected lazy val factory: ExampleTransactionFactory =
-    new ExampleTransactionFactory()(domainId = domainId, mediatorRef = mediatorRef)
+    new ExampleTransactionFactory()(domainId = domainId, mediatorGroup = mediatorGroupRecipient)
   protected lazy val fullInformeeTree: FullInformeeTree =
     factory.MultipleRootsAndViewNestings.fullInformeeTree
   private lazy val view: TransactionView = factory.MultipleRootsAndViewNestings.view0
@@ -132,7 +140,7 @@ class ConfirmationResponseProcessorTestV5
       observer ->
         Map(participant -> ParticipantPermission.Observation),
     ),
-    Set(mediatorGroup),
+    Set(mediatorGroup, mediatorGroup2),
     sequencerGroup,
   )
   private lazy val identityFactory: TestingIdentityFactoryBase = TestingIdentityFactoryX(
@@ -299,7 +307,7 @@ class ConfirmationResponseProcessorTestV5
           TransactionViewType,
           SerializedRootHashMessagePayload.empty,
         ),
-        Recipients.cc(MemberRecipient(participant), mediatorRef.toRecipient),
+        Recipients.cc(MemberRecipient(participant), mediatorGroupRecipient),
       )(testedProtocolVersion)
     )
 
@@ -417,7 +425,7 @@ class ConfirmationResponseProcessorTestV5
             requestTimestamp.plusSeconds(120),
             signedResponse,
             Some(reqId.unwrap),
-            Recipients.cc(mediatorRef.toRecipient),
+            Recipients.cc(mediatorGroupRecipient),
           ),
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
@@ -461,22 +469,22 @@ class ConfirmationResponseProcessorTestV5
 
       val tests = List[(String, Seq[Recipients])](
         "individual messages" -> allParticipants.map(p =>
-          Recipients.cc(mediatorRef.toRecipient, MemberRecipient(p))
+          Recipients.cc(mediatorGroupRecipient, MemberRecipient(p))
         ),
         "just one message" -> Seq(
           Recipients.recipientGroups(
-            allParticipants.map(p => NonEmpty.mk(Set, MemberRecipient(p), mediatorRef.toRecipient))
+            allParticipants.map(p => NonEmpty.mk(Set, MemberRecipient(p), mediatorGroupRecipient))
           )
         ),
         "mixed" -> Seq(
           Recipients.recipientGroups(
             NonEmpty.mk(
               Seq,
-              NonEmpty.mk(Set, MemberRecipient(participant1), mediatorRef.toRecipient),
-              NonEmpty.mk(Set, MemberRecipient(participant2), mediatorRef.toRecipient),
+              NonEmpty.mk(Set, MemberRecipient(participant1), mediatorGroupRecipient),
+              NonEmpty.mk(Set, MemberRecipient(participant2), mediatorGroupRecipient),
             )
           ),
-          Recipients.cc(MemberRecipient(participant3), mediatorRef.toRecipient),
+          Recipients.cc(MemberRecipient(participant3), mediatorGroupRecipient),
         ),
       )
 
@@ -546,64 +554,64 @@ class ConfirmationResponseProcessorTestV5
       val batchWithWrongRootHashMessage =
         example(
           wrongRootHashMessage -> Recipients.cc(
-            mediatorRef.toRecipient,
+            mediatorGroupRecipient,
             MemberRecipient(participant),
           )
         )
       val batchWithWrongViewType =
         example(
-          wrongViewTypeRHM -> Recipients.cc(mediatorRef.toRecipient, MemberRecipient(participant))
+          wrongViewTypeRHM -> Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant))
         )
       val batchWithDifferentViewTypes =
         example(
           correctRootHashMessage -> Recipients
-            .cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+            .cc(mediatorGroupRecipient, MemberRecipient(participant)),
           wrongViewTypeRHM -> Recipients.cc(
-            mediatorRef.toRecipient,
+            mediatorGroupRecipient,
             MemberRecipient(otherParticipant),
           ),
         )
       val batchWithRootHashMessageWithTooManyRecipients =
         example(
           correctRootHashMessage -> Recipients.cc(
-            mediatorRef.toRecipient,
+            mediatorGroupRecipient,
             MemberRecipient(participant),
             MemberRecipient(otherParticipant),
           )
         )
       val batchWithRootHashMessageWithTooFewRecipients =
-        example(correctRootHashMessage -> Recipients.cc(mediatorRef.toRecipient))
+        example(correctRootHashMessage -> Recipients.cc(mediatorGroupRecipient))
       val batchWithRepeatedRootHashMessage = example(
         correctRootHashMessage -> Recipients
-          .cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+          .cc(mediatorGroupRecipient, MemberRecipient(participant)),
         correctRootHashMessage -> Recipients.cc(
-          mediatorRef.toRecipient,
+          mediatorGroupRecipient,
           MemberRecipient(participant),
         ),
       )
       val batchWithDivergingRootHashMessages = example(
         correctRootHashMessage -> Recipients
-          .cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+          .cc(mediatorGroupRecipient, MemberRecipient(participant)),
         wrongRootHashMessage -> Recipients.cc(
-          mediatorRef.toRecipient,
+          mediatorGroupRecipient,
           MemberRecipient(participant),
         ),
       )
       val batchWithSuperfluousRootHashMessage = example(
         correctRootHashMessage -> Recipients
-          .cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+          .cc(mediatorGroupRecipient, MemberRecipient(participant)),
         correctRootHashMessage -> Recipients.cc(
-          mediatorRef.toRecipient,
+          mediatorGroupRecipient,
           MemberRecipient(otherParticipant),
         ),
       )
       val batchWithDifferentPayloads = example(
         correctRootHashMessage -> Recipients
-          .cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+          .cc(mediatorGroupRecipient, MemberRecipient(participant)),
         correctRootHashMessage.copy(
           payload = SerializedRootHashMessagePayload(ByteString.copyFromUtf8("other paylroosoad"))
         ) -> Recipients
-          .cc(mediatorRef.toRecipient, MemberRecipient(otherParticipant)),
+          .cc(mediatorGroupRecipient, MemberRecipient(otherParticipant)),
       )
 
       // format: off
@@ -623,10 +631,10 @@ class ConfirmationResponseProcessorTestV5
           List(Set[Member](participant) -> correctViewType, Set[Member](otherParticipant) -> wrongViewType),
 
         (batchWithRootHashMessageWithTooManyRecipients ->
-          show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = Seq(${mediatorRef.toRecipient}, ${MemberRecipient(participant)}, ${MemberRecipient(otherParticipant)}))") ->
+          show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = Seq(${mediatorGroupRecipient}, ${MemberRecipient(participant)}, ${MemberRecipient(otherParticipant)}))") ->
           List(Set[Member](participant, otherParticipant) -> correctViewType),
 
-        (batchWithRootHashMessageWithTooFewRecipients -> show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = ${mediatorRef.toRecipient})") -> List.empty,
+        (batchWithRootHashMessageWithTooFewRecipients -> show"Root hash messages with wrong recipients tree: RecipientsTree(recipient group = ${mediatorGroupRecipient})") -> List.empty,
 
         (batchWithRepeatedRootHashMessage -> show"Several root hash messages for recipients: ${MemberRecipient(participant)}") ->
           List(Set[Member](participant) -> correctViewType),
@@ -698,11 +706,11 @@ class ConfirmationResponseProcessorTestV5
     "reject when declared mediator is wrong" in {
       val sut = new Fixture()
 
-      val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
+      val otherMediatorGroupIndex = MediatorsOfDomain(mediatorGroup2.index)
       val factoryOtherMediatorId =
         new ExampleTransactionFactory()(
           domainId = domainId,
-          mediatorRef = MediatorRef(otherMediatorId),
+          mediatorGroup = otherMediatorGroupIndex,
         )
       val fullInformeeTreeOther =
         factoryOtherMediatorId.MultipleRootsAndViewNestings.fullInformeeTree
@@ -729,10 +737,8 @@ class ConfirmationResponseProcessorTestV5
             List(
               OpenEnvelope(
                 rootHashMessage,
-                Recipients.cc(mediatorRef.toRecipient, MemberRecipient(participant)),
-              )(
-                testedProtocolVersion
-              )
+                Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
+              )(testedProtocolVersion)
             ),
             batchAlsoContainsTopologyXTransaction = false,
           ),
@@ -741,7 +747,9 @@ class ConfirmationResponseProcessorTestV5
             message => {
               message should (include("Rejecting mediator request") and include(
                 s"${RequestId(ts)}"
-              ) and include("incorrect mediator id") and include(s"$otherMediatorId"))
+              ) and include("this mediator not being part of the mediator group") and include(
+                s"$otherMediatorGroupIndex"
+              ))
             },
           ),
         )
@@ -783,7 +791,7 @@ class ConfirmationResponseProcessorTestV5
           List(
             OpenEnvelope(
               rootHashMessage,
-              Recipients.cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+              Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
             )(
               testedProtocolVersion
             )
@@ -825,7 +833,7 @@ class ConfirmationResponseProcessorTestV5
             ts1.plusSeconds(120),
             _,
             Some(requestId.unwrap),
-            Recipients.cc(mediatorRef.toRecipient),
+            Recipients.cc(mediatorGroupRecipient),
           )
         )
         // records the request
@@ -933,7 +941,7 @@ class ConfirmationResponseProcessorTestV5
             ts2.plusSeconds(120),
             _,
             Some(requestId.unwrap),
-            Recipients.cc(mediatorRef.toRecipient),
+            Recipients.cc(mediatorGroupRecipient),
           )
         )
         // records the request
@@ -1035,9 +1043,9 @@ class ConfirmationResponseProcessorTestV5
               Recipients.recipientGroups(
                 NonEmpty(
                   Seq,
-                  NonEmpty(Set, mediatorRef.toRecipient, MemberRecipient(participant1)),
-                  NonEmpty(Set, mediatorRef.toRecipient, MemberRecipient(participant2)),
-                  NonEmpty(Set, mediatorRef.toRecipient, MemberRecipient(participant3)),
+                  NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant1)),
+                  NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant2)),
+                  NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant3)),
                 )
               ),
             )(
@@ -1069,7 +1077,7 @@ class ConfirmationResponseProcessorTestV5
               ts1.plusSeconds(120),
               _,
               Some(requestId.unwrap),
-              Recipients.cc(mediatorRef.toRecipient),
+              Recipients.cc(mediatorGroupRecipient),
             )
           ),
           isMalformedWarn(participant1),
@@ -1129,7 +1137,7 @@ class ConfirmationResponseProcessorTestV5
           List(
             OpenEnvelope(
               rootHashMessage,
-              Recipients.cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+              Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
             )(
               testedProtocolVersion
             )
@@ -1151,7 +1159,7 @@ class ConfirmationResponseProcessorTestV5
               requestIdTs.plusSeconds(120),
               response,
               Some(requestId.unwrap),
-              Recipients.cc(mediatorRef.toRecipient),
+              Recipients.cc(mediatorGroupRecipient),
             ),
           _.warningMessage shouldBe s"Response $responseTs is too late as request RequestId($requestTs) has already exceeded the participant response deadline [$participantResponseDeadline]",
         )
@@ -1184,7 +1192,7 @@ class ConfirmationResponseProcessorTestV5
             List(
               OpenEnvelope(
                 rootHashMessage,
-                Recipients.cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+                Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
               )(
                 testedProtocolVersion
               )
@@ -1271,7 +1279,7 @@ class ConfirmationResponseProcessorTestV5
           List(
             OpenEnvelope(
               rootHashMessage,
-              Recipients.cc(mediatorRef.toRecipient, MemberRecipient(participant)),
+              Recipients.cc(mediatorGroupRecipient, MemberRecipient(participant)),
             )(
               testedProtocolVersion
             )
@@ -1295,7 +1303,7 @@ class ConfirmationResponseProcessorTestV5
             ts.plusSeconds(120),
             response,
             Some(requestId.unwrap),
-            Recipients.cc(mediatorRef.toRecipient),
+            Recipients.cc(mediatorGroupRecipient),
           ), {
             _.shouldBeCantonError(
               MediatorError.InvalidMessage,
@@ -1342,7 +1350,7 @@ class ConfirmationResponseProcessorTestV5
             someResponse,
             // No timestamp of signing key given
             None,
-            Recipients.cc(mediatorRef.toRecipient),
+            Recipients.cc(mediatorGroupRecipient),
           ),
           checkWrongTimestampOfSigningKeyError,
         )
@@ -1356,7 +1364,7 @@ class ConfirmationResponseProcessorTestV5
             someResponse,
             // Wrong timestamp of signing key given
             Some(requestId.unwrap.immediatePredecessor),
-            Recipients.cc(mediatorRef.toRecipient),
+            Recipients.cc(mediatorGroupRecipient),
           ),
           checkWrongTimestampOfSigningKeyError,
         )

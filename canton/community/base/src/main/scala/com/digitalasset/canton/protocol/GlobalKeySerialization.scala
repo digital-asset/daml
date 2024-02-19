@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.daml.lf.value.ValueCoder.CidEncoder as LfDummyCidEncoder
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -19,7 +18,7 @@ object GlobalKeySerialization {
       // Contract keys are not allowed to hold contract ids; therefore it is "okay"
       // to use a dummy LfContractId encoder.
       serializedKey <- ValueCoder
-        .encodeVersionedValue(LfDummyCidEncoder, globalKey.version, globalKey.unversioned.key)
+        .encodeVersionedValue(version = globalKey.version, value = globalKey.unversioned.key)
         .map(_.toByteString)
         .leftMap(_.errorMessage)
     } yield v30.GlobalKey(serializedTemplateId, serializedKey)
@@ -48,7 +47,7 @@ object GlobalKeySerialization {
       )
 
       versionedKey <- ValueCoder
-        .decodeVersionedValue(ValueCoder.CidDecoder, deserializedProtoKey)
+        .decodeVersionedValue(protoValue0 = deserializedProtoKey)
         .leftMap(err =>
           ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err.toString)
         )

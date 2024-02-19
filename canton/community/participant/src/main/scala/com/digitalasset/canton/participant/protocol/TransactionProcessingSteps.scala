@@ -76,7 +76,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -166,7 +166,7 @@ class TransactionProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -227,7 +227,7 @@ class TransactionProcessingSteps(
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
       disclosedContracts: Map[LfContractId, SerializableContract],
@@ -723,7 +723,7 @@ class TransactionProcessingSteps(
       ],
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -805,7 +805,7 @@ class TransactionProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -989,7 +989,7 @@ class TransactionProcessingSteps(
       )
     }
 
-    val mediatorRecipients = Recipients.cc(mediator.toRecipient)
+    val mediatorRecipients = Recipients.cc(mediator)
 
     val result =
       for {
@@ -1161,7 +1161,7 @@ class TransactionProcessingSteps(
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   ): PendingTransaction = {
     val TransactionValidationResult(

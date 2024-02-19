@@ -17,7 +17,6 @@ import com.digitalasset.canton.participant.store.{TransferStore, TransferStoreTe
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
 import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
-import com.digitalasset.canton.topology.MediatorRef
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{BaseTest, HasExecutorService, LfPartyId, RequestCounter}
@@ -34,7 +33,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
   val transferDataF =
     mkTransferDataForDomain(
       transfer10,
-      MediatorRef(mediator1),
+      mediator1,
       targetDomainId = TransferStoreTest.targetDomain,
     )
   val toc = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)

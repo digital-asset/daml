@@ -19,9 +19,11 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.InformeeMessage
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DefaultTestIdentities, MediatorRef}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, HasExecutionContext, LfPartyId}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -41,7 +43,6 @@ class MediatorStateTest
     val requestId = RequestId(CantonTimestamp.Epoch)
     val fullInformeeTree = {
       val domainId = DefaultTestIdentities.domainId
-      val mediatorId = DefaultTestIdentities.mediator
       val participantId = DefaultTestIdentities.participant1
       val aliceParty = LfPartyId.assertFromString("alice")
       val alice = PlainInformee(aliceParty)
@@ -82,7 +83,7 @@ class MediatorStateTest
         .create(hashOps, testedProtocolVersion)(
           ConfirmationPolicy.Signatory,
           domainId,
-          MediatorRef(mediatorId),
+          MediatorsOfDomain(MediatorGroupIndex.zero),
           s(5417),
           new UUID(0, 0),
         )

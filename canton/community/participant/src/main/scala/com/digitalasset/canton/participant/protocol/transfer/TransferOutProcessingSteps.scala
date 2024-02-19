@@ -104,7 +104,7 @@ class TransferOutProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       sourceRecentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -212,14 +212,14 @@ class TransferOutProcessingSteps(
           checked(
             NonEmptyUtil.fromUnsafe(
               validated.recipients.toSeq.map(participant =>
-                NonEmpty(Set, mediator.toRecipient, MemberRecipient(participant))
+                NonEmpty(Set, mediator, MemberRecipient(participant))
               )
             )
           )
         )
       // Each member gets a message sent to itself and to the mediator
       val messages = Seq[(ProtocolMessage, Recipients)](
-        mediatorMessage -> Recipients.cc(mediator.toRecipient),
+        mediatorMessage -> Recipients.cc(mediator),
         viewMessage -> recipientsT,
         rootHashMessage -> rootHashRecipients,
       )
@@ -305,7 +305,7 @@ class TransferOutProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       sourceSnapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -386,7 +386,7 @@ class TransferOutProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -502,7 +502,7 @@ class TransferOutProcessingSteps(
       )
     } yield StorePendingDataAndSendResponseAndCreateTimeout(
       entry,
-      responseOpt.map(_ -> Recipients.cc(mediator.toRecipient)).toList,
+      responseOpt.map(_ -> Recipients.cc(mediator)).toList,
       RejectionArgs(
         entry,
         LocalReject.TimeRejects.LocalTimeout.Reject(sourceDomainProtocolVersion.v),
@@ -782,7 +782,7 @@ object TransferOutProcessingSteps {
       hostedStakeholders: Set[LfPartyId],
       targetTimeProof: TimeProof,
       transferInExclusivity: Option[CantonTimestamp],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ) extends PendingTransfer
       with PendingRequestData
 

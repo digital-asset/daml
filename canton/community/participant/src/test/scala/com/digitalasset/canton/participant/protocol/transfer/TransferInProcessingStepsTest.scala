@@ -47,6 +47,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -61,19 +62,13 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private val sourceMediator = MediatorRef(
-    MediatorId(UniqueIdentifier.tryFromProtoPrimitive("mediator::source"))
-  )
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private val targetMediator = MediatorRef(
-    MediatorId(UniqueIdentifier.tryFromProtoPrimitive("mediator::target"))
-  )
+  private val targetMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(200))
   private val anotherDomain = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::another"))
-  private val anotherMediator = MediatorRef(
-    MediatorId(UniqueIdentifier.tryFromProtoPrimitive("mediator::another"))
-  )
+  private val anotherMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(300))
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
   ).toLf
@@ -417,7 +412,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         party1,
         Set(party1),
         contract,
-        TransferCounter.Genesis,
         transactionId1,
         targetDomain,
         targetMediator,
@@ -457,7 +451,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             NonEmptyUtil.fromUnsafe(decrypted.views),
             Seq.empty,
             cryptoSnapshot,
-            MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+            MediatorsOfDomain(MediatorGroupIndex.one),
           )
         )("compute activeness set failed")
       } yield {
@@ -471,7 +465,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         party1,
         Set(party1),
         contract,
-        TransferCounter.Genesis,
         transactionId1,
         TargetDomainId(anotherDomain),
         anotherMediator,
@@ -486,7 +479,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             NonEmpty(Seq, (WithRecipients(inTree2, RecipientsTest.testInstance), None)),
             Seq.empty,
             cryptoSnapshot,
-            MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+            MediatorsOfDomain(MediatorGroupIndex.one),
           )
         )("compute activeness set did not return a left")
       } yield {
@@ -514,7 +507,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             ),
             Seq.empty,
             cryptoSnapshot,
-            MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+            MediatorsOfDomain(MediatorGroupIndex.one),
           )
         )("compute activenss set did not return a left")
       } yield {
@@ -549,7 +542,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
           party1,
           stakeholders = Set(party1, party2),
           contract,
-          TransferCounter.Genesis,
           transactionId1,
           targetDomain,
           targetMediator,
@@ -596,7 +588,6 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
           party1,
           Set(party1),
           contract,
-          TransferCounter.Genesis,
           transactionId1,
           targetDomain,
           targetMediator,
@@ -654,7 +645,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         isTransferringParticipant = false,
         transferId,
         contract.metadata.stakeholders,
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+        MediatorsOfDomain(MediatorGroupIndex.one),
       )
 
       for {
@@ -710,10 +701,9 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
       submitter: LfPartyId,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
-      transferCounter: TransferCounter,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorRef,
+      targetMediator: MediatorsOfDomain,
       transferOutResult: DeliveredTransferOutResult,
       uuid: UUID = new UUID(4L, 5L),
   ): FullTransferInTree = {

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
@@ -75,7 +76,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     val crypto: DomainSyncCryptoClient = valueOrFail(
       TestingTopologyX(sequencerGroup =
         SequencerGroup(
-          active = Seq(SequencerId(domainId)),
+          active = NonEmpty.mk(Seq, SequencerId(domainId)),
           passive = Seq.empty,
           threshold = PositiveInt.one,
         )

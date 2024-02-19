@@ -434,8 +434,11 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ImportAcs(acsChunk: ByteString, workflowIdPrefix: String)
-        extends GrpcAdminCommand[ImportAcsRequest, ImportAcsResponse, Unit]
+    final case class ImportAcs(
+        acsChunk: ByteString,
+        workflowIdPrefix: String,
+        allowContractIdSuffixRecomputation: Boolean,
+    ) extends GrpcAdminCommand[ImportAcsRequest, ImportAcsResponse, Map[LfContractId, LfContractId]]
         with StreamingMachinery[ImportAcsRequest, ImportAcsResponse] {
 
       override type Svc = ParticipantRepairServiceStub
@@ -444,7 +447,13 @@ object ParticipantAdminCommands {
         ParticipantRepairServiceGrpc.stub(channel)
 
       override def createRequest(): Either[String, ImportAcsRequest] = {
-        Right(ImportAcsRequest(acsChunk, workflowIdPrefix))
+        Right(
+          ImportAcsRequest(
+            acsChunk,
+            workflowIdPrefix,
+            allowContractIdSuffixRecomputation,
+          )
+        )
       }
 
       override def submitRequest(
@@ -453,14 +462,27 @@ object ParticipantAdminCommands {
       ): Future[ImportAcsResponse] = {
         stream(
           service.importAcs,
-          (bytes: Array[Byte]) => ImportAcsRequest(ByteString.copyFrom(bytes), workflowIdPrefix),
+          (bytes: Array[Byte]) =>
+            ImportAcsRequest(
+              ByteString.copyFrom(bytes),
+              workflowIdPrefix,
+              allowContractIdSuffixRecomputation,
+            ),
           request.acsSnapshot,
         )
       }
 
-      override def handleResponse(response: ImportAcsResponse): Either[String, Unit] = {
-        Right(())
-      }
+      override def handleResponse(
+          response: ImportAcsResponse
+      ): Either[String, Map[LfContractId, LfContractId]] =
+        response.contractIdMapping.toSeq
+          .traverse { case (oldCid, newCid) =>
+            for {
+              oldCidParsed <- LfContractId.fromString(oldCid)
+              newCidParsed <- LfContractId.fromString(newCid)
+            } yield oldCidParsed -> newCidParsed
+          }
+          .map(_.toMap)
     }
 
     final case class PurgeContracts(

@@ -11,9 +11,9 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.CanSubmitTransfer
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.TimeProof
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, TimeProof}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, TransferCounterO}
@@ -37,7 +37,7 @@ final case class TransferOutRequest(
     contract: SerializableContract,
     sourceDomain: SourceDomainId,
     sourceProtocolVersion: SourceProtocolVersion,
-    sourceMediator: MediatorRef,
+    sourceMediator: MediatorsOfDomain,
     targetDomain: TargetDomainId,
     targetProtocolVersion: TargetProtocolVersion,
     targetTimeProof: TimeProof,
@@ -92,7 +92,7 @@ object TransferOutRequest {
       stakeholders: Set[LfPartyId],
       sourceDomain: SourceDomainId,
       sourceProtocolVersion: SourceProtocolVersion,
-      sourceMediator: MediatorRef,
+      sourceMediator: MediatorsOfDomain,
       targetDomain: TargetDomainId,
       targetProtocolVersion: TargetProtocolVersion,
       sourceTopology: TopologySnapshot,

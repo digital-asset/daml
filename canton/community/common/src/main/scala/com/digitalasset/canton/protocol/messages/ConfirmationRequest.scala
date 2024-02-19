@@ -9,11 +9,11 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
+  MediatorsOfDomain,
   OpenEnvelope,
   ParticipantsOfParty,
   Recipients,
 }
-import com.digitalasset.canton.topology.MediatorRef
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -28,7 +28,7 @@ final case class ConfirmationRequest(
 ) extends PrettyPrinting
     with HasLoggerName {
 
-  def mediator: MediatorRef = informeeMessage.mediator
+  def mediator: MediatorsOfDomain = informeeMessage.mediator
 
   lazy val rootHashMessage: RootHashMessage[EmptyRootHashMessagePayload.type] = RootHashMessage(
     rootHash = informeeMessage.fullInformeeTree.transactionId.toRootHash,
@@ -42,9 +42,8 @@ final case class ConfirmationRequest(
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
   ): Future[Batch[DefaultOpenEnvelope]] = {
-    val mediatorRecipient = mediator.toRecipient
     val mediatorEnvelope: DefaultOpenEnvelope =
-      OpenEnvelope(informeeMessage, Recipients.cc(mediatorRecipient))(protocolVersion)
+      OpenEnvelope(informeeMessage, Recipients.cc(mediator))(protocolVersion)
 
     val informees = informeeMessage.allInformees
     RootHashMessageRecipients.rootHashRecipientsForInformees(informees, ipsSnapshot).map {
@@ -67,11 +66,11 @@ final case class ConfirmationRequest(
               val rootHashMessageRecipients =
                 if (groupAddressing)
                   Recipients.recipientGroups(
-                    NonEmpty.mk(Seq, recipientsNE.toSet ++ Seq(mediatorRecipient))
+                    NonEmpty.mk(Seq, recipientsNE.toSet ++ Seq(mediator))
                   )
                 else
                   Recipients.recipientGroups(
-                    recipientsNE.map(NonEmpty.mk(Set, _, mediator.toRecipient))
+                    recipientsNE.map(NonEmpty.mk(Set, _, mediator))
                   )
               List(OpenEnvelope(rootHashMessage, rootHashMessageRecipients)(protocolVersion))
             case None =>

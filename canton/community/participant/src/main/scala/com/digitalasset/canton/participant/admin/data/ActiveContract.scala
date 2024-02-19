@@ -43,6 +43,11 @@ final case class ActiveContract private (
   override def representativeProtocolVersion: RepresentativeProtocolVersion[ActiveContract.type] =
     ActiveContract.protocolVersionRepresentativeFor(protocolVersion)
 
+  private[canton] def withSerializableContract(
+      contract: SerializableContract
+  ): ActiveContract =
+    copy(contract = contract)(protocolVersion)
+
 }
 
 private[canton] object ActiveContract extends HasProtocolVersionedCompanion[ActiveContract] {
@@ -51,12 +56,12 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ActiveContract)(
-      supportedProtoVersion(_)(fromProtov30),
+      supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
 
-  private def fromProtov30(
+  private def fromProtoV30(
       proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] = {
     for {

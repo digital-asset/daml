@@ -176,6 +176,15 @@ object MediatorsOfDomain {
   object Code extends GroupRecipientCode {
     val threeLetterId: String3 = String3.tryCreate("MOD")
   }
+
+  def fromProtoPrimitive(
+      mediatorsOfDomain: String,
+      fieldName: String,
+  ): ParsingResult[MediatorsOfDomain] =
+    Recipient.fromProtoPrimitive(mediatorsOfDomain, fieldName).flatMap {
+      case mod: MediatorsOfDomain => Right(mod)
+      case other => Left(ValueConversionError(fieldName, s"Expected MediatorsOfDomain, got $other"))
+    }
 }
 
 case object AllMembersOfDomain extends GroupRecipient {

@@ -1271,7 +1271,7 @@ class BlockUpdateGenerator(
                 topologySnapshot
                   .sequencerGroup()
                   .map(
-                    _.map(group => (group.active ++ group.passive).toSet[Member])
+                    _.map(group => (group.active.forgetNE ++ group.passive).toSet[Member])
                       .getOrElse(Set.empty[Member])
                   )
             } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
@@ -1409,7 +1409,7 @@ class BlockUpdateGenerator(
                     _.fold[Either[SubmissionRequestOutcome, Set[Member]]](
                       // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
                       Left(refuse("No sequencer group found"))
-                    )(group => Right((group.active ++ group.passive).toSet))
+                    )(group => Right((group.active.forgetNE ++ group.passive).toSet))
                   )
               )
               _ <- {

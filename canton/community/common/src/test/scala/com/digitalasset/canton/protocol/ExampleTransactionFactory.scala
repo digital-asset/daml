@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
@@ -27,6 +27,8 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
@@ -36,8 +38,6 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.topology.{
   DomainId,
-  MediatorId,
-  MediatorRef,
   ParticipantId,
   TestingIdentityFactoryX,
   TestingTopologyX,
@@ -69,6 +69,7 @@ object ExampleTransactionFactory {
   val languageVersion = LfTransactionBuilder.defaultLanguageVersion
   val packageId = LfTransactionBuilder.defaultPackageId
   val templateId = LfTransactionBuilder.defaultTemplateId
+  val packageName = LfTransactionBuilder.defaultPackageName
   val someOptUsedPackages = Some(Set(packageId))
   val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
   val transactionVersion = LfTransactionBuilder.defaultTransactionVersion
@@ -86,9 +87,10 @@ object ExampleTransactionFactory {
   def contractInstance(
       capturedIds: Seq[LfContractId] = Seq.empty,
       templateId: LfTemplateId = templateId,
+      packageName: LfPackageName = packageName,
   ): LfContractInst =
     LfContractInst(
-      packageName = Ref.PackageName.assertFromString("default"),
+      packageName = packageName,
       template = templateId,
       arg = versionedValueCapturing(capturedIds.toList),
     )
@@ -103,11 +105,7 @@ object ExampleTransactionFactory {
     LfVersioned(transactionVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfContractInst =
-    LfContractInst(
-      packageName = Ref.PackageName.assertFromString("default"),
-      template = templateId,
-      arg = veryDeepVersionedValue,
-    )
+    LfContractInst(packageName = packageName, template = templateId, arg = veryDeepVersionedValue)
 
   def globalKey(
       templateId: LfTemplateId,
@@ -135,8 +133,8 @@ object ExampleTransactionFactory {
   ): LfNodeFetch =
     LfNodeFetch(
       coid = cid,
+      packageName = packageName,
       templateId = templateId,
-      packageName = Ref.PackageName.assertFromString("default"),
       actingParties = actingParties,
       signatories = signatories,
       stakeholders = signatories ++ observers,
@@ -155,8 +153,8 @@ object ExampleTransactionFactory {
     val unversionedContractInst = contractInstance.unversioned
     LfNodeCreate(
       coid = cid,
+      packageName = unversionedContractInst.packageName,
       templateId = unversionedContractInst.template,
-      packageName = Ref.PackageName.assertFromString("default"),
       arg = unversionedContractInst.arg,
       signatories = signatories,
       stakeholders = signatories ++ observers,
@@ -178,11 +176,12 @@ object ExampleTransactionFactory {
       key: Option[LfGlobalKeyWithMaintainers] = None,
       byKey: Boolean = false,
       templateId: LfTemplateId = templateId,
+      packageName: LfPackageName = packageName,
   ): LfNodeExercises =
     LfNodeExercises(
       targetCoid = targetCoid,
+      packageName = packageName,
       templateId = templateId,
-      packageName = Ref.PackageName.assertFromString("default"),
       interfaceId = None,
       choiceId = LfChoiceName.assertFromString("choice"),
       consuming = consuming,
@@ -226,7 +225,8 @@ object ExampleTransactionFactory {
   ): LfNodeLookupByKey =
     LfNodeLookupByKey(
       templateId = key.templateId,
-      packageName = Ref.PackageName.assertFromString("default"),
+      // TODO(#16362): This should be taken from the LfGlobalKey which currently does not have it
+      packageName = packageName,
       key = LfGlobalKeyWithMaintainers(key, maintainers),
       result = resolution,
       version = transactionVersion,
@@ -386,9 +386,7 @@ class ExampleTransactionFactory(
     val transactionUuid: UUID = UUID.fromString("11111111-2222-3333-4444-555555555555"),
     val confirmationPolicy: ConfirmationPolicy = ConfirmationPolicy.Signatory,
     val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("example::default")),
-    val mediatorRef: MediatorRef = MediatorRef(
-      MediatorId(UniqueIdentifier.tryFromProtoPrimitive("mediator::default"))
-    ),
+    val mediatorGroup: MediatorsOfDomain = MediatorsOfDomain(MediatorGroupIndex.zero),
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
     val submissionTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
@@ -519,7 +517,7 @@ class ExampleTransactionFactory(
     val (contractSalt, unicum) = unicumGenerator
       .generateSaltAndUnicum(
         domainId,
-        mediatorRef,
+        mediatorGroup,
         transactionUuid,
         viewPosition,
         viewParticipantDataSalt,
@@ -674,7 +672,7 @@ class ExampleTransactionFactory(
       .create(cryptoOps, protocolVersion)(
         confirmationPolicy,
         domainId,
-        mediatorRef,
+        mediatorGroup,
         Salt.tryDeriveSalt(transactionSeed, 1, cryptoOps),
         transactionUuid,
       )

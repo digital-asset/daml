@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.{DarParser, Decode}
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Ref.{Identifier, PackageName, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.LanguageVersion
@@ -93,6 +93,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   )
 
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
+  protected final val somePackageName = PackageName.assertFromString("pkg-name")
   protected final val someTemplateIdFilter =
     TemplateFilter(someTemplateId, includeCreatedEventBlob = false)
   protected final val someValueText = LfValue.ValueText("some text")
@@ -154,7 +155,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   protected final val someContractInstance =
     ContractInstance(
-      packageName = Ref.PackageName.assertFromString("default"),
+      packageName = somePackageName,
       template = someTemplateId,
       arg = someContractArgument,
     )
@@ -221,8 +222,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Node.Create =
     Node.Create(
       coid = absCid,
-      packageName = Ref.PackageName.assertFromString("default"),
       templateId = templateId,
+      packageName = somePackageName,
       arg = contractArgument,
       agreementText = someAgreement,
       signatories = signatories,
@@ -237,8 +238,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = targetCid,
-      packageName = Ref.PackageName.assertFromString("default"),
       templateId = someTemplateId,
+      packageName = somePackageName,
       interfaceId = None,
       choiceId = someChoiceName,
       consuming = true,
@@ -261,8 +262,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Node.Fetch =
     Node.Fetch(
       coid = contractId,
-      packageName = Ref.PackageName.assertFromString("default"),
       templateId = someTemplateId,
+      packageName = somePackageName,
       actingParties = Set(party),
       signatories = Set(party),
       stakeholders = Set(party),
@@ -668,8 +669,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val createNodeId = txBuilder.add(
       Node.Create(
         coid = txBuilder.newCid,
-        packageName = Ref.PackageName.assertFromString("default"),
         templateId = someTemplateId,
+        packageName = somePackageName,
         arg = someContractArgument,
         agreementText = someAgreement,
         signatories = Set(party),
@@ -706,8 +707,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val archiveNodeId = txBuilder.add(
       Node.Exercise(
         targetCoid = contractId,
-        packageName = Ref.PackageName.assertFromString("default"),
         templateId = someTemplateId,
+        packageName = somePackageName,
         interfaceId = None,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
         consuming = true,
@@ -751,7 +752,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
         templateId = someTemplateId,
-        packageName = Ref.PackageName.assertFromString("default"),
+        packageName = somePackageName,
         key = GlobalKeyWithMaintainers
           .assertBuild(someTemplateId, someContractKey(party, key), Set(party)),
         result = result,
@@ -780,8 +781,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val fetchNodeId = txBuilder.add(
       Node.Fetch(
         coid = contractId,
-        packageName = Ref.PackageName.assertFromString("default"),
         templateId = someTemplateId,
+        packageName = somePackageName,
         actingParties = Set(party),
         signatories = Set(party),
         stakeholders = Set(party),

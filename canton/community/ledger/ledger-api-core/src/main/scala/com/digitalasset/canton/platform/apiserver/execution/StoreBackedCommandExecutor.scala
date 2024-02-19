@@ -553,7 +553,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         contractInstance = Versioned(
           unusedTxVersion,
           ContractInstance(
-            packageName = Ref.PackageName.assertFromString("default"),
+            packageName = disclosedContract.packageName,
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
           ),

@@ -15,7 +15,7 @@ trait MediatorResult
 
   def verdict: Verdict
 
-  override def signingTimestamp: CantonTimestamp = requestId.unwrap
+  override def signingTimestamp: Option[CantonTimestamp] = Some(requestId.unwrap)
 
   def viewType: ViewType
 }

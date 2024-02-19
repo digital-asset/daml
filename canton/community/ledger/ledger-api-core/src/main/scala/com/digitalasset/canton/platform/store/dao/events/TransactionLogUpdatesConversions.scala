@@ -494,8 +494,8 @@ private[events] object TransactionLogUpdatesConversions {
             FatContractInstance.fromCreateNode(
               Node.Create(
                 coid = createdEvent.contractId,
-                packageName = Ref.PackageName.assertFromString("default"),
                 templateId = createdEvent.templateId,
+                packageName = createdEvent.packageName,
                 arg = createdEvent.createArgument.unversioned,
                 agreementText = createdEvent.createAgreementText.getOrElse(""),
                 signatories = createdEvent.createSignatories,
@@ -525,6 +525,7 @@ private[events] object TransactionLogUpdatesConversions {
           eventId = createdEvent.eventId.toLedgerString,
           contractId = createdEvent.contractId.coid,
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+          packageName = createdEvent.packageName,
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
           createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),

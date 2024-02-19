@@ -109,6 +109,8 @@ object TypedSignedProtocolMessageContent
           TransferResult.fromByteString(expectedProtocolVersion)(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
           AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
+        case Sm.SetTrafficBalance(setTrafficBalanceBytes) =>
+          SetTrafficBalanceMessage.fromByteString(expectedProtocolVersion)(setTrafficBalanceBytes)
         case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
           MalformedMediatorRequestResult.fromByteString(expectedProtocolVersion)(
             malformedMediatorRequestResultBytes
