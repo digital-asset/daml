@@ -5,12 +5,11 @@ package com.daml
 package lf
 package value
 
-import com.daml.lf.EitherAssertions
 import com.daml.lf.data._
-import com.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.daml.lf.transaction.{Versioned, TransactionVersion}
 import com.daml.lf.value.{ValueOuterClass => proto}
-import org.scalacheck.{Arbitrary, Shrink}
-import org.scalatest.Assertion
+import org.scalacheck.{Shrink, Arbitrary}
+import org.scalatest.{Assertion, Inside}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -18,6 +17,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 class ValueCoderSpec
     extends AnyWordSpec
     with Matchers
+    with Inside
     with EitherAssertions
     with ScalaCheckPropertyChecks {
 

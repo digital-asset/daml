@@ -753,19 +753,6 @@ object TransactionCoder {
       Right(None)
     }
 
-  private[this] def ensureNoUnknownFields(
-      proto: com.google.protobuf.Message
-  ): Either[DecodeError, Unit] = {
-    val unknownFields = proto.getUnknownFields.asMap()
-    Either.cond(
-      unknownFields.isEmpty,
-      (),
-      DecodeError(
-        s"unexpected field(s) ${unknownFields.keySet().asScala.mkString(", ")}  in ${proto.getClass.getSimpleName} message"
-      ),
-    )
-  }
-
   private[transaction] def encodeVersioned(
       version: TransactionVersion,
       payload: ByteString,
@@ -785,7 +772,7 @@ object TransactionCoder {
         .toEither
         .left
         .map(e => DecodeError(s"exception $e while decoding the versioned object"))
-      _ <- ensureNoUnknownFields(proto)
+      _ <- ValueCoder.ensureNoUnknownFields(proto)
       version <- TransactionVersion.fromString(proto.getVersion).left.map(DecodeError)
       payload = proto.getPayload
     } yield Versioned(version, payload)
@@ -834,7 +821,7 @@ object TransactionCoder {
         .toEither
         .left
         .map(e => DecodeError(s"exception $e while decoding the object"))
-      _ <- ensureNoUnknownFields(proto)
+      _ <- ValueCoder.ensureNoUnknownFields(proto)
       contractId <- ValueCoder.decodeCoid(proto.getContractId)
       pkgName <- decodePackageName(proto.getPackageName)
       templateId <- ValueCoder.decodeIdentifier(proto.getTemplateId)
