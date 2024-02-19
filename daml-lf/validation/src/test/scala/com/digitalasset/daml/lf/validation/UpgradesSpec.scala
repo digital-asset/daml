@@ -20,6 +20,7 @@ import com.daml.lf.data.Ref.PackageId
 
 import com.daml.lf.archive.{DarReader}
 import scala.util.{Success, Failure}
+import org.scalatest.Inspectors.{forAll}
 
 class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   override lazy val devMode = true;
@@ -40,6 +41,98 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
   }
 
   private def testPackagePair(
+      upgraded: String,
+      upgrading: String,
+      failureMessage: Option[String],
+  ): Future[Assertion] =
+    forAll(
+      Seq(
+        testPackagePairAdminApi(upgraded, upgrading, failureMessage),
+        testPackagePairLedgerApi(upgraded, upgrading, failureMessage),
+      )
+    )(x => x)
+
+  private def testPackagePairAdminApi(
+      upgraded: String,
+      upgrading: String,
+      failureMessage: Option[String],
+  ): Future[Assertion] = {
+    if (sys.props("os.name").startsWith("Windows")) {
+      Future {
+        info("Tests are disabled on Windows")
+        succeed
+      }
+    } else {
+      for {
+        _ <- Future(())
+        client = AdminLedgerClient.singleHost(
+          "localhost",
+          ledgerPorts(0).adminPort.value,
+          config.adminToken,
+          config.tlsClientConfig.client(),
+        )
+        (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
+        (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
+        uploadV1Result <- client
+          .uploadDar(testPackageV1BS, upgraded)
+          .transform({
+            case Failure(err) => Success(Some(err));
+            case Success(_) => Success(None);
+          })
+        uploadV2Result <- client
+          .uploadDar(testPackageV2BS, upgrading)
+          .transform({
+            case Failure(err) => Success(Some(err));
+            case Success(_) => Success(None);
+          })
+      } yield {
+        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
+        val cantonLogSrc = cantonLog.mkString
+        cantonLog.close()
+
+        uploadV1Result match {
+          case Some(err) =>
+            fail(s"Uploading first package $testPackageV1Id failed with message: $err");
+          case _ => {}
+        }
+
+        failureMessage match {
+          // If a failure message is expected, look for it in the canton logs
+          case Some(failureMessage) => {
+            cantonLogSrc should include(
+              s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$failureMessage"
+            )
+            uploadV2Result match {
+              case None =>
+                fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
+              case Some(err) => {
+                val msg = err.toString
+                msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
+                msg should include(
+                  "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
+                )
+              }
+            }
+          }
+
+          // If a failure is not expected, look for a success message
+          case None => {
+            cantonLogSrc should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
+            uploadV2Result match {
+              case None => succeed;
+              case Some(err) => {
+                fail(
+                  s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private def testPackagePairLedgerApi(
       upgraded: String,
       upgrading: String,
       failureMessage: Option[String],
@@ -74,6 +167,7 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
         cantonLogSrc should include(
           s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
         )
+
         uploadV1Result match {
           case Some(err) =>
             fail(s"Uploading first package $testPackageV1Id failed with message: $err");
