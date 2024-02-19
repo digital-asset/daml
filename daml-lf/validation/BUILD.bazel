@@ -53,7 +53,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "tests",
-    size = "small",
+    size = "large",
     srcs = glob(
         ["src/test/**/*.scala"],
         exclude = ["src/test/**/*SpecUtil.scala"],
