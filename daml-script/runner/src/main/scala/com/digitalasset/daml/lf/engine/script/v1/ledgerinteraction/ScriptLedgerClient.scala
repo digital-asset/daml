@@ -63,8 +63,6 @@ object ScriptLedgerClient {
           )
         )
         new GrpcLedgerClient(grpcClient, applicationId)
-      case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
-        new JsonLedgerClient(uri, token, envIface, actorSystem)
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
         new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled, namedLoggerFactory)
     }
