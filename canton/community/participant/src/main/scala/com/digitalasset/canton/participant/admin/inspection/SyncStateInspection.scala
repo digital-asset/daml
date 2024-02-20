@@ -5,7 +5,9 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
 import cats.data.{EitherT, OptionT}
-import cats.implicits.*
+import cats.syntax.foldable.*
+import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -23,6 +25,7 @@ import com.digitalasset.canton.participant.protocol.RequestJournal
 import com.digitalasset.canton.participant.store.ActiveContractStore.AcsError
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
+  ConnectedDomainsLookup,
   LedgerSyncEvent,
   SyncDomainPersistentStateManager,
   TimestampedEvent,
@@ -81,6 +84,8 @@ final class SyncStateInspection(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     timeouts: ProcessingTimeout,
     journalCleaningControl: JournalGarbageCollectorControl,
+    connectedDomainsLookup: ConnectedDomainsLookup,
+    participantId: ParticipantId,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -125,14 +130,20 @@ final class SyncStateInspection(
       domainAlias: DomainAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AcsError, Map[LfContractId, CantonTimestamp]] =
-    OptionT(
-      syncDomainPersistentStateManager
-        .getByAlias(domainAlias)
-        .map(AcsInspection.getCurrentSnapshot)
-        .sequence
-    ).widen[Map[LfContractId, CantonTimestamp]]
-      .toRight(SyncStateInspection.NoSuchDomain(domainAlias))
+  ): EitherT[Future, AcsError, Map[LfContractId, CantonTimestamp]] = {
+
+    for {
+      state <- EitherT.fromEither[Future](
+        syncDomainPersistentStateManager
+          .getByAlias(domainAlias)
+          .toRight(SyncStateInspection.NoSuchDomain(domainAlias))
+      )
+
+      snapshotO <- EitherT.liftF(AcsInspection.getCurrentSnapshot(state).map(_.map(_.snapshot)))
+    } yield snapshotO.fold(Map.empty[LfContractId, CantonTimestamp])(
+      _.toMap
+    )
+  }
 
   /** searches the pcs and returns the contract and activeness flag */
   def findContracts(
@@ -215,10 +226,12 @@ final class SyncStateInspection(
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
+      partiesOffboarding: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, Unit] = {
     val allDomains = syncDomainPersistentStateManager.getAll
+
     // disable journal cleaning for the duration of the dump
     disableJournalCleaningForFilter(allDomains, filterDomain).flatMap { _ =>
       MonadUtil.sequentialTraverse_(allDomains) {
@@ -227,12 +240,10 @@ final class SyncStateInspection(
             contractDomainRenames.getOrElse(domainId, (domainId, state.protocolVersion))
 
           val ret = for {
-            _ <- AcsInspection
+            result <- AcsInspection
               .forEachVisibleActiveContract(domainId, state, parties, timestamp) { contract =>
                 val activeContractE =
-                  ActiveContract.create(domainIdForExport, contract)(
-                    protocolVersion
-                  )
+                  ActiveContract.create(domainIdForExport, contract)(protocolVersion)
 
                 activeContractE match {
                   case Left(e) =>
@@ -246,8 +257,34 @@ final class SyncStateInspection(
                         Right(())
                     }
                 }
-
               }
+
+            _ <- result match {
+              case Some((allStakeholders, snapshotTs)) if partiesOffboarding =>
+                for {
+                  syncDomain <- EitherT.fromOption[Future](
+                    connectedDomainsLookup.get(domainId),
+                    Error.OffboardingParty(
+                      domainId,
+                      s"Unable to get topology client for domain $domainId; check domain connectivity.",
+                    ),
+                  )
+
+                  _ <- AcsInspection
+                    .checkOffboardingSnapshot(
+                      participantId,
+                      offboardedParties = parties,
+                      allStakeholders = allStakeholders,
+                      snapshotTs = snapshotTs,
+                      topologyClient = syncDomain.topologyClient,
+                    )
+                    .leftMap[Error](err => Error.OffboardingParty(domainId, err))
+                } yield ()
+
+              // Snapshot is empty or partiesOffboarding is false
+              case _ => EitherTUtil.unit[Error]
+            }
+
           } yield ()
           // re-enable journal cleaning after the dump
           ret.thereafter { _ =>

@@ -62,7 +62,10 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
       proto: v0.ActiveContract
   ): ParsingResult[ActiveContract] = {
     for {
-      protocolVersion <- ProtocolVersion.fromProtoPrimitive(proto.protocolVersion)
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(
+        proto.protocolVersion,
+        allowDeleted = true, // for a smooth upgrade to 2.x LTS only
+      )
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       contract <- SerializableContract.fromByteString(proto.contract)
       activeContract <- create(domainId, contract)(

@@ -21,7 +21,6 @@ import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfPartyId, ProtocolVersionChecksAsyncWordSpec}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -202,7 +201,7 @@ trait AcsCommitmentStoreTest
      This test is disabled for protocol versions for which the reconciliation interval is
      static because the described setting cannot occur.
      */
-    "correctly compute outstanding commitments when intersection contains no tick" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+    "correctly compute outstanding commitments when intersection contains no tick" in {
       /*
         This copies the scenario of the test
         `work when commitment tick falls between two participants connection to the domain`

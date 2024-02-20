@@ -214,7 +214,7 @@ object MerkleTreeTest {
           _.getCryptographicEvidence,
         ),
         ProtoVersion(1) -> VersionedProtoConverter.raw(
-          ProtocolVersion.v4,
+          ProtocolVersion.smallestStable,
           fromProto(1),
           _.getCryptographicEvidence,
         ),

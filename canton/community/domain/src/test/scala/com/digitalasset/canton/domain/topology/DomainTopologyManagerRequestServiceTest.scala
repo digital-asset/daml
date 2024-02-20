@@ -31,7 +31,6 @@ import com.digitalasset.canton.topology.{
   UnauthenticatedMemberId,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
@@ -319,13 +318,8 @@ class DomainTopologyManagerRequestServiceTest
         all(request5, 5, Failed)
         all(request6, 5, Failed)
         all(request8, 6, Failed)
-        // excess transactions only rejected since PV=3
-        if (testedProtocolVersion >= ProtocolVersion.v3) {
-          all(request7, 7, Failed)
-          stored should have length (if (config.open) 0 else 1)
-        } else {
-          succeed
-        }
+        all(request7, 7, Failed)
+        stored should have length (if (config.open) 0 else 1)
       }
     }
 

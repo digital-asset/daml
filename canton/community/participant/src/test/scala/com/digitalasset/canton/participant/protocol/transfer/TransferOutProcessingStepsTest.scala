@@ -51,8 +51,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.topology.transaction.{ParticipantPermission, VettedPackages}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorService,
@@ -739,7 +739,7 @@ final class TransferOutProcessingStepsTest
     }
 
     // TODO(i13201) This should ideally be covered in integration tests as well
-    "prevent the contract being transferred is not vetted on the target domain since version 5" in {
+    "prevent the contract being transferred is not vetted on the target domain" in {
       val outProcessingStepsWithoutPackages = {
         val f = createCryptoFactory(packages = Seq.empty)
         val s = createCryptoSnapshot(f)
@@ -747,16 +747,9 @@ final class TransferOutProcessingStepsTest
         createOutProcessingSteps(c)
       }
 
-      if (testedProtocolVersion >= ProtocolVersion.v5) {
-        constructPendingDataAndResponseWith(outProcessingStepsWithoutPackages).leftOrFail(
-          "construction of pending data and response succeeded unexpectedly"
-        ) shouldBe a[PackageIdUnknownOrUnvetted]
-      } else {
-        constructPendingDataAndResponseWith(outProcessingStepsWithoutPackages).valueOrFail(
-          "construction of pending data and response failed"
-        )
-        succeed
-      }
+      constructPendingDataAndResponseWith(outProcessingStepsWithoutPackages).leftOrFail(
+        "construction of pending data and response succeeded unexpectedly"
+      ) shouldBe a[PackageIdUnknownOrUnvetted]
 
     }
   }

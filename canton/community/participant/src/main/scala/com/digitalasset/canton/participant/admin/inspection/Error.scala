@@ -41,4 +41,5 @@ private[admin] object Error {
       errorMessage: String,
   ) extends Error
 
+  final case class OffboardingParty(domainId: DomainId, error: String) extends Error
 }

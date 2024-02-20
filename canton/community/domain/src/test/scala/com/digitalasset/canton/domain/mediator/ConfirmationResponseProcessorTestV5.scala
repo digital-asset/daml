@@ -1198,67 +1198,65 @@ class ConfirmationResponseProcessorTestV5
       dynamicDomainParameters = initialDomainParameters,
     )
 
-  if (testedProtocolVersion >= ProtocolVersion.v5) {
-    "inactive mediator ignores requests" in {
-      val domainSyncCryptoApi3 = identityFactory3.forOwnerAndDomain(mediatorId, domainId)
-      val sut = new Fixture(domainSyncCryptoApi3)
+  "inactive mediator ignores requests" in {
+    val domainSyncCryptoApi3 = identityFactory3.forOwnerAndDomain(mediatorId, domainId)
+    val sut = new Fixture(domainSyncCryptoApi3)
 
-      val mediatorRequest = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
-      val rootHashMessage = RootHashMessage(
-        mediatorRequest.rootHash.value,
-        domainId,
-        testedProtocolVersion,
-        mediatorRequest.viewType,
-        SerializedRootHashMessagePayload.empty,
+    val mediatorRequest = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+    val rootHashMessage = RootHashMessage(
+      mediatorRequest.rootHash.value,
+      domainId,
+      testedProtocolVersion,
+      mediatorRequest.viewType,
+      SerializedRootHashMessagePayload.empty,
+    )
+
+    val sc = SequencerCounter(100)
+    val ts = CantonTimestamp.ofEpochSecond(sc.v)
+    val requestId = RequestId(ts)
+    for {
+      _ <- sut.processor.processRequest(
+        RequestId(ts),
+        notSignificantCounter,
+        ts.plusSeconds(60),
+        ts.plusSeconds(120),
+        mediatorRequest,
+        List(
+          OpenEnvelope(
+            rootHashMessage,
+            Recipients.cc(mediatorRef.toRecipient, Recipient(participant)),
+          )(
+            testedProtocolVersion
+          )
+        ),
       )
+      _ = sut.verdictSender.sentResults shouldBe empty
 
-      val sc = SequencerCounter(100)
-      val ts = CantonTimestamp.ofEpochSecond(sc.v)
-      val requestId = RequestId(ts)
-      for {
-        _ <- sut.processor.processRequest(
-          RequestId(ts),
-          notSignificantCounter,
+      // If it nevertheless gets a response, it will complain about the request not being known
+      response <- signedResponse(
+        Set(submitter),
+        view,
+        view0Position,
+        LocalApprove(testedProtocolVersion),
+        requestId,
+      )
+      _ <- loggerFactory.assertLogs(
+        sut.processor.processResponse(
+          ts.immediateSuccessor,
+          sc + 1L,
           ts.plusSeconds(60),
           ts.plusSeconds(120),
-          mediatorRequest,
-          List(
-            OpenEnvelope(
-              rootHashMessage,
-              Recipients.cc(mediatorRef.toRecipient, Recipient(participant)),
-            )(
-              testedProtocolVersion
-            )
-          ),
-        )
-        _ = sut.verdictSender.sentResults shouldBe empty
-
-        // If it nevertheless gets a response, it will complain about the request not being known
-        response <- signedResponse(
-          Set(submitter),
-          view,
-          view0Position,
-          LocalApprove(testedProtocolVersion),
-          requestId,
-        )
-        _ <- loggerFactory.assertLogs(
-          sut.processor.processResponse(
-            ts.immediateSuccessor,
-            sc + 1L,
-            ts.plusSeconds(60),
-            ts.plusSeconds(120),
-            response,
-            Recipients.cc(mediatorRef.toRecipient),
-          ), {
-            _.shouldBeCantonError(
-              MediatorError.InvalidMessage,
-              _ shouldBe show"Received a mediator response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
-            )
-          },
-        )
-      } yield {
-        succeed
-      }
+          response,
+          Recipients.cc(mediatorRef.toRecipient),
+        ), {
+          _.shouldBeCantonError(
+            MediatorError.InvalidMessage,
+            _ shouldBe show"Received a mediator response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
+          )
+        },
+      )
+    } yield {
+      succeed
     }
   }
 }

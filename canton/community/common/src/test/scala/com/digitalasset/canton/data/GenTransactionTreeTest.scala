@@ -413,8 +413,7 @@ class GenTransactionTreeTest
     }
   }
 
-  // Before v3, the subview hashes do not need to be passed at construction
-  "A light transaction view tree" onlyRunWithOrGreaterThan ProtocolVersion.v4 when {
+  "A light transaction view tree" when {
     val example = factory.ViewInterleavings
 
     forEvery(example.transactionViewTrees.zipWithIndex) { case (tvt, index) =>
@@ -633,15 +632,9 @@ class GenTransactionTreeTest
       lazy val (nLeavesP3, nBlindedP3) = countAll(mkTransactionTree(ProtocolVersion.v3)(nViews))
 
       s"it contains $nViews subviews" must {
-        // We only check that the number of leaf nodes did not change between protocols V3 and V4,
-        // leaving future changes possible
-        "have the same number of leaves in its set of transaction view trees when using MerkleSeq subviews" onlyRunWith ProtocolVersion.v4 in {
-          val (nLeavesP4, _) = countAll(mkTransactionTree(ProtocolVersion.v4)(nViews))
-          nLeavesP3 shouldBe nLeavesP4
-        }
 
         // We check for non-regression of the size reduction for all protocol versions >= V4
-        "use significant less space for its set of transaction view trees when using MerkleSeq subviews" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+        "use significant less space for its set of transaction view trees when using MerkleSeq subviews" in {
           // With subtrees as a sequence, the number of blinded nodes is roughly O(n^2);
           // thanks to the MerkleSeq, this gets down to roughly O(n * log_2(n));
           // the ratio is therefore roughly O(n / log_2(n))
@@ -787,7 +780,7 @@ class GenTransactionTreeTest
         createdId,
         contractInstance = ExampleTransactionFactory.contractInstance(),
         metadata = ContractMetadata.empty,
-        salt = Option.when(protocolVersion >= ProtocolVersion.v4)(TestSalt.generateSalt(0)),
+        salt = TestSalt.generateSalt(0),
       )
       val createdContract = CreatedContract
         .create(

@@ -46,6 +46,9 @@ message DownloadRequest {
   // Optional mapping from one domain id to another to rename the associated domain of contracts in the export
   // NOTE: This is not a proper domain migration of contracts.
   map<string, string> contract_domain_renames = 7;
+
+  // true if the parties will be offboarded after the replication (party migration)
+  bool parties_offboarding = 8;
 }
 
 message PurgeContractsRequest {
@@ -113,6 +116,9 @@ message ExportAcsRequest {
   // Optional mapping from one domain id to another to rename the associated domain of contracts in the export
   // NOTE: This is not a proper domain migration of contracts.
   map<string, TargetDomain> contract_domain_renames = 4;
+
+  // true if the parties will be offboarded after the replication (party migration)
+  bool parties_offboarding = 5;
 }
 
 message ExportAcsResponse {

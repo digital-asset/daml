@@ -50,7 +50,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, FutureUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
@@ -1183,15 +1182,6 @@ object TransferStoreTest extends EitherValues with NoTracing {
       transferOutGlobalOffset: Option[GlobalOffset] = None,
   ): Future[TransferData] = {
 
-    /*
-      Method TransferOutView.fromProtoV0 set protocol version to v3 (not present in Protobuf v0).
-     */
-    val targetProtocolVersion =
-      if (BaseTest.testedProtocolVersion <= ProtocolVersion.v3)
-        TargetProtocolVersion(ProtocolVersion.v3)
-      else
-        TargetProtocolVersion(BaseTest.testedProtocolVersion)
-
     val transferOutRequest = TransferOutRequest(
       submitterMetadata(submittingParty),
       Set(submittingParty),
@@ -1202,7 +1192,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       SourceProtocolVersion(BaseTest.testedProtocolVersion),
       sourceMediator,
       targetDomainId,
-      targetProtocolVersion,
+      TargetProtocolVersion(BaseTest.testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(
         timestamp = CantonTimestamp.Epoch,
         targetDomain = targetDomainId,

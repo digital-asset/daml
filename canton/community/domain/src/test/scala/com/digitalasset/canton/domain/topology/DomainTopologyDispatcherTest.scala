@@ -56,7 +56,6 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
@@ -171,7 +170,7 @@ class DomainTopologyDispatcherTest
       def go(prev: Awaiter = Awaiter(Seq(), Set())): Future[Awaiter] = {
         nextMessage().flatMap { x =>
           val acc = Awaiter(prev.observed ++ x.current, prev.recipients ++ x.recipients)
-          if (acc.observed.size >= num)
+          if (acc.observed.sizeIs >= num)
             Future.successful(acc)
           else
             go(acc)
@@ -281,7 +280,7 @@ class DomainTopologyDispatcherTest
     def submit(
         ts: CantonTimestamp,
         tx: SignedTopologyTransaction[TopologyChangeOp]*
-    ): Future[Unit] = submit(dispatcher, ts, tx: _*)
+    ): Future[Unit] = submit(dispatcher, ts, tx *)
     def submit(
         d: DomainTopologyDispatcher,
         ts: CantonTimestamp,
@@ -358,7 +357,7 @@ class DomainTopologyDispatcherTest
           _ <- submit(ts0, txs.ns1k1, txs.ps1, txs.id1k1)
           res <- grabF
           grab2 = expect(3)
-          - <- submit(ts1, txs.okm1, txs.dpc1, txs.ns1k2)
+          _ <- submit(ts1, txs.okm1, txs.dpc1, txs.ns1k2)
           res2 <- grab2
           res3 <- expect(1)
         } yield {
@@ -410,7 +409,7 @@ class DomainTopologyDispatcherTest
           for {
             _ <- f.init()
             _ <- submit(ts0, txs.ns1k1)
-          } yield { assert(true) },
+          } yield { succeed },
           _.errorMessage should include("Halting topology dispatching"),
         )
       }
@@ -504,7 +503,7 @@ class DomainTopologyDispatcherTest
         } yield {
           // normal dispatching to domain members
           res1.compare(nsD, txs.ns1k1, txs.okm1, txs.id2k2, mpsS)
-          res1.recipients should not contain (participant1)
+          res1.recipients should not contain participant1
           // onboarding tx for participant with just key data in there at the beginning (so slight reordering
           catch1.recipients shouldBe Set(participant1)
           catch1.compare(nsD, txs.okm1, mpsS, txs.ns1k1, txs.id2k2)
@@ -546,77 +545,56 @@ class DomainTopologyDispatcherTest
           res3a.recipients should contain(participant1)
           res3b.recipients should contain(participant1)
           res4a.recipients should contain(participant1)
-          if (testedProtocolVersion < ProtocolVersion.v5) {
-            res4b.recipients should not contain (participant1)
-            res5.recipients should not contain (participant1)
-          } else {
-            // in v5, changes are also forwarded to disabled participants
-            res4b.recipients should contain(participant1)
-            res5.recipients should contain(participant1)
-          }
+          res4b.recipients should contain(participant1)
+          res5.recipients should contain(participant1)
         }
       }
+    }
 
-      "resume distribution to re-activated participants" in { f =>
-        import f.*
-        val mpsS2 = genPs(ParticipantPermission.Observation)
-        val rmpsS = revert(mpsS)
-        val rmpsD = revert(mpsD)
-        for {
-          _ <- f.init()
-          _ <- submit(ts0, txs.ns1k1, mpsS)
-          _ <- nextMessage()
-          _ <- submit(ts0.plusMillis(1), participantTrustsDomain)
-          boot1 <- nextMessage() // catchup
-          _ <- nextMessage() // normal distro
-          // depending on protocol version, we need Some(Disabled) or None as the participant state
-          _ <-
-            if (testedProtocolVersion < ProtocolVersion.v5)
-              submit(ts0.plusMillis(2), mpsD) // disables
-            else
-              submit(ts0.plusMillis(2), revert(mpsS))
-          _ <- nextMessage()
-          _ <- submit(ts0.plusMillis(3), rmpsS, txs.ns1k1) // should not be seen by p1
-          res1 <- expect(2) // get this in two messages
-          _ <-
-            if (testedProtocolVersion < ProtocolVersion.v5)
-              submit(ts0.plusMillis(4), mpsS2) // back with observation rights but still disabled
-            else
-              submit(
-                ts0.plusMillis(4),
-                txs.id1k1,
-              ) // different scenario for v5+
-          res2 <- nextMessage()
-          // ban gets lifted
-          _ <-
-            if (testedProtocolVersion < ProtocolVersion.v5)
-              submit(ts0.plusMillis(5), rmpsD) // ban gets lifted
-            else
-              submit(ts0.plusMillis(5), mpsS2)
-          catch1 <- nextMessage() // catchup
-          res3 <- nextMessage()
-          _ <- submit(ts0.plusMillis(6), txs.okm1)
-          res4 <- nextMessage()
-        } yield {
-          boot1.recipients shouldBe Set(participant1)
-          res1.recipients should not contain (participant1)
-          res2.recipients should not contain (participant1)
-          catch1.recipients shouldBe Set(participant1)
-          if (testedProtocolVersion < ProtocolVersion.v5) {
-            catch1.compare(rmpsS, mpsS2, txs.ns1k1)
-            res3.compare(rmpsD)
-          } else {
-            // we get the id1k1 first because in the catchup computation, it got moved
-            // to the "first batch" as it is in the namespace / uid of the domain
-            catch1.compare(rmpsS, txs.id1k1, txs.ns1k1)
-            res3.compare(mpsS2)
-          }
-          res3.recipients should contain(participant1)
-          res4.compare(txs.okm1)
-          res4.recipients should contain(participant1)
-        }
+    "resume distribution to re-activated participants" in { f =>
+      import f.*
+      val mpsS2 = genPs(ParticipantPermission.Observation)
+      val rmpsS = revert(mpsS)
+      for {
+        _ <- f.init()
+        _ <- submit(ts0, txs.ns1k1, mpsS)
+        _ <- nextMessage()
+        _ <- submit(ts0.plusMillis(1), participantTrustsDomain)
+        boot1 <- nextMessage() // catchup
+        _ <- nextMessage() // normal distro
+        // depending on protocol version, we need Some(Disabled) or None as the participant state
+        _ <- submit(ts0.plusMillis(2), revert(mpsS))
+        _ <- nextMessage()
+        _ <- submit(ts0.plusMillis(3), rmpsS, txs.ns1k1) // should not be seen by p1
+        res1 <- expect(2) // get this in two messages
+        _ <-
+          submit(
+            ts0.plusMillis(4),
+            txs.id1k1,
+          ) // different scenario for v5+
+        res2 <- nextMessage()
+        // ban gets lifted
+        _ <-
+          submit(ts0.plusMillis(5), mpsS2)
+        catch1 <- nextMessage() // catchup
+        res3 <- nextMessage()
+        _ <- submit(ts0.plusMillis(6), txs.okm1)
+        res4 <- nextMessage()
+      } yield {
+        boot1.recipients shouldBe Set(participant1)
+        res1.recipients should not contain participant1
+        res2.recipients should not contain participant1
+        catch1.recipients shouldBe Set(participant1)
+
+        // we get the id1k1 first because in the catchup computation, it got moved
+        // to the "first batch" as it is in the namespace / uid of the domain
+        catch1.compare(rmpsS, txs.id1k1, txs.ns1k1)
+        res3.compare(mpsS2)
+
+        res3.recipients should contain(participant1)
+        res4.compare(txs.okm1)
+        res4.recipients should contain(participant1)
       }
-
     }
 
   }
@@ -649,7 +627,7 @@ class DomainTopologySenderTest
 
   case class Response(
       sync: Either[SendAsyncClientError, Unit],
-      async: Option[SendResult] = Some(SendResult.Success(mock[Deliver[Envelope[_]]])),
+      async: Option[SendResult] = Some(SendResult.Success(mock[Deliver[Envelope[?]]])),
       await: Future[Unit] = Future.unit,
   ) {
     val sendNotification: Promise[Batch[OpenEnvelope[DomainTopologyTransactionMessage]]] = Promise()
@@ -682,7 +660,7 @@ class DomainTopologySenderTest
       )(implicit
           traceContext: TraceContext
       ): FutureUnlessShutdown[Either[SendAsyncClientError, Unit]] = {
-        logger.debug(s"Send invoked with ${batch}")
+        logger.debug(s"Send invoked with $batch")
         responses.getAndUpdate(_.drop(1)) match {
           case Nil =>
             logger.error("Unexpected send!!!")
@@ -705,7 +683,7 @@ class DomainTopologySenderTest
       sender
         .sendTransactions(snapshot, transactions, recipients, "testing", batching = true)
         .value
-        .onShutdown(Left(("shutdown")))
+        .onShutdown(Left("shutdown"))
     }
 
     def respond(

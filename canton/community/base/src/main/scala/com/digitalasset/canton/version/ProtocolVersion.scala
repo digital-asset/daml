@@ -219,10 +219,14 @@ object ProtocolVersion {
       allowDeleted: Boolean = false,
   ): Either[String, ProtocolVersion] =
     parseUnchecked(rawVersion).flatMap { pv =>
-      val isSupported = pv.isSupported || (allowDeleted && pv.isDeleted)
+      val isSupported = isSupportedConsidering(allowDeleted, pv)
 
       Either.cond(isSupported, pv, unsupportedErrorMessage(pv, includeDeleted = allowDeleted))
     }
+
+  private def isSupportedConsidering(allowDeleted: Boolean, pv: ProtocolVersion) = {
+    pv.isSupported || (allowDeleted && pv.isDeleted)
+  }
 
   /** Like [[create]] ensures a supported protocol version; but throws a runtime exception for errors.
     */
@@ -230,9 +234,13 @@ object ProtocolVersion {
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
     */
-  def fromProtoPrimitive(rawVersion: Int): ParsingResult[ProtocolVersion] = {
+  def fromProtoPrimitive(
+      rawVersion: Int,
+      allowDeleted: Boolean = false,
+  ): ParsingResult[ProtocolVersion] = {
     val pv = ProtocolVersion(rawVersion)
-    Either.cond(pv.isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
+    val isSupported = isSupportedConsidering(allowDeleted, pv)
+    Either.cond(isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
   }
 
   /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
@@ -256,8 +264,8 @@ object ProtocolVersion {
         sys.error("Release needs to support at least one protocol version")
       )
 
-  private val deprecated: Seq[ProtocolVersion] = Seq(v3, v4)
-  private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2))
+  private val deprecated: Seq[ProtocolVersion] = Seq()
+  private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2), v3, v4)
 
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[Unstable]]] =
     NonEmpty.mk(List, ProtocolVersion.v6, ProtocolVersion.dev)
@@ -267,11 +275,20 @@ object ProtocolVersion {
 
   val latest: ProtocolVersion = stableAndSupported.max1
 
-  def lastStableVersions2: (ProtocolVersion, ProtocolVersion) = {
-    val List(beforeLastStableProtocolVersion, lastStableProtocolVersion) =
-      ProtocolVersion.stableAndSupported.forgetNE.sorted.takeRight(2): @unchecked
+  val smallestStable: ProtocolVersion = stableAndSupported.min1
 
-    (beforeLastStableProtocolVersion, lastStableProtocolVersion)
+  /** Returns the two most recent stable protocol versions; or the same version twice
+    * if there is only a single stable protocol version available.
+    */
+  def lastStableVersions2: (ProtocolVersion, ProtocolVersion) = {
+    ProtocolVersion.stableAndSupported.forgetNE.sorted.takeRight(2) match {
+      case List(latest) => (latest, latest)
+      case List(beforeLatest, latest) => (beforeLatest, latest)
+      case _ =>
+        throw new IllegalStateException(
+          "Release must support at least one stable protocol versions"
+        )
+    }
   }
 
   lazy val dev: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(Int.MaxValue)
@@ -282,6 +299,7 @@ object ProtocolVersion {
   lazy val v6: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(6)
 
   // Minimum stable protocol version introduced
+  // We still use v3 instead of v5 because we still want to deserialize v3 messages for hard domain migration purposes.
   lazy val minimum: ProtocolVersion = v3
 }
 
