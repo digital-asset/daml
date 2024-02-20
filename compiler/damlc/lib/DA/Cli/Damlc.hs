@@ -487,9 +487,7 @@ runTestsInProjectOrFiles
   where
     effect
       | getLoadCoverageOnly loadCoverageOnly = loadTestCoverageEffect
-      | otherwise = case mbInFiles of
-          Nothing -> runTestsInProjectEffect
-          Just inFiles -> runTestsInFilesEffect inFiles
+      | otherwise = maybe runTestsInProjectEffect runTestsInFilesEffect mbInFiles
 
     loadTestCoverageEffect = do
       when (getRunAllTests allTests) $ do
