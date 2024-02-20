@@ -509,6 +509,9 @@ runTestsInProjectOrFiles
             -- if source points to a specific file.
             files <- getDamlRootFiles (pSrc pkgConfigFields)
             execTestsFrom files relativize cliOptions
+              { optMbPackageName = Just (pName pkgConfigFields)
+              , optMbPackageVersion = pVersion pkgConfigFields
+              }
 
     runTestsInFilesEffect inFiles =
       withProjectRoot' projectOpts $ \relativize -> do
