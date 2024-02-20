@@ -184,6 +184,7 @@ object GrpcSequencerConnectionService {
                   sequencerTransportsMap,
                   newEndpointsInfo.expectedSequencers,
                   newEndpointsInfo.sequencerConnections.sequencerTrustThreshold,
+                  newEndpointsInfo.sequencerConnections.submissionRequestAmplification,
                 )
               )
 

@@ -175,7 +175,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         }
 
         val partyAndParticipants =
-          env.participantsX.all.flatMap(_.parties.list().flatMap(partyIdToParticipant(_).toList))
+          env.participants.all.flatMap(_.parties.list().flatMap(partyIdToParticipant(_).toList))
         val allPartiesSingleParticipant =
           partyAndParticipants.groupBy { case (partyId, _) => partyId }.forall {
             case (_, participants) => participants.sizeCompare(1) <= 0
@@ -205,7 +205,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         def participantValue(p: ParticipantReference): String =
           if (useParticipantAlias) p.name else p.uid.toProtoPrimitive
 
-        val allParticipants = env.participantsX.all
+        val allParticipants = env.participants.all
         val participantsData =
           allParticipants.map(p => (participantValue(p), toLedgerApi(p.config))).toMap
         val uidToAlias = allParticipants.map(p => (p.id, p.name)).toMap
@@ -967,16 +967,16 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       mediators
         .filter(!_.health.initialized())
         .foreach(
-          _.setup
-            .assign(
-              domainId,
-              staticDomainParameters,
-              SequencerConnections.tryMany(
-                sequencers
-                  .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
-                PositiveInt.tryCreate(1),
-              ),
-            )
+          _.setup.assign(
+            domainId,
+            staticDomainParameters,
+            SequencerConnections.tryMany(
+              sequencers
+                .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
+              PositiveInt.one,
+              PositiveInt.one,
+            ),
+          )
         )
 
       domainId

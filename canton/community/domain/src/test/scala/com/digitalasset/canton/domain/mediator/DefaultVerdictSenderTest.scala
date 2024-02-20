@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.mediator
 
-import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
@@ -17,18 +16,12 @@ import com.digitalasset.canton.protocol.messages.{
   Verdict,
 }
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, RequestId, TestDomainParameters}
-import com.digitalasset.canton.sequencing.client.{
-  SendAsyncClientError,
-  SendCallback,
-  SendType,
-  SequencerClientSend,
-}
+import com.digitalasset.canton.sequencing.client.TestSequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.{
   AggregationRule,
   Batch,
   MediatorsOfDomain,
   MemberRecipient,
-  MessageId,
   OpenEnvelope,
   Recipients,
 }
@@ -43,12 +36,12 @@ import com.digitalasset.canton.topology.{
   TestingTopologyX,
   UniqueIdentifier,
 }
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters.*
 
 class DefaultVerdictSenderTest
     extends AsyncWordSpec
@@ -62,10 +55,7 @@ class DefaultVerdictSenderTest
   private val mediatorGroupRecipient = MediatorsOfDomain(MediatorGroupIndex.zero)
   private val mediatorGroup: MediatorGroup = MediatorGroup(
     index = mediatorGroupRecipient.group,
-    active = Seq(
-      activeMediator1,
-      activeMediator2,
-    ),
+    active = NonEmpty.mk(Seq, activeMediator1, activeMediator2),
     passive = Seq(
       passiveMediator3
     ),
@@ -238,7 +228,14 @@ class DefaultVerdictSenderTest
             observer ->
               Map(participant -> ParticipantPermission.Observation),
           ),
-          Set(MediatorGroup(MediatorGroupIndex.zero, Seq(mediatorId), Seq.empty, PositiveInt.one)),
+          Set(
+            MediatorGroup(
+              MediatorGroupIndex.zero,
+              NonEmpty.mk(Seq, mediatorId),
+              Seq.empty,
+              PositiveInt.one,
+            )
+          ),
         )
 
         val identityFactory = TestingIdentityFactoryX(
@@ -250,28 +247,15 @@ class DefaultVerdictSenderTest
         identityFactory.forOwnerAndDomain(mediatorId, domainId)
       }
 
-    val interceptedMessages: java.util.concurrent.BlockingQueue[
-      (Batch[DefaultOpenEnvelope], Option[AggregationRule])
-    ] =
-      new java.util.concurrent.LinkedBlockingQueue()
+    private val sequencerClientSend: TestSequencerClientSend = new TestSequencerClientSend
+
+    def interceptedMessages: Seq[(Batch[DefaultOpenEnvelope], Option[AggregationRule])] =
+      sequencerClientSend.requestsQueue.asScala.map { request =>
+        (request.batch, request.aggregationRule)
+      }.toSeq
 
     val verdictSender = new DefaultVerdictSender(
-      new SequencerClientSend {
-        override def sendAsync(
-            batch: Batch[DefaultOpenEnvelope],
-            sendType: SendType,
-            topologyTimestamp: Option[CantonTimestamp],
-            maxSequencingTime: CantonTimestamp,
-            messageId: MessageId,
-            aggregationRule: Option[AggregationRule],
-            callback: SendCallback,
-        )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
-          interceptedMessages.add((batch, aggregationRule))
-          EitherT.pure(())
-        }
-
-        override def generateMaxSequencingTime: CantonTimestamp = ???
-      },
+      sequencerClientSend,
       domainSyncCryptoApi,
       mediatorId,
       testedProtocolVersion,

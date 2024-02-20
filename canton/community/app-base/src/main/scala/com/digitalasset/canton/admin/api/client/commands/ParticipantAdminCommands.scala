@@ -384,6 +384,7 @@ object ParticipantAdminCommands {
 
     final case class ExportAcs(
         parties: Set[PartyId],
+        partiesOffboarding: Boolean,
         filterDomainId: Option[DomainId],
         timestamp: Option[Instant],
         observer: StreamObserver[ExportAcsResponse],
@@ -415,6 +416,7 @@ object ParticipantAdminCommands {
               (source.toProtoPrimitive, targetDomain)
             },
             force = force,
+            partiesOffboarding = partiesOffboarding,
           )
         )
       }

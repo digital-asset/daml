@@ -119,6 +119,7 @@ class SequencerInfoLoader(
           .many(
             nonEmptyResult.map(_.connection),
             sequencerConnections.sequencerTrustThreshold,
+            sequencerConnections.submissionRequestAmplification,
           )
           .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers)
           .map(connections =>

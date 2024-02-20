@@ -1324,7 +1324,10 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   def sign(str: String): Signature = {
     val hash =
-      pureCryptoApi.build(HashPurpose.TransferResultSignature).addWithoutLengthPrefix(str).finish()
+      pureCryptoApi
+        .build(TestHash.testHashPurpose)
+        .addWithoutLengthPrefix(str)
+        .finish()
     Await.result(
       privateCrypto
         .sign(hash, sequencerKey)

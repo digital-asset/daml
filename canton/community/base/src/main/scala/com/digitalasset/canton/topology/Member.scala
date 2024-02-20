@@ -352,7 +352,7 @@ object DomainMember {
   */
 final case class MediatorGroup(
     index: MediatorGroupIndex,
-    active: Seq[MediatorId],
+    active: NonEmpty[Seq[MediatorId]],
     passive: Seq[MediatorId],
     threshold: PositiveInt,
 ) {

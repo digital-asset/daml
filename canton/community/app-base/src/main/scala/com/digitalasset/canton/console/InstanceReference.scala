@@ -543,7 +543,7 @@ abstract class ParticipantReference(
     val connected = domains.list_connected().map(_.domainId).toSet
 
     // for every participant
-    consoleEnvironment.participantsX.all
+    consoleEnvironment.participants.all
       .filter(p => p.health.running() && p.health.initialized())
       .foreach { participant =>
         // for every domain this participant is connected to as well
@@ -649,17 +649,17 @@ class LocalParticipantReference(
     with LocalInstanceReference
     with BaseInspection[ParticipantNodeX] {
 
-  override private[console] val nodes = consoleEnvironment.environment.participantsX
+  override private[console] val nodes = consoleEnvironment.environment.participants
 
   @Help.Summary("Return participant config")
   def config: LocalParticipantConfig =
     consoleEnvironment.environment.config.participantsByString(name)
 
   override def runningNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getRunning(name)
+    consoleEnvironment.environment.participants.getRunning(name)
 
   override def startingNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getStarting(name)
+    consoleEnvironment.environment.participants.getStarting(name)
 
   /** secret, not publicly documented way to get the admin token */
   def adminToken: Option[String] = underlying.map(_.adminToken.secret)
@@ -1167,7 +1167,7 @@ class LocalSequencerNodeReference(
       .fold(err => sys.error(s"Sequencer $name has invalid connection config: $err"), identity)
 
   private[console] val nodes: SequencerNodesX[?] =
-    consoleEnvironment.environment.sequencersX
+    consoleEnvironment.environment.sequencers
 
   override protected[console] def runningNode: Option[SequencerNodeBootstrapX] =
     nodes.getRunning(name)
@@ -1285,7 +1285,7 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
   override def config: MediatorNodeConfigCommon =
     consoleEnvironment.environment.config.mediatorsByString(name)
 
-  private[console] val nodes: MediatorNodesX[?] = consoleEnvironment.environment.mediatorsX
+  private[console] val nodes: MediatorNodesX[?] = consoleEnvironment.environment.mediators
 
   override protected[console] def runningNode: Option[MediatorNodeBootstrapX] =
     nodes.getRunning(name)

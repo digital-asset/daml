@@ -234,9 +234,10 @@ abstract class RetryWithDelay(
                     )
                 } else {
                   val level = retryLogLevel.getOrElse {
-                    if (totalRetries < complainAfterRetries || totalMaxRetries != Int.MaxValue)
-                      Level.INFO
-                    else Level.WARN
+                    if (totalRetries < complainAfterRetries || totalMaxRetries != Int.MaxValue) {
+                      // Check if a different log level has been configured by default for the outcome, otherwise log to INFO
+                      retryable.retryLogLevel(outcome).getOrElse(Level.INFO)
+                    } else Level.WARN
                   }
                   val change = if (errorKind == lastErrorKind) {
                     ""

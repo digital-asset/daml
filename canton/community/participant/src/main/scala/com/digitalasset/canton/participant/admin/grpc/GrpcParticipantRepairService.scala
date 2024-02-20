@@ -98,6 +98,7 @@ object GrpcParticipantRepairService {
         timestamp,
         contractDomainRenames.toMap,
         force = request.force,
+        partiesOffboarding = request.partiesOffboarding,
       )
     }
 
@@ -117,6 +118,7 @@ object GrpcParticipantRepairService {
       timestamp: Option[CantonTimestamp],
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
       force: Boolean, // if true, does not check whether `timestamp` is clean
+      partiesOffboarding: Boolean,
   )
 
 }
@@ -162,6 +164,8 @@ final class GrpcParticipantRepairService(
           s"Contract $contractId for domain $domainId cannot be serialized due to an invariant violation: $errorMessage"
         )
         RepairServiceError.SerializationError.Error(domainId, contractId)
+      case inspection.Error.OffboardingParty(domainId, error) =>
+        RepairServiceError.InvalidArgument.Error(s"Parties offboarding on domain $domainId: $error")
     }
 
   /** purge contracts
@@ -222,6 +226,7 @@ final class GrpcParticipantRepairService(
                 validRequest.timestamp,
                 validRequest.contractDomainRenames,
                 skipCleanTimestampCheck = validRequest.force,
+                partiesOffboarding = validRequest.partiesOffboarding,
               )
           )
           .leftMap(toRepairServiceError)
@@ -276,16 +281,50 @@ final class GrpcParticipantRepairService(
   ): StreamObserver[ImportAcsRequest] = {
     // TODO(i12481): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
-    val request = new AtomicReference[ImportAcsRequest]
+    // (workflowIdPrefix, allowContractIdSuffixRecomputation)
+    val args = new AtomicReference[Option[(String, Boolean)]](None)
+    def tryArgs: (String, Boolean) =
+      args
+        .get()
+        .getOrElse(throw new IllegalStateException("The import ACS request fields are not set"))
 
     new StreamObserver[ImportAcsRequest] {
-      override def onNext(value: ImportAcsRequest): Unit = {
-        Try(outputStream.write(value.acsSnapshot.toByteArray)) match {
+
+      def setOrCheck(
+          workflowIdPrefix: String,
+          allowContractIdSuffixRecomputation: Boolean,
+      ): Try[Unit] =
+        Try {
+          val newOrMatchingValue = Some((workflowIdPrefix, allowContractIdSuffixRecomputation))
+          if (!args.compareAndSet(None, newOrMatchingValue)) {
+            val (oldWorkflowIdPrefix, oldAllowContractIdSuffixRecomputation) = tryArgs
+            if (workflowIdPrefix != oldWorkflowIdPrefix) {
+              throw new IllegalArgumentException(
+                s"Workflow ID prefix cannot be changed from $oldWorkflowIdPrefix to $workflowIdPrefix"
+              )
+            } else if (
+              oldAllowContractIdSuffixRecomputation != allowContractIdSuffixRecomputation
+            ) {
+              throw new IllegalArgumentException(
+                s"Contract ID suffix recomputation cannot be changed from $oldAllowContractIdSuffixRecomputation to $allowContractIdSuffixRecomputation"
+              )
+            }
+          }
+        }
+
+      override def onNext(request: ImportAcsRequest): Unit = {
+        val processRequest =
+          for {
+            _ <- setOrCheck(request.workflowIdPrefix, request.allowContractIdSuffixRecomputation)
+            _ <- Try(outputStream.write(request.acsSnapshot.toByteArray))
+          } yield ()
+
+        processRequest match {
           case Failure(exception) =>
             outputStream.close()
             responseObserver.onError(exception)
           case Success(_) =>
-            request.set(value)
+            () // Nothing to do, just move on to the next request
         }
       }
 
@@ -301,11 +340,11 @@ final class GrpcParticipantRepairService(
             activeContracts <- EitherT.fromEither[Future](
               loadFromByteString(ByteString.copyFrom(outputStream.toByteArray))
             )
-            req = request.get()
+            (workflowIdPrefix, allowContractIdSuffixRecomputation) = tryArgs
             activeContractsWithRemapping <- EnsureValidContractIds(
               loggerFactory,
               sync.protocolVersionGetter,
-              Option.when(req.allowContractIdSuffixRecomputation)(sync.pureCryptoApi),
+              Option.when(allowContractIdSuffixRecomputation)(sync.pureCryptoApi),
             )(activeContracts)
             (activeContractsWithValidContractIds, contractIdRemapping) =
               activeContractsWithRemapping
@@ -337,7 +376,7 @@ final class GrpcParticipantRepairService(
                         ),
                         ignoreAlreadyAdded = true,
                         ignoreStakeholderCheck = true,
-                        workflowIdPrefix = Option(req.workflowIdPrefix),
+                        workflowIdPrefix = Option.when(workflowIdPrefix != "")(workflowIdPrefix),
                       )
                     )
                   } yield ()

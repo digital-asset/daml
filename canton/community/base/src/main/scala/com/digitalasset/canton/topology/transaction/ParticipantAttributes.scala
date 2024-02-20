@@ -28,7 +28,6 @@ final case class ParticipantAttributes(
   */
 sealed trait ParticipantPermission extends Product with Serializable {
   def canConfirm: Boolean = false // can confirm transactions
-  def isActive: Boolean = true // can receive messages
   val level: Byte // used for serialization and ordering.
   def toProtoEnum: v30.Enums.ParticipantPermission
 

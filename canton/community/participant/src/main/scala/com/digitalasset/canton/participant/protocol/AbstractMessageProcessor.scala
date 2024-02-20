@@ -22,7 +22,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
   SendCallback,
-  SequencerClient,
+  SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
@@ -37,7 +37,7 @@ import scala.concurrent.{ExecutionContext, Future}
 abstract class AbstractMessageProcessor(
     ephemeral: SyncDomainEphemeralState,
     crypto: DomainSyncCryptoClient,
-    sequencerClient: SequencerClient,
+    sequencerClient: SequencerClientSend,
     protocolVersion: ProtocolVersion,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -105,6 +105,7 @@ abstract class AbstractMessageProcessor(
           maxSequencingTime = maxSequencingTime,
           messageId = messageId.getOrElse(MessageId.randomMessageId()),
           callback = SendCallback.log(s"Response message for request [$requestId]", logger),
+          amplify = true,
         )
       } yield ()
     }

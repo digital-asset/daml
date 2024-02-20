@@ -44,9 +44,9 @@ sealed trait SimplestPingXCommunityIntegrationTest
     sequencer1.health.status shouldBe a[NodeStatus.Success[?]]
     mediator1.health.status shouldBe a[NodeStatus.Success[?]]
 
-    participantsX.local.start()
+    participants.local.start()
 
-    participantsX.local.domains.connect_local(sequencer1, "da")
+    participants.local.domains.connect_local(sequencer1, "da")
     mediator1.testing
       .fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
     participant1.health.ping(participant2)

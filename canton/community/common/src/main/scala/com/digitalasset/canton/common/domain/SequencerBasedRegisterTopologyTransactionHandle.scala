@@ -142,6 +142,8 @@ class DomainTopologyServiceX(
         maxSequencingTime =
           clock.now.add(topologyXConfig.topologyTransactionRegistrationTimeout.toInternal.duration),
         callback = sendCallback,
+        // Do not amplify because we are running our own retry loop here anyway
+        amplify = false,
       ),
       s"Failed sending topology transaction broadcast: ${request}",
     )

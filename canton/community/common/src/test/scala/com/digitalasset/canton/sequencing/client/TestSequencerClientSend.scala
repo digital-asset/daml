@@ -30,6 +30,7 @@ class TestSequencerClientSend extends SequencerClientSend {
       messageId: MessageId,
       aggregationRule: Option[AggregationRule],
       callback: SendCallback,
+      amplify: Boolean,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     requestsQueue.add(
       Request(batch, sendType, topologyTimestamp, maxSequencingTime, messageId, aggregationRule)
