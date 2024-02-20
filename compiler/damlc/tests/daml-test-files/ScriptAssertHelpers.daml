@@ -8,12 +8,12 @@ import Daml.Script
 import DA.Assert
 import DA.Functor (void)
 
-cantSee : forall t p. (Show t, Eq t, Template t, HasEnsure t, IsParties p) => p -> ContractId t -> Script ()
+cantSee : forall t p. (Show t, Eq t, Template t, HasAgreement t, IsParties p) => p -> ContractId t -> Script ()
 cantSee p cid = do
   cArchived <- queryContractId p cid
   cArchived === None
 
-canSee : forall t p. (Show t, Eq t, Template t, HasEnsure t, IsParties p) => p -> ContractId t -> Script ()
+canSee : forall t p. (Show t, Eq t, Template t, HasAgreement t, IsParties p) => p -> ContractId t -> Script ()
 canSee p = void . queryAssertContractId p
 
 -- Note that, because of the requirement of specifying `t`, this cannot be used with infix notation, consider renaming
@@ -25,7 +25,7 @@ cantSeeKey p k = do
 canSeeKey : forall t k p. (Show k, TemplateKey t k, IsParties p) => p -> k -> Script ()
 canSeeKey p = void . queryAssertContractKey @t p
 
-queryAssertContractId : forall t p. (Template t, HasEnsure t, IsParties p) => p -> ContractId t -> Script t
+queryAssertContractId : forall t p. (Template t, HasAgreement t, IsParties p) => p -> ContractId t -> Script t
 queryAssertContractId p cid =
   queryContractId @t p cid >>= \case
     Some c -> pure c

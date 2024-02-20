@@ -245,7 +245,7 @@ mkArchiveNftTransferProposalTest Parties {..} = do
 
 -- MK_ASSET_TEST_BEGIN
 mkAssetTest : forall t.
-  (Template t, Implements t IAsset, HasEnsure t) =>
+  (Template t, Implements t IAsset, HasAgreement t) =>
   Text -> Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
 mkAssetTest assetTxt Parties {..} mkAsset = do
   aliceAsset <-
@@ -314,7 +314,7 @@ mkAssetTest assetTxt Parties {..} mkAsset = do
 -- MK_ASSET_TEST_END
 
 mkArchiveAssetTest : forall t.
-  (Template t, Implements t IAsset, HasEnsure t) =>
+  (Template t, Implements t IAsset, HasAgreement t) =>
   Parties -> (Party -> Party -> t) -> Script ()
 mkArchiveAssetTest Parties {..} mkAsset = do
   aliceAsset <-
@@ -326,7 +326,7 @@ mkArchiveAssetTest Parties {..} mkAsset = do
     archiveCmd aliceAsset
 
 mkArchiveAssetTransferProposalTest : forall t.
-  (Template t, Implements t IAsset, HasEnsure t) =>
+  (Template t, Implements t IAsset, HasAgreement t) =>
   Parties -> (Party -> Party -> t) -> Script ()
 mkArchiveAssetTransferProposalTest Parties {..} mkAsset = do
   aliceAsset <-

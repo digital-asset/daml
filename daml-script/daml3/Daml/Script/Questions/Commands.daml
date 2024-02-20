@@ -105,8 +105,8 @@ internalCreateAndExerciseCmd tplArg choiceArg explicitPackageId = Commands [Comm
 
 -- Typed commands but still internal as explicitPackageId not determined
 -- | HIDE
-internalTypedCreateCmd : (Template t, HasEnsure t) => t -> Bool -> Commands (ContractId t)
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+internalTypedCreateCmd : (Template t, HasAgreement t) => t -> Bool -> Commands (ContractId t)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 internalTypedCreateCmd arg explicitPackageId =
   coerceContractId <$> internalCreateCmd (toAnyTemplate arg) explicitPackageId
 
@@ -121,15 +121,15 @@ internalTypedExerciseByKeyCmd key arg explicitPackageId =
   fromLedgerValue @r <$> internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) explicitPackageId
 
 -- | HIDE
-internalTypedCreateAndExerciseCmdWithCid : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Bool -> Commands (ContractId t, r)
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+internalTypedCreateAndExerciseCmdWithCid : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Bool -> Commands (ContractId t, r)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg explicitPackageId =
   bimap coerceContractId (fromLedgerValue @r) <$> internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) explicitPackageId
 
 -- Main command API, without explicit package ids
 -- | Create a contract of the given template.
-createCmd : (Template t, HasEnsure t) => t -> Commands (ContractId t)
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createCmd : (Template t, HasAgreement t) => t -> Commands (ContractId t)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createCmd arg = internalTypedCreateCmd arg False
 
 -- | Exercise a choice on the given contract.
@@ -141,19 +141,19 @@ exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> 
 exerciseByKeyCmd key arg = internalTypedExerciseByKeyCmd @t key arg False
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
-createAndExerciseWithCidCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands (ContractId t, r)
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseWithCidCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands (ContractId t, r)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createAndExerciseWithCidCmd tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg False
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns only the choice result.
-createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands r
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createAndExerciseCmd tplArg choiceArg = snd <$> createAndExerciseWithCidCmd tplArg choiceArg
 
 -- Main command API, WITH explicit package ids
 -- | Create a contract of the given template, using the exact package ID of the template given - upgrades are disabled.
-createExactCmd : (Template t, HasEnsure t) => t -> Commands (ContractId t)
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createExactCmd : (Template t, HasAgreement t) => t -> Commands (ContractId t)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createExactCmd arg = internalTypedCreateCmd arg True
 
 -- | Exercise a choice on the given contract, using the exact package ID of the template given - upgrades are disabled.
@@ -166,13 +166,13 @@ exerciseByKeyExactCmd key arg = internalTypedExerciseByKeyCmd @t key arg True
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
 -- Uses the exact package ID of the template given - upgrades are disabled.
-createAndExerciseWithCidExactCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands (ContractId t, r)
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseWithCidExactCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands (ContractId t, r)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createAndExerciseWithCidExactCmd tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg True
 
 -- | Create a contract and exercise a choice on it in the same transaction, returns only the choice result.
-createAndExerciseExactCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands r
--- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseExactCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createAndExerciseExactCmd tplArg choiceArg = snd <$> createAndExerciseWithCidExactCmd tplArg choiceArg
 
 -- | Archive the given contract.

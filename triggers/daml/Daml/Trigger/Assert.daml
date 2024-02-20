@@ -44,7 +44,7 @@ buildACS party (ACSBuilder fetches) = do
 
 -- | Include the given contract in the 'ACS'. Note that the `ContractId`
 -- must point to an active contract.
-toACS : (Template t, HasEnsure t) => ContractId t -> ACSBuilder
+toACS : (Template t, HasAgreement t) => ContractId t -> ACSBuilder
 toACS cid = ACSBuilder $ \p ->
   [ do t <-
          queryContractId p cid >>= \case
@@ -104,7 +104,7 @@ expectCommand commands fromCommand assertion = foldl step (Left []) commands
 
 -- | Check that at least one command is a create command whose payload fulfills the given assertions.
 assertCreateCmd
-  : (Template t, HasEnsure t, CanAbort m)
+  : (Template t, HasAgreement t, CanAbort m)
   => [Command]  -- ^ Check these commands.
   -> (t -> Either Text ())  -- ^ Perform these assertions.
   -> m ()
@@ -116,7 +116,7 @@ assertCreateCmd commands assertion =
 
 -- | Check that at least one command is an exercise command whose contract id and choice argument fulfill the given assertions.
 assertExerciseCmd
-  : (Template t, HasEnsure t, Choice t c r, CanAbort m)
+  : (Template t, HasAgreement t, Choice t c r, CanAbort m)
   => [Command]  -- ^ Check these commands.
   -> ((ContractId t, c) -> Either Text ())  -- ^ Perform these assertions.
   -> m ()
