@@ -18,7 +18,7 @@ test = Trigger
       MTransaction (Transaction _ (Some (CommandId cmdId)) [ArchivedEvent (fromArchived @T -> Some _)]) ->
         modify (cmdId ::)
       _ -> pure ()
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 

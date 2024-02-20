@@ -59,7 +59,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
     "trigger runner" should {
       val templateA = Identifier(packageId, "InterfaceTriggers", "A")
       val templateB = Identifier(packageId, "InterfaceTriggers", "B")
-      val visibleViaAllInDar = "visible via 'AllInDar'"
+      val visibleViaAllTemplates = "visible via 'AllTemplates'"
       val visibleViaInterfaceI = "visible via 'registeredTemplate @I'"
       val visibleViaTemplateA = "visible via 'registeredTemplate @A'"
 
@@ -84,7 +84,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
                 Record(
                   fields = Seq(
                     RecordField("owner", Some(Value().withParty(party.unwrap))),
-                    RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
+                    RecordField("tag", Some(Value().withText(visibleViaAllTemplates))),
                   )
                 )
               ),
@@ -99,7 +99,7 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
                 Record(
                   fields = Seq(
                     RecordField("owner", Some(Value().withParty(party.unwrap))),
-                    RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
+                    RecordField("tag", Some(Value().withText(visibleViaAllTemplates))),
                   )
                 )
               ),
@@ -133,9 +133,9 @@ class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
           val templateBTransactionId = transactionEvents.transactionIdFor(templateB)
           templateATransactionId should not equal templateBTransactionId
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
-          transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaAllInDar)
+          transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaAllTemplates)
           transactionEvents(templateBTransactionId) shouldHaveCreateArgumentsFor templateB
-          transactionEvents(templateBTransactionId) shouldHaveViewValues (1, visibleViaAllInDar)
+          transactionEvents(templateBTransactionId) shouldHaveViewValues (1, visibleViaAllTemplates)
         }
       }
 

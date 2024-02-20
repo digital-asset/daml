@@ -28,7 +28,7 @@ test = Trigger
       modify (\(a, b, _) -> (a, b, True))
       _ <- emitCommands [createCmd (T p)] []
       pure ()
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 

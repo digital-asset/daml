@@ -19,7 +19,7 @@ trigger = Trigger
           xs <- queryFilter @T (\t -> t.i == 1)
           ys <- queryFilter @T (\t -> t.i == 2)
           put (length xs, length ys, started)
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 
