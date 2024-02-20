@@ -787,6 +787,7 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
+        ":community_reference-driver",
         ":community_sequencer-driver",
         ":community_util-external",
         ":community_util-logging",
