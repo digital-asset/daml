@@ -57,9 +57,6 @@ object ValueCoder {
     )
   }
 
-  object CidEncoder
-  type EncodeCid = CidEncoder.type
-
   private[lf] def decodeCoid(bytes: ByteString): Either[DecodeError, ContractId] = {
     val cid = Bytes.fromByteString(bytes)
     Value.ContractId
@@ -77,13 +74,6 @@ object ValueCoder {
       Right(None)
     else
       decodeCoid(cid).map(Some(_))
-
-  object CidDecoder
-  type DecodeCid = CidDecoder.type
-
-  // To be use only when certain the value does not contain Contract Ids
-  @deprecated("use CidEncoder", since = "3.0.0")
-  val UnsafeNoCidEncoder: EncodeCid = CidEncoder
 
   /** Simple encoding to wire of identifiers
     * @param id identifier value
@@ -138,14 +128,11 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return either error or [VersionedValue]
     */
-  def decodeVersionedValue(
-      decodeCid: DecodeCid = CidDecoder,
-      protoValue0: proto.VersionedValue,
-  ): Either[DecodeError, VersionedValue] =
+  def decodeVersionedValue(protoValue0: proto.VersionedValue): Either[DecodeError, VersionedValue] =
     for {
       _ <- ensureNoUnknownFields(protoValue0)
       version <- decodeValueVersion(protoValue0.getVersion)
-      value <- decodeValue(decodeCid, version, protoValue0.getValue)
+      value <- decodeValue(version, protoValue0.getValue)
     } yield Versioned(version, value)
 
   // We need (3 * MAXIMUM_NESTING + 1) as record and maps use:
@@ -154,11 +141,8 @@ object ValueCoder {
   // Note the number of recursions is one less than the number of nested messages.
   private[this] val MAXIMUM_PROTO_RECURSION_LIMIT = 3 * MAXIMUM_NESTING + 1
 
-  def decodeValue(
-      decodeCid: DecodeCid,
-      protoValue0: proto.VersionedValue,
-  ): Either[DecodeError, Value] =
-    decodeVersionedValue(decodeCid, protoValue0) map (_.unversioned)
+  def decodeValue(protoValue0: proto.VersionedValue): Either[DecodeError, Value] =
+    decodeVersionedValue(protoValue0) map (_.unversioned)
 
   private[this] def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
     Try {
@@ -174,16 +158,6 @@ object ValueCoder {
         Right(value)
     }
 
-  def decodeValue(protoValue0: proto.VersionedValue): Either[DecodeError, Value] =
-    decodeValue(CidDecoder, protoValue0)
-
-  def decodeValue(
-      decodeCid: DecodeCid,
-      version: TransactionVersion,
-      bytes: ByteString,
-  ): Either[DecodeError, Value] =
-    parseValue(bytes).flatMap(decodeValue(decodeCid, version, _))
-
   /** Method to read a serialized protobuf value
     * to engine/interpreter usable Value type
     *
@@ -193,11 +167,9 @@ object ValueCoder {
     */
 
   def decodeValue(version: TransactionVersion, bytes: ByteString): Either[DecodeError, Value] =
-    decodeValue(CidDecoder, version, bytes)
+    parseValue(bytes).flatMap(decodeValue(version, _))
 
-  @scala.annotation.nowarn("cat=unused")
   private[this] def decodeValue(
-      decodeCid: DecodeCid,
       version: TransactionVersion,
       protoValue0: proto.Value,
   ): Either[DecodeError, Value] = {
@@ -342,48 +314,29 @@ object ValueCoder {
     * @return protocol buffer serialized values
     */
   def encodeVersionedValue(
-      encodeCid: EncodeCid,
-      versionedValue: VersionedValue,
-  ): Either[EncodeError, proto.VersionedValue] =
-    encodeVersionedValue(encodeCid, versionedValue.version, versionedValue.unversioned)
-
-  def encodeVersionedValue(
       versionedValue: VersionedValue
   ): Either[EncodeError, proto.VersionedValue] =
-    encodeVersionedValue(CidEncoder, versionedValue.version, versionedValue.unversioned)
+    encodeVersionedValue(versionedValue.version, versionedValue.unversioned)
 
   def encodeVersionedValue(
-      encodeCid: EncodeCid,
       version: TransactionVersion,
       value: Value,
   ): Either[EncodeError, proto.VersionedValue] =
     for {
-      bytes <- encodeValue(encodeCid, version, value)
+      bytes <- encodeValue(version, value)
     } yield {
       val builder = proto.VersionedValue.newBuilder()
       builder.setVersion(encodeValueVersion(version)).setValue(bytes).build()
     }
 
-  def encodeVersionedValue(
-      version: TransactionVersion,
-      value: Value,
-  ): Either[EncodeError, proto.VersionedValue] =
-    encodeVersionedValue(CidEncoder, version, value)
-
   /** Serialize a Value to protobuf
     *
     * @param v0 value to be written
-    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @param valueVersion version of value specification to encode to, or fail
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
-  @scala.annotation.nowarn("cat=unused")
-  def encodeValue(
-      encodeCid: EncodeCid = CidEncoder,
-      valueVersion: TransactionVersion,
-      v0: Value,
-  ): Either[EncodeError, ByteString] = {
+  def encodeValue(valueVersion: TransactionVersion, v0: Value): Either[EncodeError, ByteString] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     @scala.annotation.nowarn("cat=unused")
@@ -492,11 +445,8 @@ object ValueCoder {
     }
   }
 
-  private[value] def valueFromBytes(
-      decodeCid: DecodeCid,
-      bytes: Array[Byte],
-  ): Either[DecodeError, Value] = {
-    decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
+  private[value] def valueFromBytes(bytes: Array[Byte]): Either[DecodeError, Value] = {
+    decodeValue(proto.VersionedValue.parseFrom(bytes))
   }
 
 }

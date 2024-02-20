@@ -7,7 +7,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder
-import com.daml.lf.value.ValueCoder.CidDecoder
 import com.daml.nonempty.NonEmpty
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -24,7 +23,6 @@ object GrpcErrorParser {
       value <-
         ValueCoder
           .decodeValue(
-            CidDecoder,
             TransactionVersion.VDev,
             ByteString.copyFrom(bytes),
           )
