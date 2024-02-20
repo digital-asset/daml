@@ -469,17 +469,39 @@ runTestsInProjectOrFiles ::
     -> CoveragePaths
     -> [CoverageFilter]
     -> Command
-runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = do
-          when (getRunAllTests allTests) $ do
-            hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
-            exitFailure
-          when (isJust mbInFiles) $ do
-            hPutStrLn stderr "Cannot specify --files and --load-coverage-only at the same time."
-            exitFailure
-          loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
-runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
+runTestsInProjectOrFiles
+    projectOpts
+    mbInFiles
+    allTests
+    loadCoverageOnly
+    coverage
+    color
+    mbJUnitOutput
+    cliOptions
+    initPkgDb
+    tableOutputPath
+    transactionsOutputPath
+    coveragePaths
+    coverageFilters
+  = Command Test (Just projectOpts) effect
+  where
+    effect
+      | getLoadCoverageOnly loadCoverageOnly = loadTestCoverageEffect
+      | otherwise = case mbInFiles of
+          Nothing -> runTestsInProjectEffect
+          Just inFiles -> runTestsInFilesEffect inFiles
+
+    loadTestCoverageEffect = do
+      when (getRunAllTests allTests) $ do
+        hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
+        exitFailure
+      when (isJust mbInFiles) $ do
+        hPutStrLn stderr "Cannot specify --files and --load-coverage-only at the same time."
+        exitFailure
+      loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
+
+    runTestsInProjectEffect =
+      withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         withPackageConfig (ProjectPath pPath) $ \pkgConfigFields -> do
@@ -489,8 +511,9 @@ runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOu
             -- if source points to a specific file.
             files <- getDamlRootFiles (pSrc pkgConfigFields)
             execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
-runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = withProjectRoot' projectOpts $ \relativize -> do
+
+    runTestsInFilesEffect inFiles =
+      withProjectRoot' projectOpts $ \relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
