@@ -347,12 +347,12 @@ object TransactionCoder {
           _ <- Either.cond(
             createNode.getCreatedAt == 0L,
             (),
-            DecodeError("unexpected create_at field in createNode"),
+            DecodeError("unexpected created_at field in create node"),
           )
           _ <- Either.cond(
             createNode.getCantonData.isEmpty,
             (),
-            DecodeError("unexpected canton_data field in createNode"),
+            DecodeError("unexpected canton_data field in create node"),
           )
           fatContractInstance <- decodeFatContractInstance(nodeVersion, createNode)
         } yield ni -> fatContractInstance.toCreateNode

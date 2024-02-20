@@ -268,7 +268,7 @@ Fields ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
 be consumed according to version `version`.
 
 Field ``create`` should be a proper `FatContractInstance`_ with the additional
-constraints that its field `creat_at` should be set to `0` and its field
+constraints that its field `created_at` should be set to `0` and its field
 `canton_data` should be empty.
 
 field node_id

@@ -53,7 +53,7 @@ message Node {
     }
 }
 
-// A self contains representation of a committed contract.
+// A self contained representation of a committed contract.
 message NodeCreate {
   bytes contract_id = 1;
   string package_name = 2;
