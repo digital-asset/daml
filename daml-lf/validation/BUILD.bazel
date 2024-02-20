@@ -158,6 +158,7 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts,
     deps = [
+        ":validation",
         ":validation-upgrades-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_ledger_ledger-common",

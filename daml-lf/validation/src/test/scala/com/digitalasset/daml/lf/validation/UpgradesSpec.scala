@@ -20,92 +20,92 @@ import com.daml.lf.data.Ref.PackageId
 
 import com.daml.lf.archive.{DarReader}
 import scala.util.{Success, Failure}
+import com.daml.lf.validation.Upgrading
 
 class UpgradesSpecAdminAPI extends UpgradesSpec {
-  override def testPackagePair(
-      upgraded: String,
-      upgrading: String,
-      failureMessage: Option[String],
-  ): Future[Assertion] = {
-    if (sys.props("os.name").startsWith("Windows")) {
-      Future {
-        info("Tests are disabled on Windows")
-        succeed
-      }
-    } else {
-      val client = AdminLedgerClient.singleHost(
-        ledgerPorts(0).adminPort,
-        config,
-      )
-      for {
-        (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
-        (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
-        uploadV1Result <- client
-          .uploadDar(testPackageV1BS, upgraded)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
-        uploadV2Result <- client
-          .uploadDar(testPackageV2BS, upgrading)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
-      } yield {
-        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-        val cantonLogSrc = cantonLog.mkString
-        cantonLog.close()
-
-        uploadV1Result match {
-          case Some(err) =>
-            fail(s"Uploading first package $testPackageV1Id failed with message: $err");
-          case _ => {}
-        }
-
-        failureMessage match {
-          // If a failure message is expected, look for it in the canton logs
-          case Some(failureMessage) => {
-            cantonLogSrc should include(
-              s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$failureMessage"
-            )
-            uploadV2Result match {
-              case None =>
-                fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
-              case Some(err) => {
-                val msg = err.toString
-                msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
-                msg should include(
-                  "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
-                )
-              }
-            }
-          }
-
-          // If a failure is not expected, look for a success message
-          case None => {
-            cantonLogSrc should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
-            uploadV2Result match {
-              case None => succeed;
-              case Some(err) => {
-                fail(
-                  s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
-                );
-              }
-            }
-          }
-        }
-      }
-    }
+  override def uploadPackagePair(
+      path: Upgrading[String],
+  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+    val client = AdminLedgerClient.singleHost(
+      ledgerPorts(0).adminPort,
+      config,
+    )
+    for {
+      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
+      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
+      uploadV1Result <- client
+        .uploadDar(testPackageV1BS, path.past)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+      uploadV2Result <- client
+        .uploadDar(testPackageV2BS, path.present)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+    } yield Upgrading(
+      (testPackageV1Id, uploadV1Result),
+      (testPackageV2Id, uploadV2Result)
+    )
   }
 }
 
 class UpgradesSpecLedgerAPI extends UpgradesSpec {
-  override def testPackagePair(
+  override def uploadPackagePair(
+      path: Upgrading[String],
+  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+    for {
+      client <- defaultLedgerClient()
+      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
+      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
+      uploadV1Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV1BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+      uploadV2Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV2BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+    } yield Upgrading(
+      (testPackageV1Id, uploadV1Result),
+      (testPackageV2Id, uploadV2Result)
+    )
+  }
+}
+
+abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
+  override lazy val devMode = true;
+  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles;
+
+  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
+    val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
+    assert(dar != null, s"Unable to load test package resource '$path'")
+
+    val testPackage = Future {
+      val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
+      assert(in != null, s"Unable to load test package resource '$path'")
+      in
+    }
+    val bytes = testPackage.map(ByteString.readFrom)
+    bytes.onComplete(_ => testPackage.map(_.close()))
+    bytes.map((dar.main.pkgId, _))
+  }
+
+  def uploadPackagePair(
+      path: Upgrading[String],
+  ): Future[Upgrading[(PackageId, Option[Throwable])]]
+
+  def testPackagePair(
       upgraded: String,
       upgrading: String,
       failureMessage: Option[String],
-  ): Future[Assertion] = {
+  ): Future[Assertion] =
     if (sys.props("os.name").startsWith("Windows")) {
       Future {
         info("Tests are disabled on Windows")
@@ -113,21 +113,10 @@ class UpgradesSpecLedgerAPI extends UpgradesSpec {
       }
     } else {
       for {
-        client <- defaultLedgerClient()
-        (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
-        (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
-        uploadV1Result <- client.packageManagementClient
-          .uploadDarFile(testPackageV1BS)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
-        uploadV2Result <- client.packageManagementClient
-          .uploadDarFile(testPackageV2BS)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
+        Upgrading(
+          (testPackageV1Id, uploadV1Result),
+          (testPackageV2Id, uploadV2Result)
+        ) <- uploadPackagePair(Upgrading(upgraded, upgrading))
       } yield {
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
         val cantonLogSrc = cantonLog.mkString
@@ -177,32 +166,7 @@ class UpgradesSpecLedgerAPI extends UpgradesSpec {
         }
       }
     }
-  }
-}
 
-abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
-  override lazy val devMode = true;
-  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles;
-
-  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
-    val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
-    assert(dar != null, s"Unable to load test package resource '$path'")
-
-    val testPackage = Future {
-      val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
-      assert(in != null, s"Unable to load test package resource '$path'")
-      in
-    }
-    val bytes = testPackage.map(ByteString.readFrom)
-    bytes.onComplete(_ => testPackage.map(_.close()))
-    bytes.map((dar.main.pkgId, _))
-  }
-
-  def testPackagePair(
-      upgraded: String,
-      upgrading: String,
-      failureMessage: Option[String],
-  ): Future[Assertion]
 
   "Upload-time Upgradeability Checks" should {
     "report no upgrade errors for valid upgrade" in {
