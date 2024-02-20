@@ -87,7 +87,7 @@ final case class TestingTopologyX(
     mediatorGroups: Set[MediatorGroup] = Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        Seq(DefaultTestIdentities.mediatorIdX),
+        NonEmpty.mk(Seq, DefaultTestIdentities.mediatorIdX),
         Seq(),
         PositiveInt.one,
       )

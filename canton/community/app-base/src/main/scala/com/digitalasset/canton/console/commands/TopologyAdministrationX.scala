@@ -2059,7 +2059,7 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participantsX.all,
+        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: Boolean = false,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
 
@@ -2136,7 +2136,7 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participantsX.all,
+        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: Boolean = false,
     ): Unit = {
       val domainStore = domainId.filterString

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
@@ -29,8 +28,7 @@ import com.google.protobuf.ByteString
   * @param domainId The domain ID of the mediator
   * @param verdict The rejection reason as a verdict
   */
-@SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class MalformedMediatorRequestResult private (
+final case class MalformedMediatorRequestResult private (
     override val requestId: RequestId,
     override val domainId: DomainId,
     override val viewType: ViewType,
@@ -44,8 +42,6 @@ case class MalformedMediatorRequestResult private (
     with SignedProtocolMessageContent
     with HasProtocolVersionedWrapper[MalformedMediatorRequestResult]
     with PrettyPrinting {
-
-  override def hashPurpose: HashPurpose = HashPurpose.MalformedMediatorRequestResult
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
       : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =

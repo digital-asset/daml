@@ -1177,9 +1177,7 @@ class BlockUpdateGenerator(
           case InFlightAggregation.AlreadyDelivered(deliveredAt) =>
             val message =
               s"The aggregatable request with aggregation ID $aggregationId was previously delivered at $deliveredAt"
-            refuse(
-              SequencerErrors.AggregateSubmissionAlreadySent(message)
-            )
+            refuse(SequencerErrors.AggregateSubmissionAlreadySent(message))
           case InFlightAggregation.AggregationStuffing(_, at) =>
             val message =
               s"The sender ${submissionRequest.sender} previously contributed to the aggregatable submission with ID $aggregationId at $at"
@@ -1248,7 +1246,7 @@ class BlockUpdateGenerator(
                 .merge
             } yield groups
               .map(group =>
-                MediatorsOfDomain(group.index) -> (group.active ++ group.passive)
+                MediatorsOfDomain(group.index) -> (group.active.forgetNE ++ group.passive)
                   .toSet[Member]
               )
               .toMap[GroupRecipient, Set[Member]]
@@ -1369,7 +1367,7 @@ class BlockUpdateGenerator(
               }
             } yield groups
               .map(group =>
-                MediatorsOfDomain(group.index) -> (group.active ++ group.passive)
+                MediatorsOfDomain(group.index) -> (group.active.forgetNE ++ group.passive)
                   .toSet[Member]
               )
               .toMap[GroupRecipient, Set[Member]]

@@ -127,6 +127,7 @@ object SequencerClientFactory {
               sequencerTransportsMap,
               expectedSequencers,
               sequencerConnections.sequencerTrustThreshold,
+              sequencerConnections.submissionRequestAmplification,
             )
           )
 

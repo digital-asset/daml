@@ -232,14 +232,13 @@ object TransferInCommonData
   }
 }
 
-// TODO(#15159) For transfer counter, remove the note that it is defined iff...
 /** Aggregates the data of a transfer-in request that is only sent to the involved participants
   *
   * @param salt The salt to blind the Merkle hash
-  * @param submitter The submitter of the transfer-in request
-  * @param creatingTransactionId The id of the transaction that created the contract
   * @param contract The contract to be transferred including the instance
+  * @param creatingTransactionId The id of the transaction that created the contract
   * @param transferOutResultEvent The signed deliver event of the transfer-out result message
+  * @param sourceProtocolVersion Protocol version of the source domain.
   * @param transferCounter The [[com.digitalasset.canton.TransferCounter]] of the contract.
   */
 final case class TransferInView private (

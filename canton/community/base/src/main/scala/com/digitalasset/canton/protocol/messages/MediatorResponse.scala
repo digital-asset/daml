@@ -7,7 +7,6 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.MediatorResponse.InvalidMediatorResponse
@@ -130,8 +129,6 @@ case class MediatorResponse private (
     v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.MediatorResponse(
       getCryptographicEvidence
     )
-
-  override def hashPurpose: HashPurpose = HashPurpose.MediatorResponseSignature
 
   override def pretty: Pretty[this.type] =
     prettyOfClass(

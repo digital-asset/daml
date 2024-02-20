@@ -13,7 +13,6 @@ import com.digitalasset.canton.crypto.{
   AsymmetricEncrypted,
   Encrypted,
   Fingerprint,
-  HashPurpose,
   SecureRandomness,
   SymmetricKeyScheme,
   TestHash,
@@ -1324,7 +1323,6 @@ private[protocol] object MessageDispatcherTest {
         s"${this.getClass.getSimpleName} cannot be serialized"
       )
 
-    override def hashPurpose: HashPurpose = TestHash.testHashPurpose
     override def deserializedFrom: Option[ByteString] = None
     override protected[this] def toByteStringUnmemoized: ByteString = ByteString.EMPTY
 

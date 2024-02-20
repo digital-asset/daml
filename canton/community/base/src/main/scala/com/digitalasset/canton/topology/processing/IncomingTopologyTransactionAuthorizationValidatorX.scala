@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.processing
 import cats.Monoid
 import cats.data.EitherT
 import cats.syntax.parallel.*
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -330,12 +331,18 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
   private def processDecentralizedNamespaceDefinition(
       op: TopologyChangeOpX,
       tx: AuthorizedDecentralizedNamespaceDefinitionX,
-  ): (Boolean, () => Unit) = {
+  )(implicit traceContext: TraceContext): (Boolean, () => Unit) = {
     val decentralizedNamespace = tx.mapping.namespace
     val dnsGraph = decentralizedNamespaceCache
       .get(decentralizedNamespace)
       .map { case (_, dnsGraph) => dnsGraph }
       .getOrElse {
+        val serialToValidate = tx.signedTransaction.transaction.serial
+        if (serialToValidate > PositiveInt.one) {
+          logger.warn(
+            s"decentralizedNamespaceCache did not contain namespace $decentralizedNamespace even though the serial to validate is $serialToValidate"
+          )
+        }
         val directDecentralizedNamespaceGraph = namespaceCache.getOrElseUpdate(
           decentralizedNamespace,
           new AuthorizationGraphX(

@@ -171,6 +171,7 @@ private[mediator] class DefaultVerdictSender(
         callback = callback,
         maxSequencingTime = decisionTime,
         aggregationRule = aggregationRule,
+        amplify = true,
       )
     } else {
       logger.info(

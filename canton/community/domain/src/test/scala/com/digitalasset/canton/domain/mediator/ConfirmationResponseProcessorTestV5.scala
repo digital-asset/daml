@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.mediator
 
-import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.CachingConfigs
@@ -23,19 +22,13 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.Verdict.{Approve, MediatorReject}
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.client.{
-  SendAsyncClientError,
-  SendCallback,
-  SendType,
-  SequencerClientSend,
-}
+import com.digitalasset.canton.sequencing.client.TestSequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil.{sequentialTraverse, sequentialTraverse_}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -64,21 +57,18 @@ class ConfirmationResponseProcessorTestV5
   protected val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
   protected val activeMediator4 = MediatorId(UniqueIdentifier.tryCreate("mediator", "four"))
 
-  private def mediatorGroup0(mediators: MediatorId*) =
+  private def mediatorGroup0(mediators: NonEmpty[Seq[MediatorId]]) =
     MediatorGroup(MediatorGroupIndex.zero, mediators, Seq.empty, PositiveInt.one)
 
   protected val mediatorGroup: MediatorGroup = MediatorGroup(
     index = MediatorGroupIndex.zero,
-    active = Seq(
-      activeMediator1,
-      activeMediator2,
-    ),
+    active = NonEmpty.mk(Seq, activeMediator1, activeMediator2),
     passive = Seq(passiveMediator3),
     threshold = PositiveInt.tryCreate(2),
   )
   protected val mediatorGroup2: MediatorGroup = MediatorGroup(
     index = MediatorGroupIndex.one,
-    active = Seq(activeMediator4),
+    active = NonEmpty.mk(Seq, activeMediator4),
     passive = Seq.empty,
     threshold = PositiveInt.one,
   )
@@ -166,7 +156,8 @@ class ConfirmationResponseProcessorTestV5
 
   private lazy val identityFactory3: TestingIdentityFactoryBase = {
     val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
-    val topology3 = topology.copy(mediatorGroups = Set(mediatorGroup0(otherMediatorId)))
+    val topology3 =
+      topology.copy(mediatorGroups = Set(mediatorGroup0(NonEmpty.mk(Seq, otherMediatorId))))
     TestingIdentityFactoryX(
       topology3,
       loggerFactory,
@@ -181,7 +172,7 @@ class ConfirmationResponseProcessorTestV5
         Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
         ),
-        Set(mediatorGroup0(mediatorId)),
+        Set(mediatorGroup0(NonEmpty.mk(Seq, mediatorId))),
         sequencerGroup,
       ),
       loggerFactory,
@@ -197,30 +188,10 @@ class ConfirmationResponseProcessorTestV5
   protected lazy val decisionTime = requestIdTs.plusSeconds(120)
 
   class Fixture(syncCryptoApi: DomainSyncCryptoClient = domainSyncCryptoApi) {
-    val interceptedBatchesQueue: java.util.concurrent.BlockingQueue[
-      (Batch[DefaultOpenEnvelope], Option[AggregationRule])
-    ] =
-      new java.util.concurrent.LinkedBlockingQueue()
-
-    private val sequencerSend: SequencerClientSend = new SequencerClientSend {
-      override def sendAsync(
-          batch: Batch[DefaultOpenEnvelope],
-          sendType: SendType,
-          topologyTimestamp: Option[CantonTimestamp],
-          maxSequencingTime: CantonTimestamp,
-          messageId: MessageId,
-          aggregationRule: Option[AggregationRule],
-          callback: SendCallback,
-      )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
-        interceptedBatchesQueue.add((batch, aggregationRule))
-        EitherT.pure(())
-      }
-
-      override def generateMaxSequencingTime: CantonTimestamp = ???
-    }
+    private val sequencerSend: TestSequencerClientSend = new TestSequencerClientSend
 
     def interceptedBatches: Iterable[Batch[DefaultOpenEnvelope]] =
-      interceptedBatchesQueue.asScala.map(_._1)
+      sequencerSend.requestsQueue.asScala.map(_.batch)
 
     val verdictSender: TestVerdictSender =
       new TestVerdictSender(

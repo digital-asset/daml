@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing.client
 
 import cats.implicits.catsSyntaxFlatten
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -25,10 +26,9 @@ import com.digitalasset.canton.sequencing.client.transports.{
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
+import com.digitalasset.canton.util.{ErrorUtil, MonadUtil, SeqUtil}
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.compat.immutable.ArraySeq
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Random, Success, Try}
@@ -42,6 +42,14 @@ trait SequencerTransportLookup {
     *                                         [[com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportCommon]]s at all
     */
   def transport(implicit traceContext: TraceContext): SequencerClientTransportCommon
+
+  /** Similar to `transport` except that it returns as many [[com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportCommon]]
+    * as currently configured in [[com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports.submissionRequestAmplification]],
+    * capped by the number of healthy subscriptions.
+    */
+  def amplifiedTransports(implicit
+      traceContext: TraceContext
+  ): NonEmpty[Seq[SequencerClientTransportCommon]]
 
   /** Returns the transport for the given [[com.digitalasset.canton.topology.SequencerId]].
     *
@@ -75,7 +83,12 @@ class SequencersTransportState(
   private val sequencerTrustThreshold =
     new AtomicReference[PositiveInt](initialSequencerTransports.sequencerTrustThreshold)
 
-  def getSequencerTrustThreshold = sequencerTrustThreshold.get()
+  def getSequencerTrustThreshold: PositiveInt = sequencerTrustThreshold.get()
+
+  private val submissionRequestAmplification =
+    new AtomicReference[PositiveInt](initialSequencerTransports.submissionRequestAmplification)
+
+  def getSubmissionRequestAmplification: PositiveInt = submissionRequestAmplification.get()
 
   blocking(lock.synchronized {
     val sequencerIdToTransportStateMap = initialSequencerTransports.sequencerIdToTransportMap.map {
@@ -114,27 +127,54 @@ class SequencersTransportState(
 
   override def transport(implicit traceContext: TraceContext): SequencerClientTransportCommon =
     blocking(lock.synchronized {
-      // Pick a random healthy sequencer to send to.
-      // We can use a plain Random instance across all threads calling this method,
-      // because this method anyway uses locking on its own.
-      // (In general, ThreadLocalRandom would void contention on the random number generation, but
-      // the plain Random has the advantage that we can hard-code the seed so that the chosen sequencers
-      // are easier to reproduce for debugging and tests.)
-      val healthySequencers = state.view
-        .collect { case (_sequencerId, state) if state.isSubscriptionHealthy => state }
-        .to(ArraySeq)
-      val chosenSequencer =
-        if (healthySequencers.isEmpty)
-          // TODO(i12377): Can we fallback to first sequencer transport here or should we
-          //               introduce EitherT and propagate error handling?
-          state.values.headOption
-            .getOrElse(
-              // TODO(i12377): Error handling
-              ErrorUtil.invalidState("No sequencer subscription at the moment. Try again later.")
-            )
-        else healthySequencers(random.nextInt(healthySequencers.size))
-      chosenSequencer.transport.clientTransport
+      transportInternal(PositiveInt.one).head1
     })
+
+  override def amplifiedTransports(implicit
+      traceContext: TraceContext
+  ): NonEmpty[Seq[SequencerClientTransportCommon]] =
+    blocking(lock.synchronized {
+      transportInternal(submissionRequestAmplification.get())
+    })
+
+  /** Pick `amount` many random healthy sequencer connections.
+    * If are no healthy sequencers, returns a single unhealthy sequencer connection.
+    * Must only be called inside a `lock.synchronized` block.
+    */
+  private[this] def transportInternal(
+      amount: PositiveInt
+  )(implicit traceContext: TraceContext): NonEmpty[Seq[SequencerClientTransportCommon]] = {
+    // We can use a plain Random instance across all threads calling this method,
+    // because this method anyway uses locking on its own.
+    // (In general, ThreadLocalRandom would void contention on the random number generation, but
+    // the plain Random has the advantage that we can hard-code the seed so that the chosen sequencers
+    // are easier to reproduce for debugging and tests.)
+    val healthySequencers = state.view
+      .collect { case (_sequencerId, state) if state.isSubscriptionHealthy => state }
+      // Use a `Vector` so that we get fast updates when picking the random subset
+      .to(Vector)
+    val chosen = SeqUtil
+      .randomSubsetShuffle(healthySequencers, amount.unwrap, random)
+      .map(_.transport.clientTransport)
+    NonEmpty.from(chosen) match {
+      case Some(ne) => ne
+      case None => NonEmpty(Seq, pickUnhealthySequencer)
+    }
+  }
+
+  private[this] def pickUnhealthySequencer(implicit
+      traceContext: TraceContext
+  ): SequencerClientTransportCommon = {
+    // TODO(i12377): Can we fallback to first sequencer transport here or should we
+    //               introduce EitherT and propagate error handling?
+    state.values.headOption
+      .getOrElse(
+        // TODO(i12377): Error handling
+        ErrorUtil.invalidState("No sequencer subscription at the moment. Try again later.")
+      )
+      .transport
+      .clientTransport
+  }
 
   override def transport(sequencerId: SequencerId)(implicit
       traceContext: TraceContext
@@ -181,6 +221,7 @@ class SequencersTransportState(
       sequencerTransports: SequencerTransports[?]
   )(implicit traceContext: TraceContext): Future[Unit] = blocking(lock.synchronized {
     sequencerTrustThreshold.set(sequencerTransports.sequencerTrustThreshold)
+    submissionRequestAmplification.set(sequencerTransports.submissionRequestAmplification)
     val oldSequencerIds = state.keySet.toSet
     val newSequencerIds = sequencerTransports.sequencerIdToTransportMap.keySet
 

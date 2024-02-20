@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
@@ -72,8 +71,6 @@ case class TransactionResultMessage private (
     v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransactionResult(
       getCryptographicEvidence
     )
-
-  override def hashPurpose: HashPurpose = HashPurpose.TransactionResultSignature
 
   override def pretty: Pretty[TransactionResultMessage] =
     prettyOfClass(
