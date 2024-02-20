@@ -162,12 +162,6 @@ getInstalledExtensions = do
             not oldBundledIsInstalled &&
                 Lowercase publishedExtensionName `elem` extensions
         bundledInstalled = Lowercase bundledExtensionName `elem` extensions
-    hPutStrLn stderr "EXTENSIONS"
-    hPutStrLn stderr $ show extensions
-    hPutStrLn stderr "bundledInstalled"
-    hPutStrLn stderr $ show bundledInstalled
-    hPutStrLn stderr "publishedExtensionIsInstalled"
-    hPutStrLn stderr $ show publishedExtensionIsInstalled
     pure InstalledExtensions {..}
     where getOldExt :: IO (Maybe FilePath)
           getOldExt = do
