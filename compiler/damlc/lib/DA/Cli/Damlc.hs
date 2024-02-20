@@ -502,22 +502,23 @@ runTestsInProjectOrFiles
 
     runTestsInProjectEffect =
       withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
-        installDepsAndInitPackageDb cliOptions initPkgDb
-        mbJUnitOutput <- traverse relativize mbJUnitOutput
         withPackageConfig (ProjectPath pPath) $ \pkgConfigFields -> do
             -- TODO: We set up one scenario service context per file that
             -- we pass to execTest and scenario contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles (pSrc pkgConfigFields)
-            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+            execTestsFrom files relativize cliOptions
 
     runTestsInFilesEffect inFiles =
       withProjectRoot' projectOpts $ \relativize -> do
-        installDepsAndInitPackageDb cliOptions initPkgDb
-        mbJUnitOutput <- traverse relativize mbJUnitOutput
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+        execTestsFrom inFiles' relativize cliOptions
+
+    execTestsFrom normPaths relativize options = do
+      installDepsAndInitPackageDb options initPkgDb
+      mbJUnitOutput <- traverse relativize mbJUnitOutput
+      execTest normPaths allTests coverage color mbJUnitOutput options tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
