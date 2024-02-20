@@ -1016,7 +1016,7 @@ ReactiveX RxJS 6.6.7 : Apache License 2.0
 react-lifecycles-compat 3.0.4 : MIT License
 react-markdown 5.0.3 : MIT License
 react-overlays 4.1.1 : MIT License
-React-Redux 7.2.4 : MIT License
+reactredux 7.2.4 : MIT License
 react-themeable 1.1.0 : MIT License
 react-virtualized 9.22.3 : MIT License
 readable-stream 2.3.8 : MIT License
@@ -8557,7 +8557,7 @@ SOFTWARE
 ---
 
 MIT License
-(React-Redux 7.2.4)
+(reactredux 7.2.4)
 
 The MIT License (MIT)
 
