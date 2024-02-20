@@ -24,7 +24,7 @@ import com.daml.lf.validation.Upgrading
 
 class UpgradesSpecAdminAPI extends UpgradesSpec {
   override def uploadPackagePair(
-      path: Upgrading[String],
+      path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
     val client = AdminLedgerClient.singleHost(
       ledgerPorts(0).adminPort,
@@ -47,14 +47,14 @@ class UpgradesSpecAdminAPI extends UpgradesSpec {
         })
     } yield Upgrading(
       (testPackageV1Id, uploadV1Result),
-      (testPackageV2Id, uploadV2Result)
+      (testPackageV2Id, uploadV2Result),
     )
   }
 }
 
 class UpgradesSpecLedgerAPI extends UpgradesSpec {
   override def uploadPackagePair(
-      path: Upgrading[String],
+      path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
     for {
       client <- defaultLedgerClient()
@@ -74,7 +74,7 @@ class UpgradesSpecLedgerAPI extends UpgradesSpec {
         })
     } yield Upgrading(
       (testPackageV1Id, uploadV1Result),
-      (testPackageV2Id, uploadV2Result)
+      (testPackageV2Id, uploadV2Result),
     )
   }
 }
@@ -98,7 +98,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
   }
 
   def uploadPackagePair(
-      path: Upgrading[String],
+      path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]]
 
   def testPackagePair(
@@ -115,7 +115,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       for {
         Upgrading(
           (testPackageV1Id, uploadV1Result),
-          (testPackageV2Id, uploadV2Result)
+          (testPackageV2Id, uploadV2Result),
         ) <- uploadPackagePair(Upgrading(upgraded, upgrading))
       } yield {
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
@@ -166,7 +166,6 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         }
       }
     }
-
 
   "Upload-time Upgradeability Checks" should {
     "report no upgrade errors for valid upgrade" in {
