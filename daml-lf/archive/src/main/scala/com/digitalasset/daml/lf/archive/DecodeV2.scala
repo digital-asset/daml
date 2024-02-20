@@ -1869,7 +1869,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   // TODO(https://github.com/digital-asset/daml/issues/18457): this is a temporary hack. Replace
   //  with a feature flag.
   private[this] def assertSinceKeys(): Unit =
-    if (rejectKeys) throw Error.Parsing("Keys are not supported")
+    if (versionIsOlderThan(LV.Features.contractKeys) && rejectKeys)
+      throw Error.Parsing("Keys are not supported")
 }
 
 private[lf] object DecodeV2 {
