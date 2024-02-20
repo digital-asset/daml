@@ -238,7 +238,7 @@ object ExampleTransactionFactory {
   )() // avoiding dependency on SeedService.staticRandom after move to ledger api server
 
   def transaction(rootIndices: Seq[Int], nodes: LfNode*): LfVersionedTransaction =
-    transactionFrom(rootIndices, 0, nodes: _*)
+    transactionFrom(rootIndices, 0, nodes *)
 
   def transactionFrom(
       rootIndices: Seq[Int],
@@ -249,7 +249,7 @@ object ExampleTransactionFactory {
 
     val nodesMap = HashMap(nodes.zipWithIndex.map { case (node, index) =>
       (nodeId(index + startIndex), node)
-    }: _*)
+    } *)
 
     val version = protocol.maxTransactionVersion(
       NonEmpty
@@ -301,7 +301,7 @@ object ExampleTransactionFactory {
       contractInstance: LfContractInst = this.contractInstance(),
       metadata: ContractMetadata = ContractMetadata.tryCreate(Set.empty, Set(this.signatory), None),
       ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
-      salt: Option[Salt] = None,
+      salt: Salt = TestSalt.generateSalt(0),
       agreementText: String = "",
   ): SerializableContract =
     SerializableContract(
@@ -309,12 +309,12 @@ object ExampleTransactionFactory {
       asSerializableRaw(contractInstance, agreementText),
       metadata,
       LedgerCreateTime(ledgerTime),
-      salt,
+      Some(salt),
     )
 
   private def serializableFromCreate(
       node: LfNodeCreate,
-      salt: Option[Salt],
+      salt: Salt,
   ): SerializableContract = {
     asSerializable(
       node.coid,
@@ -380,7 +380,7 @@ object ExampleTransactionFactory {
   * Also provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
 class ExampleTransactionFactory(
-    val cryptoOps: HashOps with HmacOps with HkdfOps with RandomOps = new SymbolicPureCrypto,
+    val cryptoOps: HashOps & HmacOps & HkdfOps & RandomOps = new SymbolicPureCrypto,
     versionOverride: Option[ProtocolVersion] = None,
 )(
     val transactionSalt: Salt = TestSalt.generateSalt(0),
@@ -401,9 +401,6 @@ class ExampleTransactionFactory(
   private val protocolVersion = versionOverride.getOrElse(BaseTest.testedProtocolVersion)
   private val cantonContractIdVersion = CantonContractIdVersion.fromProtocolVersion(protocolVersion)
   private val random = new Random(0)
-
-  private def saltConditionally(salt: Salt): Option[Salt] =
-    Option.when(protocolVersion >= ProtocolVersion.v4)(salt)
 
   private def createWithConfirmationPolicy(
       confirmationPolicy: ConfirmationPolicy,
@@ -433,9 +430,7 @@ class ExampleTransactionFactory(
           rootRbContext,
         )
 
-        if (protocolVersion >= ProtocolVersion.v5)
-          result.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
-        else result
+        result.withSubmittingAdminParty(submittingAdminPartyO, confirmationPolicy)
       }
   }
 
@@ -596,12 +591,10 @@ class ExampleTransactionFactory(
         10.seconds,
       )
     val (informees, threshold) =
-      if (protocolVersion >= ProtocolVersion.v5)
-        confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
-          rawInformees,
-          rawThreshold,
-        )
-      else (rawInformees, rawThreshold)
+      confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
+        rawInformees,
+        rawThreshold,
+      )
 
     val viewCommonData =
       ViewCommonData.create(cryptoOps)(
@@ -663,7 +656,7 @@ class ExampleTransactionFactory(
       rootIndices: Seq[Int],
       nodes: LfNode*
   ): (LfVersionedTransaction, TransactionMetadata) = {
-    val tx = transaction(rootIndices, nodes: _*)
+    val tx = transaction(rootIndices, nodes *)
     val seeds = inventSeeds(tx)
     (tx, mkMetadata(seeds))
   }
@@ -780,7 +773,7 @@ class ExampleTransactionFactory(
 
     override def keyResolver: LfKeyResolver = Map.empty
 
-    override def cryptoOps: HashOps with RandomOps = ExampleTransactionFactory.this.cryptoOps
+    override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     override def toString: String = "empty transaction"
 
@@ -821,14 +814,13 @@ class ExampleTransactionFactory(
   }
 
   abstract class SingleNode(val nodeSeed: Option[LfHash]) extends ExampleTransaction {
-    override def cryptoOps: HashOps with RandomOps = ExampleTransactionFactory.this.cryptoOps
+    override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     def lfContractId: LfContractId
 
     def contractId: LfContractId
 
-    // Versions prior to protocol version V4 do not have salt in SerializableContract
-    def saltO: Option[Salt]
+    def salt: Salt
 
     def nodeId: LfNodeId
 
@@ -851,7 +843,7 @@ class ExampleTransactionFactory(
             n.coid,
             contractInstance,
             metadataFromCreate(n),
-            salt = saltO,
+            salt = salt,
             agreementText = agreementText,
           )
         )
@@ -865,7 +857,7 @@ class ExampleTransactionFactory(
             n.targetCoid,
             contractInstance,
             metadataFromExercise(n),
-            salt = saltO,
+            salt = salt,
             agreementText = agreementText,
           )
         )
@@ -875,7 +867,7 @@ class ExampleTransactionFactory(
             n.coid,
             contractInstance,
             metadataFromFetch(n),
-            salt = saltO,
+            salt = salt,
             agreementText = agreementText,
           )
         )
@@ -994,8 +986,6 @@ class ExampleTransactionFactory(
         key,
       )
 
-    val saltO: Option[Salt] = saltConditionally(salt)
-
     private def discriminator: LfHash =
       ExampleTransactionFactory.this.discriminator(seed, signatories union observers)
 
@@ -1039,7 +1029,7 @@ class ExampleTransactionFactory(
       fetchedContractInstance: LfContractInst = contractInstance(),
       fetchedContractAgreementText: String = "single fetch",
       version: LfTransactionVersion = transactionVersion,
-      saltO: Option[Salt] = saltConditionally(TestSalt.generateSalt(random.nextInt())),
+      salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(None) {
     override def created: Seq[SerializableContract] = Seq.empty
 
@@ -1079,7 +1069,7 @@ class ExampleTransactionFactory(
       contractId: LfContractId = suffixedId(-1, 0),
       inputContractInstance: LfContractInst = contractInstance(),
       inputContractAgreementText: String = "single exercise",
-      saltO: Option[Salt] = saltConditionally(TestSalt.generateSalt(random.nextInt())),
+      salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(Some(seed)) {
     override def toString: String = "single exercise"
 
@@ -1116,7 +1106,7 @@ class ExampleTransactionFactory(
       contractId: LfContractId = suffixedId(-1, 0),
       inputContractInstance: LfContractInst = contractInstance(),
       inputContractAgreementText: String = "single exercise",
-      saltO: Option[Salt] = saltConditionally(TestSalt.generateSalt(random.nextInt())),
+      salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(Some(seed)) {
     override def toString: String = "single exercise"
 
@@ -1146,7 +1136,7 @@ class ExampleTransactionFactory(
       contractId: LfContractId = suffixedId(-1, 0),
       contractInstance: LfContractInst = ExampleTransactionFactory.contractInstance(),
       agreementText: String = "",
-      saltO: Option[Salt] = saltConditionally(TestSalt.generateSalt(random.nextInt())),
+      salt: Salt = TestSalt.generateSalt(random.nextInt()),
       consuming: Boolean = true,
   ) extends SingleNode(Some(seed)) {
     val upgradedTemplateId: canton.protocol.LfTemplateId =
@@ -1165,7 +1155,7 @@ class ExampleTransactionFactory(
       lfContractId: LfContractId = suffixedId(-1, 0),
       contractId: LfContractId = suffixedId(-1, 0),
       inputContractInstance: LfContractInst = contractInstance(),
-      saltO: Option[Salt] = saltConditionally(TestSalt.generateSalt(random.nextInt())),
+      salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(Some(seed)) {
 
     override val contractInstance: LfContractInst = inputContractInstance
@@ -1198,7 +1188,7 @@ class ExampleTransactionFactory(
     */
   case object MultipleRoots extends ExampleTransaction {
 
-    override def cryptoOps: HashOps with RandomOps = ExampleTransactionFactory.this.cryptoOps
+    override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     override def toString: String = "multiple roots"
 
@@ -1228,7 +1218,7 @@ class ExampleTransactionFactory(
         fetchedContractAgreementText = "",
         version =
           LfTransactionVersion.V14, // ensure we test merging transactions with different versions
-        saltO = create0.saltO,
+        salt = create0.salt,
       )
     private val exercise4: SingleExercise =
       SingleExercise(deriveNodeSeed(4), LfNodeId(4), suffixedId(-1, 4), suffixedId(-1, 4))
@@ -1239,12 +1229,12 @@ class ExampleTransactionFactory(
       contractId = create1.contractId,
       inputContractInstance = create1.contractInstance,
       inputContractAgreementText = "",
-      saltO = create1.saltO,
+      salt = create1.salt,
     )
 
     private val examples: List[SingleNode] =
       List[SingleNode](create0, create1, fetch2, fetch3, exercise4, exercise5)
-    require(examples.size == rootViewCount)
+    require(examples.sizeIs == rootViewCount)
 
     override def metadata: TransactionMetadata = mkMetadata(
       examples.zipWithIndex.mapFilter { case (node, index) =>
@@ -1253,7 +1243,7 @@ class ExampleTransactionFactory(
     )
 
     override def versionedUnsuffixedTransaction: LfVersionedTransaction =
-      transaction(examples.map(_.nodeId.index), examples.map(_.lfNode): _*)
+      transaction(examples.map(_.nodeId.index), examples.map(_.lfNode) *)
 
     override def keyResolver: LfKeyResolver = Map.empty // No keys involved here
 
@@ -1277,13 +1267,13 @@ class ExampleTransactionFactory(
     override def viewWithSubviews: Seq[(TransactionView, Seq[TransactionView])] =
       rootViews.map(view => view -> Seq(view))
 
-    override def transactionTree: GenTransactionTree = genTransactionTree(rootViews: _*)
+    override def transactionTree: GenTransactionTree = genTransactionTree(rootViews *)
 
     override def fullInformeeTree: FullInformeeTree =
-      informeeTree(rootViews.map(blindedForInformeeTree(_)): _*).tryToFullInformeeTree
+      informeeTree(rootViews.map(blindedForInformeeTree(_)) *).tryToFullInformeeTree
 
     override def informeeTreeBlindedFor: (Set[LfPartyId], InformeeTree) =
-      (Set.empty, informeeTree(rootViews.map(blinded): _*))
+      (Set.empty, informeeTree(rootViews.map(blinded) *))
 
     override def reinterpretedSubtransactions: Seq[
       (
@@ -1296,7 +1286,7 @@ class ExampleTransactionFactory(
       examples.zipWithIndex.map { case (example, i) =>
         val rootViewsWithOneViewUnblinded = blindedRootViews.updated(i, rootViews(i))
         (
-          rootTransactionViewTree(rootViewsWithOneViewUnblinded: _*),
+          rootTransactionViewTree(rootViewsWithOneViewUnblinded *),
           (transactionFrom(Seq(i), i, example.reinterpretedNode), example.metadata, Map.empty),
           Witnesses(NonEmpty(List, example.view0.viewCommonData.tryUnwrap.informees)),
         )
@@ -1306,7 +1296,7 @@ class ExampleTransactionFactory(
     override def rootTransactionViewTrees: Seq[FullTransactionViewTree] = transactionViewTrees
 
     override def versionedSuffixedTransaction: LfVersionedTransaction =
-      transaction(0 until rootViewCount, examples.map(_.node): _*)
+      transaction(0 until rootViewCount, examples.map(_.node) *)
   }
 
   /** Transaction structure:
@@ -1329,7 +1319,7 @@ class ExampleTransactionFactory(
     */
   case object MultipleRootsAndViewNestings extends ExampleTransaction {
 
-    override def cryptoOps: HashOps with RandomOps = ExampleTransactionFactory.this.cryptoOps
+    override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     override def toString: String = "transaction with multiple roots and view nestings"
 
@@ -1628,7 +1618,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create0, saltConditionally(salt0Id))),
+        Seq(serializableFromCreate(create0, salt0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -1639,7 +1629,7 @@ class ExampleTransactionFactory(
         2,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create130, saltConditionally(salt130Id))),
+        Seq(serializableFromCreate(create130, salt130Id)),
         Map.empty,
         Some(create130seed),
         isRoot = false,
@@ -1650,7 +1640,7 @@ class ExampleTransactionFactory(
         4,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create1310, saltConditionally(salt1310Id))),
+        Seq(serializableFromCreate(create1310, salt1310Id)),
         Map.empty,
         Some(create1310seed),
         isRoot = false,
@@ -1692,8 +1682,8 @@ class ExampleTransactionFactory(
           )
         ),
         Seq(
-          serializableFromCreate(create10, saltConditionally(salt10Id)),
-          serializableFromCreate(create12, saltConditionally(salt12Id)),
+          serializableFromCreate(create10, salt10Id),
+          serializableFromCreate(create12, salt12Id),
         ),
         Map.empty,
         Some(deriveNodeSeed(1)),
@@ -1873,7 +1863,7 @@ class ExampleTransactionFactory(
     */
   case object ViewInterleavings extends ExampleTransaction {
 
-    override def cryptoOps: HashOps with RandomOps = ExampleTransactionFactory.this.cryptoOps
+    override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     override def toString: String = "transaction with subviews and core nodes interleaved"
 
@@ -2221,7 +2211,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create0, saltConditionally(salt0Id))),
+        Seq(serializableFromCreate(create0, salt0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -2233,7 +2223,7 @@ class ExampleTransactionFactory(
         3,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create100, saltConditionally(salt100Id))),
+        Seq(serializableFromCreate(create100, salt100Id)),
         Map.empty,
         Some(create100seed),
         isRoot = false,
@@ -2265,7 +2255,7 @@ class ExampleTransactionFactory(
         5,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create120, saltConditionally(salt120Id))),
+        Seq(serializableFromCreate(create120, salt120Id)),
         Map.empty,
         Some(create120seed),
         isRoot = false,
@@ -2303,13 +2293,13 @@ class ExampleTransactionFactory(
             exercise1Instance,
             metadataFromExercise(exercise1),
             ledgerTime,
-            None,
+            TestSalt.generateSalt(random.nextInt()),
             agreementText = exercise1Agreement,
           )
         ),
         Seq(
-          serializableFromCreate(create11, saltConditionally(salt11Id)),
-          serializableFromCreate(create13, saltConditionally(salt13Id)),
+          serializableFromCreate(create11, salt11Id),
+          serializableFromCreate(create13, salt13Id),
         ),
         Map.empty,
         Some(deriveNodeSeed(1)),
@@ -2324,7 +2314,7 @@ class ExampleTransactionFactory(
         6,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create2, saltConditionally(salt2Id))),
+        Seq(serializableFromCreate(create2, salt2Id)),
         Map.empty,
         Some(create2seed),
         isRoot = true,
@@ -2537,7 +2527,7 @@ class ExampleTransactionFactory(
     */
   case object TransientContracts extends ExampleTransaction {
 
-    override def cryptoOps: HashOps with RandomOps = ExampleTransactionFactory.this.cryptoOps
+    override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     override def toString: String = "transaction with transient contracts"
 
@@ -2742,7 +2732,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create0, saltConditionally(salt0Id))),
+        Seq(serializableFromCreate(create0, salt0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -2757,11 +2747,11 @@ class ExampleTransactionFactory(
           create10Id,
           create10Inst,
           ContractMetadata.tryCreate(create10.signatories, create10.stakeholders, None),
-          salt = saltConditionally(salt10Id),
+          salt = salt10Id,
           agreementText = create10Agreement,
         )
       ),
-      Seq(serializableFromCreate(create110, saltConditionally(salt110Id))),
+      Seq(serializableFromCreate(create110, salt110Id)),
       Map.empty,
       Some(deriveNodeSeed(1, 1)),
       isRoot = false,
@@ -2776,11 +2766,11 @@ class ExampleTransactionFactory(
           create0Id,
           create0Inst,
           ContractMetadata.tryCreate(create0.signatories, create0.stakeholders, None),
-          salt = saltConditionally(salt0Id),
+          salt = salt0Id,
           agreementText = create0Agreement,
         )
       ),
-      Seq(serializableFromCreate(create10, saltConditionally(salt10Id))),
+      Seq(serializableFromCreate(create10, salt10Id)),
       Map.empty,
       Some(deriveNodeSeed(1)),
       isRoot = true,

@@ -491,7 +491,7 @@ final case class ParticipantNodeParameterConfig(
     transferTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
       ParticipantProtocolVersion(
-        ProtocolVersion.v3
+        ProtocolVersion.v5
       )
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(

@@ -117,7 +117,7 @@ object CantonRunner {
          |      public-api.port = ${domainPublicApi.port}
          |      admin-api.port = ${domainAdminApi.port}
          |      init.domain-parameters.protocol-version = ${if (config.devMode) "dev"
-        else "4"}
+        else "5"}
          |    }
          |  }
          |  participants {

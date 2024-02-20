@@ -353,7 +353,7 @@ class ConfirmationRequestFactoryTest
               transactionFactory.domainId,
               SymmetricKeyScheme.Aes128Gcm,
             )(Some(RecipientsInfo(participants)))
-          } else if (testedProtocolVersion >= ProtocolVersion.v4)
+          } else
             EncryptedViewMessageV1(
               signature,
               tree.viewHash,
@@ -362,14 +362,6 @@ class ConfirmationRequestFactoryTest
               transactionFactory.domainId,
               SymmetricKeyScheme.Aes128Gcm,
             )(Some(RecipientsInfo(participants)))
-          else
-            EncryptedViewMessageV0(
-              signature,
-              tree.viewHash,
-              randomnessMap(keySeed, participants, cryptoPureApi).fmap(_.encrypted),
-              encryptedView,
-              transactionFactory.domainId,
-            )
         }
 
         OpenEnvelope(encryptedViewMessage, recipients)(testedProtocolVersion)

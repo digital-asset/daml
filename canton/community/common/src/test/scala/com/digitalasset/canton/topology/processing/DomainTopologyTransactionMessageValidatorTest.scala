@@ -31,7 +31,6 @@ import com.digitalasset.canton.topology.{
   TestingIdentityFactory,
   TestingTopologyTransactionFactory,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, Outcome}
@@ -115,7 +114,11 @@ class DomainTopologyTransactionMessageValidatorTest
 
       append(ts1, genesis)
       // update manager side to know about the state
-      mgrTopoClient.updateHead(EffectiveTime(ts1), ApproximateTime(ts1), true)
+      mgrTopoClient.updateHead(
+        EffectiveTime(ts1),
+        ApproximateTime(ts1),
+        potentialTopologyChange = true,
+      )
     }
 
     def append(ts: CantonTimestamp, txs: Seq[GenericSignedTopologyTransaction]): Unit = {
@@ -169,22 +172,15 @@ class DomainTopologyTransactionMessageValidatorTest
       msg: DomainTopologyTransactionMessage,
       assertion: (LogEntry => Assertion) = _.shouldBeCantonErrorCode(TopologyManagerAlarm),
   ): Assertion = {
-    if (testedProtocolVersion < ProtocolVersion.v5) {
-      env.inject(
-        ts,
-        msg,
-      ) should have length (msg.transactions.length.toLong)
-    } else {
-      loggerFactory.assertLogs(
-        {
-          env.inject(
-            ts,
-            msg,
-          ) should have length (0)
-        },
-        assertion,
-      )
-    }
+    loggerFactory.assertLogs(
+      {
+        env.inject(
+          ts,
+          msg,
+        ) should have length 0
+      },
+      assertion,
+    )
   }
 
   private lazy val ts1 = CantonTimestamp.Epoch
@@ -193,13 +189,13 @@ class DomainTopologyTransactionMessageValidatorTest
   "validates first self-contained message and subsequent messages" in { env =>
     import env.*
 
-    inject(ts1, build(ts1, Txs.genesis)) should have length (4)
+    inject(ts1, build(ts1, Txs.genesis)) should have length 4
     parTopoClient.updateHead(
       EffectiveTime(ts1),
       ApproximateTime(ts1),
       potentialTopologyChange = true,
     )
-    inject(ts2, build(ts2, List(Txs.okmMed))) should have length (1)
+    inject(ts2, build(ts2, List(Txs.okmMed))) should have length 1
   }
 
   "skips and alerts" when {

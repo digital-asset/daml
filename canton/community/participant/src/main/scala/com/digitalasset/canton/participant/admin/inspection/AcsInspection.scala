@@ -5,22 +5,31 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.data.EitherT
 import cats.syntax.foldable.*
+import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.store.{StoredContract, SyncDomainPersistentState}
-import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
+import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 
 import scala.collection.immutable.SortedMap
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[inspection] object AcsInspection {
 
   private val BatchSize = PositiveInt.tryCreate(1000)
+
+  final case class AcsSnapshot[S](
+      snapshot: S,
+      ts: CantonTimestamp, // timestamp of the snapshot
+  )
 
   def findContracts(
       state: SyncDomainPersistentState,
@@ -32,34 +41,42 @@ private[inspection] object AcsInspection {
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): Future[List[(Boolean, SerializableContract)]] =
-    for {
-      acs <- getCurrentSnapshot(state)
-      contracts <- state.contractStore
-        .find(filterId, filterPackage, filterTemplate, limit)
-        .map(_.map(sc => (acs.contains(sc.contractId), sc)))
-    } yield contracts
+    getCurrentSnapshot(state)
+      .flatMap(_.traverse { acs =>
+        state.contractStore
+          .find(filterId, filterPackage, filterTemplate, limit)
+          .map(_.map(sc => (acs.snapshot.contains(sc.contractId), sc)))
+      })
+      .map(_.getOrElse(Nil))
 
   def hasActiveContracts(state: SyncDomainPersistentState, partyId: PartyId)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): Future[Boolean] =
     for {
-      acs <- getCurrentSnapshot(state)
-      res <- state.contractStore.hasActiveContracts(partyId, acs.keysIterator)
+      acsSnapshotO <- getCurrentSnapshot(state)
+      res <- acsSnapshotO.fold(Future.successful(false))(acsSnapshot =>
+        state.contractStore.hasActiveContracts(partyId, acsSnapshot.snapshot.keysIterator)
+      )
     } yield res
 
+  /** Get the current snapshot
+    * @return A snapshot (with its timestamp) or None if no clean timestamp is known
+    */
   def getCurrentSnapshot(state: SyncDomainPersistentState)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[SortedMap[LfContractId, CantonTimestamp]] =
+  ): Future[Option[AcsSnapshot[SortedMap[LfContractId, CantonTimestamp]]]] =
     for {
       cursorHeadO <- state.requestJournalStore.preheadClean
-      snapshot <- cursorHeadO.fold(
-        Future.successful(SortedMap.empty[LfContractId, CantonTimestamp])
-      )(cursorHead =>
-        state.activeContractStore
-          .snapshot(cursorHead.timestamp)
-      )
+      snapshot <- cursorHeadO
+        .traverse { cursorHead =>
+          val ts = cursorHead.timestamp
+          val snapshotF = state.activeContractStore.snapshot(ts)
+
+          snapshotF.map(snapshot => Some(AcsSnapshot(snapshot, ts)))
+        }
+        .map(_.flatten)
     } yield snapshot
 
   // fetch acs, checking that the requested timestamp is clean
@@ -68,7 +85,7 @@ private[inspection] object AcsInspection {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, SortedMap[LfContractId, CantonTimestamp]] =
+  ): EitherT[Future, Error, AcsSnapshot[SortedMap[LfContractId, CantonTimestamp]]] =
     for {
       _ <- TimestampValidation.beforePrehead(
         domainId,
@@ -82,7 +99,7 @@ private[inspection] object AcsInspection {
         state.activeContractStore.pruningStatus,
         timestamp,
       )
-    } yield snapshot
+    } yield AcsSnapshot(snapshot, timestamp)
 
   // sort acs for easier comparison
   private def getAcsSnapshot(
@@ -92,18 +109,34 @@ private[inspection] object AcsInspection {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, Iterator[Seq[LfContractId]]] =
-    timestamp
-      .map(getSnapshotAt(domainId, state))
-      .getOrElse(EitherT.right(getCurrentSnapshot(state)))
-      .map(
-        _.iterator
+  ): EitherT[Future, Error, Option[
+    AcsSnapshot[Iterator[Seq[LfContractId]]]
+  ]] = {
+
+    type MaybeSnapshot =
+      Option[AcsSnapshot[SortedMap[LfContractId, CantonTimestamp]]]
+
+    val maybeSnapshotET: EitherT[Future, Error, MaybeSnapshot] = timestamp match {
+      case Some(timestamp) =>
+        getSnapshotAt(domainId, state)(timestamp).map(Some(_))
+
+      case None =>
+        EitherT.liftF[Future, Error, MaybeSnapshot](getCurrentSnapshot(state))
+    }
+
+    maybeSnapshotET.map(
+      _.map { case AcsSnapshot(snapshot, ts) =>
+        val groupedSnapshot = snapshot.iterator
           .map { case (cid, _) => cid }
           .toSeq
           .grouped(
             AcsInspection.BatchSize.value
-          ) // TODO(#14818): Batching should be done by the caller not here
-      )
+          ) // TODO(#14818): Batching should be done by the caller not here))
+
+        AcsSnapshot(groupedSnapshot, ts)
+      }
+    )
+  }
 
   def forEachVisibleActiveContract(
       domainId: DomainId,
@@ -113,12 +146,65 @@ private[inspection] object AcsInspection {
   )(f: SerializableContract => Either[Error, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, Unit] =
+  ): EitherT[Future, Error, Option[(Set[LfPartyId], CantonTimestamp)]] = {
     for {
-      acs <- getAcsSnapshot(domainId, state, timestamp)
-      unit <- MonadUtil.sequentialTraverse_(acs)(forEachBatch(domainId, state, parties, f))
-    } yield unit
+      acsSnapshotO <- getAcsSnapshot(domainId, state, timestamp)
+      allStakeholdersAndTs <- acsSnapshotO.traverse { acsSnapshot =>
+        MonadUtil
+          .sequentialTraverseMonoid(acsSnapshot.snapshot)(
+            forEachBatch(domainId, state, parties, f)
+          )
+          .map((_, acsSnapshot.ts))
+      }
+    } yield allStakeholdersAndTs
+  }
 
+  /** Check that the ACS snapshot does not contain contracts that are still needed on the participant.
+    * In the context of party offboarding, we want to avoid purging contracts
+    * that are needed for other parties hosted on the participant.
+    */
+  def checkOffboardingSnapshot(
+      participantId: ParticipantId,
+      offboardedParties: Set[LfPartyId],
+      allStakeholders: Set[LfPartyId],
+      snapshotTs: CantonTimestamp,
+      topologyClient: DomainTopologyClient,
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, String, Unit] = {
+    for {
+      topologySnapshot <- EitherT.liftF[Future, String, TopologySnapshot](
+        topologyClient.awaitSnapshot(snapshotTs)
+      )
+
+      hostedStakeholders <- EitherT.liftF[Future, String, Seq[LfPartyId]](
+        allStakeholders.toSeq.parTraverseFilter { stakeholder =>
+          topologySnapshot
+            .hostedOn(stakeholder, participantId)
+            .map(
+              _.flatMap(participantAttributes =>
+                Option.when(participantAttributes.permission.isActive)(stakeholder)
+              )
+            )
+        }
+      )
+
+      remainingHostedStakeholders = hostedStakeholders.diff(offboardedParties.toSeq)
+
+      _ <- EitherT.cond[Future](
+        remainingHostedStakeholders.isEmpty,
+        (),
+        s"Cannot take snapshot to offboard parties ${offboardedParties.toSeq} at $snapshotTs, because the following parties have contracts: ${remainingHostedStakeholders
+            .mkString(", ")}",
+      )
+    } yield ()
+  }
+
+  /** Applies function f to all the contracts in the batch whose set of stakeholders has
+    * non-empty intersection with `parties`
+    * @return The union of all stakeholders of all contracts on which `f` was applied
+    */
   private def forEachBatch(
       domainId: DomainId,
       state: SyncDomainPersistentState,
@@ -127,25 +213,25 @@ private[inspection] object AcsInspection {
   )(cids: Seq[LfContractId])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, Error, Unit] = {
+  ): EitherT[Future, Error, Set[LfPartyId]] = {
+    val allStakeholders: mutable.Set[LfPartyId] = mutable.Set()
+
     for {
       batch <- state.contractStore
         .lookupManyUncached(cids)
         .leftMap(missingContract => Error.InconsistentSnapshot(domainId, missingContract))
 
-      _ <- EitherT.fromEither[Future](applyToBatch(parties, f)(batch))
-    } yield ()
+      stakeholdersE = batch
+        .traverse_ { storedContract =>
+          if (parties.exists(storedContract.contract.metadata.stakeholders)) {
+            allStakeholders ++= storedContract.contract.metadata.stakeholders
+            f(storedContract.contract)
+          } else
+            Right(())
+        }
+        .map(_ => allStakeholders.toSet)
+
+      allStakeholders <- EitherT.fromEither[Future](stakeholdersE)
+    } yield allStakeholders
   }
-
-  private def applyToBatch(
-      parties: Set[LfPartyId],
-      f: SerializableContract => Either[Error, Unit],
-  )(batch: List[StoredContract]): Either[Error, Unit] =
-    batch.traverse_ { case storedContract =>
-      if (parties.exists(storedContract.contract.metadata.stakeholders))
-        f(storedContract.contract)
-      else
-        Right(())
-    }
-
 }

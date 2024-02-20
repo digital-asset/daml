@@ -7,7 +7,6 @@ import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty

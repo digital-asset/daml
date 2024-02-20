@@ -173,6 +173,7 @@ object GrpcParticipantRepairService {
         parties.toSet,
         timestamp,
         contractDomainRenames.toMap,
+        partiesOffboarding = request.partiesOffboarding,
       )
     }
 
@@ -191,6 +192,7 @@ object GrpcParticipantRepairService {
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
+      partiesOffboarding: Boolean,
   )
 
   private def isSupported(protocolVersion: ProtocolVersion)(implicit
@@ -244,6 +246,8 @@ final class GrpcParticipantRepairService(
           s"Contract $contractId for domain $domainId cannot be serialized due to an invariant violation: $errorMessage"
         )
         RepairServiceError.SerializationError.Error(domainId, contractId)
+      case inspection.Error.OffboardingParty(domainId, error) =>
+        RepairServiceError.InvalidArgument.Error(s"Parties offboarding on domain $domainId: $error")
     }
 
   private final val AcsSnapshotTemporaryFileNamePrefix = "temporary-canton-acs-snapshot"
@@ -399,6 +403,7 @@ final class GrpcParticipantRepairService(
                 validRequest.parties,
                 validRequest.timestamp,
                 validRequest.contractDomainRenames,
+                partiesOffboarding = validRequest.partiesOffboarding,
               )
           )
           .leftMap(toRepairServiceError)
@@ -422,7 +427,11 @@ final class GrpcParticipantRepairService(
                   .continually(s.readNBytes(DefaultChunkSize.value))
                   .takeWhile(_.nonEmpty && !context.isCancelled)
                   .foreach { chunk =>
-                    responseObserver.onNext(ExportAcsResponse(ByteString.copyFrom(chunk)))
+                    responseObserver.onNext(
+                      ExportAcsResponse(
+                        ByteString.copyFrom(chunk)
+                      )
+                    )
                   }
               }
           }

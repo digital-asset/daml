@@ -70,13 +70,13 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       )
     }
 
-    "reject domains when the minimum protocol version is not satisfied " in {
+    "reject domains when the minimum protocol version is not satisfied" in {
       import SimpleTopology.*
 
-      // LanguageVersion.v1_15 needs pv=4 so we use pv=3
-      val currentDomainPV = ProtocolVersion.v3
+      // LanguageVersion.VDev needs pv=dev so we use pv=6
+      val currentDomainPV = ProtocolVersion.v6
       val filter =
-        DomainsFilterForTx(Transactions.Create.tx(TransactionVersion.V15), currentDomainPV)
+        DomainsFilterForTx(Transactions.Create.tx(TransactionVersion.VDev), currentDomainPV)
 
       val (unusableDomains, usableDomains) =
         filter
@@ -86,8 +86,8 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
         UsableDomain.UnsupportedMinimumProtocolVersion(
           domainId = DefaultTestIdentities.domainId,
           currentPV = currentDomainPV,
-          requiredPV = ProtocolVersion.v4,
-          lfVersion = TransactionVersion.V15,
+          requiredPV = ProtocolVersion.dev,
+          lfVersion = TransactionVersion.VDev,
         )
       )
       usableDomains shouldBe empty

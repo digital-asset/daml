@@ -670,14 +670,6 @@ class AcsCommitmentProcessorTest
     h.getByteString()
   }
 
-  private def participantCommitment(
-      stakeholderCommitments: List[AcsCommitment.CommitmentType]
-  ): AcsCommitment.CommitmentType = {
-    val unionHash = LtHash16()
-    stakeholderCommitments.foreach(h => unionHash.add(h.toByteArray))
-    unionHash.getByteString()
-  }
-
   private def commitmentsForCounterParticipants(
       stkhdCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       localId: ParticipantId,
@@ -689,7 +681,7 @@ class AcsCommitmentProcessorTest
         localParties: Set[LfPartyId],
         remoteParticipantParties: Set[LfPartyId],
     ): Boolean =
-      stkhd.intersect(localParties).nonEmpty && (stkhd.intersect(remoteParticipantParties).nonEmpty)
+      stkhd.intersect(localParties).nonEmpty && stkhd.intersect(remoteParticipantParties).nonEmpty
 
     val localParties = topology(localId)
     topology
@@ -705,7 +697,7 @@ class AcsCommitmentProcessorTest
           },
         )
       }
-      .filter { case (p, comm) => comm != LtHash16().getByteString() }
+      .filter { case (_, comm) => comm != LtHash16().getByteString() }
   }
 
   private def commitmentMsg(
@@ -756,15 +748,14 @@ class AcsCommitmentProcessorTest
           cid -> stakeholderLookup(cid)
         }
         .groupBy { case (_, stakeholder) => stakeholder }
-        .map {
-          case (stkhs, m) => {
-            logger.debug(
-              s"adding to commitment for stakeholders $stkhs the parts cid and transfer counter in $m"
-            )
-            SortedSet(stkhs.toList: _*) -> stakeholderCommitment(m.map { case (cid, _) =>
-              cid
-            })
-          }
+        .map { case (stkhs, m) =>
+          logger.debug(
+            s"adding to commitment for stakeholders $stkhs the parts cid and transfer counter in $m"
+          )
+          SortedSet(stkhs.toList *) -> stakeholderCommitment(m.map { case (cid, _) =>
+            cid
+          })
+
         }
       res <- AcsCommitmentProcessor.commitments(
         localId,
@@ -1065,8 +1056,8 @@ class AcsCommitmentProcessorTest
         testSetupDontPublish(timeProofs, contractSetup, topology)
 
       val remoteCommitments = List(
-        (remoteId1, Seq((coid(0, 0))), ts(0), ts(5)),
-        (remoteId2, Seq((coid(0, 1))), ts(5), ts(10)),
+        (remoteId1, Seq(coid(0, 0)), ts(0), ts(5)),
+        (remoteId2, Seq(coid(0, 1)), ts(5), ts(10)),
       )
 
       for {
@@ -1113,7 +1104,7 @@ class AcsCommitmentProcessorTest
      in `commitmentMsg`, otherwise the test will fail.
      */
 
-    "work when commitment tick falls between two participants connection to the domain" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+    "work when commitment tick falls between two participants connection to the domain" in {
       /*
         The goal here is to check that ACS commitment processing works even when
         a commitment tick falls between two participants' connection timepoints to the domain.
@@ -1644,7 +1635,7 @@ class AcsCommitmentProcessorTest
       )
       rc.update(rt(3, 0), ch3)
       val snap3 = rc.snapshot()
-      snap3.recordTime shouldBe (rt(3, 0))
+      snap3.recordTime shouldBe rt(3, 0)
       snap3.active.keySet shouldBe Set(SortedSet(alice, carol), SortedSet(bob, carol))
       snap3.delta.keySet shouldBe Set(SortedSet(alice, carol))
       snap3.deleted shouldBe Set.empty
@@ -1720,7 +1711,7 @@ class AcsCommitmentProcessorTest
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
       // 2. compute commitments by building the acs, recompute the stakeholder commitments based on
       // the acs snapshot, and then combine them into a per-participant commitment using AcsCommitmentProcessor.commitments
-      val acsF = acsSetup(contractSetup.fmap { case (stkhd, lifespan) =>
+      val acsF = acsSetup(contractSetup.fmap { case (_, lifespan) =>
         lifespan
       })
 

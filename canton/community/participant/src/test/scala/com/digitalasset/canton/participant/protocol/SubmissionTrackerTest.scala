@@ -13,7 +13,6 @@ import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.SucceededStatus.whenCompleted
@@ -92,7 +91,7 @@ class SubmissionTrackerTest
       resultFUS.failOnShutdown.futureValue shouldBe true
     }
 
-    "fail a request with expired maxSequencingTime" onlyRunWithOrGreaterThan ProtocolVersion.v5 in {
+    "fail a request with expired maxSequencingTime" in {
       val resultFUS = submissionTracker.register(rootHash, requestId)
       submissionTracker.provideSubmissionData(
         rootHash,
@@ -114,7 +113,7 @@ class SubmissionTrackerTest
       resultFUS.failOnShutdown.futureValue shouldBe false
     }
 
-    "fail replayed requests" onlyRunWithOrGreaterThan ProtocolVersion.v5 in {
+    "fail replayed requests" in {
       val resultFUS1 = submissionTracker.register(rootHash, requestIds(0))
       val resultFUS2 = submissionTracker.register(rootHash, requestIds(1))
 
@@ -184,7 +183,7 @@ class SubmissionTrackerTest
       resultFUS3.failOnShutdown.futureValue shouldBe true
     }
 
-    "survive smoke tests" onlyRunWithOrGreaterThan ProtocolVersion.v5 in {
+    "survive smoke tests" in {
       // Try to make some concurrent scenarios
       val seed = Random.nextLong()
       val rand = new Random(seed)

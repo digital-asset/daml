@@ -339,6 +339,7 @@ object ParticipantAdminCommands {
     @deprecated("Use ExportAcs", since = "2.8.0")
     final case class Download(
         parties: Set[PartyId],
+        partiesOffboarding: Boolean,
         filterDomainId: String,
         timestamp: Option[Instant],
         protocolVersion: Option[ProtocolVersion],
@@ -369,6 +370,7 @@ object ParticipantAdminCommands {
             contractDomainRenames.map { case (source, target) =>
               (source.toProtoPrimitive, target.toProtoPrimitive)
             },
+            partiesOffboarding = partiesOffboarding,
           )
         )
       }
@@ -464,6 +466,7 @@ object ParticipantAdminCommands {
 
     final case class ExportAcs(
         parties: Set[PartyId],
+        partiesOffboarding: Boolean,
         filterDomainId: Option[DomainId],
         timestamp: Option[Instant],
         observer: StreamObserver[ExportAcsResponse],
@@ -493,6 +496,7 @@ object ParticipantAdminCommands {
 
               (source.toProtoPrimitive, targetDomain)
             },
+            partiesOffboarding = partiesOffboarding,
           )
         )
       }

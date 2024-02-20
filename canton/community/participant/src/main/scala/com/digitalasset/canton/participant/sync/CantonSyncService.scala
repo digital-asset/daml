@@ -409,6 +409,8 @@ class CantonSyncService(
           .foreach(_.removeJournalGarageCollectionLock())
       }
     },
+    connectedDomainsLookup,
+    participantId,
     loggerFactory,
   )
 
