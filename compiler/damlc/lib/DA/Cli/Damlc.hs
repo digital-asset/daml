@@ -181,7 +181,7 @@ import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
@@ -474,12 +474,10 @@ runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) 
           when (getRunAllTests allTests) $ do
             hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
             exitFailure
-          case mbInFiles of
-            Just _ -> do
-              hPutStrLn stderr "Cannot specify --files and --load-coverage-only at the same time."
-              exitFailure
-            Nothing -> do
-              loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
+          when (isJust mbInFiles) $ do
+            hPutStrLn stderr "Cannot specify --files and --load-coverage-only at the same time."
+            exitFailure
+          loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
 runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
