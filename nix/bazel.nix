@@ -46,7 +46,7 @@ let shared = rec {
         gnumake
         ncurses
         perl
-        haskell.compiler.ghc865Binary
+        haskell.compiler.ghc8107Binary
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
         xz
       ] ++ (
