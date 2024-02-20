@@ -476,7 +476,7 @@ runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) 
             exitFailure
           case mbInFiles of
             Just _ -> do
-              hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
+              hPutStrLn stderr "Cannot specify --files and --load-coverage-only at the same time."
               exitFailure
             Nothing -> do
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
