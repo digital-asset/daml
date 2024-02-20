@@ -20,39 +20,9 @@ import com.daml.lf.data.Ref.PackageId
 
 import com.daml.lf.archive.{DarReader}
 import scala.util.{Success, Failure}
-import org.scalatest.Inspectors.{forAll}
 
-class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
-  override lazy val devMode = true;
-  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles;
-
-  private def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
-    val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
-    assert(dar != null, s"Unable to load test package resource '$path'")
-
-    val testPackage = Future {
-      val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
-      assert(in != null, s"Unable to load test package resource '$path'")
-      in
-    }
-    val bytes = testPackage.map(ByteString.readFrom)
-    bytes.onComplete(_ => testPackage.map(_.close()))
-    bytes.map((dar.main.pkgId, _))
-  }
-
-  private def testPackagePair(
-      upgraded: String,
-      upgrading: String,
-      failureMessage: Option[String],
-  ): Future[Assertion] =
-    forAll(
-      Seq(
-        testPackagePairAdminApi(upgraded, upgrading, failureMessage),
-        testPackagePairLedgerApi(upgraded, upgrading, failureMessage),
-      )
-    )(x => x)
-
-  private def testPackagePairAdminApi(
+class UpgradesSpecAdminAPI extends UpgradesSpec {
+  override def testPackagePair(
       upgraded: String,
       upgrading: String,
       failureMessage: Option[String],
@@ -63,12 +33,11 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
         succeed
       }
     } else {
+      val client = AdminLedgerClient.singleHost(
+        ledgerPorts(0).adminPort,
+        config,
+      )
       for {
-        _ <- Future(())
-        client = AdminLedgerClient.singleHost(
-          ledgerPorts(0).adminPort,
-          config,
-        )
         (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
         (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
         uploadV1Result <- client
@@ -129,8 +98,10 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
       }
     }
   }
+}
 
-  private def testPackagePairLedgerApi(
+class UpgradesSpecLedgerAPI extends UpgradesSpec {
+  override def testPackagePair(
       upgraded: String,
       upgrading: String,
       failureMessage: Option[String],
@@ -207,6 +178,31 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
       }
     }
   }
+}
+
+abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
+  override lazy val devMode = true;
+  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles;
+
+  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
+    val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
+    assert(dar != null, s"Unable to load test package resource '$path'")
+
+    val testPackage = Future {
+      val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
+      assert(in != null, s"Unable to load test package resource '$path'")
+      in
+    }
+    val bytes = testPackage.map(ByteString.readFrom)
+    bytes.onComplete(_ => testPackage.map(_.close()))
+    bytes.map((dar.main.pkgId, _))
+  }
+
+  def testPackagePair(
+      upgraded: String,
+      upgrading: String,
+      failureMessage: Option[String],
+  ): Future[Assertion]
 
   "Upload-time Upgradeability Checks" should {
     "report no upgrade errors for valid upgrade" in {
