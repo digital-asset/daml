@@ -10,6 +10,6 @@ trigger : Trigger ()
 trigger = Trigger
   { initialState = \party _ _ -> pure ()
   , update = \_ -> pure (error "Intentional error")
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = Some (convertMicrosecondsToRelTime 1)
   }

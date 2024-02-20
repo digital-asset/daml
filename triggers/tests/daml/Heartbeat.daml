@@ -14,7 +14,7 @@ test = Trigger
       modify (+ (case msg of
                    MHeartbeat -> 1
                    _ -> 0))
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = Some (convertMicrosecondsToRelTime 1)
   }
 

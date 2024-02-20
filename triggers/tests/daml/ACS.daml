@@ -34,7 +34,7 @@ test : Trigger TriggerState
 test = Trigger
   { initialState = \party _readAs acs -> pure $ initState party acs
   , update = update
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
   where

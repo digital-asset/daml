@@ -20,7 +20,7 @@ test = Trigger
           submitCommands [createCmd (t { v = t.v + 1.0 })]
           put True
         _ -> pure ()
-  , registeredTemplates = AllInDar
+  , registeredTemplates = AllTemplates
   , heartbeat = None
   }
 
