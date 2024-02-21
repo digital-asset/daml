@@ -317,8 +317,8 @@ class ParticipantPartiesAdministrationGroupX(
             participants.map(pid =>
               HostingParticipant(
                 pid,
-                if (threshold.value > 1) ParticipantPermissionX.Confirmation
-                else ParticipantPermissionX.Submission,
+                if (threshold.value > 1) ParticipantPermission.Confirmation
+                else ParticipantPermission.Submission,
               )
             ),
             groupAddressing,
@@ -413,7 +413,7 @@ object TopologySynchronisationX {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)
         }
-        env.sequencersX.all.forall { sequencer =>
+        env.sequencers.all.forall { sequencer =>
           val domainId = sequencer.domain_id
           !participant.domains.is_connected(domainId) || {
             val timestamp = participant.testing.fetch_domain_time(domainId)

@@ -157,7 +157,7 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
         clock,
         metrics,
         protocolVersion,
-        nodeParameters.cachingConfigs.finalizedMediatorRequests,
+        nodeParameters.cachingConfigs.finalizedMediatorConfirmationRequests,
         nodeParameters.processingTimeouts,
         loggerFactory,
       )

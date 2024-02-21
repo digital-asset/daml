@@ -26,6 +26,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawUnassignEvent,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
 import com.digitalasset.canton.platform.store.backend.common.{
   EventReaderQueries,
   TransactionPointwiseQueries,
@@ -113,6 +114,8 @@ trait ParameterStorageBackend {
 
   def prunedUpToInclusive(connection: Connection): Option[Offset]
 
+  def prunedUpToInclusiveAndLedgerEnd(connection: Connection): PruneUptoInclusiveAndLedgerEnd
+
   def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit
@@ -173,6 +176,10 @@ object ParameterStorageBackend {
   }
   final case class IdentityParams(participantId: ParticipantId)
 
+  final case class PruneUptoInclusiveAndLedgerEnd(
+      pruneUptoInclusive: Option[Offset],
+      ledgerEnd: Offset,
+  )
 }
 
 trait ConfigurationStorageBackend {
@@ -243,6 +250,7 @@ object ContractStorageBackend {
 
   final case class RawCreatedContract(
       templateId: String,
+      packageName: String,
       flatEventWitnesses: Set[Party],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
@@ -261,6 +269,7 @@ object ContractStorageBackend {
 
   class RawContract(
       val templateId: String,
+      val packageName: String,
       val createArgument: Array[Byte],
       val createArgumentCompression: Option[Int],
   )
@@ -282,11 +291,6 @@ trait EventStorageBackend {
       connection: Connection,
       traceContext: TraceContext,
   ): Unit
-  def isPruningOffsetValidAgainstMigration(
-      pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
-      connection: Connection,
-  ): Boolean
 
   def activeContractCreateEventBatchV2(
       eventSequentialIds: Iterable[Long],
@@ -358,6 +362,7 @@ object EventStorageBackend {
       workflowId: String,
       domainId: String,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
       event: E,
   )
 
@@ -365,6 +370,7 @@ object EventStorageBackend {
       updateId: String,
       contractId: String,
       templateId: Identifier,
+      packageName: PackageName,
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],
@@ -402,6 +408,7 @@ object EventStorageBackend {
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 
   final case class RawAssignEvent(
@@ -415,6 +422,7 @@ object EventStorageBackend {
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 }
 
@@ -494,7 +502,7 @@ trait MeteringStorageReadBackend {
 
 trait MeteringStorageWriteBackend {
 
-  /** This method will return the maximum offset of the transaction_metering record
+  /** This method will return the maximum offset of the lapi_transaction_metering record
     * which has an offset greater than the from offset and a timestamp prior to the
     * to timestamp, if any.
     *

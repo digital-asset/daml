@@ -90,7 +90,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val domainId = DefaultTestIdentities.domainId
   private val sequencerId = DefaultTestIdentities.sequencerId
   private val cryptoApi =
-    TestingTopology()
+    TestingTopologyX()
       .withSimpleParticipants(participant)
       .build()
       .forOwnerAndDomain(participant, domainId)
@@ -100,7 +100,8 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val futureSupervisor = FutureSupervisor.Noop
   private val topologyClient = mock[DomainTopologyClient]
   private val mockTopologySnapshot = mock[TopologySnapshot]
-  private val maxRatePerParticipant = DynamicDomainParameters.defaultMaxRatePerParticipant
+  private val confirmationRequestsMaxRate =
+    DynamicDomainParameters.defaultConfirmationRequestsMaxRate
   private val maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
@@ -114,7 +115,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     .thenReturn(
       Future.successful(
         TestDomainParameters.defaultDynamic(
-          maxRatePerParticipant = maxRatePerParticipant,
+          confirmationRequestsMaxRate = confirmationRequestsMaxRate,
           maxRequestSize = maxRequestSize,
         )
       )

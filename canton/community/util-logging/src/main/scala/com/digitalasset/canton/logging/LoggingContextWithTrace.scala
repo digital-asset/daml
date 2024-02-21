@@ -79,7 +79,7 @@ object LoggingContextWithTrace {
   )(entry: LoggingEntry, entries: LoggingEntry*)(
       f: LoggingContextWithTrace => A
   )(implicit loggingContext: LoggingContext): A = {
-    LoggingContext.withEnrichedLoggingContext(entry, entries: _*) { implicit loggingContext =>
+    LoggingContext.withEnrichedLoggingContext(entry, entries*) { implicit loggingContext =>
       f(LoggingContextWithTrace(telemetry)(loggingContext))
     }
   }
@@ -90,7 +90,7 @@ object LoggingContextWithTrace {
   )(
       f: LoggingContextWithTrace => A
   )(implicit loggingContextWithTrace: LoggingContextWithTrace): A = {
-    LoggingContext.withEnrichedLoggingContext(entry, entries: _*) { implicit loggingContext =>
+    LoggingContext.withEnrichedLoggingContext(entry, entries*) { implicit loggingContext =>
       f(LoggingContextWithTrace(loggingContextWithTrace.traceContext)(loggingContext))
     }
   }
@@ -99,13 +99,13 @@ object LoggingContextWithTrace {
       entry: LoggingEntry,
       entries: LoggingEntry*
   )(implicit loggingContextWithTrace: LoggingContextWithTrace): LoggingContextWithTrace =
-    withEnrichedLoggingContext(entry, entries: _*)(identity)
+    withEnrichedLoggingContext(entry, entries*)(identity)
 
   def withNewLoggingContext[A](entries: LoggingEntry*)(
       f: LoggingContextWithTrace => A
   )(implicit traceContext: TraceContext): A = {
     val loggingContextWithTrace: LoggingContextWithTrace =
-      new LoggingContextWithTrace(LoggingEntries(entries: _*), traceContext)
+      new LoggingContextWithTrace(LoggingEntries(entries*), traceContext)
     f(loggingContextWithTrace)
   }
 }

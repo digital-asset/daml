@@ -53,7 +53,7 @@ object TransactionViewDecomposition {
 
     /** All nodes of this view, i.e. core nodes and subviews, in execution order */
     def allNodes: NonEmpty[Seq[TransactionViewDecomposition]] =
-      NonEmpty(Seq, SameView(rootNode, nodeId, rbContext), tailNodes: _*)
+      NonEmpty(Seq, SameView(rootNode, nodeId, rbContext), tailNodes*)
 
     def childViews: Seq[NewView] = tailNodes.collect { case v: NewView => v }
 

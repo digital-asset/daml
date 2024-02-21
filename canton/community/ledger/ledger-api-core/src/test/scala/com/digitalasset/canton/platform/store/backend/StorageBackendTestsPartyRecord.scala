@@ -54,9 +54,9 @@ private[backend] trait StorageBackendTestsPartyRecord
     }
   }
 
-  override def resourceVersionTableName: String = "participant_party_records"
+  override def resourceVersionTableName: String = "lapi_party_records"
 
-  override def resourceAnnotationsTableName: String = "participant_party_record_annotations"
+  override def resourceAnnotationsTableName: String = "lapi_party_record_annotations"
 
   it should "handle created_at attribute correctly" in {
     val partyRecord = newDbPartyRecord(createdAt = 123)

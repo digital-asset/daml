@@ -244,11 +244,11 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
     }
   }
 
-  "signing tolerance" should {
-    def sendWithSigningTimestamp(
+  "topology timestamp tolerance" should {
+    def sendWithTopologyTimestamp(
         nowish: CantonTimestamp,
-        validSigningTimestamp: CantonTimestamp,
-        invalidSigningTimestamp: CantonTimestamp,
+        validTopologyTimestamp: CantonTimestamp,
+        invalidTopologyTimestamp: CantonTimestamp,
     )(implicit
         env: Env
     ): Future[Seq[StoreEvent[Payload]]] = {
@@ -263,14 +263,14 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
           messageId1,
           Set.empty,
           payload1,
-          Some(validSigningTimestamp),
+          Some(validTopologyTimestamp),
         )
         deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
           aliceId,
           messageId2,
           Set.empty,
           payload1,
-          Some(invalidSigningTimestamp),
+          Some(invalidTopologyTimestamp),
         )
         _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver1))
         _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver2))
@@ -294,13 +294,13 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
 
       // upper bound is inclusive
       val margin = NonNegativeFiniteDuration.tryOfMillis(1)
-      val validSigningTimestamp = nowish
+      val validTopologyTimestamp = nowish
 
       for {
-        events <- sendWithSigningTimestamp(
+        events <- sendWithTopologyTimestamp(
           nowish,
-          validSigningTimestamp = validSigningTimestamp,
-          invalidSigningTimestamp = validSigningTimestamp + margin,
+          validTopologyTimestamp = validTopologyTimestamp,
+          invalidTopologyTimestamp = validTopologyTimestamp + margin,
         )
         sortedEvents = sortByMessageId(events)
       } yield {
@@ -309,8 +309,8 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
         }
 
         inside(sortedEvents(1)) { case DeliverErrorStoreEvent(_, _, errorO, _) =>
-          getErrorMessage(errorO) should (include("Invalid signing timestamp")
-            and include("The signing timestamp must be before or at "))
+          getErrorMessage(errorO) should (include("Invalid topology timestamp")
+            and include("The topology timestamp must be before or at "))
         }
       }
     }
@@ -338,7 +338,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
                 ),
               ),
               maxSequencingTime = CantonTimestamp.MaxValue,
-              timestampOfSigningKey = None,
+              topologyTimestamp = None,
               aggregationRule = None,
               protocolVersion = testedProtocolVersion,
             )

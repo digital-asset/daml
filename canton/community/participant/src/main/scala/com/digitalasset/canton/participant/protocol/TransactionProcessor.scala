@@ -29,16 +29,16 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmitted,
   buildAuthenticator,
 }
-import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.ConfirmationRequestCreationError
+import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.TransactionConfirmationRequestCreationError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.submission.{
-  ConfirmationRequestFactory,
   InFlightSubmissionTracker,
+  TransactionConfirmationRequestFactory,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
-  ConfirmationResponseFactory,
   InternalConsistencyChecker,
   ModelConformanceChecker,
+  TransactionConfirmationResponseFactory,
 }
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
@@ -46,7 +46,8 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import org.slf4j.event.Level
@@ -56,7 +57,7 @@ import scala.concurrent.ExecutionContext
 
 class TransactionProcessor(
     override val participantId: ParticipantId,
-    confirmationRequestFactory: ConfirmationRequestFactory,
+    confirmationRequestFactory: TransactionConfirmationRequestFactory,
     domainId: DomainId,
     damle: DAMLe,
     staticDomainParameters: StaticDomainParameters,
@@ -68,7 +69,6 @@ class TransactionProcessor(
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-    skipRecipientsCheck: Boolean,
     enableContractUpgrading: Boolean,
 )(implicit val ec: ExecutionContext)
     extends ProtocolProcessor[
@@ -82,7 +82,7 @@ class TransactionProcessor(
         domainId,
         participantId,
         confirmationRequestFactory,
-        new ConfirmationResponseFactory(
+        new TransactionConfirmationResponseFactory(
           participantId,
           domainId,
           staticDomainParameters.protocolVersion,
@@ -119,7 +119,6 @@ class TransactionProcessor(
       staticDomainParameters.protocolVersion,
       loggerFactory,
       futureSupervisor,
-      skipRecipientsCheck = skipRecipientsCheck,
     ) {
 
   def submit(
@@ -187,7 +186,7 @@ object TransactionProcessor {
         ) {
 
       // TODO(i5990) properly set `definiteAnswer` where appropriate when sub-categories are created
-      final case class Error(message: String, reason: ConfirmationRequestCreationError)
+      final case class Error(message: String, reason: TransactionConfirmationRequestCreationError)
           extends TransactionErrorImpl(cause = "Malformed request")
     }
 
@@ -359,6 +358,25 @@ object TransactionProcessor {
     }
 
     @Explanation(
+      "This error occurs when the transaction does not contain a valid set of recipients."
+    )
+    @Resolution(
+      """It is possible that a concurrent change in the relationships between parties and
+        |participants occurred during request submission. Resubmit the request.
+        |"""
+    )
+    object NoViewWithValidRecipients
+        extends ErrorCode(
+          id = "NO_VIEW_WITH_VALID_RECIPIENTS",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      final case class Error(timestamp: CantonTimestamp)
+          extends TransactionErrorImpl(
+            cause = "the request does not contain any view with the expected recipients"
+          )
+    }
+
+    @Explanation(
       "The mediator chosen for the transaction got deactivated before the request was sequenced."
     )
     @Resolution("Resubmit.")
@@ -367,7 +385,7 @@ object TransactionProcessor {
           id = "CHOSEN_MEDIATOR_IS_INACTIVE",
           ErrorCategory.ContentionOnSharedResources,
         ) {
-      final case class Error(chosen_mediator: MediatorRef, timestamp: CantonTimestamp)
+      final case class Error(chosen_mediator: MediatorsOfDomain, timestamp: CantonTimestamp)
           extends TransactionErrorImpl(
             cause = "the chosen mediator is not active on the domain"
           )

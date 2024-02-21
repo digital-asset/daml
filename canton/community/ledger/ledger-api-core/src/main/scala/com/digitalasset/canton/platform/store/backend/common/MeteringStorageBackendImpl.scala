@@ -125,7 +125,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
       select
         application_id,
         sum(action_count)
-      from transaction_metering
+      from lapi_transaction_metering
       where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
       and   ${ifSet[Timestamp](to, t => cSQL"metering_timestamp < $t")}
       and   ${ifSet[String](appId, a => cSQL"application_id = $a")}
@@ -150,7 +150,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
       select
         application_id,
         sum(action_count)
-      from participant_metering
+      from lapi_participant_metering
       where from_timestamp >= $from
       and ${ifSet[Timestamp](to, t => cSQL"to_timestamp <= $t")}
       and ${ifSet[String](appId, a => cSQL"application_id = $a")}
@@ -181,7 +181,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
 
     SQL"""
       select max(ledger_offset)
-      from transaction_metering
+      from lapi_transaction_metering
       where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
       and metering_timestamp < $to
     """
@@ -196,7 +196,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       select
         application_id,
         sum(action_count)
-      from transaction_metering
+      from lapi_transaction_metering
       where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
       group by application_id
@@ -212,7 +212,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
 
     discard(
       SQL"""
-      delete from transaction_metering
+      delete from lapi_transaction_metering
       where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
     """
@@ -227,7 +227,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
     metering.foreach { participantMetering =>
       import participantMetering.*
       SQL"""
-        insert into participant_metering(application_id, from_timestamp, to_timestamp, action_count, ledger_offset)
+        insert into lapi_participant_metering(application_id, from_timestamp, to_timestamp, action_count, ledger_offset)
         values (${participantMetering.applicationId.toString}, $from, $to, $actionCount, $ledgerOffset)
       """.execute()(connection).discard
     }
@@ -242,7 +242,7 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
         to_timestamp,
         action_count,
         ledger_offset
-      from participant_metering
+      from lapi_participant_metering
     """
       .asVectorOf(participantMeteringParser)(connection)
   }

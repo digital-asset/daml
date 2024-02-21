@@ -18,8 +18,8 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.topology.transaction.{
   GeneratorsTransaction,
-  LegalIdentityClaim,
-  SignedTopologyTransaction,
+  SignedTopologyTransactionX,
+  TopologyTransactionX,
 }
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import org.scalatest.wordspec.AnyWordSpec
@@ -32,30 +32,26 @@ class SerializationDeserializationTest
     with SerializationDeserializationTestHelpers {
   import com.digitalasset.canton.sequencing.GeneratorsSequencing.*
 
-  forAll(Table("protocol version", ProtocolVersion.supported *)) { version =>
-    val generatorsDataTime = new GeneratorsDataTime()
-    val generatorsProtocol = new GeneratorsProtocol(version, generatorsDataTime)
-    val generatorsData = new GeneratorsData(version, generatorsDataTime, generatorsProtocol)
+  forAll(Table("protocol version", ProtocolVersion.supported*)) { version =>
+    val generatorsProtocol = new GeneratorsProtocol(version)
+    val generatorsData =
+      new GeneratorsData(version, generatorsProtocol)
     val generatorsTransaction = new GeneratorsTransaction(version, generatorsProtocol)
     val generatorsLocalVerdict = GeneratorsLocalVerdict(version)
     val generatorsVerdict = GeneratorsVerdict(version, generatorsLocalVerdict)
     val generatorsMessages = new GeneratorsMessages(
       version,
       generatorsData,
-      generatorsDataTime,
       generatorsProtocol,
-      generatorsTransaction,
       generatorsLocalVerdict,
       generatorsVerdict,
     )
     val generatorsProtocolSeq = new GeneratorsProtocolSequencing(
       version,
-      generatorsDataTime,
       generatorsMessages,
     )
     val generatorsTransferData = new GeneratorsTransferData(
       version,
-      generatorsDataTime,
       generatorsProtocol,
       generatorsProtocolSeq,
     )
@@ -76,13 +72,13 @@ class SerializationDeserializationTest
 
         testProtocolVersioned(AcsCommitment)
         testProtocolVersioned(Verdict)
-        testProtocolVersioned(MediatorResponse)
+        testProtocolVersioned(ConfirmationResponse)
         testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, version)
         testProtocolVersionedWithCtx(SignedProtocolMessage, version)
 
         testProtocolVersioned(LocalVerdict)
         testProtocolVersioned(TransferResult)
-        testProtocolVersioned(MalformedMediatorRequestResult)
+        testProtocolVersioned(MalformedConfirmationRequestResult)
         testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
         testMemoizedProtocolVersioned(TransactionResultMessage)
 
@@ -113,17 +109,18 @@ class SerializationDeserializationTest
           (TestHash, ConfirmationPolicy.Signatory),
         )
 
-        testMemoizedProtocolVersionedWithCtx(
-          SignedTopologyTransaction,
+        testMemoizedProtocolVersioned(TopologyTransactionX)
+        testProtocolVersionedWithCtx(
+          SignedTopologyTransactionX,
           ProtocolVersionValidation(version),
         )
-        testMemoizedProtocolVersioned(LegalIdentityClaim)
 
         testMemoizedProtocolVersionedWithCtx(
           com.digitalasset.canton.data.ViewParticipantData,
           TestHash,
         )
         testProtocolVersioned(Batch)
+        testProtocolVersioned(SetTrafficBalanceMessage)
         testMemoizedProtocolVersionedWithCtx(
           SubmissionRequest,
           MaxRequestSizeToDeserialize.NoLimit,
@@ -135,8 +132,10 @@ class SerializationDeserializationTest
   }
 
   "be exhaustive" in {
-    val requiredTests =
+    val requiredTests = {
       findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.protocol")
+        ++ findHasProtocolVersionedWrapperSubClasses("com.digitalasset.canton.topology")
+    }
 
     val missingTests = requiredTests.diff(testedClasses.toList)
 

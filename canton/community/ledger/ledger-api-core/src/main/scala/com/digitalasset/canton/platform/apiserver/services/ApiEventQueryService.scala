@@ -3,79 +3,66 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.event_query_service.*
+import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
+import com.daml.ledger.api.v2.event_query_service.*
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
-import com.digitalasset.canton.ledger.api.domain.LedgerId
-import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
-import com.digitalasset.canton.ledger.api.services.EventQueryService
-import com.digitalasset.canton.ledger.api.validation.TransactionServiceRequestValidator.Result
+import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.{
   EventQueryServiceRequestValidator,
   PartyNameChecker,
 }
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  LoggingContextWithTrace,
-  NamedLoggerFactory,
-  NamedLogging,
+import com.digitalasset.canton.ledger.participant.state.index.v2.IndexEventQueryService
+import com.digitalasset.canton.logging.LoggingContextWithTrace.{
+  implicitExtractTraceContext,
+  withEnrichedLoggingContext,
 }
-import io.grpc.ServerServiceDefinition
+import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import io.grpc.*
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiEventQueryService(
-    protected val service: EventQueryService,
-    val ledgerId: LedgerId,
-    partyNameChecker: PartyNameChecker,
+    eventQueryService: IndexEventQueryService,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
 ) extends EventQueryServiceGrpc.EventQueryService
-    with StreamingServiceLifecycleManagement
     with GrpcApiService
     with NamedLogging {
 
-  private val validator = new EventQueryServiceRequestValidator(partyNameChecker)
-
-  private def getSingleResponse[Request, DomainRequest, Response](
-      request: Request,
-      validate: Request => Result[DomainRequest],
-      fetch: DomainRequest => Future[Response],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Response] =
-    validate(request).fold(
-      t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-      fetch(_),
-    )
+  private val validator = new EventQueryServiceRequestValidator(PartyNameChecker.AllowAllParties)
 
   override def getEventsByContractId(
-      request: GetEventsByContractIdRequest
+      req: GetEventsByContractIdRequest
   ): Future[GetEventsByContractIdResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLogger = ErrorLoggingContext(logger, loggingContextWithTrace)
-
-    getSingleResponse(
-      request,
-      validator.validateEventsByContractId,
-      service.getEventsByContractId,
-    )
+    implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
+    validator
+      .validateEventsByContractId(req)
+      .fold(
+        t => Future.failed(ValidationLogger.logFailureWithTrace(logger, req, t)),
+        request => {
+          withEnrichedLoggingContext(
+            logging.contractId(request.contractId),
+            logging.parties(request.requestingParties),
+          ) { implicit loggingContext =>
+            logger.info("Received request for events by contract ID")
+          }
+          logger.trace(s"Events by contract ID request: $request")
+          eventQueryService
+            .getEventsByContractId(
+              request.contractId,
+              request.requestingParties,
+            )
+            .andThen(logger.logErrorsOnCall[GetEventsByContractIdResponse])
+        },
+      )
   }
 
-  override def getEventsByContractKey(
-      request: GetEventsByContractKeyRequest
-  ): Future[GetEventsByContractKeyResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLogger = ErrorLoggingContext(logger, loggingContextWithTrace)
-
-    getSingleResponse(
-      request,
-      validator.validateEventsByContractKey,
-      service.getEventsByContractKey,
-    )
-  }
+  override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
     EventQueryServiceGrpc.bindService(this, executionContext)
-
 }

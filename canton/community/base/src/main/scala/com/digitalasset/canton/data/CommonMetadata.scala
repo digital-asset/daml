@@ -8,6 +8,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, v30}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.*
@@ -23,7 +24,7 @@ import java.util.UUID
 final case class CommonMetadata private (
     confirmationPolicy: ConfirmationPolicy,
     domainId: DomainId,
-    mediator: MediatorRef,
+    mediator: MediatorsOfDomain,
     salt: Salt,
     uuid: UUID,
 )(
@@ -80,7 +81,7 @@ object CommonMetadata
   )(
       confirmationPolicy: ConfirmationPolicy,
       domain: DomainId,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       salt: Salt,
       uuid: UUID,
   ): CommonMetadata = create(
@@ -94,7 +95,7 @@ object CommonMetadata
   )(
       confirmationPolicy: ConfirmationPolicy,
       domain: DomainId,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       salt: Salt,
       uuid: UUID,
   ): CommonMetadata =
@@ -117,8 +118,8 @@ object CommonMetadata
       domainUid <- UniqueIdentifier
         .fromProtoPrimitive_(domainIdP)
         .leftMap(ProtoDeserializationError.ValueDeserializationError("domainId", _))
-      mediator <- MediatorRef
-        .fromProtoPrimitive(mediatorP, "CommonMetadata.mediator_id")
+      mediator <- MediatorsOfDomain
+        .fromProtoPrimitive(mediatorP, "CommonMetadata.mediator")
       salt <- ProtoConverter
         .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))

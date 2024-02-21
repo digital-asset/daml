@@ -20,12 +20,10 @@ import com.digitalasset.canton.topology.admin.v30.{
   CurrentTimeRequest,
   IdentityInitializationXServiceGrpc,
 }
-import com.digitalasset.canton.topology.admin.v30old.InitializationServiceGrpc
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, PriorityBlockingQueueUtil}
 import com.google.common.annotations.VisibleForTesting
-import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock as JClock, Duration, Instant}
@@ -385,7 +383,6 @@ class SimClock(
 class RemoteClock(
     config: ClientConfig,
     timeouts: ProcessingTimeout,
-    getTimeFromXNode: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContextExecutor)
     extends Clock
@@ -397,14 +394,10 @@ class RemoteClock(
     noTracingLogger,
   )
   private val channel = ClientChannelBuilder.createChannelToTrustedServer(config)
-  private val service = Either.cond(
-    getTimeFromXNode,
-    IdentityInitializationXServiceGrpc.stub(channel),
-    InitializationServiceGrpc.stub(channel),
-  )
+  private val service = IdentityInitializationXServiceGrpc.stub(channel)
 
   private def getCurrentRemoteTime(): Future[Timestamp] =
-    service.fold(_.currentTime(Empty()), _.currentTime(CurrentTimeRequest()).map(_.getCurrentTime))
+    service.currentTime(CurrentTimeRequest()).map(_.getCurrentTime)
 
   private val running = new AtomicBoolean(true)
   private val updating = new AtomicReference[Option[CantonTimestamp]](None)

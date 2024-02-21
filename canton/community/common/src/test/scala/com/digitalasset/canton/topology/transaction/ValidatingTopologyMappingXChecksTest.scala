@@ -15,7 +15,7 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreX,
   TopologyTransactionRejection,
 }
-import com.digitalasset.canton.topology.transaction.ParticipantPermissionX.{
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
   Submission,
@@ -54,7 +54,7 @@ class ValidatingTopologyMappingXChecksTest
     import factory.TestingTransactions.*
 
     implicit def toHostingParticipant(
-        participantToPermission: (ParticipantId, ParticipantPermissionX)
+        participantToPermission: (ParticipantId, ParticipantPermission)
     ): HostingParticipant =
       HostingParticipant(participantToPermission._1, participantToPermission._2)
 
@@ -248,7 +248,7 @@ class ValidatingTopologyMappingXChecksTest
             ParticipantDomainPermissionX(
               domainId,
               participant1,
-              ParticipantPermissionX.Submission,
+              ParticipantPermission.Submission,
               None,
               None,
             )

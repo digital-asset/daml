@@ -24,21 +24,21 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
     hashOps.build(TestHash.testHashPurpose).addWithoutLengthPrefix(message).finish()
   def await(eitherT: EitherT[Future, SignatureCheckError, Unit]) = eitherT.value.futureValue
 
-  private def increaseParticipantResponseTimeout(old: DynamicDomainParameters) =
-    old.tryUpdate(participantResponseTimeout =
-      old.participantResponseTimeout + NonNegativeFiniteDuration.tryOfSeconds(1)
+  private def increaseConfirmationResponseTimeout(old: DynamicDomainParameters) =
+    old.tryUpdate(confirmationResponseTimeout =
+      old.confirmationResponseTimeout + NonNegativeFiniteDuration.tryOfSeconds(1)
     )
 
   private val domainParameters1 = DomainParameters.WithValidity(
     CantonTimestamp.Epoch,
     Some(CantonTimestamp.ofEpochSecond(10)),
-    increaseParticipantResponseTimeout(defaultDynamicDomainParameters),
+    increaseConfirmationResponseTimeout(defaultDynamicDomainParameters),
   )
 
   private val domainParameters2 = DomainParameters.WithValidity(
     CantonTimestamp.ofEpochSecond(10),
     None,
-    increaseParticipantResponseTimeout(domainParameters1.parameter),
+    increaseConfirmationResponseTimeout(domainParameters1.parameter),
   )
 
   val domainParameters = List(domainParameters1, domainParameters2)

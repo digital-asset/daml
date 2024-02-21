@@ -48,7 +48,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     val issuer = identityProviderConfig.issuer
     val audience = identityProviderConfig.audience
     discard(SQL"""
-       INSERT INTO participant_identity_provider_config (identity_provider_id, is_deactivated, jwks_url, issuer, audience)
+       INSERT INTO lapi_identity_provider_config (identity_provider_id, is_deactivated, jwks_url, issuer, audience)
        VALUES ($identityProviderId, $isDeactivated, $jwksUrl, $issuer, $audience)
      """.execute()(connection))
   }
@@ -58,7 +58,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Boolean = {
     val updatedRowsCount =
       SQL"""
-         DELETE FROM participant_identity_provider_config WHERE identity_provider_id = ${id.value: String}
+         DELETE FROM lapi_identity_provider_config WHERE identity_provider_id = ${id.value: String}
          """.executeUpdate()(connection)
     updatedRowsCount == 1
   }
@@ -68,7 +68,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Option[IdentityProviderConfig] = {
     SQL"""
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer, audience
-       FROM participant_identity_provider_config
+       FROM lapi_identity_provider_config
        WHERE identity_provider_id = ${id.value: String}
        """
       .as(IdpConfigRecordParser.singleOpt)(connection)
@@ -79,7 +79,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Vector[IdentityProviderConfig] = {
     SQL"""
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer, audience
-       FROM participant_identity_provider_config
+       FROM lapi_identity_provider_config
        ORDER BY identity_provider_id
        """
       .asVectorOf(IdpConfigRecordParser)(connection)
@@ -93,7 +93,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     val res: Seq[_] =
       SQL"""
          SELECT 1 AS dummy
-         FROM participant_identity_provider_config t
+         FROM lapi_identity_provider_config t
          WHERE
             t.issuer = $issuer AND
             identity_provider_id != ${ignoreId.value: String}
@@ -107,7 +107,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     val res: Seq[_] =
       SQL"""
            SELECT 1 AS dummy
-           FROM participant_identity_provider_config t
+           FROM lapi_identity_provider_config t
            WHERE t.identity_provider_id = ${id.value: String}
            """.asVectorOf(IntParser)(connection)
     assert(res.length <= 1)
@@ -119,7 +119,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Boolean = {
     val rowsUpdated =
       SQL"""
-         UPDATE participant_identity_provider_config
+         UPDATE lapi_identity_provider_config
          SET issuer  = $newIssuer
          WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
@@ -131,7 +131,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Boolean = {
     val rowsUpdated =
       SQL"""
-         UPDATE participant_identity_provider_config
+         UPDATE lapi_identity_provider_config
          SET jwks_url = ${jwksUrl.value}
          WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
@@ -149,7 +149,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
     }
     val rowsUpdated =
       SQL"""
-         UPDATE participant_identity_provider_config
+         UPDATE lapi_identity_provider_config
          $audienceSql
          WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
@@ -161,7 +161,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   ): Boolean = {
     val rowsUpdated =
       SQL"""
-         UPDATE participant_identity_provider_config
+         UPDATE lapi_identity_provider_config
          SET is_deactivated  = $isDeactivated
          WHERE identity_provider_id = ${id.value: String}
        """.executeUpdate()(connection)
@@ -169,7 +169,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   }
 
   override def countIdentityProviderConfigs()(connection: Connection): Int = {
-    SQL"SELECT count(*) AS identity_provider_configs_count from participant_identity_provider_config"
+    SQL"SELECT count(*) AS identity_provider_configs_count from lapi_identity_provider_config"
       .as(SqlParser.int("identity_provider_configs_count").single)(connection)
   }
 
@@ -178,7 +178,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
   )(connection: Connection): Option[IdentityProviderConfig] = {
     SQL"""
        SELECT identity_provider_id, is_deactivated, jwks_url, issuer, audience
-       FROM participant_identity_provider_config
+       FROM lapi_identity_provider_config
        WHERE issuer = ${issuer}
        """
       .as(IdpConfigRecordParser.singleOpt)(connection)

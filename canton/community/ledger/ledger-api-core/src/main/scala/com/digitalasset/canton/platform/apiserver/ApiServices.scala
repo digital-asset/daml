@@ -35,7 +35,10 @@ import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
-import com.digitalasset.canton.platform.apiserver.services.command.CommandSubmissionServiceImpl
+import com.digitalasset.canton.platform.apiserver.services.command.{
+  CommandServiceImpl,
+  CommandSubmissionServiceImpl,
+}
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{CommandServiceConfig, UserManagementServiceConfig}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataStore
@@ -157,8 +160,7 @@ object ApiServices {
 
       val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled)
       val transactionServiceRequestValidator =
-        new TransactionServiceRequestValidator(
-          ledgerId = ledgerId,
+        new UpdateServiceRequestValidator(
           partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties),
           transactionFilterValidator = transactionFilterValidator,
         )
@@ -166,20 +168,20 @@ object ApiServices {
       val (ledgerApiV2Services, ledgerApiUpdateService) = {
         val apiTimeServiceOpt =
           optTimeServiceBackend.map(tsb =>
-            new TimeServiceV2Authorization(
-              new ApiTimeServiceV2(tsb, telemetry, loggerFactory),
+            new TimeServiceAuthorization(
+              new ApiTimeService(tsb, telemetry, loggerFactory),
               authorizer,
             )
           )
-        val apiCommandCompletionService = new ApiCommandCompletionServiceV2(
+        val apiCommandCompletionService = new ApiCommandCompletionService(
           completionsService,
           metrics,
           telemetry,
           loggerFactory,
         )
         val apiEventQueryService =
-          new ApiEventQueryServiceV2(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageServiceV2(packagesService, telemetry, loggerFactory)
+          new ApiEventQueryService(eventQueryService, telemetry, loggerFactory)
+        val apiPackageService = new ApiPackageService(packagesService, telemetry, loggerFactory)
         val apiUpdateService =
           new ApiUpdateService(
             transactionsService,
@@ -199,7 +201,7 @@ object ApiServices {
             transactionFilterValidator = transactionFilterValidator,
           )
         val apiVersionService =
-          new ApiVersionServiceV2(
+          new ApiVersionService(
             ledgerFeatures,
             userManagementServiceConfig,
             telemetry,
@@ -208,9 +210,9 @@ object ApiServices {
 
         val v2Services = apiTimeServiceOpt.toList :::
           List(
-            new CommandCompletionServiceV2Authorization(apiCommandCompletionService, authorizer),
-            new EventQueryServiceV2Authorization(apiEventQueryService, authorizer),
-            new PackageServiceV2Authorization(apiPackageService, authorizer),
+            new CommandCompletionServiceAuthorization(apiCommandCompletionService, authorizer),
+            new EventQueryServiceAuthorization(apiEventQueryService, authorizer),
+            new PackageServiceAuthorization(apiPackageService, authorizer),
             new UpdateServiceAuthorization(apiUpdateService, authorizer),
             new StateServiceAuthorization(apiStateService, authorizer),
             apiVersionService,
@@ -318,7 +320,7 @@ object ApiServices {
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           upgradingEnabled = upgradingEnabled,
         )
-        val (_, commandSubmissionService) =
+        val commandSubmissionService =
           CommandSubmissionServiceImpl.createApiService(
             writeService,
             commandsValidator,
@@ -365,7 +367,7 @@ object ApiServices {
         )
 
         val ledgerApiV2Services = ledgerApiV2Enabled.toList.flatMap { apiUpdateService =>
-          val apiSubmissionServiceV2 = new ApiCommandSubmissionServiceV2(
+          val apiSubmissionService = new ApiCommandSubmissionService(
             commandsValidator = commandsValidator,
             commandSubmissionService = commandSubmissionService,
             writeService = writeService,
@@ -378,27 +380,25 @@ object ApiServices {
             telemetry = telemetry,
             loggerFactory = loggerFactory,
           )
-          val apiCommandService = new ApiCommandServiceV2(
+          val apiCommandService = CommandServiceImpl.createApiService(
             commandsValidator = commandsValidator,
-            transactionServices = new ApiCommandServiceV2.TransactionServices(
+            submissionTracker = submissionTracker,
+            // Using local services skips the gRPC layer, improving performance.
+            submit = apiSubmissionService.submitWithTraceContext,
+            defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
+            transactionServices = new CommandServiceImpl.TransactionServices(
               getTransactionTreeById = apiUpdateService.getTransactionTreeById,
               getTransactionById = apiUpdateService.getTransactionById,
             ),
-            submissionTracker = submissionTracker,
-            submit = apiSubmissionServiceV2.submitWithTraceContext,
-            defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
-            currentLedgerTime = () => timeProvider.getCurrentTime,
-            currentUtcTime = () => Instant.now,
-            maxDeduplicationDuration = () =>
-              ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
-            generateSubmissionId = SubmissionIdGenerator.Random,
+            timeProvider = timeProvider,
+            ledgerConfigurationSubscription = ledgerConfigurationSubscription,
             telemetry = telemetry,
             loggerFactory = loggerFactory,
           )
 
           List(
-            new CommandSubmissionServiceV2Authorization(apiSubmissionServiceV2, authorizer),
-            new CommandServiceV2Authorization(apiCommandService, authorizer),
+            new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+            new CommandServiceAuthorization(apiCommandService, authorizer),
           )
         }
 

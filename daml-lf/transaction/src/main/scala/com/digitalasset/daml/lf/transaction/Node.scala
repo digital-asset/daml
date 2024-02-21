@@ -36,9 +36,7 @@ object Node {
 
     private[lf] def updateVersion(version: TransactionVersion): Node
 
-    // TODO: https://github.com/digital-asset/daml/issues/17965
-    //  make it mandatory in daml 3
-    def packageName: Option[PackageName]
+    def packageName: PackageName
 
     def templateId: TypeConName
 
@@ -85,9 +83,7 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class Create(
       coid: ContractId,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       arg: Value,
       agreementText: String = "", // to be removed
@@ -127,9 +123,7 @@ object Node {
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class Fetch(
       coid: ContractId,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       actingParties: Set[Party],
       signatories: Set[Party],
@@ -161,9 +155,7 @@ object Node {
     */
   final case class Exercise(
       targetCoid: ContractId,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
@@ -217,9 +209,7 @@ object Node {
   }
 
   final case class LookupByKey(
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       key: GlobalKeyWithMaintainers,
       result: Option[ContractId],

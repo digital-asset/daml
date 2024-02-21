@@ -82,7 +82,7 @@ class TransactionStreamingQueries(
       )
     case EventIdSourceForInformees.ConsumingNonStakeholder =>
       TransactionStreamingQueries.fetchEventIds(
-        tableName = "pe_consuming_id_filter_non_stakeholder_informee",
+        tableName = "lapi_pe_consuming_id_filter_non_stakeholder_informee",
         witness = informee,
         templateIdO = None,
         startExclusive = startExclusive,
@@ -96,7 +96,7 @@ class TransactionStreamingQueries(
       )
     case EventIdSourceForInformees.CreateNonStakeholder =>
       TransactionStreamingQueries.fetchEventIds(
-        tableName = "pe_create_id_filter_non_stakeholder_informee",
+        tableName = "lapi_pe_create_id_filter_non_stakeholder_informee",
         witness = informee,
         templateIdO = None,
         startExclusive = startExclusive,
@@ -106,7 +106,7 @@ class TransactionStreamingQueries(
       )(connection)
     case EventIdSourceForInformees.NonConsumingInformee =>
       TransactionStreamingQueries.fetchEventIds(
-        tableName = "pe_non_consuming_id_filter_informee",
+        tableName = "lapi_pe_non_consuming_id_filter_informee",
         witness = informee,
         templateIdO = None,
         startExclusive = startExclusive,
@@ -123,14 +123,14 @@ class TransactionStreamingQueries(
     target match {
       case EventPayloadSourceForFlatTx.Consuming =>
         fetchFlatEvents(
-          tableName = "participant_events_consuming_exercise",
+          tableName = "lapi_events_consuming_exercise",
           selectColumns = selectColumnsForFlatTransactionsExercise,
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
         )(connection)
       case EventPayloadSourceForFlatTx.Create =>
         fetchFlatEvents(
-          tableName = "participant_events_create",
+          tableName = "lapi_events_create",
           selectColumns = selectColumnsForFlatTransactionsCreate,
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
@@ -145,7 +145,7 @@ class TransactionStreamingQueries(
     target match {
       case EventPayloadSourceForTreeTx.Consuming =>
         fetchTreeEvents(
-          tableName = "participant_events_consuming_exercise",
+          tableName = "lapi_events_consuming_exercise",
           selectColumns =
             s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
@@ -153,7 +153,7 @@ class TransactionStreamingQueries(
         )(connection)
       case EventPayloadSourceForTreeTx.Create =>
         fetchTreeEvents(
-          tableName = "participant_events_create",
+          tableName = "lapi_events_create",
           selectColumns =
             s"$selectColumnsForTransactionTreeCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
@@ -161,7 +161,7 @@ class TransactionStreamingQueries(
         )(connection)
       case EventPayloadSourceForTreeTx.NonConsuming =>
         fetchTreeEvents(
-          tableName = "participant_events_non_consuming_exercise",
+          tableName = "lapi_events_non_consuming_exercise",
           selectColumns =
             s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
@@ -178,7 +178,7 @@ class TransactionStreamingQueries(
       limit: Int,
   )(connection: Connection): Vector[Long] = {
     TransactionStreamingQueries.fetchEventIds(
-      tableName = "pe_create_id_filter_stakeholder",
+      tableName = "lapi_pe_create_id_filter_stakeholder",
       witness = stakeholder,
       templateIdO = templateIdO,
       startExclusive = startExclusive,
@@ -196,7 +196,7 @@ class TransactionStreamingQueries(
       limit: Int,
   )(connection: Connection): Vector[Long] = {
     TransactionStreamingQueries.fetchEventIds(
-      tableName = "pe_consuming_id_filter_stakeholder",
+      tableName = "lapi_pe_consuming_id_filter_stakeholder",
       witness = stakeholder,
       templateIdO = templateIdO,
       startExclusive = startExclusive,

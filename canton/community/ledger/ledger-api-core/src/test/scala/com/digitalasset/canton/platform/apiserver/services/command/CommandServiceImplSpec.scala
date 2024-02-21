@@ -5,11 +5,12 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.RpcProtoExtractors
-import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
+import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
@@ -31,7 +32,6 @@ import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, t
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
-import com.google.protobuf.empty.Empty
 import com.google.rpc.Code
 import com.google.rpc.status.Status as StatusProto
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
@@ -74,13 +74,13 @@ class CommandServiceImplSpec
         )
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
-        stub.submitAndWaitForTransactionId(request).map { response =>
+        stub.submitAndWaitForUpdateId(request).map { response =>
           verify(submissionTracker).track(
             eqTo(expectedSubmissionKey),
             eqTo(config.NonNegativeFiniteDuration.ofSeconds(1000L)),
             any[TraceContext => Future[Any]],
           )(any[ContextualizedErrorLogger], any[TraceContext])
-          response.transactionId should be("transaction ID")
+          response.updateId should be("transaction ID")
           response.completionOffset shouldBe "offset"
         }
       }
@@ -108,14 +108,14 @@ class CommandServiceImplSpec
         val request = SubmitAndWaitRequest.of(Some(commands))
         stub
           .withDeadline(Deadline.after(3600L, TimeUnit.SECONDS, deadlineTicker))
-          .submitAndWaitForTransactionId(request)
+          .submitAndWaitForUpdateId(request)
           .map { response =>
             verify(submissionTracker).track(
               eqTo(expectedSubmissionKey),
               eqTo(config.NonNegativeFiniteDuration.ofSeconds(3600L)),
               any[TraceContext => Future[Any]],
             )(any[ContextualizedErrorLogger], any[TraceContext])
-            response.transactionId should be("transaction ID")
+            response.updateId should be("transaction ID")
             succeed
           }
       }
@@ -139,7 +139,7 @@ class CommandServiceImplSpec
       deadline
         .call(() => {
           service
-            .submitAndWaitForTransactionId(
+            .submitAndWaitForUpdateId(
               SubmitAndWaitRequest.of(Some(commands.copy(submissionId = submissionId)))
             )(
               LoggingContextWithTrace.ForTesting
@@ -195,7 +195,7 @@ class CommandServiceImplSpec
         service: CommandServiceImpl
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
-        stub.submitAndWaitForTransactionId(request).failed.map {
+        stub.submitAndWaitForUpdateId(request).failed.map {
           case RpcProtoExtractors.Exception(RpcProtoExtractors.Status(Code.DEADLINE_EXCEEDED)) =>
             succeed
           case unexpected => fail(s"Unexpected exception", unexpected)
@@ -231,7 +231,7 @@ class CommandServiceImplSpec
     )
     val commands = someCommands()
     val submissionTracker = mock[SubmissionTracker]
-    val submit = mock[Traced[SubmitRequest] => Future[Empty]]
+    val submit = mock[Traced[SubmitRequest] => Future[SubmitResponse]]
     when(
       submissionTracker.track(
         eqTo(expectedSubmissionKey),
@@ -285,9 +285,9 @@ class CommandServiceImplSpec
 
 object CommandServiceImplSpec {
   private val UnimplementedTransactionServices = new CommandServiceImpl.TransactionServices(
-    getTransactionById = _ => Future.failed(new RuntimeException("This should never be called.")),
-    getFlatTransactionById = _ =>
+    getTransactionTreeById = _ =>
       Future.failed(new RuntimeException("This should never be called.")),
+    getTransactionById = _ => Future.failed(new RuntimeException("This should never be called.")),
   )
 
   private val OkStatus = StatusProto.of(Status.Code.OK.value, "", Seq.empty)
@@ -327,10 +327,9 @@ object CommandServiceImplSpec {
   )
 
   private def someCommands() = Commands(
-    ledgerId = ledgerId.toString,
     commandId = commandId,
     applicationId = applicationId,
-    party = party,
+    actAs = Seq(party),
     commands = Seq(command),
   )
 }

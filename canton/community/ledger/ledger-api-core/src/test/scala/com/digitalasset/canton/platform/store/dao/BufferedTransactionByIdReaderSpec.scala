@@ -104,5 +104,6 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
       events = Vector(null),
       completionDetails = None,
       domainId = None,
+      recordTime = Timestamp.Epoch,
     )
 }

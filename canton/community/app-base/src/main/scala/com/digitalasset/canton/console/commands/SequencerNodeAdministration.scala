@@ -20,9 +20,7 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.PositiveSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TopologyMappingX}
 
-class SequencerXSetupGroup(parent: ConsoleCommandGroup)
-    extends ConsoleCommandGroup.Impl(parent)
-    with InitNodeId {
+class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
 
   @Help.Summary(
     "Download sequencer snapshot at given point in time to bootstrap another sequencer"

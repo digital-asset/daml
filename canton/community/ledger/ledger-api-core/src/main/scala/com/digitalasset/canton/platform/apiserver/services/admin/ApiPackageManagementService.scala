@@ -15,7 +15,7 @@ import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError, Upgrading}
 import com.daml.logging.LoggingContext
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
+import com.digitalasset.canton.ledger.api.domain.{PackageEntry, ParticipantOffset}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
@@ -346,7 +346,7 @@ private[apiserver] object ApiPackageManagementService {
     ): Future[state.SubmissionResult] =
       packagesWrite.uploadPackages(submissionId, dar.all, None).asScala
 
-    override def entries(offset: Option[LedgerOffset.Absolute])(implicit
+    override def entries(offset: Option[ParticipantOffset.Absolute])(implicit
         loggingContext: LoggingContextWithTrace
     ): Source[PackageEntry, ?] =
       packagesIndex.packageEntries(offset)

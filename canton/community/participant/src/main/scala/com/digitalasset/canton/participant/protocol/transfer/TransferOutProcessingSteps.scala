@@ -104,7 +104,7 @@ class TransferOutProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       sourceRecentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -212,18 +212,18 @@ class TransferOutProcessingSteps(
           checked(
             NonEmptyUtil.fromUnsafe(
               validated.recipients.toSeq.map(participant =>
-                NonEmpty(Set, mediator.toRecipient, MemberRecipient(participant))
+                NonEmpty(Set, mediator, MemberRecipient(participant))
               )
             )
           )
         )
       // Each member gets a message sent to itself and to the mediator
       val messages = Seq[(ProtocolMessage, Recipients)](
-        mediatorMessage -> Recipients.cc(mediator.toRecipient),
+        mediatorMessage -> Recipients.cc(mediator),
         viewMessage -> recipientsT,
         rootHashMessage -> rootHashRecipients,
       )
-      TransferSubmission(Batch.of(sourceDomainProtocolVersion.v, messages: _*), rootHash)
+      TransferSubmission(Batch.of(sourceDomainProtocolVersion.v, messages*), rootHash)
     }
   }
 
@@ -305,7 +305,7 @@ class TransferOutProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       sourceSnapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -359,7 +359,7 @@ class TransferOutProcessingSteps(
     * all topology updates up to the declared timestamp as the sequencer's signing key might change.
     * So a malicious participant could fake a time proof and set a timestamp in the future,
     * which breaks causality.
-    * With parallel processing of messages, deadlocks cannot occur as this waiting runs in parallel with
+    * With unbounded parallel processing of messages, deadlocks cannot occur as this waiting runs in parallel with
     * the request tracker, so time progresses on the target domain and eventually reaches the timestamp.
     */
   // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
@@ -386,7 +386,7 @@ class TransferOutProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -502,7 +502,7 @@ class TransferOutProcessingSteps(
       )
     } yield StorePendingDataAndSendResponseAndCreateTimeout(
       entry,
-      responseOpt.map(_ -> Recipients.cc(mediator.toRecipient)).toList,
+      responseOpt.map(_ -> Recipients.cc(mediator)).toList,
       RejectionArgs(
         entry,
         LocalReject.TimeRejects.LocalTimeout.Reject(sourceDomainProtocolVersion.v),
@@ -529,7 +529,7 @@ class TransferOutProcessingSteps(
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, TransferOutResult],
+      resultE: Either[MalformedConfirmationRequestResult, TransferOutResult],
       pendingRequestData: PendingTransferOut,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -558,7 +558,7 @@ class TransferOutProcessingSteps(
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
 
     import scala.util.Either.MergeableEither
-    MergeableEither[MediatorResult](resultE).merge.verdict match {
+    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -713,7 +713,7 @@ class TransferOutProcessingSteps(
       declaredTransferCounter: TransferCounter,
       confirmingStakeholders: Set[LfPartyId],
       rootHash: RootHash,
-  ): Option[MediatorResponse] = {
+  ): Option[ConfirmationResponse] = {
     val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
       contractId -> Some(ActiveContractStore.Active(Some(declaredTransferCounter - 1)))
     )
@@ -734,7 +734,7 @@ class TransferOutProcessingSteps(
             LocalVerdict.protocolVersionRepresentativeFor(sourceDomainProtocolVersion.v)
           )
       val response = checked(
-        MediatorResponse.tryCreate(
+        ConfirmationResponse.tryCreate(
           requestId,
           participantId,
           Some(ViewPosition.root),
@@ -782,7 +782,7 @@ object TransferOutProcessingSteps {
       hostedStakeholders: Set[LfPartyId],
       targetTimeProof: TimeProof,
       transferInExclusivity: Option[CantonTimestamp],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ) extends PendingTransfer
       with PendingRequestData
 

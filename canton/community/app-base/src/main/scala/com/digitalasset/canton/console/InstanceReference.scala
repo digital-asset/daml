@@ -111,7 +111,7 @@ trait InstanceReference
   @Help.Group("Parties")
   def parties: PartiesAdministrationGroupX
 
-  def topology: TopologyAdministrationGroupX
+  def topology: TopologyAdministrationGroup
 
   private lazy val trafficControl_ =
     new TrafficControlAdministrationGroup(
@@ -502,7 +502,7 @@ abstract class ParticipantReference(
   override def parties: ParticipantPartiesAdministrationGroupX
 
   private lazy val topology_ =
-    new TopologyAdministrationGroupX(
+    new TopologyAdministrationGroup(
       this,
       health.status.successOption.map(_.topologyQueue),
       consoleEnvironment,
@@ -511,7 +511,7 @@ abstract class ParticipantReference(
   @Help.Summary("Topology management related commands")
   @Help.Group("Topology")
   @Help.Description("This group contains access to the full set of topology management commands.")
-  override def topology: TopologyAdministrationGroupX = topology_
+  override def topology: TopologyAdministrationGroup = topology_
 
   @Help.Summary("Commands used for development and testing", FeatureFlag.Testing)
   @Help.Group("Testing")
@@ -543,7 +543,7 @@ abstract class ParticipantReference(
     val connected = domains.list_connected().map(_.domainId).toSet
 
     // for every participant
-    consoleEnvironment.participantsX.all
+    consoleEnvironment.participants.all
       .filter(p => p.health.running() && p.health.initialized())
       .foreach { participant =>
         // for every domain this participant is connected to as well
@@ -649,17 +649,17 @@ class LocalParticipantReference(
     with LocalInstanceReference
     with BaseInspection[ParticipantNodeX] {
 
-  override private[console] val nodes = consoleEnvironment.environment.participantsX
+  override private[console] val nodes = consoleEnvironment.environment.participants
 
   @Help.Summary("Return participant config")
   def config: LocalParticipantConfig =
     consoleEnvironment.environment.config.participantsByString(name)
 
   override def runningNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getRunning(name)
+    consoleEnvironment.environment.participants.getRunning(name)
 
   override def startingNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getStarting(name)
+    consoleEnvironment.environment.participants.getStarting(name)
 
   /** secret, not publicly documented way to get the admin token */
   def adminToken: Option[String] = underlying.map(_.adminToken.secret)
@@ -736,7 +736,7 @@ abstract class SequencerNodeReference(
     consoleEnvironment.environment.loggerFactory.append("sequencer", name)
 
   private lazy val topology_ =
-    new TopologyAdministrationGroupX(
+    new TopologyAdministrationGroup(
       this,
       health.status.successOption.map(_.topologyQueue),
       consoleEnvironment,
@@ -747,7 +747,7 @@ abstract class SequencerNodeReference(
 
   def sequencerConnection: GrpcSequencerConnection
 
-  override def topology: TopologyAdministrationGroupX = topology_
+  override def topology: TopologyAdministrationGroup = topology_
 
   private lazy val parties_ = new PartiesAdministrationGroupX(this, consoleEnvironment)
 
@@ -1167,7 +1167,7 @@ class LocalSequencerNodeReference(
       .fold(err => sys.error(s"Sequencer $name has invalid connection config: $err"), identity)
 
   private[console] val nodes: SequencerNodesX[?] =
-    consoleEnvironment.environment.sequencersX
+    consoleEnvironment.environment.sequencers
 
   override protected[console] def runningNode: Option[SequencerNodeBootstrapX] =
     nodes.getRunning(name)
@@ -1234,14 +1234,14 @@ abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, nam
     )
 
   private lazy val topology_ =
-    new TopologyAdministrationGroupX(
+    new TopologyAdministrationGroup(
       this,
       health.status.successOption.map(_.topologyQueue),
       consoleEnvironment,
       loggerFactory,
     )
 
-  override def topology: TopologyAdministrationGroupX = topology_
+  override def topology: TopologyAdministrationGroup = topology_
 
   private lazy val parties_ = new PartiesAdministrationGroupX(this, consoleEnvironment)
 
@@ -1285,7 +1285,7 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
   override def config: MediatorNodeConfigCommon =
     consoleEnvironment.environment.config.mediatorsByString(name)
 
-  private[console] val nodes: MediatorNodesX[?] = consoleEnvironment.environment.mediatorsX
+  private[console] val nodes: MediatorNodesX[?] = consoleEnvironment.environment.mediators
 
   override protected[console] def runningNode: Option[MediatorNodeBootstrapX] =
     nodes.getRunning(name)

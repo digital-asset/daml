@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.PeanoQueue.NotInserted
 import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
@@ -39,16 +39,20 @@ import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   CloseContext,
   FlagCloseableAsync,
+  FutureUnlessShutdown,
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.traffic.TrafficBalanceSubmissionHandler
+import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, OptionUtil, PekkoUtil}
@@ -97,6 +101,8 @@ class BlockSequencer(
 
   override def timeouts: ProcessingTimeout = processingTimeouts
 
+  private val trafficBalanceSubmissionHandler =
+    new TrafficBalanceSubmissionHandler(clock, loggerFactory)
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
@@ -109,7 +115,7 @@ class BlockSequencer(
       protocolVersion,
       cryptoApi,
       topologyClientMember,
-      stateManager.maybeLowerSigningTimestampBound,
+      stateManager.maybeLowerTopologyTimestampBound,
       rateLimitManager,
       orderingTimeFixMode,
       loggerFactory,
@@ -165,22 +171,22 @@ class BlockSequencer(
     case Failure(ex) => noTracingLogger.error("Sequencer flow has failed", ex)
   }
 
-  private object TimestampOfSigningKeyCheck
+  private object TopologyTimestampCheck
 
-  private def ensureTimestampOfSigningKeyPresentForAggregationRuleAndSignatures(
+  private def ensureTopologyTimestampPresentForAggregationRuleAndSignatures(
       submission: SubmissionRequest
-  ): EitherT[Future, SendAsyncError, TimestampOfSigningKeyCheck.type] =
+  ): EitherT[Future, SendAsyncError, TopologyTimestampCheck.type] =
     EitherT.cond[Future](
-      submission.aggregationRule.isEmpty || submission.timestampOfSigningKey.isDefined ||
+      submission.aggregationRule.isEmpty || submission.topologyTimestamp.isDefined ||
         submission.batch.envelopes.forall(_.signatures.isEmpty),
-      TimestampOfSigningKeyCheck,
+      TopologyTimestampCheck,
       SendAsyncError.RequestInvalid(
-        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `timestampOfSigningKey` is not defined. Please set the `timestampOfSigningKey` for the submission."
+        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `topologyTimestamp` is not defined. Please set the `topologyTimestamp` for the submission."
       ): SendAsyncError,
     )
 
   private def validateMaxSequencingTime(
-      _timestampOfSigningKeyCheck: TimestampOfSigningKeyCheck.type,
+      _topologyTimestampCheck: TopologyTimestampCheck.type,
       submission: SubmissionRequest,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     val estimatedSequencingTimestamp = clock.now
@@ -193,13 +199,13 @@ class BlockSequencer(
               s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimatedSequencingTimestamp"
             ),
           )
-          // We can't easily use snapshot(timestampOfSigningKey), because the effective last snapshot transaction
-          // visible in the BlockSequencer can be behind the timestampOfSigningKey and tracking that there's an
+          // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction
+          // visible in the BlockSequencer can be behind the topologyTimestamp and tracking that there's an
           // intermediate topology change is impossible here (will need to communicate with the BlockUpdateGenerator).
-          // If timestampOfSigningKey happens to be ahead of current topology's timestamp we grab the latter
+          // If topologyTimestamp happens to be ahead of current topology's timestamp we grab the latter
           // to prevent a deadlock.
           topologyTimestamp = cryptoApi.approximateTimestamp.min(
-            submission.timestampOfSigningKey.getOrElse(CantonTimestamp.MaxValue)
+            submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
           )
           snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
           domainParameters <- EitherT(
@@ -247,9 +253,9 @@ class BlockSequencer(
     )
 
     for {
-      timestampOfSigningKeyCheck <-
-        ensureTimestampOfSigningKeyPresentForAggregationRuleAndSignatures(submission)
-      _ <- validateMaxSequencingTime(timestampOfSigningKeyCheck, submission)
+      topologyTimestampCheck <-
+        ensureTopologyTimestampPresentForAggregationRuleAndSignatures(submission)
+      _ <- validateMaxSequencingTime(topologyTimestampCheck, submission)
       memberCheck <- EitherT.right[SendAsyncError](
         cryptoApi.currentSnapshotApproximation.ipsSnapshot
           .allMembers()
@@ -480,6 +486,25 @@ class BlockSequencer(
         parameters,
       )
     }
+  }
+
+  override def setTrafficBalance(
+      member: Member,
+      serial: NonNegativeLong,
+      totalTrafficBalance: NonNegativeLong,
+      sequencerClient: SequencerClient,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
+    trafficBalanceSubmissionHandler.sendTrafficBalanceRequest(
+      member,
+      domainId,
+      protocolVersion,
+      serial,
+      totalTrafficBalance,
+      sequencerClient,
+      cryptoApi,
+    )
   }
 
   override def trafficStatus(requestedMembers: Seq[Member])(implicit

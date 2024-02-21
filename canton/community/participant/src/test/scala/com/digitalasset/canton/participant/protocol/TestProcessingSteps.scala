@@ -17,6 +17,7 @@ import com.digitalasset.canton.data.{
   ViewTree,
   ViewTypeTest,
 }
+import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
@@ -57,13 +58,8 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.SessionKeyStore
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  DomainId,
-  MediatorRef,
-  Member,
-  ParticipantId,
-}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, RequestCounter, SequencerCounter}
@@ -132,9 +128,10 @@ class TestProcessingSteps(
     .decisionTimeFor(requestTs)
     .leftMap(err => TestProcessorError(DomainParametersError(parameters.domainId, err)))
 
-  override def getSubmissionDataForTracker(
+  override def getSubmitterInformation(
       views: Seq[DecryptedView]
-  ): Option[SubmissionTracker.SubmissionData] = submissionDataForTrackerO
+  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) =
+    (None, submissionDataForTrackerO)
 
   override def participantResponseDeadlineFor(
       parameters: DynamicDomainParametersWithValidity,
@@ -145,7 +142,7 @@ class TestProcessingSteps(
 
   override def prepareSubmission(
       param: Int,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -227,7 +224,7 @@ class TestProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TestProcessingError, CheckActivenessAndWritePendingContracts] = {
@@ -239,7 +236,7 @@ class TestProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -265,14 +262,16 @@ class TestProcessingSteps(
       ],
   )(implicit
       traceContext: com.digitalasset.canton.tracing.TraceContext
-  ): Seq[com.digitalasset.canton.protocol.messages.MediatorResponse] = Seq.empty
+  ): Seq[com.digitalasset.canton.protocol.messages.ConfirmationResponse] = Seq.empty
 
-  override def eventAndSubmissionIdForInactiveMediator(
+  override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
       rc: RequestCounter,
       sc: SequencerCounter,
-      fullViews: NonEmpty[Seq[WithRecipients[DecryptedView]]],
+      submitterMetadata: ViewSubmitterMetadata,
+      rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
+      error: TransactionError,
   )(implicit traceContext: TraceContext): (Option[TimestampedEvent], Option[PendingSubmissionId]) =
     (None, None)
 
@@ -286,7 +285,7 @@ class TestProcessingSteps(
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, TransactionResultMessage],
+      resultE: Either[MalformedConfirmationRequestResult, TransactionResultMessage],
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -297,9 +296,8 @@ class TestProcessingSteps(
     EitherT.pure[Future, TestProcessingError](result)
   }
 
-  override def postProcessSubmissionForInactiveMediator(
-      declaredMediator: MediatorRef,
-      timestamp: CantonTimestamp,
+  override def postProcessSubmissionRejectedCommand(
+      error: TransactionError,
       pendingSubmission: Unit,
   )(implicit traceContext: TraceContext): Unit = ()
 
@@ -323,7 +321,7 @@ object TestProcessingSteps {
       informees: Set[Informee] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
       domainId: DomainId = DefaultTestIdentities.domainId,
-      mediator: MediatorRef = MediatorRef(DefaultTestIdentities.mediator),
+      mediator: MediatorsOfDomain = MediatorsOfDomain(MediatorGroupIndex.zero),
   ) extends ViewTree
       with HasVersionedToByteString {
 
@@ -345,7 +343,7 @@ object TestProcessingSteps {
   final case class TestPendingRequestData(
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ) extends PendingRequestData
 
   case object TestPendingRequestDataType extends RequestType {

@@ -186,7 +186,17 @@ private[platform] object InMemoryStateUpdater {
     updates.view
       .collect {
         case Traced(
-              TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, Some(completionDetails), _)
+              TransactionLogUpdate.TransactionAccepted(
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                Some(completionDetails),
+                _,
+                _,
+              )
             ) =>
           completionDetails.completionStreamResponse -> completionDetails.submitters
         case Traced(rejected: TransactionLogUpdate.TransactionRejected) =>
@@ -237,6 +247,7 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Created(
               contractId = createdEvent.contractId,
               contract = Contract(
+                packageName = createdEvent.packageName,
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
               ),
@@ -297,6 +308,7 @@ private[platform] object InMemoryStateUpdater {
           contractId = create.coid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
+          packageName = create.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
@@ -378,6 +390,7 @@ private[platform] object InMemoryStateUpdater {
       events = events.toVector,
       completionDetails = completionDetails,
       domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
+      recordTime = txAccepted.recordTime,
     )
   }
 
@@ -447,6 +460,7 @@ private[platform] object InMemoryStateUpdater {
       commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
       workflowId = u.workflowId.getOrElse(""),
       offset = offset,
+      recordTime = u.recordTime,
       completionDetails = completionDetails,
       reassignmentInfo = u.reassignmentInfo,
       reassignment = u.reassignment match {
@@ -462,6 +476,7 @@ private[platform] object InMemoryStateUpdater {
               contractId = create.coid,
               ledgerEffectiveTime = assign.ledgerEffectiveTime,
               templateId = create.templateId,
+              packageName = create.packageName,
               commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
               workflowId = u.workflowId.getOrElse(""),
               contractKey =

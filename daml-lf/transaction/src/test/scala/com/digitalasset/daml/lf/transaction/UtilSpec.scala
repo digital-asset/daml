@@ -18,9 +18,9 @@ class UtilSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
       forAll(valueGen(), transactionVersionGen()) { (v, version) =>
         val reference = for {
           encoded <-
-            ValueCoder.encodeValue(ValueCoder.CidEncoder, version, v).left.map(_ => ())
+            ValueCoder.encodeValue(valueVersion = version, v0 = v).left.map(_ => ())
           decoded <-
-            ValueCoder.decodeValue(ValueCoder.CidDecoder, version, encoded).left.map(_ => ())
+            ValueCoder.decodeValue(version = version, bytes = encoded).left.map(_ => ())
         } yield decoded
 
         Util.normalizeValue(v, version).left.map(_ => ()) shouldBe reference

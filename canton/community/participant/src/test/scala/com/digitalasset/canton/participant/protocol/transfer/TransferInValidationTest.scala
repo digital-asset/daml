@@ -14,7 +14,9 @@ import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
@@ -31,15 +33,11 @@ class TransferInValidationTest
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private val sourceMediator = MediatorId(
-    UniqueIdentifier.tryFromProtoPrimitive("mediator::source")
-  )
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private val targetMediator = MediatorId(
-    UniqueIdentifier.tryFromProtoPrimitive("mediator::target")
-  )
+  private val targetMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(200))
 
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
@@ -66,7 +64,7 @@ class TransferInValidationTest
     )
   }
 
-  private val identityFactory = TestingTopology()
+  private val identityFactory = TestingTopologyX()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
@@ -79,7 +77,7 @@ class TransferInValidationTest
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val pureCrypto = TestingIdentityFactoryX.pureCrypto()
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
@@ -135,7 +133,7 @@ class TransferInValidationTest
       contract,
       transferId.sourceDomain,
       SourceProtocolVersion(testedProtocolVersion),
-      MediatorRef(sourceMediator),
+      sourceMediator,
       targetDomain,
       TargetProtocolVersion(testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
@@ -308,7 +306,7 @@ class TransferInValidationTest
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorId,
+      targetMediator: MediatorsOfDomain,
       transferOutResult: DeliveredTransferOutResult,
       uuid: UUID = new UUID(4L, 5L),
       transferCounter: TransferCounterO = initialTransferCounter,
@@ -324,7 +322,7 @@ class TransferInValidationTest
         transferCounter,
         creatingTransactionId,
         targetDomain,
-        MediatorRef(targetMediator),
+        targetMediator,
         transferOutResult,
         uuid,
         SourceProtocolVersion(testedProtocolVersion),

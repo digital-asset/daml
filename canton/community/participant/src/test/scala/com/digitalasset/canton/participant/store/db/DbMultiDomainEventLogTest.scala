@@ -19,7 +19,7 @@ import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.{DbStorage, IdempotentInsert}
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.TestingIdentityFactory
+import com.digitalasset.canton.topology.TestingIdentityFactoryX
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import slick.dbio.DBIOAction
@@ -53,7 +53,7 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
         storage,
         targetDomainId,
         TargetProtocolVersion(testedProtocolVersion),
-        TestingIdentityFactory.pureCrypto(),
+        TestingIdentityFactoryX.pureCrypto(),
         futureSupervisor,
         timeouts,
         loggerFactory,

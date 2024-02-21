@@ -156,7 +156,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         isRequest = false,
         Batch.empty(testedProtocolVersion),
         maxSequencingTime = CantonTimestamp.MaxValue,
-        timestampOfSigningKey = None,
+        topologyTimestamp = None,
         aggregationRule = None,
         testedProtocolVersion,
       )

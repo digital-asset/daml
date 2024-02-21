@@ -227,6 +227,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           createNode(unsuffixedId(0), contractInstance = veryDeepContractInstance),
           LfNodeExercises(
             targetCoid = suffixedId(2, -1),
+            packageName = packageName,
             templateId = templateId,
             interfaceId = None,
             choiceId = LfChoiceName.assertFromString("choice"),

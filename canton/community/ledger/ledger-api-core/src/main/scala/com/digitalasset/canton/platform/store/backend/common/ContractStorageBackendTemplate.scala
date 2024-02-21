@@ -42,8 +42,8 @@ class ContractStorageBackendTemplate(
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
          WITH last_contract_key_create AS (
-                SELECT participant_events_create.*
-                  FROM participant_events_create
+                SELECT lapi_events_create.*
+                  FROM lapi_events_create
                  WHERE create_key_hash = ${key.hash}
                    AND event_offset <= $validAt
                  ORDER BY event_sequential_id DESC
@@ -53,7 +53,7 @@ class ContractStorageBackendTemplate(
            FROM last_contract_key_create
          WHERE NOT EXISTS
                 (SELECT 1
-                   FROM participant_events_consuming_exercise
+                   FROM lapi_events_consuming_exercise
                   WHERE
                     contract_id = last_contract_key_create.contract_id
                     AND event_offset <= $validAt
@@ -80,7 +80,7 @@ class ContractStorageBackendTemplate(
       import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
       SQL"""
        SELECT contract_id, flat_event_witnesses
-       FROM participant_events_consuming_exercise
+       FROM lapi_events_consuming_exercise
        WHERE
          contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
          AND event_offset <= $before"""
@@ -92,6 +92,7 @@ class ContractStorageBackendTemplate(
       : RowParser[(ContractId, ContractStorageBackend.RawCreatedContract)] =
     (str("contract_id")
       ~ int("template_id")
+      ~ int("package_name")
       ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?
@@ -103,9 +104,10 @@ class ContractStorageBackendTemplate(
       ~ array[Int]("create_key_maintainers").?
       ~ byteArray("driver_metadata").?)
       .map {
-        case coid ~ internalTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ agreementText ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
+        case coid ~ internedTemplateId ~ internedPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ agreementText ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
           ContractId.assertFromString(coid) -> RawCreatedContract(
-            templateId = stringInterning.templateId.unsafe.externalize(internalTemplateId),
+            templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
+            packageName = stringInterning.packageName.unsafe.externalize(internedPackageName),
             flatEventWitnesses =
               flatEventWitnesses.view.map(stringInterning.party.externalize).toSet,
             createArgument = createArgument,
@@ -131,6 +133,7 @@ class ContractStorageBackendTemplate(
          SELECT
            contract_id,
            template_id,
+           package_name,
            flat_event_witnesses,
            create_argument,
            create_argument_compression,
@@ -141,7 +144,7 @@ class ContractStorageBackendTemplate(
            create_key_value_compression,
            create_key_maintainers,
            driver_metadata
-         FROM participant_events_create
+         FROM lapi_events_create
          WHERE
            contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
            AND event_offset <= $before"""
@@ -159,7 +162,7 @@ class ContractStorageBackendTemplate(
       SQL"""
          WITH min_event_sequential_ids_of_assign AS (
              SELECT MIN(event_sequential_id) min_event_sequential_id
-             FROM participant_events_assign
+             FROM lapi_events_assign
              WHERE
                contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
                AND event_offset <= $ledgerEndOffset
@@ -168,6 +171,7 @@ class ContractStorageBackendTemplate(
          SELECT
            contract_id,
            template_id,
+           package_name,
            flat_event_witnesses,
            create_argument,
            create_argument_compression,
@@ -178,7 +182,7 @@ class ContractStorageBackendTemplate(
            create_key_value_compression,
            create_key_maintainers,
            driver_metadata
-         FROM participant_events_assign, min_event_sequential_ids_of_assign
+         FROM lapi_events_assign, min_event_sequential_ids_of_assign
          WHERE
            event_sequential_id = min_event_sequential_ids_of_assign.min_event_sequential_id"""
         .as(rawCreatedContractRowParser.*)(connection)

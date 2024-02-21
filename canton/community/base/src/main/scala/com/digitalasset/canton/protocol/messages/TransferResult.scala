@@ -9,7 +9,6 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.TransferDomainId.TransferDomainIdCast
@@ -31,12 +30,11 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Mediator result for a transfer request
+/** Confirmation request result for a transfer request
   *
   * @param requestId timestamp of the corresponding [[TransferOutRequest]] on the source domain
   */
-@SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class TransferResult[+Domain <: TransferDomainId] private (
+final case class TransferResult[+Domain <: TransferDomainId] private (
     override val requestId: RequestId,
     informees: Set[LfPartyId],
     domain: Domain, // For transfer-out, this is the source domain. For transfer-in, this is the target domain.
@@ -44,7 +42,7 @@ case class TransferResult[+Domain <: TransferDomainId] private (
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[TransferResult.type],
     override val deserializedFrom: Option[ByteString],
-) extends RegularMediatorResult
+) extends RegularConfirmationResult
     with HasProtocolVersionedWrapper[TransferResult[TransferDomainId]]
     with PrettyPrinting {
 
@@ -77,8 +75,6 @@ case class TransferResult[+Domain <: TransferDomainId] private (
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
-
-  override def hashPurpose: HashPurpose = HashPurpose.TransferResultSignature
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[TransferResult] def traverse[F[_], Domain2 <: TransferDomainId](

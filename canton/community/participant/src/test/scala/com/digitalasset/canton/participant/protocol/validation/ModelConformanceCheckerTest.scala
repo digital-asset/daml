@@ -26,8 +26,8 @@ import com.digitalasset.canton.participant.store.ContractLookup
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{lfHash, submittingParticipant}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.VettedPackages
-import com.digitalasset.canton.topology.{TestingIdentityFactory, TestingTopology}
+import com.digitalasset.canton.topology.transaction.VettedPackagesX
+import com.digitalasset.canton.topology.{TestingIdentityFactoryX, TestingTopologyX}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, LfCommand, LfKeyResolver, LfPartyId, RequestCounter}
@@ -338,7 +338,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         testVettingError(
           NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
           // The package is not vetted for signatoryParticipant
-          vettings = Seq(VettedPackages(submittingParticipant, Seq(packageId))),
+          vettings = Seq(VettedPackagesX(submittingParticipant, None, Seq(packageId))),
           packageDependenciesLookup = _ => EitherT.rightT(Set()),
           expectedError = UnvettedPackages(Map(signatoryParticipant -> Set(packageId))),
         )
@@ -375,7 +375,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
     def testVettingError(
         rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
-        vettings: Seq[VettedPackages],
+        vettings: Seq[VettedPackagesX],
         packageDependenciesLookup: PackageId => EitherT[Future, PackageId, Set[PackageId]],
         expectedError: UnvettedPackages,
     ): Future[Assertion] = {
@@ -391,10 +391,10 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         loggerFactory,
       )
 
-      val snapshot = TestingIdentityFactory(
-        TestingTopology(
+      val snapshot = TestingIdentityFactoryX(
+        TestingTopologyX(
         ).withTopology(Map(submitter -> submittingParticipant, observer -> signatoryParticipant))
-          .withPackages(vettings),
+          .withPackages(vettings.map(vetting => vetting.participantId -> vetting.packageIds).toMap),
         loggerFactory,
         TestDomainParameters.defaultDynamic,
       ).topologySnapshot(packageDependencies = packageDependenciesLookup)
@@ -416,8 +416,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         testVettingError(
           NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
           vettings = Seq(
-            VettedPackages(submittingParticipant, Seq(packageId)),
-            VettedPackages(signatoryParticipant, Seq(packageId)),
+            VettedPackagesX(submittingParticipant, None, Seq(packageId)),
+            VettedPackagesX(signatoryParticipant, None, Seq(packageId)),
           ),
           // Submitter participant is unable to lookup dependencies.
           // Therefore, the validation concludes that the package is not in the store

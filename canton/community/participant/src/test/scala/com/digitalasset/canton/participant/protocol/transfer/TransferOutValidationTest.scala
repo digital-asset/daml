@@ -14,10 +14,11 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   TransferProcessorError,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.Recipients
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, Recipients}
 import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.transaction.{ParticipantPermission, VettedPackages}
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -30,9 +31,7 @@ class TransferOutValidationTest
   private val sourceDomain = SourceDomainId(
     DomainId.tryFromString("domain::source")
   )
-  private val sourceMediator = MediatorId(
-    UniqueIdentifier.tryFromProtoPrimitive("mediator::source")
-  )
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
@@ -63,7 +62,7 @@ class TransferOutValidationTest
 
   val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
   val uuid = new UUID(3L, 4L)
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val pureCrypto = TestingIdentityFactoryX.pureCrypto()
   private val seedGenerator = new SeedGenerator(pureCrypto)
   val seed = seedGenerator.generateSaltSeed()
 
@@ -83,7 +82,7 @@ class TransferOutValidationTest
     ),
   )
 
-  private val identityFactory = TestingTopology()
+  private val identityFactory = TestingTopologyX()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(
@@ -95,7 +94,7 @@ class TransferOutValidationTest
     )
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .withPackages(
-      Seq(VettedPackages(participant, Seq(templateId.packageId, wrongTemplateId.packageId)))
+      Map(participant -> Seq(templateId.packageId, wrongTemplateId.packageId))
     )
     .build(loggerFactory)
 
@@ -163,7 +162,7 @@ class TransferOutValidationTest
       contract,
       transferId.sourceDomain,
       sourceProtocolVersion,
-      MediatorRef(sourceMediator),
+      sourceMediator,
       targetDomain,
       targetPV,
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),

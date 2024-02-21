@@ -21,8 +21,8 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.admin.v30.{
   ListPartyHostingLimitsRequest,
   ListPartyHostingLimitsResponse,
-  ListPurgeTopologyTransactionXRequest,
-  ListPurgeTopologyTransactionXResponse,
+  ListPurgeTopologyTransactionRequest,
+  ListPurgeTopologyTransactionResponse,
   ListTrafficStateRequest,
   ListTrafficStateResponse,
 }
@@ -32,7 +32,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.Generi
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,
-  TimeQueryX,
+  TimeQuery,
   TopologyStoreId,
   TopologyStoreX,
 }
@@ -67,7 +67,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final case class BaseQueryX(
     filterStore: Option[TopologyStore],
     proposals: Boolean,
-    timeQuery: TimeQueryX,
+    timeQuery: TimeQuery,
     ops: Option[TopologyChangeOpX],
     filterSigningKey: String,
     protocolVersion: Option[ProtocolVersion],
@@ -88,7 +88,7 @@ object BaseQueryX {
   def apply(
       filterStore: String,
       proposals: Boolean,
-      timeQuery: TimeQueryX,
+      timeQuery: TimeQuery,
       ops: Option[TopologyChangeOpX],
       filterSigningKey: String,
       protocolVersion: Option[ProtocolVersion],
@@ -107,7 +107,7 @@ object BaseQueryX {
       baseQuery <- ProtoConverter.required("base_query", value)
       proposals = baseQuery.proposals
       filterSignedKey = baseQuery.filterSignedKey
-      timeQuery <- TimeQueryX.fromProto(baseQuery.timeQuery, "time_query")
+      timeQuery <- TimeQuery.fromProto(baseQuery.timeQuery, "time_query")
       opsRaw <- TopologyChangeOpX.fromProtoV30(baseQuery.operation)
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitiveS)
       filterStore <- baseQuery.filterStore.traverse(TopologyStore.fromProto(_, "filter_store"))
@@ -162,12 +162,12 @@ object TopologyStore {
   }
 }
 
-class GrpcTopologyManagerReadServiceX(
+class GrpcTopologyManagerReadService(
     stores: => Seq[TopologyStoreX[TopologyStoreId]],
     crypto: Crypto,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends adminProto.TopologyManagerReadXServiceGrpc.TopologyManagerReadXService
+    extends adminProto.TopologyManagerReadServiceGrpc.TopologyManagerReadService
     with NamedLogging {
 
   private case class TransactionSearchResult(
@@ -687,9 +687,9 @@ class GrpcTopologyManagerReadServiceX(
     CantonGrpcUtil.mapErrNew(res)
   }
 
-  override def listPurgeTopologyTransactionX(
-      request: ListPurgeTopologyTransactionXRequest
-  ): Future[ListPurgeTopologyTransactionXResponse] = {
+  override def listPurgeTopologyTransaction(
+      request: ListPurgeTopologyTransactionRequest
+  ): Future[ListPurgeTopologyTransactionResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -701,13 +701,13 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: PurgeTopologyTransactionX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListPurgeTopologyTransactionXResponse.Result(
+          new adminProto.ListPurgeTopologyTransactionResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListPurgeTopologyTransactionXResponse(results = results)
+      adminProto.ListPurgeTopologyTransactionResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }

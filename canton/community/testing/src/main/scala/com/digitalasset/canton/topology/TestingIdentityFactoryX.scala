@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
@@ -60,7 +61,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   * Now, in order to conveniently create a static topology for testing, we provide a
   * <ul>
   *   <li>[[TestingTopologyX]] which allows us to define a certain static topology</li>
-  *   <li>[[TestingIdentityFactory]] which consumes a static topology and delivers all necessary components and
+  *   <li>[[TestingIdentityFactoryX]] which consumes a static topology and delivers all necessary components and
   *       objects that a unit test might need.</li>
   *   <li>[[DefaultTestIdentities]] which provides a predefined set of identities that can be used for unit tests.</li>
   * </ul>
@@ -86,13 +87,13 @@ final case class TestingTopologyX(
     mediatorGroups: Set[MediatorGroup] = Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        Seq(DefaultTestIdentities.mediatorIdX),
+        NonEmpty.mk(Seq, DefaultTestIdentities.mediatorIdX),
         Seq(),
         PositiveInt.one,
       )
     ),
     sequencerGroup: SequencerGroup = SequencerGroup(
-      active = Seq(DefaultTestIdentities.sequencerIdX),
+      active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerIdX),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     ),
@@ -197,6 +198,7 @@ final case class TestingTopologyX(
     new TestingIdentityFactoryX(this, loggerFactory, domainParameters)
 }
 
+// TODO(#15161): merge with base trait
 class TestingIdentityFactoryX(
     topology: TestingTopologyX,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -231,7 +233,7 @@ class TestingIdentityFactoryX(
     val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
 
     val domainMembers =
-      (topology.sequencerGroup.active ++ topology.sequencerGroup.passive ++ topology.mediators.toSeq)
+      (topology.sequencerGroup.active.forgetNE ++ topology.sequencerGroup.passive ++ topology.mediators)
         .flatMap(m => genKeyCollection(m))
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
@@ -254,10 +256,10 @@ class TestingIdentityFactoryX(
           .create(
             domainId,
             threshold = topology.sequencerGroup.threshold,
-            active = topology.sequencerGroup.active,
+            active = topology.sequencerGroup.active.forgetNE,
             observers = topology.sequencerGroup.passive,
           )
-          .getOrElse(sys.error("creating SequencerDomainStateX should not have failed"))
+          .valueOr(err => sys.error(s"creating SequencerDomainStateX should not have failed: $err"))
       )
 
     val partyDataTx = partyToParticipantTxs()
@@ -364,7 +366,7 @@ class TestingIdentityFactoryX(
             None,
             threshold = PositiveInt.one,
             participantsForParty.map { case (id, permission) =>
-              HostingParticipant(id, permission.tryToX)
+              HostingParticipant(id, permission)
             }.toSeq,
             groupAddressing = false,
           )
@@ -403,7 +405,7 @@ class TestingIdentityFactoryX(
         ParticipantDomainPermissionX(
           domainId,
           participantId,
-          attributes.permission.tryToX,
+          attributes.permission,
           limits = None,
           loginAfter = None,
         )
@@ -454,7 +456,7 @@ class TestingOwnerWithKeysX(
     initEc: ExecutionContext,
 ) extends NoTracing {
 
-  val cryptoApi = TestingIdentityFactory(loggerFactory).forOwnerAndDomain(keyOwner)
+  val cryptoApi = TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(keyOwner)
 
   object SigningKeys {
 
@@ -518,7 +520,7 @@ class TestingOwnerWithKeysX(
       DomainParametersStateX(
         DomainId(uid),
         defaultDomainParameters
-          .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
+          .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
       ),
       namespaceKey,
     )
@@ -527,7 +529,7 @@ class TestingOwnerWithKeysX(
         DomainId(uid),
         defaultDomainParameters
           .tryUpdate(
-            participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
+            confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
             topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(100),
           ),
       ),
@@ -569,7 +571,7 @@ class TestingOwnerWithKeysX(
       ParticipantDomainPermissionX(
         domainId,
         participant1,
-        ParticipantPermissionX.Observation,
+        ParticipantPermission.Observation,
         None,
         None,
       )
@@ -579,9 +581,19 @@ class TestingOwnerWithKeysX(
       ParticipantDomainPermissionX(
         domainId,
         participant2,
-        ParticipantPermissionX.Confirmation,
+        ParticipantPermission.Confirmation,
         None,
         None,
+      )
+    )
+
+    val p1p1 = mkAdd(
+      PartyToParticipantX(
+        PartyId(UniqueIdentifier(Identifier.tryCreate("one"), Namespace(key1.id))),
+        None,
+        PositiveInt.one,
+        Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
+        groupAddressing = false,
       )
     )
 

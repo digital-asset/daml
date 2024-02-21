@@ -41,15 +41,16 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
+import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
   Submission,
 }
-import com.digitalasset.canton.topology.transaction.{ParticipantPermission, VettedPackages}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -85,9 +86,7 @@ final class TransferOutProcessingStepsTest
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
   )
-  private val sourceMediator = MediatorRef(
-    MediatorId(UniqueIdentifier.tryFromProtoPrimitive("source::mediator"))
-  )
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
   )
@@ -125,15 +124,18 @@ final class TransferOutProcessingStepsTest
 
   private val adminSubmitter: LfPartyId = submittingParticipant.adminParty.toLf
 
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(submittingParticipant)
 
   private val multiDomainEventLog = mock[MultiDomainEventLog]
+  private val clock = new WallClock(timeouts, loggerFactory)
   private val persistentState =
-    new InMemorySyncDomainPersistentStateOld(
+    new InMemorySyncDomainPersistentStateX(
+      clock,
+      crypto,
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
       testedProtocolVersion,
-      pureCrypto,
       enableAdditionalConsistencyChecks = true,
+      enableTopologyTransactionValidation = false,
       loggerFactory,
       timeouts,
       futureSupervisor,
@@ -169,12 +171,6 @@ final class TransferOutProcessingStepsTest
       .withPackages(packages)
       .build(loggerFactory)
 
-  private def vet(
-      participants: Iterable[ParticipantId],
-      packages: Seq[LfPackageId],
-  ): Seq[VettedPackages] =
-    participants.view.map(VettedPackages(_, packages)).toSeq
-
   private def createTestingTopologySnapshot(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
       packages: Map[ParticipantId, Seq[LfPackageId]] = Map.empty,
@@ -206,7 +202,7 @@ final class TransferOutProcessingStepsTest
 
   private val cryptoSnapshot = createCryptoSnapshot()
 
-  private val seedGenerator = new SeedGenerator(pureCrypto)
+  private val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private def createTransferCoordination(
       cryptoSnapshot: DomainSnapshotSyncCryptoApi = cryptoSnapshot
@@ -685,7 +681,7 @@ final class TransferOutProcessingStepsTest
             NonEmptyUtil.fromUnsafe(decrypted.views),
             Seq.empty,
             cryptoSnapshot,
-            MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+            MediatorsOfDomain(MediatorGroupIndex.one),
           )
         )("compute activeness set failed")
       } yield {
@@ -841,7 +837,7 @@ final class TransferOutProcessingStepsTest
           Set(party1),
           timeEvent,
           Some(transferInExclusivity),
-          MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+          MediatorsOfDomain(MediatorGroupIndex.one),
         )
         _ <- valueOrFail(
           outProcessingSteps
@@ -850,7 +846,7 @@ final class TransferOutProcessingStepsTest
               Right(transferResult),
               pendingOut,
               state.pendingTransferOutSubmissions,
-              pureCrypto,
+              crypto.pureCrypto,
             )
         )("get commit set and contract to be stored and event")
       } yield succeed
@@ -862,7 +858,7 @@ final class TransferOutProcessingStepsTest
       uuid: UUID = new UUID(6L, 7L),
   ): FullTransferOutTree = {
     val seed = seedGenerator.generateSaltSeed()
-    request.toFullTransferOutTree(pureCrypto, pureCrypto, seed, uuid)
+    request.toFullTransferOutTree(crypto.pureCrypto, crypto.pureCrypto, seed, uuid)
   }
 
   def encryptTransferOutTree(

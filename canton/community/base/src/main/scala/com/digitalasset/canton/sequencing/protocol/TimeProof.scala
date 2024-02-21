@@ -139,6 +139,8 @@ object TimeProof {
       // so instead we just use the maximum value allowed.
       maxSequencingTime = CantonTimestamp.MaxValue,
       messageId = mkTimeProofRequestMessageId,
+      // Do not amplify because max sequencing time is set to MaxValue and therefore will exceed the aggregation time bound
+      amplify = false,
     )
 
   /** Use a constant prefix for a message which would permit the sequencer to track how many

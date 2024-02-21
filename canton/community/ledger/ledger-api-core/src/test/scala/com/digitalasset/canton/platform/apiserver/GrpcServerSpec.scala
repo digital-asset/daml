@@ -3,11 +3,13 @@
 
 package com.digitalasset.canton.platform.apiserver
 
+import com.daml.error.{DamlError, ErrorGenerator}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v0.Hello
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.client.GrpcChannel
@@ -30,6 +32,8 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
 }
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.{BindableService, ManagedChannel, ServerInterceptor, StatusRuntimeException}
+import org.scalacheck.Gen
+import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.Executors
@@ -41,6 +45,7 @@ final class GrpcServerSpec
     with TestResourceContext
     with HasExecutionContext
     with MetricValues {
+
   "a GRPC server" should {
     "handle a request to a valid service" in {
       resources(loggerFactory).use { channel =>
@@ -102,6 +107,33 @@ final class GrpcServerSpec
       }
     }
 
+    "fuzzy ensure non-security sensitive errors are forwarded gracefully" in {
+      val checkerValue = "Sentinel error"
+      val nonSecuritySensitiveErrorGen =
+        ErrorGenerator
+          .errorGenerator(
+            securitySensitive = Some(false),
+            // Only generate errors that have a grpc code / meant to be sent over the wire
+            additionalErrorCategoryFilter = _.grpcCode.isDefined,
+          )
+          .map(err => err.copy(cause = s"$checkerValue - ${err.cause}"))
+
+      fuzzTestErrorCodePropagation(
+        errorCodeGen = nonSecuritySensitiveErrorGen,
+        expectedIncludedMessage = checkerValue,
+      )
+    }
+
+    "fuzzy ensure security sensitive errors are forwarded gracefully" in {
+      val securitySensitiveErrorGen = ErrorGenerator.errorGenerator(securitySensitive = Some(true))
+
+      fuzzTestErrorCodePropagation(
+        errorCodeGen = securitySensitiveErrorGen,
+        expectedIncludedMessage =
+          "An error occurred. Please contact the operator and inquire about the request",
+      )
+    }
+
     "install rate limit interceptor" in {
       val metricsFactory = new InMemoryMetricsFactory
       val metrics = new Metrics(MetricName("test"), metricsFactory)
@@ -132,6 +164,31 @@ final class GrpcServerSpec
       }
     }
 
+  }
+
+  private def fuzzTestErrorCodePropagation(
+      errorCodeGen: Gen[DamlError],
+      expectedIncludedMessage: String,
+  ): Future[Assertion] = {
+    val numberOfIterations = 100
+
+    val randomExceptionGeneratingService = new HelloServiceReferenceImplementation {
+      override def hello(request: Hello.Request): Future[Hello.Response] =
+        Future.failed(errorCodeGen.sample.value.asGrpcError)
+    }
+
+    resources(loggerFactory, helloService = _ => randomExceptionGeneratingService).use { channel =>
+      val helloService = v0.HelloServiceGrpc.stub(channel)
+      for (_ <- 1 to numberOfIterations) {
+        val f = for {
+          exception <- helloService.hello(Hello.Request("not relevant")).failed
+        } yield {
+          exception.getMessage should include(expectedIncludedMessage)
+        }
+        f.futureValue
+      }
+      succeed
+    }
   }
 }
 

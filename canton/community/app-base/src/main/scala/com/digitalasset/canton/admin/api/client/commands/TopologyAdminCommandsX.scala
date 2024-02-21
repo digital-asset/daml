@@ -17,8 +17,8 @@ import com.digitalasset.canton.topology.admin.grpc.BaseQueryX
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{Proposal, TransactionHash}
 import com.digitalasset.canton.topology.admin.v30.IdentityInitializationXServiceGrpc.IdentityInitializationXServiceStub
-import com.digitalasset.canton.topology.admin.v30.TopologyManagerReadXServiceGrpc.TopologyManagerReadXServiceStub
-import com.digitalasset.canton.topology.admin.v30.TopologyManagerWriteXServiceGrpc.TopologyManagerWriteXServiceStub
+import com.digitalasset.canton.topology.admin.v30.TopologyManagerReadServiceGrpc.TopologyManagerReadServiceStub
+import com.digitalasset.canton.topology.admin.v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteServiceStub
 import com.digitalasset.canton.topology.admin.v30.{
   AddTransactionsRequest,
   AddTransactionsResponse,
@@ -47,9 +47,9 @@ object TopologyAdminCommandsX {
   object Read {
 
     abstract class BaseCommand[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
-      override type Svc = TopologyManagerReadXServiceStub
-      override def createService(channel: ManagedChannel): TopologyManagerReadXServiceStub =
-        v30.TopologyManagerReadXServiceGrpc.stub(channel)
+      override type Svc = TopologyManagerReadServiceStub
+      override def createService(channel: ManagedChannel): TopologyManagerReadServiceStub =
+        v30.TopologyManagerReadServiceGrpc.stub(channel)
 
       //  command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -74,7 +74,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListTrafficStateRequest,
       ): Future[v30.ListTrafficStateResponse] =
         service.listTrafficState(request)
@@ -107,7 +107,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListNamespaceDelegationRequest,
       ): Future[v30.ListNamespaceDelegationResponse] =
         service.listNamespaceDelegation(request)
@@ -137,7 +137,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListDecentralizedNamespaceDefinitionRequest,
       ): Future[v30.ListDecentralizedNamespaceDefinitionResponse] =
         service.listDecentralizedNamespaceDefinition(request)
@@ -170,7 +170,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListIdentifierDelegationRequest,
       ): Future[v30.ListIdentifierDelegationResponse] =
         service.listIdentifierDelegation(request)
@@ -199,7 +199,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListOwnerToKeyMappingRequest,
       ): Future[v30.ListOwnerToKeyMappingResponse] =
         service.listOwnerToKeyMapping(request)
@@ -228,7 +228,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListDomainTrustCertificateRequest,
       ): Future[v30.ListDomainTrustCertificateResponse] =
         service.listDomainTrustCertificate(request)
@@ -257,7 +257,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListParticipantDomainPermissionRequest,
       ): Future[v30.ListParticipantDomainPermissionResponse] =
         service.listParticipantDomainPermission(request)
@@ -288,7 +288,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListPartyHostingLimitsRequest,
       ): Future[v30.ListPartyHostingLimitsResponse] =
         service.listPartyHostingLimits(request)
@@ -319,7 +319,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListVettedPackagesRequest,
       ): Future[v30.ListVettedPackagesResponse] =
         service.listVettedPackages(request)
@@ -352,7 +352,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListPartyToParticipantRequest,
       ): Future[v30.ListPartyToParticipantResponse] =
         service.listPartyToParticipant(request)
@@ -383,7 +383,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListAuthorityOfRequest,
       ): Future[v30.ListAuthorityOfResponse] =
         service.listAuthorityOf(request)
@@ -414,7 +414,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListDomainParametersStateRequest,
       ): Future[v30.ListDomainParametersStateResponse] =
         service.listDomainParametersState(request)
@@ -445,7 +445,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListMediatorDomainStateRequest,
       ): Future[v30.ListMediatorDomainStateResponse] =
         service.listMediatorDomainState(request)
@@ -476,7 +476,7 @@ object TopologyAdminCommandsX {
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListSequencerDomainStateRequest,
       ): Future[v30.ListSequencerDomainStateResponse] =
         service.listSequencerDomainState(request)
@@ -489,34 +489,34 @@ object TopologyAdminCommandsX {
           .leftMap(_.toString)
     }
 
-    final case class PurgeTopologyTransactionX(
+    final case class PurgeTopologyTransaction(
         query: BaseQueryX,
         filterDomain: String,
     ) extends BaseCommand[
-          v30.ListPurgeTopologyTransactionXRequest,
-          v30.ListPurgeTopologyTransactionXResponse,
-          Seq[ListPurgeTopologyTransactionXResult],
+          v30.ListPurgeTopologyTransactionRequest,
+          v30.ListPurgeTopologyTransactionResponse,
+          Seq[ListPurgeTopologyTransactionResult],
         ] {
 
-      override def createRequest(): Either[String, v30.ListPurgeTopologyTransactionXRequest] =
+      override def createRequest(): Either[String, v30.ListPurgeTopologyTransactionRequest] =
         Right(
-          new v30.ListPurgeTopologyTransactionXRequest(
+          new v30.ListPurgeTopologyTransactionRequest(
             baseQuery = Some(query.toProtoV1),
             filterDomain = filterDomain,
           )
         )
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
-          request: v30.ListPurgeTopologyTransactionXRequest,
-      ): Future[v30.ListPurgeTopologyTransactionXResponse] =
-        service.listPurgeTopologyTransactionX(request)
+          service: TopologyManagerReadServiceStub,
+          request: v30.ListPurgeTopologyTransactionRequest,
+      ): Future[v30.ListPurgeTopologyTransactionResponse] =
+        service.listPurgeTopologyTransaction(request)
 
       override def handleResponse(
-          response: v30.ListPurgeTopologyTransactionXResponse
-      ): Either[String, Seq[ListPurgeTopologyTransactionXResult]] =
+          response: v30.ListPurgeTopologyTransactionResponse
+      ): Either[String, Seq[ListPurgeTopologyTransactionResult]] =
         response.results
-          .traverse(ListPurgeTopologyTransactionXResult.fromProtoV30)
+          .traverse(ListPurgeTopologyTransactionResult.fromProtoV30)
           .leftMap(_.toString)
     }
 
@@ -529,7 +529,7 @@ object TopologyAdminCommandsX {
         Right(v30.ListAvailableStoresRequest())
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListAvailableStoresRequest,
       ): Future[v30.ListAvailableStoresResponse] =
         service.listAvailableStores(request)
@@ -550,7 +550,7 @@ object TopologyAdminCommandsX {
         Right(new v30.ListAllRequest(Some(query.toProtoV1)))
 
       override def submitRequest(
-          service: TopologyManagerReadXServiceStub,
+          service: TopologyManagerReadServiceStub,
           request: v30.ListAllRequest,
       ): Future[v30.ListAllResponse] = service.listAll(request)
 
@@ -568,10 +568,10 @@ object TopologyAdminCommandsX {
 
   object Write {
     abstract class BaseWriteCommand[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
-      override type Svc = TopologyManagerWriteXServiceStub
+      override type Svc = TopologyManagerWriteServiceStub
 
-      override def createService(channel: ManagedChannel): TopologyManagerWriteXServiceStub =
-        v30.TopologyManagerWriteXServiceGrpc.stub(channel)
+      override def createService(channel: ManagedChannel): TopologyManagerWriteServiceStub =
+        v30.TopologyManagerWriteServiceGrpc.stub(channel)
 
       //  command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -585,7 +585,7 @@ object TopologyAdminCommandsX {
         Right(AddTransactionsRequest(transactions.map(_.toProtoV30), forceChange = false, store))
       }
       override def submitRequest(
-          service: TopologyManagerWriteXServiceStub,
+          service: TopologyManagerWriteServiceStub,
           request: AddTransactionsRequest,
       ): Future[AddTransactionsResponse] = service.addTransactions(request)
       override def handleResponse(response: AddTransactionsResponse): Either[String, Unit] =
@@ -605,7 +605,7 @@ object TopologyAdminCommandsX {
       }
 
       override def submitRequest(
-          service: TopologyManagerWriteXServiceStub,
+          service: TopologyManagerWriteServiceStub,
           request: SignTransactionsRequest,
       ): Future[SignTransactionsResponse] = service.signTransactions(request)
 
@@ -649,7 +649,7 @@ object TopologyAdminCommandsX {
         )
       )
       override def submitRequest(
-          service: TopologyManagerWriteXServiceStub,
+          service: TopologyManagerWriteServiceStub,
           request: AuthorizeRequest,
       ): Future[AuthorizeResponse] = service.authorize(request)
 
@@ -705,7 +705,7 @@ object TopologyAdminCommandsX {
       )
 
       override def submitRequest(
-          service: TopologyManagerWriteXServiceStub,
+          service: TopologyManagerWriteServiceStub,
           request: AuthorizeRequest,
       ): Future[AuthorizeResponse] = service.authorize(request)
 

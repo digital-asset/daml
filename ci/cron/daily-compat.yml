@@ -201,7 +201,7 @@ jobs:
           canton_version_to_commitish() {
             canton_version=$1
             STABLE_REGEX="\d+\.\d+\.\d+"
-            SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
+            SNAPSHOT_REGEX="^${STABLE_REGEX}-snapshot(\.\d+)+\.v[0-9a-f]{8}$"
             if (echo "$1" | grep -q -P "${SNAPSHOT_REGEX}"); then
               # Extracting commit (short) sha from snapshot version
               echo "${canton_version: -8}"
@@ -213,28 +213,7 @@ jobs:
 
           canton3_version=$(get_canton_version_for_major_version 3)
 
-          ### update binaries ###
-
-          ee_url="https://digitalasset.jfrog.io/artifactory/assembly/canton/$canton3_version/canton-enterprise-$canton3_version.tar.gz"
-          ee_tmp=$(mktemp)
-          curl -u $AUTH --fail --location --silent "$ee_url" > $ee_tmp
-          ee_sha=$(sha256sum $ee_tmp | awk '{print $1}')
-          ee_target_url=https://digitalasset.jfrog.io/artifactory/assembly/daml/canton-backup/$canton3_version/$ee_sha/canton-enterprise-$canton3_version.tar.gz
-          if ! curl -u $AUTH -f -I $ee_target_url; then
-              curl -u $AUTH \
-                   -f \
-                   -X PUT \
-                   -H "X-Checksum-MD5: $(md5sum $ee_tmp | awk '{print $1}')" \
-                   -H "X-Checksum-SHA1: $(sha1sum $ee_tmp | awk '{print $1}')" \
-                   -H "X-Checksum-SHA256: $(sha256sum $ee_tmp | awk '{print $1}')" \
-                   -T $ee_tmp \
-                   $ee_target_url
-          fi
-
           sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
-          sed -i "s|CANTON_ENTERPRISE_VERSION=.*|CANTON_ENTERPRISE_VERSION=$canton3_version|" test-common/canton/BUILD.bazel
-          sed -i "s|CANTON_ENTERPRISE_SHA=.*|CANTON_ENTERPRISE_SHA=$ee_sha|" test-common/canton/BUILD.bazel
-          sed -i "s|CANTON_ENTERPRISE_URL=.*|CANTON_ENTERPRISE_URL=$ee_target_url|" test-common/canton/BUILD.bazel
 
           ### code drop ###
 
@@ -250,12 +229,11 @@ jobs:
 
           branch="main-canton-update-$canton3_version"
 
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh arbitrary_canton_sha test-common/canton/BUILD.bazel >/dev/null; then
+          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
-              if [ "main" = "$(Build.SourceBranchName)" ] \
-              || [ "main-2.x" = "$(Build.SourceBranchName)" ]; then
-                  git add build.sh test-common/canton/BUILD.bazel
+              if [ "main" = "$(Build.SourceBranchName)" ]; then
+                  git add build.sh
                   open_pr "$branch" "update canton to $canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az extension add --name azure-devops
                   trap "az devops logout" EXIT

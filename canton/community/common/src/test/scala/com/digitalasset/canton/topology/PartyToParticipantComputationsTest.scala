@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.Fingerprint
-import com.digitalasset.canton.topology.transaction.ParticipantPermissionX.{
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
   Submission,

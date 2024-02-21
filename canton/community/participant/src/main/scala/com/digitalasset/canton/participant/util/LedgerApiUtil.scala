@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.participant.util
 
+import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{Created, Empty, Exercised}
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
-import com.daml.ledger.api.v1.value.{Map as _}
+import com.daml.ledger.api.v1.value.Map as _
+import com.daml.ledger.api.v2.transaction.TransactionTree
 
 object LedgerApiUtil {
 

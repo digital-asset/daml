@@ -47,9 +47,9 @@ private[backend] class PackageStorageBackendTemplate(
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
-      select packages.package_id, packages.source_description, packages.known_since, packages.package_size
-      from packages
-      where packages.ledger_offset <= $ledgerEndOffset
+      select lapi_packages.package_id, lapi_packages.source_description, lapi_packages.known_since, lapi_packages.package_size
+      from lapi_packages
+      where lapi_packages.ledger_offset <= $ledgerEndOffset
     """
       .as(PackageDataParser.*)(connection)
       .map(d =>
@@ -67,10 +67,10 @@ private[backend] class PackageStorageBackendTemplate(
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     val ledgerEndOffset = ledgerEndCache()._1
     SQL"""
-      select packages.package
-      from packages
+      select lapi_packages.package
+      from lapi_packages
       where package_id = $packageId
-      and packages.ledger_offset <= $ledgerEndOffset
+      and lapi_packages.ledger_offset <= $ledgerEndOffset
     """
       .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)(connection)
   }
@@ -100,7 +100,7 @@ private[backend] class PackageStorageBackendTemplate(
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PackageLedgerEntry)] = {
     SQL"""
-      select * from package_entries
+      select * from lapi_package_entries
       where ${queryStrategy.offsetIsBetween(
         nonNullableColumn = "ledger_offset",
         startExclusive = startExclusive,

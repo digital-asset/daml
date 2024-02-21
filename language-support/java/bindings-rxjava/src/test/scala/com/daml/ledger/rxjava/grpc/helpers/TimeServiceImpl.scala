@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.canton.ledger.api.auth.Authorizer
-import com.digitalasset.canton.ledger.api.auth.services.TimeServiceV2Authorization
+import com.digitalasset.canton.ledger.api.auth.services.TimeServiceAuthorization
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v2.testing.time_service.{
   GetTimeRequest,
@@ -46,7 +46,7 @@ object TimeServiceImpl {
       ec: ExecutionContext
   ): (ServerServiceDefinition, TimeServiceImpl) = {
     val impl = new TimeServiceImpl(getTimeResponse)
-    val authImpl = new TimeServiceV2Authorization(impl, authorizer)
+    val authImpl = new TimeServiceAuthorization(impl, authorizer)
     (TimeServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

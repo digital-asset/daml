@@ -28,28 +28,28 @@ sealed trait SimplestPingXCommunityIntegrationTest
   "we can run a trivial ping" in { implicit env =>
     import env.*
 
-    sequencer1x.start()
-    mediator1x.start()
+    sequencer1.start()
+    mediator1.start()
 
-    sequencer1x.health.status shouldBe NodeStatus.NotInitialized(true)
-    mediator1x.health.status shouldBe NodeStatus.NotInitialized(true)
+    sequencer1.health.status shouldBe NodeStatus.NotInitialized(true)
+    mediator1.health.status shouldBe NodeStatus.NotInitialized(true)
 
     bootstrap.domain(
       "da",
-      Seq(sequencer1x),
-      Seq(mediator1x),
-      Seq[InstanceReference](sequencer1x, mediator1x),
+      Seq(sequencer1),
+      Seq(mediator1),
+      Seq[InstanceReference](sequencer1, mediator1),
     )
 
-    sequencer1x.health.status shouldBe a[NodeStatus.Success[?]]
-    mediator1x.health.status shouldBe a[NodeStatus.Success[?]]
+    sequencer1.health.status shouldBe a[NodeStatus.Success[?]]
+    mediator1.health.status shouldBe a[NodeStatus.Success[?]]
 
-    participantsX.local.start()
+    participants.local.start()
 
-    participantsX.local.domains.connect_local(sequencer1x, "da")
-    mediator1x.testing
+    participants.local.domains.connect_local(sequencer1, "da")
+    mediator1.testing
       .fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
-    participant1x.health.ping(participant2x)
+    participant1.health.ping(participant2)
   }
 }
 

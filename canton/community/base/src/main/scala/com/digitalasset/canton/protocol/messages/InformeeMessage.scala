@@ -10,9 +10,10 @@ import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, V
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
@@ -33,7 +34,7 @@ case class InformeeMessage(
     override val submittingParticipantSignature: Signature,
 )(
     protocolVersion: ProtocolVersion
-) extends MediatorRequest
+) extends MediatorConfirmationRequest
     // By default, we use ProtoBuf for serialization.
     // Serializable classes that have a corresponding Protobuf message should inherit from this trait to inherit common code and naming conventions.
     // If the corresponding Protobuf message of a class has multiple versions (e.g. `InformeeMessage`),
@@ -54,13 +55,13 @@ case class InformeeMessage(
 
   override def domainId: DomainId = fullInformeeTree.domainId
 
-  override def mediator: MediatorRef = fullInformeeTree.mediator
+  override def mediator: MediatorsOfDomain = fullInformeeTree.mediator
 
   override def informeesAndThresholdByViewPosition
       : Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
     fullInformeeTree.informeesAndThresholdByViewPosition
 
-  override def createMediatorResult(
+  override def createConfirmationResult(
       requestId: RequestId,
       verdict: Verdict,
       recipientParties: Set[LfPartyId],

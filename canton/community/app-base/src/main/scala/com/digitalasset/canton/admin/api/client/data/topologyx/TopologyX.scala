@@ -303,21 +303,21 @@ object ListSequencerDomainStateResult {
     } yield ListSequencerDomainStateResult(context, item)
 }
 
-final case class ListPurgeTopologyTransactionXResult(
+final case class ListPurgeTopologyTransactionResult(
     context: BaseResult,
     item: PurgeTopologyTransactionX,
 )
 
-object ListPurgeTopologyTransactionXResult {
+object ListPurgeTopologyTransactionResult {
   def fromProtoV30(
-      value: v30.ListPurgeTopologyTransactionXResponse.Result
-  ): ParsingResult[ListPurgeTopologyTransactionXResult] =
+      value: v30.ListPurgeTopologyTransactionResponse.Result
+  ): ParsingResult[ListPurgeTopologyTransactionResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
       item <- PurgeTopologyTransactionX.fromProtoV30(itemProto)
-    } yield ListPurgeTopologyTransactionXResult(context, item)
+    } yield ListPurgeTopologyTransactionResult(context, item)
 }
 
 final case class ListTrafficStateResult(

@@ -111,6 +111,7 @@ final case class CantonNodeBootstrapCommonArguments[
     tracerProvider: TracerProvider,
 )
 
+// TODO(#15161) collapse with base trait and CantonNodeBootstrapX
 abstract class CantonNodeBootstrapCommon[
     T <: CantonNode,
     NodeConfig <: LocalNodeConfig,

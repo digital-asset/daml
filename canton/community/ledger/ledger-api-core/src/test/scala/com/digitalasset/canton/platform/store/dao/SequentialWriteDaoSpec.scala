@@ -9,6 +9,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.{
   DbDto,
@@ -173,6 +174,11 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
         connection: Connection
     ): Option[Offset] =
       throw new UnsupportedOperationException
+
+    override def prunedUpToInclusiveAndLedgerEnd(
+        connection: Connection
+    ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
+      throw new UnsupportedOperationException
   }
 }
 
@@ -203,22 +209,23 @@ object SequentialWriteDaoSpec {
   )
 
   private val someEventCreated = DbDto.EventCreate(
-    event_offset = None,
-    transaction_id = None,
-    ledger_effective_time = None,
+    event_offset = "",
+    transaction_id = "",
+    ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = None,
-    event_id = None,
+    node_index = 3,
+    event_id = "",
     contract_id = "1",
-    template_id = None,
+    template_id = "",
+    package_name = "2",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
-    create_argument = None,
-    create_signatories = None,
-    create_observers = None,
+    create_argument = Array.empty,
+    create_signatories = Set.empty,
+    create_observers = Set.empty,
     create_agreement_text = None,
     create_key_value = None,
     create_key_maintainers = None,
@@ -229,35 +236,37 @@ object SequentialWriteDaoSpec {
     driver_metadata = None,
     domain_id = "x::domain",
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
-    event_offset = None,
-    transaction_id = None,
-    ledger_effective_time = None,
+    event_offset = "",
+    transaction_id = "",
+    ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = None,
-    event_id = None,
+    node_index = 3,
+    event_id = "",
     contract_id = "1",
-    template_id = None,
+    template_id = "",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_key_value = None,
-    exercise_choice = None,
-    exercise_argument = None,
+    exercise_choice = "",
+    exercise_argument = Array.empty,
     exercise_result = None,
-    exercise_actors = None,
-    exercise_child_event_ids = None,
+    exercise_actors = Set.empty,
+    exercise_child_event_ids = Vector.empty,
     create_key_value_compression = None,
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
     domain_id = "x::domain",
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   val singlePartyFixture: Option[Update.PublicPackageUploadRejected] =
@@ -288,13 +297,17 @@ object SequentialWriteDaoSpec {
 
   private val dbDtoToStringsForInterningFixture: Iterable[DbDto] => DomainStringIterators = {
     case iterable if iterable.size == 5 =>
-      new DomainStringIterators(Iterator.empty, List("1").iterator, Iterator.empty)
-    case _ => new DomainStringIterators(Iterator.empty, Iterator.empty, Iterator.empty)
+      new DomainStringIterators(Iterator.empty, List("1").iterator, Iterator.empty, Iterator("2"))
+    case _ =>
+      new DomainStringIterators(Iterator.empty, Iterator.empty, Iterator.empty, Iterator.empty)
   }
 
   private val stringInterningViewFixture: StringInterning with InternizingStringInterningView = {
     new StringInterning with InternizingStringInterningView {
       override def templateId: StringInterningDomain[Ref.Identifier] =
+        throw new NotImplementedException
+
+      override def packageName: StringInterningDomain[PackageName] =
         throw new NotImplementedException
 
       override def party: StringInterningDomain[Party] = throw new NotImplementedException

@@ -4,11 +4,9 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.commands.{
-  Commands as ProtoCommands,
-  DisclosedContract as ProtoDisclosedContract,
-}
+import com.daml.ledger.api.v1.commands.{DisclosedContract as ProtoDisclosedContract}
 import com.daml.ledger.api.v1.value.Identifier as ProtoIdentifier
+import com.daml.ledger.api.v2.commands.{Commands as ProtoCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.*
@@ -218,6 +216,7 @@ object ValidateDisclosedContractsTest {
   private object api {
     val templateId: ProtoIdentifier =
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
+    val packageName: String = "pkg-name"
     val contractId: String = "00" + "00" * 31 + "ef"
     val alice: Ref.Party = Ref.Party.assertFromString("alice")
     private val bob: Ref.Party = Ref.Party.assertFromString("bob")
@@ -251,6 +250,7 @@ object ValidateDisclosedContractsTest {
         Ref.DottedName.assertFromString(api.templateId.entityName),
       ),
     )
+    private val packageName: Ref.PackageName = Ref.PackageName.assertFromString(api.packageName)
     private val createArg: ValueRecord = ValueRecord(
       tycon = Some(templateId),
       fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
@@ -281,6 +281,7 @@ object ValidateDisclosedContractsTest {
       create = Node.Create(
         coid = lf.lfContractId,
         templateId = lf.templateId,
+        packageName = lf.packageName,
         arg = lf.createArg,
         agreementText = "",
         signatories = api.signatories,
@@ -295,6 +296,7 @@ object ValidateDisclosedContractsTest {
     val expectedDisclosedContracts: ImmArray[UpgradableDisclosedContract] = ImmArray(
       UpgradableDisclosedContract(
         templateId,
+        packageName,
         lfContractId,
         argument = createArgWithoutLabels,
         createdAt = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),

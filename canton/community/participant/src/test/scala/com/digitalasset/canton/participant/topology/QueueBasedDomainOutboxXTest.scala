@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.implicits.*
-import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandleCommon
+import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -51,7 +51,7 @@ class QueueBasedDomainOutboxXTest
   import DefaultTestIdentities.*
 
   private val clock = new WallClock(timeouts, loggerFactory)
-  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant1)
+  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(participant1)
   private val publicKey =
     config
       .NonNegativeFiniteDuration(10.seconds)
@@ -123,10 +123,7 @@ class QueueBasedDomainOutboxXTest
       store: TopologyStoreX[TopologyStoreId],
       targetClient: StoreBasedDomainTopologyClientX,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
-  ) extends RegisterTopologyTransactionHandleCommon[
-        GenericSignedTopologyTransactionX,
-        TopologyTransactionsBroadcastX.State,
-      ] {
+  ) extends RegisterTopologyTransactionHandle {
     val buffer: mutable.ListBuffer[GenericSignedTopologyTransactionX] = ListBuffer()
     private val promise = new AtomicReference[Promise[Unit]](Promise[Unit]())
     private val expect = new AtomicInteger(expectI)
@@ -216,10 +213,7 @@ class QueueBasedDomainOutboxXTest
 
   private def outboxConnected(
       manager: DomainTopologyManagerX,
-      handle: RegisterTopologyTransactionHandleCommon[
-        GenericSignedTopologyTransactionX,
-        TopologyTransactionsBroadcastX.State,
-      ],
+      handle: RegisterTopologyTransactionHandle,
       client: DomainTopologyClientWithInit,
       target: TopologyStoreX[TopologyStoreId.DomainStore],
   ): Future[QueueBasedDomainOutboxX] = {

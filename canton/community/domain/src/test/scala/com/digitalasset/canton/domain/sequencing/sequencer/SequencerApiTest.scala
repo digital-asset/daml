@@ -243,7 +243,7 @@ abstract class SequencerApiTest
           Recipients.cc(p10),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
           aggregationRule = Some(aggregationRule),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          topologyTimestamp = Some(CantonTimestamp.Epoch),
         )
         val request2 = request1.copy(sender = p9, messageId = MessageId.fromUuid(new UUID(1, 2)))
 
@@ -293,7 +293,7 @@ abstract class SequencerApiTest
             Recipients.cc(p10),
             maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofMinutes(10)),
             aggregationRule = Some(aggregationRule),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch.add(Duration.ofSeconds(1))),
+            topologyTimestamp = Some(CantonTimestamp.Epoch.add(Duration.ofSeconds(1))),
           )
           val request2 = request1.copy(
             sender = p9,
@@ -355,7 +355,7 @@ abstract class SequencerApiTest
             //        read side clock is at 0s, which should produce an error due to the MST bound at 5m(=300s)
             maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(350)),
             aggregationRule = Some(aggregationRule),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+            topologyTimestamp = Some(CantonTimestamp.Epoch),
           )
 
           for {
@@ -421,7 +421,7 @@ abstract class SequencerApiTest
             isRequest = false,
             Batch(envelopes, testedProtocolVersion),
             CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+            topologyTimestamp = Some(CantonTimestamp.Epoch),
             Some(aggregationRule),
             testedProtocolVersion,
           )
@@ -526,7 +526,7 @@ abstract class SequencerApiTest
             isRequest = false,
             Batch(List(envelope), testedProtocolVersion),
             CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+            topologyTimestamp = Some(CantonTimestamp.Epoch),
             Some(aggregationRule),
             testedProtocolVersion,
           )
@@ -605,8 +605,8 @@ abstract class SequencerApiTest
           Recipients.cc(p1),
           aggregationRule = Some(aggregationRule),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          // Since the envelope does not contain a signature, we don't need to specify a timestamp of signing key
-          timestampOfSigningKey = None,
+          // Since the envelope does not contain a signature, we don't need to specify a topology timestamp
+          topologyTimestamp = None,
         )
 
         for {
@@ -634,7 +634,7 @@ abstract class SequencerApiTest
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = None,
+          topologyTimestamp = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
@@ -664,7 +664,7 @@ abstract class SequencerApiTest
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = None,
+          topologyTimestamp = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
@@ -699,7 +699,7 @@ abstract class SequencerApiTest
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = None,
+          topologyTimestamp = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
@@ -773,7 +773,7 @@ trait SequencerApiTestUtils
       recipients: Recipients,
       maxSequencingTime: CantonTimestamp = CantonTimestamp.MaxValue,
       aggregationRule: Option[AggregationRule] = None,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
   ): SubmissionRequest = {
     val envelope1 = TestingEnvelope(messageContent, recipients)
     val batch = Batch(List(envelope1.closeEnvelope), testedProtocolVersion)
@@ -784,7 +784,7 @@ trait SequencerApiTestUtils
       isRequest = false,
       batch,
       maxSequencingTime,
-      timestampOfSigningKey,
+      topologyTimestamp,
       aggregationRule,
       testedProtocolVersion,
     )

@@ -19,9 +19,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
-import com.digitalasset.canton.ledger.api.validation.{
-  StricterValueValidator as LedgerApiValueValidator
-}
+import com.digitalasset.canton.ledger.api.validation.StricterValueValidator as LedgerApiValueValidator
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -322,7 +320,7 @@ final class RepairService(
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Adding ${contracts.length} contracts to domain ${domain} with ignoreAlreadyAdded=${ignoreAlreadyAdded} and ignoreStakeholderCheck=${ignoreStakeholderCheck}"
+      s"Adding ${contracts.length} contracts to domain $domain with ignoreAlreadyAdded=$ignoreAlreadyAdded and ignoreStakeholderCheck=$ignoreStakeholderCheck"
     )
     if (contracts.isEmpty) {
       Either.right(logger.info("No contracts to add specified"))
@@ -891,6 +889,7 @@ final class RepairService(
   private def toArchive(c: SerializableContract): LfNodeExercises = LfNodeExercises(
     targetCoid = c.contractId,
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
+    packageName = c.rawContractInstance.contractInstance.unversioned.packageName,
     interfaceId = None,
     choiceId = LfChoiceName.assertFromString("Archive"),
     consuming = true,
@@ -1298,6 +1297,7 @@ object RepairService {
 
     def contractDataToInstance(
         templateId: Identifier,
+        packageName: LfPackageName,
         createArguments: Record,
         signatories: Set[String],
         observers: Set[String],
@@ -1317,7 +1317,11 @@ object RepairService {
           argsValue,
         )
 
-        lfContractInst = LfContractInst(template = template, arg = argsVersionedValue)
+        lfContractInst = LfContractInst(
+          packageName = packageName,
+          template = template,
+          arg = argsVersionedValue,
+        )
 
         serializableRawContractInst <- SerializableRawContractInstance
           .create(lfContractInst)
@@ -1344,7 +1348,16 @@ object RepairService {
         contract: SerializableContract
     ): Either[
       String,
-      (Identifier, Record, Set[String], Set[String], LfContractId, Option[Salt], LedgerCreateTime),
+      (
+          Identifier,
+          LfPackageName,
+          Record,
+          Set[String],
+          Set[String],
+          LfContractId,
+          Option[Salt],
+          LedgerCreateTime,
+      ),
     ] = {
       val contractInstance = contract.rawContractInstance.contractInstance
       LfEngineToApi
@@ -1357,6 +1370,7 @@ object RepairService {
             val stakeholders = contract.metadata.stakeholders.map(_.toString)
             (
               LfEngineToApi.toApiIdentifier(contractInstance.unversioned.template),
+              contractInstance.unversioned.packageName,
               record,
               signatories,
               stakeholders -- signatories,

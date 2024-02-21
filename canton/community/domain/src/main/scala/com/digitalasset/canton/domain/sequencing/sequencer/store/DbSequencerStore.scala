@@ -139,17 +139,17 @@ class DbSequencerStore(
         GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
           .andThen(_.map(_.asInstanceOf[OracleArray].getIntArray))
           .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq: _*))))
+          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
       case _: H2 =>
         GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
           .andThen(_.map(_.getArray.asInstanceOf[Array[AnyRef]].map(toInt)))
           .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq: _*))))
+          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
       case _: Postgres =>
         GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
           .andThen(_.map(_.getArray.asInstanceOf[Array[AnyRef]].map(Int.unbox)))
           .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq: _*))))
+          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
     }
   }
 
@@ -196,7 +196,7 @@ class DbSequencerStore(
       senderO: Option[SequencerMemberId] = None,
       recipientsO: Option[NonEmpty[SortedSet[SequencerMemberId]]] = None,
       payloadO: Option[P] = None,
-      signingTimestampO: Option[CantonTimestamp] = None,
+      topologyTimestampO: Option[CantonTimestamp] = None,
       traceContext: TraceContext,
       // TODO(#15628) We should represent this differently, so that DeliverErrorStoreEvent.fromByteString parameter is always defined as well
       errorO: Option[ByteString],
@@ -220,7 +220,7 @@ class DbSequencerStore(
         messageId,
         recipients,
         payload,
-        signingTimestampO,
+        topologyTimestampO,
         traceContext,
       )
 
@@ -249,7 +249,7 @@ class DbSequencerStore(
               messageId,
               members,
               payloadId,
-              signingTimestampO,
+              topologyTimestampO,
               traceContext,
             ) =>
           DeliverStoreEventRow(
@@ -260,7 +260,7 @@ class DbSequencerStore(
             senderO = Some(sender),
             recipientsO = Some(members),
             payloadO = Some(payloadId),
-            signingTimestampO = signingTimestampO,
+            topologyTimestampO = topologyTimestampO,
             traceContext = traceContext,
             errorO = None,
           )
@@ -545,7 +545,7 @@ class DbSequencerStore(
       case _: H2 | _: Postgres =>
         """insert into sequencer_events (
                                     |  ts, node_index, event_type, message_id, sender, recipients,
-                                    |  payload_id, signing_timestamp, trace_context, error
+                                    |  payload_id, topology_timestamp, trace_context, error
                                     |)
                                     |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                                     |  on conflict do nothing""".stripMargin
@@ -556,7 +556,7 @@ class DbSequencerStore(
           |on (sequencer_events.ts = input.ts)
           |when not matched then
           |  insert (ts, node_index, event_type, message_id, sender, recipients, payload_id,
-          |  signing_timestamp, trace_context, error)
+          |  topology_timestamp, trace_context, error)
           |  values (input.ts, ?, ?, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
     }
 
@@ -570,7 +570,7 @@ class DbSequencerStore(
           sender,
           recipients,
           payloadId,
-          signingTimestampO,
+          topologyTimestampO,
           traceContext,
           errorO,
         ) = DeliverStoreEventRow(instanceIndex, event)
@@ -582,7 +582,7 @@ class DbSequencerStore(
         pp >> sender
         pp >> recipients
         pp >> payloadId
-        pp >> signingTimestampO
+        pp >> topologyTimestampO
         pp >> SerializableTraceContext(traceContext)
         pp >> errorO
       },
@@ -729,7 +729,7 @@ class DbSequencerStore(
         sql"select node_index from sequencer_watermarks where sequencer_online = ${true}".as[Int],
         functionFullName,
       )
-      .map(items => SortedSet(items: _*))
+      .map(items => SortedSet(items*))
 
   override def readEvents(
       memberId: SequencerMemberId,
@@ -751,7 +751,7 @@ class DbSequencerStore(
         safeWatermark: CantonTimestamp,
     ) = sql"""
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
-          events.recipients, payloads.id, payloads.content, events.signing_timestamp,
+          events.recipients, payloads.id, payloads.content, events.topology_timestamp,
           events.trace_context, events.error
         from sequencer_events events
         left join sequencer_payloads payloads
@@ -784,7 +784,7 @@ class DbSequencerStore(
         case _: Oracle =>
           sql"""
           select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
-            events.recipients, payloads.id, payloads.content, events.signing_timestamp,
+            events.recipients, payloads.id, payloads.content, events.topology_timestamp,
             events.trace_context, events.error
           from sequencer_events events
           left join sequencer_payloads payloads

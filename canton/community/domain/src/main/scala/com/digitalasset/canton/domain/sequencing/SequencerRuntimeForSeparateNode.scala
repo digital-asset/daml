@@ -8,6 +8,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.domain.admin.v30.SequencerAdministrationServiceGrpc
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationServiceFactory
@@ -15,6 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   DirectSequencerClientTransport,
   Sequencer,
 }
+import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAdministrationService
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -175,6 +177,21 @@ class SequencerRuntimeForSeparateNode(
       )
 
   private val eventHandler = StripSignature(topologyProcessor.createHandler(domainId))
+
+  private val sequencerAdministrationService =
+    new GrpcSequencerAdministrationService(sequencer, client, loggerFactory)
+
+  override def registerAdminGrpcServices(
+      register: ServerServiceDefinition => Unit
+  ): Unit = {
+    super.registerAdminGrpcServices(register)
+    register(
+      SequencerAdministrationServiceGrpc.bindService(
+        sequencerAdministrationService,
+        executionContext,
+      )
+    )
+  }
 
   def initializeAll()(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
     for {

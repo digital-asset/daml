@@ -14,6 +14,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import org.slf4j.LoggerFactory
 
 import scala.collection.SeqView
 import scala.collection.mutable
@@ -534,6 +535,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName,
     ): Work[TemplateKey] = {
+      assertSinceKeys()
       bindWork(key.getKeyExprCase match {
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
@@ -560,6 +562,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = {
+      assertSinceKeys()
       Work.Delay { () =>
         expr.getSumCase match {
 
@@ -623,6 +626,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               sequenceWork(lfImplements.view.map(decodeTemplateImplements(_))) { implements =>
                 bindWork(
                   if (lfTempl.hasKey) {
+                    assertSinceKeys()
                     bindWork(decodeTemplateKey(tpl, lfTempl.getKey, paramName)) { tk =>
                       Ret(Some(tk))
                     }
@@ -1484,6 +1488,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         value: PLF.Update.RetrieveByKey,
         definition: String,
     ): Work[RetrieveByKey] = {
+      assertSinceKeys()
       decodeExpr(value.getKey, definition) { keyE =>
         Ret(RetrieveByKey(decodeTypeConName(value.getTemplate), keyE))
       }
@@ -1585,6 +1590,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
+          assertSinceKeys()
           val exerciseByKey = lfUpdate.getExerciseByKey
           val templateId = decodeTypeConName(exerciseByKey.getTemplate)
           val choice = getInternedName(exerciseByKey.getChoiceInternedStr)
@@ -1623,11 +1629,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
+          assertSinceKeys()
           bindWork(decodeRetrieveByKey(lfUpdate.getFetchByKey, definition)) { rbk =>
             Ret(UpdateFetchByKey(rbk))
           }
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
+          assertSinceKeys()
           bindWork(decodeRetrieveByKey(lfUpdate.getLookupByKey, definition)) { rbk =>
             Ret(UpdateLookupByKey(rbk))
           }
@@ -1846,6 +1854,23 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[this] def assertEmpty(s: util.List[_], description: => String): Unit =
     if (!s.isEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
 
+  // TODO(https://github.com/digital-asset/daml/issues/18457): this is a temporary hack to disable
+  //  key support in canton tests, in order to find out which of canton's tests are loading dars
+  //  that use keys. Remove ASAP.
+  private[this] val rejectKeys: Boolean = {
+    val res = sys.env.get("DAML_REJECT_KEYS").isDefined
+    if (res)
+      LoggerFactory
+        .getLogger(this.getClass)
+        .warn("DAML_REJECT_KEYS is defined, will reject keys during decoding")
+    res
+  }
+
+  // TODO(https://github.com/digital-asset/daml/issues/18457): this is a temporary hack. Replace
+  //  with a feature flag.
+  private[this] def assertSinceKeys(): Unit =
+    if (versionIsOlderThan(LV.Features.contractKeys) && rejectKeys)
+      throw Error.Parsing("Keys are not supported")
 }
 
 private[lf] object DecodeV2 {

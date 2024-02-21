@@ -195,7 +195,7 @@ class DomainRouter(
           )
           Future.successful(false)
         },
-        _.allHaveActiveParticipants(informees, _.isActive).value.map(_.isRight),
+        _.allHaveActiveParticipants(informees).value.map(_.isRight),
       )
   }.merge
 

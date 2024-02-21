@@ -17,8 +17,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt,
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v30.EnumsX
-import com.digitalasset.canton.protocol.v30.TopologyMappingX.Mapping
+import com.digitalasset.canton.protocol.v30.Enums
+import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -35,6 +35,7 @@ import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.SetParameter
 
+import scala.math.Ordering.Implicits.*
 import scala.reflect.ClassTag
 
 sealed trait TopologyMappingX extends Product with Serializable with PrettyPrinting {
@@ -70,7 +71,7 @@ sealed trait TopologyMappingX extends Product with Serializable with PrettyPrint
 
   def restrictedToDomain: Option[DomainId]
 
-  def toProtoV30: v30.TopologyMappingX
+  def toProtoV30: v30.TopologyMapping
 
   def uniqueKey: MappingHash
 
@@ -185,8 +186,6 @@ object TopologyMappingX {
         uids: Set[UniqueIdentifier],
     ): Either[RequiredAuthXAuthorizations, Unit]
 
-    final def and(next: RequiredAuthX): RequiredAuthX =
-      RequiredAuthX.And(this, next)
     final def or(next: RequiredAuthX): RequiredAuthX =
       RequiredAuthX.Or(this, next)
 
@@ -198,11 +197,7 @@ object TopologyMappingX {
         case ns @ RequiredNamespaces(_, _) => namespaceCheck(ns)
         case uids @ RequiredUids(_) => uidCheck(uids)
         case EmptyAuthorization => T.empty
-        case And(first, second) => T.combine(loop(first), loop(second))
-        case Or(first, second) =>
-          val firstRes = loop(first)
-          if (firstRes == T.empty) loop(second)
-          else firstRes
+        case Or(first, second) => T.combine(loop(first), loop(second))
       }
       loop(this)
     }
@@ -276,29 +271,6 @@ object TopologyMappingX {
       )
     }
 
-    private[transaction] final case class And(
-        first: RequiredAuthX,
-        second: RequiredAuthX,
-    ) extends RequiredAuthX {
-      override def satisfiedByActualAuthorizers(
-          namespacesWithRoot: Set[Namespace],
-          namespaces: Set[Namespace],
-          uids: Set[UniqueIdentifier],
-      ): Either[RequiredAuthXAuthorizations, Unit] =
-        first
-          .satisfiedByActualAuthorizers(namespacesWithRoot, namespaces, uids)
-          .flatMap(_ =>
-            second
-              .satisfiedByActualAuthorizers(namespacesWithRoot, namespaces, uids)
-          )
-
-      override def authorizations: RequiredAuthXAuthorizations =
-        RequiredAuthXAuthorizations.monoid.combine(first.authorizations, second.authorizations)
-
-      override def pretty: Pretty[And.this.type] =
-        prettyOfClass(unnamedParam(_.first), unnamedParam(_.second))
-    }
-
     private[transaction] final case class Or(
         first: RequiredAuthX,
         second: RequiredAuthX,
@@ -323,7 +295,7 @@ object TopologyMappingX {
     }
   }
 
-  def fromProtoV30(proto: v30.TopologyMappingX): ParsingResult[TopologyMappingX] =
+  def fromProtoV30(proto: v30.TopologyMapping): ParsingResult[TopologyMappingX] =
     proto.mapping match {
       case Mapping.Empty =>
         Left(ProtoDeserializationError.TransactionDeserialization("No mapping set"))
@@ -367,16 +339,16 @@ final case class NamespaceDelegationX private (
     isRootDelegation: Boolean,
 ) extends TopologyMappingX {
 
-  def toProto: v30.NamespaceDelegationX =
-    v30.NamespaceDelegationX(
+  def toProto: v30.NamespaceDelegation =
+    v30.NamespaceDelegation(
       namespace = namespace.fingerprint.unwrap,
       targetKey = Some(target.toProtoV30),
       isRootDelegation = isRootDelegation,
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.NamespaceDelegation(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.NamespaceDelegation(
         toProto
       )
     )
@@ -449,7 +421,7 @@ object NamespaceDelegationX {
   }
 
   def fromProtoV30(
-      value: v30.NamespaceDelegationX
+      value: v30.NamespaceDelegation
   ): ParsingResult[NamespaceDelegationX] =
     for {
       namespace <- Fingerprint.fromProtoPrimitive(value.namespace).map(Namespace(_))
@@ -475,16 +447,16 @@ final case class DecentralizedNamespaceDefinitionX private (
     owners: NonEmpty[Set[Namespace]],
 ) extends TopologyMappingX {
 
-  def toProto: v30.DecentralizedNamespaceDefinitionX =
-    v30.DecentralizedNamespaceDefinitionX(
+  def toProto: v30.DecentralizedNamespaceDefinition =
+    v30.DecentralizedNamespaceDefinition(
       decentralizedNamespace = namespace.fingerprint.unwrap,
       threshold = threshold.unwrap,
       owners = owners.toSeq.map(_.toProtoPrimitive),
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.DecentralizedNamespaceDefinition(toProto)
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.DecentralizedNamespaceDefinition(toProto)
     )
 
   override def code: Code = Code.DecentralizedNamespaceDefinitionX
@@ -507,14 +479,8 @@ final case class DecentralizedNamespaceDefinitionX private (
             )
           ) =>
         val added = owners.diff(previousOwners)
-        // all added owners MUST sign
-        RequiredNamespaces(added)
-          // and the quorum of existing owners
-          .and(
-            RequiredNamespaces(
-              Set(namespace)
-            )
-          )
+        // all added owners and the quorum of existing owners MUST sign
+        RequiredNamespaces(added + namespace)
       case Some(_topoTx) =>
         // TODO(#14048): proper error or ignore
         sys.error(s"unexpected transaction data: $previous")
@@ -545,9 +511,9 @@ object DecentralizedNamespaceDefinitionX {
     } yield DecentralizedNamespaceDefinitionX(decentralizedNamespace, threshold, owners)
 
   def fromProtoV30(
-      value: v30.DecentralizedNamespaceDefinitionX
+      value: v30.DecentralizedNamespaceDefinition
   ): ParsingResult[DecentralizedNamespaceDefinitionX] = {
-    val v30.DecentralizedNamespaceDefinitionX(decentralizedNamespaceP, thresholdP, ownersP) = value
+    val v30.DecentralizedNamespaceDefinition(decentralizedNamespaceP, thresholdP, ownersP) = value
     for {
       decentralizedNamespace <- Fingerprint
         .fromProtoPrimitive(decentralizedNamespaceP)
@@ -585,15 +551,15 @@ object DecentralizedNamespaceDefinitionX {
 final case class IdentifierDelegationX(identifier: UniqueIdentifier, target: SigningPublicKey)
     extends TopologyMappingX {
 
-  def toProto: v30.IdentifierDelegationX =
-    v30.IdentifierDelegationX(
+  def toProto: v30.IdentifierDelegation =
+    v30.IdentifierDelegation(
       uniqueIdentifier = identifier.toProtoPrimitive,
       targetKey = Some(target.toProtoV30),
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.IdentifierDelegation(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.IdentifierDelegation(
         toProto
       )
     )
@@ -621,7 +587,7 @@ object IdentifierDelegationX {
   def code: Code = Code.IdentifierDelegationX
 
   def fromProtoV30(
-      value: v30.IdentifierDelegationX
+      value: v30.IdentifierDelegation
   ): ParsingResult[IdentifierDelegationX] =
     for {
       identifier <- UniqueIdentifier.fromProtoPrimitive(value.uniqueIdentifier, "unique_identifier")
@@ -645,15 +611,15 @@ final case class OwnerToKeyMappingX(
     keys: NonEmpty[Seq[PublicKey]],
 ) extends TopologyMappingX {
 
-  def toProto: v30.OwnerToKeyMappingX = v30.OwnerToKeyMappingX(
+  def toProto: v30.OwnerToKeyMapping = v30.OwnerToKeyMapping(
     member = member.toProtoPrimitive,
     publicKeys = keys.map(_.toProtoPublicKeyV30),
     domain = domain.map(_.toProtoPrimitive).getOrElse(""),
   )
 
-  def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.OwnerToKeyMapping(
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.OwnerToKeyMapping(
         toProto
       )
     )
@@ -682,9 +648,9 @@ object OwnerToKeyMappingX {
   def code: TopologyMappingX.Code = Code.OwnerToKeyMappingX
 
   def fromProtoV30(
-      value: v30.OwnerToKeyMappingX
+      value: v30.OwnerToKeyMapping
   ): ParsingResult[OwnerToKeyMappingX] = {
-    val v30.OwnerToKeyMappingX(memberP, keysP, domainP) = value
+    val v30.OwnerToKeyMapping(memberP, keysP, domainP) = value
     for {
       member <- Member.fromProtoPrimitive(memberP, "member")
       keys <- keysP.traverse(x =>
@@ -712,17 +678,17 @@ final case class DomainTrustCertificateX(
     targetDomains: Seq[DomainId],
 ) extends TopologyMappingX {
 
-  def toProto: v30.DomainTrustCertificateX =
-    v30.DomainTrustCertificateX(
+  def toProto: v30.DomainTrustCertificate =
+    v30.DomainTrustCertificate(
       participant = participantId.toProtoPrimitive,
       domain = domainId.toProtoPrimitive,
       transferOnlyToGivenTargetDomains = transferOnlyToGivenTargetDomains,
       targetDomains = targetDomains.map(_.toProtoPrimitive),
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.DomainTrustCertificate(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.DomainTrustCertificate(
         toProto
       )
     )
@@ -752,7 +718,7 @@ object DomainTrustCertificateX {
   def code: Code = Code.DomainTrustCertificateX
 
   def fromProtoV30(
-      value: v30.DomainTrustCertificateX
+      value: v30.DomainTrustCertificate
   ): ParsingResult[DomainTrustCertificateX] =
     for {
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
@@ -769,79 +735,91 @@ object DomainTrustCertificateX {
     )
 }
 
-/* Participant domain permission
- */
-sealed abstract class ParticipantPermissionX(val canConfirm: Boolean)
+/** Permissions of a participant, i.e., things a participant can do on behalf of a party
+  *
+  * Permissions are hierarchical. A participant who can submit can confirm. A participant who can confirm can observe.
+  */
+sealed abstract class ParticipantPermission(val canConfirm: Boolean)
     extends Product
     with Serializable {
-  def toProtoV30: v30.EnumsX.ParticipantPermissionX
-  def toNonX: ParticipantPermission
+  def toProtoV30: v30.Enums.ParticipantPermission
 }
-object ParticipantPermissionX {
-  case object Submission extends ParticipantPermissionX(canConfirm = true) {
-    lazy val toProtoV30: EnumsX.ParticipantPermissionX =
-      v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_SUBMISSION
-    override def toNonX: ParticipantPermission = ParticipantPermission.Submission
+object ParticipantPermission {
+  case object Submission extends ParticipantPermission(canConfirm = true) {
+    lazy val toProtoV30: Enums.ParticipantPermission =
+      v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION
   }
-  case object Confirmation extends ParticipantPermissionX(canConfirm = true) {
-    lazy val toProtoV30: EnumsX.ParticipantPermissionX =
-      v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_CONFIRMATION
-    override def toNonX: ParticipantPermission = ParticipantPermission.Confirmation
+  case object Confirmation extends ParticipantPermission(canConfirm = true) {
+    lazy val toProtoV30: Enums.ParticipantPermission =
+      v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION
   }
-  case object Observation extends ParticipantPermissionX(canConfirm = false) {
-    lazy val toProtoV30: EnumsX.ParticipantPermissionX =
-      v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_OBSERVATION
-    override def toNonX: ParticipantPermission = ParticipantPermission.Observation
+  case object Observation extends ParticipantPermission(canConfirm = false) {
+    lazy val toProtoV30: Enums.ParticipantPermission =
+      v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION
   }
 
   def fromProtoV30(
-      value: v30.EnumsX.ParticipantPermissionX
-  ): ParsingResult[ParticipantPermissionX] =
+      value: v30.Enums.ParticipantPermission
+  ): ParsingResult[ParticipantPermission] =
     value match {
-      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_UNSPECIFIED =>
+      case v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_UNSPECIFIED =>
         Left(FieldNotSet(value.name))
-      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_SUBMISSION =>
+      case v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION =>
         Right(Submission)
-      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_CONFIRMATION =>
+      case v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION =>
         Right(Confirmation)
-      case v30.EnumsX.ParticipantPermissionX.PARTICIPANT_PERMISSION_X_OBSERVATION =>
+      case v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION =>
         Right(Observation)
-      case v30.EnumsX.ParticipantPermissionX.Unrecognized(x) =>
+      case v30.Enums.ParticipantPermission.Unrecognized(x) =>
         Left(UnrecognizedEnum(value.name, x))
     }
 
-  implicit val orderingParticipantPermissionX: Ordering[ParticipantPermissionX] = {
-    val participantPermissionXOrderMap = Seq[ParticipantPermissionX](
+  implicit val orderingParticipantPermission: Ordering[ParticipantPermission] = {
+    val ParticipantPermissionOrderMap = Seq[ParticipantPermission](
       Observation,
       Confirmation,
       Submission,
     ).zipWithIndex.toMap
-    Ordering.by[ParticipantPermissionX, Int](participantPermissionXOrderMap(_))
+    Ordering.by[ParticipantPermission, Int](ParticipantPermissionOrderMap(_))
   }
+
+  def lowerOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission =
+    fst.min(snd)
+
+  def higherOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission =
+    fst.max(snd)
 }
 
-final case class ParticipantDomainLimits(maxRate: Int, maxNumParties: Int, maxNumPackages: Int) {
+final case class ParticipantDomainLimits(
+    confirmationRequestsMaxRate: Int,
+    maxNumParties: Int,
+    maxNumPackages: Int,
+) {
   def toProto: v30.ParticipantDomainLimits =
-    v30.ParticipantDomainLimits(maxRate, maxNumParties, maxNumPackages)
+    v30.ParticipantDomainLimits(confirmationRequestsMaxRate, maxNumParties, maxNumPackages)
 }
 object ParticipantDomainLimits {
   def fromProtoV30(value: v30.ParticipantDomainLimits): ParticipantDomainLimits =
-    ParticipantDomainLimits(value.maxRate, value.maxNumParties, value.maxNumPackages)
+    ParticipantDomainLimits(
+      value.confirmationRequestsMaxRate,
+      value.maxNumParties,
+      value.maxNumPackages,
+    )
 }
 
 final case class ParticipantDomainPermissionX(
     domainId: DomainId,
     participantId: ParticipantId,
-    permission: ParticipantPermissionX,
+    permission: ParticipantPermission,
     limits: Option[ParticipantDomainLimits],
     loginAfter: Option[CantonTimestamp],
 ) extends TopologyMappingX {
 
   def toParticipantAttributes: ParticipantAttributes =
-    ParticipantAttributes(permission.toNonX, loginAfter)
+    ParticipantAttributes(permission, loginAfter)
 
-  def toProto: v30.ParticipantDomainPermissionX =
-    v30.ParticipantDomainPermissionX(
+  def toProto: v30.ParticipantDomainPermission =
+    v30.ParticipantDomainPermission(
       domain = domainId.toProtoPrimitive,
       participant = participantId.toProtoPrimitive,
       permission = permission.toProtoV30,
@@ -849,9 +827,9 @@ final case class ParticipantDomainPermissionX(
       loginAfter = loginAfter.map(_.toProtoPrimitive),
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.ParticipantPermission(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.ParticipantPermission(
         toProto
       )
     )
@@ -902,18 +880,18 @@ object ParticipantDomainPermissionX {
     ParticipantDomainPermissionX(
       domainId,
       participantId,
-      ParticipantPermissionX.Submission,
+      ParticipantPermission.Submission,
       None,
       None,
     )
 
   def fromProtoV30(
-      value: v30.ParticipantDomainPermissionX
+      value: v30.ParticipantDomainPermission
   ): ParsingResult[ParticipantDomainPermissionX] =
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-      permission <- ParticipantPermissionX.fromProtoV30(value.permission)
+      permission <- ParticipantPermission.fromProtoV30(value.permission)
       limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
       loginAfter <- value.loginAfter.fold[ParsingResult[Option[CantonTimestamp]]](Right(None))(
         CantonTimestamp.fromProtoPrimitive(_).map(_.some)
@@ -934,16 +912,16 @@ final case class PartyHostingLimitsX(
     quota: Int,
 ) extends TopologyMappingX {
 
-  def toProto: v30.PartyHostingLimitsX =
-    v30.PartyHostingLimitsX(
+  def toProto: v30.PartyHostingLimits =
+    v30.PartyHostingLimits(
       domain = domainId.toProtoPrimitive,
       party = partyId.toProtoPrimitive,
       quota = quota,
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.PartyHostingLimits(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.PartyHostingLimits(
         toProto
       )
     )
@@ -973,7 +951,7 @@ object PartyHostingLimitsX {
   def code: Code = Code.PartyHostingLimitsX
 
   def fromProtoV30(
-      value: v30.PartyHostingLimitsX
+      value: v30.PartyHostingLimits
   ): ParsingResult[PartyHostingLimitsX] =
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
@@ -989,16 +967,16 @@ final case class VettedPackagesX(
     packageIds: Seq[LfPackageId],
 ) extends TopologyMappingX {
 
-  def toProto: v30.VettedPackagesX =
-    v30.VettedPackagesX(
+  def toProto: v30.VettedPackages =
+    v30.VettedPackages(
       participant = participantId.toProtoPrimitive,
       packageIds = packageIds,
       domain = domainId.fold("")(_.toProtoPrimitive),
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.VettedPackages(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.VettedPackages(
         toProto
       )
     )
@@ -1028,7 +1006,7 @@ object VettedPackagesX {
   def code: Code = Code.VettedPackagesX
 
   def fromProtoV30(
-      value: v30.VettedPackagesX
+      value: v30.VettedPackages
   ): ParsingResult[VettedPackagesX] =
     for {
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
@@ -1045,10 +1023,10 @@ object VettedPackagesX {
 // Party to participant mappings
 final case class HostingParticipant(
     participantId: ParticipantId,
-    permission: ParticipantPermissionX,
+    permission: ParticipantPermission,
 ) {
-  def toProto: v30.PartyToParticipantX.HostingParticipant =
-    v30.PartyToParticipantX.HostingParticipant(
+  def toProto: v30.PartyToParticipant.HostingParticipant =
+    v30.PartyToParticipant.HostingParticipant(
       participant = participantId.toProtoPrimitive,
       permission = permission.toProtoV30,
     )
@@ -1056,10 +1034,10 @@ final case class HostingParticipant(
 
 object HostingParticipant {
   def fromProtoV30(
-      value: v30.PartyToParticipantX.HostingParticipant
+      value: v30.PartyToParticipant.HostingParticipant
   ): ParsingResult[HostingParticipant] = for {
     participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-    permission <- ParticipantPermissionX.fromProtoV30(value.permission)
+    permission <- ParticipantPermission.fromProtoV30(value.permission)
   } yield HostingParticipant(participantId, permission)
 }
 
@@ -1071,8 +1049,8 @@ final case class PartyToParticipantX(
     groupAddressing: Boolean,
 ) extends TopologyMappingX {
 
-  def toProto: v30.PartyToParticipantX =
-    v30.PartyToParticipantX(
+  def toProto: v30.PartyToParticipant =
+    v30.PartyToParticipant(
       party = partyId.toProtoPrimitive,
       threshold = threshold.value,
       participants = participants.map(_.toProto),
@@ -1080,9 +1058,9 @@ final case class PartyToParticipantX(
       domain = domainId.fold("")(_.toProtoPrimitive),
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.PartyToParticipant(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.PartyToParticipant(
         toProto
       )
     )
@@ -1099,21 +1077,37 @@ final case class PartyToParticipantX(
   override def requiredAuth(
       previous: Option[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): RequiredAuthX = {
-    // TODO(#12390): take into account the previous transaction and allow participants to unilaterally
-    //   disassociate themselves from a party as long as the threshold can still be reached
     previous
       .collect {
         case TopologyTransactionX(
               TopologyChangeOpX.Replace,
               _,
-              PartyToParticipantX(partyId, _, _, previousParticipants, _),
+              PartyToParticipantX(_, _, prevThreshold, prevParticipants, prevGroupAddressing),
             ) =>
-          val addedParticipants = participants
-            .map(_.participantId.uid)
-            .diff(previousParticipants.map(_.participantId.uid))
-          RequiredUids(
-            Set(partyId.uid) ++ addedParticipants
-          )
+          val current = this
+          val currentParticipantIds = participants.map(_.participantId.uid).toSet
+          val prevParticipantIds = prevParticipants.map(_.participantId.uid).toSet
+          val removedParticipants = prevParticipantIds -- currentParticipantIds
+          val addedParticipants = currentParticipantIds -- prevParticipantIds
+
+          val contentHasChanged =
+            prevGroupAddressing != current.groupAddressing || prevThreshold != current.threshold
+
+          // check whether a participant can unilaterally unhost a party
+          if (
+            // no change in group addressing or threshold
+            !contentHasChanged
+            // no participant added
+            && addedParticipants.isEmpty
+            // only 1 participant removed
+            && removedParticipants.sizeCompare(1) == 0
+          ) {
+            // This scenario can either be authorized by the party or the single participant removed from the mapping
+            RequiredUids(Set(partyId.uid)).or(RequiredUids(removedParticipants))
+          } else {
+            // all other cases requires the party's and the new (possibly) new participants' signature
+            RequiredUids(Set(partyId.uid) ++ addedParticipants)
+          }
       }
       .getOrElse(
         RequiredUids(Set(partyId.uid) ++ participants.map(_.participantId.uid))
@@ -1133,7 +1127,7 @@ object PartyToParticipantX {
   def code: Code = Code.PartyToParticipantX
 
   def fromProtoV30(
-      value: v30.PartyToParticipantX
+      value: v30.PartyToParticipant
   ): ParsingResult[PartyToParticipantX] =
     for {
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
@@ -1155,17 +1149,17 @@ final case class AuthorityOfX(
     parties: Seq[PartyId],
 ) extends TopologyMappingX {
 
-  def toProto: v30.AuthorityOfX =
-    v30.AuthorityOfX(
+  def toProto: v30.AuthorityOf =
+    v30.AuthorityOf(
       party = partyId.toProtoPrimitive,
       threshold = threshold.unwrap,
       parties = parties.map(_.toProtoPrimitive),
       domain = domainId.fold("")(_.toProtoPrimitive),
     )
 
-  override def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.AuthorityOf(
+  override def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.AuthorityOf(
         toProto
       )
     )
@@ -1197,7 +1191,7 @@ object AuthorityOfX {
   def code: Code = Code.AuthorityOfX
 
   def fromProtoV30(
-      value: v30.AuthorityOfX
+      value: v30.AuthorityOf
   ): ParsingResult[AuthorityOfX] =
     for {
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
@@ -1219,10 +1213,10 @@ object AuthorityOfX {
 final case class DomainParametersStateX(domain: DomainId, parameters: DynamicDomainParameters)
     extends TopologyMappingX {
 
-  def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.DomainParametersState(
-        v30.DomainParametersStateX(
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.DomainParametersState(
+        v30.DomainParametersState(
           domain = domain.toProtoPrimitive,
           domainParameters = Some(parameters.toProtoV30),
         )
@@ -1251,9 +1245,9 @@ object DomainParametersStateX {
   def code: TopologyMappingX.Code = Code.DomainParametersStateX
 
   def fromProtoV30(
-      value: v30.DomainParametersStateX
+      value: v30.DomainParametersState
   ): ParsingResult[DomainParametersStateX] = {
-    val v30.DomainParametersStateX(domainIdP, domainParametersP) = value
+    val v30.DomainParametersState(domainIdP, domainParametersP) = value
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
       parameters <- ProtoConverter.parseRequired(
@@ -1281,8 +1275,8 @@ final case class MediatorDomainStateX private (
 
   lazy val allMediatorsInGroup: NonEmpty[Seq[MediatorId]] = active ++ observers
 
-  def toProto: v30.MediatorDomainStateX =
-    v30.MediatorDomainStateX(
+  def toProto: v30.MediatorDomainState =
+    v30.MediatorDomainState(
       domain = domain.toProtoPrimitive,
       group = group.unwrap,
       threshold = threshold.unwrap,
@@ -1290,9 +1284,9 @@ final case class MediatorDomainStateX private (
       observers = observers.map(_.uid.toProtoPrimitive),
     )
 
-  def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.MediatorDomainState(
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.MediatorDomainState(
         toProto
       )
     )
@@ -1336,9 +1330,9 @@ object MediatorDomainStateX {
   } yield MediatorDomainStateX(domain, group, threshold, activeNE, observers)
 
   def fromProtoV30(
-      value: v30.MediatorDomainStateX
+      value: v30.MediatorDomainState
   ): ParsingResult[MediatorDomainStateX] = {
-    val v30.MediatorDomainStateX(domainIdP, groupP, thresholdP, activeP, observersP) = value
+    val v30.MediatorDomainState(domainIdP, groupP, thresholdP, activeP, observersP) = value
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
       group <- NonNegativeInt
@@ -1376,17 +1370,17 @@ final case class SequencerDomainStateX private (
 
   lazy val allSequencers: NonEmpty[Seq[SequencerId]] = active ++ observers
 
-  def toProto: v30.SequencerDomainStateX =
-    v30.SequencerDomainStateX(
+  def toProto: v30.SequencerDomainState =
+    v30.SequencerDomainState(
       domain = domain.toProtoPrimitive,
       threshold = threshold.unwrap,
       active = active.map(_.uid.toProtoPrimitive),
       observers = observers.map(_.uid.toProtoPrimitive),
     )
 
-  def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.SequencerDomainState(
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.SequencerDomainState(
         toProto
       )
     )
@@ -1429,9 +1423,9 @@ object SequencerDomainStateX {
   } yield SequencerDomainStateX(domain, threshold, activeNE, observers)
 
   def fromProtoV30(
-      value: v30.SequencerDomainStateX
+      value: v30.SequencerDomainState
   ): ParsingResult[SequencerDomainStateX] = {
-    val v30.SequencerDomainStateX(domainIdP, thresholdP, activeP, observersP) = value
+    val v30.SequencerDomainState(domainIdP, thresholdP, activeP, observersP) = value
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
       threshold <- ProtoConverter.parsePositiveInt(thresholdP)
@@ -1455,15 +1449,15 @@ final case class PurgeTopologyTransactionX private (
     mappings: NonEmpty[Seq[TopologyMappingX]],
 ) extends TopologyMappingX {
 
-  def toProto: v30.PurgeTopologyTransactionX =
-    v30.PurgeTopologyTransactionX(
+  def toProto: v30.PurgeTopologyTransaction =
+    v30.PurgeTopologyTransaction(
       domain = domain.toProtoPrimitive,
       mappings = mappings.map(_.toProtoV30),
     )
 
-  def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.PurgeTopologyTxs(
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.PurgeTopologyTxs(
         toProto
       )
     )
@@ -1499,9 +1493,9 @@ object PurgeTopologyTransactionX {
   } yield PurgeTopologyTransactionX(domain, mappingsToPurge)
 
   def fromProtoV30(
-      value: v30.PurgeTopologyTransactionX
+      value: v30.PurgeTopologyTransaction
   ): ParsingResult[PurgeTopologyTransactionX] = {
-    val v30.PurgeTopologyTransactionX(domainIdP, mappingsP) = value
+    val v30.PurgeTopologyTransaction(domainIdP, mappingsP) = value
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
       mappings <- mappingsP.traverse(TopologyMappingX.fromProtoV30)
@@ -1520,17 +1514,17 @@ final case class TrafficControlStateX private (
     totalExtraTrafficLimit: PositiveLong,
 ) extends TopologyMappingX {
 
-  def toProto: v30.TrafficControlStateX = {
-    v30.TrafficControlStateX(
+  def toProto: v30.TrafficControlState = {
+    v30.TrafficControlState(
       domain = domain.toProtoPrimitive,
       member = member.toProtoPrimitive,
       totalExtraTrafficLimit = totalExtraTrafficLimit.value,
     )
   }
 
-  def toProtoV30: v30.TopologyMappingX =
-    v30.TopologyMappingX(
-      v30.TopologyMappingX.Mapping.TrafficControlState(
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.TrafficControlState(
         toProto
       )
     )
@@ -1566,9 +1560,9 @@ object TrafficControlStateX {
     Right(TrafficControlStateX(domain, member, totalExtraTrafficLimit))
 
   def fromProtoV30(
-      value: v30.TrafficControlStateX
+      value: v30.TrafficControlState
   ): ParsingResult[TrafficControlStateX] = {
-    val v30.TrafficControlStateX(domainIdP, memberP, totalExtraTrafficLimitP) =
+    val v30.TrafficControlState(domainIdP, memberP, totalExtraTrafficLimitP) =
       value
     for {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")

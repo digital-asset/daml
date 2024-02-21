@@ -41,9 +41,9 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
 }
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.submission.{
-  ConfirmationRequestFactory,
   InFlightSubmissionTracker,
   SeedGenerator,
+  TransactionConfirmationRequestFactory,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
   DomainNotReady,
@@ -125,7 +125,6 @@ class SyncDomain(
     trafficStateController: TrafficStateController,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
-    skipRecipientsCheck: Boolean,
 )(implicit ec: ExecutionContext, tracer: Tracer)
     extends NamedLogging
     with StartAndCloseable[Either[SyncDomainInitializationError, Unit]]
@@ -151,7 +150,11 @@ class SyncDomain(
     new SeedGenerator(domainCrypto.crypto.pureCrypto)
 
   private[canton] val requestGenerator =
-    ConfirmationRequestFactory(participantId, domainId, staticDomainParameters.protocolVersion)(
+    TransactionConfirmationRequestFactory(
+      participantId,
+      domainId,
+      staticDomainParameters.protocolVersion,
+    )(
       domainCrypto.crypto.pureCrypto,
       seedGenerator,
       parameters.loggingConfig,
@@ -181,7 +184,6 @@ class SyncDomain(
     timeouts,
     loggerFactory,
     futureSupervisor,
-    skipRecipientsCheck = skipRecipientsCheck,
     enableContractUpgrading = parameters.enableContractUpgrading,
   )
 
@@ -199,7 +201,6 @@ class SyncDomain(
     SourceProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
-    skipRecipientsCheck = skipRecipientsCheck,
   )
 
   private val transferInProcessor: TransferInProcessor = new TransferInProcessor(
@@ -216,7 +217,6 @@ class SyncDomain(
     TargetProtocolVersion(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
-    skipRecipientsCheck = skipRecipientsCheck,
   )
 
   private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
@@ -250,7 +250,7 @@ class SyncDomain(
       journalGarbageCollector.observer,
       pruningMetrics,
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.catchUpParameters,
+      staticDomainParameters.acsCommitmentsCatchUp,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,
@@ -969,7 +969,6 @@ object SyncDomain {
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -997,7 +996,6 @@ object SyncDomain {
         trafficStateController: TrafficStateController,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): SyncDomain =
       new SyncDomain(
         domainId,
@@ -1023,7 +1021,6 @@ object SyncDomain {
         trafficStateController,
         futureSupervisor,
         loggerFactory,
-        skipRecipientsCheck = skipRecipientsCheck,
       )
   }
 }

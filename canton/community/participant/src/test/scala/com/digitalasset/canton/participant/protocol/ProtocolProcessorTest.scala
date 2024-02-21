@@ -10,7 +10,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
@@ -54,12 +54,13 @@ import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
   SendCallback,
   SendType,
-  SequencerClient,
+  SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{CursorPrehead, IndexedDomain}
 import com.digitalasset.canton.time.{DomainTimeTracker, NonNegativeFiniteDuration, WallClock}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
@@ -111,18 +112,26 @@ class ProtocolProcessorTest
   )
   private val party = PartyId(UniqueIdentifier.tryFromProtoPrimitive("party::participant"))
   private val domain = DefaultTestIdentities.domainId
-  private val topology: TestingTopology = TestingTopology(
+  private val topology: TestingTopologyX = TestingTopologyX(
     Set(domain),
     Map(
       party.toLf -> Map(
         participant -> ParticipantPermission.Submission
       )
     ),
+    Set(
+      MediatorGroup(
+        NonNegativeInt.zero,
+        NonEmpty.mk(Seq, DefaultTestIdentities.mediator),
+        Seq(),
+        PositiveInt.one,
+      )
+    ),
   )
   private val crypto =
-    TestingIdentityFactory(topology, loggerFactory, TestDomainParameters.defaultDynamic)
+    TestingIdentityFactoryX(topology, loggerFactory, TestDomainParameters.defaultDynamic)
       .forOwnerAndDomain(participant, domain)
-  private val mockSequencerClient = mock[SequencerClient]
+  private val mockSequencerClient = mock[SequencerClientSend]
   when(
     mockSequencerClient.sendAsync(
       any[Batch[DefaultOpenEnvelope]],
@@ -132,6 +141,7 @@ class ProtocolProcessorTest
       any[MessageId],
       any[Option[AggregationRule]],
       any[SendCallback],
+      any[Boolean],
     )(anyTraceContext)
   )
     .thenAnswer(
@@ -209,7 +219,7 @@ class ProtocolProcessorTest
       overrideConstructedPendingRequestDataO: Option[TestPendingRequestData] = None,
       startingPoints: ProcessingStartingPoints = ProcessingStartingPoints.default,
       pendingSubmissionMap: concurrent.Map[Int, Unit] = TrieMap[Int, Unit](),
-      sequencerClient: SequencerClient = mockSequencerClient,
+      sequencerClient: SequencerClientSend = mockSequencerClient,
       crypto: DomainSyncCryptoClient = crypto,
       overrideInFlightSubmissionTrackerO: Option[InFlightSubmissionTracker] = None,
       submissionDataForTrackerO: Option[SubmissionTracker.SubmissionData] = None,
@@ -217,12 +227,15 @@ class ProtocolProcessorTest
   ): (TestInstance, SyncDomainPersistentState, SyncDomainEphemeralState) = {
 
     val multiDomainEventLog = mock[MultiDomainEventLog]
+    val clock = new WallClock(timeouts, loggerFactory)
     val persistentState =
-      new InMemorySyncDomainPersistentStateOld(
+      new InMemorySyncDomainPersistentStateX(
+        clock,
+        crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
         testedProtocolVersion,
-        crypto.crypto.pureCrypto,
         enableAdditionalConsistencyChecks = true,
+        enableTopologyTransactionValidation = false,
         loggerFactory,
         timeouts,
         futureSupervisor,
@@ -234,7 +247,6 @@ class ProtocolProcessorTest
         )
       }
     val indexedStringStore = InMemoryIndexedStringStore()
-    val clock = new WallClock(timeouts, loggerFactory)
     implicit val mat: Materializer = mock[Materializer]
     val nodePersistentState = timeouts.default.await("creating node persistent state")(
       ParticipantNodePersistentState
@@ -335,7 +347,6 @@ class ProtocolProcessorTest
         testedProtocolVersion,
         loggerFactory,
         FutureSupervisor.Noop,
-        skipRecipientsCheck = false,
       )(
         directExecutionContext: ExecutionContext,
         TransactionResultMessage.transactionResultMessageCast,
@@ -374,7 +385,7 @@ class ProtocolProcessorTest
   private lazy val someRequestBatch = RequestAndRootHashMessage(
     NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
     rootHashMessage,
-    MediatorRef(DefaultTestIdentities.mediator),
+    MediatorsOfDomain(MediatorGroupIndex.zero),
     isReceipt = false,
   )
 
@@ -423,7 +434,7 @@ class ProtocolProcessorTest
 
     "clean up the pending submissions when send request fails" in {
       val submissionMap = TrieMap[Int, Unit]()
-      val failingSequencerClient = mock[SequencerClient]
+      val failingSequencerClient = mock[SequencerClientSend]
       val sendError = SendAsyncClientError.RequestFailed("no thank you")
       when(
         failingSequencerClient.sendAsync(
@@ -434,6 +445,7 @@ class ProtocolProcessorTest
           any[MessageId],
           any[Option[AggregationRule]],
           any[SendCallback],
+          any[Boolean],
         )(anyTraceContext)
       )
         .thenReturn(EitherT.leftT[Future, Unit](sendError))
@@ -475,8 +487,8 @@ class ProtocolProcessorTest
     }
 
     "fail if there is no active mediator" in {
-      val crypto2 = TestingIdentityFactory(
-        TestingTopology(mediators = Set.empty),
+      val crypto2 = TestingIdentityFactoryX(
+        TestingTopologyX(mediatorGroups = Set.empty),
         loggerFactory,
         parameters.parameters,
       ).forOwnerAndDomain(participant, domain)
@@ -499,11 +511,7 @@ class ProtocolProcessorTest
     }
 
     "transit to confirmed" in {
-      val pd = TestPendingRequestData(
-        rc,
-        requestSc,
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-      )
+      val pd = TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
       val before = ephemeral.requestJournal.query(rc).value.futureValue
@@ -523,11 +531,8 @@ class ProtocolProcessorTest
     }
 
     "leave the request state unchanged when doing a clean replay" in {
-      val pendingData = TestPendingRequestData(
-        rc,
-        requestSc,
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-      )
+      val pendingData =
+        TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(
           overrideConstructedPendingRequestDataO = Some(pendingData),
@@ -561,11 +566,7 @@ class ProtocolProcessorTest
     }
 
     "trigger a timeout when the result doesn't arrive" in {
-      val pd = TestPendingRequestData(
-        rc,
-        requestSc,
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-      )
+      val pd = TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
       val (sut, _persistent, ephemeral) =
         testProcessingSteps(overrideConstructedPendingRequestDataO = Some(pd))
 
@@ -624,7 +625,7 @@ class ProtocolProcessorTest
           OpenEnvelope(viewMessageWrongRH, someRecipients)(testedProtocolVersion),
         ),
         rootHashMessage,
-        MediatorRef(DefaultTestIdentities.mediator),
+        MediatorsOfDomain(MediatorGroupIndex.zero),
         isReceipt = false,
       )
 
@@ -661,7 +662,7 @@ class ProtocolProcessorTest
           OpenEnvelope(viewMessageDecryptError, someRecipients)(testedProtocolVersion),
         ),
         rootHashMessage,
-        MediatorRef(DefaultTestIdentities.mediator),
+        MediatorsOfDomain(MediatorGroupIndex.zero),
         isReceipt = false,
       )
 
@@ -689,11 +690,11 @@ class ProtocolProcessorTest
     } in {
       // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
 
-      val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
+      val otherMediatorGroup = MediatorsOfDomain(MediatorGroupIndex.one)
       val requestBatch = RequestAndRootHashMessage(
         NonEmpty(Seq, OpenEnvelope(viewMessage, someRecipients)(testedProtocolVersion)),
         rootHashMessage,
-        MediatorRef(otherMediatorId),
+        otherMediatorGroup,
         isReceipt = false,
       )
 
@@ -704,7 +705,7 @@ class ProtocolProcessorTest
             .processRequest(requestId.unwrap, rc, requestSc, requestBatch)
             .onShutdown(fail()),
           _.errorMessage should include(
-            s"Mediator ${DefaultTestIdentities.mediator} declared in views is not the recipient $otherMediatorId of the root hash message"
+            s"Mediator ${MediatorsOfDomain(MediatorGroupIndex.zero)} declared in views is not the recipient $otherMediatorGroup of the root hash message"
           ),
         )
         .futureValue
@@ -719,8 +720,8 @@ class ProtocolProcessorTest
     } in {
       // Instead of rolling back the request in Phase 7, it is discarded in Phase 3. This has the same effect.
 
-      val testCrypto = TestingIdentityFactory(
-        topology.copy(mediators = Set.empty), // Topology without any mediator active
+      val testCrypto = TestingIdentityFactoryX(
+        topology.copy(mediatorGroups = Set.empty), // Topology without any mediator active
         loggerFactory,
         parameters.parameters,
       ).forOwnerAndDomain(participant, domain)
@@ -733,7 +734,7 @@ class ProtocolProcessorTest
             .onShutdown(fail()),
           _.shouldBeCantonError(
             SyncServiceAlarm,
-            _ shouldBe s"Request $rc: Chosen mediator ${DefaultTestIdentities.mediator} is inactive at ${requestId.unwrap}. Skipping this request.",
+            _ shouldBe s"Request $rc: Chosen mediator ${MediatorsOfDomain(MediatorGroupIndex.zero)} is inactive at ${requestId.unwrap}. Skipping this request.",
           ),
         )
         .futureValue
@@ -913,11 +914,7 @@ class ProtocolProcessorTest
         .complete(
           Some(
             WrappedPendingRequestData(
-              TestPendingRequestData(
-                rc,
-                requestSc,
-                MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
-              )
+              TestPendingRequestData(rc, requestSc, MediatorsOfDomain(MediatorGroupIndex.one))
             )
           )
         )
@@ -932,7 +929,7 @@ class ProtocolProcessorTest
       when(mockSignedProtocolMessage.message).thenReturn(trm)
       when(
         mockSignedProtocolMessage
-          .verifySignature(any[SyncCryptoApi], any[Member])(anyTraceContext)
+          .verifySignature(any[SyncCryptoApi], any[MediatorGroupIndex])(anyTraceContext)
       )
         .thenReturn(EitherT.rightT(()))
       sut
@@ -1039,7 +1036,7 @@ class ProtocolProcessorTest
             CleanReplayData(
               rc,
               requestSc,
-              MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+              MediatorsOfDomain(MediatorGroupIndex.one),
             )
           )
         )

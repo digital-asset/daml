@@ -40,7 +40,7 @@ trait BaseAlarm extends BaseError {
   }
 
   def asGrpcError(implicit logger: ContextualizedErrorLogger): StatusRuntimeException =
-    code.asGrpcError(this)(logger)
+    ErrorCode.asGrpcError(this)(logger)
 }
 
 abstract class Alarm(override val cause: String, override val throwableO: Option[Throwable] = None)(

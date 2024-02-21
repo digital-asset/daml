@@ -31,36 +31,12 @@ class RemovalOfJavaMigrationsPostgres
     }
   }
 
-  // Last version before the last Java migration
-  it should "fail to migration from V37 to the latest schema" in {
-    val migration =
-      new FlywayMigrations(postgresDatabase.url, loggerFactory = loggerFactory)
-    for {
-      _ <- Future(migrateTo("37"))
-      err <- migration.migrate().failed
-    } yield {
-      err shouldBe a[FlywayMigrations.SchemaVersionIsTooOld]
-    }
-  }
-
   // Version of the last Java migration
   it should "migrate from V38 to the latest schema" in {
     val migration =
       new FlywayMigrations(postgresDatabase.url, loggerFactory = loggerFactory)
     for {
       _ <- Future(migrateTo("38"))
-      _ <- migration.migrate()
-    } yield {
-      succeed
-    }
-  }
-
-  // First version after the last Java migration
-  it should "migrate from V39 to the latest schema" in {
-    val migration =
-      new FlywayMigrations(postgresDatabase.url, loggerFactory = loggerFactory)
-    for {
-      _ <- Future(migrateTo("39"))
       _ <- migration.migrate()
     } yield {
       succeed

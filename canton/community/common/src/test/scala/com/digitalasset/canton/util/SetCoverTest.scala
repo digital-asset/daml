@@ -24,8 +24,8 @@ class SetCoverTest extends AnyWordSpec with BaseTest {
         Map("a" -> Set(1, 2, 3), "b" -> Set(1, 2), "c" -> Set(3)) -> Seq(Seq("a")),
         // An example where the greedy algorithm finds a non-minimal solution
         Map(
-          "a" -> Set((1 to 7) *),
-          "b" -> Set((8 to 14) *),
+          "a" -> Set((1 to 7)*),
+          "b" -> Set((8 to 14)*),
           "c" -> Set(1, 8),
           "d" -> Set(2, 3, 9, 10),
           "e" -> Set(4, 5, 6, 7, 11, 12, 13, 14),

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.syntax.either.*
-import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DisplayName
@@ -85,58 +84,6 @@ class LedgerServerPartyNotifier(
       }
     }
   }
-
-  def attachToTopologyProcessorOld(): TopologyTransactionProcessingSubscriber =
-    new TopologyTransactionProcessingSubscriber {
-
-      override def observed(
-          sequencerTimestamp: SequencedTime,
-          effectiveTimestamp: EffectiveTime,
-          sequencerCounter: SequencerCounter,
-          transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-        transactions.parTraverse_ { transaction =>
-          Option(transaction)
-            .mapFilter(extractTopologyProcessorData)
-            .map(observedF(sequencerTimestamp, effectiveTimestamp, _))
-            .getOrElse(FutureUnlessShutdown.unit)
-        }
-
-      }
-    }
-
-  def attachToIdentityManagerOld(): ParticipantTopologyManagerObserver =
-    new ParticipantTopologyManagerObserver {
-      override def addedNewTransactions(
-          timestamp: CantonTimestamp,
-          transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-        transactions.parTraverse_(
-          Option(_)
-            .mapFilter(extractTopologyProcessorData)
-            .map(observedF(SequencedTime(clock.now), EffectiveTime(clock.now), _))
-            .getOrElse(FutureUnlessShutdown.unit)
-        )
-    }
-
-  private def extractTopologyProcessorData(
-      transaction: SignedTopologyTransaction[TopologyChangeOp]
-  ): Option[(PartyId, ParticipantId, String255, Option[DisplayName])] =
-    Option(transaction.transaction.element.mapping)
-      .filter(_ => transaction.operation == TopologyChangeOp.Add)
-      .collect {
-        case PartyToParticipant(_, party, participant, permission) if permission.isActive =>
-          (
-            party,
-            participant,
-            transaction.transaction.element.id.toLengthLimitedString,
-            None,
-          )
-        // propagate admin parties
-        case ParticipantState(_, _, participant, permission) if permission.isActive =>
-          (participant.adminParty, participant, LengthLimitedString.getUuid.asString255, None)
-
-      }
 
   def attachToTopologyProcessorX(): TopologyTransactionProcessingSubscriberX =
     new TopologyTransactionProcessingSubscriberX {

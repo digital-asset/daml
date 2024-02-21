@@ -20,8 +20,9 @@ import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil, MapsUtil, MonadUtil}
@@ -63,7 +64,7 @@ abstract class TransactionTreeFactoryImpl(
 
   protected def stateForSubmission(
       transactionSeed: SaltSeed,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       keyResolver: LfKeyResolver,
@@ -71,7 +72,7 @@ abstract class TransactionTreeFactoryImpl(
   ): State
 
   protected def stateForValidation(
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       salts: Iterable[Salt],
@@ -83,7 +84,7 @@ abstract class TransactionTreeFactoryImpl(
       submitterInfo: SubmitterInfo,
       confirmationPolicy: ConfirmationPolicy,
       workflowId: Option[WorkflowId],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionSeed: SaltSeed,
       transactionUuid: UUID,
       topologySnapshot: TopologySnapshot,
@@ -190,7 +191,7 @@ abstract class TransactionTreeFactoryImpl(
       subaction: WellFormedTransaction[WithoutSuffixes],
       rootPosition: ViewPosition,
       confirmationPolicy: ConfirmationPolicy,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       submittingParticipantO: Option[ParticipantId],
       viewSalts: Iterable[Salt],
       transactionUuid: UUID,
@@ -601,7 +602,7 @@ object TransactionTreeFactoryImpl {
       .merge
 
   trait State {
-    def mediator: MediatorRef
+    def mediator: MediatorsOfDomain
     def transactionUUID: UUID
     def ledgerTime: CantonTimestamp
 

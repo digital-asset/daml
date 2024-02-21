@@ -33,7 +33,7 @@ class CommandSubmitterWithRetryTest
     workflowId = "workflowId",
     applicationId = "applicationId",
     commandId = "commandId",
-    party = "party",
+    actAs = Seq("party"),
     commands = Nil,
   )
 
@@ -107,7 +107,7 @@ class CommandSubmitterWithRetryTest
         }
       val errorStatus = CommandServiceClient
         .statusFromThrowable(
-          errorCode
+          ErrorCode
             .asGrpcError(new BaseError() {
               override def code: ErrorCode = errorCode
               override def cause: String = "now try that"

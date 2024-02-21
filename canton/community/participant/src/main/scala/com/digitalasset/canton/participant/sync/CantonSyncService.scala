@@ -159,7 +159,6 @@ class CantonSyncService(
     val isActive: () => Boolean,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
-    skipRecipientsCheck: Boolean,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -268,7 +267,7 @@ class CantonSyncService(
     sync.ready
   }
 
-  private def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
+  private[canton] def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
     aliasManager.domainIdForAlias(alias).flatMap(connectedDomainsMap.get)
 
   private val domainRouter =
@@ -438,6 +437,8 @@ class CantonSyncService(
           .foreach(_.removeJournalGarageCollectionLock())
       }
     },
+    connectedDomainsLookup,
+    participantId,
     loggerFactory,
   )
 
@@ -450,7 +451,7 @@ class CantonSyncService(
       span.setAttribute("submission_id", submissionId)
       pruneInternally(pruneUpToInclusive)
         .fold(
-          err => PruningResult.NotPruned(err.code.asGrpcStatus(err)),
+          err => PruningResult.NotPruned(ErrorCode.asGrpcStatus(err)),
           _ => PruningResult.ParticipantPruned,
         )
         .onShutdown(
@@ -1244,7 +1245,6 @@ class CantonSyncService(
           trafficStateController,
           futureSupervisor,
           domainLoggerFactory,
-          skipRecipientsCheck = skipRecipientsCheck,
         )
 
         // update list of connected domains
@@ -1493,7 +1493,7 @@ class CantonSyncService(
       sequencerClientHealth,
     )
 
-    Lifecycle.close(instances: _*)(logger)
+    Lifecycle.close(instances*)(logger)
   }
 
   override def toString: String = s"CantonSyncService($participantId)"
@@ -1686,7 +1686,6 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1716,7 +1715,6 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1749,7 +1747,6 @@ object CantonSyncService {
         () => storage.isActive,
         futureSupervisor,
         loggerFactory,
-        skipRecipientsCheck = skipRecipientsCheck,
       )
   }
 }
@@ -1838,8 +1835,6 @@ object SyncServiceError extends SyncServiceErrorGroup {
   abstract class MigrationErrors extends ErrorGroup()
 
   abstract class DomainRegistryErrorGroup extends ErrorGroup()
-
-  abstract class TrafficControlErrorGroup extends ErrorGroup()
 
   final case class SyncServiceFailedDomainConnection(
       domain: DomainAlias,

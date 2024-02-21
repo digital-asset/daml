@@ -118,7 +118,7 @@ class PersistentUserManagementStore(
           val now = epochMicroseconds()
           // Step 1: Update resource version
           // NOTE: We starts by writing to the 'resource_version' attribute
-          //       of 'participant_users' to effectively obtain an exclusive lock for
+          //       of 'lapi_users' to effectively obtain an exclusive lock for
           //       updating this user for the rest of the transaction.
           val _ = userUpdate.metadataUpdate.resourceVersionO match {
             case Some(expectedResourceVersion) =>

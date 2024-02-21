@@ -40,7 +40,7 @@ trait TestingIdentityFactoryBase { self: NamedLogging =>
     new SyncCryptoApiProvider(
       owner,
       ips(availableUpToInclusive),
-      TestingIdentityFactory.newCrypto(loggerFactory)(owner),
+      TestingIdentityFactoryX.newCrypto(loggerFactory)(owner),
       CachingConfigs.testing,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,

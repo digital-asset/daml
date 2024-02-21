@@ -12,8 +12,6 @@ import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, Transact
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
-import Ordering.Implicits._
-
 trait TestNodeBuilder {
 
   def packageVersion(packageId: PackageId): Option[TransactionVersion] = None
@@ -33,8 +31,7 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  review if we should really provide a defaul package name.
+      // TODO https://github.com/digital-asset/daml/issues/17995
       packageName: PackageName = Ref.PackageName.assertFromString("package-name"),
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
   ): Node.Create = {
@@ -62,8 +59,7 @@ trait TestNodeBuilder {
 
     Node.Create(
       coid = id,
-      packageName =
-        if (transactionVersion < TransactionVersion.minUpgrade) None else Some(packageName),
+      packageName = packageName,
       templateId = templateId,
       arg = argument,
       signatories = signatories ++ maintainers,

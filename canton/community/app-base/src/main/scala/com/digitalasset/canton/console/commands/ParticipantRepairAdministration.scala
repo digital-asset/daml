@@ -109,13 +109,23 @@ class ParticipantRepairAdministration(
         |Note that the 'export_acs' command execution may take a long time to complete and may require significant
         |resources.
         |
-        |If `force` is set to true, then the check that the timestamp is clean will not be done.
-        |For this option to yield a consistent snapshot, you need to wait at least
-        |participantResponseTimeout + mediatorReactionTimeout after the last submitted request.
+        |
+
+        |The arguments are:
+        |- parties: identifying contracts having at least one stakeholder from the given set
+        |- partiesOffboarding: true if the parties will be offboarded (party migration)
+        |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a  compressed file (recommended)
+        |- filterDomainId: restrict the export to a given domain
+        |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
+        |- contractDomainRenames: As part of the export, allow to rename the associated domain id of contracts from one domain to another based on the mapping.
+        |- force: if is set to true, then the check that the timestamp is clean will not be done.
+        |         For this option to yield a consistent snapshot, you need to wait at least
+        |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
         """
   )
   def export_acs(
       parties: Set[PartyId],
+      partiesOffboarding: Boolean,
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       filterDomainId: Option[DomainId] = None,
       timestamp: Option[Instant] = None,
@@ -127,6 +137,7 @@ class ParticipantRepairAdministration(
       val command = ParticipantAdminCommands.ParticipantRepairManagement
         .ExportAcs(
           parties,
+          partiesOffboarding = partiesOffboarding,
           filterDomainId,
           timestamp,
           collector.observer,
@@ -192,19 +203,41 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This command imports contracts from an ACS snapshot file into the participant's ACS.
         |The given ACS snapshot file needs to be the resulting file from a previous 'export_acs' command invocation.
+        |
+        |The contract IDs of the imported contracts will be checked ahead of starting the process. If any contract
+        |ID doesn't match the contract ID scheme associated to the domain where the contract is assigned to, the
+        |whole import process will fail depending on the value of `allowContractIdSuffixRecomputation`.
+        |
+        |By default `allowContractIdSuffixRecomputation` is set to `false`. If set to `true`, any contract ID
+        |that wouldn't pass the check above will be recomputed. Note that the recomputation of contract IDs will
+        |fail under the following circumstances:
+        | - the contract salt used to compute the contract ID is missing
+        | - the contract ID discriminator version is unknown
+        | - an imported contract references the ID of a contract which is missing from the import
+        |
+        |Note that only the Canton-specific contract ID suffix will be recomputed. The discriminator cannot be
+        |recomputed and will be left as is.
+        |
+        |The last requirement means that the import process will fail if you try to import a contract without the
+        |contract ID it references in its payload being present in the import (this is because the contract ID
+        |requires the payload of the contract to exist in order compute the contract ID for it).
+        |
+        |If the import process succeeds, the mapping from the old contract IDs to the new contract IDs will be returned.
+        |An empty map means that all contract IDs were valid and no contract ID was recomputed.
         """
   )
   def import_acs(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       workflowIdPrefix: String = "",
-  ): Unit = {
+      allowContractIdSuffixRecomputation: Boolean = false,
+  ): Map[LfContractId, LfContractId] = {
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
             ByteString.copyFrom(File(inputFile).loadBytes),
-            if (workflowIdPrefix.nonEmpty) workflowIdPrefix
-            else s"import-${UUID.randomUUID}",
+            if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
+            allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
           )
         )
       }

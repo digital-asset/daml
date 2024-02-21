@@ -14,7 +14,7 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.protocol.v30.TopologyMappingX.Mapping
+import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -31,7 +31,7 @@ import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidati
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcTopologyManagerWriteServiceX(
+class GrpcTopologyManagerWriteService(
     managers: => Seq[TopologyManagerX[TopologyStoreId]],
     topologyStoreX: TopologyStoreX[AuthorizedStore],
     getId: => Option[UniqueIdentifier],
@@ -40,7 +40,7 @@ class GrpcTopologyManagerWriteServiceX(
     clock: Clock,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends v30.TopologyManagerWriteXServiceGrpc.TopologyManagerWriteXService
+    extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService
     with NamedLogging {
 
   override def authorize(request: v30.AuthorizeRequest): Future[v30.AuthorizeResponse] = {

@@ -56,6 +56,7 @@ object EventsTable {
               events = flatEvents,
               domainId = first.domainId,
               traceContext = extractTraceContext(events),
+              recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
             )
           )
         else None
@@ -144,6 +145,7 @@ object EventsTable {
           rootEventIds = rootEventIds,
           domainId = first.domainId,
           traceContext = traceContext,
+          recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
         )
       }
 

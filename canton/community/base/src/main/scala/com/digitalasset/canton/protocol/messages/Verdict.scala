@@ -28,7 +28,7 @@ trait TransactionRejection {
   def rpcStatusWithoutLoggingContext(): com.google.rpc.status.Status
 }
 
-/** Verdicts sent from the mediator to the participants inside the [[MediatorResult]] message */
+/** Verdicts sent from the mediator to the participants inside the [[ConfirmationResult]] message */
 sealed trait Verdict
     extends Product
     with Serializable
@@ -121,8 +121,8 @@ object Verdict
     }
   }
 
-  /** @param reasons Mapping from the parties of a [[com.digitalasset.canton.protocol.messages.MediatorResponse]]
-    *                to the rejection reason from the [[com.digitalasset.canton.protocol.messages.MediatorResponse]]
+  /** @param reasons Mapping from the parties of a [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
+    *                to the rejection reason from the [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
     */
   final case class ParticipantReject(reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]])(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]

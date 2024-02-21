@@ -12,15 +12,16 @@ object DbDtoToStringsForInterning {
       templateIds = dbDtos.iterator.flatMap(templateIdsOf),
       parties = dbDtos.iterator.flatMap(partiesOf),
       domainIds = dbDtos.iterator.flatMap(domainIdsOf),
+      packageNames = dbDtos.iterator.flatMap(packageNamesOf),
     )
 
   private def templateIdsOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
       case dbDto: DbDto.EventExercise =>
-        dbDto.template_id.iterator
+        Iterator(dbDto.template_id)
 
       case dbDto: DbDto.EventCreate =>
-        dbDto.template_id.iterator
+        Iterator(dbDto.template_id)
 
       case dbDto: DbDto.EventUnassign =>
         Iterator(dbDto.template_id)
@@ -31,22 +32,29 @@ object DbDtoToStringsForInterning {
       case _ => Iterator.empty
     }
 
+  private def packageNamesOf(dbDto: DbDto): Iterator[String] =
+    dbDto match {
+      case dbDto: DbDto.EventCreate => Iterator(dbDto.package_name)
+      case dbDto: DbDto.EventAssign => Iterator(dbDto.package_name)
+      case _ => Iterator.empty
+    }
+
   private def partiesOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
       case dbDto: DbDto.EventExercise =>
         dbDto.submitters.getOrElse(Set.empty).iterator ++
           dbDto.tree_event_witnesses.iterator ++
-          dbDto.exercise_actors.getOrElse(Set.empty).iterator ++
+          dbDto.exercise_actors.iterator ++
           dbDto.flat_event_witnesses.iterator
 
       case dbDto: DbDto.EventCreate =>
         dbDto.submitters.getOrElse(Set.empty).iterator ++
           dbDto.tree_event_witnesses.iterator ++
           dbDto.flat_event_witnesses.iterator ++
-          dbDto.create_observers.getOrElse(Set.empty).iterator ++
+          dbDto.create_observers.iterator ++
           // dbDto also contains key_maintainers. We don't internize these
           // as they're already included in the signatories set
-          dbDto.create_signatories.getOrElse(Set.empty).iterator
+          dbDto.create_signatories.iterator
 
       case dbDto: DbDto.EventUnassign =>
         dbDto.submitter.iterator ++
@@ -65,7 +73,7 @@ object DbDtoToStringsForInterning {
 
       case dbDto: DbDto.PartyEntry =>
         // Party identifiers not only interned on demand: we also intern as we see parties created,
-        // since this information is stored in the party_entries as well
+        // since this information is stored in the lapi_party_entries as well
         dbDto.party.iterator
 
       case _ => Iterator.empty

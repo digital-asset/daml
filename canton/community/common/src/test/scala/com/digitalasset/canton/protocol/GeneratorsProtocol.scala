@@ -8,19 +8,19 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{GeneratorsDataTime, ViewPosition}
+import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.TrafficControlParameters
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
-import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsProtocol(
-    protocolVersion: ProtocolVersion,
-    generatorsDataTime: GeneratorsDataTime,
+    protocolVersion: ProtocolVersion
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
@@ -29,7 +29,6 @@ final class GeneratorsProtocol(
   import com.digitalasset.canton.time.GeneratorsTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import org.scalatest.EitherValues.*
-  import generatorsDataTime.*
 
   implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] = {
     Arbitrary(for {
@@ -38,7 +37,7 @@ final class GeneratorsProtocol(
       requiredSymmetricKeySchemes <- nonEmptySetGen[SymmetricKeyScheme]
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
-      catchUpParameters <- Gen.option(Arbitrary.arbitrary[CatchUpConfig])
+      acsCommitmentsCatchUp <- Gen.option(Arbitrary.arbitrary[AcsCommitmentsCatchUpConfig])
 
       parameters = StaticDomainParameters.create(
         requiredSigningKeySchemes,
@@ -47,7 +46,7 @@ final class GeneratorsProtocol(
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
         protocolVersion,
-        catchUpParameters,
+        acsCommitmentsCatchUp,
       )
 
     } yield parameters)
@@ -55,7 +54,7 @@ final class GeneratorsProtocol(
 
   implicit val dynamicDomainParametersArb: Arbitrary[DynamicDomainParameters] = Arbitrary(
     for {
-      participantResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      confirmationResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       transferExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
@@ -69,7 +68,7 @@ final class GeneratorsProtocol(
       representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(protocolVersion)
 
       reconciliationInterval <- Arbitrary.arbitrary[PositiveSeconds]
-      maxRatePerParticipant <- Arbitrary.arbitrary[NonNegativeInt]
+      confirmationRequestsMaxRate <- Arbitrary.arbitrary[NonNegativeInt]
       maxRequestSize <- Arbitrary.arbitrary[MaxRequestSize]
 
       trafficControlConfig <- Gen.option(Arbitrary.arbitrary[TrafficControlParameters])
@@ -81,14 +80,14 @@ final class GeneratorsProtocol(
       onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
-        participantResponseTimeout,
+        confirmationResponseTimeout,
         mediatorReactionTimeout,
         transferExclusivityTimeout,
         topologyChangeDelay,
         ledgerTimeRecordTimeTolerance,
         updatedMediatorDeduplicationTimeout,
         reconciliationInterval,
-        maxRatePerParticipant,
+        confirmationRequestsMaxRate,
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
         trafficControlConfig,
@@ -132,14 +131,14 @@ final class GeneratorsProtocol(
         ledgerCreateTime <- Arbitrary.arbitrary[LedgerCreateTime]
 
         domainId <- Arbitrary.arbitrary[DomainId]
-        mediatorId <- Arbitrary.arbitrary[MediatorId]
+        mediatorGroup <- Arbitrary.arbitrary[MediatorsOfDomain]
 
         saltIndex <- Gen.choose(Int.MinValue, Int.MaxValue)
         transactionUUID <- Gen.uuid
 
         (computedSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
           domainId = domainId,
-          mediator = MediatorRef(mediatorId),
+          mediator = mediatorGroup,
           transactionUuid = transactionUUID,
           viewPosition = ViewPosition(List.empty),
           viewParticipantDataSalt = TestSalt.generateSalt(saltIndex),

@@ -421,12 +421,12 @@ class GrpcSequencerService(
         "Batch from participant contains multiple mediators as recipients.",
       )
       _ <- refuseUnless(sender)(
-        noSigningTimestampIfUnauthenticated(
+        noTopologyTimestampIfUnauthenticated(
           sender,
-          request.timestampOfSigningKey,
+          request.topologyTimestamp,
           request.batch.envelopes,
         ),
-        "Requests sent from or to unauthenticated members must not specify the timestamp of the signing key",
+        "Requests sent from or to unauthenticated members must not specify the topology timestamp",
       )
       _ <- request.aggregationRule.traverse_(validateAggregationRule(sender, messageId, _))
     } yield {
@@ -438,16 +438,16 @@ class GrpcSequencerService(
     }
   }
 
-  /** Reject requests that involve unauthenticated members and specify the timestamp of the signing key.
+  /** Reject requests that involve unauthenticated members and specify the topology timestamp.
     * This is because the unauthenticated member typically does not know the domain topology state
-    * and therefore cannot validate that the requested timestamp is within the signing tolerance.
+    * and therefore cannot validate that the requested timestamp is within the topology timestamp tolerance.
     */
-  private def noSigningTimestampIfUnauthenticated(
+  private def noTopologyTimestampIfUnauthenticated(
       sender: Member,
-      timestampOfSigningKey: Option[CantonTimestamp],
+      topologyTimestampO: Option[CantonTimestamp],
       envelopes: Seq[ClosedEnvelope],
   ): Boolean =
-    timestampOfSigningKey.isEmpty || (sender.isAuthenticated && envelopes.forall(
+    topologyTimestampO.isEmpty || (sender.isAuthenticated && envelopes.forall(
       _.recipients.allRecipients.forall {
         case MemberRecipient(m) => m.isAuthenticated
         case _ => true
@@ -536,13 +536,13 @@ class GrpcSequencerService(
     val sender = request.sender
     def checkRate(
         participantId: ParticipantId,
-        maxRatePerParticipant: NonNegativeInt,
+        confirmationRequestsMaxRate: NonNegativeInt,
     ): Either[SendAsyncError, Unit] = {
-      val limiter = getOrUpdateRateLimiter(participantId, maxRatePerParticipant)
+      val limiter = getOrUpdateRateLimiter(participantId, confirmationRequestsMaxRate)
       Either.cond(
         limiter.checkAndUpdateRate(),
         (), {
-          val message = f"Submission rate exceeds rate limit of $maxRatePerParticipant/s."
+          val message = f"Submission rate exceeds rate limit of $confirmationRequestsMaxRate/s."
           logger.info(
             f"Request '${request.messageId}' from '$sender' refused: $message"
           )
@@ -554,13 +554,13 @@ class GrpcSequencerService(
     sender match {
       case participantId: ParticipantId if request.isRequest =>
         for {
-          maxRatePerParticipant <- EitherTUtil
+          confirmationRequestsMaxRate <- EitherTUtil
             .fromFuture(
               domainParamsLookup.getApproximateOrDefaultValue(),
               e => SendAsyncError.Internal(s"Unable to retrieve domain parameters: ${e.getMessage}"),
             )
-            .map(_.maxRatePerParticipant)
-          _ <- EitherT.fromEither[Future](checkRate(participantId, maxRatePerParticipant))
+            .map(_.confirmationRequestsMaxRate)
+          _ <- EitherT.fromEither[Future](checkRate(participantId, confirmationRequestsMaxRate))
         } yield ()
       case _ =>
         // No rate limitation for domain entities and non-requests
@@ -571,14 +571,14 @@ class GrpcSequencerService(
 
   private def getOrUpdateRateLimiter(
       participantId: ParticipantId,
-      maxRatePerParticipant: NonNegativeInt,
+      confirmationRequestsMaxRate: NonNegativeInt,
   ): RateLimiter = {
-    def rateAsNumeric = NonNegativeNumeric.tryCreate(maxRatePerParticipant.value.toDouble)
+    def rateAsNumeric = NonNegativeNumeric.tryCreate(confirmationRequestsMaxRate.value.toDouble)
     rates.get(participantId) match {
       case Some(rateLimiter) =>
         if (
           Math.abs(
-            rateLimiter.maxTasksPerSecond.value - maxRatePerParticipant.value.toDouble
+            rateLimiter.maxTasksPerSecond.value - confirmationRequestsMaxRate.value.toDouble
           ) < 1.0e-6
         )
           rateLimiter

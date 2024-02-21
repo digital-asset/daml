@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreX,
   ValidatedTopologyTransactionX,
 }
-import com.digitalasset.canton.topology.transaction.ParticipantPermissionX.*
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion

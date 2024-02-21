@@ -25,7 +25,7 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       offset = offset(1),
       eventSequentialId = 1L,
       contractId = cid,
-      ledgerEffectiveTime = Some(let),
+      ledgerEffectiveTime = let,
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))

@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.participant.state.index.v2
 
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.data.Ref.PackageId
-import com.digitalasset.canton.ledger.api.domain.{LedgerOffset, PackageEntry}
+import com.digitalasset.canton.ledger.api.domain.{PackageEntry, ParticipantOffset}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -25,6 +25,6 @@ trait IndexPackagesService {
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Archive]]
 
   def packageEntries(
-      startExclusive: Option[LedgerOffset.Absolute]
+      startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PackageEntry, NotUsed]
 }

@@ -77,9 +77,10 @@ class MediatorEventDeduplicatorTest
     "b9f66e2a-4867-465e-b51f-c727f2d0a18f",
   ).map(UUID.fromString)
 
-  private lazy val request: Seq[OpenEnvelope[MediatorRequest]] = uuids.map(mkMediatorRequest)
+  private lazy val request: Seq[OpenEnvelope[MediatorConfirmationRequest]] =
+    uuids.map(mkMediatorRequest)
 
-  private def requests(is: Int*): Seq[OpenEnvelope[MediatorRequest]] = is.map(request)
+  private def requests(is: Int*): Seq[OpenEnvelope[MediatorConfirmationRequest]] = is.map(request)
 
   private def deduplicationData(iAndTime: (Int, CantonTimestamp)*): Set[DeduplicationData] =
     iAndTime.map { case (i, requestTime) =>
@@ -87,15 +88,15 @@ class MediatorEventDeduplicatorTest
     }.toSet
 
   private def deduplicationData(requestTime: CantonTimestamp, is: Int*): Set[DeduplicationData] =
-    deduplicationData(is.map(_ -> requestTime): _*)
+    deduplicationData(is.map(_ -> requestTime)*)
 
-  private def mkMediatorRequest(uuid: UUID): OpenEnvelope[MediatorRequest] = {
+  private def mkMediatorRequest(uuid: UUID): OpenEnvelope[MediatorConfirmationRequest] = {
     import Pretty.*
 
-    val mediatorRequest = mock[MediatorRequest]
+    val mediatorRequest = mock[MediatorConfirmationRequest]
     when(mediatorRequest.requestUuid).thenReturn(uuid)
     when(mediatorRequest.pretty).thenReturn(
-      prettyOfClass[MediatorRequest](param("uuid", _.requestUuid))
+      prettyOfClass[MediatorConfirmationRequest](param("uuid", _.requestUuid))
     )
 
     mkDefaultOpenEnvelope(mediatorRequest)
@@ -106,7 +107,7 @@ class MediatorEventDeduplicatorTest
 
   private lazy val response: DefaultOpenEnvelope = {
     val message = SignedProtocolMessage(
-      mock[TypedSignedProtocolMessageContent[MediatorResponse]],
+      mock[TypedSignedProtocolMessageContent[ConfirmationResponse]],
       NonEmpty(Seq, SymbolicCrypto.emptySignature),
       testedProtocolVersion,
     )
@@ -115,7 +116,7 @@ class MediatorEventDeduplicatorTest
 
   private def assertNextSentVerdict(
       verdictSender: TestVerdictSender,
-      envelope: OpenEnvelope[MediatorRequest],
+      envelope: OpenEnvelope[MediatorConfirmationRequest],
       requestTime: CantonTimestamp = this.requestTime,
       expireAfter: CantonTimestamp = this.requestTime.plus(deduplicationTimeout),
   ): Assertion = {
@@ -365,7 +366,7 @@ class MediatorEventDeduplicatorTest
     val verdictSender = new VerdictSender {
       override def sendResult(
           requestId: RequestId,
-          request: MediatorRequest,
+          request: MediatorConfirmationRequest,
           verdict: Verdict,
           decisionTime: CantonTimestamp,
       )(implicit traceContext: TraceContext): Future[Unit] =
@@ -382,7 +383,7 @@ class MediatorEventDeduplicatorTest
 
       override def sendReject(
           requestId: RequestId,
-          requestO: Option[MediatorRequest],
+          requestO: Option[MediatorConfirmationRequest],
           rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
           rejectionReason: Verdict.MediatorReject,
           decisionTime: CantonTimestamp,

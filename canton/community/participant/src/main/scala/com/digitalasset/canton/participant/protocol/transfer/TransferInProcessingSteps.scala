@@ -110,7 +110,7 @@ private[transfer] class TransferInProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -221,17 +221,17 @@ private[transfer] class TransferInProcessingSteps(
           checked(
             NonEmptyUtil.fromUnsafe(
               recipientsSet.toSeq.map(participant =>
-                NonEmpty(Set, mediator.toRecipient, MemberRecipient(participant))
+                NonEmpty(Set, mediator, MemberRecipient(participant))
               )
             )
           )
         )
       val messages = Seq[(ProtocolMessage, Recipients)](
-        mediatorMessage -> Recipients.cc(mediator.toRecipient),
+        mediatorMessage -> Recipients.cc(mediator),
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
-      TransferSubmission(Batch.of(targetProtocolVersion.v, messages: _*), rootHash)
+      TransferSubmission(Batch.of(targetProtocolVersion.v, messages*), rootHash)
     }
 
     result.mapK(FutureUnlessShutdown.outcomeK).widen[Submission]
@@ -288,7 +288,7 @@ private[transfer] class TransferInProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -347,7 +347,7 @@ private[transfer] class TransferInProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -450,7 +450,7 @@ private[transfer] class TransferInProcessingSteps(
 
           EitherT
             .fromEither[FutureUnlessShutdown](
-              MediatorResponse
+              ConfirmationResponse
                 .create(
                   requestId,
                   participantId,
@@ -463,7 +463,7 @@ private[transfer] class TransferInProcessingSteps(
                 )
             )
             .leftMap(e => FailedToCreateResponse(transferId, e): TransferProcessorError)
-            .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator.toRecipient)))
+            .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator)))
       }
     } yield {
       StorePendingDataAndSendResponseAndCreateTimeout(
@@ -485,7 +485,7 @@ private[transfer] class TransferInProcessingSteps(
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, TransferInResult],
+      resultE: Either[MalformedConfirmationRequestResult, TransferInResult],
       pendingRequestData: PendingTransferIn,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -508,7 +508,7 @@ private[transfer] class TransferInProcessingSteps(
     ) = pendingRequestData
 
     import scala.util.Either.MergeableEither
-    MergeableEither[MediatorResult](resultE).merge.verdict match {
+    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -583,6 +583,7 @@ private[transfer] class TransferInProcessingSteps(
       LfNodeCreate(
         coid = contract.contractId,
         templateId = contractInst.template,
+        packageName = contractInst.packageName,
         arg = contractInst.arg,
         signatories = contract.metadata.signatories,
         stakeholders = contract.metadata.stakeholders,
@@ -666,7 +667,7 @@ object TransferInProcessingSteps {
       isTransferringParticipant: Boolean,
       transferId: TransferId,
       hostedStakeholders: Set[LfPartyId],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ) extends PendingTransfer
       with PendingRequestData
 
@@ -679,7 +680,7 @@ object TransferInProcessingSteps {
       transferCounter: TransferCounterO,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorRef,
+      targetMediator: MediatorsOfDomain,
       transferOutResult: DeliveredTransferOutResult,
       transferInUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,
