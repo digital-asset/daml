@@ -250,6 +250,7 @@ object ContractStorageBackend {
 
   final case class RawCreatedContract(
       templateId: String,
+      packageName: String,
       flatEventWitnesses: Set[Party],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
@@ -268,6 +269,7 @@ object ContractStorageBackend {
 
   class RawContract(
       val templateId: String,
+      val packageName: String,
       val createArgument: Array[Byte],
       val createArgumentCompression: Option[Int],
   )
@@ -360,6 +362,7 @@ object EventStorageBackend {
       workflowId: String,
       domainId: String,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
       event: E,
   )
 
@@ -367,6 +370,7 @@ object EventStorageBackend {
       updateId: String,
       contractId: String,
       templateId: Identifier,
+      packageName: PackageName,
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],
@@ -404,6 +408,7 @@ object EventStorageBackend {
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 
   final case class RawAssignEvent(
@@ -417,6 +422,7 @@ object EventStorageBackend {
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 }
 

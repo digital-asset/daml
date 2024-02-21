@@ -7,7 +7,6 @@ import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -16,7 +15,10 @@ import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
-import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
+import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
+  DeduplicationDuration,
+  DeduplicationOffset,
+}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -184,7 +186,17 @@ private[platform] object InMemoryStateUpdater {
     updates.view
       .collect {
         case Traced(
-              TransactionLogUpdate.TransactionAccepted(_, _, _, _, _, _, Some(completionDetails), _)
+              TransactionLogUpdate.TransactionAccepted(
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+                Some(completionDetails),
+                _,
+                _,
+              )
             ) =>
           completionDetails.completionStreamResponse -> completionDetails.submitters
         case Traced(rejected: TransactionLogUpdate.TransactionRejected) =>
@@ -235,10 +247,9 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Created(
               contractId = createdEvent.contractId,
               contract = Contract(
+                packageName = createdEvent.packageName,
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
-                // TODO https://github.com/digital-asset/daml/issues/17995
-                packageName = Ref.PackageName.assertFromString("dummyReplace")
               ),
               globalKey = createdEvent.contractKey.map(k =>
                 Key.assertBuild(createdEvent.templateId, k.unversioned)
@@ -297,6 +308,7 @@ private[platform] object InMemoryStateUpdater {
           contractId = create.coid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
+          packageName = create.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
@@ -378,6 +390,7 @@ private[platform] object InMemoryStateUpdater {
       events = events.toVector,
       completionDetails = completionDetails,
       domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
+      recordTime = txAccepted.recordTime,
     )
   }
 
@@ -447,6 +460,7 @@ private[platform] object InMemoryStateUpdater {
       commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
       workflowId = u.workflowId.getOrElse(""),
       offset = offset,
+      recordTime = u.recordTime,
       completionDetails = completionDetails,
       reassignmentInfo = u.reassignmentInfo,
       reassignment = u.reassignment match {
@@ -462,6 +476,7 @@ private[platform] object InMemoryStateUpdater {
               contractId = create.coid,
               ledgerEffectiveTime = assign.ledgerEffectiveTime,
               templateId = create.templateId,
+              packageName = create.packageName,
               commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
               workflowId = u.workflowId.getOrElse(""),
               contractKey =

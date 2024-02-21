@@ -12,7 +12,6 @@ import com.daml.ledger.api.v1.value.{
   Value as ApiValue,
 }
 import com.daml.lf.data.Bytes
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -45,6 +44,7 @@ import com.digitalasset.canton.platform.{
   Identifier as LfIdentifier,
   ModuleName as LfModuleName,
   PackageId as LfPackageId,
+  PackageName as LfPackageName,
   QualifiedName as LfQualifiedName,
   Value as LfValue,
 }
@@ -275,6 +275,7 @@ final class LfValueTranslation(
           moduleName <- DottedName.fromString(apiTemplateId.moduleName)
           entityName <- DottedName.fromString(apiTemplateId.entityName)
           templateId = Identifier(packageId, LfQualifiedName(moduleName, entityName))
+          packageName <- LfPackageName.fromString(raw.partial.packageName)
           signatories <- raw.partial.signatories.traverse(Party.fromString).map(_.toSet)
           observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
           maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
@@ -293,14 +294,13 @@ final class LfValueTranslation(
           Node.Create(
             coid = contractId,
             templateId = templateId,
+            packageName = packageName,
             arg = createArgument.unversioned,
             agreementText = raw.partial.agreementText.getOrElse(""),
             signatories = signatories,
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO https://github.com/digital-asset/daml/issues/17995
-            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdAt,
           cantonData = Bytes.fromByteArray(driverMetadataBytes),
@@ -415,14 +415,13 @@ final class LfValueTranslation(
           Node.Create(
             coid = contractId,
             templateId = createdEvent.templateId,
+            packageName = createdEvent.packageName,
             arg = createArgument.unversioned,
             agreementText = createdEvent.agreementText.getOrElse(""),
             signatories = signatories,
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
             version = createArgument.version,
-            // TODO https://github.com/digital-asset/daml/issues/17995
-            packageName = Ref.PackageName.assertFromString("dummyReplace")
           ),
           createTime = createdEvent.ledgerEffectiveTime,
           cantonData = Bytes.fromByteArray(driverMetadataBytes),

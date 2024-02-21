@@ -29,19 +29,12 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderId,
-  LedgerOffset,
   ObjectMeta,
+  ParticipantOffset,
   PartyDetails,
 }
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
-import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
-  optionalIdentityProviderId,
-  optionalString,
-  requireEmptyString,
-  requireParty,
-  requireResourceVersion,
-  verifyMetadataAnnotations,
-}
+import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.requirePresence
 import com.digitalasset.canton.ledger.error.groups.{
@@ -648,7 +641,7 @@ private[apiserver] object ApiPartyManagementService {
       writeService.allocateParty(party, displayName, submissionId).asScala
     }
 
-    override def entries(offset: Option[LedgerOffset.Absolute])(implicit
+    override def entries(offset: Option[ParticipantOffset.Absolute])(implicit
         loggingContext: LoggingContextWithTrace
     ): Source[PartyEntry, ?] =
       partyManagementService.partyEntries(offset)

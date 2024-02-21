@@ -14,11 +14,14 @@ import com.digitalasset.canton.lifecycle.{
   PerformUnlessClosing,
   UnlessShutdown,
 }
+import com.digitalasset.canton.logging.{SuppressionRule, TracedLogger}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry.Jitter.RandomSource
 import com.digitalasset.canton.util.retry.RetryUtil.{
   AllExnRetryable,
   DbExceptionRetryable,
+  ExceptionRetryable,
   NoExnRetryable,
 }
 import com.digitalasset.canton.util.{DelayUtil, FutureUtil}
@@ -30,6 +33,7 @@ import java.util.Random
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success as TrySuccess, Try}
 
 class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
@@ -147,6 +151,8 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testSuspend(maxRetries =>
       suspend => Directly(logger, flagCloseable, maxRetries, "op", suspendRetries = suspend)
     )
+
+    testExceptionLogging(Directly(logger, flagCloseable, 3, "op"))
   }
 
   describe("retry.Pause") {
@@ -211,6 +217,8 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testSuspend(maxRetries =>
       suspend => Pause(logger, flagCloseable, maxRetries, 5.millis, "op", suspendRetries = suspend)
     )
+
+    testExceptionLogging(Pause(logger, flagCloseable, 3, 1.millis, "op"))
   }
 
   describe("retry.Backoff") {
@@ -285,6 +293,8 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           suspendRetries = suspend,
         )
     )
+
+    testExceptionLogging(Backoff(logger, flagCloseable, 3, 1.millis, 1.millis, "op"))
   }
 
   def testJitterBackoff(name: String, algoCreator: FiniteDuration => Jitter): Unit = {
@@ -806,5 +816,46 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         retried.get() shouldBe maxRetries + 3
       }
     }
+  }
+
+  def testExceptionLogging(policy: => Policy): Unit = {
+    it("should log an exception with the configured retry log level") {
+      // We don't care about the success criteria as we always throw an exception
+      implicit val success: Success[Any] = Success.always
+
+      case class TestException() extends RuntimeException("test exception")
+
+      val retryable = new ExceptionRetryable() {
+        override def retryOK(
+            outcome: Try[_],
+            logger: TracedLogger,
+            lastErrorKind: Option[RetryUtil.ErrorKind],
+        )(implicit tc: TraceContext): RetryUtil.ErrorKind = RetryUtil.TransientErrorKind
+
+        override def retryLogLevel(e: Throwable): Option[Level] = e match {
+          case TestException() => Some(Level.WARN)
+          case _ => None
+        }
+      }
+
+      loggerFactory
+        .assertLogsSeq(SuppressionRule.Level(Level.WARN))(
+          policy(Future.failed(TestException()), retryable),
+          { entries =>
+            forEvery(entries) { e =>
+              e.warningMessage should (include(
+                "The operation 'op' has failed with an exception"
+              ) or include("Now retrying operation 'op'"))
+            }
+          },
+        )
+        .transform {
+          case Failure(TestException()) =>
+            logger.debug("Retry terminated with expected exception")
+            TrySuccess(succeed)
+          case result => result
+        }
+    }
+
   }
 }

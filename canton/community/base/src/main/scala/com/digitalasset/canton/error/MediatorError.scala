@@ -14,8 +14,8 @@ sealed trait MediatorError extends Product with Serializable with PrettyPrinting
 object MediatorError extends MediatorErrorGroup {
 
   @Explanation(
-    """This rejection indicates that the transaction has been rejected by the mediator as it didn't receive enough confirmations within the participant response timeout.
-      The field "unresponsiveParties" in the error info contains the comma-separated list of parties that failed to send a response within the participant response timeout. This field is only present since protocol version 6"""
+    """This rejection indicates that the transaction has been rejected by the mediator as it didn't receive enough confirmations within the confirmation response timeout.
+      The field "unresponsiveParties" in the error info contains the comma-separated list of parties that failed to send a response within the confirmation response timeout. This field is only present since protocol version 6"""
   )
   @Resolution(
     "Check that all involved participants are available and not overloaded."

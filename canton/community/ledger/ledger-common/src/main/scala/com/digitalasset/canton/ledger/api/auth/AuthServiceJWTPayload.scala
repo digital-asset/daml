@@ -216,7 +216,7 @@ object AuthServiceJWTCodec {
     value.fold[JsValue](JsNull)(JsString(_))
 
   private[this] def writeStringList(value: List[String]): JsValue =
-    JsArray(value.map(JsString(_)) *)
+    JsArray(value.map(JsString(_))*)
 
   private[this] def writeOptionalInstant(value: Option[Instant]): JsValue =
     value.fold[JsValue](JsNull)(i => JsNumber(i.getEpochSecond))

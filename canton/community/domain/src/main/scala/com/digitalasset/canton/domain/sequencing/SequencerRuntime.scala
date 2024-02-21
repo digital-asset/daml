@@ -8,10 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v30.{
-  SequencerAdministrationServiceGrpc,
-  SequencerVersionServiceGrpc,
-}
+import com.digitalasset.canton.domain.admin.v30.SequencerVersionServiceGrpc
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -200,9 +197,6 @@ class SequencerRuntime(
     })
     .discard[Boolean]
 
-  private val sequencerAdministrationService =
-    new GrpcSequencerAdministrationService(sequencer, loggerFactory)
-
   private case class AuthenticationServices(
       memberAuthenticationService: MemberAuthenticationService,
       sequencerAuthenticationService: GrpcSequencerAuthenticationService,
@@ -252,10 +246,7 @@ class SequencerRuntime(
 
   def registerAdminGrpcServices(
       register: ServerServiceDefinition => Unit
-  )(implicit ec: ExecutionContext): Unit = {
-    register(
-      SequencerAdministrationServiceGrpc.bindService(sequencerAdministrationService, ec)
-    )
+  ): Unit = {
     register(
       SequencerVersionServiceGrpc
         .bindService(

@@ -10,9 +10,10 @@ import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{Informee, TransferOutViewTree, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
@@ -31,7 +32,7 @@ import java.util.UUID
 final case class TransferOutMediatorMessage(
     tree: TransferOutViewTree,
     override val submittingParticipantSignature: Signature,
-) extends MediatorRequest
+) extends MediatorConfirmationRequest
     with UnsignedProtocolMessage {
   require(tree.commonData.isFullyUnblinded, "The transfer-out common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-out view must be blinded")
@@ -48,7 +49,7 @@ final case class TransferOutMediatorMessage(
 
   override def domainId: DomainId = commonData.sourceDomain.unwrap
 
-  override def mediator: MediatorRef = commonData.sourceMediator
+  override def mediator: MediatorsOfDomain = commonData.sourceMediator
 
   override def requestUuid: UUID = commonData.uuid
 
@@ -61,11 +62,11 @@ final case class TransferOutMediatorMessage(
 
   override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
 
-  override def createMediatorResult(
+  override def createConfirmationResult(
       requestId: RequestId,
       verdict: Verdict,
       recipientParties: Set[LfPartyId],
-  ): MediatorResult with SignedProtocolMessageContent = {
+  ): ConfirmationResult with SignedProtocolMessageContent = {
     val informees = commonData.stakeholders ++ commonData.adminParties
     require(
       recipientParties.subsetOf(informees),

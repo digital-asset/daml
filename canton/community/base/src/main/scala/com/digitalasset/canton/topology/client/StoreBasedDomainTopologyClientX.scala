@@ -269,7 +269,7 @@ class StoreBasedTopologySnapshotX(
         ).map { ptp =>
           ptp.partyId -> (ptp.groupAddressing, ptp.threshold, ptp.participants.map {
             case HostingParticipant(participantId, partyPermission) =>
-              participantId -> partyPermission.toNonX
+              participantId -> partyPermission
           }.toMap)
         }.toMap
 

@@ -571,7 +571,7 @@ class DomainSnapshotSyncCryptoApi(
             .toRight(
               SignatureCheckError.GeneralError(
                 new RuntimeException(
-                  s"Mediator request for unknown mediator group with index $mediatorGroupIndex"
+                  s"Mediator confirmation request for unknown mediator group with index $mediatorGroupIndex"
                 )
               )
             )
@@ -600,7 +600,7 @@ class DomainSnapshotSyncCryptoApi(
             )
           )
           .fold(
-            x => x.invalid[MediatorId],
+            _.invalid[MediatorId],
             _ => keyMember(signature.signedBy).valid[SignatureCheckError],
           )
       })

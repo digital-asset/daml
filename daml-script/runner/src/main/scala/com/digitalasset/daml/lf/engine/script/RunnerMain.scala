@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script
 
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.stream._
 
 import java.nio.file.Files
@@ -50,13 +49,7 @@ object RunnerMain {
 
     val flow = run(config)
 
-    flow.onComplete(_ =>
-      if (config.jsonApi) {
-        Http().shutdownAllConnectionPools().flatMap { case () => system.terminate() }
-      } else {
-        system.terminate()
-      }
-    )
+    flow.onComplete(_ => system.terminate())
 
     if (!Await.result(flow, Duration.Inf)) {
       sys.exit(1)
@@ -77,7 +70,6 @@ object RunnerMain {
     }
 
   def run(config: RunnerMainConfig)(implicit
-      system: ActorSystem,
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
       materializer: Materializer,
@@ -98,7 +90,7 @@ object RunnerMain {
         dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
       envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
 
-      clients <- connectToParticipants(config, compiledPackages, envIface, traceLog, warningLog)
+      clients <- connectToParticipants(config, compiledPackages, traceLog, warningLog)
 
       _ <- (clients.getParticipant(None), config.uploadDar) match {
         case (Left(err), _) => throw new RuntimeException(err)
@@ -189,11 +181,9 @@ object RunnerMain {
   def connectToParticipants(
       config: RunnerMainConfig,
       compiledPackages: PureCompiledPackages,
-      envIface: EnvironmentSignature,
       traceLog: TraceLog,
       warningLog: WarningLog,
   )(implicit
-      system: ActorSystem,
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[Participants[ScriptLedgerClient]] = {
@@ -211,7 +201,7 @@ object RunnerMain {
                 application_id = params.application_id.orElse(config.applicationId),
               )
             )
-        connectApiParameters(config, params, envIface)
+        connectApiParameters(config, params)
       case ParticipantMode.RemoteParticipantHost(host, port, oAdminPort) =>
         val params =
           Participants(
@@ -220,7 +210,7 @@ object RunnerMain {
             participants = Map.empty,
             party_participants = Map.empty,
           )
-        connectApiParameters(config, params, envIface)
+        connectApiParameters(config, params)
       case ParticipantMode.IdeLedgerParticipant() =>
         Runner.ideLedgerClient(compiledPackages, traceLog, warningLog)
     }
@@ -229,16 +219,9 @@ object RunnerMain {
   def connectApiParameters(
       config: RunnerMainConfig,
       participantParams: Participants[ApiParameters],
-      envIface: EnvironmentSignature,
   )(implicit
-      system: ActorSystem,
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[Participants[ScriptLedgerClient]] =
-    if (config.jsonApi) {
-      // TODO (#13973) resolve envIface, or not, depending on whether inherited choices are needed
-      Runner.jsonClients(participantParams, envIface)
-    } else {
-      Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
-    }
+    Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
 }

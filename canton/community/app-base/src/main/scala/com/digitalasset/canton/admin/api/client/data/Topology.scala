@@ -22,7 +22,7 @@ object ListPartiesResult {
   ): ParsingResult[DomainPermission] =
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      permission <- ParticipantPermission.fromProtoEnum(value.permission)
+      permission <- ParticipantPermission.fromProtoV30(value.permission)
     } yield DomainPermission(domainId, permission)
 
   private def fromProtoV30(

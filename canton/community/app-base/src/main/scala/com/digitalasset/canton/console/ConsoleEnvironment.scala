@@ -107,12 +107,12 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     lazy val participantHelperItems = {
       // due to the use of reflection to grab the help-items, i need to write the following, repetitive stuff explicitly
       val subItems =
-        if (participantsX.local.nonEmpty)
-          participantsX.local.headOption.toList.flatMap(p =>
+        if (participants.local.nonEmpty)
+          participants.local.headOption.toList.flatMap(p =>
             Help.getItems(p, baseTopic = Seq("$participant"), scope = scope)
           )
-        else if (participantsX.remote.nonEmpty)
-          participantsX.remote.headOption.toList.flatMap(p =>
+        else if (participants.remote.nonEmpty)
+          participants.remote.headOption.toList.flatMap(p =>
             Help.getItems(p, baseTopic = Seq("$participant"), scope = scope)
           )
         else Seq()
@@ -261,7 +261,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   /** Print help for items in the top level scope.
     */
   def help(): Unit = {
-    consoleOutput.info(Help.format(featureSetReference.get().filteredHelpItems: _*))
+    consoleOutput.info(Help.format(featureSetReference.get().filteredHelpItems*))
   }
 
   /** Print detailed help for a top-level item in the top level scope.
@@ -292,7 +292,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         Help.Topic(Help.defaultTopLevelTopic),
       ))
 
-  lazy val participantsX: NodeReferences[
+  lazy val participants: NodeReferences[
     ParticipantReference,
     RemoteParticipantReference,
     LocalParticipantReference,
@@ -304,7 +304,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         .toSeq,
     )
 
-  lazy val sequencersX: NodeReferences[
+  lazy val sequencers: NodeReferences[
     SequencerNodeReference,
     RemoteSequencerNodeReference,
     LocalSequencerNodeReference,
@@ -314,7 +314,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       environment.config.remoteSequencersByString.keys.map(createRemoteSequencerReference).toSeq,
     )
 
-  lazy val mediatorsX
+  lazy val mediators
       : NodeReferences[MediatorReference, RemoteMediatorReference, LocalMediatorReference] =
     NodeReferences(
       environment.config.mediatorsByString.keys.map(createMediatorReference).toSeq,
@@ -340,14 +340,14 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   ] = {
     NodeReferences(
       mergeLocalInstances(
-        participantsX.local,
-        sequencersX.local,
-        mediatorsX.local,
+        participants.local,
+        sequencers.local,
+        mediators.local,
       ),
       mergeRemoteInstances(
-        participantsX.remote,
-        sequencersX.remote,
-        mediatorsX.remote,
+        participants.remote,
+        sequencers.remote,
+        mediators.remote,
       ),
     )
   }
@@ -364,27 +364,27 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   protected def topLevelValues: Seq[TopLevelValue[_]] = {
     val nodeTopic = Seq(topicNodeReferences)
     val localParticipantXBinds: Seq[TopLevelValue[_]] =
-      participantsX.local.map(p =>
+      participants.local.map(p =>
         TopLevelValue(p.name, helpText("participant x", p.name), p, nodeTopic)
       )
     val remoteParticipantXBinds: Seq[TopLevelValue[_]] =
-      participantsX.remote.map(p =>
+      participants.remote.map(p =>
         TopLevelValue(p.name, helpText("remote participant x", p.name), p, nodeTopic)
       )
     val localMediatorXBinds: Seq[TopLevelValue[_]] =
-      mediatorsX.local.map(d =>
+      mediators.local.map(d =>
         TopLevelValue(d.name, helpText("local mediator-x", d.name), d, nodeTopic)
       )
     val remoteMediatorXBinds: Seq[TopLevelValue[_]] =
-      mediatorsX.remote.map(d =>
+      mediators.remote.map(d =>
         TopLevelValue(d.name, helpText("remote mediator-x", d.name), d, nodeTopic)
       )
     val localSequencerXBinds: Seq[TopLevelValue[_]] =
-      sequencersX.local.map(d =>
+      sequencers.local.map(d =>
         TopLevelValue(d.name, helpText("local sequencer-x", d.name), d, nodeTopic)
       )
     val remoteSequencerXBinds: Seq[TopLevelValue[_]] =
-      sequencersX.remote.map(d =>
+      sequencers.remote.map(d =>
         TopLevelValue(d.name, helpText("remote sequencer-x", d.name), d, nodeTopic)
       )
     val clockBinds: Option[TopLevelValue[_]] =
@@ -397,19 +397,19 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       TopLevelValue(
         "participantsX",
         "All participant x nodes" + genericNodeReferencesDoc,
-        participantsX,
+        participants,
         referencesTopic,
       ) :+
       TopLevelValue(
         "mediatorsX",
         "All mediator-x nodes" + genericNodeReferencesDoc,
-        mediatorsX,
+        mediators,
         referencesTopic,
       ) :+
       TopLevelValue(
         "sequencersX",
         "All sequencer-x nodes" + genericNodeReferencesDoc,
-        sequencersX,
+        sequencers,
         referencesTopic,
       ) :+
       TopLevelValue("nodes", "All nodes" + genericNodeReferencesDoc, nodes, referencesTopic)

@@ -42,6 +42,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -85,9 +86,7 @@ final class TransferOutProcessingStepsTest
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
   )
-  private val sourceMediator = MediatorRef(
-    MediatorId(UniqueIdentifier.tryFromProtoPrimitive("source::mediator"))
-  )
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
   )
@@ -682,7 +681,7 @@ final class TransferOutProcessingStepsTest
             NonEmptyUtil.fromUnsafe(decrypted.views),
             Seq.empty,
             cryptoSnapshot,
-            MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+            MediatorsOfDomain(MediatorGroupIndex.one),
           )
         )("compute activeness set failed")
       } yield {
@@ -838,7 +837,7 @@ final class TransferOutProcessingStepsTest
           Set(party1),
           timeEvent,
           Some(transferInExclusivity),
-          MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+          MediatorsOfDomain(MediatorGroupIndex.one),
         )
         _ <- valueOrFail(
           outProcessingSteps

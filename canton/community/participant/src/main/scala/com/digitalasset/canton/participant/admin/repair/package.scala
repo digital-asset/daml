@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin
 
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApiProvider}
-import com.digitalasset.canton.protocol.{LfGlobalKey, LfGlobalKeyWithMaintainers, TransactionId}
+import com.digitalasset.canton.protocol.TransactionId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -37,27 +37,5 @@ package object repair {
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): Future[Set[LfPartyId]] =
-    snapshot
-      .hostedOn(parties, participantId)
-      .map(_.collect { case (party, attributes) if attributes.permission.isActive => party }.toSet)
-
-  private[repair] def getKeyIfOneMaintainerIsLocal(
-      snapshot: TopologySnapshot,
-      keyO: Option[LfGlobalKeyWithMaintainers],
-      participantId: ParticipantId,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): Future[Option[LfGlobalKey]] = {
-    keyO.collect { case LfGlobalKeyWithMaintainers(key, maintainers) =>
-      (maintainers, key)
-    } match {
-      case None => Future.successful(None)
-      case Some((maintainers, key)) =>
-        snapshot
-          .hostedOn(maintainers, participantId)
-          .map(hostingParties => Option.when(hostingParties.exists(_._2.permission.isActive))(key))
-    }
-  }
-
+    snapshot.hostedOn(parties, participantId).map(_.keySet)
 }

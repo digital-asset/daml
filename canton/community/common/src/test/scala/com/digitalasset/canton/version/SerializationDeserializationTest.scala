@@ -32,7 +32,7 @@ class SerializationDeserializationTest
     with SerializationDeserializationTestHelpers {
   import com.digitalasset.canton.sequencing.GeneratorsSequencing.*
 
-  forAll(Table("protocol version", ProtocolVersion.supported *)) { version =>
+  forAll(Table("protocol version", ProtocolVersion.supported*)) { version =>
     val generatorsProtocol = new GeneratorsProtocol(version)
     val generatorsData =
       new GeneratorsData(version, generatorsProtocol)
@@ -72,13 +72,13 @@ class SerializationDeserializationTest
 
         testProtocolVersioned(AcsCommitment)
         testProtocolVersioned(Verdict)
-        testProtocolVersioned(MediatorResponse)
+        testProtocolVersioned(ConfirmationResponse)
         testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, version)
         testProtocolVersionedWithCtx(SignedProtocolMessage, version)
 
         testProtocolVersioned(LocalVerdict)
         testProtocolVersioned(TransferResult)
-        testProtocolVersioned(MalformedMediatorRequestResult)
+        testProtocolVersioned(MalformedConfirmationRequestResult)
         testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
         testMemoizedProtocolVersioned(TransactionResultMessage)
 
@@ -120,6 +120,7 @@ class SerializationDeserializationTest
           TestHash,
         )
         testProtocolVersioned(Batch)
+        testProtocolVersioned(SetTrafficBalanceMessage)
         testMemoizedProtocolVersionedWithCtx(
           SubmissionRequest,
           MaxRequestSizeToDeserialize.NoLimit,

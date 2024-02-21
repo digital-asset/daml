@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.protocol.RecipientsTest.*
@@ -25,7 +26,7 @@ abstract class BftDomainSequencerApiTest extends SequencerApiTest {
         topology = TestingTopologyX()
           .withSequencerGroup(
             SequencerGroup(
-              active = Seq(SequencerId(domainId)),
+              active = NonEmpty.mk(Seq, SequencerId(domainId)),
               passive = Seq.empty,
               threshold = PositiveInt.one,
             )

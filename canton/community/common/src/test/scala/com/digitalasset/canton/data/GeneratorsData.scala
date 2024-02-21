@@ -16,7 +16,8 @@ import com.digitalasset.canton.data.ActionDescription.{
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPartyId}
 import magnolify.scalacheck.auto.*
@@ -59,7 +60,7 @@ final class GeneratorsData(
       confirmationPolicy <- Arbitrary.arbitrary[ConfirmationPolicy]
       domainId <- Arbitrary.arbitrary[DomainId]
 
-      mediatorRef <- Arbitrary.arbitrary[MediatorRef]
+      mediator <- Arbitrary.arbitrary[MediatorsOfDomain]
 
       salt <- Arbitrary.arbitrary[Salt]
       uuid <- Gen.uuid
@@ -69,7 +70,7 @@ final class GeneratorsData(
       .create(hashOps, protocolVersion)(
         confirmationPolicy,
         domainId,
-        mediatorRef,
+        mediator,
         salt,
         uuid,
       )

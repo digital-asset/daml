@@ -17,12 +17,10 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RequestId, RootHash}
 import com.digitalasset.canton.resource.DbStorage
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  MediatorRef,
-  TestingIdentityFactoryX,
-}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactoryX}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -43,7 +41,6 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
   val requestId = RequestId(CantonTimestamp.Epoch)
   val fullInformeeTree = {
     val domainId = DefaultTestIdentities.domainId
-    val mediatorId = DefaultTestIdentities.mediator
     val participantId = DefaultTestIdentities.participant1
 
     val alice = LfPartyId.assertFromString("alice")
@@ -87,7 +84,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       .create(hashOps, testedProtocolVersion)(
         ConfirmationPolicy.Signatory,
         domainId,
-        MediatorRef(mediatorId),
+        MediatorsOfDomain(MediatorGroupIndex.zero),
         s(5417),
         new UUID(0L, 0L),
       )

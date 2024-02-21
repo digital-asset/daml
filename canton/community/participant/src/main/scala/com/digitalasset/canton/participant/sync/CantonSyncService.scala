@@ -267,7 +267,7 @@ class CantonSyncService(
     sync.ready
   }
 
-  private def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
+  private[canton] def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
     aliasManager.domainIdForAlias(alias).flatMap(connectedDomainsMap.get)
 
   private val domainRouter =
@@ -437,6 +437,8 @@ class CantonSyncService(
           .foreach(_.removeJournalGarageCollectionLock())
       }
     },
+    connectedDomainsLookup,
+    participantId,
     loggerFactory,
   )
 
@@ -449,7 +451,7 @@ class CantonSyncService(
       span.setAttribute("submission_id", submissionId)
       pruneInternally(pruneUpToInclusive)
         .fold(
-          err => PruningResult.NotPruned(err.code.asGrpcStatus(err)),
+          err => PruningResult.NotPruned(ErrorCode.asGrpcStatus(err)),
           _ => PruningResult.ParticipantPruned,
         )
         .onShutdown(
@@ -1491,7 +1493,7 @@ class CantonSyncService(
       sequencerClientHealth,
     )
 
-    Lifecycle.close(instances: _*)(logger)
+    Lifecycle.close(instances*)(logger)
   }
 
   override def toString: String = s"CantonSyncService($participantId)"
@@ -1833,8 +1835,6 @@ object SyncServiceError extends SyncServiceErrorGroup {
   abstract class MigrationErrors extends ErrorGroup()
 
   abstract class DomainRegistryErrorGroup extends ErrorGroup()
-
-  abstract class TrafficControlErrorGroup extends ErrorGroup()
 
   final case class SyncServiceFailedDomainConnection(
       domain: DomainAlias,

@@ -30,6 +30,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.BytestringWithCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.processing.{
@@ -96,7 +97,7 @@ class GrpcSequencerServiceTest
     val subscriptionPool: SubscriptionPool[Subscription] =
       mock[SubscriptionPool[GrpcManagedSubscription[?]]]
 
-    private val maxRatePerParticipant = NonNegativeInt.tryCreate(5)
+    private val confirmationRequestsMaxRate = NonNegativeInt.tryCreate(5)
     private val maxRequestSize = NonNegativeInt.tryCreate(1000)
     val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
     private val topologyClient = mock[DomainTopologyClient]
@@ -111,7 +112,7 @@ class GrpcSequencerServiceTest
       .thenReturn(
         Future.successful(
           TestDomainParameters.defaultDynamic(
-            maxRatePerParticipant = maxRatePerParticipant,
+            confirmationRequestsMaxRate = confirmationRequestsMaxRate,
             maxRequestSize = MaxRequestSize(maxRequestSize),
           )
         )
@@ -614,14 +615,14 @@ class GrpcSequencerServiceTest
       RecipientsTree(
         NonEmpty.mk(
           Set,
-          MediatorsOfDomain(NonNegativeInt.tryCreate(1)),
+          MediatorsOfDomain(MediatorGroupIndex.one),
         ),
         Seq.empty,
       ),
       RecipientsTree(
         NonEmpty.mk(
           Set,
-          MediatorsOfDomain(NonNegativeInt.tryCreate(2)),
+          MediatorsOfDomain(MediatorGroupIndex.tryCreate(2)),
         ),
         Seq.empty,
       ),

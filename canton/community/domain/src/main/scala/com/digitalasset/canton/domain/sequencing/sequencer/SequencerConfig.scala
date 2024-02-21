@@ -3,8 +3,12 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.config.{CommunityStorageConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.TestingInterceptor
+import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
+  CommunityReferenceSequencerDriverFactory,
+  ReferenceBlockOrderer,
+}
 import com.digitalasset.canton.time.Clock
 import pureconfig.ConfigCursor
 
@@ -61,6 +65,20 @@ object CommunitySequencerConfig {
       testingInterceptor: Option[TestingInterceptor],
   ) extends CommunitySequencerConfig {
     override def supportsReplicas: Boolean = false
+  }
+
+  def default: CommunitySequencerConfig = {
+    val driverFactory = new CommunityReferenceSequencerDriverFactory
+    External(
+      driverFactory.name,
+      ConfigCursor(
+        driverFactory
+          .configWriter(confidential = false)
+          .to(ReferenceBlockOrderer.Config(storage = CommunityStorageConfig.Memory())),
+        List(),
+      ),
+      None,
+    )
   }
 }
 

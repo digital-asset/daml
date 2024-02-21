@@ -4,9 +4,9 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.state_service.*
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}

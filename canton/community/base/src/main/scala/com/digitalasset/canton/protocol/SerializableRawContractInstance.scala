@@ -40,7 +40,7 @@ final case class SerializableRawContractInstance private (
   @throws[SerializationCheckFailed[ValueCoder.EncodeError]]
   protected[this] override def toByteStringChecked: Either[ValueCoder.EncodeError, ByteString] =
     TransactionCoder
-      .encodeContractInstance(ValueCoder.CidEncoder, contractInstance)
+      .encodeContractInstance(coinst = contractInstance)
       .map(_.toByteString)
 
   lazy val contractHash: LfHash =
@@ -96,7 +96,7 @@ object SerializableRawContractInstance {
         TransactionOuterClass.ContractInstance.parseFrom
       )(bytes)
       contractInstance <- TransactionCoder
-        .decodeContractInstance(ValueCoder.CidDecoder, contractInstanceP)
+        .decodeContractInstance(protoCoinst = contractInstanceP)
         .leftMap(error => ValueConversionError("", error.toString))
     } yield createWithSerialization(contractInstance)(bytes)
 

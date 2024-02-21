@@ -235,7 +235,7 @@ Remember that these steps are for testing the SDK within a Daml release.
    1. Still in Terminal 3, run:
 
       ```sh
-      curl http://localhost:8080/iou` returns:
+      curl http://localhost:8080/iou
       ```
 
       and verify that the output looks like:

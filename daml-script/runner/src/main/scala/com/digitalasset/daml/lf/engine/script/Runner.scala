@@ -5,11 +5,8 @@ package com.daml.lf
 package engine
 package script
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.domain.Jwt
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
@@ -24,7 +21,6 @@ import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   IdeLedgerClient,
-  JsonLedgerClient,
   ScriptLedgerClient,
 }
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
@@ -305,40 +301,6 @@ object Runner {
         connectApiParameters(v, tlsConfig, maxInboundMessageSize)
       )
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
-  }
-
-  def jsonClients(
-      participantParams: Participants[ApiParameters],
-      envSig: EnvironmentSignature,
-  )(implicit ec: ExecutionContext, system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
-    def client(params: ApiParameters) = {
-      val uri = Uri(params.host).withPort(params.port)
-      params.access_token match {
-        case None =>
-          Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
-        case Some(token) =>
-          val client = new JsonLedgerClient(uri, Jwt(token), envSig, system)
-          if (
-            params.application_id.isDefined && params.application_id.map(
-              _.getOrElse("")
-            ) != client.applicationId
-          ) {
-            Future.failed(
-              new RuntimeException(
-                s"ApplicationId specified in token ${client.applicationId} must match ${params.application_id
-                    .map(_.getOrElse(""))}"
-              )
-            )
-          } else {
-            Future.successful(new JsonLedgerClient(uri, Jwt(token), envSig, system))
-          }
-      }
-
-    }
-    for {
-      defClient <- participantParams.default_participant.traverse(client(_))
-      otherClients <- participantParams.participants.traverse(client)
-    } yield Participants(defClient, otherClients, participantParams.party_participants)
   }
 
   def ideLedgerClient(

@@ -20,6 +20,7 @@ import com.digitalasset.canton.protocol.{
   DynamicDomainParametersWithValidity,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.{
@@ -238,7 +239,7 @@ trait PartyTopologySnapshotClient {
   /** Returns Right if all parties have at least an active participant passing the check. Otherwise, all parties not passing are passed as Left */
   def allHaveActiveParticipants(
       parties: Set[LfPartyId],
-      check: (ParticipantPermission => Boolean) = _.isActive,
+      check: (ParticipantPermission => Boolean) = _ => true,
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit]
 
   /** Returns the consortium thresholds (how many votes from different participants that host the consortium party
@@ -271,7 +272,7 @@ trait PartyTopologySnapshotClient {
   def allHostedOn(
       partyIds: Set[LfPartyId],
       participantId: ParticipantId,
-      permissionCheck: ParticipantAttributes => Boolean = _.permission.isActive,
+      permissionCheck: ParticipantAttributes => Boolean = _ => true,
   )(implicit traceContext: TraceContext): Future[Boolean]
 
   /** Returns whether a participant can confirm on behalf of a party. */
@@ -413,24 +414,18 @@ trait MediatorDomainStateClient {
       traceContext: TraceContext
   ): Future[Boolean] =
     mediatorGroups().map(_.exists { group =>
-      // Note: mediator in group.passive should still be able to authenticate and process MediatorResponses,
+      // Note: mediator in group.passive should still be able to authenticate and process ConfirmationResponses,
       // only sending the verdicts is disabled and verdicts from a passive mediator should not pass the checks
       group.isActive && (group.active.contains(mediatorId) || group.passive.contains(mediatorId))
     })
 
   def isMediatorActive(
-      mediator: MediatorRef
-  )(implicit traceContext: TraceContext): Future[Boolean] = {
-    mediator match {
-      case MediatorRef.Single(mediatorId) =>
-        isMediatorActive(mediatorId)
-      case MediatorRef.Group(mediatorsOfDomain) =>
-        mediatorGroup(mediatorsOfDomain.group).map {
-          case Some(group) => group.isActive
-          case None => false
-        }
+      mediator: MediatorsOfDomain
+  )(implicit traceContext: TraceContext): Future[Boolean] =
+    mediatorGroup(mediator.group).map {
+      case Some(group) => group.isActive
+      case None => false
     }
-  }
 
   def mediatorGroupsOfAll(
       groups: Seq[MediatorGroupIndex]
@@ -598,13 +593,20 @@ trait DomainTopologyClientWithInit
       awaitTimestampFn: (CantonTimestamp, Boolean) => Option[F[Unit]],
       logWarning: F[Unit] => Boolean = Function.const(true),
   )(implicit traceContext: TraceContext, monad: Monad[F]): F[TopologySnapshotLoader] = {
+    // Keep current value, in case we need it in the log entry below
+    val topoKnownUntilTs = topologyKnownUntilTimestamp
+
     val syncF = awaitTimestampFn(timestamp, true) match {
       case None => monad.unit
       // No need to log a warning if the future we get is due to a shutdown in progress
       case Some(fut) =>
         if (logWarning(fut)) {
           logger.warn(
-            s"Unsynchronized access to topology snapshot at $timestamp, topology known until=$topologyKnownUntilTimestamp"
+            s"Unsynchronized access to topology snapshot at $timestamp, topology known until=$topoKnownUntilTs"
+          )
+          logger.debug(
+            s"Stack trace",
+            new Exception("Stack trace for unsynchronized topology snapshot access"),
           )
         }
         fut
@@ -690,14 +692,14 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   override def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
   ): Future[Boolean] =
-    findParticipantState(participantId).map(_.exists(_.permission.isActive))
+    findParticipantState(participantId).map(_.isDefined)
 
   override def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Boolean] =
     findParticipantState(participantId).map { attributesO =>
-      attributesO.exists(attr => attr.permission.isActive && attr.loginAfter.forall(_ <= timestamp))
+      attributesO.exists(_.loginAfter.forall(_ <= timestamp))
     }
 
   final def findParticipantState(participantId: ParticipantId)(implicit
@@ -718,14 +720,14 @@ private[client] trait PartyTopologySnapshotBaseClient {
 
   override def allHaveActiveParticipants(
       parties: Set[LfPartyId],
-      check: (ParticipantPermission => Boolean) = _.isActive,
+      check: (ParticipantPermission => Boolean) = _ => true,
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit] = {
     val fetchedF = activeParticipantsOfPartiesWithAttributes(parties.toSeq)
     EitherT(
       fetchedF
         .map { fetched =>
           fetched.foldLeft(Set.empty[LfPartyId]) { case (acc, (party, relationships)) =>
-            if (relationships.exists(x => check(x._2.permission)))
+            if (relationships.exists { case (_, attributes) => check(attributes.permission) })
               acc
             else acc + party
           }
@@ -761,7 +763,7 @@ private[client] trait PartyTopologySnapshotBaseClient {
   override def allHostedOn(
       partyIds: Set[LfPartyId],
       participantId: ParticipantId,
-      permissionCheck: ParticipantAttributes => Boolean = _.permission.isActive,
+      permissionCheck: ParticipantAttributes => Boolean = _ => true,
   )(implicit traceContext: TraceContext): Future[Boolean] =
     hostedOn(partyIds, participantId).map(partiesWithAttributes =>
       partiesWithAttributes.view

@@ -44,13 +44,8 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UserManagementServiceGrpc,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
-import com.daml.ledger.api.v1.testing.time_service.{
-  GetTimeRequest,
-  GetTimeResponse,
-  SetTimeRequest,
-  TimeServiceGrpc,
-}
+import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
+import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
@@ -75,8 +70,8 @@ import com.google.protobuf.field_mask.FieldMask
 import io.grpc.*
 
 import java.util.concurrent.ScheduledExecutorService
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerApiCommands {
 
@@ -813,34 +808,23 @@ object LedgerApiCommands {
         TimeServiceGrpc.stub(channel)
     }
 
-    final case class Get(timeout: FiniteDuration)(scheduler: ScheduledExecutorService)
-        extends BaseCommand[
+    final case class Get(timeout: FiniteDuration)(scheduler: ScheduledExecutorService)(implicit
+        executionContext: ExecutionContext
+    ) extends BaseCommand[
           GetTimeRequest,
-          Seq[Either[String, CantonTimestamp]],
+          Either[String, CantonTimestamp],
           CantonTimestamp,
         ] {
 
       override def submitRequest(
           service: TimeServiceStub,
           request: GetTimeRequest,
-      ): Future[Seq[Either[String, CantonTimestamp]]] =
-        GrpcAdminCommand.streamedResponse[
-          GetTimeRequest,
-          GetTimeResponse,
-          Either[String, CantonTimestamp],
-        ](
-          service.getTime,
-          x => {
-            val tmp = x.currentTime
-              .toRight("Empty timestamp received from ledger Api server")
-              .flatMap(CantonTimestamp.fromProtoPrimitive(_).leftMap(_.message))
-            Seq(tmp)
-          },
-          request,
-          1,
-          timeout: FiniteDuration,
-          scheduler,
-        )
+      ): Future[Either[String, CantonTimestamp]] =
+        service.getTime(request).map {
+          _.currentTime
+            .toRight("Empty timestamp received from ledger Api server")
+            .flatMap(CantonTimestamp.fromProtoPrimitive(_).leftMap(_.message))
+        }
 
       /** Create the request from configured options
         */
@@ -849,9 +833,8 @@ object LedgerApiCommands {
       /** Handle the response the service has provided
         */
       override def handleResponse(
-          response: Seq[Either[String, CantonTimestamp]]
-      ): Either[String, CantonTimestamp] =
-        response.headOption.toRight("No timestamp received from ledger Api server").flatten
+          response: Either[String, CantonTimestamp]
+      ): Either[String, CantonTimestamp] = response
     }
 
     final case class Set(currentTime: CantonTimestamp, newTime: CantonTimestamp)

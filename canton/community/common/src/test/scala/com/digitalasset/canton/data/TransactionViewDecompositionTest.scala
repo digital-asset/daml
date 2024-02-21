@@ -233,7 +233,7 @@ class TransactionViewDecompositionTest
             observers = Set(bob),
             key = CreateKey.NoKey,
           )
-        } *
+        }*
     )
 
     toWellFormedUnsuffixedTransaction(tx)

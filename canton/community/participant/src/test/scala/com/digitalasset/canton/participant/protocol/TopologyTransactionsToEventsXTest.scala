@@ -34,7 +34,7 @@ class TopologyTransactionsToEventsXTest
       partyId,
       None,
       PositiveInt.one,
-      participants.map(HostingParticipant(_, ParticipantPermissionX.Submission)),
+      participants.map(HostingParticipant(_, ParticipantPermission.Submission)),
       groupAddressing = false,
     )
 

@@ -44,7 +44,7 @@ class DbTrafficLimitsStore(
       .seq(
         partialUpdate.toSeq.map { case (member, limit) =>
           addLimitDBIO(member, limit)
-        } *
+        }*
       )
       .transactionally
 
@@ -99,7 +99,7 @@ class DbTrafficLimitsStore(
       addLimitDBIO(member, topUp)
     }.toSeq
 
-    val dbio = DBIO.seq(inserts *)
+    val dbio = DBIO.seq(inserts*)
 
     storage.queryAndUpdate(dbio, functionFullName)
   }

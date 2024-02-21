@@ -27,6 +27,7 @@ object ProcessedDisclosedContract {
   // Helper builder for test
   def apply(
       templateId: Ref.Identifier,
+      packageName: Ref.PackageName,
       contractId: Value.ContractId,
       argument: Value,
       createdAt: Time.Timestamp,
@@ -39,14 +40,13 @@ object ProcessedDisclosedContract {
     ProcessedDisclosedContract(
       create = Node.Create(
         templateId = templateId,
+        packageName = packageName,
         coid = contractId,
         arg = argument,
         signatories = signatories,
         stakeholders = stakeholders,
         keyOpt = keyOpt,
         version = version,
-        // TODO https://github.com/digital-asset/daml/issues/17995
-        packageName = Ref.PackageName.assertFromString("dummyReplace")
       ),
       createdAt = createdAt,
       driverMetadata = driverMetadata,

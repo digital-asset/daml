@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
@@ -86,13 +87,13 @@ final case class TestingTopologyX(
     mediatorGroups: Set[MediatorGroup] = Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        Seq(DefaultTestIdentities.mediatorIdX),
+        NonEmpty.mk(Seq, DefaultTestIdentities.mediatorIdX),
         Seq(),
         PositiveInt.one,
       )
     ),
     sequencerGroup: SequencerGroup = SequencerGroup(
-      active = Seq(DefaultTestIdentities.sequencerIdX),
+      active = NonEmpty.mk(Seq, DefaultTestIdentities.sequencerIdX),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     ),
@@ -232,7 +233,7 @@ class TestingIdentityFactoryX(
     val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
 
     val domainMembers =
-      (topology.sequencerGroup.active ++ topology.sequencerGroup.passive ++ topology.mediators.toSeq)
+      (topology.sequencerGroup.active.forgetNE ++ topology.sequencerGroup.passive ++ topology.mediators)
         .flatMap(m => genKeyCollection(m))
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
@@ -255,10 +256,10 @@ class TestingIdentityFactoryX(
           .create(
             domainId,
             threshold = topology.sequencerGroup.threshold,
-            active = topology.sequencerGroup.active,
+            active = topology.sequencerGroup.active.forgetNE,
             observers = topology.sequencerGroup.passive,
           )
-          .getOrElse(sys.error("creating SequencerDomainStateX should not have failed"))
+          .valueOr(err => sys.error(s"creating SequencerDomainStateX should not have failed: $err"))
       )
 
     val partyDataTx = partyToParticipantTxs()
@@ -365,7 +366,7 @@ class TestingIdentityFactoryX(
             None,
             threshold = PositiveInt.one,
             participantsForParty.map { case (id, permission) =>
-              HostingParticipant(id, permission.tryToX)
+              HostingParticipant(id, permission)
             }.toSeq,
             groupAddressing = false,
           )
@@ -404,7 +405,7 @@ class TestingIdentityFactoryX(
         ParticipantDomainPermissionX(
           domainId,
           participantId,
-          attributes.permission.tryToX,
+          attributes.permission,
           limits = None,
           loginAfter = None,
         )
@@ -519,7 +520,7 @@ class TestingOwnerWithKeysX(
       DomainParametersStateX(
         DomainId(uid),
         defaultDomainParameters
-          .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
+          .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
       ),
       namespaceKey,
     )
@@ -528,7 +529,7 @@ class TestingOwnerWithKeysX(
         DomainId(uid),
         defaultDomainParameters
           .tryUpdate(
-            participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
+            confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
             topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(100),
           ),
       ),
@@ -570,7 +571,7 @@ class TestingOwnerWithKeysX(
       ParticipantDomainPermissionX(
         domainId,
         participant1,
-        ParticipantPermissionX.Observation,
+        ParticipantPermission.Observation,
         None,
         None,
       )
@@ -580,7 +581,7 @@ class TestingOwnerWithKeysX(
       ParticipantDomainPermissionX(
         domainId,
         participant2,
-        ParticipantPermissionX.Confirmation,
+        ParticipantPermission.Confirmation,
         None,
         None,
       )
@@ -591,7 +592,7 @@ class TestingOwnerWithKeysX(
         PartyId(UniqueIdentifier(Identifier.tryCreate("one"), Namespace(key1.id))),
         None,
         PositiveInt.one,
-        Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
+        Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
         groupAddressing = false,
       )
     )

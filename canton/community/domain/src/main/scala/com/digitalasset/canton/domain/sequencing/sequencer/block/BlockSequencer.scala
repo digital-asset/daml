@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.PeanoQueue.NotInserted
 import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
@@ -39,16 +39,20 @@ import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   CloseContext,
   FlagCloseableAsync,
+  FutureUnlessShutdown,
   SyncCloseable,
 }
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.traffic.TrafficBalanceSubmissionHandler
+import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, OptionUtil, PekkoUtil}
@@ -97,6 +101,8 @@ class BlockSequencer(
 
   override def timeouts: ProcessingTimeout = processingTimeouts
 
+  private val trafficBalanceSubmissionHandler =
+    new TrafficBalanceSubmissionHandler(clock, loggerFactory)
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
@@ -480,6 +486,25 @@ class BlockSequencer(
         parameters,
       )
     }
+  }
+
+  override def setTrafficBalance(
+      member: Member,
+      serial: NonNegativeLong,
+      totalTrafficBalance: NonNegativeLong,
+      sequencerClient: SequencerClient,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
+    trafficBalanceSubmissionHandler.sendTrafficBalanceRequest(
+      member,
+      domainId,
+      protocolVersion,
+      serial,
+      totalTrafficBalance,
+      sequencerClient,
+      cryptoApi,
+    )
   }
 
   override def trafficStatus(requestedMembers: Seq[Member])(implicit

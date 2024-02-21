@@ -241,7 +241,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   private val testingTimeService = new TestingTimeService(clock, () => simClocks)
 
-  lazy val participantsX =
+  lazy val participants =
     new ParticipantNodesX[Config#ParticipantConfigType](
       createParticipantX,
       migrationsFactory,
@@ -251,7 +251,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       loggerFactory,
     )
 
-  val sequencersX = new SequencerNodesX(
+  val sequencers = new SequencerNodesX(
     createSequencerX,
     migrationsFactory,
     timeouts,
@@ -260,7 +260,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     loggerFactory,
   )
 
-  val mediatorsX =
+  val mediators =
     new MediatorNodesX(
       createMediatorX,
       migrationsFactory,
@@ -273,7 +273,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   // convenient grouping of all node collections for performing operations
   // intentionally defined in the order we'd like to start them
   protected def allNodes: List[Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]] =
-    List(sequencersX, mediatorsX, participantsX)
+    List(sequencers, mediators, participants)
   private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
 
   private def autoConnectLocalNodes(): Either[StartupError, Unit] = {
@@ -314,7 +314,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   ): Unit = {
     final case class ParticipantApis(ledgerApi: Int, adminApi: Int)
     config.parameters.portsFile.foreach { portsFile =>
-      val items = participantsX.running.map { node =>
+      val items = participants.running.map { node =>
         (
           node.name.unwrap,
           ParticipantApis(node.config.ledgerApi.port.unwrap, node.config.adminApi.port.unwrap),
@@ -361,7 +361,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     config.parameters.timeouts.processing.unbounded.await("reconnect-particiapnts")(
       MonadUtil
         .parTraverseWithLimit_(config.parameters.getStartupParallelism(numThreads))(
-          participantsX.running
+          participants.running
         )(reconnect)
         .value
     )
@@ -493,9 +493,9 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   )
 
   private def simClocks: Seq[SimClock] = {
-    val clocks = clock +: (participantsX.running.map(_.clock) ++ sequencersX.running.map(
+    val clocks = clock +: (participants.running.map(_.clock) ++ sequencers.running.map(
       _.clock
-    ) ++ mediatorsX.running.map(_.clock))
+    ) ++ mediators.running.map(_.clock))
     val simclocks = clocks.collect { case sc: SimClock => sc }
     if (simclocks.sizeCompare(clocks) < 0)
       logger.warn(s"Found non-sim clocks, testing time service will be broken.")
@@ -521,7 +521,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         closeHeadlessHealthAdministration :+ executionSequencerFactory :+ closeActorSystem :+ closeExecutionContext :+
         closeScheduler
     logger.info("Closing environment...")
-    Lifecycle.close((instances.toSeq): _*)(logger)
+    Lifecycle.close((instances.toSeq)*)(logger)
   })
 }
 

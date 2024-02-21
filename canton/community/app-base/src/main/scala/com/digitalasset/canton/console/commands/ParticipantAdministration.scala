@@ -108,7 +108,8 @@ private[console] object ParticipantCommands {
         manualConnect: Boolean = false,
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         priority: Int = 0,
-        sequencerTrustThreshold: PositiveInt = PositiveInt.tryCreate(1),
+        sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: PositiveInt = PositiveInt.one,
     ): DomainConnectionConfig = {
       DomainConnectionConfig(
         domainAlias,
@@ -117,6 +118,7 @@ private[console] object ParticipantCommands {
             domain.sequencerConnection.withAlias(alias)
           },
           sequencerTrustThreshold,
+          submissionRequestAmplification,
         ),
         manualConnect = manualConnect,
         None,
@@ -1067,7 +1069,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        sequencerTrustThreshold: PositiveInt = PositiveInt.tryCreate(1),
+        sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: PositiveInt = PositiveInt.one,
     ): Unit = {
       val config = ParticipantCommands.domains.reference_to_config(
         domain,
@@ -1076,6 +1079,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
         sequencerTrustThreshold,
+        submissionRequestAmplification,
       )
       connectFromConfig(config, synchronize)
     }

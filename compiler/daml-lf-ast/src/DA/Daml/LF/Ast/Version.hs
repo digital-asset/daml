@@ -180,6 +180,13 @@ featureScenarios = Feature
     , featureCppFlag = Just "DAML_SCENARIOS"
     }
 
+featureContractKeys :: Feature
+featureContractKeys = Feature
+    { featureName = "Contract Keys"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_CONTRACT_KEYS"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -207,6 +214,7 @@ allFeatures =
     , featureChoiceFuncs
     , featureTemplateTypeRepToText
     , featureScenarios
+    , featureContractKeys
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise

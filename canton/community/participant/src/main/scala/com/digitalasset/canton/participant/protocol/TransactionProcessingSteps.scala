@@ -41,12 +41,12 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Submiss
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
-import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.{
   SubmissionAlreadyInFlight,
   TimeoutTooLow,
   UnknownDomain,
 }
+import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
   ContractLookupError,
   SerializableContractOfId,
@@ -76,7 +76,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -108,8 +108,8 @@ import scala.util.{Failure, Success}
 class TransactionProcessingSteps(
     domainId: DomainId,
     participantId: ParticipantId,
-    confirmationRequestFactory: ConfirmationRequestFactory,
-    confirmationResponseFactory: ConfirmationResponseFactory,
+    confirmationRequestFactory: TransactionConfirmationRequestFactory,
+    confirmationResponseFactory: TransactionConfirmationResponseFactory,
     modelConformanceChecker: ModelConformanceChecker,
     staticDomainParameters: StaticDomainParameters,
     crypto: DomainSyncCryptoClient,
@@ -166,7 +166,7 @@ class TransactionProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -227,7 +227,7 @@ class TransactionProcessingSteps(
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
       disclosedContracts: Map[LfContractId, SerializableContract],
@@ -312,7 +312,7 @@ class TransactionProcessingSteps(
       val submitterInfoWithDedupPeriod =
         submitterInfo.copy(deduplicationPeriod = actualDeduplicationOffset)
 
-      def causeWithTemplate(message: String, reason: ConfirmationRequestCreationError) =
+      def causeWithTemplate(message: String, reason: TransactionConfirmationRequestCreationError) =
         TransactionSubmissionTrackingData.CauseWithTemplate(
           SubmissionErrors.MalformedRequest.Error(message, reason)
         )
@@ -358,7 +358,7 @@ class TransactionProcessingSteps(
               )
 
         confirmationRequestTimer = metrics.protocolMessages.confirmationRequestCreation
-        // Perform phase 1 of the protocol that produces a confirmation request
+        // Perform phase 1 of the protocol that produces a transaction confirmation request
         request <- confirmationRequestTimer.timeEitherT(
           confirmationRequestFactory
             .createConfirmationRequest(
@@ -383,7 +383,7 @@ class TransactionProcessingSteps(
                 TransactionSubmissionTrackingData
                   .CauseWithTemplate(SubmissionErrors.UnknownContractDomain.Error(contractId))
               case creationError =>
-                causeWithTemplate("Confirmation request creation failed", creationError)
+                causeWithTemplate("Transaction confirmation request creation failed", creationError)
             }
         )
         _ = logger.debug(s"Generated requestUuid=${request.informeeMessage.requestUuid}")
@@ -523,7 +523,7 @@ class TransactionProcessingSteps(
   ): EitherT[Future, TransactionProcessorError, DecryptedViews] =
     metrics.protocolMessages.transactionMessageReceipt.timeEitherT {
       // even if we encounter errors, we process the good views as normal
-      // such that the validation is available if the confirmation request gets approved nevertheless.
+      // such that the validation is available if the transaction confirmation request gets approved nevertheless.
 
       val pureCrypto = snapshot.pureCrypto
 
@@ -723,7 +723,7 @@ class TransactionProcessingSteps(
       ],
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -805,7 +805,7 @@ class TransactionProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -913,11 +913,11 @@ class TransactionProcessingSteps(
 
         if (contractResult.notFree.nonEmpty)
           throw new RuntimeException(
-            s"Activeness result for a confirmation request contains already non-free contracts ${contractResult.notFree}"
+            s"Activeness result for a transaction confirmation request contains already non-free contracts ${contractResult.notFree}"
           )
         if (activenessResult.inactiveTransfers.nonEmpty)
           throw new RuntimeException(
-            s"Activeness result for a confirmation request contains inactive transfers ${activenessResult.inactiveTransfers}"
+            s"Activeness result for a transaction confirmation request contains inactive transfers ${activenessResult.inactiveTransfers}"
           )
         activenessResult
     }
@@ -989,7 +989,7 @@ class TransactionProcessingSteps(
       )
     }
 
-    val mediatorRecipients = Recipients.cc(mediator.toRecipient)
+    val mediatorRecipients = Recipients.cc(mediator)
 
     val result =
       for {
@@ -1036,7 +1036,7 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
-  ): Seq[MediatorResponse] =
+  ): Seq[ConfirmationResponse] =
     Seq(
       confirmationResponseFactory.createConfirmationResponsesForMalformedPayloads(
         requestId,
@@ -1161,7 +1161,7 @@ class TransactionProcessingSteps(
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   ): PendingTransaction = {
     val TransactionValidationResult(
@@ -1353,7 +1353,7 @@ class TransactionProcessingSteps(
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, TransactionResultMessage],
+      resultE: Either[MalformedConfirmationRequestResult, TransactionResultMessage],
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -1372,7 +1372,7 @@ class TransactionProcessingSteps(
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
       import scala.util.Either.MergeableEither
       (
-        MergeableEither[MediatorResult](resultE).merge.verdict,
+        MergeableEither[ConfirmationResult](resultE).merge.verdict,
         pendingRequestData.modelConformanceResultE,
       ) match {
         case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)

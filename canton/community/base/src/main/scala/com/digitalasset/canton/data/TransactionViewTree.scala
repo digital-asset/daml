@@ -7,7 +7,8 @@ import cats.syntax.either.*
 import com.digitalasset.canton.WorkflowId
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, TransactionId, ViewHash}
-import com.digitalasset.canton.topology.{DomainId, MediatorRef}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.EitherUtil
 
 import java.util.UUID
@@ -68,7 +69,7 @@ trait TransactionViewTree extends ViewTree {
 
   override def domainId: DomainId = commonMetadata.domainId
 
-  override def mediator: MediatorRef = commonMetadata.mediator
+  override def mediator: MediatorsOfDomain = commonMetadata.mediator
 
   def confirmationPolicy: ConfirmationPolicy = commonMetadata.confirmationPolicy
 

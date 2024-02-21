@@ -20,7 +20,7 @@ final case class CommunitySequencerNodeXConfig(
     override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),
     override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory(),
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
-    override val sequencer: CommunitySequencerConfig = CommunitySequencerConfig.Database(),
+    override val sequencer: CommunitySequencerConfig = CommunitySequencerConfig.default,
     override val auditLogging: Boolean = false,
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),

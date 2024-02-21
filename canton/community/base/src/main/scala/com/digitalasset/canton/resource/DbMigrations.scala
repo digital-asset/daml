@@ -56,7 +56,7 @@ trait DbMigrations { this: NamedLogging =>
     */
   protected def createFlyway(dataSource: DataSource): Flyway = {
     Flyway.configure
-      .locations(dbConfig.buildMigrationsPaths(devVersionSupport): _*)
+      .locations(dbConfig.buildMigrationsPaths(devVersionSupport)*)
       .dataSource(dataSource)
       .cleanDisabled(!dbConfig.parameters.unsafeCleanOnValidationError)
       .cleanOnValidationError(dbConfig.parameters.unsafeCleanOnValidationError)

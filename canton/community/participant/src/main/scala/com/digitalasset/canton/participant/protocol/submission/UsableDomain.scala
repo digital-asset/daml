@@ -58,7 +58,7 @@ object UsableDomain {
       tc: TraceContext,
   ): EitherT[Future, MissingActiveParticipant, Unit] =
     snapshot
-      .allHaveActiveParticipants(parties, _.isActive)
+      .allHaveActiveParticipants(parties)
       .leftMap(MissingActiveParticipant(domainId, _))
 
   private def unknownPackages(snapshot: TopologySnapshot)(

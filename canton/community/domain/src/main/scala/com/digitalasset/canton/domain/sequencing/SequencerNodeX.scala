@@ -35,7 +35,7 @@ import com.digitalasset.canton.domain.sequencing.traffic.{
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.{ComponentStatus, GrpcHealthReporter, HealthService}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -95,6 +95,8 @@ class SequencerNodeBootstrapX(
         Sequencer,
         NamedLoggerFactory,
     ) => Option[ServerServiceDefinition],
+    // Allow to pass in additional resources that need to be closed as part of the node bootstrap closing
+    closeables: Seq[AutoCloseable] = Seq.empty,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -606,6 +608,7 @@ class SequencerNodeBootstrapX(
             (healthService.dependencies ++ sequencerPublicApiHealthService.dependencies).map(
               _.toComponentStatus
             ),
+            closeables,
           )
           addCloseable(node)
           Some(new RunningNode(bootstrapStageCallback, node))
@@ -625,6 +628,7 @@ class SequencerNodeX(
     loggerFactory: NamedLoggerFactory,
     sequencerNodeServer: DynamicDomainGrpcServer,
     components: => Seq[ComponentStatus],
+    closeables: Seq[AutoCloseable],
 )(implicit executionContext: ExecutionContextExecutorService)
     extends SequencerNodeCommon(
       config,
@@ -639,5 +643,7 @@ class SequencerNodeX(
 
   override def close(): Unit = {
     super.close()
+    // TODO(#17222): Close the additional resources (e.g. KMS) last to avoid crypto usage after shutdown
+    Lifecycle.close(closeables*)(logger)
   }
 }

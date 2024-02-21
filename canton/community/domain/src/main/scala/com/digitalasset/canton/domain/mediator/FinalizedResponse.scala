@@ -6,7 +6,11 @@ package com.digitalasset.canton.domain.mediator
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.protocol.RequestId
-import com.digitalasset.canton.protocol.messages.{MediatorRequest, MediatorResponse, Verdict}
+import com.digitalasset.canton.protocol.messages.{
+  ConfirmationResponse,
+  MediatorConfirmationRequest,
+  Verdict,
+}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -14,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final case class FinalizedResponse(
     override val requestId: RequestId,
-    override val request: MediatorRequest,
+    override val request: MediatorConfirmationRequest,
     override val version: CantonTimestamp,
     verdict: Verdict,
 )(val requestTraceContext: TraceContext)
@@ -25,13 +29,13 @@ final case class FinalizedResponse(
   /** Merely validates the request and raises alarms. But there is nothing to progress any more */
   override def validateAndProgress(
       responseTimestamp: CantonTimestamp,
-      response: MediatorResponse,
+      response: ConfirmationResponse,
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
   ): Future[Option[ResponseAggregation[VKey]]] = {
-    val MediatorResponse(
+    val ConfirmationResponse(
       _requestId,
       sender,
       viewPositionO,

@@ -32,10 +32,22 @@ object CantonGrpcUtil {
   ): EitherT[Future, CantonError, T] = {
     wrapErr(EitherT.fromEither[Future](value))
   }
+  def wrapErrUS[T](value: ParsingResult[T])(implicit
+      loggingContext: ErrorLoggingContext,
+      ec: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, CantonError, T] = {
+    wrapErrUS(EitherT.fromEither[FutureUnlessShutdown](value))
+  }
   def wrapErr[T](value: EitherT[Future, ProtoDeserializationError, T])(implicit
       loggingContext: ErrorLoggingContext,
       ec: ExecutionContext,
   ): EitherT[Future, CantonError, T] = {
+    value.leftMap(x => ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): CantonError)
+  }
+  def wrapErrUS[T](value: EitherT[FutureUnlessShutdown, ProtoDeserializationError, T])(implicit
+      loggingContext: ErrorLoggingContext,
+      ec: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, CantonError, T] = {
     value.leftMap(x => ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): CantonError)
   }
 

@@ -30,6 +30,17 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   final lazy val nonSignatoryStakeholders: TreeSet[Ref.Party] = stakeholders -- signatories
   def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstance
   def setSalt(cantonData: Bytes): FatContractInstance
+
+  def toCreateNode = Node.Create(
+    coid = contractId,
+    packageName = packageName,
+    templateId = templateId,
+    arg = createArg,
+    signatories = signatories,
+    stakeholders = stakeholders,
+    keyOpt = contractKeyWithMaintainers,
+    version = version,
+  )
 }
 
 private[lf] final case class FatContractInstanceImpl(
@@ -47,10 +58,10 @@ private[lf] final case class FatContractInstanceImpl(
     with CidContainer[FatContractInstanceImpl] {
 
   // TODO (change implementation of KeyWithMaintainers.maintainer to TreeSet)
-  require(maintainers.isInstanceOf[TreeSet[Ref.Party]])
-  require(maintainers.subsetOf(signatories))
-  require(signatories.nonEmpty)
-  require(signatories.subsetOf(stakeholders))
+  require(maintainers.isInstanceOf[TreeSet[Ref.Party]], "maintainers should be a TreeSet")
+  require(maintainers.subsetOf(signatories), "maintainers should be a subset of signatories")
+  require(signatories.nonEmpty, "signatories should be non empty")
+  require(signatories.subsetOf(stakeholders), "signatories should be a subset of stakeholders")
 
   override protected def self: FatContractInstanceImpl = this
 
@@ -68,17 +79,6 @@ private[lf] final case class FatContractInstanceImpl(
     assert(cantonData.nonEmpty)
     copy(cantonData = cantonData)
   }
-
-  def toCreateNode = Node.Create(
-    coid = contractId,
-    packageName = packageName,
-    templateId = templateId,
-    arg = createArg,
-    signatories = signatories,
-    stakeholders = stakeholders,
-    keyOpt = contractKeyWithMaintainers,
-    version = version,
-  )
 }
 
 object FatContractInstance {

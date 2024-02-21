@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.transaction.ParticipantPermissionX
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 
 class PartyToParticipantComputations(override protected val loggerFactory: NamedLoggerFactory)
     extends NamedLogging {
@@ -17,10 +17,10 @@ class PartyToParticipantComputations(override protected val loggerFactory: Named
     * If a participant in `adds` is already permissioned, the permissions are updated.
     */
   def computeNewPermissions(
-      existingPermissions: Map[ParticipantId, ParticipantPermissionX],
-      adds: List[(ParticipantId, ParticipantPermissionX)] = Nil,
+      existingPermissions: Map[ParticipantId, ParticipantPermission],
+      adds: List[(ParticipantId, ParticipantPermission)] = Nil,
       removes: List[ParticipantId] = Nil,
-  ): Either[String, Map[ParticipantId, ParticipantPermissionX]] = {
+  ): Either[String, Map[ParticipantId, ParticipantPermission]] = {
 
     val conflictsO =
       NonEmpty.from(adds.map { case (participantId, _) => participantId }.intersect(removes))

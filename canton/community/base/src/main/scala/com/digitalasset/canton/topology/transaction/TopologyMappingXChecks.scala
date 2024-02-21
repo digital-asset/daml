@@ -229,7 +229,7 @@ class ValidatingTopologyMappingXChecks(
   ): EitherT[Future, TopologyTransactionRejection, Unit] = {
     import toValidate.mapping
     val numConfirmingParticipants =
-      mapping.participants.count(_.permission >= ParticipantPermissionX.Confirmation)
+      mapping.participants.count(_.permission >= ParticipantPermission.Confirmation)
 
     for {
       // check the threshold

@@ -17,7 +17,7 @@ import com.digitalasset.canton.domain.config.DomainParametersConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DynamicDomainParameters.InvalidDynamicDomainParameters
 import com.digitalasset.canton.protocol.{
-  CatchUpConfig,
+  AcsCommitmentsCatchUpConfig,
   DynamicDomainParameters as DynamicDomainParametersInternal,
   OnboardingRestriction,
   StaticDomainParameters as StaticDomainParametersInternal,
@@ -42,7 +42,7 @@ final case class StaticDomainParameters(
     requiredHashAlgorithms: Set[HashAlgorithm],
     requiredCryptoKeyFormats: Set[CryptoKeyFormat],
     protocolVersion: ProtocolVersion,
-    catchUpParameters: Option[CatchUpConfig],
+    acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig],
 ) {
   def writeToFile(outputFile: String): Unit =
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
@@ -65,7 +65,7 @@ final case class StaticDomainParameters(
         requiredCryptoKeyFormats.map(_.transformInto[DomainCrypto.CryptoKeyFormat])
       ),
       protocolVersion = protocolVersion,
-      catchUpParameters = catchUpParameters,
+      acsCommitmentsCatchUp = acsCommitmentsCatchUp,
     )
 }
 
@@ -116,7 +116,7 @@ object StaticDomainParameters {
       requiredCryptoKeyFormats =
         domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
       protocolVersion = domain.protocolVersion,
-      catchUpParameters = domain.catchUpParameters,
+      acsCommitmentsCatchUp = domain.acsCommitmentsCatchUp,
     )
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
@@ -134,14 +134,14 @@ object StaticDomainParameters {
 
 // TODO(#15650) Properly expose new BFT parameters and domain limits
 final case class DynamicDomainParameters(
-    participantResponseTimeout: NonNegativeFiniteDuration,
+    confirmationResponseTimeout: NonNegativeFiniteDuration,
     mediatorReactionTimeout: NonNegativeFiniteDuration,
     transferExclusivityTimeout: NonNegativeFiniteDuration,
     topologyChangeDelay: NonNegativeFiniteDuration,
     ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
     mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
     reconciliationInterval: PositiveDurationSeconds,
-    maxRatePerParticipant: NonNegativeInt,
+    confirmationRequestsMaxRate: NonNegativeInt,
     maxRequestSize: NonNegativeInt,
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
     trafficControlParameters: Option[TrafficControlParameters],
@@ -166,28 +166,28 @@ final case class DynamicDomainParameters(
   }
 
   def update(
-      participantResponseTimeout: NonNegativeFiniteDuration = participantResponseTimeout,
+      confirmationResponseTimeout: NonNegativeFiniteDuration = confirmationResponseTimeout,
       mediatorReactionTimeout: NonNegativeFiniteDuration = mediatorReactionTimeout,
       transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
       topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration = mediatorDeduplicationTimeout,
       reconciliationInterval: PositiveDurationSeconds = reconciliationInterval,
-      maxRatePerParticipant: NonNegativeInt = maxRatePerParticipant,
+      confirmationRequestsMaxRate: NonNegativeInt = confirmationRequestsMaxRate,
       maxRequestSize: NonNegativeInt = maxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
       onboardingRestriction: OnboardingRestriction = onboardingRestriction,
   ): DynamicDomainParameters = this.copy(
-    participantResponseTimeout = participantResponseTimeout,
+    confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
     transferExclusivityTimeout = transferExclusivityTimeout,
     topologyChangeDelay = topologyChangeDelay,
     ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
     mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
     reconciliationInterval = reconciliationInterval,
-    maxRatePerParticipant = maxRatePerParticipant,
+    confirmationRequestsMaxRate = confirmationRequestsMaxRate,
     maxRequestSize = maxRequestSize,
     sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
     trafficControlParameters = trafficControlParameters,
@@ -200,8 +200,8 @@ final case class DynamicDomainParameters(
       .leftMap(_.message)
       .map { rpv =>
         DynamicDomainParametersInternal.tryCreate(
-          participantResponseTimeout =
-            InternalNonNegativeFiniteDuration.fromConfig(participantResponseTimeout),
+          confirmationResponseTimeout =
+            InternalNonNegativeFiniteDuration.fromConfig(confirmationResponseTimeout),
           mediatorReactionTimeout =
             InternalNonNegativeFiniteDuration.fromConfig(mediatorReactionTimeout),
           transferExclusivityTimeout =
@@ -212,7 +212,7 @@ final case class DynamicDomainParameters(
           mediatorDeduplicationTimeout =
             InternalNonNegativeFiniteDuration.fromConfig(mediatorDeduplicationTimeout),
           reconciliationInterval = PositiveSeconds.fromConfig(reconciliationInterval),
-          maxRatePerParticipant = maxRatePerParticipant,
+          confirmationRequestsMaxRate = confirmationRequestsMaxRate,
           maxRequestSize = MaxRequestSize(maxRequestSize),
           sequencerAggregateSubmissionTimeout =
             InternalNonNegativeFiniteDuration.fromConfig(sequencerAggregateSubmissionTimeout),

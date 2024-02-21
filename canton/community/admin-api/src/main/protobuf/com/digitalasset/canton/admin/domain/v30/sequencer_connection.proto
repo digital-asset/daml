@@ -31,6 +31,12 @@ message SequencerConnections {
 
   // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
   // is considered reliable and accepted by the system.
-  // The value set here should not be zero.
+  // This value must be positive.
   uint32 sequencerTrustThreshold = 2;
+
+  // This field determines to how many sequencers a client should try to send a submission request that is eligible for deduplication.
+  // A higher value increases the chance of a submission request being accepted by the system, but also increases the load on the sequencers
+  // and thus the costs incurred by the client.
+  // This value must be positive.
+  uint32 submissionRequestAmplification = 3;
 }

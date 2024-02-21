@@ -132,6 +132,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
         LfVersioned(
           LfTransactionVersion.VDev,
           LfValue.ContractInstance(
+            packageName = Ref.PackageName.assertFromString("pkg-name"),
             template = Ref.Identifier.assertFromString("pkg:Mod:Template"),
             arg = LfValue.ValueNil,
           ),

@@ -5,7 +5,6 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
@@ -124,7 +123,7 @@ abstract sealed case class AcsCommitment private (
 
   @transient override protected lazy val companionObj: AcsCommitment.type = AcsCommitment
 
-  override def signingTimestamp: CantonTimestamp = period.toInclusive.forgetRefinement
+  override def signingTimestamp: Option[CantonTimestamp] = Some(period.toInclusive.forgetRefinement)
 
   protected def toProtoV30: v30.AcsCommitment = {
     v30.AcsCommitment(
@@ -145,8 +144,6 @@ abstract sealed case class AcsCommitment private (
     v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.AcsCommitment(
       getCryptographicEvidence
     )
-
-  override def hashPurpose: HashPurpose = HashPurpose.AcsCommitment
 
   override lazy val pretty: Pretty[AcsCommitment] = {
     prettyOfClass(

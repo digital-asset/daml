@@ -67,7 +67,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
   private val topologyClientMember = SequencerId(domainId)
   private val crypto = TestingTopologyX(sequencerGroup =
     SequencerGroup(
-      active = Seq(SequencerId(domainId)),
+      active = NonEmpty.mk(Seq, SequencerId(domainId)),
       passive = Seq.empty,
       threshold = PositiveInt.one,
     )

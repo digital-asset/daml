@@ -157,6 +157,7 @@ CREATE TABLE lapi_events_create (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -177,7 +178,8 @@ CREATE TABLE lapi_events_create (
     driver_metadata BINARY LARGE OBJECT,
 
     domain_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -238,7 +240,8 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_result_compression SMALLINT,
 
     domain_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -296,7 +299,8 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_result_compression SMALLINT,
 
     domain_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -342,7 +346,9 @@ CREATE TABLE lapi_events_unassign (
 
     -- * unassigned specific
     assignment_exclusivity BIGINT,
-    trace_context BINARY LARGE OBJECT
+
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- sequential_id index for paging
@@ -376,6 +382,7 @@ CREATE TABLE lapi_events_assign (
     -- * shared event information
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
 
     -- * common reassignment
@@ -396,7 +403,9 @@ CREATE TABLE lapi_events_assign (
     create_key_value_compression SMALLINT,
     ledger_effective_time BIGINT NOT NULL,
     driver_metadata BINARY LARGE OBJECT NOT NULL,
-    trace_context BINARY LARGE OBJECT
+
+    trace_context BINARY LARGE OBJECT,
+    record_time BIGINT NOT NULL
 );
 
 -- sequential_id index for paging

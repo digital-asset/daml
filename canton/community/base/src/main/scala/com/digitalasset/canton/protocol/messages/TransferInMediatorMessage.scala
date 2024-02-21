@@ -10,9 +10,10 @@ import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{Informee, TransferInViewTree, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import com.digitalasset.canton.version.{
@@ -32,7 +33,7 @@ import java.util.UUID
 final case class TransferInMediatorMessage(
     tree: TransferInViewTree,
     override val submittingParticipantSignature: Signature,
-) extends MediatorRequest {
+) extends MediatorConfirmationRequest {
 
   require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-in view must be blinded")
@@ -50,7 +51,7 @@ final case class TransferInMediatorMessage(
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 
-  override def mediator: MediatorRef = commonData.targetMediator
+  override def mediator: MediatorsOfDomain = commonData.targetMediator
 
   override def requestUuid: UUID = commonData.uuid
 
@@ -63,11 +64,11 @@ final case class TransferInMediatorMessage(
 
   override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
 
-  override def createMediatorResult(
+  override def createConfirmationResult(
       requestId: RequestId,
       verdict: Verdict,
       recipientParties: Set[LfPartyId],
-  ): MediatorResult with SignedProtocolMessageContent = {
+  ): ConfirmationResult with SignedProtocolMessageContent = {
     val informees = commonData.stakeholders
     require(
       recipientParties.subsetOf(informees),

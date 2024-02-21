@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
@@ -69,6 +69,7 @@ private[dao] sealed class ContractsReader(
             val contract = toContract(
               contractId = contractId,
               templateId = raw.templateId,
+              packageName = raw.packageName,
               createArgument = raw.createArgument,
               createArgumentCompression =
                 Compression.Algorithm.assertLookup(raw.createArgumentCompression),
@@ -151,6 +152,7 @@ private[dao] object ContractsReader {
   private def toContract(
       contractId: ContractId,
       templateId: String,
+      packageName: String,
       createArgument: Array[Byte],
       createArgumentCompression: Compression.Algorithm,
       decompressionTimer: Timer,
@@ -163,21 +165,20 @@ private[dao] object ContractsReader {
       s"Failed to deserialize create argument for contract ${contractId.coid}",
     )
     Contract(
+      packageName = PackageName.assertFromString(packageName),
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
-      // TODO https://github.com/digital-asset/daml/issues/17995
-      packageName = Ref.PackageName.assertFromString("dummyReplace")
     )
   }
 
   private def toContract(
       templateId: String,
+      packageName: String,
       createArgument: Value,
   ): Contract =
     Contract(
+      packageName = PackageName.assertFromString(packageName),
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
-      // TODO https://github.com/digital-asset/daml/issues/17995
-      packageName = Ref.PackageName.assertFromString("dummyReplace")
     )
 }

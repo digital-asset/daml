@@ -14,8 +14,9 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
   TransferProcessorError,
 }
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.Recipients
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, Recipients}
 import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -30,9 +31,7 @@ class TransferOutValidationTest
   private val sourceDomain = SourceDomainId(
     DomainId.tryFromString("domain::source")
   )
-  private val sourceMediator = MediatorId(
-    UniqueIdentifier.tryFromProtoPrimitive("mediator::source")
-  )
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
@@ -163,7 +162,7 @@ class TransferOutValidationTest
       contract,
       transferId.sourceDomain,
       sourceProtocolVersion,
-      MediatorRef(sourceMediator),
+      sourceMediator,
       targetDomain,
       targetPV,
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),

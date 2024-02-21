@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -93,13 +92,14 @@ private[platform] trait LedgerDaoEventsReader {
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse]
 
-  def getEventsByContractKey(
-      contractKey: com.daml.lf.value.Value,
-      templateId: Ref.Identifier,
-      requestingParties: Set[Party],
-      endExclusiveSeqId: Option[Long],
-      maxIterations: Int,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse]
+  // TODO(i16065): Re-enable getEventsByContractKey tests
+//  def getEventsByContractKey(
+//      contractKey: com.daml.lf.value.Value,
+//      templateId: Ref.Identifier,
+//      requestingParties: Set[Party],
+//      endExclusiveSeqId: Option[Long],
+//      maxIterations: Int,
+//  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse]
 
 }
 private[platform] trait LedgerReadDao extends ReportsHealth {

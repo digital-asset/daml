@@ -68,7 +68,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           val created = transaction.eventsById.values.loneElement.getCreated
           transaction.rootEventIds.loneElement shouldEqual created.eventId
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-          created.witnessParties should contain only (tx.actAs: _*)
+          created.witnessParties should contain only (tx.actAs*)
           created.agreementText.getOrElse("") shouldBe createNode.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
@@ -103,7 +103,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             val exercised = transaction.eventsById.values.loneElement.getExercised
             transaction.rootEventIds.loneElement shouldEqual exercised.eventId
             exercised.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
-            exercised.witnessParties should contain only (exercise.actAs: _*)
+            exercised.witnessParties should contain only (exercise.actAs*)
             exercised.contractId shouldBe exerciseNode.targetCoid.coid
             exercised.templateId shouldNot be(None)
             exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
@@ -160,7 +160,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           .getExercised
 
         created.eventId shouldBe EventId(transaction.updateId, createNodeId).toLedgerString
-        created.witnessParties should contain only (tx.actAs: _*)
+        created.witnessParties should contain only (tx.actAs*)
         created.agreementText.getOrElse("") shouldBe createNode.agreementText
         created.contractKey shouldBe None
         created.createArguments shouldNot be(None)
@@ -171,7 +171,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         created.templateId shouldNot be(None)
 
         exercised.eventId shouldBe EventId(transaction.updateId, exerciseNodeId).toLedgerString
-        exercised.witnessParties should contain only (tx.actAs: _*)
+        exercised.witnessParties should contain only (tx.actAs*)
         exercised.contractId shouldBe exerciseNode.targetCoid.coid
         exercised.templateId shouldNot be(None)
         exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties

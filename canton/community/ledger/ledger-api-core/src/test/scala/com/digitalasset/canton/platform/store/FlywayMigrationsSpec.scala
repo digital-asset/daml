@@ -45,7 +45,7 @@ object FlywayMigrationsSpec {
   ): Unit = {
     val config = Flyway
       .configure()
-      .locations(FlywayMigrations.locations(dbType): _*)
+      .locations(FlywayMigrations.locations(dbType)*)
     val resourceScanner = scanner(config)
     val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
     resources.size should be >= minMigrationCount

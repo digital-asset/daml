@@ -41,9 +41,9 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
 }
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.submission.{
-  ConfirmationRequestFactory,
   InFlightSubmissionTracker,
   SeedGenerator,
+  TransactionConfirmationRequestFactory,
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
   DomainNotReady,
@@ -150,7 +150,11 @@ class SyncDomain(
     new SeedGenerator(domainCrypto.crypto.pureCrypto)
 
   private[canton] val requestGenerator =
-    ConfirmationRequestFactory(participantId, domainId, staticDomainParameters.protocolVersion)(
+    TransactionConfirmationRequestFactory(
+      participantId,
+      domainId,
+      staticDomainParameters.protocolVersion,
+    )(
       domainCrypto.crypto.pureCrypto,
       seedGenerator,
       parameters.loggingConfig,
@@ -246,7 +250,7 @@ class SyncDomain(
       journalGarbageCollector.observer,
       pruningMetrics,
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.catchUpParameters,
+      staticDomainParameters.acsCommitmentsCatchUp,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,

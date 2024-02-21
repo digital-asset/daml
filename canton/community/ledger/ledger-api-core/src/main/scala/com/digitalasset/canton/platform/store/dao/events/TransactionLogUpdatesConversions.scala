@@ -21,7 +21,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
@@ -35,7 +34,6 @@ import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter, Value}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.google.protobuf.ByteString
-import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -169,11 +167,12 @@ private[events] object TransactionLogUpdatesConversions {
               updateId = transactionAccepted.transactionId,
               commandId = transactionAccepted.commandId,
               workflowId = transactionAccepted.workflowId,
-              effectiveAt = Some(timestampToTimestamp(transactionAccepted.effectiveAt)),
+              effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               events = flatEvents,
               offset = ApiOffset.toApiString(transactionAccepted.offset),
               domainId = transactionAccepted.domainId.getOrElse(""),
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
+              recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
             )
           )
       }
@@ -361,12 +360,13 @@ private[events] object TransactionLogUpdatesConversions {
               updateId = transactionAccepted.transactionId,
               commandId = getCommandId(transactionAccepted.events, requestingParties),
               workflowId = transactionAccepted.workflowId,
-              effectiveAt = Some(timestampToTimestamp(transactionAccepted.effectiveAt)),
+              effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               offset = ApiOffset.toApiString(transactionAccepted.offset),
               eventsById = eventsById,
               rootEventIds = rootEventIds,
               domainId = transactionAccepted.domainId.getOrElse(""),
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
+              recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
             )
           }
       }
@@ -495,6 +495,7 @@ private[events] object TransactionLogUpdatesConversions {
               Node.Create(
                 coid = createdEvent.contractId,
                 templateId = createdEvent.templateId,
+                packageName = createdEvent.packageName,
                 arg = createdEvent.createArgument.unversioned,
                 agreementText = createdEvent.createAgreementText.getOrElse(""),
                 signatories = createdEvent.createSignatories,
@@ -503,8 +504,6 @@ private[events] object TransactionLogUpdatesConversions {
                   createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
                 ),
                 version = createdEvent.createArgument.version,
-                // TODO https://github.com/digital-asset/daml/issues/17995
-                packageName = Ref.PackageName.assertFromString("dummyReplace"),
               ),
               createTime = createdEvent.ledgerEffectiveTime,
               cantonData = driverMetadataBytes,
@@ -526,6 +525,7 @@ private[events] object TransactionLogUpdatesConversions {
           eventId = createdEvent.eventId.toLedgerString,
           contractId = createdEvent.contractId.coid,
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+          packageName = createdEvent.packageName,
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
           createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
@@ -538,9 +538,6 @@ private[events] object TransactionLogUpdatesConversions {
         )
       )
   }
-
-  private def timestampToTimestamp(t: com.daml.lf.data.Time.Timestamp): Timestamp =
-    fromInstant(t.toInstant)
 
   private def getCommandId(
       flatTransactionEvents: Vector[TransactionLogUpdate.Event],
@@ -597,7 +594,8 @@ private[events] object TransactionLogUpdatesConversions {
               reassignmentCounter = info.reassignmentCounter,
               contractId = unassign.contractId.coid,
               templateId = Some(LfEngineToApi.toApiIdentifier(unassign.templateId)),
-              assignmentExclusivity = unassign.assignmentExclusivity.map(timestampToTimestamp),
+              assignmentExclusivity =
+                unassign.assignmentExclusivity.map(TimestampConversion.fromLf),
               witnessParties = reassignmentAccepted.reassignmentInfo.hostedStakeholders
                 .filter(requestingParties),
             )
@@ -615,6 +613,7 @@ private[events] object TransactionLogUpdatesConversions {
         offset = ApiOffset.toApiString(reassignmentAccepted.offset),
         event = event,
         traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
+        recordTime = Some(TimestampConversion.fromLf(reassignmentAccepted.recordTime)),
       )
     )
   }

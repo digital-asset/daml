@@ -178,7 +178,7 @@ object CantonServerBuilder {
     import scala.jdk.CollectionConverters.*
     val s1 =
       GrpcSslContexts.forServer(config.certChainFile.unwrap, config.privateKeyFile.unwrap)
-    val s2 = config.protocols.fold(s1)(protocols => s1.protocols(protocols *))
+    val s2 = config.protocols.fold(s1)(protocols => s1.protocols(protocols*))
     config.ciphers.fold(s2)(ciphers => s2.ciphers(ciphers.asJava))
   }
 

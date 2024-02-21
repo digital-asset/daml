@@ -35,6 +35,7 @@ import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.SetParameter
 
+import scala.math.Ordering.Implicits.*
 import scala.reflect.ClassTag
 
 sealed trait TopologyMappingX extends Product with Serializable with PrettyPrinting {
@@ -734,34 +735,32 @@ object DomainTrustCertificateX {
     )
 }
 
-/* Participant domain permission
- */
-sealed abstract class ParticipantPermissionX(val canConfirm: Boolean)
+/** Permissions of a participant, i.e., things a participant can do on behalf of a party
+  *
+  * Permissions are hierarchical. A participant who can submit can confirm. A participant who can confirm can observe.
+  */
+sealed abstract class ParticipantPermission(val canConfirm: Boolean)
     extends Product
     with Serializable {
   def toProtoV30: v30.Enums.ParticipantPermission
-  def toNonX: ParticipantPermission
 }
-object ParticipantPermissionX {
-  case object Submission extends ParticipantPermissionX(canConfirm = true) {
+object ParticipantPermission {
+  case object Submission extends ParticipantPermission(canConfirm = true) {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION
-    override def toNonX: ParticipantPermission = ParticipantPermission.Submission
   }
-  case object Confirmation extends ParticipantPermissionX(canConfirm = true) {
+  case object Confirmation extends ParticipantPermission(canConfirm = true) {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION
-    override def toNonX: ParticipantPermission = ParticipantPermission.Confirmation
   }
-  case object Observation extends ParticipantPermissionX(canConfirm = false) {
+  case object Observation extends ParticipantPermission(canConfirm = false) {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION
-    override def toNonX: ParticipantPermission = ParticipantPermission.Observation
   }
 
   def fromProtoV30(
       value: v30.Enums.ParticipantPermission
-  ): ParsingResult[ParticipantPermissionX] =
+  ): ParsingResult[ParticipantPermission] =
     value match {
       case v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_UNSPECIFIED =>
         Left(FieldNotSet(value.name))
@@ -775,35 +774,49 @@ object ParticipantPermissionX {
         Left(UnrecognizedEnum(value.name, x))
     }
 
-  implicit val orderingParticipantPermissionX: Ordering[ParticipantPermissionX] = {
-    val participantPermissionXOrderMap = Seq[ParticipantPermissionX](
+  implicit val orderingParticipantPermission: Ordering[ParticipantPermission] = {
+    val ParticipantPermissionOrderMap = Seq[ParticipantPermission](
       Observation,
       Confirmation,
       Submission,
     ).zipWithIndex.toMap
-    Ordering.by[ParticipantPermissionX, Int](participantPermissionXOrderMap(_))
+    Ordering.by[ParticipantPermission, Int](ParticipantPermissionOrderMap(_))
   }
+
+  def lowerOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission =
+    fst.min(snd)
+
+  def higherOf(fst: ParticipantPermission, snd: ParticipantPermission): ParticipantPermission =
+    fst.max(snd)
 }
 
-final case class ParticipantDomainLimits(maxRate: Int, maxNumParties: Int, maxNumPackages: Int) {
+final case class ParticipantDomainLimits(
+    confirmationRequestsMaxRate: Int,
+    maxNumParties: Int,
+    maxNumPackages: Int,
+) {
   def toProto: v30.ParticipantDomainLimits =
-    v30.ParticipantDomainLimits(maxRate, maxNumParties, maxNumPackages)
+    v30.ParticipantDomainLimits(confirmationRequestsMaxRate, maxNumParties, maxNumPackages)
 }
 object ParticipantDomainLimits {
   def fromProtoV30(value: v30.ParticipantDomainLimits): ParticipantDomainLimits =
-    ParticipantDomainLimits(value.maxRate, value.maxNumParties, value.maxNumPackages)
+    ParticipantDomainLimits(
+      value.confirmationRequestsMaxRate,
+      value.maxNumParties,
+      value.maxNumPackages,
+    )
 }
 
 final case class ParticipantDomainPermissionX(
     domainId: DomainId,
     participantId: ParticipantId,
-    permission: ParticipantPermissionX,
+    permission: ParticipantPermission,
     limits: Option[ParticipantDomainLimits],
     loginAfter: Option[CantonTimestamp],
 ) extends TopologyMappingX {
 
   def toParticipantAttributes: ParticipantAttributes =
-    ParticipantAttributes(permission.toNonX, loginAfter)
+    ParticipantAttributes(permission, loginAfter)
 
   def toProto: v30.ParticipantDomainPermission =
     v30.ParticipantDomainPermission(
@@ -867,7 +880,7 @@ object ParticipantDomainPermissionX {
     ParticipantDomainPermissionX(
       domainId,
       participantId,
-      ParticipantPermissionX.Submission,
+      ParticipantPermission.Submission,
       None,
       None,
     )
@@ -878,7 +891,7 @@ object ParticipantDomainPermissionX {
     for {
       domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-      permission <- ParticipantPermissionX.fromProtoV30(value.permission)
+      permission <- ParticipantPermission.fromProtoV30(value.permission)
       limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
       loginAfter <- value.loginAfter.fold[ParsingResult[Option[CantonTimestamp]]](Right(None))(
         CantonTimestamp.fromProtoPrimitive(_).map(_.some)
@@ -1010,7 +1023,7 @@ object VettedPackagesX {
 // Party to participant mappings
 final case class HostingParticipant(
     participantId: ParticipantId,
-    permission: ParticipantPermissionX,
+    permission: ParticipantPermission,
 ) {
   def toProto: v30.PartyToParticipant.HostingParticipant =
     v30.PartyToParticipant.HostingParticipant(
@@ -1024,7 +1037,7 @@ object HostingParticipant {
       value: v30.PartyToParticipant.HostingParticipant
   ): ParsingResult[HostingParticipant] = for {
     participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
-    permission <- ParticipantPermissionX.fromProtoV30(value.permission)
+    permission <- ParticipantPermission.fromProtoV30(value.permission)
   } yield HostingParticipant(participantId, permission)
 }
 

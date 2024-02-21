@@ -211,24 +211,24 @@ object UpdateToDbDto {
                 val nonStakeholderInformees = informees.diff(stakeholders)
                 Iterator(
                   DbDto.EventCreate(
-                    event_offset = Some(offset.toHexString),
-                    transaction_id = Some(u.transactionId),
-                    ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
+                    event_offset = offset.toHexString,
+                    transaction_id = u.transactionId,
+                    ledger_effective_time = u.transactionMeta.ledgerEffectiveTime.micros,
                     command_id = u.completionInfoO.map(_.commandId),
                     workflow_id = u.transactionMeta.workflowId,
                     application_id = u.completionInfoO.map(_.applicationId),
                     submitters = u.completionInfoO.map(_.actAs.toSet),
-                    node_index = Some(nodeId.index),
-                    event_id = Some(eventId.toLedgerString),
+                    node_index = nodeId.index,
+                    event_id = eventId.toLedgerString,
                     contract_id = create.coid.coid,
-                    template_id = Some(templateId),
+                    template_id = templateId,
+                    package_name = create.packageName,
                     flat_event_witnesses = stakeholders,
                     tree_event_witnesses = informees,
-                    create_argument = Some(createArgument)
-                      .map(compressionStrategy.createArgumentCompression.compress),
-                    create_signatories = Some(create.signatories.map(_.toString)),
-                    create_observers =
-                      Some(create.stakeholders.diff(create.signatories).map(_.toString)),
+                    create_argument =
+                      compressionStrategy.createArgumentCompression.compress(createArgument),
+                    create_signatories = create.signatories.map(_.toString),
+                    create_observers = create.stakeholders.diff(create.signatories).map(_.toString),
                     create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
                     create_key_value = createKeyValue
                       .map(compressionStrategy.createKeyValueCompression.compress),
@@ -246,6 +246,7 @@ object UpdateToDbDto {
                       u.contractMetadata.get(create.coid).map(_.toByteArray),
                     domain_id = domainId,
                     trace_context = serializedTraceContext,
+                    record_time = u.recordTime.micros,
                   )
                 ) ++ stakeholders.iterator.map(
                   DbDto.IdFilterCreateStakeholder(
@@ -272,32 +273,30 @@ object UpdateToDbDto {
                 Iterator(
                   DbDto.EventExercise(
                     consuming = exercise.consuming,
-                    event_offset = Some(offset.toHexString),
-                    transaction_id = Some(u.transactionId),
-                    ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
+                    event_offset = offset.toHexString,
+                    transaction_id = u.transactionId,
+                    ledger_effective_time = u.transactionMeta.ledgerEffectiveTime.micros,
                     command_id = u.completionInfoO.map(_.commandId),
                     workflow_id = u.transactionMeta.workflowId,
                     application_id = u.completionInfoO.map(_.applicationId),
                     submitters = u.completionInfoO.map(_.actAs.toSet),
-                    node_index = Some(nodeId.index),
-                    event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
+                    node_index = nodeId.index,
+                    event_id = EventId(u.transactionId, nodeId).toLedgerString,
                     contract_id = exercise.targetCoid.coid,
-                    template_id = Some(templateId),
+                    template_id = templateId,
                     flat_event_witnesses = flatWitnesses,
                     tree_event_witnesses = informees,
                     create_key_value = createKeyValue
                       .map(compressionStrategy.createKeyValueCompression.compress),
-                    exercise_choice = Some(exercise.qualifiedChoiceName.toString),
-                    exercise_argument = Some(exerciseArgument)
-                      .map(compressionStrategy.exerciseArgumentCompression.compress),
+                    exercise_choice = exercise.qualifiedChoiceName.toString,
+                    exercise_argument =
+                      compressionStrategy.exerciseArgumentCompression.compress(exerciseArgument),
                     exercise_result = exerciseResult
                       .map(compressionStrategy.exerciseResultCompression.compress),
-                    exercise_actors = Some(exercise.actingParties.map(_.toString)),
-                    exercise_child_event_ids = Some(
-                      exercise.children.iterator
-                        .map(EventId(u.transactionId, _).toLedgerString.toString)
-                        .toVector
-                    ),
+                    exercise_actors = exercise.actingParties.map(_.toString),
+                    exercise_child_event_ids = exercise.children.iterator
+                      .map(EventId(u.transactionId, _).toLedgerString.toString)
+                      .toVector,
                     create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
                     exercise_argument_compression =
                       compressionStrategy.exerciseArgumentCompression.id,
@@ -305,6 +304,7 @@ object UpdateToDbDto {
                     event_sequential_id = 0, // this is filled later
                     domain_id = domainId,
                     trace_context = serializedTraceContext,
+                    record_time = u.recordTime.micros,
                   )
                 ) ++ {
                   if (exercise.consuming) {
@@ -373,6 +373,7 @@ object UpdateToDbDto {
                   reassignment_counter = u.reassignmentInfo.reassignmentCounter,
                   assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
                   trace_context = serializedTraceContext,
+                  record_time = u.recordTime.micros,
                 )
               ) ++ flatEventWitnesses.map(
                 DbDto.IdFilterUnassignStakeholder(
@@ -395,6 +396,7 @@ object UpdateToDbDto {
                   submitter = u.reassignmentInfo.submitter,
                   contract_id = assign.createNode.coid.coid,
                   template_id = templateId,
+                  package_name = assign.createNode.packageName,
                   flat_event_witnesses = flatEventWitnesses,
                   create_argument = createArgument,
                   create_signatories = assign.createNode.signatories.map(_.toString),
@@ -421,6 +423,7 @@ object UpdateToDbDto {
                   unassign_id = u.reassignmentInfo.unassignId.toMicros.toString,
                   reassignment_counter = u.reassignmentInfo.reassignmentCounter,
                   trace_context = serializedTraceContext,
+                  record_time = u.recordTime.micros,
                 )
               ) ++ flatEventWitnesses.map(
                 DbDto.IdFilterAssignStakeholder(

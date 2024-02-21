@@ -9,14 +9,13 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging.*
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.value.Value as Lf
-import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
+import scalaz.@@
 import scalaz.syntax.tag.*
-import scalaz.{@@, Tag}
 
 import scala.collection.immutable
 
@@ -57,29 +56,28 @@ final case class InclusiveFilters(
     interfaceFilters: immutable.Set[InterfaceFilter],
 )
 
-sealed abstract class LedgerOffset extends Product with Serializable
+sealed abstract class ParticipantOffset extends Product with Serializable
 
-object LedgerOffset {
+object ParticipantOffset {
 
-  final case class Absolute(value: Ref.LedgerString) extends LedgerOffset
+  final case class Absolute(value: Ref.LedgerString) extends ParticipantOffset
 
-  case object LedgerBegin extends LedgerOffset
+  case object ParticipantBegin extends ParticipantOffset
 
-  case object LedgerEnd extends LedgerOffset
+  case object ParticipantEnd extends ParticipantOffset
 
-  implicit val `Absolute Ordering`: Ordering[LedgerOffset.Absolute] =
-    Ordering.by[LedgerOffset.Absolute, String](_.value)
+  implicit val `Absolute Ordering`: Ordering[ParticipantOffset.Absolute] =
+    Ordering.by[ParticipantOffset.Absolute, String](_.value)
 
-  implicit val `LedgerOffset to LoggingValue`: ToLoggingValue[LedgerOffset] = value =>
+  implicit val `ParticipantOffset to LoggingValue`: ToLoggingValue[ParticipantOffset] = value =>
     LoggingValue.OfString(value match {
-      case LedgerOffset.Absolute(absolute) => absolute
-      case LedgerOffset.LedgerBegin => "%begin%"
-      case LedgerOffset.LedgerEnd => "%end%"
+      case ParticipantOffset.Absolute(absolute) => absolute
+      case ParticipantOffset.ParticipantBegin => "%begin%"
+      case ParticipantOffset.ParticipantEnd => "%end%"
     })
 }
 
 final case class Commands(
-    ledgerId: Option[LedgerId],
     workflowId: Option[WorkflowId],
     applicationId: Ref.ApplicationId,
     commandId: CommandId,
@@ -145,6 +143,7 @@ final case class NonUpgradableDisclosedContract(
 
 final case class UpgradableDisclosedContract(
     templateId: Ref.TypeConName,
+    packageName: Ref.PackageName,
     contractId: Lf.ContractId,
     argument: Value,
     createdAt: Timestamp,
@@ -164,9 +163,7 @@ object Commands {
     ToLoggingValue.ToStringToLoggingValue
 
   implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands => {
-    val maybeString: Option[String] = commands.ledgerId.map(Tag.unwrap)
     LoggingValue.Nested.fromEntries(
-      "ledgerId" -> OfString(maybeString.getOrElse("<empty-ledger-id>")),
       "workflowId" -> commands.workflowId,
       "applicationId" -> commands.applicationId,
       "submissionId" -> commands.submissionId,

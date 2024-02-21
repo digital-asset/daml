@@ -33,9 +33,9 @@ trait ComparesLfTransactions {
     def nestedLfNodeFromFlat(tx: LfVersionedTransaction): Seq[TxTree] = {
       def go(nid: LfNodeId): TxTree = tx.nodes(nid) match {
         case en: LfNodeExercises =>
-          TxTree(en.copy(children = ImmArray.empty), en.children.toSeq.map(go): _*)
+          TxTree(en.copy(children = ImmArray.empty), en.children.toSeq.map(go)*)
         case rn: LfNodeRollback =>
-          TxTree(rn.copy(children = ImmArray.empty), rn.children.toSeq.map(go): _*)
+          TxTree(rn.copy(children = ImmArray.empty), rn.children.toSeq.map(go)*)
         case leafNode: LfLeafOnlyActionNode => TxTree(leafNode)
       }
       tx.roots.toSeq.map(go)

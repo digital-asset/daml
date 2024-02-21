@@ -67,14 +67,15 @@ final class GeneratorsMessages(
     verdict <- verdictArb.arbitrary
   } yield TransferResult.create(requestId, informees, domain, verdict, protocolVersion))
 
-  implicit val malformedMediatorRequestResultArb: Arbitrary[MalformedMediatorRequestResult] =
+  implicit val MalformedMediatorConfirmationRequestResultArb
+      : Arbitrary[MalformedConfirmationRequestResult] =
     Arbitrary(
       for {
         requestId <- Arbitrary.arbitrary[RequestId]
         domainId <- Arbitrary.arbitrary[DomainId]
         viewType <- Arbitrary.arbitrary[ViewType]
         mediatorReject <- mediatorRejectArb.arbitrary
-      } yield MalformedMediatorRequestResult.tryCreate(
+      } yield MalformedConfirmationRequestResult.tryCreate(
         requestId,
         domainId,
         viewType,
@@ -92,7 +93,7 @@ final class GeneratorsMessages(
     // TODO(#14241) Also generate instance that contains InformeeTree + make pv above cover all the values
   } yield TransactionResultMessage(requestId, verdict, rootHash, domainId, protocolVersion))
 
-  implicit val mediatorResponseArb: Arbitrary[MediatorResponse] = Arbitrary(
+  implicit val confirmationResponseArb: Arbitrary[ConfirmationResponse] = Arbitrary(
     for {
       requestId <- Arbitrary.arbitrary[RequestId]
       sender <- Arbitrary.arbitrary[ParticipantId]
@@ -119,7 +120,7 @@ final class GeneratorsMessages(
         case _ => Gen.option(Arbitrary.arbitrary[ViewPosition])
       }
 
-    } yield MediatorResponse.tryCreate(
+    } yield ConfirmationResponse.tryCreate(
       requestId,
       sender,
       viewPositionO,
@@ -132,9 +133,9 @@ final class GeneratorsMessages(
   )
 
   // TODO(#14515) Check that the generator is exhaustive
-  implicit val mediatorResultArb: Arbitrary[MediatorResult] = Arbitrary(
-    Gen.oneOf[MediatorResult](
-      Arbitrary.arbitrary[MalformedMediatorRequestResult],
+  implicit val mediatorResultArb: Arbitrary[ConfirmationResult] = Arbitrary(
+    Gen.oneOf[ConfirmationResult](
+      Arbitrary.arbitrary[MalformedConfirmationRequestResult],
       Arbitrary.arbitrary[TransactionResultMessage],
       Arbitrary.arbitrary[TransferResult[TransferDomainId]],
     )
@@ -144,9 +145,9 @@ final class GeneratorsMessages(
   implicit val signedProtocolMessageContentArb: Arbitrary[SignedProtocolMessageContent] = Arbitrary(
     Gen.oneOf(
       Arbitrary.arbitrary[AcsCommitment],
-      Arbitrary.arbitrary[MalformedMediatorRequestResult],
-      Arbitrary.arbitrary[MediatorResponse],
-      Arbitrary.arbitrary[MediatorResult],
+      Arbitrary.arbitrary[MalformedConfirmationRequestResult],
+      Arbitrary.arbitrary[ConfirmationResponse],
+      Arbitrary.arbitrary[ConfirmationResult],
     )
   )
 

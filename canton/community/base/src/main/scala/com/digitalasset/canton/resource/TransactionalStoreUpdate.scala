@@ -64,7 +64,7 @@ object TransactionalStoreUpdate {
       storages.headOption
         .traverse_ { storage =>
           import storage.api.*
-          val dbUpdatesTransaction = DBIO.seq(dbUpdates.map(_.sql): _*).transactionally
+          val dbUpdatesTransaction = DBIO.seq(dbUpdates.map(_.sql)*).transactionally
           storage.update_(dbUpdatesTransaction, functionFullName)
         }
         .map(_ => inMemUpdates.foreach(_.perform()))

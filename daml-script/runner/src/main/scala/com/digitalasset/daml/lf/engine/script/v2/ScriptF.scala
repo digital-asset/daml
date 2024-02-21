@@ -204,7 +204,7 @@ object ScriptF {
                 interpretation.Error.UserError("Expected submit to fail but it succeeded")
               )
             )
-          case (Right((commandResults, oTree)), _) =>
+          case (Right((commandResults, tree)), _) =>
             Converter.toFuture(
               commandResults
                 .to(FrontStack)
@@ -218,35 +218,33 @@ object ScriptF {
                   )
                 )
                 .flatMap { rs =>
-                  oTree
-                    .traverse(
-                      Converter.translateTransactionTree(
-                        env.lookupChoice,
-                        env.valueTranslator,
-                        env.scriptIds,
-                        _,
-                        client.enableContractUpgrading,
-                      )
+                  Converter
+                    .translateTransactionTree(
+                      env.lookupChoice,
+                      env.valueTranslator,
+                      env.scriptIds,
+                      tree,
+                      client.enableContractUpgrading,
                     )
                     .map((rs, _))
                 }
-                .map { case (rs, oTree) =>
+                .map { case (rs, tree) =>
                   SVariant(
                     StablePackagesV2.Either,
                     Name.assertFromString("Right"),
                     1,
-                    makePair(SList(rs), SOptional(oTree)),
+                    makePair(SList(rs), tree),
                   )
                 }
             )
           case (Left(ScriptLedgerClient.SubmitFailure(err, _)), MustSucceed) => Future.failed(err)
-          case (Left(ScriptLedgerClient.SubmitFailure(_, oSubmitError)), _) =>
+          case (Left(ScriptLedgerClient.SubmitFailure(_, submitError)), _) =>
             Future.successful(
               SVariant(
                 StablePackagesV2.Either,
                 Name.assertFromString("Left"),
                 0,
-                SOptional(oSubmitError.map(_.toDamlSubmitError(env))),
+                submitError.toDamlSubmitError(env),
               )
             )
         }

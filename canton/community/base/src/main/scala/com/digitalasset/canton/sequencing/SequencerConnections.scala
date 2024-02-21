@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.sequencing
 
-import cats.Monad
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import cats.{Id, Monad}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionCommon,
@@ -28,6 +28,7 @@ import java.net.URI
 final case class SequencerConnections private (
     aliasToConnection: NonEmpty[Map[SequencerAlias, SequencerConnection]],
     sequencerTrustThreshold: PositiveInt,
+    submissionRequestAmplification: PositiveInt,
 ) extends HasVersionedWrapper[SequencerConnections]
     with PrettyPrinting {
   require(
@@ -44,31 +45,12 @@ final case class SequencerConnections private (
 
   def default: SequencerConnection = aliasToConnection.head1._2
 
-  /** In case of BFT domain - multiple sequencers are required for proper functioning.
-    * Some functionalities are only available in non-bft domain.
-    * When nonBftSetup is false, it means that more than one sequencer connection is provided which doesn't imply a bft domain.
-    */
-  def nonBftSetup: Boolean = aliasToConnection.sizeIs == 1
-
   def connections: NonEmpty[Seq[SequencerConnection]] = aliasToConnection.map(_._2).toSeq
 
   def modify(
       sequencerAlias: SequencerAlias,
       m: SequencerConnection => SequencerConnection,
-  ): SequencerConnections = {
-    aliasToConnection
-      .get(sequencerAlias)
-      .map { connection =>
-        SequencerConnections(
-          aliasToConnection.updated(
-            sequencerAlias,
-            m(connection),
-          ),
-          sequencerTrustThreshold,
-        )
-      }
-      .getOrElse(this)
-  }
+  ): SequencerConnections = modifyM[Id](sequencerAlias, m)
 
   private def modifyM[M[_]](
       sequencerAlias: SequencerAlias,
@@ -77,13 +59,12 @@ final case class SequencerConnections private (
     aliasToConnection
       .get(sequencerAlias)
       .map { connection =>
-        M.map(m(connection)) { x =>
-          SequencerConnections(
+        M.map(m(connection)) { newSequencerConnection =>
+          this.copy(
             aliasToConnection.updated(
               sequencerAlias,
-              x,
-            ),
-            sequencerTrustThreshold,
+              newSequencerConnection,
+            )
           )
         }
       }
@@ -117,9 +98,14 @@ final case class SequencerConnections private (
     prettyOfParam(_.aliasToConnection.forgetNE)
 
   def toProtoV30: v30.SequencerConnections =
-    new v30.SequencerConnections(connections.map(_.toProtoV30), sequencerTrustThreshold.unwrap)
+    new v30.SequencerConnections(
+      connections.map(_.toProtoV30),
+      sequencerTrustThreshold.unwrap,
+      submissionRequestAmplification.unwrap,
+    )
 
-  override protected def companionObj: HasVersionedMessageCompanionCommon[SequencerConnections] =
+  @transient override protected lazy val companionObj
+      : HasVersionedMessageCompanionCommon[SequencerConnections] =
     SequencerConnections
 }
 
@@ -129,69 +115,84 @@ object SequencerConnections
 
   def single(connection: SequencerConnection): SequencerConnections =
     new SequencerConnections(
-      NonEmpty.mk(Seq, (connection.sequencerAlias, connection)).toMap,
-      PositiveInt.tryCreate(1),
+      aliasToConnection = NonEmpty.mk(Seq, (connection.sequencerAlias, connection)).toMap,
+      sequencerTrustThreshold = PositiveInt.one,
+      submissionRequestAmplification = PositiveInt.one,
     )
 
   def many(
       connections: NonEmpty[Seq[SequencerConnection]],
       sequencerTrustThreshold: PositiveInt,
+      submissionRequestAmplification: PositiveInt,
   ): Either[String, SequencerConnections] =
     if (connections.sizeIs == 1) {
       Right(SequencerConnections.single(connections.head1))
-    } else if (connections.map(_.sequencerAlias).toSet.sizeCompare(connections) < 0) {
-      val duplicatesAliases = connections.map(_.sequencerAlias).groupBy(identity).collect {
-        case (alias, aliases) if aliases.lengthCompare(1) > 0 => alias
+    } else {
+      val repeatedAliases = connections.groupBy(_.sequencerAlias).filter { case (_, connections) =>
+        connections.lengthCompare(1) > 0
       }
-      Left(s"Non-unique sequencer aliases detected: $duplicatesAliases")
-    } else
-      Either
-        .catchOnly[IllegalArgumentException](
-          new SequencerConnections(
-            connections.map(conn => (conn.sequencerAlias, conn)).toMap,
-            sequencerTrustThreshold,
-          )
+      for {
+        _ <- Either.cond(
+          repeatedAliases.isEmpty,
+          (),
+          s"Repeated sequencer aliases found: $repeatedAliases",
         )
-        .leftMap(_.getMessage)
+        sequencerConnections <- Either
+          .catchOnly[IllegalArgumentException](
+            new SequencerConnections(
+              connections.map(conn => (conn.sequencerAlias, conn)).toMap,
+              sequencerTrustThreshold,
+              submissionRequestAmplification,
+            )
+          )
+          .leftMap(_.getMessage)
+      } yield sequencerConnections
+    }
 
   def tryMany(
       connections: Seq[SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
-  ): SequencerConnections = {
-    many(NonEmptyUtil.fromUnsafe(connections), sequencerTrustThreshold).valueOr(err =>
-      throw new IllegalArgumentException(err)
-    )
-  }
-
-  private def fromProtoV30(
-      fieldName: String,
-      connections: Seq[v30.SequencerConnection],
-      sequencerTrustThreshold: PositiveInt,
-  ): ParsingResult[SequencerConnections] = for {
-    sequencerConnectionsNes <- parseRequiredNonEmpty(
-      SequencerConnection.fromProtoV30,
-      fieldName,
-      connections,
-    )
-    _ <- Either.cond(
-      sequencerConnectionsNes.map(_.sequencerAlias).toSet.size == sequencerConnectionsNes.size,
-      (),
-      ProtoDeserializationError.ValueConversionError(
-        fieldName,
-        "Every sequencer connection must have a unique sequencer alias",
-      ),
-    )
-    sequencerConnections <- many(sequencerConnectionsNes, sequencerTrustThreshold).leftMap(
-      ProtoDeserializationError.InvariantViolation(_)
-    )
-  } yield sequencerConnections
+      submissionRequestAmplification: PositiveInt,
+  ): SequencerConnections =
+    many(
+      NonEmptyUtil.fromUnsafe(connections),
+      sequencerTrustThreshold,
+      submissionRequestAmplification,
+    ).valueOr(err => throw new IllegalArgumentException(err))
 
   def fromProtoV30(
-      sequencerConnections: v30.SequencerConnections
-  ): ParsingResult[SequencerConnections] =
-    ProtoConverter
-      .parsePositiveInt(sequencerConnections.sequencerTrustThreshold)
-      .flatMap(fromProtoV30("sequencer_connections", sequencerConnections.sequencerConnections, _))
+      sequencerConnectionsProto: v30.SequencerConnections
+  ): ParsingResult[SequencerConnections] = {
+    val v30.SequencerConnections(
+      sequencerConnectionsP,
+      sequencerTrustThresholdP,
+      submissionRequestAmplificationP,
+    ) = sequencerConnectionsProto
+    for {
+      sequencerTrustThreshold <- ProtoConverter.parsePositiveInt(sequencerTrustThresholdP)
+      submissionRequestAmplification <- ProtoConverter.parsePositiveInt(
+        submissionRequestAmplificationP
+      )
+      sequencerConnectionsNes <- ProtoConverter.parseRequiredNonEmpty(
+        SequencerConnection.fromProtoV30,
+        "sequencer_connections",
+        sequencerConnectionsP,
+      )
+      _ <- Either.cond(
+        sequencerConnectionsNes.map(_.sequencerAlias).toSet.size == sequencerConnectionsNes.size,
+        (),
+        ProtoDeserializationError.ValueConversionError(
+          "sequencer_connections",
+          "Every sequencer connection must have a unique sequencer alias",
+        ),
+      )
+      sequencerConnections <- many(
+        sequencerConnectionsNes,
+        sequencerTrustThreshold,
+        submissionRequestAmplification,
+      ).leftMap(ProtoDeserializationError.InvariantViolation(_))
+    } yield sequencerConnections
+  }
 
   override def name: String = "sequencer connections"
 

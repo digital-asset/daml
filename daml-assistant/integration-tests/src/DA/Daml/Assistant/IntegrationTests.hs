@@ -304,19 +304,6 @@ damlStartTests getDamlStart =
                 ]
             contents <- readFileUTF8 (projDir </> "output.json")
             lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
-        subtest "daml export script" $ do
-            DamlStartResource {projDir, sandboxPort, alice} <- getDamlStart
-            withTempDir $ \exportDir -> do
-                callCommandSilentIn projDir $ unwords
-                    [ "daml ledger export script"
-                    , "--host localhost --port " <> show sandboxPort
-                    , "--party", alice
-                    , "--output " <> exportDir <> " --sdk-version " <> sdkVersion
-                    ]
-                didGenerateExportDaml <- doesFileExist (exportDir </> "Export.daml")
-                didGenerateDamlYaml <- doesFileExist (exportDir </> "daml.yaml")
-                didGenerateExportDaml @?= True
-                didGenerateDamlYaml @?= True
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
