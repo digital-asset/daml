@@ -35,6 +35,7 @@ jobs:
       - template: report-start.yml
     - template: clear-shared-segments-macos.yml
     - checkout: self
+      path: v3
     - bash: |
         set -euo pipefail
         git checkout $(release_sha)

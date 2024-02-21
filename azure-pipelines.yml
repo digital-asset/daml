@@ -38,6 +38,7 @@ jobs:
   steps:
     - template: ci/report-start.yml
     - checkout: self
+      path: v3
       persistCredentials: true
     - bash: |
         set -euo pipefail

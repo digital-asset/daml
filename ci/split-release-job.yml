@@ -18,6 +18,7 @@ jobs:
     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
   steps:
     - checkout: self
+      path: v3
       persistCredentials: true
     - bash: |
         set -euo pipefail

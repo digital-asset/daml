@@ -16,6 +16,7 @@ jobs:
     blackduck_script_sha: 745a1566cee2367270a8c27c05859b34c3ba447a
   steps:
   - checkout: self
+    path: v3
     persistCredentials: true
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
@@ -166,6 +167,7 @@ jobs:
     demands: assignment -equals default
   steps:
   - checkout: self
+    path: v3
     persistCredentials: true
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'

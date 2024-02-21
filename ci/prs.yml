@@ -30,6 +30,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
+      path: v3
     - bash: |
         set -euo pipefail
 
@@ -70,6 +71,7 @@ jobs:
     is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
   steps:
     - checkout: self
+      path: v3
       persistCredentials: true
     - template: bash-lib.yml
       parameters:
@@ -148,6 +150,7 @@ jobs:
   condition: eq(variables['Build.Reason'], 'PullRequest')
   steps:
   - checkout: self
+    path: v3
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib

@@ -47,6 +47,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      path: v3
     - bash: |
         set -euo pipefail
         git checkout $(release_sha)
@@ -112,6 +113,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      path: v3
     - bash: |
         set -euo pipefail
 
@@ -159,6 +161,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
+      path: v3
     - bash: ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
     - task: DownloadPipelineArtifact@2
@@ -203,6 +206,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      path: v3
     - template: clean-up.yml
     - template: compatibility_ts_libs.yml
     - template: tell-slack-failed.yml
@@ -219,6 +223,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      path: v3
     - template: clean-up.yml
     - template: compatibility.yml
       parameters:
@@ -233,6 +238,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
+      path: v3
       fetchTags: true
     - bash: ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml

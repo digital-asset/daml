@@ -20,6 +20,7 @@ jobs:
     demands: assignment -equals default
   steps:
   - checkout: self
+    path: v3
     persistCredentials: true
   - template: ../bash-lib.yml
     parameters:
