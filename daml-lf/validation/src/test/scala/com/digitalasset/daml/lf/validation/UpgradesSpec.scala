@@ -115,8 +115,8 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
         fail(s"Uploading first package $testPackageV1Id failed with message: $err");
       case _ => {}
     }
-    cantonLogSrc should include(
-      s"Package $testPackageV2Id can not be uploaded - $testPackageV1Id is already uploaded and at version $packageVersion"
+    cantonLogSrc should include regex (
+      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV2Id, location=.+, packageVersion=$packageVersion, uploadedPackage=$testPackageV1Id\\}"
     )
     uploadV2Result match {
       case None =>
