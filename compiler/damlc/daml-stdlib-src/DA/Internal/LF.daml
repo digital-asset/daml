@@ -32,8 +32,8 @@ module DA.Internal.LF
   #ifdef DAML_SCENARIOS
   , Scenario
   , scenario
-
-  , HasSubmit(..)
+  , submit
+  , submitMustFail
   #endif
 
   , HasTime
@@ -233,22 +233,19 @@ instance Action Scenario where
 instance ActionFail Scenario where
     fail = primitive @"SAbort"
 
-class HasSubmit m cmds | m -> cmds, cmds -> m where
-  -- | `submit p cmds` submits the commands `cmds` as a single transaction
-  -- from party `p` and returns the value returned by `cmds`.
-  --
-  -- If the transaction fails, `submit` also fails.
-  submit : HasCallStack => Party -> cmds a -> m a
-
-  -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
-  -- from party `p`.
-  --
-  -- It only succeeds if the submitting the transaction fails.
-  submitMustFail : HasCallStack => Party -> cmds a -> m ()
-
-instance HasSubmit Scenario Update where
-  submit = primitive @"SCommit"
-  submitMustFail = primitive @"SMustFailAt"
+-- | `submit p cmds` submits the commands `cmds` as a single transaction
+-- from party `p` and returns the value returned by `cmds`.
+--
+-- If the transaction fails, `submit` also fails.
+submit : HasCallStack => Party -> Update a -> Scenario a
+submit = primitive @"SCommit"
+  
+-- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
+-- from party `p`.
+--
+-- It only succeeds if the submitting the transaction fails.
+submitMustFail : HasCallStack => Party -> Update a -> Scenario ()
+submitMustFail = primitive @"SMustFailAt"
 
 infixr 0 `submit`
 infixr 0 `submitMustFail`

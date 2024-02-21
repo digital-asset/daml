@@ -10,7 +10,7 @@ import qualified DA.Map as Map
 import Daml.Trigger
 import Daml.Trigger.Assert
 import qualified Daml.Script as Script
-import Daml.Script (script)
+import Daml.Script (script, submit)
 
 import CarbonV1
 import UpgradeFromCarbonCertV1

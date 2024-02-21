@@ -56,6 +56,10 @@ import DA.Traversable
 import DA.Tuple
 import DA.Validation
 
+#ifdef DAML_SCENARIOS
+import DA.Scenario
+#endif
+
 #ifdef DAML_EXPERIMENTAL
 import DA.Experimental.Example
 #endif

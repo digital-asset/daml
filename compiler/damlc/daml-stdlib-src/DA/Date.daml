@@ -31,6 +31,9 @@ import DA.Date.Types
 import DA.Internal.Date
 import DA.Internal.Time
 import GHC.Tuple.Check()
+#ifdef DAML_SCENARIOS
+import DA.Internal.LF (Scenario)
+#endif  
 
 deriving instance Eq DayOfWeek
 deriving instance Ord DayOfWeek

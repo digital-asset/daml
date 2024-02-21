@@ -1,0 +1,15 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+-- | HIDE
+module DA.Scenario 
+  ( LF.getParty
+  , LF.Scenario
+  , LF.scenario
+  , LF.submit
+  , LF.submitMustFail
+  ) where 
+
+import DA.Internal.LF as LF

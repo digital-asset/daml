@@ -61,7 +61,7 @@ trigger = Trigger with
 
 test = do
   alice <- Script.allocateParty "Alice"
-  tId <- submit alice do Script.createCmd T with party = alice, count = 1
+  tId <- Script.submit alice do Script.createCmd T with party = alice, count = 1
   let activeContracts = toACS tId
   let commandsInFlight = Map.empty
   (endCount, commands) <- testRule trigger alice [] activeContracts commandsInFlight 1
@@ -102,8 +102,8 @@ assertById tId lookedUp = do
 
 testQueryIds = do
   alice <- Script.allocateParty "Alice"
-  tId <- submit alice do Script.createCmd T with party = alice, count = 42
-  tId' <- submit alice do Script.createCmd T with party = alice, count = 43
+  tId <- Script.submit alice do Script.createCmd T with party = alice, count = 42
+  tId' <- Script.submit alice do Script.createCmd T with party = alice, count = 43
   let activeContracts = toACS tId <> toACS tId'
   let commandsInFlight = Map.empty
   testRule queryIds alice [] activeContracts commandsInFlight ()

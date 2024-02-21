@@ -25,6 +25,9 @@ module DA.Time
 
 import DA.Time.Types hiding (microseconds)
 import DA.Internal.Time
+#ifdef DAML_SCENARIOS
+import DA.Internal.LF (Scenario)
+#endif  
 
 #ifdef DAML_SCENARIOS
 -- | Pass simulated scenario time by argument

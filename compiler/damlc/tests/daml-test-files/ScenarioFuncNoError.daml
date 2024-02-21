@@ -7,6 +7,7 @@
 -- an error even when scenarios are disabled.
 -- Remove when scenarios are fully deleted (See #16583 for steps towards this)
 module ScenarioFuncNoError where
+import DA.Scenario
 
 test () = scenario do
   pure ()

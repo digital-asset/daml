@@ -7,6 +7,7 @@
 -- @ERROR Scenarios are no longer supported.
 -- Remove when scenarios are fully deleted (See #16583 for steps towards this)
 module ScenarioError where
-
+import DA.Scenario
+  
 test = scenario do
   pure ()

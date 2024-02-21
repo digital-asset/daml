@@ -540,14 +540,8 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
 -- | Submit the commands as a single transaction.
 
 -- This will error if the submission fails.
-
-#ifdef DAML_SCENARIOS
-instance HasSubmit Script Commands where
-  submit p cmds =
-#else
 submit : HasCallStack => Party -> Commands a -> Script a
 submit p cmds =
-#endif
     lift $ Free $ fmap pure $ Submit $ SubmitCmd with
       actAs = NonEmpty p []
       readAs = []
@@ -556,12 +550,8 @@ submit p cmds =
       locations = getCallStack callStack
       disclosures = []
 
-#ifdef DAML_SCENARIOS
-  submitMustFail p cmds =
-#else
 submitMustFail : HasCallStack => Party -> Commands a -> Script ()
 submitMustFail p cmds =
-#endif
     lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
       actAs = NonEmpty p []
       readAs = []
