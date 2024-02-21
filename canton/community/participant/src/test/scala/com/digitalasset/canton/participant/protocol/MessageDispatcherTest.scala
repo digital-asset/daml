@@ -161,7 +161,7 @@ trait MessageDispatcherTest {
         )
           .thenReturn(processingResultHandlerF)
         when(
-          processor.processMalformedMediatorRequestResult(
+          processor.processMalformedMediatorConfirmationRequestResult(
             any[CantonTimestamp],
             any[SequencerCounter],
             any[Either[
@@ -327,7 +327,7 @@ trait MessageDispatcherTest {
   private val requestId = RequestId(CantonTimestamp.Epoch)
   private val testMediatorResult =
     SignedProtocolMessage.from(
-      TestRegularMediatorResult(
+      TestRegularConfirmationResult(
         TestViewType,
         domainId,
         Verdict.Approve(testedProtocolVersion),
@@ -338,7 +338,7 @@ trait MessageDispatcherTest {
     )
   private val otherTestMediatorResult =
     SignedProtocolMessage.from(
-      TestRegularMediatorResult(
+      TestRegularConfirmationResult(
         OtherTestViewType,
         domainId,
         Verdict.Approve(testedProtocolVersion),
@@ -406,9 +406,9 @@ trait MessageDispatcherTest {
       )
 
     val reject = malformedVerdict(testedProtocolVersion)
-    val malformedMediatorRequestResult =
+    val MalformedMediatorConfirmationRequestResult =
       SignedProtocolMessage.from(
-        MalformedMediatorRequestResult.tryCreate(
+        MalformedConfirmationRequestResult.tryCreate(
           RequestId(CantonTimestamp.MinValue),
           domainId,
           TestViewType,
@@ -719,7 +719,7 @@ trait MessageDispatcherTest {
       val sut = mk(initRc = RequestCounter(-11))
       val unknownTestMediatorResult =
         SignedProtocolMessage.from(
-          TestRegularMediatorResult(
+          TestRegularConfirmationResult(
             UnknownTestViewType,
             domainId,
             Verdict.Approve(testedProtocolVersion),
@@ -821,7 +821,7 @@ trait MessageDispatcherTest {
               .cc(MemberRecipient(participantId), MemberRecipient(otherParticipant), mediatorGroup2),
           ) -> Seq(
             "Received root hash message with invalid recipients"
-          ) -> ExpectMalformedMediatorRequestResult,
+          ) -> ExpectMalformedMediatorConfirmationRequestResult,
           Batch.of[ProtocolMessage](
             testedProtocolVersion,
             view -> Recipients.cc(participantId),
@@ -831,7 +831,9 @@ trait MessageDispatcherTest {
               mediatorGroup2,
             ),
             rootHashMessage -> Recipients.cc(MemberRecipient(participantId), mediatorGroup2),
-          ) -> Seq("Multiple root hash messages in batch") -> ExpectMalformedMediatorRequestResult,
+          ) -> Seq(
+            "Multiple root hash messages in batch"
+          ) -> ExpectMalformedMediatorConfirmationRequestResult,
           Batch.of[ProtocolMessage](
             testedProtocolVersion,
             view -> Recipients.cc(participantId),
@@ -884,7 +886,7 @@ trait MessageDispatcherTest {
                 checkNotProcessRequest(processor(sut))
                 reaction match {
                   case DoNotExpectMediatorResult => checkTicks(sut, sc, ts)
-                  case ExpectMalformedMediatorRequestResult => checkTicks(sut, sc, ts)
+                  case ExpectMalformedMediatorConfirmationRequestResult => checkTicks(sut, sc, ts)
                   case SendMalformedAndExpectMediatorResult(rootHash, mediatorId, reason) =>
                     verify(sut.badRootHashMessagesRequestProcessor)
                       .sendRejectionAndTerminate(
@@ -1002,9 +1004,9 @@ trait MessageDispatcherTest {
             testedProtocolVersion,
             view -> Recipients.cc(participantId),
             rootHashMessage -> Recipients.cc(MemberRecipient(participantId), mediatorGroup),
-            malformedMediatorRequestResult -> Recipients.cc(participantId),
+            MalformedMediatorConfirmationRequestResult -> Recipients.cc(participantId),
           ) -> Seq(
-            show"Received unexpected $MalformedMediatorRequestMessage for ${malformedMediatorRequestResult.message.requestId}"
+            show"Received unexpected $MalformedMediatorConfirmationRequestMessage for ${MalformedMediatorConfirmationRequestResult.message.requestId}"
           ),
         )
 
@@ -1081,7 +1083,7 @@ trait MessageDispatcherTest {
       )
     }
 
-    "Mediator results" should {
+    "Confirmation results" should {
       "be sent to the right processor" in {
         def check(result: ProtocolMessage, processor: ProcessorOfFixture): Future[Assertion] = {
           val sut = mk()
@@ -1121,11 +1123,11 @@ trait MessageDispatcherTest {
           .futureValue
       }
 
-      "malformed mediator requests be sent to the right processor" in {
+      "malformed mediator confirmation requests be sent to the right processor" in {
         def malformed(viewType: ViewType, processor: ProcessorOfFixture): Future[Assertion] = {
           val result =
             SignedProtocolMessage.from(
-              MalformedMediatorRequestResult.tryCreate(
+              MalformedConfirmationRequestResult.tryCreate(
                 RequestId(CantonTimestamp.MinValue),
                 domainId,
                 viewType,
@@ -1139,7 +1141,7 @@ trait MessageDispatcherTest {
           val sut = mk()
           withClueF(show"for $viewType") {
             handle(sut, mkDeliver(batch)) {
-              verify(processor(sut)).processMalformedMediatorRequestResult(
+              verify(processor(sut)).processMalformedMediatorConfirmationRequestResult(
                 isEq(CantonTimestamp.Epoch),
                 isEq(SequencerCounter(0)),
                 any[Either[
@@ -1169,7 +1171,7 @@ trait MessageDispatcherTest {
 
         val dummyBatch = Batch.of(
           testedProtocolVersion,
-          malformedMediatorRequestResult -> Recipients.cc(participantId),
+          MalformedMediatorConfirmationRequestResult -> Recipients.cc(participantId),
         )
         val deliver1 =
           mkDeliver(dummyBatch, SequencerCounter(0), CantonTimestamp.Epoch, messageId1.some)
@@ -1220,7 +1222,7 @@ trait MessageDispatcherTest {
 
         val dummyBatch = Batch.of(
           testedProtocolVersion,
-          malformedMediatorRequestResult -> Recipients.cc(participantId),
+          MalformedMediatorConfirmationRequestResult -> Recipients.cc(participantId),
         )
         val deliver1 = mkDeliver(
           dummyBatch,
@@ -1305,15 +1307,15 @@ private[protocol] object MessageDispatcherTest {
   case object UnknownTestViewType extends AbstractTestViewType
   type UnknownTestViewType = OtherTestViewType.type
 
-  final case class TestRegularMediatorResult(
+  final case class TestRegularConfirmationResult(
       override val viewType: ViewType,
       override val domainId: DomainId,
       override val verdict: Verdict,
       override val requestId: RequestId,
-  ) extends RegularMediatorResult {
+  ) extends RegularConfirmationResult {
     def representativeProtocolVersion
-        : RepresentativeProtocolVersion[TestRegularMediatorResult.type] =
-      TestRegularMediatorResult.protocolVersionRepresentativeFor(
+        : RepresentativeProtocolVersion[TestRegularConfirmationResult.type] =
+      TestRegularConfirmationResult.protocolVersionRepresentativeFor(
         BaseTest.testedProtocolVersion
       )
 
@@ -1326,11 +1328,12 @@ private[protocol] object MessageDispatcherTest {
     override def deserializedFrom: Option[ByteString] = None
     override protected[this] def toByteStringUnmemoized: ByteString = ByteString.EMPTY
 
-    override protected val companionObj: TestRegularMediatorResult.type = TestRegularMediatorResult
+    override protected val companionObj: TestRegularConfirmationResult.type =
+      TestRegularConfirmationResult
   }
 
-  object TestRegularMediatorResult
-      extends HasProtocolVersionedWrapperCompanion[TestRegularMediatorResult, Nothing] {
+  object TestRegularConfirmationResult
+      extends HasProtocolVersionedWrapperCompanion[TestRegularConfirmationResult, Nothing] {
     override type Deserializer = Unit
     val name: String = "TestRegularMediatorResult"
 

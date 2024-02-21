@@ -17,9 +17,9 @@ class TransactionProcessingMetrics(
     private val prefix = TransactionProcessingMetrics.this.prefix :+ "protocol-messages"
 
     @MetricDoc.Tag(
-      summary = "Time to create a confirmation request",
+      summary = "Time to create a transaction confirmation request",
       description =
-        """The time that the transaction protocol processor needs to create a confirmation request.""",
+        """The time that the transaction protocol processor needs to create a transaction confirmation request.""",
       qualification = Debug,
     )
     val confirmationRequestCreation: Timer =

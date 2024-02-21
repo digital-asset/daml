@@ -131,7 +131,7 @@ abstract class GrpcTopologyAggregationServiceCommon[
                 domains = domains.map { case (domainId, permission) =>
                   v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions(
                     domain = domainId.toProtoPrimitive,
-                    permission = permission.toProtoEnum,
+                    permission = permission.toProtoV30,
                   )
                 }.toSeq,
               )

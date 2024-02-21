@@ -21,39 +21,40 @@ import com.digitalasset.canton.version.{
 }
 import com.google.protobuf.ByteString
 
-/** Sent by the mediator to indicate that a mediator request was malformed.
+/** Sent by the mediator to indicate that a mediator confirmation request was malformed.
   * The request counts as being rejected and the request UUID will not be deduplicated.
   *
   * @param requestId The ID of the malformed request
   * @param domainId The domain ID of the mediator
   * @param verdict The rejection reason as a verdict
   */
-final case class MalformedMediatorRequestResult private (
+final case class MalformedConfirmationRequestResult private (
     override val requestId: RequestId,
     override val domainId: DomainId,
     override val viewType: ViewType,
     override val verdict: Verdict.MediatorReject,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      MalformedMediatorRequestResult.type
+      MalformedConfirmationRequestResult.type
     ],
     override val deserializedFrom: Option[ByteString],
-) extends MediatorResult
+) extends ConfirmationResult
     with SignedProtocolMessageContent
-    with HasProtocolVersionedWrapper[MalformedMediatorRequestResult]
+    with HasProtocolVersionedWrapper[MalformedConfirmationRequestResult]
     with PrettyPrinting {
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
       : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.MalformedMediatorRequestResult(
-      getCryptographicEvidence
-    )
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage
+      .MalformedMediatorConfirmationRequestResult(
+        getCryptographicEvidence
+      )
 
-  @transient override protected lazy val companionObj: MalformedMediatorRequestResult.type =
-    MalformedMediatorRequestResult
+  @transient override protected lazy val companionObj: MalformedConfirmationRequestResult.type =
+    MalformedConfirmationRequestResult
 
-  protected def toProtoV30: v30.MalformedMediatorRequestResult =
-    v30.MalformedMediatorRequestResult(
+  protected def toProtoV30: v30.MalformedMediatorConfirmationRequestResult =
+    v30.MalformedMediatorConfirmationRequestResult(
       requestId = Some(requestId.toProtoPrimitive),
       domainId = domainId.toProtoPrimitive,
       viewType = viewType.toProtoEnum,
@@ -63,7 +64,7 @@ final case class MalformedMediatorRequestResult private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  override def pretty: Pretty[MalformedMediatorRequestResult] = prettyOfClass(
+  override def pretty: Pretty[MalformedConfirmationRequestResult] = prettyOfClass(
     param("request id", _.requestId),
     param("reject", _.verdict),
     param("view type", _.viewType),
@@ -71,13 +72,13 @@ final case class MalformedMediatorRequestResult private (
   )
 }
 
-object MalformedMediatorRequestResult
-    extends HasMemoizedProtocolVersionedWrapperCompanion[MalformedMediatorRequestResult] {
-  override val name: String = "MalformedMediatorRequestResult"
+object MalformedConfirmationRequestResult
+    extends HasMemoizedProtocolVersionedWrapperCompanion[MalformedConfirmationRequestResult] {
+  override val name: String = "MalformedMediatorConfirmationRequestResult"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v30.MalformedMediatorRequestResult
+      v30.MalformedMediatorConfirmationRequestResult
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
@@ -90,8 +91,8 @@ object MalformedMediatorRequestResult
       viewType: ViewType,
       verdict: Verdict.MediatorReject,
       protocolVersion: ProtocolVersion,
-  ): MalformedMediatorRequestResult =
-    MalformedMediatorRequestResult(requestId, domainId, viewType, verdict)(
+  ): MalformedConfirmationRequestResult =
+    MalformedConfirmationRequestResult(requestId, domainId, viewType, verdict)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
@@ -102,20 +103,27 @@ object MalformedMediatorRequestResult
       viewType: ViewType,
       verdict: Verdict.MediatorReject,
       protocolVersion: ProtocolVersion,
-  ): Either[String, MalformedMediatorRequestResult] =
+  ): Either[String, MalformedConfirmationRequestResult] =
     Either
       .catchOnly[IllegalArgumentException](
-        MalformedMediatorRequestResult
+        MalformedConfirmationRequestResult
           .tryCreate(requestId, domainId, viewType, verdict, protocolVersion)
       )
       .leftMap(_.getMessage)
 
-  private def fromProtoV30(malformedMediatorRequestResultP: v30.MalformedMediatorRequestResult)(
+  private def fromProtoV30(
+      MalformedMediatorConfirmationRequestResultP: v30.MalformedMediatorConfirmationRequestResult
+  )(
       bytes: ByteString
-  ): ParsingResult[MalformedMediatorRequestResult] = {
+  ): ParsingResult[MalformedConfirmationRequestResult] = {
 
-    val v30.MalformedMediatorRequestResult(requestIdPO, domainIdP, viewTypeP, rejectionPO) =
-      malformedMediatorRequestResultP
+    val v30.MalformedMediatorConfirmationRequestResult(
+      requestIdPO,
+      domainIdP,
+      viewTypeP,
+      rejectionPO,
+    ) =
+      MalformedMediatorConfirmationRequestResultP
     for {
       requestId <- ProtoConverter
         .required("request_id", requestIdPO)
@@ -128,16 +136,16 @@ object MalformedMediatorRequestResult
         rejectionPO,
       )
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield MalformedMediatorRequestResult(requestId, domainId, viewType, reject)(
+    } yield MalformedConfirmationRequestResult(requestId, domainId, viewType, reject)(
       rpv,
       Some(bytes),
     )
   }
 
-  implicit val malformedMediatorRequestResultCast
-      : SignedMessageContentCast[MalformedMediatorRequestResult] = SignedMessageContentCast
-    .create[MalformedMediatorRequestResult]("MalformedMediatorRequestResult") {
-      case m: MalformedMediatorRequestResult => Some(m)
+  implicit val MalformedMediatorConfirmationRequestResultCast
+      : SignedMessageContentCast[MalformedConfirmationRequestResult] = SignedMessageContentCast
+    .create[MalformedConfirmationRequestResult]("MalformedMediatorConfirmationRequestResult") {
+      case m: MalformedConfirmationRequestResult => Some(m)
       case _ => None
     }
 }

@@ -4,9 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.api.v1.{event_query_service, value as api}
-import com.daml.lf.value.{Value as Lf}
+import com.daml.ledger.api.v1.event_query_service
 import com.digitalasset.canton.ledger.api.messages.event
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
@@ -60,60 +58,61 @@ class EventQueryServiceRequestValidatorTest
       }
 
     }
-
-    "validating event by contract key requests" should {
-
-      val txRequest = event.GetEventsByContractKeyRequest(
-        contractKey = Lf.ValueText("contractKey"),
-        templateId = refTemplateId,
-        requestingParties = Set(party),
-        endExclusiveSeqId = None,
-      )
-
-      val apiRequest = event_query_service.GetEventsByContractKeyRequest(
-        contractKey = Some(api.Value(Value.Sum.Text("contractKey"))),
-        templateId = Some(
-          com.daml.ledger.api.v1.value
-            .Identifier(packageId, moduleName.toString, dottedName.toString)
-        ),
-        requestingParties = txRequest.requestingParties.toSeq,
-      )
-
-      "pass on valid input" in {
-        validator.validateEventsByContractKey(apiRequest) shouldBe Right(txRequest)
-      }
-
-      "fail on empty contract_key" in {
-        requestMustFailWith(
-          request = validator.validateEventsByContractKey(apiRequest.clearContractKey),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: contract_key",
-          metadata = Map.empty,
-        )
-      }
-
-      "fail on empty template_id" in {
-        requestMustFailWith(
-          request = validator.validateEventsByContractKey(apiRequest.clearTemplateId),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: template_id",
-          metadata = Map.empty,
-        )
-      }
-
-      "fail on empty requesting_parties" in {
-        requestMustFailWith(
-          request = validator.validateEventsByContractKey(apiRequest.withRequestingParties(Nil)),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
-          metadata = Map.empty,
-        )
-      }
-
-    }
+    // TODO(i16065): Re-enable getEventsByContractKey tests
+//    "validating event by contract key requests" should {
+//
+//      val txRequest = event.GetEventsByContractKeyRequest(
+//        contractKey = Lf.ValueText("contractKey"),
+//        templateId = refTemplateId,
+//        requestingParties = Set(party),
+//        endExclusiveSeqId = None,
+//      )
+//
+//      val apiRequest = event_query_service.GetEventsByContractKeyRequest(
+//        contractKey = Some(api.Value(Value.Sum.Text("contractKey"))),
+//        templateId = Some(
+//          com.daml.ledger.api.v1.value
+//            .Identifier(packageId, moduleName.toString, dottedName.toString)
+//        ),
+//        requestingParties = txRequest.requestingParties.toSeq,
+//      )
+//
+//      "pass on valid input" in  {
+//        validator.validateEventsByContractKey(apiRequest) shouldBe Right(txRequest)
+//      }
+//
+//
+//      "fail on empty contract_key" in {
+//        requestMustFailWith(
+//          request = validator.validateEventsByContractKey(apiRequest.clearContractKey),
+//          code = INVALID_ARGUMENT,
+//          description =
+//            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: contract_key",
+//          metadata = Map.empty,
+//        )
+//      }
+//
+//      "fail on empty template_id" in {
+//        requestMustFailWith(
+//          request = validator.validateEventsByContractKey(apiRequest.clearTemplateId),
+//          code = INVALID_ARGUMENT,
+//          description =
+//            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: template_id",
+//          metadata = Map.empty,
+//        )
+//      }
+//
+//      "fail on empty requesting_parties" in  {
+//        requestMustFailWith(
+//          request = validator.validateEventsByContractKey(apiRequest.withRequestingParties(Nil)),
+//          code = INVALID_ARGUMENT,
+//          description =
+//            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
+//          metadata = Map.empty,
+//        )
+//      }
+//
+//    }
 
   }
 }

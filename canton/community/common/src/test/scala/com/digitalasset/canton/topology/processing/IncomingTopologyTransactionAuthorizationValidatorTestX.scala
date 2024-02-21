@@ -524,8 +524,8 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             None,
             threshold = PositiveInt.two,
             Seq(
-              HostingParticipant(participant1, ParticipantPermissionX.Submission),
-              HostingParticipant(pid2, ParticipantPermissionX.Submission),
+              HostingParticipant(participant1, ParticipantPermission.Submission),
+              HostingParticipant(pid2, ParticipantPermission.Submission),
             ),
             groupAddressing = false,
           ),
@@ -538,7 +538,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           party1b,
           None,
           threshold = PositiveInt.two,
-          Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
+          Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
           groupAddressing = false,
         )
         val participant2RemovesItselfUnilaterally = mkAdd(

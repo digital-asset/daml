@@ -13,11 +13,11 @@ import com.digitalasset.canton.{BaseTest, LfPartyId, topology}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
-class MediatorResponseTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
+class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
   private lazy val localVerdictProtocolVersion =
     LocalVerdict.protocolVersionRepresentativeFor(testedProtocolVersion)
 
-  private lazy val response1: MediatorResponse = MediatorResponse.tryCreate(
+  private lazy val response1: ConfirmationResponse = ConfirmationResponse.tryCreate(
     RequestId(CantonTimestamp.now()),
     topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
     Some(ViewPosition.root),
@@ -27,7 +27,7 @@ class MediatorResponseTest extends AnyWordSpec with BaseTest with HasCryptograph
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
     testedProtocolVersion,
   )
-  private lazy val response2: MediatorResponse = MediatorResponse.tryCreate(
+  private lazy val response2: ConfirmationResponse = ConfirmationResponse.tryCreate(
     RequestId(CantonTimestamp.now()),
     topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
     None,
@@ -38,8 +38,8 @@ class MediatorResponseTest extends AnyWordSpec with BaseTest with HasCryptograph
     testedProtocolVersion,
   )
 
-  def fromByteString(bytes: ByteString): MediatorResponse = {
-    MediatorResponse
+  def fromByteString(bytes: ByteString): ConfirmationResponse = {
+    ConfirmationResponse
       .fromByteString(testedProtocolVersion)(bytes)
       .valueOr(err => fail(err.toString))
   }

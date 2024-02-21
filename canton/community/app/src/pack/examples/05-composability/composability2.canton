@@ -50,7 +50,7 @@ def addPartyToParticipant(partyId: PartyId, domainId: DomainId, createdAt: Parti
   Seq(createdAt, to).foreach(participant =>
     participant.topology.party_to_participant_mappings.propose_delta(
       partyId,
-      adds = List((to.id, ParticipantPermissionX.Submission)),
+      adds = List((to.id, ParticipantPermission.Submission)),
       store = domainId.filterString,
     )
   )

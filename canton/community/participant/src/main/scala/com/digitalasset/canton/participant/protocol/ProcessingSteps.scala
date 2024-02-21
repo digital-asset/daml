@@ -442,7 +442,7 @@ trait ProcessingSteps[
   ): EitherT[Future, RequestError, Unit]
 
   /** Phase 3, step 3:
-    * Yields the pending data and mediator responses for the case that at least one payload is well-formed.
+    * Yields the pending data and confirmation responses for the case that at least one payload is well-formed.
     *
     * @param pendingDataAndResponseArgs Implementation-specific data passed from [[decryptViews]]
     * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.TransferCache]]
@@ -468,17 +468,17 @@ trait ProcessingSteps[
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
-  ): Seq[MediatorResponse]
+  ): Seq[ConfirmationResponse]
 
   /** Phase 3:
     *
     * @param pendingData   The `requestType.PendingRequestData` to be stored until Phase 7
-    * @param mediatorResponses     The responses to be sent to the mediator
+    * @param confirmationResponses     The responses to be sent to the mediator
     * @param rejectionArgs The implementation-specific arguments needed to create a rejection event on timeout
     */
   case class StorePendingDataAndSendResponseAndCreateTimeout(
       pendingData: requestType.PendingRequestData,
-      mediatorResponses: Seq[(MediatorResponse, Recipients)],
+      confirmationResponses: Seq[(ConfirmationResponse, Recipients)],
       rejectionArgs: RejectionArgs,
   )
 
@@ -494,9 +494,9 @@ trait ProcessingSteps[
 
   /** Phase 7, step 2:
     *
-    * @param eventE             The signed [[com.digitalasset.canton.sequencing.protocol.Deliver]] event containing the mediator result.
-    *                           It is ensured that the `event` contains exactly one [[com.digitalasset.canton.protocol.messages.MediatorResult]]
-    * @param resultE            The unpacked mediator result that is contained in the `event`
+    * @param eventE             The signed [[com.digitalasset.canton.sequencing.protocol.Deliver]] event containing the confirmation result.
+    *                           It is ensured that the `event` contains exactly one [[com.digitalasset.canton.protocol.messages.ConfirmationResult]]
+    * @param resultE            The unpacked confirmation result that is contained in the `event`
     * @param pendingRequestData The `requestType.PendingRequestData` produced in Phase 3
     * @param pendingSubmissions The data stored on submissions in the [[PendingSubmissions]]
     * @return The [[com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet]],
@@ -508,7 +508,7 @@ trait ProcessingSteps[
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, Result],
+      resultE: Either[MalformedConfirmationRequestResult, Result],
       pendingRequestData: requestType.PendingRequestData,
       pendingSubmissions: PendingSubmissions,
       hashOps: HashOps,

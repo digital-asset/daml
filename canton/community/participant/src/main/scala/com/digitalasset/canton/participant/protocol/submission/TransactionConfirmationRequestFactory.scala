@@ -16,7 +16,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.*
+import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
   SerializableContractOfId,
   TransactionTreeConversionError,
@@ -41,14 +41,14 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Factory class for creating confirmation requests from Daml-LF transactions.
+/** Factory class for creating transaction confirmation requests from Daml-LF transactions.
   *
   * @param transactionTreeFactory used to create the payload
   * @param seedGenerator used to derive the transaction seed
   * @param parallel to flag if view processing is done in parallel or sequentially. Intended to be set only during tests
   *                 to enforce determinism, otherwise it is always set to true.
   */
-class ConfirmationRequestFactory(
+class TransactionConfirmationRequestFactory(
     submitterNode: ParticipantId,
     loggingConfig: LoggingConfig,
     val loggerFactory: NamedLoggerFactory,
@@ -61,7 +61,7 @@ class ConfirmationRequestFactory(
     *
     * @param cryptoSnapshot used to determine participants of parties and for signing and encryption
     * @return the confirmation request and the transaction root hash (aka transaction id) or an error. See the
-    *         documentation of [[com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.ConfirmationRequestCreationError]]
+    *         documentation of [[com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.TransactionConfirmationRequestCreationError]]
     *         for more information on error cases.
     */
   def createConfirmationRequest(
@@ -79,7 +79,11 @@ class ConfirmationRequestFactory(
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ConfirmationRequestCreationError, ConfirmationRequest] = {
+  ): EitherT[
+    Future,
+    TransactionConfirmationRequestCreationError,
+    TransactionConfirmationRequest,
+  ] = {
     val transactionUuid = seedGenerator.generateUuid()
     val ledgerTime = wfTransaction.metadata.ledgerTime
 
@@ -140,32 +144,33 @@ class ConfirmationRequestFactory(
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ConfirmationRequestCreationError, ConfirmationRequest] = for {
-    transactionViewEnvelopes <- createTransactionViewEnvelopes(
-      transactionTree,
-      cryptoSnapshot,
-      sessionKeyStore,
-      keySeed,
-      protocolVersion,
-    )
-    submittingParticipantSignature <- cryptoSnapshot
-      .sign(transactionTree.rootHash.unwrap)
-      .leftMap[ConfirmationRequestCreationError](TransactionSigningError)
-  } yield {
-    if (loggingConfig.eventDetails) {
-      logger.debug(
-        s"Transaction tree is ${loggingConfig.api.printer.printAdHoc(transactionTree)}"
+  ): EitherT[Future, TransactionConfirmationRequestCreationError, TransactionConfirmationRequest] =
+    for {
+      transactionViewEnvelopes <- createTransactionViewEnvelopes(
+        transactionTree,
+        cryptoSnapshot,
+        sessionKeyStore,
+        keySeed,
+        protocolVersion,
+      )
+      submittingParticipantSignature <- cryptoSnapshot
+        .sign(transactionTree.rootHash.unwrap)
+        .leftMap[TransactionConfirmationRequestCreationError](TransactionSigningError)
+    } yield {
+      if (loggingConfig.eventDetails) {
+        logger.debug(
+          s"Transaction tree is ${loggingConfig.api.printer.printAdHoc(transactionTree)}"
+        )
+      }
+      TransactionConfirmationRequest(
+        InformeeMessage(
+          transactionTree.tryFullInformeeTree(protocolVersion),
+          submittingParticipantSignature,
+        )(protocolVersion),
+        transactionViewEnvelopes,
+        protocolVersion,
       )
     }
-    ConfirmationRequest(
-      InformeeMessage(
-        transactionTree.tryFullInformeeTree(protocolVersion),
-        submittingParticipantSignature,
-      )(protocolVersion),
-      transactionViewEnvelopes,
-      protocolVersion,
-    )
-  }
 
   private def assertSubmittersNodeAuthorization(
       submitters: List[LfPartyId],
@@ -205,7 +210,9 @@ class ConfirmationRequestFactory(
       sessionKeyStore: SessionKeyStore,
       keySeed: SecureRandomness,
       protocolVersion: ProtocolVersion,
-  )(implicit traceContext: TraceContext): EitherT[Future, ConfirmationRequestCreationError, List[
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, TransactionConfirmationRequestCreationError, List[
     OpenEnvelope[TransactionViewMessage]
   ]] = {
     val pureCrypto = cryptoSnapshot.pureCrypto
@@ -214,7 +221,9 @@ class ConfirmationRequestFactory(
         vt: LightTransactionViewTree,
         seed: SecureRandomness,
         witnesses: Witnesses,
-    ): EitherT[Future, ConfirmationRequestCreationError, OpenEnvelope[TransactionViewMessage]] =
+    ): EitherT[Future, TransactionConfirmationRequestCreationError, OpenEnvelope[
+      TransactionViewMessage
+    ]] =
       for {
         viewMessage <- EncryptedViewMessageFactory
           .create(TransactionViewType)(
@@ -227,7 +236,9 @@ class ConfirmationRequestFactory(
           .leftMap(EncryptedViewMessageCreationError)
         recipients <- witnesses
           .toRecipients(cryptoSnapshot.ipsSnapshot)
-          .leftMap[ConfirmationRequestCreationError](e => RecipientsCreationError(e.message))
+          .leftMap[TransactionConfirmationRequestCreationError](e =>
+            RecipientsCreationError(e.message)
+          )
       } yield OpenEnvelope(viewMessage, recipients)(protocolVersion)
 
     for {
@@ -250,13 +261,13 @@ class ConfirmationRequestFactory(
   }
 }
 
-object ConfirmationRequestFactory {
+object TransactionConfirmationRequestFactory {
   def apply(submitterNode: ParticipantId, domainId: DomainId, protocolVersion: ProtocolVersion)(
       cryptoOps: HashOps & HmacOps,
       seedGenerator: SeedGenerator,
       loggingConfig: LoggingConfig,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): ConfirmationRequestFactory = {
+  )(implicit executionContext: ExecutionContext): TransactionConfirmationRequestFactory = {
 
     val transactionTreeFactory =
       TransactionTreeFactoryImpl(
@@ -267,7 +278,7 @@ object ConfirmationRequestFactory {
         loggerFactory,
       )
 
-    new ConfirmationRequestFactory(submitterNode, loggingConfig, loggerFactory)(
+    new TransactionConfirmationRequestFactory(submitterNode, loggingConfig, loggerFactory)(
       transactionTreeFactory,
       seedGenerator,
     )
@@ -275,7 +286,7 @@ object ConfirmationRequestFactory {
 
   /** Superclass for all errors that may arise during the creation of a confirmation request.
     */
-  sealed trait ConfirmationRequestCreationError
+  sealed trait TransactionConfirmationRequestCreationError
       extends Product
       with Serializable
       with PrettyPrinting
@@ -283,7 +294,7 @@ object ConfirmationRequestFactory {
   /** Indicates that the submitterNode is not allowed to represent the submitter or to submit requests.
     */
   final case class ParticipantAuthorizationError(message: String)
-      extends ConfirmationRequestCreationError {
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[ParticipantAuthorizationError] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
@@ -292,7 +303,7 @@ object ConfirmationRequestFactory {
   /** Indicates that the given transaction is malformed in some way, e.g., it has cycles.
     */
   final case class MalformedLfTransaction(message: String)
-      extends ConfirmationRequestCreationError {
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[MalformedLfTransaction] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
@@ -300,7 +311,8 @@ object ConfirmationRequestFactory {
 
   /** Indicates that the submitter could not be mapped to a party.
     */
-  final case class MalformedSubmitter(message: String) extends ConfirmationRequestCreationError {
+  final case class MalformedSubmitter(message: String)
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[MalformedSubmitter] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
@@ -309,14 +321,14 @@ object ConfirmationRequestFactory {
   /** Indicates that the given transaction is contract-inconsistent.
     */
   final case class ContractConsistencyError(errors: Seq[ReferenceToFutureContractError])
-      extends ConfirmationRequestCreationError {
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[ContractConsistencyError] = prettyOfClass(unnamedParam(_.errors))
   }
 
   /** Indicates that the encrypted view message could not be created. */
   final case class EncryptedViewMessageCreationError(
       error: EncryptedViewMessageFactory.EncryptedViewMessageCreationError
-  ) extends ConfirmationRequestCreationError {
+  ) extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[EncryptedViewMessageCreationError] = prettyOfParam(_.error)
   }
 
@@ -324,23 +336,24 @@ object ConfirmationRequestFactory {
     * @see TransactionTreeFactory.TransactionTreeConversionError for more information.
     */
   final case class TransactionTreeFactoryError(cause: TransactionTreeConversionError)
-      extends ConfirmationRequestCreationError {
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[TransactionTreeFactoryError] = prettyOfParam(_.cause)
   }
 
   final case class RecipientsCreationError(message: String)
-      extends ConfirmationRequestCreationError {
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[RecipientsCreationError] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
 
-  final case class KeySeedError(cause: HkdfError) extends ConfirmationRequestCreationError {
+  final case class KeySeedError(cause: HkdfError)
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[KeySeedError] = prettyOfParam(_.cause)
   }
 
   final case class TransactionSigningError(cause: SyncCryptoError)
-      extends ConfirmationRequestCreationError {
+      extends TransactionConfirmationRequestCreationError {
     override def pretty: Pretty[TransactionSigningError] = prettyOfClass(unnamedParam(_.cause))
   }
 }

@@ -232,7 +232,6 @@ class CommandSubmissionServiceImplSpec
       version = TransactionVersion.StableVersions.max,
     )
     val commands = Commands(
-      ledgerId = None,
       workflowId = None,
       applicationId = Ref.ApplicationId.assertFromString("app"),
       commandId = CommandId(Ref.CommandId.assertFromString("cmd")),

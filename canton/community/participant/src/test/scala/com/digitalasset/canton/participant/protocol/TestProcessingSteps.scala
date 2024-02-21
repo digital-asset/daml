@@ -262,7 +262,7 @@ class TestProcessingSteps(
       ],
   )(implicit
       traceContext: com.digitalasset.canton.tracing.TraceContext
-  ): Seq[com.digitalasset.canton.protocol.messages.MediatorResponse] = Seq.empty
+  ): Seq[com.digitalasset.canton.protocol.messages.ConfirmationResponse] = Seq.empty
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
@@ -285,7 +285,7 @@ class TestProcessingSteps(
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, TransactionResultMessage],
+      resultE: Either[MalformedConfirmationRequestResult, TransactionResultMessage],
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,

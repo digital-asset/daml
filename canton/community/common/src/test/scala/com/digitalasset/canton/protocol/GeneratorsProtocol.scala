@@ -54,7 +54,7 @@ final class GeneratorsProtocol(
 
   implicit val dynamicDomainParametersArb: Arbitrary[DynamicDomainParameters] = Arbitrary(
     for {
-      participantResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      confirmationResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       transferExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
@@ -68,7 +68,7 @@ final class GeneratorsProtocol(
       representativePV = DynamicDomainParameters.protocolVersionRepresentativeFor(protocolVersion)
 
       reconciliationInterval <- Arbitrary.arbitrary[PositiveSeconds]
-      maxRatePerParticipant <- Arbitrary.arbitrary[NonNegativeInt]
+      confirmationRequestsMaxRate <- Arbitrary.arbitrary[NonNegativeInt]
       maxRequestSize <- Arbitrary.arbitrary[MaxRequestSize]
 
       trafficControlConfig <- Gen.option(Arbitrary.arbitrary[TrafficControlParameters])
@@ -80,14 +80,14 @@ final class GeneratorsProtocol(
       onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
-        participantResponseTimeout,
+        confirmationResponseTimeout,
         mediatorReactionTimeout,
         transferExclusivityTimeout,
         topologyChangeDelay,
         ledgerTimeRecordTimeTolerance,
         updatedMediatorDeduplicationTimeout,
         reconciliationInterval,
-        maxRatePerParticipant,
+        confirmationRequestsMaxRate,
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
         trafficControlConfig,

@@ -97,7 +97,7 @@ class GrpcSequencerServiceTest
     val subscriptionPool: SubscriptionPool[Subscription] =
       mock[SubscriptionPool[GrpcManagedSubscription[?]]]
 
-    private val maxRatePerParticipant = NonNegativeInt.tryCreate(5)
+    private val confirmationRequestsMaxRate = NonNegativeInt.tryCreate(5)
     private val maxRequestSize = NonNegativeInt.tryCreate(1000)
     val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
     private val topologyClient = mock[DomainTopologyClient]
@@ -112,7 +112,7 @@ class GrpcSequencerServiceTest
       .thenReturn(
         Future.successful(
           TestDomainParameters.defaultDynamic(
-            maxRatePerParticipant = maxRatePerParticipant,
+            confirmationRequestsMaxRate = confirmationRequestsMaxRate,
             maxRequestSize = MaxRequestSize(maxRequestSize),
           )
         )

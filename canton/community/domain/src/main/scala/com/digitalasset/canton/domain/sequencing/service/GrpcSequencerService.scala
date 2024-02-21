@@ -536,13 +536,13 @@ class GrpcSequencerService(
     val sender = request.sender
     def checkRate(
         participantId: ParticipantId,
-        maxRatePerParticipant: NonNegativeInt,
+        confirmationRequestsMaxRate: NonNegativeInt,
     ): Either[SendAsyncError, Unit] = {
-      val limiter = getOrUpdateRateLimiter(participantId, maxRatePerParticipant)
+      val limiter = getOrUpdateRateLimiter(participantId, confirmationRequestsMaxRate)
       Either.cond(
         limiter.checkAndUpdateRate(),
         (), {
-          val message = f"Submission rate exceeds rate limit of $maxRatePerParticipant/s."
+          val message = f"Submission rate exceeds rate limit of $confirmationRequestsMaxRate/s."
           logger.info(
             f"Request '${request.messageId}' from '$sender' refused: $message"
           )
@@ -554,13 +554,13 @@ class GrpcSequencerService(
     sender match {
       case participantId: ParticipantId if request.isRequest =>
         for {
-          maxRatePerParticipant <- EitherTUtil
+          confirmationRequestsMaxRate <- EitherTUtil
             .fromFuture(
               domainParamsLookup.getApproximateOrDefaultValue(),
               e => SendAsyncError.Internal(s"Unable to retrieve domain parameters: ${e.getMessage}"),
             )
-            .map(_.maxRatePerParticipant)
-          _ <- EitherT.fromEither[Future](checkRate(participantId, maxRatePerParticipant))
+            .map(_.confirmationRequestsMaxRate)
+          _ <- EitherT.fromEither[Future](checkRate(participantId, confirmationRequestsMaxRate))
         } yield ()
       case _ =>
         // No rate limitation for domain entities and non-requests
@@ -571,14 +571,14 @@ class GrpcSequencerService(
 
   private def getOrUpdateRateLimiter(
       participantId: ParticipantId,
-      maxRatePerParticipant: NonNegativeInt,
+      confirmationRequestsMaxRate: NonNegativeInt,
   ): RateLimiter = {
-    def rateAsNumeric = NonNegativeNumeric.tryCreate(maxRatePerParticipant.value.toDouble)
+    def rateAsNumeric = NonNegativeNumeric.tryCreate(confirmationRequestsMaxRate.value.toDouble)
     rates.get(participantId) match {
       case Some(rateLimiter) =>
         if (
           Math.abs(
-            rateLimiter.maxTasksPerSecond.value - maxRatePerParticipant.value.toDouble
+            rateLimiter.maxTasksPerSecond.value - confirmationRequestsMaxRate.value.toDouble
           ) < 1.0e-6
         )
           rateLimiter

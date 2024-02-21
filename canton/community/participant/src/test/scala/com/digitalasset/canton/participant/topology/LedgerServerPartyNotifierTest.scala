@@ -91,7 +91,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
           partyId,
           None,
           PositiveInt.one,
-          Seq(HostingParticipant(participantId, ParticipantPermissionX.Submission)),
+          Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
           groupAddressing = false,
         )
       )
@@ -146,7 +146,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
             participant1.adminParty,
             Some(domainId),
             PositiveInt.one,
-            Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
+            Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
             groupAddressing = false,
           )
         )

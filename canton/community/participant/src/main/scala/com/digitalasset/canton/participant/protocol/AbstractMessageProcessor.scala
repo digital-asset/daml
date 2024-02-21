@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.Activeness
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
-  MediatorResponse,
+  ConfirmationResponse,
   ProtocolMessage,
   SignedProtocolMessage,
 }
@@ -76,9 +76,9 @@ abstract class AbstractMessageProcessor(
   protected def unlessCleanReplay(requestCounter: RequestCounter)(f: => Future[_]): Future[Unit] =
     if (isCleanReplay(requestCounter)) Future.unit else f.void
 
-  protected def signResponse(ips: DomainSnapshotSyncCryptoApi, response: MediatorResponse)(implicit
-      traceContext: TraceContext
-  ): Future[SignedProtocolMessage[MediatorResponse]] =
+  protected def signResponse(ips: DomainSnapshotSyncCryptoApi, response: ConfirmationResponse)(
+      implicit traceContext: TraceContext
+  ): Future[SignedProtocolMessage[ConfirmationResponse]] =
     SignedProtocolMessage.trySignAndCreate(response, ips, protocolVersion)
 
   // Assumes that we are not closing (i.e., that this is synchronized with shutdown somewhere higher up the call stack)
@@ -98,7 +98,9 @@ abstract class AbstractMessageProcessor(
             .awaitSnapshot(requestId.unwrap)
             .flatMap(_.findDynamicDomainParametersOrDefault(protocolVersion))
         )
-        maxSequencingTime = requestId.unwrap.add(domainParameters.participantResponseTimeout.unwrap)
+        maxSequencingTime = requestId.unwrap.add(
+          domainParameters.confirmationResponseTimeout.unwrap
+        )
         _ <- sequencerClient.sendAsync(
           Batch.of(protocolVersion, messages*),
           topologyTimestamp = Some(requestId.unwrap),
@@ -113,7 +115,7 @@ abstract class AbstractMessageProcessor(
 
   /** Immediately moves the request to Confirmed and
     * register a timeout handler at the decision time with the request tracker
-    * to cover the case that the mediator does not send a mediator result.
+    * to cover the case that the mediator does not send a confirmation result.
     */
   protected def prepareForMediatorResultOfBadRequest(
       requestCounter: RequestCounter,
@@ -131,7 +133,9 @@ abstract class AbstractMessageProcessor(
         )
 
         def onTimeout: Future[Unit] = {
-          logger.debug(s"Bad request $requestCounter: Timed out without a mediator result message.")
+          logger.debug(
+            s"Bad request $requestCounter: Timed out without a confirmation result message."
+          )
           performUnlessClosingF(functionFullName) {
 
             decisionTimeF.flatMap(terminateRequest(requestCounter, sequencerCounter, timestamp, _))

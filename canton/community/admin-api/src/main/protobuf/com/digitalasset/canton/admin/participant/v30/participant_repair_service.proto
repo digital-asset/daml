@@ -86,7 +86,7 @@ message ExportAcsRequest {
   // If true, do not check whether the provided timestamp is clean (see `timestamp` field).
   // NOT FOR PRODUCTION USE.
   // For this option to yield a consistent snapshot, you need to wait at least
-  // participantResponseTimeout + mediatorReactionTimeout after the last submitted request.
+  // confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
   // Optional, `false` by default
   bool force = 5;
 

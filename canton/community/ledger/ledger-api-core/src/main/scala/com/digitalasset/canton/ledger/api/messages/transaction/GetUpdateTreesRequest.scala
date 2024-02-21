@@ -4,12 +4,11 @@
 package com.digitalasset.canton.ledger.api.messages.transaction
 
 import com.daml.lf.data.Ref.Party
-import com.digitalasset.canton.ledger.api.domain.{LedgerId, LedgerOffset}
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 
-final case class GetTransactionTreesRequest(
-    ledgerId: Option[LedgerId],
-    startExclusive: LedgerOffset,
-    endInclusive: Option[LedgerOffset],
+final case class GetUpdateTreesRequest(
+    startExclusive: ParticipantOffset,
+    endInclusive: Option[ParticipantOffset],
     parties: Set[Party],
     verbose: Boolean,
 )

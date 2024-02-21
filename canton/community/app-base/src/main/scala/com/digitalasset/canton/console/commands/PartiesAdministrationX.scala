@@ -317,8 +317,8 @@ class ParticipantPartiesAdministrationGroupX(
             participants.map(pid =>
               HostingParticipant(
                 pid,
-                if (threshold.value > 1) ParticipantPermissionX.Confirmation
-                else ParticipantPermissionX.Submission,
+                if (threshold.value > 1) ParticipantPermission.Confirmation
+                else ParticipantPermission.Submission,
               )
             ),
             groupAddressing,

@@ -242,7 +242,7 @@ CREATE TABLE fresh_submitted_transaction_pruning (
 create table response_aggregations (
   -- identified by the sequencer timestamp (UTC timestamp in microseconds relative to EPOCH)
   request_id bigint not null primary key,
-  mediator_request bytea not null,
+  mediator_confirmation_request bytea not null,
   -- UTC timestamp is stored in microseconds relative to EPOCH
   version bigint not null,
   verdict bytea not null,

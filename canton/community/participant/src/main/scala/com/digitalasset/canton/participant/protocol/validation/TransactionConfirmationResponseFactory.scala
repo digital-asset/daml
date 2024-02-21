@@ -19,7 +19,7 @@ import com.digitalasset.canton.{LfPartyId, checked}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ConfirmationResponseFactory(
+class TransactionConfirmationResponseFactory(
     participantId: ParticipantId,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
@@ -36,7 +36,10 @@ class ConfirmationResponseFactory(
       malformedPayloads: Seq[MalformedPayload],
       transactionValidationResult: TransactionValidationResult,
       topologySnapshot: TopologySnapshot,
-  )(implicit traceContext: TraceContext, ec: ExecutionContext): Future[Seq[MediatorResponse]] = {
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): Future[Seq[ConfirmationResponse]] = {
 
     def hostedConfirmingPartiesOfView(
         viewValidationResult: ViewValidationResult
@@ -122,7 +125,7 @@ class ConfirmationResponseFactory(
 
     def responsesForWellformedPayloads(
         transactionValidationResult: TransactionValidationResult
-    ): Future[Seq[MediatorResponse]] =
+    ): Future[Seq[ConfirmationResponse]] =
       transactionValidationResult.viewValidationResults.toSeq.parTraverseFilter {
         case (viewPosition, viewValidationResult) =>
           for {
@@ -241,7 +244,7 @@ class ConfirmationResponseFactory(
 
             localVerdictAndPartiesO.map { case (localVerdict, parties) =>
               checked(
-                MediatorResponse
+                ConfirmationResponse
                   .tryCreate(
                     requestId,
                     participantId,
@@ -281,9 +284,9 @@ class ConfirmationResponseFactory(
   def createConfirmationResponsesForMalformedPayloads(
       requestId: RequestId,
       malformedPayloads: Seq[MalformedPayload],
-  )(implicit traceContext: TraceContext): MediatorResponse =
+  )(implicit traceContext: TraceContext): ConfirmationResponse =
     checked(
-      MediatorResponse
+      ConfirmationResponse
         .tryCreate(
           requestId,
           participantId,

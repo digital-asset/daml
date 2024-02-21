@@ -158,9 +158,9 @@ class MediatorMetrics(
   val requests: Meter = openTelemetryMetricsFactory.meter(prefix :+ "requests")
 
   @MetricDoc.Tag(
-    summary = "Age of oldest unpruned mediator response.",
+    summary = "Age of oldest unpruned confirmation response.",
     description =
-      """This gauge exposes the age of the oldest, unpruned mediator response in hours as a way to quantify the
+      """This gauge exposes the age of the oldest, unpruned confirmation response in hours as a way to quantify the
         |pruning backlog.""",
     qualification = Debug,
   )

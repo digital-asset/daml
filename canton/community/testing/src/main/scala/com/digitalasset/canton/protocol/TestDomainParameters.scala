@@ -48,13 +48,13 @@ object TestDomainParameters {
     )
 
   def defaultDynamic(
-      maxRatePerParticipant: NonNegativeInt,
+      confirmationRequestsMaxRate: NonNegativeInt,
       maxRequestSize: MaxRequestSize,
   ): DynamicDomainParameters =
     DynamicDomainParameters.tryInitialValues(
       topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
       protocolVersion = BaseTest.testedProtocolVersion,
-      maxRatePerParticipant = maxRatePerParticipant,
+      confirmationRequestsMaxRate = confirmationRequestsMaxRate,
       maxRequestSize = maxRequestSize,
     )
 }

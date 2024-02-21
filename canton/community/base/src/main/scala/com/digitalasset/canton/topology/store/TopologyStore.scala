@@ -104,7 +104,7 @@ object TopologyStoreId {
   /** A topology store storing sequenced topology transactions
     *
     * @param domainId the domain id of the store
-    * @param discriminator the discriminator of the store. used for mediator request store
+    * @param discriminator the discriminator of the store. used for mediator confirmation request store
     *                      or in daml 2.x for embedded mediator topology stores
     */
   final case class DomainStore(domainId: DomainId, discriminator: String = "")

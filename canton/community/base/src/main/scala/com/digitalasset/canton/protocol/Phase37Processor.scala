@@ -36,7 +36,7 @@ trait Phase37Processor[RequestBatch] {
       traceContext: TraceContext
   ): HandlerResult
 
-  def processMalformedMediatorRequestResult(
+  def processMalformedMediatorConfirmationRequestResult(
       timestamp: CantonTimestamp,
       sequencerCounter: SequencerCounter,
       signedResultBatch: Either[

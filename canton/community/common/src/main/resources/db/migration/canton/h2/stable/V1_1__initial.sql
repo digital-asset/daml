@@ -219,7 +219,7 @@ CREATE index active_contracts_ts_domain_id_idx ON active_contracts (ts, domain_i
 create table response_aggregations (
   -- identified by the sequencer timestamp (UTC timestamp in microseconds relative to EPOCH)
   request_id bigint not null primary key,
-  mediator_request binary large object not null,
+  mediator_confirmation_request binary large object not null,
   -- UTC timestamp is stored in microseconds relative to EPOCH
   version bigint not null,
   verdict binary large object not null,

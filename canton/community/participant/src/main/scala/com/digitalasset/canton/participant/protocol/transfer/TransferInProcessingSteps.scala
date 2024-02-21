@@ -450,7 +450,7 @@ private[transfer] class TransferInProcessingSteps(
 
           EitherT
             .fromEither[FutureUnlessShutdown](
-              MediatorResponse
+              ConfirmationResponse
                 .create(
                   requestId,
                   participantId,
@@ -485,7 +485,7 @@ private[transfer] class TransferInProcessingSteps(
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, TransferInResult],
+      resultE: Either[MalformedConfirmationRequestResult, TransferInResult],
       pendingRequestData: PendingTransferIn,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -508,7 +508,7 @@ private[transfer] class TransferInProcessingSteps(
     ) = pendingRequestData
 
     import scala.util.Either.MergeableEither
-    MergeableEither[MediatorResult](resultE).merge.verdict match {
+    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,

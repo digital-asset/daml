@@ -4,11 +4,11 @@
 package com.digitalasset.canton.ledger.api.messages.command.completion
 
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.api.domain.{LedgerId, LedgerOffset}
+import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantOffset}
 
 final case class CompletionStreamRequest(
     ledgerId: Option[LedgerId],
     applicationId: Ref.ApplicationId,
     parties: Set[Ref.Party],
-    offset: Option[LedgerOffset],
+    offset: Option[ParticipantOffset],
 )

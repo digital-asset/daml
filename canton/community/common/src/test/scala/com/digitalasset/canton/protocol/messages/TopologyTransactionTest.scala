@@ -95,7 +95,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
             PartyId(uid),
             None,
             PositiveInt.one,
-            Seq(HostingParticipant(ParticipantId(uid2), ParticipantPermissionX.Observation)),
+            Seq(HostingParticipant(ParticipantId(uid2), ParticipantPermission.Observation)),
             groupAddressing = false,
           )
         )
@@ -107,8 +107,8 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
             Some(domainId),
             PositiveInt.two,
             Seq(
-              HostingParticipant(ParticipantId(uid2), ParticipantPermissionX.Observation),
-              HostingParticipant(ParticipantId(uid), ParticipantPermissionX.Submission),
+              HostingParticipant(ParticipantId(uid2), ParticipantPermission.Observation),
+              HostingParticipant(ParticipantId(uid), ParticipantPermission.Submission),
             ),
             groupAddressing = true,
           )
@@ -122,7 +122,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         ParticipantDomainPermissionX(
           domainId,
           ParticipantId(uid),
-          ParticipantPermissionX.Submission,
+          ParticipantPermission.Submission,
           limits = None,
           loginAfter = None,
         )
@@ -131,7 +131,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         ParticipantDomainPermissionX(
           domainId,
           ParticipantId(uid),
-          ParticipantPermissionX.Observation,
+          ParticipantPermission.Observation,
           limits = Some(ParticipantDomainLimits(13, 37, 42)),
           loginAfter = Some(CantonTimestamp.MinValue.plusSeconds(17)),
         )

@@ -120,7 +120,7 @@ class ParticipantRepairAdministration(
         |- contractDomainRenames: As part of the export, allow to rename the associated domain id of contracts from one domain to another based on the mapping.
         |- force: if is set to true, then the check that the timestamp is clean will not be done.
         |         For this option to yield a consistent snapshot, you need to wait at least
-        |         participantResponseTimeout + mediatorReactionTimeout after the last submitted request.
+        |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
         """
   )
   def export_acs(

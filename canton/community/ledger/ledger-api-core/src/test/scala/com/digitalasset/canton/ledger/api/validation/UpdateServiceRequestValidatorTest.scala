@@ -4,16 +4,22 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.ledger.api.v1.transaction_filter.*
-import com.daml.ledger.api.v1.transaction_service.{
-  GetLedgerEndRequest,
-  GetTransactionByEventIdRequest,
-  GetTransactionByIdRequest,
-  GetTransactionsRequest,
+import com.daml.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  InterfaceFilter,
+  TemplateFilter,
 }
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
+import com.daml.ledger.api.v2.state_service.GetLedgerEndRequest
+import com.daml.ledger.api.v2.transaction_filter.*
+import com.daml.ledger.api.v2.update_service.{
+  GetTransactionByEventIdRequest,
+  GetTransactionByIdRequest,
+  GetUpdatesRequest,
+}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.canton.ledger.api.domain
@@ -21,7 +27,7 @@ import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
 
-class TransactionServiceRequestValidatorTest
+class UpdateServiceRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
     with MockitoSugar {
@@ -29,10 +35,11 @@ class TransactionServiceRequestValidatorTest
 
   private val templateId = Identifier(packageId, includedModule, includedTemplate)
 
-  private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetTransactionsRequest(
-    expectedLedgerId,
-    Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
-    Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
+  private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
+    Some(
+      ParticipantOffset(ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BEGIN))
+    ),
+    Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
     Some(
       TransactionFilter(
         Map(
@@ -67,26 +74,26 @@ class TransactionServiceRequestValidatorTest
     Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString))
   )
 
-  private val txTreeReq = GetTransactionsRequest(
-    expectedLedgerId,
-    Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.LEDGER_BEGIN))),
-    Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
+  private val txTreeReq = GetUpdatesRequest(
+    Some(
+      ParticipantOffset(ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BEGIN))
+    ),
+    Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
     Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
     verbose,
   )
 
-  private val endReq = GetLedgerEndRequest(expectedLedgerId)
+  private val endReq = GetLedgerEndRequest()
 
   private val txByEvIdReq =
-    GetTransactionByEventIdRequest(expectedLedgerId, eventId, Seq(party))
+    GetTransactionByEventIdRequest(eventId, Seq(party))
 
   private val txByIdReq =
-    GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party))
+    GetTransactionByIdRequest(transactionId, Seq(party))
 
   private val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled = false)
 
-  private val validator = new TransactionServiceRequestValidator(
-    domain.LedgerId(expectedLedgerId),
+  private val validator = new UpdateServiceRequestValidator(
     new PartyValidator(PartyNameChecker.AllowAllParties),
     transactionFilterValidator,
   )
@@ -95,8 +102,7 @@ class TransactionServiceRequestValidatorTest
     upgradingEnabled = true
   )
 
-  private val validatorUpgradingEnabled = new TransactionServiceRequestValidator(
-    domain.LedgerId(expectedLedgerId),
+  private val validatorUpgradingEnabled = new UpdateServiceRequestValidator(
     new PartyValidator(PartyNameChecker.AllowAllParties),
     transactionFilterValidatorUpgradingEnabled,
   )
@@ -105,11 +111,10 @@ class TransactionServiceRequestValidatorTest
 
     "validating regular requests" should {
 
-      "accept requests with empty ledger ID" in {
-        inside(validator.validate(txReq.withLedgerId(""), ledgerEnd)) { case Right(req) =>
-          req.ledgerId shouldEqual None
-          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-          req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+      "accept simple requests" in {
+        inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
+          req.startExclusive shouldBe domain.ParticipantOffset.ParticipantBegin
+          req.endInclusive shouldBe Some(domain.ParticipantOffset.Absolute(absoluteOffset))
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           hasExpectedFilters(req)
@@ -158,7 +163,7 @@ class TransactionServiceRequestValidatorTest
 
       "return the correct error on missing begin" in {
         requestMustFailWith(
-          request = validator.validate(txReq.update(_.optionalBegin := None), ledgerEnd),
+          request = validator.validate(txReq.update(_.optionalBeginExclusive := None), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin",
@@ -168,7 +173,8 @@ class TransactionServiceRequestValidatorTest
 
       "return the correct error on empty begin " in {
         requestMustFailWith(
-          request = validator.validate(txReq.update(_.begin := LedgerOffset()), ledgerEnd),
+          request =
+            validator.validate(txReq.update(_.beginExclusive := ParticipantOffset()), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: begin.(boundary|value)",
@@ -178,7 +184,7 @@ class TransactionServiceRequestValidatorTest
 
       "return the correct error on empty end " in {
         requestMustFailWith(
-          request = validator.validate(txReq.withEnd(LedgerOffset()), ledgerEnd),
+          request = validator.validate(txReq.withEndInclusive(ParticipantOffset()), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: end.(boundary|value)",
@@ -189,8 +195,10 @@ class TransactionServiceRequestValidatorTest
       "return the correct error on unknown begin boundary" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBegin(
-              LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
+            txReq.withBeginExclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Boundary(ParticipantBoundary.Unrecognized(7))
+              )
             ),
             ledgerEnd,
           ),
@@ -204,8 +212,10 @@ class TransactionServiceRequestValidatorTest
       "return the correct error on unknown end boundary" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withEnd(
-              LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
+            txReq.withEndInclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Boundary(ParticipantBoundary.Unrecognized(7))
+              )
             ),
             ledgerEnd,
           ),
@@ -219,8 +229,10 @@ class TransactionServiceRequestValidatorTest
       "return the correct error when begin offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBegin(
-              LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
+            txReq.withBeginExclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString)
+              )
             ),
             ledgerEnd,
           ),
@@ -234,8 +246,10 @@ class TransactionServiceRequestValidatorTest
       "return the correct error when end offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withEnd(
-              LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
+            txReq.withEndInclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString)
+              )
             ),
             ledgerEnd,
           ),
@@ -247,10 +261,9 @@ class TransactionServiceRequestValidatorTest
       }
 
       "tolerate missing end" in {
-        inside(validator.validate(txReq.update(_.optionalEnd := None), ledgerEnd)) {
+        inside(validator.validate(txReq.update(_.optionalEndInclusive := None), ledgerEnd)) {
           case Right(req) =>
-            req.ledgerId shouldEqual Some(expectedLedgerId)
-            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
             req.endInclusive shouldEqual None
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
@@ -268,9 +281,8 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.ledgerId shouldEqual Some(expectedLedgerId)
-          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-          req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -290,9 +302,8 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.ledgerId shouldEqual Some(expectedLedgerId)
-          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-          req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
           val filtersByParty = req.filter.filtersByParty
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
@@ -305,9 +316,8 @@ class TransactionServiceRequestValidatorTest
 
       "tolerate all fields filled out" in {
         inside(validator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.ledgerId shouldEqual Some(expectedLedgerId)
-          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-          req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
           hasExpectedFilters(req)
           req.verbose shouldEqual verbose
         }
@@ -329,9 +339,8 @@ class TransactionServiceRequestValidatorTest
         "allow package-name scoped templates" in {
           inside(validatorUpgradingEnabled.validate(txReqWithPackageNameScoping, ledgerEnd)) {
             case Right(req) =>
-              req.ledgerId shouldEqual Some(expectedLedgerId)
-              req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-              req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+              req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+              req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
               hasExpectedFilters(
                 req,
                 expectedTemplates =
@@ -343,9 +352,8 @@ class TransactionServiceRequestValidatorTest
 
         "still allow populated packageIds in templateIds (for backwards compatibility)" in {
           inside(validatorUpgradingEnabled.validate(txReq, ledgerEnd)) { case Right(req) =>
-            req.ledgerId shouldEqual Some(expectedLedgerId)
-            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+            req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
             hasExpectedFilters(req)
             req.verbose shouldEqual verbose
           }
@@ -410,9 +418,8 @@ class TransactionServiceRequestValidatorTest
 
       "tolerate missing filters_inclusive" in {
         inside(validator.validateTree(txTreeReq, ledgerEnd)) { case Right(req) =>
-          req.ledgerId shouldEqual Some(expectedLedgerId)
-          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-          req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+          req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
+          req.endInclusive shouldEqual Some(domain.ParticipantOffset.Absolute(absoluteOffset))
           req.parties should have size 1
           req.parties.headOption.value shouldEqual party
           req.verbose shouldEqual verbose
@@ -437,8 +444,10 @@ class TransactionServiceRequestValidatorTest
       "return the correct error when begin offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validateTree(
-            txTreeReq.withBegin(
-              LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
+            txTreeReq.withBeginExclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString)
+              )
             ),
             ledgerEnd,
           ),
@@ -452,8 +461,10 @@ class TransactionServiceRequestValidatorTest
       "return the correct error when end offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validateTree(
-            txTreeReq.withEnd(
-              LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
+            txTreeReq.withEndInclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString)
+              )
             ),
             ledgerEnd,
           ),
@@ -465,43 +476,14 @@ class TransactionServiceRequestValidatorTest
       }
     }
 
-    "validating ledger end requests" should {
-
-      "fail on ledger ID mismatch" in {
-        requestMustFailWith(
-          request = validator.validateLedgerEnd(endReq.withLedgerId("mismatchedLedgerId")),
-          code = NOT_FOUND,
-          description =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          metadata = Map.empty,
-        )
-      }
-
-      "succeed validating a correct request" in {
-        inside(validator.validateLedgerEnd(endReq)) { case Right(_) =>
-          succeed
-        }
-      }
-    }
-
     "validating transaction by id requests" should {
-
-      "fail on ledger ID mismatch" in {
-        requestMustFailWith(
-          request = validator.validateTransactionById(txByIdReq.withLedgerId("mismatchedLedgerId")),
-          code = NOT_FOUND,
-          description =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          metadata = Map.empty,
-        )
-      }
 
       "fail on empty transactionId" in {
         requestMustFailWith(
-          request = validator.validateTransactionById(txByIdReq.withTransactionId("")),
+          request = validator.validateTransactionById(txByIdReq.withUpdateId("")),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_id",
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_id",
           metadata = Map.empty,
         )
       }
@@ -516,26 +498,9 @@ class TransactionServiceRequestValidatorTest
         )
       }
 
-      "return passed ledger ID" in {
-        inside(validator.validateTransactionById(txByIdReq)) { case Right(out) =>
-          out should have(Symbol("ledgerId")(Some(expectedLedgerId)))
-        }
-      }
-
     }
 
     "validating transaction by event id requests" should {
-
-      "fail on ledger ID mismatch" in {
-        requestMustFailWith(
-          request =
-            validator.validateTransactionByEventId(txByEvIdReq.withLedgerId("mismatchedLedgerId")),
-          code = NOT_FOUND,
-          description =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          metadata = Map.empty,
-        )
-      }
 
       "fail on empty eventId" in {
         requestMustFailWith(
@@ -557,20 +522,11 @@ class TransactionServiceRequestValidatorTest
         )
       }
 
-      "return passed ledger ID" in {
-        inside(
-          validator.validateTransactionByEventId(txByEvIdReq)
-        ) { case Right(out) =>
-          out should have(Symbol("ledgerId")(Some(expectedLedgerId)))
-        }
-      }
-
     }
 
     "applying party name checks" should {
 
-      val partyRestrictiveValidator = new TransactionServiceRequestValidator(
-        domain.LedgerId(expectedLedgerId),
+      val partyRestrictiveValidator = new UpdateServiceRequestValidator(
         new PartyValidator(PartyNameChecker.AllowPartySet(Set(party))),
         transactionFilterValidator,
       )

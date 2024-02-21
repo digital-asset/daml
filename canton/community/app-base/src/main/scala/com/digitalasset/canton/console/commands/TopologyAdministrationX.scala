@@ -1042,7 +1042,7 @@ class TopologyAdministrationGroup(
       """)
     def propose_delta(
         party: PartyId,
-        adds: List[(ParticipantId, ParticipantPermissionX)] = Nil,
+        adds: List[(ParticipantId, ParticipantPermission)] = Nil,
         removes: List[ParticipantId] = Nil,
         domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = Some(
@@ -1064,13 +1064,13 @@ class TopologyAdministrationGroup(
 
       val (existingPermissions, newSerial) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOpX.Remove =>
-          (Map.empty[ParticipantId, ParticipantPermissionX], Some(current.context.serial.increment))
+          (Map.empty[ParticipantId, ParticipantPermission], Some(current.context.serial.increment))
         case Some(current) =>
           val currentPermissions =
             current.item.participants.map(p => p.participantId -> p.permission).toMap
           (currentPermissions, Some(current.context.serial.increment))
         case None =>
-          (Map.empty[ParticipantId, ParticipantPermissionX], None)
+          (Map.empty[ParticipantId, ParticipantPermission], None)
       }
 
       val newPermissions = new PartyToParticipantComputations(loggerFactory)
@@ -1121,7 +1121,7 @@ class TopologyAdministrationGroup(
       """)
     def propose(
         party: PartyId,
-        newParticipants: Seq[(ParticipantId, ParticipantPermissionX)],
+        newParticipants: Seq[(ParticipantId, ParticipantPermission)],
         threshold: PositiveInt = PositiveInt.one,
         domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = Some(
@@ -1307,7 +1307,6 @@ class TopologyAdministrationGroup(
         domainId: the target domain
         participantId: the participant whose permissions should be changed
         permission: the participant's permission
-        trustLevel: the participant's trust level
         loginAfter: the earliest time a participant may connect to the domain
         limits: domain limits for this participant
 
@@ -1328,7 +1327,7 @@ class TopologyAdministrationGroup(
     def propose(
         domainId: DomainId,
         participantId: ParticipantId,
-        permission: ParticipantPermissionX,
+        permission: ParticipantPermission,
         loginAfter: Option[CantonTimestamp] = None,
         limits: Option[ParticipantDomainLimits] = None,
         synchronize: Option[NonNegativeDuration] = Some(
@@ -2167,11 +2166,13 @@ class TopologyAdministrationGroup(
       }
     }
 
-    @Help.Summary("Update the participant response timeout in the dynamic domain parameters")
-    def set_participant_response_timeout(
+    @Help.Summary(
+      "Update the confirmation response timeout (for participants) in the dynamic domain parameters"
+    )
+    def set_confirmation_response_timeout(
         domainId: DomainId,
         timeout: config.NonNegativeFiniteDuration,
-    ): Unit = propose_update(domainId, _.update(participantResponseTimeout = timeout))
+    ): Unit = propose_update(domainId, _.update(confirmationResponseTimeout = timeout))
 
     @Help.Summary("Update the mediator reaction timeout in the dynamic domain parameters")
     def set_mediator_reaction_timeout(
@@ -2369,11 +2370,13 @@ class TopologyAdministrationGroup(
         interval: config.PositiveDurationSeconds,
     ): Unit = propose_update(domainId, _.update(reconciliationInterval = interval))
 
-    @Help.Summary("Update the maximum rate per participant in the dynamic domain parameters")
-    def set_max_rate_per_participant(
+    @Help.Summary(
+      "Update the maximum rate of confirmation requests per participant in the dynamic domain parameters"
+    )
+    def set_confirmation_requests_max_rate(
         domainId: DomainId,
         rate: NonNegativeInt,
-    ): Unit = propose_update(domainId, _.update(maxRatePerParticipant = rate))
+    ): Unit = propose_update(domainId, _.update(confirmationRequestsMaxRate = rate))
 
     @Help.Summary("Update the maximum request size in the dynamic domain parameters")
     @Help.Description(

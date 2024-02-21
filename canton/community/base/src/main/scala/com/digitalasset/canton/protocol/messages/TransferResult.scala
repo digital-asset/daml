@@ -30,7 +30,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Mediator result for a transfer request
+/** Confirmation request result for a transfer request
   *
   * @param requestId timestamp of the corresponding [[TransferOutRequest]] on the source domain
   */
@@ -42,7 +42,7 @@ final case class TransferResult[+Domain <: TransferDomainId] private (
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[TransferResult.type],
     override val deserializedFrom: Option[ByteString],
-) extends RegularMediatorResult
+) extends RegularConfirmationResult
     with HasProtocolVersionedWrapper[TransferResult[TransferDomainId]]
     with PrettyPrinting {
 

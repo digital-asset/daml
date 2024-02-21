@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.api.domain.LedgerOffset
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -43,7 +43,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   def submitAndWait(
       submissionId: Ref.SubmissionId,
       input: Input,
-      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
+      ledgerEndBeforeRequest: Option[ParticipantOffset.Absolute],
       timeToLive: FiniteDuration,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -56,7 +56,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
 
   private def toResult(
       submissionId: Ref.SubmissionId,
-      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
+      ledgerEndBeforeRequest: Option[ParticipantOffset.Absolute],
       submissionResult: SubmissionResult,
       timeToLive: FiniteDuration,
   )(implicit loggingContext: LoggingContextWithTrace) = submissionResult match {
@@ -68,7 +68,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
 
   private def acknowledged(
       submissionId: Ref.SubmissionId,
-      ledgerEndBeforeRequest: Option[LedgerOffset.Absolute],
+      ledgerEndBeforeRequest: Option[ParticipantOffset.Absolute],
       timeToLive: FiniteDuration,
   )(implicit loggingContext: LoggingContextWithTrace) = {
     val isAccepted = new Accepted(strategy.accept(submissionId))
@@ -133,7 +133,7 @@ object SynchronousResponse {
     ): Future[state.SubmissionResult]
 
     /** Opens a stream of entries from before the submission. */
-    def entries(offset: Option[LedgerOffset.Absolute])(implicit
+    def entries(offset: Option[ParticipantOffset.Absolute])(implicit
         loggingContext: LoggingContextWithTrace
     ): Source[Entry, ?]
 

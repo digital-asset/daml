@@ -66,15 +66,13 @@ class ApiCommandService(
   private def enrichRequestAndSubmit[T](
       request: SubmitAndWaitRequest
   )(submit: SubmitAndWaitRequest => LoggingContextWithTrace => Future[T]): Future[T] = {
-    val traceContext = getAnnotedCommandTraceContextV2(request.commands, telemetry)
+    val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(traceContext)
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
       .validate(
-        ApiConversions.toV1(
-          requestWithSubmissionId
-        ), // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the domainId as well)
+        requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the domainId as well)
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration(),
