@@ -8,13 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.engine.{
-  Engine,
-  Result,
-  ResultDone,
-  ResultInterruption,
-  ResultNeedUpgradeVerification,
-}
+import com.daml.lf.engine.*
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -28,7 +22,7 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
+import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -103,7 +97,6 @@ class StoreBackedCommandExecutorSpec
 
   private def mkCommands(ledgerEffectiveTime: Time.Timestamp) =
     Commands(
-      ledgerId = Some(LedgerId("ledgerId")),
       workflowId = None,
       applicationId = Ref.ApplicationId.assertFromString("applicationId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
@@ -300,7 +293,6 @@ class StoreBackedCommandExecutorSpec
       ).thenReturn(engineResult)
 
       val commands = Commands(
-        ledgerId = Some(LedgerId("ledgerId")),
         workflowId = None,
         applicationId = Ref.ApplicationId.assertFromString("applicationId"),
         commandId = CommandId(Ref.CommandId.assertFromString("commandId")),

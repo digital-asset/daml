@@ -529,7 +529,7 @@ class TransferOutProcessingSteps(
         EventWithErrors[Deliver[DefaultOpenEnvelope]],
         SignedContent[Deliver[DefaultOpenEnvelope]],
       ],
-      resultE: Either[MalformedMediatorRequestResult, TransferOutResult],
+      resultE: Either[MalformedConfirmationRequestResult, TransferOutResult],
       pendingRequestData: PendingTransferOut,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -558,7 +558,7 @@ class TransferOutProcessingSteps(
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
 
     import scala.util.Either.MergeableEither
-    MergeableEither[MediatorResult](resultE).merge.verdict match {
+    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -713,7 +713,7 @@ class TransferOutProcessingSteps(
       declaredTransferCounter: TransferCounter,
       confirmingStakeholders: Set[LfPartyId],
       rootHash: RootHash,
-  ): Option[MediatorResponse] = {
+  ): Option[ConfirmationResponse] = {
     val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
       contractId -> Some(ActiveContractStore.Active(Some(declaredTransferCounter - 1)))
     )
@@ -734,7 +734,7 @@ class TransferOutProcessingSteps(
             LocalVerdict.protocolVersionRepresentativeFor(sourceDomainProtocolVersion.v)
           )
       val response = checked(
-        MediatorResponse.tryCreate(
+        ConfirmationResponse.tryCreate(
           requestId,
           participantId,
           Some(ViewPosition.root),

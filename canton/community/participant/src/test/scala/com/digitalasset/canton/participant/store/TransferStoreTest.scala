@@ -1434,7 +1434,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
       val mediatorMessage =
         transferData.transferOutRequest.tree.mediatorMessage(Signature.noSignature)
-      val result = mediatorMessage.createMediatorResult(
+      val result = mediatorMessage.createConfirmationResult(
         requestId,
         Verdict.Approve(BaseTest.testedProtocolVersion),
         mediatorMessage.allInformees,

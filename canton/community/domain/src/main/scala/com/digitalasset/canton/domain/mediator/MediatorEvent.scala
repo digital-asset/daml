@@ -12,7 +12,7 @@ import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipients}
 /** The [[MediatorEventsProcessor]] looks through all sequencer events provided by the sequencer client in a batch
   * to pick out events for the Mediator with the same request-id while also scheduling timeouts and running
   * topology transactions at appropriate times. We map all the mediator events we generate into this simplified
-  * structure so the [[ConfirmationResponseProcessor]] processes these events without having to perform the same extraction
+  * structure so the [[TransactionConfirmationResponseProcessor]] processes these events without having to perform the same extraction
   * and error handling of the original SequencerEvent.
   */
 private[mediator] sealed trait MediatorEvent {
@@ -25,20 +25,20 @@ private[mediator] object MediatorEvent {
   final case class Request(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyXTransaction: Boolean,
   ) extends MediatorEvent {
     override val requestId: RequestId = RequestId(timestamp)
   }
 
-  /** A response to a mediator request.
+  /** A response to a mediator confirmation request.
     * Currently each response is processed independently even if they arrive within the same batch.
     */
   final case class Response(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      response: SignedProtocolMessage[MediatorResponse],
+      response: SignedProtocolMessage[ConfirmationResponse],
       topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
   ) extends MediatorEvent {

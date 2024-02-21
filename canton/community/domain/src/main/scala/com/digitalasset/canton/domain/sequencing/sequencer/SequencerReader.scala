@@ -27,6 +27,7 @@ import com.digitalasset.canton.sequencing.client.SequencedEventValidator
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -279,12 +280,12 @@ class SequencerReader(
       val (counter, unvalidatedEvent) = sequenced
 
       def validationSuccess(
-          event: SequencedEvent[ClosedEnvelope],
+          eventF: Future[SequencedEvent[ClosedEnvelope]],
           signingInfo: Option[(CantonTimestamp, SyncCryptoApi)],
       ): Future[(Option[CantonTimestamp], UnsignedEventData)] = {
         val topologyClientTimestampAfter =
           latestTopologyClientTimestampAfter(topologyClientTimestampBefore, unvalidatedEvent)
-        Future.successful(
+        eventF.map { event =>
           topologyClientTimestampAfter ->
             UnsignedEventData(
               event,
@@ -293,10 +294,11 @@ class SequencerReader(
               topologyClientTimestampAfter,
               unvalidatedEvent.traceContext,
             )
-        )
+        }
       }
 
       val sequencingTimestamp = unvalidatedEvent.timestamp
+      implicit val traceContext: TraceContext = unvalidatedEvent.traceContext
       unvalidatedEvent.event match {
         case DeliverStoreEvent(
               sender,
@@ -307,7 +309,7 @@ class SequencerReader(
               eventTraceContext,
             ) =>
           implicit val traceContext: TraceContext = eventTraceContext
-          // The topology timestamp will end up as the timestamp of signing key on the signed event.
+          // The topology timestamp will end up as the timestamp of topology on the signed event.
           // So we validate it accordingly.
           SequencedEventValidator
             .validateSigningTimestamp(
@@ -322,10 +324,17 @@ class SequencerReader(
             )
             .value
             .flatMap {
-              case Right(snapshot) =>
-                val event =
-                  mkSequencedEvent(member, registeredMember.memberId, counter, unvalidatedEvent)
-                validationSuccess(event, Some(topologyTimestamp -> snapshot))
+              case Right(topologySnapshot) =>
+                val eventF =
+                  mkSequencedEvent(
+                    member,
+                    registeredMember.memberId,
+                    counter,
+                    unvalidatedEvent,
+                    Some(topologySnapshot.ipsSnapshot),
+                    topologyClientTimestampBefore,
+                  )
+                validationSuccess(eventF, Some(topologyTimestamp -> topologySnapshot))
 
               case Left(SequencedEventValidator.SigningTimestampAfterSequencingTime) =>
                 // The SequencerWriter makes sure that the signing timestamp is at most the sequencing timestamp
@@ -383,10 +392,17 @@ class SequencerReader(
                 )
             }
 
-        case _ =>
-          val event =
-            mkSequencedEvent(member, registeredMember.memberId, counter, unvalidatedEvent)
-          validationSuccess(event, None)
+        case _ => // DeliverErrorStoreEvent
+          val eventF =
+            mkSequencedEvent(
+              member,
+              registeredMember.memberId,
+              counter,
+              unvalidatedEvent,
+              None,
+              topologyClientTimestampBefore,
+            )
+          validationSuccess(eventF, None)
       }
     }
 
@@ -463,17 +479,19 @@ class SequencerReader(
       }
     }
 
+    private val groupAddressResolver = new GroupAddressResolver(syncCryptoApi)
+
     private def signEvent(
         event: SequencedEvent[ClosedEnvelope],
-        signingTimestampO: Option[CantonTimestamp],
-        signingSnapshot: SyncCryptoApi,
+        topologyTimestampO: Option[CantonTimestamp],
+        topologySnapshot: SyncCryptoApi,
     )(implicit traceContext: TraceContext): Future[OrdinarySerializedEvent] = {
       for {
         signedEvent <- SignedContent.tryCreate(
-          signingSnapshot.pureCrypto,
-          signingSnapshot,
+          topologySnapshot.pureCrypto,
+          topologySnapshot,
           event,
-          signingTimestampO,
+          topologyTimestampO,
           HashPurpose.SequencedEventSignature,
           protocolVersion,
         )
@@ -487,7 +505,13 @@ class SequencerReader(
         memberId: SequencerMemberId,
         counter: SequencerCounter,
         event: Sequenced[Payload],
-    ): SequencedEvent[ClosedEnvelope] = {
+        topologySnapshotO: Option[
+          TopologySnapshot
+        ], // only specified for DeliverStoreEvent, as errors are only sent to the sender
+        topologyClientTimestampBeforeO: Option[
+          CantonTimestamp
+        ], // None for until the first topology event, otherwise contains the latest topology event timestamp
+    )(implicit traceContext: TraceContext): Future[SequencedEvent[ClosedEnvelope]] = {
       val timestamp = event.timestamp
       event.event match {
         case DeliverStoreEvent(
@@ -505,26 +529,67 @@ class SequencerReader(
               payload.content
             )
             .fold(err => throw new DbDeserializationException(err.toString), identity)
-          val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member, Set.empty)
-          Deliver.create[ClosedEnvelope](
-            counter,
-            timestamp,
-            domainId,
-            messageIdO,
-            filteredBatch,
-            protocolVersion,
-          )
+          val groupRecipients = batch.allRecipients.collect { case x: GroupRecipient =>
+            x
+          }
+          for {
+            resolvedGroupAddresses <- {
+              groupRecipients match {
+                case x if x.isEmpty =>
+                  // an optimization in case there are no group addresses
+                  Future.successful(Map.empty[GroupRecipient, Set[Member]])
+                case x if x.sizeCompare(1) == 0 && x.contains(AllMembersOfDomain) =>
+                  // an optimization to avoid group address resolution on topology txs
+                  Future.successful(
+                    Map[GroupRecipient, Set[Member]](AllMembersOfDomain -> Set(member))
+                  )
+                case _ =>
+                  for {
+                    topologySnapshot <- topologySnapshotO.fold(
+                      SyncCryptoClient
+                        .getSnapshotForTimestamp(
+                          syncCryptoApi,
+                          timestamp,
+                          topologyClientTimestampBeforeO,
+                          protocolVersion,
+                        )
+                        .map(_.ipsSnapshot)
+                    )(x => Future.successful(x))
+                    resolvedGroupAddresses <- groupAddressResolver.resolveGroupsToMembers(
+                      groupRecipients,
+                      topologySnapshot,
+                    )
+                  } yield resolvedGroupAddresses
+              }
+            }
+            memberGroupRecipients = resolvedGroupAddresses.collect {
+              case (groupRecipient, groupMembers) if groupMembers.contains(member) => groupRecipient
+            }.toSet
+          } yield {
+            val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member, memberGroupRecipients)
+            Deliver.create[ClosedEnvelope](
+              counter,
+              timestamp,
+              domainId,
+              messageIdO,
+              filteredBatch,
+              protocolVersion,
+            )
+          }
+
         case DeliverErrorStoreEvent(_, messageId, error, _traceContext) =>
           val status = DeliverErrorStoreEvent
             .fromByteString(error, protocolVersion)
             .valueOr(err => throw new DbDeserializationException(err.toString))
-          DeliverError.create(
-            counter,
-            timestamp,
-            domainId,
-            messageId,
-            status,
-            protocolVersion,
+          Future.successful(
+            DeliverError.create(
+              counter,
+              timestamp,
+              domainId,
+              messageId,
+              status,
+              protocolVersion,
+            )
           )
       }
     }

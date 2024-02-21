@@ -593,9 +593,9 @@ object ReferenceDemoScript {
       protocolVersion = ProtocolVersion.latest,
     )
     val mediatorReactionTimeout = defaultDynamicDomainParameters.mediatorReactionTimeout
-    val participantResponseTimeout = defaultDynamicDomainParameters.participantResponseTimeout
+    val confirmationResponseTimeout = defaultDynamicDomainParameters.confirmationResponseTimeout
 
-    mediatorReactionTimeout.unwrap.plus(participantResponseTimeout.unwrap)
+    mediatorReactionTimeout.unwrap.plus(confirmationResponseTimeout.unwrap)
   }
 
   def startup(adjustPath: Boolean, testScript: Boolean)(implicit

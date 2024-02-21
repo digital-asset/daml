@@ -9,7 +9,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
-// Definition of the MediatorResponse message which is shared between the transaction and transfer protocol
+// Definition of the ConfirmationResponse message which is shared between the transaction and transfer protocol
 
 message LocalVerdict {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
@@ -53,7 +53,7 @@ message LocalReject {
   uint32 error_category = 6;
 }
 
-message MediatorResponse {
+message ConfirmationResponse {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   google.protobuf.Timestamp request_id = 1;

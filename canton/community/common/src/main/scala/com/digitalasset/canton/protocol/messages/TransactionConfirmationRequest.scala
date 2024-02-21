@@ -19,9 +19,9 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Represents the confirmation request as sent from a submitting node to the sequencer.
+/** Represents the confirmation request for a transaction as sent from a participant node to the sequencer.
   */
-final case class ConfirmationRequest(
+final case class TransactionConfirmationRequest(
     informeeMessage: InformeeMessage,
     viewEnvelopes: Seq[OpenEnvelope[TransactionViewMessage]],
     protocolVersion: ProtocolVersion,
@@ -83,7 +83,7 @@ final case class ConfirmationRequest(
     }
   }
 
-  override def pretty: Pretty[ConfirmationRequest] = prettyOfClass(
+  override def pretty: Pretty[TransactionConfirmationRequest] = prettyOfClass(
     param("informee message", _.informeeMessage),
     param("view envelopes", _.viewEnvelopes),
   )

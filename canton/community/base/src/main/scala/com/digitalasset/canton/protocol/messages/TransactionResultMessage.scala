@@ -13,7 +13,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Transaction result message that the mediator sends to all stakeholders of a confirmation request with its verdict.
+/** Transaction result message that the mediator sends to all stakeholders of a transaction confirmation request with its verdict.
   * https://engineering.da-int.net/docs/platform-architecture-handbook/arch/canton/transactions.html#phase-6-broadcast-of-result
   *
   * @param requestId        identifier of the confirmation request
@@ -30,7 +30,7 @@ case class TransactionResultMessage private (
       TransactionResultMessage.type
     ],
     override val deserializedFrom: Option[ByteString],
-) extends RegularMediatorResult
+) extends RegularConfirmationResult
     with HasProtocolVersionedWrapper[TransactionResultMessage]
     with PrettyPrinting {
 

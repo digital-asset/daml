@@ -343,7 +343,7 @@ object LocalReject extends LocalRejectionGroup {
       """This rejection is sent if the participant locally determined a timeout."""
     )
     @Resolution("""In the first instance, resubmit your transaction.
-        | If the rejection still appears spuriously, consider increasing the `participantResponseTimeout` or
+        | If the rejection still appears spuriously, consider increasing the `confirmationResponseTimeout` or
         | `mediatorReactionTimeout` values in the `DynamicDomainParameters`.
         | If the rejection appears unrelated to timeout settings, validate that the sequencer and mediator
         | function correctly.

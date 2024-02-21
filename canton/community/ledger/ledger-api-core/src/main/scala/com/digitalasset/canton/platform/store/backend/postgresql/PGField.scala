@@ -19,11 +19,10 @@ private[postgresql] trait PGStringArrayBase[FROM, TO] extends Field[FROM, TO, St
   }
 }
 
-private[postgresql] final case class PGStringArrayOptional[FROM](
-    extract: StringInterning => FROM => Option[Iterable[String]]
-) extends PGStringArrayBase[FROM, Option[Iterable[String]]] {
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  override def convert: Option[Iterable[String]] => String = _.map(convertBase).orNull
+private[postgresql] final case class PGStringArray[FROM](
+    extract: StringInterning => FROM => Iterable[String]
+) extends PGStringArrayBase[FROM, Iterable[String]] {
+  override def convert: Iterable[String] => String = convertBase
 }
 
 private[postgresql] trait PGIntArrayBase[FROM, TO] extends Field[FROM, TO, String] {

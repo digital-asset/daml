@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/protocol/v30/common.proto";
-import "com/digitalasset/canton/protocol/v30/mediator_response.proto";
+import "com/digitalasset/canton/protocol/v30/confirmation_response.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -47,7 +47,7 @@ message MediatorReject {
   google.rpc.Status reason = 1; // Must not be OK
 }
 
-message MalformedMediatorRequestResult {
+message MalformedMediatorConfirmationRequestResult {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   google.protobuf.Timestamp request_id = 1;

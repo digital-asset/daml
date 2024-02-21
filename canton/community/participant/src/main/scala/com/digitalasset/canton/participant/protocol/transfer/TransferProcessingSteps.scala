@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.store.TransferStore.TransferStoreErro
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.MediatorResponse.InvalidMediatorResponse
+import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.protocol.messages.Verdict.{
   Approve,
   MediatorReject,
@@ -185,7 +185,7 @@ trait TransferProcessingSteps[
   override def constructResponsesForMalformedPayloads(
       requestId: RequestId,
       malformedPayloads: Seq[MalformedPayload],
-  )(implicit traceContext: TraceContext): Seq[MediatorResponse] =
+  )(implicit traceContext: TraceContext): Seq[ConfirmationResponse] =
     // TODO(i12926) This will crash the SyncDomain
     ErrorUtil.internalError(
       new UnsupportedOperationException(
@@ -490,8 +490,10 @@ object TransferProcessingSteps {
     override def message: String = s"Cannot transfer-$kind: duplicatehash"
   }
 
-  final case class FailedToCreateResponse(transferId: TransferId, error: InvalidMediatorResponse)
-      extends TransferProcessorError {
+  final case class FailedToCreateResponse(
+      transferId: TransferId,
+      error: InvalidConfirmationResponse,
+  ) extends TransferProcessorError {
     override def message: String = s"Cannot transfer `$transferId`: failed to create response"
   }
 

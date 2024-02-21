@@ -7,7 +7,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 
-trait MediatorResult
+trait ConfirmationResult
     extends ProtocolVersionedMemoizedEvidence
     with HasDomainId
     with HasRequestId
@@ -20,15 +20,16 @@ trait MediatorResult
   def viewType: ViewType
 }
 
-/** The mediator issues a regular mediator result for well-formed mediator requests.
-  * Malformed mediator requests lead to a [[MalformedMediatorRequestResult]].
+/** The mediator issues a regular confirmation result for well-formed mediator confirmation requests.
+  * Malformed confirmation requests lead to a [[MalformedConfirmationRequestResult]].
   */
-trait RegularMediatorResult extends MediatorResult
+trait RegularConfirmationResult extends ConfirmationResult
 
-object RegularMediatorResult {
-  implicit val regularMediatorResultMessageCast: SignedMessageContentCast[RegularMediatorResult] =
-    SignedMessageContentCast.create[RegularMediatorResult]("RegularMediatorResult") {
-      case m: RegularMediatorResult => Some(m)
+object RegularConfirmationResult {
+  implicit val regularMediatorResultMessageCast
+      : SignedMessageContentCast[RegularConfirmationResult] =
+    SignedMessageContentCast.create[RegularConfirmationResult]("RegularConfirmationResult") {
+      case m: RegularConfirmationResult => Some(m)
       case _ => None
     }
 }

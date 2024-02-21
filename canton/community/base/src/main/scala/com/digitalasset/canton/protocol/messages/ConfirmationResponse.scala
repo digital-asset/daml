@@ -9,9 +9,9 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.messages.MediatorResponse.InvalidMediatorResponse
+import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
-import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -21,7 +21,7 @@ import com.google.protobuf.ByteString
 import monocle.Lens
 import monocle.macros.GenLens
 
-/** Payload of a response sent to the mediator in reaction to a request.
+/** Payload of a response sent to the mediator in reaction to a confirmation request.
   *
   * @param requestId The unique identifier of the request.
   * @param sender The identity of the sender.
@@ -50,7 +50,7 @@ then clients cannot create instances with an incorrect `deserializedFrom` field.
 Optional parameters are strongly discouraged, as each parameter needs to be consciously set in a production context.
  */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class MediatorResponse private (
+case class ConfirmationResponse private (
     requestId: RequestId,
     sender: ParticipantId,
     viewPositionO: Option[ViewPosition],
@@ -60,11 +60,11 @@ case class MediatorResponse private (
     override val domainId: DomainId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      MediatorResponse.type
+      ConfirmationResponse.type
     ],
     override val deserializedFrom: Option[ByteString],
 ) extends SignedProtocolMessageContent
-    with HasProtocolVersionedWrapper[MediatorResponse]
+    with HasProtocolVersionedWrapper[ConfirmationResponse]
     with HasDomainId
     with PrettyPrinting {
 
@@ -77,7 +77,7 @@ case class MediatorResponse private (
       rootHash: Option[RootHash] = rootHash,
       confirmingParties: Set[LfPartyId] = confirmingParties,
       domainId: DomainId = domainId,
-  ): MediatorResponse = MediatorResponse(
+  ): ConfirmationResponse = ConfirmationResponse(
     requestId,
     sender,
     viewPositionO,
@@ -92,16 +92,18 @@ case class MediatorResponse private (
   localVerdict match {
     case _: Malformed =>
       if (confirmingParties.nonEmpty)
-        throw InvalidMediatorResponse("Confirming parties must be empty for verdict Malformed.")
+        throw InvalidConfirmationResponse("Confirming parties must be empty for verdict Malformed.")
     case _: LocalApprove | _: LocalReject =>
       if (confirmingParties.isEmpty)
-        throw InvalidMediatorResponse(
+        throw InvalidConfirmationResponse(
           show"Confirming parties must not be empty for verdict $localVerdict"
         )
       if (rootHash.isEmpty)
-        throw InvalidMediatorResponse(show"Root hash must not be empty for verdict $localVerdict")
+        throw InvalidConfirmationResponse(
+          show"Root hash must not be empty for verdict $localVerdict"
+        )
       if (viewPositionO.isEmpty)
-        throw InvalidMediatorResponse(
+        throw InvalidConfirmationResponse(
           show"View position must not be empty for verdict $localVerdict"
         )
   }
@@ -111,10 +113,11 @@ case class MediatorResponse private (
   protected override def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  @transient override protected lazy val companionObj: MediatorResponse.type = MediatorResponse
+  @transient override protected lazy val companionObj: ConfirmationResponse.type =
+    ConfirmationResponse
 
-  protected def toProtoV30: v30.MediatorResponse =
-    v30.MediatorResponse(
+  protected def toProtoV30: v30.ConfirmationResponse =
+    v30.ConfirmationResponse(
       requestId = Some(requestId.toProtoPrimitive),
       sender = sender.toProtoPrimitive,
       viewPosition = viewPositionO.map(_.toProtoV30),
@@ -126,7 +129,7 @@ case class MediatorResponse private (
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
       : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.MediatorResponse(
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.ConfirmationResponse(
       getCryptographicEvidence
     )
 
@@ -143,17 +146,18 @@ case class MediatorResponse private (
     )
 }
 
-object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[MediatorResponse] {
-  override val name: String = "MediatorResponse"
+object ConfirmationResponse
+    extends HasMemoizedProtocolVersionedWrapperCompanion[ConfirmationResponse] {
+  override val name: String = "ConfirmationResponse"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.MediatorResponse)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ConfirmationResponse)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
   )
 
-  final case class InvalidMediatorResponse(msg: String) extends RuntimeException(msg)
+  final case class InvalidConfirmationResponse(msg: String) extends RuntimeException(msg)
 
   // Variant of "tryCreate" that returns Left(...) instead of throwing an exception.
   // This is for callers who *do not know up front* whether the parameters meet the object invariants.
@@ -168,8 +172,8 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       confirmingParties: Set[LfPartyId],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-  ): Either[InvalidMediatorResponse, MediatorResponse] =
-    Either.catchOnly[InvalidMediatorResponse](
+  ): Either[InvalidConfirmationResponse, ConfirmationResponse] =
+    Either.catchOnly[InvalidConfirmationResponse](
       tryCreate(
         requestId,
         sender,
@@ -204,8 +208,8 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       confirmingParties: Set[LfPartyId],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-  ): MediatorResponse =
-    MediatorResponse(
+  ): ConfirmationResponse =
+    ConfirmationResponse(
       requestId,
       sender,
       viewPositionO,
@@ -217,36 +221,38 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting
-  val requestIdUnsafe: Lens[MediatorResponse, RequestId] = GenLens[MediatorResponse](_.requestId)
+  val requestIdUnsafe: Lens[ConfirmationResponse, RequestId] =
+    GenLens[ConfirmationResponse](_.requestId)
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting
-  val senderUnsafe: Lens[MediatorResponse, ParticipantId] = GenLens[MediatorResponse](_.sender)
+  val senderUnsafe: Lens[ConfirmationResponse, ParticipantId] =
+    GenLens[ConfirmationResponse](_.sender)
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting
-  val viewPositionOUnsafe: Lens[MediatorResponse, Option[ViewPosition]] =
-    GenLens[MediatorResponse](_.viewPositionO)
+  val viewPositionOUnsafe: Lens[ConfirmationResponse, Option[ViewPosition]] =
+    GenLens[ConfirmationResponse](_.viewPositionO)
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting
-  val localVerdictUnsafe: Lens[MediatorResponse, LocalVerdict] =
-    GenLens[MediatorResponse](_.localVerdict)
+  val localVerdictUnsafe: Lens[ConfirmationResponse, LocalVerdict] =
+    GenLens[ConfirmationResponse](_.localVerdict)
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting
-  val rootHashUnsafe: Lens[MediatorResponse, Option[RootHash]] =
-    GenLens[MediatorResponse](_.rootHash)
+  val rootHashUnsafe: Lens[ConfirmationResponse, Option[RootHash]] =
+    GenLens[ConfirmationResponse](_.rootHash)
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting
-  val confirmingPartiesUnsafe: Lens[MediatorResponse, Set[LfPartyId]] =
-    GenLens[MediatorResponse](_.confirmingParties)
+  val confirmingPartiesUnsafe: Lens[ConfirmationResponse, Set[LfPartyId]] =
+    GenLens[ConfirmationResponse](_.confirmingParties)
 
-  private def fromProtoV30(mediatorResponseP: v30.MediatorResponse)(
+  private def fromProtoV30(confirmationResponseP: v30.ConfirmationResponse)(
       bytes: ByteString
-  ): ParsingResult[MediatorResponse] = {
-    val v30.MediatorResponse(
+  ): ParsingResult[ConfirmationResponse] = {
+    val v30.ConfirmationResponse(
       requestIdPO,
       senderP,
       localVerdictPO,
@@ -255,14 +261,14 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       domainIdP,
       viewPositionPO,
     ) =
-      mediatorResponseP
+      confirmationResponseP
     for {
       requestId <- ProtoConverter
-        .required("MediatorResponse.request_id", requestIdPO)
+        .required("ConfirmationResponse.request_id", requestIdPO)
         .flatMap(RequestId.fromProtoPrimitive)
-      sender <- ParticipantId.fromProtoPrimitive(senderP, "MediatorResponse.sender")
+      sender <- ParticipantId.fromProtoPrimitive(senderP, "ConfirmationResponse.sender")
       localVerdict <- ProtoConverter
-        .required("MediatorResponse.local_verdict", localVerdictPO)
+        .required("ConfirmationResponse.local_verdict", localVerdictPO)
         .flatMap(LocalVerdict.fromProtoV30)
       rootHashO <- RootHash.fromProtoPrimitiveOption(rootHashP)
       confirmingParties <- confirmingPartiesP.traverse(ProtoConverter.parseLfPartyId)
@@ -270,8 +276,8 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
       viewPositionO = viewPositionPO.map(ViewPosition.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       response <- Either
-        .catchOnly[InvalidMediatorResponse](
-          MediatorResponse(
+        .catchOnly[InvalidConfirmationResponse](
+          ConfirmationResponse(
             requestId,
             sender,
             viewPositionO,
@@ -285,10 +291,10 @@ object MediatorResponse extends HasMemoizedProtocolVersionedWrapperCompanion[Med
     } yield response
   }
 
-  implicit val mediatorResponseSignedMessageContentCast
-      : SignedMessageContentCast[MediatorResponse] =
-    SignedMessageContentCast.create[MediatorResponse]("MediatorResponse") {
-      case response: MediatorResponse => Some(response)
+  implicit val confirmationResponseSignedMessageContentCast
+      : SignedMessageContentCast[ConfirmationResponse] =
+    SignedMessageContentCast.create[ConfirmationResponse]("ConfirmationResponse") {
+      case response: ConfirmationResponse => Some(response)
       case _ => None
     }
 }

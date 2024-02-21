@@ -150,7 +150,7 @@ object RootHashMessageRecipients extends HasLoggerName {
 
   def wrongMembers(
       rootHashMessagesRecipients: Seq[Recipient],
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       topologySnapshot: TopologySnapshot,
   )(implicit
       executionContext: ExecutionContext,

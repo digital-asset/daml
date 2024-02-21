@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.command_completion_service.{
 import com.daml.logging.entries.LoggingEntries
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
-import com.digitalasset.canton.ledger.api.domain.LedgerOffset
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
 import com.digitalasset.canton.ledger.api.validation.{
   CompletionServiceRequestValidator,
@@ -43,7 +43,6 @@ final class ApiCommandCompletionService(
 ) extends CommandCompletionServiceGrpc.CommandCompletionService
     with StreamingServiceLifecycleManagement
     with NamedLogging {
-  import ApiConversions.*
 
   private val validator = new CompletionServiceRequestValidator(
     PartyNameChecker.AllowAllParties
@@ -63,7 +62,7 @@ final class ApiCommandCompletionService(
       logger.debug(s"Received new completion request $request.")
       Source.future(completionsService.currentLedgerEnd()).flatMapConcat { ledgerEnd =>
         validator
-          .validateGrpcCompletionStreamRequest(toV1(request))
+          .validateGrpcCompletionStreamRequest(request)
           .flatMap(validator.validateCompletionStreamRequest(_, ledgerEnd))
           .fold(
             t =>
@@ -75,7 +74,7 @@ final class ApiCommandCompletionService(
                 s"Received request for completion subscription, ${loggingContextWithTrace
                     .serializeFiltered("parties", "offset")}"
               )
-              val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
+              val offset = request.offset.getOrElse(ParticipantOffset.ParticipantEnd)
 
               completionsService
                 .getCompletions(offset, request.applicationId, request.parties)

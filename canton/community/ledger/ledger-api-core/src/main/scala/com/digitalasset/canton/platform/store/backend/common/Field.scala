@@ -106,11 +106,10 @@ private[backend] final case class BooleanOptional[FROM](
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
 }
 
-private[backend] final case class StringArrayOptional[FROM](
-    extract: StringInterning => FROM => Option[Iterable[String]]
-) extends Field[FROM, Option[Iterable[String]], Array[String]] {
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  override def convert: Option[Iterable[String]] => Array[String] = _.map(_.toArray).orNull
+private[backend] final case class StringArray[FROM](
+    extract: StringInterning => FROM => Iterable[String]
+) extends Field[FROM, Iterable[String], Array[String]] {
+  override def convert: Iterable[String] => Array[String] = _.toArray
 }
 
 private[backend] final case class IntArray[FROM](extract: StringInterning => FROM => Iterable[Int])

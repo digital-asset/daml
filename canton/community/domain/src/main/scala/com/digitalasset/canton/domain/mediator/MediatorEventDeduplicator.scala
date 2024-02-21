@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
-  MediatorRequest,
+  MediatorConfirmationRequest,
   ProtocolMessage,
   RootHashMessage,
   SerializedRootHashMessagePayload,
@@ -137,7 +137,7 @@ class DefaultMediatorEventDeduplicator(
     MonadUtil
       .sequentialTraverse(envelopes) { envelope =>
         envelope.protocolMessage match {
-          case request: MediatorRequest =>
+          case request: MediatorConfirmationRequest =>
             processUuid(requestTimestamp, request, envelopes).map { case (hasUniqueUuid, storeF) =>
               Option.when(hasUniqueUuid)(envelope) -> storeF
             }
@@ -151,7 +151,7 @@ class DefaultMediatorEventDeduplicator(
 
   private def processUuid(
       requestTimestamp: CantonTimestamp,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       envelopes: Seq[DefaultOpenEnvelope],
   )(implicit
       traceContext: TraceContext,

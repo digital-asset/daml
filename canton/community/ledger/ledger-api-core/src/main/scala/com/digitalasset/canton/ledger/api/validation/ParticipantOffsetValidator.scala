@@ -4,58 +4,58 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import io.grpc.StatusRuntimeException
 
 import scala.math.Ordered.*
 
-object LedgerOffsetValidator {
+object ParticipantOffsetValidator {
 
   private val boundary = "boundary"
 
-  import ValidationErrors.{invalidArgument, missingField}
   import FieldValidator.requireLedgerString
+  import ValidationErrors.{invalidArgument, missingField}
 
   def validateOptional(
-      ledgerOffset: Option[LedgerOffset],
+      ledgerOffset: Option[ParticipantOffset],
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[domain.LedgerOffset]] =
+  ): Either[StatusRuntimeException, Option[domain.ParticipantOffset]] =
     ledgerOffset
       .map(validate(_, fieldName))
-      .fold[Either[StatusRuntimeException, Option[domain.LedgerOffset]]](Right(None))(
+      .fold[Either[StatusRuntimeException, Option[domain.ParticipantOffset]]](Right(None))(
         _.map(Some(_))
       )
 
   def validate(
-      ledgerOffset: LedgerOffset,
+      ledgerOffset: ParticipantOffset,
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.LedgerOffset] = {
+  ): Either[StatusRuntimeException, domain.ParticipantOffset] = {
     ledgerOffset.value match {
-      case LedgerOffset.Value.Absolute(value) =>
-        requireLedgerString(value, fieldName).map(domain.LedgerOffset.Absolute)
-      case LedgerOffset.Value.Boundary(value) =>
+      case ParticipantOffset.Value.Absolute(value) =>
+        requireLedgerString(value, fieldName).map(domain.ParticipantOffset.Absolute)
+      case ParticipantOffset.Value.Boundary(value) =>
         convertLedgerBoundary(fieldName, value)
-      case LedgerOffset.Value.Empty =>
+      case ParticipantOffset.Value.Empty =>
         Left(missingField(fieldName + ".(" + boundary + "|value)"))
     }
   }
 
   def offsetIsBeforeEndIfAbsolute(
       offsetType: String,
-      ledgerOffset: domain.LedgerOffset,
-      ledgerEnd: domain.LedgerOffset.Absolute,
+      ledgerOffset: domain.ParticipantOffset,
+      ledgerEnd: domain.ParticipantOffset.Absolute,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset match {
-      case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
+      case abs: domain.ParticipantOffset.Absolute if abs > ledgerEnd =>
         Left(
           RequestValidationErrors.OffsetAfterLedgerEnd
             .Reject(offsetType, abs.value, ledgerEnd.value)
@@ -67,8 +67,8 @@ object LedgerOffsetValidator {
   // Same as above, but with an optional offset.
   def offsetIsBeforeEndIfAbsolute(
       offsetType: String,
-      ledgerOffset: Option[domain.LedgerOffset],
-      ledgerEnd: domain.LedgerOffset.Absolute,
+      ledgerOffset: Option[domain.ParticipantOffset],
+      ledgerEnd: domain.ParticipantOffset.Absolute,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
@@ -78,19 +78,19 @@ object LedgerOffsetValidator {
 
   private def convertLedgerBoundary(
       fieldName: String,
-      value: LedgerBoundary,
+      value: ParticipantBoundary,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.LedgerOffset] = {
+  ): Either[StatusRuntimeException, domain.ParticipantOffset] = {
     value match {
-      case LedgerBoundary.Unrecognized(invalid) =>
+      case ParticipantBoundary.Unrecognized(invalid) =>
         Left(
           invalidArgument(
             s"Unknown ledger $boundary value '$invalid' in field $fieldName.$boundary"
           )
         )
-      case LedgerBoundary.LEDGER_BEGIN => Right(domain.LedgerOffset.LedgerBegin)
-      case LedgerBoundary.LEDGER_END => Right(domain.LedgerOffset.LedgerEnd)
+      case ParticipantBoundary.PARTICIPANT_BEGIN => Right(domain.ParticipantOffset.ParticipantBegin)
+      case ParticipantBoundary.PARTICIPANT_END => Right(domain.ParticipantOffset.ParticipantEnd)
     }
   }
 }

@@ -160,8 +160,7 @@ object ApiServices {
 
       val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled)
       val transactionServiceRequestValidator =
-        new TransactionServiceRequestValidator(
-          ledgerId = ledgerId,
+        new UpdateServiceRequestValidator(
           partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties),
           transactionFilterValidator = transactionFilterValidator,
         )

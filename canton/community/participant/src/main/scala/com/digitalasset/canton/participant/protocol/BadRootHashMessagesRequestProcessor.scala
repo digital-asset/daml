@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
-import com.digitalasset.canton.protocol.messages.{LocalReject, MediatorResponse}
+import com.digitalasset.canton.protocol.messages.{ConfirmationResponse, LocalReject}
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, Recipients}
@@ -55,7 +55,7 @@ class BadRootHashMessagesRequestProcessor(
         snapshot <- crypto.snapshotUS(timestamp)
         requestId = RequestId(timestamp)
         rejection = checked(
-          MediatorResponse.tryCreate(
+          ConfirmationResponse.tryCreate(
             requestId = requestId,
             sender = participantId,
             viewPositionO = None,

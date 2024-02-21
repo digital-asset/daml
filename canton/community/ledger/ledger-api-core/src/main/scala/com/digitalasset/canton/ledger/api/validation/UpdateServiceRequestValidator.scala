@@ -4,60 +4,51 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.ledger.api.v1.transaction_service.{
-  GetLedgerEndRequest,
+import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.update_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
-  GetTransactionsRequest,
+  GetUpdatesRequest,
 }
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{LedgerId, LedgerOffset, optionalLedgerId}
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.transaction
-import com.digitalasset.canton.ledger.api.messages.transaction.GetTransactionTreesRequest
+import com.digitalasset.canton.ledger.api.messages.transaction.GetUpdateTreesRequest
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import io.grpc.StatusRuntimeException
 
-object TransactionServiceRequestValidator {
+object UpdateServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
 
 }
-class TransactionServiceRequestValidator(
-    ledgerId: LedgerId,
+class UpdateServiceRequestValidator(
     partyValidator: PartyValidator,
     transactionFilterValidator: TransactionFilterValidator,
 ) {
 
-  import TransactionServiceRequestValidator.Result
-
   import FieldValidator.*
+  import UpdateServiceRequestValidator.Result
   import ValidationErrors.invalidArgument
 
-  private def matchId(input: Option[LedgerId])(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[Option[LedgerId]] = matchLedgerId(ledgerId)(input)
-
   case class PartialValidation(
-      ledgerId: Option[domain.LedgerId],
       transactionFilter: TransactionFilter,
-      begin: domain.LedgerOffset,
-      end: Option[domain.LedgerOffset],
+      begin: domain.ParticipantOffset,
+      end: Option[domain.ParticipantOffset],
       knownParties: Set[Ref.Party],
   )
 
   private def commonValidations(
-      req: GetTransactionsRequest
+      req: GetUpdatesRequest
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] = {
     for {
-      ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       filter <- requirePresence(req.filter, "filter")
-      requiredBegin <- requirePresence(req.begin, "begin")
-      convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
-      convertedEnd <- LedgerOffsetValidator.validateOptional(req.end, "end")
+      requiredBegin <- requirePresence(req.beginExclusive, "begin")
+      convertedBegin <- ParticipantOffsetValidator.validate(requiredBegin, "begin")
+      convertedEnd <- ParticipantOffsetValidator.validateOptional(req.endInclusive, "end")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
-      ledgerId,
       filter,
       convertedBegin,
       convertedEnd,
@@ -67,20 +58,20 @@ class TransactionServiceRequestValidator(
   }
 
   def validate(
-      req: GetTransactionsRequest,
-      ledgerEnd: LedgerOffset.Absolute,
+      req: GetUpdatesRequest,
+      ledgerEnd: ParticipantOffset.Absolute,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionsRequest] = {
 
     for {
       partial <- commonValidations(req)
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         partial.begin,
         ledgerEnd,
       )
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
@@ -88,7 +79,6 @@ class TransactionServiceRequestValidator(
       convertedFilter <- transactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
-        partial.ledgerId,
         partial.begin,
         partial.end,
         convertedFilter,
@@ -98,43 +88,32 @@ class TransactionServiceRequestValidator(
   }
 
   def validateTree(
-      req: GetTransactionsRequest,
-      ledgerEnd: LedgerOffset.Absolute,
+      req: GetUpdatesRequest,
+      ledgerEnd: ParticipantOffset.Absolute,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[GetTransactionTreesRequest] = {
+  ): Result[GetUpdateTreesRequest] = {
 
     for {
       partial <- commonValidations(req)
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         partial.begin,
         ledgerEnd,
       )
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
       )
       convertedFilter <- transactionFilterToPartySet(partial.transactionFilter)
     } yield {
-      transaction.GetTransactionTreesRequest(
-        partial.ledgerId,
+      transaction.GetUpdateTreesRequest(
         partial.begin,
         partial.end,
         convertedFilter,
         req.verbose,
       )
-    }
-  }
-
-  def validateLedgerEnd(req: GetLedgerEndRequest)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetLedgerEndRequest] = {
-    for {
-      _ <- matchId(optionalLedgerId(req.ledgerId))
-    } yield {
-      transaction.GetLedgerEndRequest()
     }
   }
 
@@ -144,14 +123,12 @@ class TransactionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionByIdRequest] = {
     for {
-      ledgerId <- matchId(optionalLedgerId(req.ledgerId))
-      _ <- requireNonEmptyString(req.transactionId, "transaction_id")
-      trId <- requireLedgerString(req.transactionId)
+      _ <- requireNonEmptyString(req.updateId, "update_id")
+      trId <- requireLedgerString(req.updateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- partyValidator.requireKnownParties(req.requestingParties)
     } yield {
       transaction.GetTransactionByIdRequest(
-        ledgerId,
         domain.TransactionId(trId),
         parties,
       )
@@ -164,13 +141,11 @@ class TransactionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionByEventIdRequest] = {
     for {
-      ledgerId <- matchId(optionalLedgerId(req.ledgerId))
       eventId <- requireLedgerString(req.eventId, "event_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- partyValidator.requireKnownParties(req.requestingParties)
     } yield {
       transaction.GetTransactionByEventIdRequest(
-        ledgerId,
         domain.EventId(eventId),
         parties,
       )

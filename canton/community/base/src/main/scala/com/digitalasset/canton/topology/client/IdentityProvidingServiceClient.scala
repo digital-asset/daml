@@ -414,7 +414,7 @@ trait MediatorDomainStateClient {
       traceContext: TraceContext
   ): Future[Boolean] =
     mediatorGroups().map(_.exists { group =>
-      // Note: mediator in group.passive should still be able to authenticate and process MediatorResponses,
+      // Note: mediator in group.passive should still be able to authenticate and process ConfirmationResponses,
       // only sending the verdicts is disabled and verdicts from a passive mediator should not pass the checks
       group.isActive && (group.active.contains(mediatorId) || group.passive.contains(mediatorId))
     })
