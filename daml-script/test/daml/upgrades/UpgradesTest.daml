@@ -319,7 +319,7 @@ exerciseV2ChoiceV2ContractSameType = do
 
 genericUpgradeTest 
   : forall t2 t1 c2 r
-  . (Template t1, HasEnsure t1, Choice t2 c2 r)
+  . (Template t1, HasAgreement t1, Choice t2 c2 r)
   => (Party -> t1)
   -> c2
   -> Bool
@@ -332,7 +332,7 @@ genericUpgradeTest makeV1Contract v2Choice explicitPackageIds handleRes = do
   res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
   handleRes res
 
-choiceTest : forall t2 t1 c2 r. (Template t1, HasEnsure t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Script ()
+choiceTest : forall t2 t1 c2 r. (Template t1, HasAgreement t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Script ()
 choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = genericUpgradeTest @t2 makeV1Contract v2Choice explicitPackageIds $ \res ->
   case res of
     Right returnValue -> returnValue === expectedResult
@@ -534,7 +534,7 @@ ensureClauseDowngradeToNoLongerValid =
     Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
     res -> assertFail $ "Expected PreconditionFailed, got " <> show res
 
-templateInvalidChange : forall t2 t1 c2. (Template t1, HasEnsure t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
+templateInvalidChange : forall t2 t1 c2. (Template t1, HasAgreement t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
 templateInvalidChange shouldSucceed makeV1Contract v2Choice =
   genericUpgradeTest @t2 makeV1Contract v2Choice False $ \res ->
     case (res, shouldSucceed) of
