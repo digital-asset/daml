@@ -319,7 +319,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         extraContext = Map(
           "uploadedPackage" -> uploadedPackage,
           "existingPackage" -> existingPackage,
-          "packageVersion" -> packageVersion,
+          "packageVersion" -> packageVersion.toString,
         ),
       )
     }
