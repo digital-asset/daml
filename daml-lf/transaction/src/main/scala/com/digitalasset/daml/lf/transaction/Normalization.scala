@@ -56,7 +56,7 @@ class Normalization {
           .copy(keyOpt = old.keyOpt.map(normKWM(old.version)))
 
       case old: Node.Fetch =>
-        (if (old.version >= TransactionVersion.minByKey) {
+        (if (old.version >= TransactionVersion.minContractKey) {
            old
          } else {
            old.copy(byKey = false)
@@ -66,7 +66,7 @@ class Normalization {
           )
 
       case old: Node.Exercise =>
-        (if (old.version >= TransactionVersion.minByKey) {
+        (if (old.version >= TransactionVersion.minContractKey) {
            old
          } else {
            old.copy(byKey = false)

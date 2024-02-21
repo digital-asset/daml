@@ -9,9 +9,9 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Party, Identifier, PackageName}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
-import com.daml.lf.value.{Value, ValueCoder}
 import com.google.protobuf
 import com.google.protobuf.{Message, ByteString}
 import org.scalacheck.{Gen, Arbitrary}
@@ -30,6 +30,9 @@ class TransactionCoderSpec
     with Inside
     with EitherAssertions
     with ScalaCheckPropertyChecks {
+
+  // TODO https://github.com/digital-asset/daml/issues/18457
+  // Tests that messages with unknown field are rejected
 
   import com.daml.lf.value.test.ValueGenerators._
 
@@ -53,10 +56,9 @@ class TransactionCoderSpec
                 node = versionedNode,
               )
 
-            TransactionCoder.decodeVersionedNode(
-              transactionVersion = txVersion,
-              protoNode = encodedNode,
-            ) shouldBe Right((NodeId(0), versionedNode))
+            TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+              (NodeId(0), versionedNode)
+            )
           } catch {
             case scala.util.control.NonFatal(e) =>
               val x = e.getStackTrace
@@ -79,11 +81,9 @@ class TransactionCoderSpec
               )
               .toOption
               .get
-          TransactionCoder
-            .decodeVersionedNode(
-              transactionVersion = txVersion,
-              protoNode = encodedNode,
-            ) shouldBe Right((NodeId(0), versionedNode))
+          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+            (NodeId(0), versionedNode)
+          )
       }
     }
 
@@ -98,11 +98,9 @@ class TransactionCoderSpec
                 nodeId = NodeId(0),
                 node = normalizedNode,
               )
-          TransactionCoder
-            .decodeVersionedNode(
-              transactionVersion = txVersion,
-              protoNode = encodedNode,
-            ) shouldBe Right((NodeId(0), normalizedNode))
+          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+            (NodeId(0), normalizedNode)
+          )
       }
     }
 
@@ -117,11 +115,9 @@ class TransactionCoderSpec
                 nodeId = NodeId(0),
                 node = normalizedNode,
               )
-          TransactionCoder
-            .decodeVersionedNode(
-              transactionVersion = txVersion,
-              protoNode = encodedNode,
-            ) shouldBe Right((NodeId(0), normalizedNode))
+          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+            (NodeId(0), normalizedNode)
+          )
         }
       }
     }
@@ -144,10 +140,7 @@ class TransactionCoderSpec
             msg should include(tx2.version.protoValue)
           case Right(encodedTx) =>
             val decodedVersionedTx = assertRight(
-              TransactionCoder
-                .decodeTransaction(
-                  protoTx = encodedTx
-                )
+              TransactionCoder.decodeTransaction(encodedTx)
             )
             decodedVersionedTx shouldBe tx2
         }
@@ -234,71 +227,9 @@ class TransactionCoderSpec
             ) shouldBe Symbol("left")
       }
     }
-
-    def changeVersion(
-        value: com.daml.lf.value.ValueOuterClass.VersionedValue,
-        version: String,
-    ) =
-      value.toBuilder.setVersion(version).build()
-
-    "fail if try to encode a fetch node containing value with version different from node" in {
-      forAll(fetchNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
-        whenever(node.version != version && node.keyOpt.isDefined) {
-          val nodeVersion = node.version
-          val encodeVersion = ValueCoder.encodeValueVersion(version)
-          val Right(encodedNode) = TransactionCoder.encodeNode(
-            enclosingVersion = nodeVersion,
-            nodeId = NodeId(0),
-            node = normalizeNode(node),
-          )
-          val encodedFetch = encodedNode.getFetch
-
-          val testCase = encodedFetch.toBuilder
-            .setKeyWithMaintainers(
-              encodedFetch.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                changeVersion(encodedFetch.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
-              )
-            )
-            .build()
-
-          TransactionCoder.decodeVersionedNode(
-            transactionVersion = nodeVersion,
-            protoNode = encodedNode.toBuilder.setFetch(testCase).build(),
-          ) shouldBe a[Left[_, _]]
-        }
-      }
-    }
-
-    "fail if try to encode a lookup node containing value with version different from node" in {
-      forAll(lookupNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
-        whenever(node.version != version) {
-          val nodeVersion = node.version
-          val encodeVersion = ValueCoder.encodeValueVersion(version)
-          val Right(encodedNode) = TransactionCoder.encodeNode(
-            enclosingVersion = nodeVersion,
-            nodeId = NodeId(0),
-            node = normalizeNode(node),
-          )
-          val encodedLookup = encodedNode.getLookupByKey
-
-          val testCase = encodedLookup.toBuilder
-            .setKeyWithMaintainers(
-              encodedLookup.getKeyWithMaintainers.toBuilder.setKeyVersioned(
-                changeVersion(encodedLookup.getKeyWithMaintainers.getKeyVersioned, encodeVersion)
-              )
-            )
-            .build()
-
-          TransactionCoder.decodeVersionedNode(
-            transactionVersion = nodeVersion,
-            protoNode = encodedNode.toBuilder.setLookupByKey(testCase).build(),
-          ) shouldBe a[Left[_, _]]
-        }
-      }
-    }
   }
 
-  "decodeNodeVersion" should {
+  "decodeNode" should {
 
     "succeed as expected when the node is encoded with a version older than the transaction version" in {
 
@@ -318,7 +249,7 @@ class TransactionCoderSpec
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNodeVersion(txVersion, encoded) shouldBe Right(nodeVersion)
+        TransactionCoder.decodeNode(txVersion, encoded) shouldBe Right((nodeId, normalizedNode))
       }
     }
 
@@ -338,7 +269,7 @@ class TransactionCoderSpec
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNodeVersion(v1, encoded) shouldBe a[Left[_, _]]
+        TransactionCoder.decodeNode(v1, encoded) shouldBe a[Left[_, _]]
       }
     }
 
@@ -652,10 +583,6 @@ class TransactionCoderSpec
       }
     }
 
-  }
-
-  "decodeVersionedNode" should {
-
     "fail if try to decode a node in a version newer than the enclosing Transaction message version" in {
 
       val gen = for {
@@ -674,15 +601,11 @@ class TransactionCoderSpec
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeVersionedNode(
-          transactionVersion = txVersion,
-          protoNode = encoded,
-        ) shouldBe Symbol("left")
-
+        TransactionCoder.decodeNode(txVersion, encoded) shouldBe a[Left[_, _]]
       }
     }
 
-    s"preserve byKey on exercise in version >= ${TransactionVersion.minByKey} and drop before" in {
+    s"preserve byKey on exercise in version >= ${TransactionVersion.minContractKey}" in {
       forAll(
         Arbitrary.arbInt.arbitrary,
         danglingRefExerciseNodeGen,
@@ -700,20 +623,17 @@ class TransactionCoderSpec
             node = normalizedNode,
           )
         inside(result) { case Right(encoded) =>
-          val result = TransactionCoder.decodeVersionedNode(
-            transactionVersion = node.version,
-            protoNode = encoded,
-          )
+          val result = TransactionCoder.decodeNode(node.version, encoded)
           result shouldBe Right(
             nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minByKey) byKey else false
+              byKey = if (node.version >= TransactionVersion.minContractKey) byKey else false
             )
           )
         }
       }
     }
 
-    s"preserve byKey on fetch in version >= ${TransactionVersion.minByKey} and drop before" in {
+    s"preserve byKey on fetch in version >= ${TransactionVersion.minContractKey} and drop before" in {
       forAll(
         Arbitrary.arbInt.arbitrary,
         fetchNodeGen,
@@ -731,13 +651,10 @@ class TransactionCoderSpec
             node = normalizedNode,
           )
         inside(result) { case Right(encoded) =>
-          val result = TransactionCoder.decodeVersionedNode(
-            transactionVersion = node.version,
-            protoNode = encoded,
-          )
+          val result = TransactionCoder.decodeNode(node.version, encoded)
           result shouldBe Right(
             nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minByKey) byKey else false
+              byKey = if (node.version >= TransactionVersion.minContractKey) byKey else false
             )
           )
         }
@@ -891,29 +808,43 @@ class TransactionCoderSpec
     )
   }
 
-  private[this] def normalizeFetch(fetch: Node.Fetch) =
+  private[this] def normalizeFetch(fetch: Node.Fetch) = {
+    val maintainers = fetch.keyOpt.fold(Set.empty[Party])(_.maintainers)
+    val signatories = fetch.signatories ++ maintainers
+    val stakeholders = fetch.stakeholders ++ signatories
     fetch.copy(
+      signatories = signatories,
+      stakeholders = stakeholders,
       keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version)),
       byKey =
-        if (fetch.version >= TransactionVersion.minByKey)
+        if (fetch.version >= TransactionVersion.minContractKey)
           fetch.byKey
         else false,
     )
+  }
 
-  private[this] def normalizeExe(exe: Node.Exercise) =
+  private[this] def normalizeExe(exe: Node.Exercise) = {
+    val maintainers = exe.keyOpt.fold(Set.empty[Party])(_.maintainers)
+    val signatories = exe.signatories ++ maintainers
+    val stakeholders = exe.stakeholders ++ signatories
     exe.copy(
+      signatories = signatories,
+      stakeholders = stakeholders,
       interfaceId = exe.interfaceId,
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
       choiceObservers = exe.choiceObservers,
       choiceAuthorizers =
-        if (exe.version >= TransactionVersion.minChoiceAuthorizers) exe.choiceAuthorizers else None,
+        if (exe.version >= TransactionVersion.minChoiceAuthorizers)
+          Some(exe.choiceAuthorizers.getOrElse(Set.empty))
+        else None,
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
       byKey =
-        if (exe.version >= TransactionVersion.minByKey)
+        if (exe.version >= TransactionVersion.minContractKey)
           exe.byKey
         else false,
     )
+  }
 
   private[this] def normalizeKey(
       key: GlobalKeyWithMaintainers,

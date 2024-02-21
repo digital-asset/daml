@@ -44,7 +44,7 @@ object TransactionVersion {
   def maxVersion: TransactionVersion = VDev
 
   // TODO(https://github.com/digital-asset/daml/issues/18240) move this feature flag to VDev.
-  private[lf] val minByKey = V31
+  private[lf] val minContractKey = V31
 
   private[lf] val minSharedKeys = V31
   private[lf] val minChoiceAuthorizers = VDev
