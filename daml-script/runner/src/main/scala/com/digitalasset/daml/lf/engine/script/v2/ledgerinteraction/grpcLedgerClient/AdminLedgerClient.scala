@@ -10,16 +10,13 @@ import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatin
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
-import com.digitalasset.canton.topology.admin.{v30 => admin_topology_service}
-import com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp
-import com.google.protobuf.ByteString
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
-import java.io.{Closeable, File, FileInputStream}
+import java.io.Closeable
 import scala.concurrent.{ExecutionContext, Future}
 
-final class AdminLedgerClient private (
+class AdminLedgerClient private[grpcLedgerClient] (
     val channel: Channel,
     token: Option[String],
 )(implicit ec: ExecutionContext)
@@ -30,14 +27,8 @@ final class AdminLedgerClient private (
   // Try filtering for just Adds, assuming a Remove cancels an Add.
   // If it doesn't, change the filter to all and fold them
 
-  private val packageServiceStub =
+  private[grpcLedgerClient] val packageServiceStub =
     AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)
-
-  private val topologyServiceStub =
-    AdminLedgerClient.stub(
-      admin_topology_service.TopologyManagerReadServiceGrpc.stub(channel),
-      token,
-    )
 
   def vetDarByHash(darHash: String): Future[Unit] =
     packageServiceStub.vetDar(admin_package_service.VetDarRequest(darHash, true)).map(_ => ())
@@ -66,50 +57,6 @@ final class AdminLedgerClient private (
 
   def unvetDar(name: String): Future[Unit] =
     findDarHash(name).flatMap(unvetDarByHash)
-
-  def uploadDar(file: File): Future[Either[String, String]] =
-    packageServiceStub
-      .uploadDar(
-        admin_package_service.UploadDarRequest(
-          data = ByteString.readFrom(new FileInputStream(file)),
-          filename = file.getName,
-          vetAllPackages = true,
-          synchronizeVetting = true,
-        )
-      )
-      .map { response =>
-        import admin_package_service.UploadDarResponse
-        response.value match {
-          case UploadDarResponse.Value.Success(UploadDarResponse.Success(hash)) => Right(hash)
-          case UploadDarResponse.Value.Failure(UploadDarResponse.Failure(msg)) => Left(msg)
-          case UploadDarResponse.Value.Empty => Left("unexpected empty response")
-        }
-      }
-
-  // Map from participantName (in the form PAR::name::hash) to list of packages
-  def listVettedPackages(): Future[Map[String, Seq[String]]] = {
-    topologyServiceStub
-      .listVettedPackages(
-        admin_topology_service.ListVettedPackagesRequest(
-          baseQuery = Some(
-            admin_topology_service.BaseQuery(
-              filterStore = None,
-              proposals = false,
-              operation = TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE_UNSPECIFIED,
-              filterOperation = false,
-              timeQuery = admin_topology_service.BaseQuery.TimeQuery
-                .HeadState(com.google.protobuf.empty.Empty()),
-              filterSignedKey = "",
-              protocolVersion = None,
-            )
-          ),
-          filterParticipant = "",
-        )
-      )
-      .map { resp =>
-        Map.from(resp.results.map { res => (res.item.get.participant, res.item.get.packageIds) })
-      }
-  }
 
   override def close(): Unit = GrpcChannel.close(channel)
 }

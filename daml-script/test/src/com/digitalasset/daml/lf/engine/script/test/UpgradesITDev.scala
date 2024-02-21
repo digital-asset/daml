@@ -14,7 +14,7 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
+import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import org.scalatest.Inside
@@ -64,7 +64,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
           adminClients = ledgerPorts.map { portInfo =>
             (
               portInfo.ledgerPort.value,
-              AdminLedgerClient.singleHost(
+              TestingAdminLedgerClient.singleHost(
                 "localhost",
                 portInfo.adminPort.value,
                 None,
@@ -104,7 +104,10 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     }
   }
 
-  private def assertDepsVetted(client: AdminLedgerClient, deps: Seq[DataDep]): Future[Unit] = {
+  private def assertDepsVetted(
+      client: TestingAdminLedgerClient,
+      deps: Seq[DataDep],
+  ): Future[Unit] = {
     client
       .listVettedPackages()
       .map(_.foreach { case (participantId, packageIds) =>

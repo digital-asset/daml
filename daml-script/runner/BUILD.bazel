@@ -31,8 +31,6 @@ da_scala_library(
         [
             "//canton:community_admin-api_proto_scala",
             "//canton:community_admin-api-src",
-            # Needed just for the topology read service, might make script a bit large
-            "//canton:community_base_proto_scala",
         ],
     override_scalacopts = [
         copt
@@ -42,13 +40,9 @@ da_scala_library(
             "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
             "-P:wartremover:traverser:org.wartremover.warts.Product",
             "-P:wartremover:traverser:org.wartremover.warts.Serializable",
-            "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
             # ProtocolVersionAnnotation.scala violates this warning
             "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
         ]
-    ] + [
-        # ParticipantTransactionProto uses a deprecated message, silence the warning.
-        "-Wconf:cat=deprecation&src=com/digitalasset/canton/protocol/v30/ParticipantTransactionProto.scala:s",
     ],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
