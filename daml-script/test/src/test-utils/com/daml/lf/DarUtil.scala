@@ -71,7 +71,7 @@ object DarUtil {
 
     def writeModule(pkgRoot: Path, modFullName: String, fileContent: String) = {
       val path = pkgRoot.resolve(Paths.get(modFullName.replace(".", "/") + ".daml"))
-      Files.createDirectories(path.getParent())
+      val _ = Files.createDirectories(path.getParent())
       Files.write(path, fileContent.getBytes(StandardCharsets.UTF_8))
     }
 
@@ -83,7 +83,7 @@ object DarUtil {
     val pkgRoot = Files.createDirectory(
       tmpDir.getOrElse(Files.createTempDirectory("dar-util")).resolve(versionedName)
     )
-    writeDamlYaml(pkgRoot)
+    val _ = writeDamlYaml(pkgRoot)
     modules.foreachEntry(writeModule(pkgRoot, _, _))
     val exitCode = damlBuild(pkgRoot)
     if (exitCode == 0) {

@@ -6,7 +6,6 @@ load(
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
-    "default_scalacopts",
     "lf_scalacopts_stricter",
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
@@ -170,21 +169,7 @@ EOF
 
 da_scala_library(
     name = "test-utils",
-    srcs = glob(["src/test-utils/**/*.scala"]) +
-    #  we depend on sources to avoid pushing a canton artifact to maven
-    [
-        "//canton:community_base_proto_scala",
-    ],
-    override_scalacopts = [
-        copt
-        for copt in default_scalacopts + lf_scalacopts_stricter
-        if copt not in [
-            "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-        ]
-    ] + [
-        # ParticipantTransactionProto uses a deprecated message, silence the warning.
-        "-Wconf:cat=deprecation&src=com/digitalasset/canton/protocol/v30/ParticipantTransactionProto.scala:s",
-    ],
+    srcs = glob(["src/test-utils/**/*.scala"]),
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_apache_pekko_pekko_actor",
@@ -197,6 +182,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = lf_scalacopts_stricter,
     tags = [
         "cpu:4",
         "dev-canton-test",
@@ -204,6 +190,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_base",
         "//canton:community_ledger_ledger-common",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
