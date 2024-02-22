@@ -195,6 +195,10 @@ submitWithError opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) M
 submit : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m a
 submit opts cmds = fst <$> submitResultAndTree opts cmds
 
+{-# DEPRECATED submitWithOptions "Daml 2.9 compatibility helper, use 'submit' instead " #-}
+submitWithOptions : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m a
+submitWithOptions = submit
+
 -- | Equivalent to `submit` but returns the full transaction tree.
 submitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m TransactionTree
 submitTree opts cmds = snd <$> submitResultAndTree opts cmds
@@ -214,6 +218,10 @@ trySubmitTree opts cmds = fmap snd <$> trySubmitResultAndTree opts cmds
 -- It only succeeds if the submitting the transaction fails.
 submitMustFail : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
 submitMustFail opts cmds = void $ submitWithError opts cmds
+
+{-# DEPRECATED submitMustFailWithOptions "Daml 2.9 compatibility helper, use 'submitMustFail' instead " #-}
+submitMustFailWithOptions : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
+submitMustFailWithOptions = submitMustFail
 
 -- ##### Old compatibility conveniences #####
 
