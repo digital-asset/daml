@@ -16,7 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.language.implicitConversions
 
 class PackageInfoSpecV1 extends PackageInfoSpec(LanguageMajorVersion.V1)
-class PackageInfoSpecV2 extends PackageInfoSpec(LanguageMajorVersion.V2)
+//class PackageInfoSpecV2 extends PackageInfoSpec(LanguageMajorVersion.V2)
 
 class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

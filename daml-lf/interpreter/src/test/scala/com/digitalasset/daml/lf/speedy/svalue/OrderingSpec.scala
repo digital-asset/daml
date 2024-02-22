@@ -34,7 +34,7 @@ import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
 class OrderingSpecV1 extends OrderingSpec(LanguageMajorVersion.V1)
-class OrderingSpecV2 extends OrderingSpec(LanguageMajorVersion.V2)
+//class OrderingSpecV2 extends OrderingSpec(LanguageMajorVersion.V2)
 
 class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

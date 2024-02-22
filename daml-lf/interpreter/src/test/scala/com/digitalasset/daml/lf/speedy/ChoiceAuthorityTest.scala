@@ -20,7 +20,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
 
 class ChoiceAuthorityTestV1 extends ChoiceAuthorityTest(LanguageMajorVersion.V1)
-class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
+//class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
 
 class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

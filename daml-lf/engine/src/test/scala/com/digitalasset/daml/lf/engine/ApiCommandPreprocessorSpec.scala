@@ -22,7 +22,7 @@ import com.daml.lf.speedy.Compiler
 import scala.util.{Failure, Success, Try}
 
 class ApiCommandPreprocessorSpecV1 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V1)
-class ApiCommandPreprocessorSpecV2 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V2)
+//class ApiCommandPreprocessorSpecV2 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V2)
 
 class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

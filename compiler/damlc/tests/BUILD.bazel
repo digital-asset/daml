@@ -210,12 +210,12 @@ da_haskell_library(
 ]
 
 da_haskell_test(
-    name = "integration-v2dev-script2",
+    name = "integration-v1dev-script2",
     size = "large",
     srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
     args = [
         "--daml-lf-version",
-        "2.dev",  # script2 only supports 2.x
+        "1.dev",  # script2 only supports 2.x
         "--daml-script-v2",
         "true",
     ],
@@ -229,7 +229,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
         "@jq_dev_env//:jq",
         ghc_pkg,
     ],
@@ -351,7 +351,6 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script-1.15.dar",
-        "//daml-script/daml3:daml3-script-2.1.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -542,14 +541,6 @@ da_haskell_test(
     ],
 )
 
-daml_compile(
-    name = "old-proj-2.1",
-    srcs = [":daml/old-proj/Old.daml"],
-    project_name = "old-proj",
-    target = "2.1",
-    version = "0.0.1",
-)
-
 # Tests for data-dependencies
 [
     da_haskell_test(
@@ -562,15 +553,9 @@ daml_compile(
             "@damlc_legacy",
             "//compiler/damlc/tests:generate-simple-dalf",
             "//daml-script/daml:daml-script-1.dev.dar",
-            "//daml-script/daml3:daml3-script-2.dev.dar",
+            "//daml-script/daml3:daml3-script-1.dev.dar",
             # Feel free to update this to 0.13.55 once that is frozen.
             ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
-
-            # TODO(https://github.com/digital-asset/daml/issues/17366)
-            # During development of LF 2.x this is generated using the HEAD compiler.
-            # Once we release LF 2.1, we should replace this with a dar file
-            # produced by the compiler corresponding to that release.
-            ":old-proj-2.1.dar",
         ],
         hackage_deps = [
             "base",
@@ -605,14 +590,8 @@ daml_compile(
     for (suffix, extra_tags, test_args) in [
         # Test all LF versions on the main branch, after merging
         (
-            "all",
-            ["main-only"],
+            "lf1",
             [],
-        ),
-        # Don't test LF v2 when running the CI on a PR
-        (
-            "no-v2",
-            ["pr-only"],
             [
                 "-p",
                 # Test paths for these tests are of the form "foo.{lf-version}.bar"
@@ -1297,7 +1276,7 @@ daml_compile(
     name = "package-vetting-package-a",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
     project_name = "package-vetting-package-a",
-    target = "2.dev",
+    target = "1.dev",
     version = "1.0.0",
 )
 
@@ -1305,7 +1284,7 @@ daml_compile(
     name = "package-vetting-package-b",
     srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
     project_name = "package-vetting-package-b",
-    target = "2.dev",
+    target = "1.dev",
     version = "1.0.0",
 )
 
@@ -1313,10 +1292,10 @@ daml_compile(
     name = "try-submit-test",
     srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     project_name = "try-submit-test",
-    target = "2.dev",
+    target = "1.dev",
     visibility = ["//visibility:public"],
 )
 
@@ -1324,10 +1303,10 @@ daml_compile(
     name = "try-submit-concurrently-test",
     srcs = ["daml-test-files/Daml3ScriptTrySubmitConcurrently.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     project_name = "try-submit-concurrently-test",
-    target = "2.dev",
+    target = "1.dev",
     visibility = ["//visibility:public"],
 )
 
@@ -1335,8 +1314,8 @@ daml_compile(
     name = "query-test",
     srcs = ["daml-test-files/Query.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
-    target = "2.dev",
+    target = "1.dev",
     visibility = ["//visibility:public"],
 )

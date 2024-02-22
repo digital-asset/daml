@@ -17,7 +17,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 class MetaDataTestV1 extends MetaDataTest(LanguageMajorVersion.V1)
-class MetaDataTestV2 extends MetaDataTest(LanguageMajorVersion.V2)
+//class MetaDataTestV2 extends MetaDataTest(LanguageMajorVersion.V2)
 
 class MetaDataTest(majorVersion: LanguageMajorVersion)
     extends AnyWordSpec

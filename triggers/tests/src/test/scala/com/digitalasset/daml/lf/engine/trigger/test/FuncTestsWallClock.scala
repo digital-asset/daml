@@ -7,7 +7,7 @@ import com.daml.lf.language.LanguageMajorVersion
 import com.daml.platform.services.time.TimeProviderType
 
 class FuncTestsWallClockV1 extends FuncTestsWallClock(LanguageMajorVersion.V1)
-class FuncTestsWallClockV2 extends FuncTestsWallClock(LanguageMajorVersion.V2)
+//class FuncTestsWallClockV2 extends FuncTestsWallClock(LanguageMajorVersion.V2)
 
 class FuncTestsWallClock(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractFuncTests {

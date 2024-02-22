@@ -16,7 +16,6 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "LF_DEV_VERSIONS",
-    "LF_MAJOR_VERSIONS",
     "SUPPORTED_PROTO_STABLE_LF_VERSIONS",
     "mangle_for_damlc",
     "mangle_for_java",
@@ -27,6 +26,11 @@ load(
     "daml_compile_with_dalf",
 )
 load("@os_info//:os_info.bzl", "is_windows")
+
+LF_MAJOR_VERSIONS = [
+    "1",
+    "2",
+]
 
 # The LF protos are stored in two directories:
 #   - src/stable: Snapshot of the LF protos at the time of various releases.

@@ -23,7 +23,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
 
 class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
-class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
+//class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
 class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

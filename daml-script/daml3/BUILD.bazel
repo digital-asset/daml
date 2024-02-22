@@ -5,7 +5,7 @@
 # daml_compile instead of a genrule.
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF2_VERSIONS", "lf_version_default_or_latest")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest")
 
 [
     genrule(
@@ -43,14 +43,14 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for lf_version in COMPILER_LF2_VERSIONS
+    for lf_version in COMPILER_LF_VERSIONS
 ]
 
 # For convenience, we define daml3-script.dar which is always compiled to the
 # default stable version of LF2.
 copy_file(
     name = "daml3-script",
-    src = ":daml3-script-{}.dar".format(lf_version_default_or_latest("2")),
+    src = ":daml3-script-{}.dar".format(lf_version_default_or_latest("1")),
     out = "daml3-script.dar",
     allow_symlink = True,
     visibility = ["//visibility:public"],
@@ -60,7 +60,7 @@ filegroup(
     name = "daml3-script-dars",
     srcs = [
         "daml3-script-{}.dar".format(lf_version)
-        for lf_version in COMPILER_LF2_VERSIONS
+        for lf_version in COMPILER_LF_VERSIONS
     ],
     visibility = ["//visibility:public"],
 )
@@ -108,7 +108,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml3-script \
             --format=Json \
-            --target=2.dev \
+            --target=1.dev \
             $(location Daml/Script.daml)
     """,
     tools = [

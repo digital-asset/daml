@@ -21,7 +21,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 class ValueEnricherSpecV1 extends ValueEnricherSpec(LanguageMajorVersion.V1)
-class ValueEnricherSpecV2 extends ValueEnricherSpec(LanguageMajorVersion.V2)
+//class ValueEnricherSpecV2 extends ValueEnricherSpec(LanguageMajorVersion.V2)
 
 class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

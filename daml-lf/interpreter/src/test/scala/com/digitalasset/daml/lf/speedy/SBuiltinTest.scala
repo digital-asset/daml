@@ -32,7 +32,7 @@ import scala.util.{Failure, Try}
 import scala.Ordering.Implicits._
 
 class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
-class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
+//class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
 
 class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

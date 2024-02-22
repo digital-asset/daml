@@ -21,7 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 class TransactionVersionTestV1 extends TransactionVersionTest(V1)
-class TransactionVersionTestV2 extends TransactionVersionTest(V2)
+//class TransactionVersionTestV2 extends TransactionVersionTest(V2)
 
 class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

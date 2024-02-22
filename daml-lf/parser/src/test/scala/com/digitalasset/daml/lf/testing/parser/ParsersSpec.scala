@@ -18,7 +18,7 @@ import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
 class ParsersSpecV1 extends ParsersSpec(LanguageMajorVersion.V1)
-class ParsersSpecV2 extends ParsersSpec(LanguageMajorVersion.V2)
+//class ParsersSpecV2 extends ParsersSpec(LanguageMajorVersion.V2)
 
 class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

@@ -60,7 +60,7 @@ import scala.math.Ordered.orderingToOrdered
 import scala.util.Right
 
 class EngineTestV1 extends EngineTest(LanguageMajorVersion.V1)
-class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
+//class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
 
 @SuppressWarnings(
   Array(

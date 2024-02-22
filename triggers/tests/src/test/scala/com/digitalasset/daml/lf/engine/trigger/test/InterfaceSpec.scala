@@ -21,7 +21,7 @@ import com.daml.util.Ctx
 import scala.collection.concurrent.TrieMap
 
 class InterfaceSpecV1 extends InterfaceSpec(LanguageMajorVersion.V1)
-class InterfaceSpecV2 extends InterfaceSpec(LanguageMajorVersion.V2)
+//class InterfaceSpecV2 extends InterfaceSpec(LanguageMajorVersion.V2)
 
 class InterfaceSpec(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

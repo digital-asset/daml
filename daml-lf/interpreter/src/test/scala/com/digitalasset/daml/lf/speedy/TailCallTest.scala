@@ -14,7 +14,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
 class TailCallTestV1 extends TailCallTest(LanguageMajorVersion.V1)
-class TailCallTestV2 extends TailCallTest(LanguageMajorVersion.V2)
+//class TailCallTestV2 extends TailCallTest(LanguageMajorVersion.V2)
 
 // TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
 class TailCallTest(majorLanguageVersion: LanguageMajorVersion)

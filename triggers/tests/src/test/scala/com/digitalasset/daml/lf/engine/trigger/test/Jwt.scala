@@ -18,7 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class JwtV1 extends Jwt(LanguageMajorVersion.V1)
-class JwtV2 extends Jwt(LanguageMajorVersion.V2)
+//class JwtV2 extends Jwt(LanguageMajorVersion.V2)
 
 class Jwt(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

@@ -25,7 +25,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class LargeTransactionTestV1 extends LargeTransactionTest(LanguageMajorVersion.V1)
-class LargeTransactionTestV2 extends LargeTransactionTest(LanguageMajorVersion.V2)
+//class LargeTransactionTestV2 extends LargeTransactionTest(LanguageMajorVersion.V2)
 
 class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

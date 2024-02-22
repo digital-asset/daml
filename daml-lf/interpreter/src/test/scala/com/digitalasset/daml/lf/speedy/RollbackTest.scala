@@ -21,7 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 class RollbackTestV1 extends RollbackTest(LanguageMajorVersion.V1)
-class RollbackTestV2 extends RollbackTest(LanguageMajorVersion.V2)
+//class RollbackTestV2 extends RollbackTest(LanguageMajorVersion.V2)
 
 class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

@@ -64,7 +64,16 @@ import com.daml.scalautil.Statement.discard
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(val config: EngineConfig = Engine.StableConfig) {
+class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean = false) {
+
+  if (!allowLF2 && config.allowedLanguageVersions.max.major == LanguageMajorVersion.V2) {
+    val msg = "LF2 is not supported"
+    throw new RuntimeException(msg) with com.daml.lf.InternalError {
+      override val location: String = this.getClass.getName.toString
+      override val message: String = msg
+      override def cause: Option[Throwable] = None
+    }
+  }
 
   config.profileDir.foreach(Files.createDirectories(_))
 

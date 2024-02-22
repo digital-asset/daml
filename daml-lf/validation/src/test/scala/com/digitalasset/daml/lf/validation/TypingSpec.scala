@@ -20,7 +20,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class TypingSpecV1 extends TypingSpec(LanguageMajorVersion.V1)
-class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
+//class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
 
 class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

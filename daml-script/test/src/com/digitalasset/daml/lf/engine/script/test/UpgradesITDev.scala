@@ -20,13 +20,13 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   final override protected lazy val devMode = true
 
-  override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V2
+  override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V1
 
   lazy val testDarPath: Path = rlocation(
     Paths.get(s"daml-script/test/upgrades-test.dar")
   )
   lazy val testDar: CompiledDar =
-    CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
+    CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V1))
 
   override protected lazy val darFiles = List(
     rlocation(Paths.get(s"daml-script/test/upgrades-my-templates-v1.dar")),

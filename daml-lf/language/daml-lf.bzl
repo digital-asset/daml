@@ -60,7 +60,6 @@ def version_in(
 # The lastest stable version for each major LF version.
 lf_version_latest = {
     "1": "1.15",
-    "2": "2.1",
 }
 
 # The following dictionary aliases LF versions to keywords:
@@ -108,7 +107,6 @@ lf_docs_version = lf_version_configuration.get("preview", lf_version_configurati
 # All LF dev versions
 LF_DEV_VERSIONS = [
     "1.dev",
-    "2.dev",
 ]
 
 # All LF versions
@@ -119,29 +117,20 @@ LF_VERSIONS = ([
     "1.13",
     "1.14",
     "1.15",
-    "2.1",
-] if is_intel else ["1.14", "1.15", "2.1"]) + LF_DEV_VERSIONS
+] if is_intel else ["1.14", "1.15"]) + LF_DEV_VERSIONS
 
 def lf_version_is_dev(versionStr):
     return versionStr in LF_DEV_VERSIONS
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
-# TODO(#17366): add 2.1 once it is released
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["1.14", "1.15"]
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
-COMPILER_LF_VERSIONS = ["1.14", "1.15", "2.1"] + LF_DEV_VERSIONS
-
-# The subset of COMPILER_LF_VERSIONS with major version 2.
-COMPILER_LF2_VERSIONS = [
-    v
-    for v in COMPILER_LF_VERSIONS
-    if version_in(v, v2_minor_version_range = ("0", "dev"))
-]
+COMPILER_LF_VERSIONS = ["1.14", "1.15"] + LF_DEV_VERSIONS
 
 # All LF major versions
-LF_MAJOR_VERSIONS = depset([_major_str(v) for v in LF_VERSIONS]).to_list()
+LF_MAJOR_VERSIONS = ["1"]
 
 # The major version of the default LF version
 LF_DEFAULT_MAJOR_VERSION = _major_str(lf_version_configuration.get("default"))

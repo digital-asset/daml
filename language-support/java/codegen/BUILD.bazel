@@ -433,7 +433,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/bench/**/FromJsonBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        ":test-model-2.dev",
+        ":test-model-1.dev",
         "//canton:bindings-java",
     ],
 )
@@ -443,7 +443,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/bench/**/ToJsonBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        ":test-model-2.dev",
+        ":test-model-1.dev",
         "//canton:bindings-java",
     ],
 )

@@ -51,40 +51,6 @@ versions = {
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev.scala",
         ],
     },
-    "2.1": {
-        "srcs": glob([
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_1/**/*",
-        ]),
-        "entrypoints": [
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_1.scala",
-        ],
-    },
-    "2.dev": {
-        "srcs": glob([
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_1/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_dev/**/*",
-        ]),
-        "entrypoints": [
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_1.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v2_dev.scala",
-        ],
-    },
 }
 
 [

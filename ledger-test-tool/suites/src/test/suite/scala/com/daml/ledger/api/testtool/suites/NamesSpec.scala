@@ -10,8 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class NamesSpec_V1Dev
     extends NamesSpec(v1_dev.default(timeoutScaleFactor = 1) ++ v1_dev.optional(tlsConfig = None))
-class NamesSpec_V2Dev
-    extends NamesSpec(v2_dev.default(timeoutScaleFactor = 1) ++ v2_dev.optional(tlsConfig = None))
+//class NamesSpec_V2Dev
+//    extends NamesSpec(v2_dev.default(timeoutScaleFactor = 1) ++ v2_dev.optional(tlsConfig = None))
 
 class NamesSpec(val allTestSuites: Vector[LedgerTestSuite])
     extends AnyWordSpec

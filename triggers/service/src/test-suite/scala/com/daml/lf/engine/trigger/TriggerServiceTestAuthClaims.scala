@@ -6,7 +6,7 @@ package com.daml.lf.engine.trigger
 import com.daml.lf.language.LanguageMajorVersion
 
 class TriggerServiceTestAuthClaimsV1 extends TriggerServiceTestAuthClaims(LanguageMajorVersion.V1)
-class TriggerServiceTestAuthClaimsV2 extends TriggerServiceTestAuthClaims(LanguageMajorVersion.V2)
+//class TriggerServiceTestAuthClaimsV2 extends TriggerServiceTestAuthClaims(LanguageMajorVersion.V2)
 
 class TriggerServiceTestAuthClaims(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractTriggerServiceTestInMem
