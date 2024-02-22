@@ -225,6 +225,21 @@ abstract class NumericModule {
   def assertFromString(s: String): Numeric =
     assertRight(fromString(s))
 
+  /** Given a string representation of a decimal and a scale s returns the corresponding `Numeric s`.
+    * If the input does not match (where i = 38-s)
+    *   `-?([1-9]\d{1,i}|0).([1-9]{s})`
+    * or if the result of the conversion cannot be mapped into a numeric without loss of precision
+    * returns an error message instead.
+    */
+  def fromString(s: Scale, str: String): Either[String, Numeric] = for {
+    n <- fromString(str)
+    _ <- Either.cond(n.scale() == s, (), s"""Could not read Numeric $s string "$str"""")
+  } yield n
+
+  @throws[IllegalArgumentException]
+  def assertFromString(scale: Scale, s: String) =
+    assertRight(fromString(scale, s))
+
   /** Convert a BigDecimal to the Numeric with the smallest possible scale able to represent the
     * former without loss of precision. Returns an error if such Numeric does not exists.
     *
