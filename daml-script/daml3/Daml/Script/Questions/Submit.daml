@@ -41,7 +41,7 @@ data ErrorBehaviour = MustSucceed | MustFail | Try
 -- All submissions must specify at least one `actAs` party, else a runtime error will be thrown.
 -- A minimum submission may look like
 -- ```
--- submit (actAs alice) $ createCmd MyContract with party = alice
+-- submitWithOptions (actAs alice) $ createCmd MyContract with party = alice
 -- ```
 data SubmitOptions = SubmitOptions with
   soActAs : [Party]
@@ -130,7 +130,7 @@ actAsNonEmpty ps = case ps of
   p :: ps -> NonEmpty p ps
 
 -- | Allows for concurrent submission of transactions, using an applicative, similar to Commands.
--- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions
+-- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submitWithOptions` functions
 -- that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
 concurrently : HasCallStack => ConcurrentSubmits a -> Script a
 concurrently submissions = fmap submissions.continue $ lift $ Submit with
@@ -176,7 +176,7 @@ mustFail = \case
   Right _ -> error "MustFail Succeeded"
 
 -- ##### Main API #####
--- | Equivalent to `submit` but returns the result and the full transaction tree.
+-- | Equivalent to `submitWithOptions` but returns the result and the full transaction tree.
 submitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (a, TransactionTree)
 submitResultAndTree opts cmds = mustSucceed <$> submitInternal (toSubmitOptions opts) MustSucceed cmds
 
@@ -184,18 +184,19 @@ submitResultAndTree opts cmds = mustSucceed <$> submitInternal (toSubmitOptions 
 trySubmitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError (a, TransactionTree))
 trySubmitResultAndTree opts cmds = submitInternal (toSubmitOptions opts) Try cmds
 
--- | Equivalent to `submitMustFail` but returns the error thrown.
+-- | Equivalent to `submitMustFailWithOptions` but returns the error thrown.
 submitWithError : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m SubmitError
 submitWithError opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) MustFail cmds
 
--- | `submit p cmds` submits the commands `cmds` as a single transaction
+-- | `submitWithOptions p cmds` submits the commands `cmds` as a single transaction
 -- from party `p` and returns the value returned by `cmds`.
 --
--- If the transaction fails, `submit` also fails.
-submit : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m a
-submit opts cmds = fst <$> submitResultAndTree opts cmds
+-- If the transaction fails, `submitWithOptions` also fails.
+-- Will be renammed to `submit` in Daml 3
+submitWithOptions : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m a
+submitWithOptions opts cmds = fst <$> submitResultAndTree opts cmds
 
--- | Equivalent to `submit` but returns the full transaction tree.
+-- | Equivalent to `submitWithOptions` but returns the full transaction tree.
 submitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m TransactionTree
 submitTree opts cmds = snd <$> submitResultAndTree opts cmds
 
@@ -208,12 +209,13 @@ trySubmit opts cmds = fmap fst <$> trySubmitResultAndTree opts cmds
 trySubmitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError TransactionTree)
 trySubmitTree opts cmds = fmap snd <$> trySubmitResultAndTree opts cmds
 
--- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
+-- | `submitMustFailWithOptions p cmds` submits the commands `cmds` as a single transaction
 -- from party `p`.
 --
 -- It only succeeds if the submitting the transaction fails.
-submitMustFail : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
-submitMustFail opts cmds = void $ submitWithError opts cmds
+-- Will be renamed to `submitMustFail` in Daml 3
+submitMustFailWithOptions : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
+submitMustFailWithOptions opts cmds = void $ submitWithError opts cmds
 
 -- ##### Old compatibility conveniences #####
 
@@ -221,18 +223,18 @@ submitMustFail opts cmds = void $ submitWithError opts cmds
 -- authorized by `actAs`. Fetched contracts must be visible to at least
 -- one party in the union of actAs and readAs.
 -- 
--- Note: This behaviour can be achieved using `submit (actAs actors <> readAs readers) cmds`
+-- Note: This behaviour can be achieved using `submitWithOptions (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
 submitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m a
-submitMulti actors readers cmds = submit (actAs actors <> readAs readers) cmds
+submitMulti actors readers cmds = submitWithOptions (actAs actors <> readAs readers) cmds
 
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
 -- but fails when `submitMulti` succeeds and the other way around.
 --
--- Note: This behaviour can be achieved using `submitMustFail (actAs actors <> readAs readers) cmds`
+-- Note: This behaviour can be achieved using `submitMustFailWithOptions (actAs actors <> readAs readers) cmds`
 -- and is only provided for backwards compatibility.
 submitMultiMustFail : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m ()
-submitMultiMustFail actors readers cmds = submitMustFail (actAs actors <> readAs readers) cmds
+submitMultiMustFail actors readers cmds = submitMustFailWithOptions (actAs actors <> readAs readers) cmds
 
 -- | Equivalent to `submitMulti` but returns the full transaction tree.
 -- 
@@ -254,7 +256,7 @@ trySubmitConcurrently : HasCallStack => Party -> [Commands a] -> Script [Either 
 trySubmitConcurrently p cmdss = concurrently $ forA cmdss $ trySubmit p
 
 submitWithDisclosures : HasCallStack => Party -> [Disclosure] -> Commands a -> Script a
-submitWithDisclosures p disclosures cmds = submit (actAs p <> discloseMany disclosures) cmds
+submitWithDisclosures p disclosures cmds = submitWithOptions (actAs p <> discloseMany disclosures) cmds
 
 submitWithDisclosuresMustFail : HasCallStack => Party -> [Disclosure] -> Commands a -> Script ()
-submitWithDisclosuresMustFail p disclosures cmds = submitMustFail (actAs p <> discloseMany disclosures) cmds
+submitWithDisclosuresMustFail p disclosures cmds = submitMustFailWithOptions (actAs p <> discloseMany disclosures) cmds

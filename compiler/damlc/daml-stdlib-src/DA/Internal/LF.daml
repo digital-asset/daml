@@ -29,11 +29,11 @@ module DA.Internal.LF
 
   , Update
 
+  , HasSubmit(..)
+  
   #ifdef DAML_SCENARIOS
   , Scenario
   , scenario
-
-  , HasSubmit(..)
   #endif
 
   , HasTime
@@ -213,6 +213,19 @@ instance CanAbort Scenario where
 instance CanAbort (Either Text) where
     abort = fail
 
+class HasSubmit m cmds | m -> cmds, cmds -> m where
+  -- | `submit p cmds` submits the commands `cmds` as a single transaction
+  -- from party `p` and returns the value returned by `cmds`.
+  --
+  -- If the transaction fails, `submit` also fails.
+  submit : HasCallStack => Party -> cmds a -> m a
+
+  -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
+  -- from party `p`.
+  --
+  -- It only succeeds if the submitting the transaction fails.
+  submitMustFail : HasCallStack => Party -> cmds a -> m ()
+
 #ifdef DAML_SCENARIOS
 
 -- | The `Scenario` type is for simulating ledger interactions.
@@ -234,19 +247,6 @@ instance Action Scenario where
 
 instance ActionFail Scenario where
     fail = primitive @"SAbort"
-
-class HasSubmit m cmds | m -> cmds, cmds -> m where
-  -- | `submit p cmds` submits the commands `cmds` as a single transaction
-  -- from party `p` and returns the value returned by `cmds`.
-  --
-  -- If the transaction fails, `submit` also fails.
-  submit : HasCallStack => Party -> cmds a -> m a
-
-  -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
-  -- from party `p`.
-  --
-  -- It only succeeds if the submitting the transaction fails.
-  submitMustFail : HasCallStack => Party -> cmds a -> m ()
 
 instance HasSubmit Scenario Update where
   submit = primitive @"SCommit"
