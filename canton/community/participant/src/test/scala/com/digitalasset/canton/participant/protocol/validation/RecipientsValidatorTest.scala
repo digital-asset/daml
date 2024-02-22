@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{Member, ParticipantId, TestingTopology}
+import com.digitalasset.canton.topology.{Member, ParticipantId, TestingTopologyX}
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext, LfPartyId}
 
 import scala.annotation.tailrec
@@ -41,7 +41,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
   lazy val participant2: ParticipantId = ParticipantId("participant2")
 
   lazy val snapshot: TopologySnapshot =
-    TestingTopology(topology =
+    TestingTopologyX(topology =
       Map(
         inactive -> Map.empty,
         party1 -> Map(participant1 -> ParticipantPermission.Submission),
@@ -65,12 +65,12 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
       acc: Seq[RecipientsTree] = Seq.empty,
   ): Recipients = (groupsViewToRoot: @unchecked) match {
     case Seq() => Recipients(NonEmpty.from(acc).value)
-    case Seq(head, tail @ _*) =>
+    case Seq(head, tail*) =>
       mkRecipients(tail, Seq(RecipientsTree(head.map(MemberRecipient), acc)))
   }
 
   def mkGroup(member: Member, members: Member*): NonEmpty[Set[Recipient]] =
-    NonEmpty(Set, member, members *).map(MemberRecipient)
+    NonEmpty(Set, member, members*).map(MemberRecipient)
 
   def mkInput1(
       informees: Seq[LfPartyId],
@@ -81,10 +81,10 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
     val viewTree = TestViewTree(
       viewHash(1),
       mkRootHash(rootHash),
-      informeeOf(informees: _*),
+      informeeOf(informees*),
       viewPosition = mkViewPosition(viewDepth),
     )
-    val recipients = Recipients.cc(members.head1, members.tail1: _*)
+    val recipients = Recipients.cc(members.head1, members.tail1*)
     TestInput(viewTree, recipients)
   }
 
@@ -97,7 +97,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
     val viewTree = TestViewTree(
       viewHash(1),
       mkRootHash(rootHash),
-      informeeOf(informees: _*),
+      informeeOf(informees*),
       viewPosition = mkViewPosition(viewDepth),
     )
     TestInput(viewTree, recipients)

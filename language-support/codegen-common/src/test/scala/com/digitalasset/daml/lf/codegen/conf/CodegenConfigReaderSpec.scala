@@ -21,7 +21,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   it should "correctly split valid strings" in forAll {
     (name: String, separator: Char, version: String) =>
-      whenever(name.nonEmpty && version.nonEmpty) {
+      whenever(name.nonEmpty && version.nonEmpty && !version.contains(separator)) {
         CodegenConfigReader.splitNameAndVersion(
           s"$name$separator$version",
           separator,

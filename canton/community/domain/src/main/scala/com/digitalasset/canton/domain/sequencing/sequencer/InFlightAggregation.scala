@@ -23,7 +23,7 @@ import scala.collection.immutable.SortedMap
   *
   * Since the [[com.digitalasset.canton.sequencing.protocol.AggregationId]] computationally
   * identifies the envelope contents, their recipients, and the
-  * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.timestampOfSigningKey]],
+  * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.topologyTimestamp]],
   * we do not need to maintain these data as part of the in-flight tracking.
   * Instead, we can derive them from the submission request that makes the aggregation reach its threshold.
   *
@@ -89,7 +89,7 @@ final case class InFlightAggregation private (
         .map { case (sender, aggregationBySender) =>
           AggregatedSender(sender, aggregationBySender)
         }
-        .to(Seq): _*
+        .to(Seq)*
     ),
   )
 

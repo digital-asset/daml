@@ -9,8 +9,8 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.domain.admin.v0
-import com.digitalasset.canton.domain.admin.v0.SequencerConnectionServiceGrpc.SequencerConnectionService
+import com.digitalasset.canton.domain.admin.v30
+import com.digitalasset.canton.domain.admin.v30.SequencerConnectionServiceGrpc.SequencerConnectionService
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
@@ -30,11 +30,11 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnection,
   SequencerConnections,
 }
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import com.digitalasset.canton.util.{EitherTUtil, retry}
-import com.google.protobuf.empty.Empty
 import io.grpc.{Status, StatusException}
 import monocle.Lens
 import org.apache.pekko.stream.Materializer
@@ -52,27 +52,27 @@ class GrpcSequencerConnectionService(
       Unit,
     ],
 )(implicit ec: ExecutionContext)
-    extends v0.SequencerConnectionServiceGrpc.SequencerConnectionService {
-  override def getConnection(request: v0.GetConnectionRequest): Future[v0.GetConnectionResponse] =
+    extends v30.SequencerConnectionServiceGrpc.SequencerConnectionService {
+  override def getConnection(request: v30.GetConnectionRequest): Future[v30.GetConnectionResponse] =
     EitherTUtil.toFuture(
       fetchConnection()
         .leftMap(error => Status.FAILED_PRECONDITION.withDescription(error).asException())
-        .map { optSequencerConnections =>
-          v0.GetConnectionResponse(
-            optSequencerConnections.toList.flatMap(_.toProtoV0),
-            optSequencerConnections.map(_.sequencerTrustThreshold.unwrap).getOrElse(0),
-          )
+        .map {
+          case Some(sequencerConnections) =>
+            v30.GetConnectionResponse(Some(sequencerConnections.toProtoV30))
+
+          case None => v30.GetConnectionResponse(None)
         }
     )
 
-  override def setConnection(request: v0.SetConnectionRequest): Future[Empty] =
+  override def setConnection(request: v30.SetConnectionRequest): Future[v30.SetConnectionResponse] =
     EitherTUtil.toFuture(for {
       existing <- getConnection
       requestedReplacement <- parseConnection(request)
       _ <- validateReplacement(existing, requestedReplacement)
       _ <- setConnection(requestedReplacement)
         .leftMap(error => Status.FAILED_PRECONDITION.withDescription(error).asException())
-    } yield Empty())
+    } yield v30.SetConnectionResponse())
 
   private def getConnection: EitherT[Future, StatusException, SequencerConnections] =
     fetchConnection()
@@ -91,15 +91,16 @@ class GrpcSequencerConnectionService(
       }
 
   private def parseConnection(
-      request: v0.SetConnectionRequest
-  ): EitherT[Future, StatusException, SequencerConnections] =
-    SequencerConnections
-      .fromProtoV0(
-        request.sequencerConnections,
-        request.sequencerTrustThreshold,
-      )
+      request: v30.SetConnectionRequest
+  ): EitherT[Future, StatusException, SequencerConnections] = {
+    val v30.SetConnectionRequest(sequencerConnectionsPO) = request
+
+    ProtoConverter
+      .required("sequencerConnections", sequencerConnectionsPO)
+      .flatMap(SequencerConnections.fromProtoV30)
       .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.message).asException())
       .toEitherT[Future]
+  }
 
   private def validateReplacement(
       existing: SequencerConnections,
@@ -183,6 +184,7 @@ object GrpcSequencerConnectionService {
                   sequencerTransportsMap,
                   newEndpointsInfo.expectedSequencers,
                   newEndpointsInfo.sequencerConnections.sequencerTrustThreshold,
+                  newEndpointsInfo.sequencerConnections.submissionRequestAmplification,
                 )
               )
 

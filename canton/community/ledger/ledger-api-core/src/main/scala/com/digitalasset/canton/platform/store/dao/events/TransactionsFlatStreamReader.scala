@@ -34,7 +34,6 @@ import com.digitalasset.canton.platform.store.utils.{
   Telemetry,
 }
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
@@ -49,7 +48,7 @@ class TransactionsFlatStreamReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dbDispatcher: DbDispatcher,
-    queryNonPruned: QueryNonPruned,
+    queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     metrics: Metrics,
@@ -61,7 +60,7 @@ class TransactionsFlatStreamReader(
   import TransactionsReader.*
   import config.*
 
-  private val dbMetrics = metrics.daml.index.db
+  private val dbMetrics = metrics.index.db
 
   private val orderBySequentialEventId =
     Ordering.by[EventStorageBackend.Entry[Raw.FlatEvent], Long](_.eventSequentialId)
@@ -72,7 +71,6 @@ class TransactionsFlatStreamReader(
       queryRange: EventsRange,
       filteringConstraints: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
@@ -91,7 +89,6 @@ class TransactionsFlatStreamReader(
       queryRange,
       filteringConstraints,
       eventProjectionProperties,
-      multiDomainEnabled,
     )
       .wireTap(_ match {
         case (_, getTransactionsResponse) =>
@@ -114,7 +111,6 @@ class TransactionsFlatStreamReader(
       queryRange: EventsRange,
       filteringConstraints: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
@@ -129,11 +125,9 @@ class TransactionsFlatStreamReader(
     val decomposedFilters = FilterUtils.decomposeFilters(filteringConstraints).toVector
     val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
-      // The ids for flat transactions are retrieved from two separate id tables.
-      // To account for that we assign a half of the working memory to each table.
-      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / (
-        if (multiDomainEnabled) 4 else 2
-      ),
+      // The ids for flat transactions are retrieved from 4 separate id tables: (create, archive, assign, unassign)
+      // To account for that we assign a quarter of the working memory to each table.
+      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / 4,
       numOfDecomposedFilters = decomposedFilters.size,
       numOfPagesInIdPageBuffer = maxPagesPerIdPagesBuffer,
       loggerFactory = loggerFactory,
@@ -192,17 +186,21 @@ class TransactionsFlatStreamReader(
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(dbMetric) { implicit connection =>
-                queryNonPruned.executeSql(
-                  query = eventStorageBackend.transactionStreamingQueries
+                queryValidRange.withRangeNotPruned(
+                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  maxOffsetInclusive = queryRange.endInclusiveOffset,
+                  errorPruning = (prunedOffset: Offset) =>
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+                ) {
+                  eventStorageBackend.transactionStreamingQueries
                     .fetchEventPayloadsFlat(target = target)(
                       eventSequentialIds = ids,
                       allFilterParties = filteringConstraints.allFilterParties,
-                    )(connection),
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
-                  error = (prunedOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
-                )
-              }(LoggingContextWithTrace(TraceContext.empty))
+                    )(connection)
+                }
+              }
             }
           }
         )
@@ -250,37 +248,33 @@ class TransactionsFlatStreamReader(
         responses.map { case (offset, response) => ApiOffset.assertFromString(offset) -> response }
       }
 
-    if (multiDomainEnabled) {
-      reassignmentStreamReader
-        .streamReassignments(
-          ReassignmentStreamQueryParams(
-            queryRange = queryRange,
-            filteringConstraints = filteringConstraints,
-            eventProjectionProperties = eventProjectionProperties,
-            payloadQueriesLimiter = payloadQueriesLimiter,
-            deserializationQueriesLimiter = deserializationQueriesLimiter,
-            idPageSizing = idPageSizing,
-            decomposedFilters = decomposedFilters,
-            maxParallelIdAssignQueries = maxParallelIdAssignQueries,
-            maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
-            maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
-            maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
-            maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
-            maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
-            deserializationProcessingParallelism = transactionsProcessingParallelism,
-          )
+    reassignmentStreamReader
+      .streamReassignments(
+        ReassignmentStreamQueryParams(
+          queryRange = queryRange,
+          filteringConstraints = filteringConstraints,
+          eventProjectionProperties = eventProjectionProperties,
+          payloadQueriesLimiter = payloadQueriesLimiter,
+          deserializationQueriesLimiter = deserializationQueriesLimiter,
+          idPageSizing = idPageSizing,
+          decomposedFilters = decomposedFilters,
+          maxParallelIdAssignQueries = maxParallelIdAssignQueries,
+          maxParallelIdUnassignQueries = maxParallelIdUnassignQueries,
+          maxPagesPerIdPagesBuffer = maxPagesPerIdPagesBuffer,
+          maxPayloadsPerPayloadsPage = maxPayloadsPerPayloadsPage,
+          maxParallelPayloadAssignQueries = maxParallelPayloadAssignQueries,
+          maxParallelPayloadUnassignQueries = maxParallelPayloadUnassignQueries,
+          deserializationProcessingParallelism = transactionsProcessingParallelism,
         )
-        .map { case (offset, reassignment) =>
-          offset -> GetUpdatesResponse(
-            GetUpdatesResponse.Update.Reassignment(reassignment)
-          )
-        }
-        .mergeSorted(sourceOfTransactions)(
-          Ordering.by(_._1)
+      )
+      .map { case (offset, reassignment) =>
+        offset -> GetUpdatesResponse(
+          GetUpdatesResponse.Update.Reassignment(reassignment)
         )
-    } else {
-      sourceOfTransactions
-    }
+      }
+      .mergeSorted(sourceOfTransactions)(
+        Ordering.by(_._1)
+      )
   }
 
   private def deserializeLfValues(

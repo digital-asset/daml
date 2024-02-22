@@ -18,21 +18,19 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
   val lfAbs: LfContractId = suffixedId(0, 0)
 
   val contractInst = contractInstance()
-  val serContractInst = asSerializableRaw(contractInst, "")
+  val serContractInst = asSerializableRaw(contractInst)
 
   def createNode(
       cid: LfContractId,
       contractInstance: LfContractInst = ExampleTransactionFactory.contractInstance(),
       signatories: Set[LfPartyId] = Set(signatory),
       key: Option[LfGlobalKeyWithMaintainers] = None,
-      agreementText: String = "",
   ): LfNodeCreate =
     ExampleTransactionFactory.createNode(
       cid,
       signatories = signatories,
       contractInstance = contractInstance,
       key = key,
-      agreementText = agreementText,
     )
 
   def fetchNode(cid: LfContractId): LfNodeFetch =
@@ -229,6 +227,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           createNode(unsuffixedId(0), contractInstance = veryDeepContractInstance),
           LfNodeExercises(
             targetCoid = suffixedId(2, -1),
+            packageName = packageName,
             templateId = templateId,
             interfaceId = None,
             choiceId = LfChoiceName.assertFromString("choice"),
@@ -272,7 +271,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
             signatories = Set(signatory),
             key = Some(
               LfGlobalKeyWithMaintainers
-                .assertBuild(templateId, contractInst.unversioned.arg, Set.empty, shared = true)
+                .assertBuild(templateId, contractInst.unversioned.arg, Set.empty)
             ),
           ),
           ExampleTransactionFactory.exerciseNode(
@@ -284,7 +283,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
                 templateId,
                 contractInst.unversioned.arg,
                 Set.empty,
-                shared = true,
               )
             ),
           ),

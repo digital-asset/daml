@@ -3,11 +3,9 @@
 
 -- @ SCRIPT-V2
 
--- @ WARN range=12:1-12:31; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
--- @ WARN range=13:1-13:49; Import of internal module Daml.Script.Questions.Testing.Internal of package daml3-script is discouraged, as this module will change without warning.
+-- @ WARN range=11:1-11:31; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
 
 module DamlScriptInternalWarning where
 
 import Daml.Script ()
 import Daml.Script.Internal ()
-import Daml.Script.Questions.Testing.Internal ()

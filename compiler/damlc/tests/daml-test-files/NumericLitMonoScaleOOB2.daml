@@ -5,7 +5,7 @@
 -- condition on `NumericScale 38`. That is, we still get a
 -- conversion error even if we try to be clever.
 --
--- @SINCE-LF 1.7 2.0
+-- @SINCE-LF 2.1
 -- @ERROR range=17:1-17:9; type-level natural outside of supported range [0, 37]
 
 

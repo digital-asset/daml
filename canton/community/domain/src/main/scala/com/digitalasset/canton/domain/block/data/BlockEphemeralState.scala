@@ -11,14 +11,13 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
   SequencerSnapshot,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
-
-import scala.concurrent.Future
 
 /** Persisted information about a block as a whole once it has been fully processed.
   *
@@ -148,6 +147,6 @@ object BlockEphemeralState {
   */
 final case class BlockUpdateClosureWithHeight(
     height: Long,
-    updateGenerator: BlockEphemeralState => Future[BlockUpdates],
+    updateGenerator: BlockEphemeralState => FutureUnlessShutdown[BlockUpdates],
     blockTraceContext: TraceContext,
 )

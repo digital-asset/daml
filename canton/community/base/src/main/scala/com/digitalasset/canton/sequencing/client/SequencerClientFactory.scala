@@ -127,6 +127,7 @@ object SequencerClientFactory {
               sequencerTransportsMap,
               expectedSequencers,
               sequencerConnections.sequencerTrustThreshold,
+              sequencerConnections.submissionRequestAmplification,
             )
           )
 
@@ -150,7 +151,6 @@ object SequencerClientFactory {
               } else {
                 new SequencedEventValidatorImpl(
                   unauthenticated,
-                  config.optimisticSequencedEventValidation,
                   domainId,
                   domainParameters.protocolVersion,
                   syncCryptoApi,

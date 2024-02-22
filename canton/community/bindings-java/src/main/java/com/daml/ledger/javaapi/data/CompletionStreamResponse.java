@@ -3,52 +3,55 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.CommandCompletionServiceOuterClass;
-import com.daml.ledger.api.v1.CompletionOuterClass;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import com.daml.ledger.api.v2.CommandCompletionServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
+
+import java.util.Objects;
 
 public final class CompletionStreamResponse {
 
-  private final Optional<Checkpoint> checkpoint;
+  @NonNull private final Checkpoint checkpoint;
 
-  private final List<CompletionOuterClass.Completion> completions;
+  @NonNull private final Completion completion;
+
+  @NonNull private final String domainId;
 
   public CompletionStreamResponse(
-      @NonNull Optional<Checkpoint> checkpoint,
-      @NonNull List<CompletionOuterClass.@NonNull Completion> completions) {
+      @NonNull Checkpoint checkpoint, @NonNull Completion completion, @NonNull String domainId) {
     this.checkpoint = checkpoint;
-    this.completions = completions;
-  }
-
-  public static CompletionStreamResponse fromProto(
-      CommandCompletionServiceOuterClass.CompletionStreamResponse response) {
-    if (response.hasCheckpoint()) {
-      Checkpoint checkpoint = Checkpoint.fromProto(response.getCheckpoint());
-      return new CompletionStreamResponse(Optional.of(checkpoint), response.getCompletionsList());
-    } else {
-      return new CompletionStreamResponse(Optional.empty(), response.getCompletionsList());
-    }
-  }
-
-  public CommandCompletionServiceOuterClass.CompletionStreamResponse toProto() {
-    CommandCompletionServiceOuterClass.CompletionStreamResponse.Builder builder =
-        CommandCompletionServiceOuterClass.CompletionStreamResponse.newBuilder();
-    this.checkpoint.ifPresent(c -> builder.setCheckpoint(c.toProto()));
-    builder.addAllCompletions(this.completions);
-    return builder.build();
+    this.completion = completion;
+    this.domainId = domainId;
   }
 
   @NonNull
-  public Optional<Checkpoint> getCheckpoint() {
+  public Checkpoint getCheckpoint() {
     return checkpoint;
   }
 
   @NonNull
-  public List<CompletionOuterClass.@NonNull Completion> getCompletions() {
-    return completions;
+  public Completion getCompletion() {
+    return completion;
+  }
+
+  @NonNull
+  public String getDomainId() {
+    return domainId;
+  }
+
+  public static CompletionStreamResponse fromProto(
+      CommandCompletionServiceOuterClass.CompletionStreamResponse response) {
+    return new CompletionStreamResponse(
+        Checkpoint.fromProto(response.getCheckpoint()),
+        Completion.fromProto(response.getCompletion()),
+        response.getDomainId());
+  }
+
+  public CommandCompletionServiceOuterClass.CompletionStreamResponse toProto() {
+    return CommandCompletionServiceOuterClass.CompletionStreamResponse.newBuilder()
+        .setCheckpoint(checkpoint.toProto())
+        .setCompletion(completion.toProto())
+        .setDomainId(domainId)
+        .build();
   }
 
   @Override
@@ -56,8 +59,11 @@ public final class CompletionStreamResponse {
     return "CompletionStreamResponse{"
         + "checkpoint="
         + checkpoint
-        + ", completions="
-        + completions
+        + ", completion="
+        + completion
+        + ", domainId='"
+        + domainId
+        + '\''
         + '}';
   }
 
@@ -67,12 +73,13 @@ public final class CompletionStreamResponse {
     if (o == null || getClass() != o.getClass()) return false;
     CompletionStreamResponse that = (CompletionStreamResponse) o;
     return Objects.equals(checkpoint, that.checkpoint)
-        && Objects.equals(completions, that.completions);
+        && Objects.equals(completion, that.completion)
+        && Objects.equals(domainId, that.domainId);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(checkpoint, completions);
+    return Objects.hash(checkpoint, completion, domainId);
   }
 }

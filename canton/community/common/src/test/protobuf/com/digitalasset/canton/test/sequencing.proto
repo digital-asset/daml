@@ -5,12 +5,12 @@ syntax = "proto3";
 
 package com.digitalasset.canton.protobuf;
 
-import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
 message OldSignedContent {
   google.protobuf.BytesValue content = 1;
-  com.digitalasset.canton.crypto.v0.Signature signature = 2;
+  com.digitalasset.canton.crypto.v30.Signature signature = 2;
   google.protobuf.Timestamp timestamp_of_signing_key = 3;
 }

@@ -43,11 +43,12 @@ trait SequencerClientSend {
   def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
       sendType: SendType = SendType.Other,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
       maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
       messageId: MessageId = generateMessageId,
       aggregationRule: Option[AggregationRule] = None,
       callback: SendCallback = SendCallback.empty,
+      amplify: Boolean = false,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit]
 
   /** Provides a value for max-sequencing-time to use for `sendAsync` if no better application provided timeout is available.

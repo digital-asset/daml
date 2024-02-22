@@ -508,12 +508,7 @@ prettyScenarioErrorError lvl (Just err) =  do
               "Failed to find " <> scenarioError_LookupError_NotFoundNotFound <>
                 if scenarioError_LookupError_NotFoundNotFound == scenarioError_LookupError_NotFoundContext
                   then ""
-                  else " when looking for " <> scenarioError_LookupError_NotFoundContext
-            Just (ScenarioError_LookupErrorErrorAmbiguousInterfaceInstance ScenarioError_LookupError_AmbiguousInterfaceInstance {..}) ->
-              "Multiple possible instances of " <> scenarioError_LookupError_AmbiguousInterfaceInstanceInstance <>
-                if scenarioError_LookupError_AmbiguousInterfaceInstanceInstance == scenarioError_LookupError_AmbiguousInterfaceInstanceContext
-                  then ""
-                  else " in the context of " <> scenarioError_LookupError_AmbiguousInterfaceInstanceContext
+                  else " when looking for " <> scenarioError_LookupError_NotFoundContext     
             Nothing -> "Unknown Lookup error"
       pure $ vcat
         [ text $ TL.toStrict errMsg
@@ -960,7 +955,7 @@ prettyValue' lvl showRecordType prec world (Value (Just vsum)) = case vsum of
     brackets (fcommasep (mapV (prettyValue' lvl True prec world) elems))
   ValueSumContractId coid -> prettyContractId coid
   ValueSumInt64 i -> string (show i)
-  ValueSumDecimal ds -> ltext ds
+  ValueSumNumeric ds -> ltext ds
   ValueSumText t -> char '"' <> ltext t <> char '"'
   ValueSumTimestamp ts -> prettyTimestamp ts
   ValueSumParty p -> char '\'' <> ltext p <> char '\''

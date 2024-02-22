@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.ProtoDeserializationError.OtherError
+import com.digitalasset.canton.ProtoDeserializationError.{OtherError, UnknownProtoVersion}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -86,7 +86,7 @@ object RepresentativeProtocolVersion {
   * be passed to the toProtoVersioned, toByteString and getCryptographicEvidence
   * methods.
   *
-  * The underlying ProtoClass is [[com.digitalasset.canton.version.UntypedVersionedMessage]]
+  * The underlying ProtoClass is [[com.digitalasset.canton.version.v1.UntypedVersionedMessage]]
   * but we often specify the typed alias [[com.digitalasset.canton.version.VersionedMessage]]
   * instead.
   */
@@ -95,7 +95,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   self: ValueClass =>
 
   @transient
-  override protected val companionObj: HasProtocolVersionedWrapperCompanion[ValueClass, _]
+  override protected val companionObj: HasProtocolVersionedWrapperCompanion[ValueClass, ?]
 
   def isEquivalentTo(protocolVersion: ProtocolVersion): Boolean =
     companionObj.protocolVersionRepresentativeFor(protocolVersion) == representativeProtocolVersion
@@ -354,7 +354,7 @@ trait HasSupportedProtoVersions[ValueClass] {
 
   def protocolVersionRepresentativeFor(
       protoVersion: ProtoVersion
-  ): RepresentativeProtocolVersion[this.type] =
+  ): ParsingResult[RepresentativeProtocolVersion[this.type]] =
     supportedProtoVersions.protocolVersionRepresentativeFor(protoVersion)
 
   /** Return the Proto version corresponding to the representative protocol version
@@ -490,11 +490,10 @@ trait HasSupportedProtoVersions[ValueClass] {
       }
       .getOrElse(higherProtoVersion)
 
-    // TODO(#15628) We should not have a fallback here. Change return type to an either and propagate
     def protocolVersionRepresentativeFor(
         protoVersion: ProtoVersion
-    ): RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type] =
-      table.getOrElse(protoVersion, higherConverter.fromInclusive)
+    ): ParsingResult[RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type]] =
+      table.get(protoVersion).toRight(UnknownProtoVersion(protoVersion, name))
 
     def protocolVersionRepresentativeFor(
         protocolVersion: ProtocolVersion
@@ -512,7 +511,7 @@ trait HasSupportedProtoVersions[ValueClass] {
         head: (ProtoVersion, ProtoCodec),
         tail: (ProtoVersion, ProtoCodec)*
     ): SupportedProtoVersions = SupportedProtoVersions.fromNonEmpty(
-      NonEmpty.mk(Seq, head, tail: _*)
+      NonEmpty.mk(Seq, head, tail*)
     )
 
     /*
@@ -776,7 +775,7 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
       bytes: OriginalByteString
   ): ParsingResult[DeserializedValueClass] =
     for {
-      proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
+      proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
       data <- proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data"))
       valueClass <- supportedProtoVersions
         .deserializerFor(ProtoVersion(proto.version))(bytes, data)
@@ -790,12 +789,13 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
   // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
   def fromByteStringLegacy(
       protoVersion: ProtoVersion
-  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
-    deserializeForVersion(
-      protocolVersionRepresentativeFor(protoVersion),
-      fromByteStringUnsafe(bytes),
-    )
-  }
+  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
+    protocolVersionRepresentativeFor(protoVersion).flatMap { rpv =>
+      deserializeForVersion(
+        rpv,
+        fromByteStringUnsafe(bytes),
+      )
+    }
 
   override protected def deserializationErrorK(
       error: ProtoDeserializationError
@@ -941,7 +941,7 @@ trait HasMemoizedProtocolVersionedWithContextCompanion2[
   )(
       bytes: OriginalByteString
   ): ParsingResult[DeserializedValueClass] = for {
-    proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
+    proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
     data <- proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data"))
     valueClass <- supportedProtoVersions
       .deserializerFor(ProtoVersion(proto.version))(context, bytes, data)
@@ -983,7 +983,7 @@ trait HasProtocolVersionedCompanion2[
     */
   def fromByteArrayUnsafe(bytes: Array[Byte]): ParsingResult[DeserializedValueClass] =
     for {
-      proto <- ProtoConverter.protoParserArray(UntypedVersionedMessage.parseFrom)(bytes)
+      proto <- ProtoConverter.protoParserArray(v1.UntypedVersionedMessage.parseFrom)(bytes)
       valueClass <- fromProtoVersionedUnsafe(VersionedMessage(proto))
     } yield valueClass
 
@@ -1019,7 +1019,7 @@ trait HasProtocolVersionedCompanion2[
       bytes: OriginalByteString
   ): ParsingResult[DeserializedValueClass] =
     for {
-      proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
+      proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
       valueClass <- fromProtoVersionedUnsafe(VersionedMessage(proto))
     } yield valueClass
 
@@ -1046,7 +1046,7 @@ trait HasProtocolVersionedCompanion2[
       input: InputStream
   ): Option[ParsingResult[DeserializedValueClass]] = {
     try {
-      UntypedVersionedMessage
+      v1.UntypedVersionedMessage
         .parseDelimitedFrom(input)
         .map(VersionedMessage[DeserializedValueClass])
         .map(fromProtoVersionedUnsafe)
@@ -1138,7 +1138,7 @@ trait HasProtocolVersionedWithContextCompanion[
   override def fromByteStringUnsafe(
       context: Context
   )(bytes: OriginalByteString): ParsingResult[ValueClass] = for {
-    proto <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(bytes)
+    proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
     valueClass <- fromProtoVersionedUnsafe(context)(VersionedMessage(proto))
   } yield valueClass
 
@@ -1151,10 +1151,12 @@ trait HasProtocolVersionedWithContextCompanion[
   def fromByteStringLegacy(
       protoVersion: ProtoVersion
   )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
-    deserializeForVersion(
-      protocolVersionRepresentativeFor(protoVersion),
-      fromByteStringUnsafe(context)(bytes),
-    )
+    protocolVersionRepresentativeFor(protoVersion).flatMap { rpv =>
+      deserializeForVersion(
+        rpv,
+        fromByteStringUnsafe(context)(bytes),
+      )
+    }
   }
 
   /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly

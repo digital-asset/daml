@@ -33,15 +33,15 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
   lazy val participant2xConfig: CommunityParticipantConfig = ConfigStubs.participant
 
   lazy val sampleConfig: CantonCommunityConfig = CantonCommunityConfig(
-    sequencersX = Map(
+    sequencers = Map(
       InstanceName.tryCreate("s1") -> ConfigStubs.sequencerx,
       InstanceName.tryCreate("s2") -> ConfigStubs.sequencerx,
     ),
-    mediatorsX = Map(
+    mediators = Map(
       InstanceName.tryCreate("m1") -> ConfigStubs.mediatorx,
       InstanceName.tryCreate("m2") -> ConfigStubs.mediatorx,
     ),
-    participantsX = Map(
+    participants = Map(
       InstanceName.tryCreate("p1") -> participant1xConfig,
       InstanceName.tryCreate("p2") -> participant2xConfig,
     ),
@@ -205,7 +205,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
         val pp = mockParticipant
         when(pp.config).thenReturn(
-          config.participantsByStringX.get("p1").valueOrFail("config should be there")
+          config.participantsByString.get("p1").valueOrFail("config should be there")
         )
         Seq("p1", "p2").foreach(setupParticipantFactory(_, pp))
         Seq("s1", "s2").foreach(setupSequencerFactory(_, mockSequencer))
@@ -268,9 +268,9 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         // will terminate eagerly. so we actually have to wait until the processes finished
         // in the background
         eventually() {
-          environment.sequencersX.running.toSet shouldBe Set(s1, s2)
-          environment.mediatorsX.running.toSet shouldBe Set(m1, m2)
-          environment.participantsX.running should contain.only(p1)
+          environment.sequencers.running.toSet shouldBe Set(s1, s2)
+          environment.mediators.running.toSet shouldBe Set(m1, m2)
+          environment.participants.running should contain.only(p1)
         }
       }
     }

@@ -15,10 +15,8 @@ import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
-import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
 import qualified Data.Text as T
-import Data.Maybe (fromMaybe)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -103,33 +101,6 @@ tests damlc =
                       , "  where"
                       , "    signatory p"
                       , "    ensure True == True"
-                      ]
-                )
-              ]
-        , test
-              "Warns when template changes agreement"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A agreement:\n  The upgraded template A has changed the definition of agreement.")
-              [ ( "daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    agreement \"agreement1\""
-                      ]
-                )
-              ]
-              [ ("daml/MyLib.daml"
-                , unlines
-                      [ "module MyLib where"
-                      , "template A with"
-                      , "    p : Party"
-                      , "    q : Party"
-                      , "  where"
-                      , "    signatory p"
-                      , "    agreement \"agreement2\""
                       ]
                 )
               ]
@@ -605,7 +576,7 @@ tests damlc =
                       , "    signatory p"
                       , "    choice C : A"
                       , "      controller p"
-                      , "      do pure (A p (Just p))"
+                      , "      do pure (A p (Some p))"
                       ]
                 )
               ]
@@ -727,11 +698,6 @@ tests damlc =
           , "  - daml-stdlib"
           , "typecheck-upgrades: true"
           , "build-options:"
-          , "- --target=" <>
-                renderVersion
-                  (fromMaybe
-                    (error "DamlcUpgrades: featureMinVersion should be defined over featurePackageUpgrades")
-                    (featureMinVersion featurePackageUpgrades V1))
           ] ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
         )
 

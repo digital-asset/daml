@@ -242,51 +242,7 @@ class MemberAuthenticationService(
 
 }
 
-class MemberAuthenticationServiceOld(
-    domain: DomainId,
-    cryptoApi: DomainSyncCryptoClient,
-    store: MemberAuthenticationStore,
-    clock: Clock,
-    nonceExpirationTime: Duration,
-    tokenExpirationTime: Duration,
-    invalidateMemberCallback: Traced[Member] => Unit,
-    isTopologyInitialized: Future[Unit],
-    timeouts: ProcessingTimeout,
-    loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
-    extends MemberAuthenticationService(
-      domain,
-      cryptoApi,
-      store,
-      clock,
-      nonceExpirationTime = nonceExpirationTime,
-      tokenExpirationTime = tokenExpirationTime,
-      invalidateMemberCallback,
-      isTopologyInitialized,
-      timeouts,
-      loggerFactory,
-    )
-    with TopologyTransactionProcessingSubscriber {
-
-  /** domain topology client subscriber used to remove member tokens if they get disabled */
-  override def observed(
-      sequencerTimestamp: SequencedTime,
-      effectiveTimestamp: EffectiveTime,
-      sc: SequencerCounter,
-      transactions: Seq[SignedTopologyTransaction[TopologyChangeOp]],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.lift(performUnlessClosing(functionFullName) {
-      transactions.map(_.transaction.element.mapping).foreach {
-        case ParticipantState(_, _, participant, ParticipantPermission.Disabled, _) =>
-          invalidateAndExpire(isParticipantActive)(participant)
-        case _ =>
-      }
-    })
-
-  override def onClosed(): Unit = Lifecycle.close(store)(logger)
-}
-
-class MemberAuthenticationServiceX(
+class MemberAuthenticationServiceImpl(
     domain: DomainId,
     cryptoApi: DomainSyncCryptoClient,
     store: MemberAuthenticationStore,
@@ -358,40 +314,8 @@ trait MemberAuthenticationServiceFactory {
 }
 
 object MemberAuthenticationServiceFactory {
-  def forOld(
-      domain: DomainId,
-      clock: Clock,
-      nonceExpirationTime: Duration,
-      tokenExpirationTime: Duration,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-      topologyTransactionProcessor: TopologyTransactionProcessor,
-  ): MemberAuthenticationServiceFactory =
-    new MemberAuthenticationServiceFactory {
-      override def createAndSubscribe(
-          syncCrypto: DomainSyncCryptoClient,
-          store: MemberAuthenticationStore,
-          invalidateMemberCallback: Traced[Member] => Unit,
-          isTopologyInitialized: Future[Unit],
-      )(implicit ec: ExecutionContext): MemberAuthenticationService = {
-        val service = new MemberAuthenticationServiceOld(
-          domain,
-          syncCrypto,
-          store,
-          clock,
-          nonceExpirationTime = nonceExpirationTime,
-          tokenExpirationTime = tokenExpirationTime,
-          invalidateMemberCallback,
-          isTopologyInitialized,
-          timeouts,
-          loggerFactory,
-        )
-        topologyTransactionProcessor.subscribe(service)
-        service
-      }
-    }
 
-  def forX(
+  def apply(
       domain: DomainId,
       clock: Clock,
       nonceExpirationTime: Duration,
@@ -407,7 +331,7 @@ object MemberAuthenticationServiceFactory {
           invalidateMemberCallback: Traced[Member] => Unit,
           isTopologyInitialized: Future[Unit],
       )(implicit ec: ExecutionContext): MemberAuthenticationService = {
-        val service = new MemberAuthenticationServiceX(
+        val service = new MemberAuthenticationServiceImpl(
           domain,
           syncCrypto,
           store,

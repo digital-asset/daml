@@ -8,7 +8,6 @@ import cats.data.StateT
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId}
@@ -25,20 +24,15 @@ object LfTransactionBuilder {
   val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
   val defaultTransactionVersion: LfTransactionVersion = LfTransactionVersion.minVersion
 
-  assert(
-    Util.sharedKey(defaultLanguageVersion) == Util.sharedKey(defaultTransactionVersion),
-    "Tests based on shared keys will fail if the language and transaction version are inconsistent",
-  )
-
   val defaultPackageId: LfPackageId = LfPackageId.assertFromString("pkg")
   val defaultTemplateId: Ref.Identifier =
     Ref.Identifier(defaultPackageId, QualifiedName.assertFromString("module:template"))
+  val defaultPackageName: Ref.PackageName = Ref.PackageName.assertFromString("pkgName")
   val defaultInterfaceId: LfInterfaceId = defaultTemplateId
 
   val defaultGlobalKey: LfGlobalKey = LfGlobalKey.assertBuild(
     defaultTemplateId,
     Value.ValueUnit,
-    Util.sharedKey(defaultLanguageVersion),
   )
 
   def allocateNodeId[M[_]](implicit monadInstance: Monad[M]): StateT[M, NodeIdState, LfNodeId] =
@@ -100,7 +94,7 @@ object LfTransactionBuilder {
         }
       )
       .map { case (rootNodes, nodeMap, _actuallyUsedPkgs) =>
-        LfTransaction(nodes = HashMap(nodeMap.toSeq: _*), roots = rootNodes.to(ImmArray))
+        LfTransaction(nodes = HashMap(nodeMap.toSeq*), roots = rootNodes.to(ImmArray))
       }
       .runA(initialState)
 }

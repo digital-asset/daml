@@ -10,9 +10,8 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexDBMetrics(
     val prefix: MetricName,
-    val dropWizardMetricsFactory: LabeledMetricsFactory,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) extends MainIndexDBMetrics(prefix, dropWizardMetricsFactory, openTelemetryMetricsFactory)
+) extends MainIndexDBMetrics(prefix, openTelemetryMetricsFactory)
     with TransactionStreamsDbMetrics
 
 trait TransactionStreamsDbMetrics {
@@ -104,7 +103,6 @@ trait TransactionStreamsDbMetrics {
 
 class MainIndexDBMetrics(
     prefix: MetricName,
-    dropWizardMetricsFactory: LabeledMetricsFactory,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) extends DatabaseMetricsFactory(prefix, openTelemetryMetricsFactory) { self =>
 
@@ -115,7 +113,7 @@ class MainIndexDBMetrics(
                     |into a transaction.""",
     qualification = Debug,
   )
-  val lookupKey: Timer = dropWizardMetricsFactory.timer(prefix :+ "lookup_key")
+  val lookupKey: Timer = openTelemetryMetricsFactory.timer(prefix :+ "lookup_key")
 
   @MetricDoc.Tag(
     summary = "The time spent fetching a contract using its id.",
@@ -125,7 +123,7 @@ class MainIndexDBMetrics(
     qualification = Debug,
   )
   val lookupActiveContract: Timer =
-    dropWizardMetricsFactory.timer(prefix :+ "lookup_active_contract")
+    openTelemetryMetricsFactory.timer(prefix :+ "lookup_active_contract")
 
   @MetricDoc.Tag(
     summary = "The number of the currently pending active contract lookups.",
@@ -134,7 +132,7 @@ class MainIndexDBMetrics(
     qualification = Debug,
   )
   val activeContractLookupBufferLength: Counter =
-    dropWizardMetricsFactory.counter(prefix :+ "active_contract_lookup_buffer_length")
+    openTelemetryMetricsFactory.counter(prefix :+ "active_contract_lookup_buffer_length")
 
   @MetricDoc.Tag(
     summary = "The capacity of the active contract lookup queue.",
@@ -144,7 +142,7 @@ class MainIndexDBMetrics(
     qualification = Debug,
   )
   val activeContractLookupBufferCapacity: Counter =
-    dropWizardMetricsFactory.counter(prefix :+ "active_contract_lookup_buffer_capacity")
+    openTelemetryMetricsFactory.counter(prefix :+ "active_contract_lookup_buffer_capacity")
 
   @MetricDoc.Tag(
     summary = "The queuing delay for the active contract lookup queue.",
@@ -153,7 +151,7 @@ class MainIndexDBMetrics(
     qualification = Debug,
   )
   val activeContractLookupBufferDelay: Timer =
-    dropWizardMetricsFactory.timer(prefix :+ "active_contract_lookup_buffer_delay")
+    openTelemetryMetricsFactory.timer(prefix :+ "active_contract_lookup_buffer_delay")
 
   @MetricDoc.Tag(
     summary = "The batch sizes in the active contract lookup batch-loading Contract Service.",
@@ -162,7 +160,7 @@ class MainIndexDBMetrics(
     qualification = Debug,
   )
   val activeContractLookupBatchSize: Histogram =
-    dropWizardMetricsFactory.histogram(prefix :+ "active_contract_lookup_batch_size")
+    openTelemetryMetricsFactory.histogram(prefix :+ "active_contract_lookup_batch_size")
 
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer
@@ -200,9 +198,6 @@ class MainIndexDBMetrics(
   val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
   val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
-  val lookupDivulgedActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
-    "lookup_divulged_active_contract"
-  )
   val lookupCreatedContractsDbMetrics: DatabaseMetrics = createDbMetrics("lookup_created_contracts")
   val lookupAssignedContractsDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_assigned_contracts"
@@ -228,9 +223,6 @@ class MainIndexDBMetrics(
   )
   val getActiveContractIdsForAssigned: DatabaseMetrics = createDbMetrics(
     "get_active_contract_ids_for_assigned"
-  )
-  val getActiveContractBatchForNotArchived: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_batch_for_not_archived"
   )
   val getActiveContractBatchForCreated: DatabaseMetrics = createDbMetrics(
     "get_active_contract_batch_for_created"
@@ -273,7 +265,7 @@ class MainIndexDBMetrics(
                       |representation. This metric represents time necessary to do that.""",
       qualification = Debug,
     )
-    val getLfPackage: Timer = dropWizardMetricsFactory.timer(prefix :+ "get_lf_package")
+    val getLfPackage: Timer = openTelemetryMetricsFactory.timer(prefix :+ "get_lf_package")
   }
 
   object compression {
@@ -287,7 +279,7 @@ class MainIndexDBMetrics(
       qualification = Debug,
     )
     val createArgumentCompressed: Histogram =
-      dropWizardMetricsFactory.histogram(prefix :+ "create_argument_compressed")
+      openTelemetryMetricsFactory.histogram(prefix :+ "create_argument_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed argument of a create event.",
@@ -297,7 +289,7 @@ class MainIndexDBMetrics(
       qualification = Debug,
     )
     val createArgumentUncompressed: Histogram =
-      dropWizardMetricsFactory.histogram(prefix :+ "create_argument_uncompressed")
+      openTelemetryMetricsFactory.histogram(prefix :+ "create_argument_uncompressed")
 
     @MetricDoc.Tag(
       summary = "The size of the compressed key value of a create event.",
@@ -307,7 +299,7 @@ class MainIndexDBMetrics(
       qualification = Debug,
     )
     val createKeyValueCompressed: Histogram =
-      dropWizardMetricsFactory.histogram(prefix :+ "create_key_value_compressed")
+      openTelemetryMetricsFactory.histogram(prefix :+ "create_key_value_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed key value of a create event.",
@@ -316,7 +308,7 @@ class MainIndexDBMetrics(
                       |value of a create event.""",
       qualification = Debug,
     )
-    val createKeyValueUncompressed: Histogram = dropWizardMetricsFactory.histogram(
+    val createKeyValueUncompressed: Histogram = openTelemetryMetricsFactory.histogram(
       prefix :+ "create_key_value_uncompressed"
     )
 
@@ -328,7 +320,7 @@ class MainIndexDBMetrics(
       qualification = Debug,
     )
     val exerciseArgumentCompressed: Histogram =
-      dropWizardMetricsFactory.histogram(prefix :+ "exercise_argument_compressed")
+      openTelemetryMetricsFactory.histogram(prefix :+ "exercise_argument_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed argument of an exercise event.",
@@ -337,7 +329,7 @@ class MainIndexDBMetrics(
                       |arguments of an exercise event.""",
       qualification = Debug,
     )
-    val exerciseArgumentUncompressed: Histogram = dropWizardMetricsFactory.histogram(
+    val exerciseArgumentUncompressed: Histogram = openTelemetryMetricsFactory.histogram(
       prefix :+ "exercise_argument_uncompressed"
     )
 
@@ -349,7 +341,7 @@ class MainIndexDBMetrics(
       qualification = Debug,
     )
     val exerciseResultCompressed: Histogram =
-      dropWizardMetricsFactory.histogram(prefix :+ "exercise_result_compressed")
+      openTelemetryMetricsFactory.histogram(prefix :+ "exercise_result_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed result of an exercise event.",
@@ -359,7 +351,7 @@ class MainIndexDBMetrics(
       qualification = Debug,
     )
     val exerciseResultUncompressed: Histogram =
-      dropWizardMetricsFactory.histogram(prefix :+ "exercise_result_uncompressed")
+      openTelemetryMetricsFactory.histogram(prefix :+ "exercise_result_uncompressed")
   }
 
   object threadpool {

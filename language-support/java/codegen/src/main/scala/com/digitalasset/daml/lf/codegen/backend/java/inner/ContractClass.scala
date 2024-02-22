@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import ClassGenUtils.{companionFieldName, optional, optionalString, setOfStrings}
+import ClassGenUtils.{companionFieldName, optional, setOfStrings}
 import com.daml.lf.typesig.Type
 import com.squareup.javapoet._
 import scalaz.syntax.std.option._
@@ -46,7 +46,6 @@ object ContractClass {
   object Builder {
     private val idFieldName = "id"
     private val dataFieldName = "data"
-    private val agreementFieldName = "agreementText"
     private val contractKeyFieldName = "key"
     private val signatoriesFieldName = "signatories"
     private val observersFieldName = "observers"
@@ -68,7 +67,6 @@ object ContractClass {
       val methodParameters = Seq(
         (ClassName get classOf[String], "contractId"),
         (ClassName get classOf[javaapi.data.DamlRecord], "record$"),
-        (optionalString, agreementFieldName),
       ) ++ maybeContractKeyClassName
         .map(name => (optional(name), contractKeyFieldName))
         .toList ++ Iterable(
@@ -144,7 +142,6 @@ object ContractClass {
         .addModifiers(Modifier.PUBLIC)
         .addParameter(contractIdClassName(templateClassName), idFieldName)
         .addParameter(templateClassName, dataFieldName)
-        .addParameter(optionalString, agreementFieldName)
 
       contractKeyClassName.foreach { name =>
         constructorBuilder.addParameter(optional(name), contractKeyFieldName)
@@ -158,7 +155,7 @@ object ContractClass {
       constructorBuilder.addStatement(
         "super($L)",
         CodeBlock.join(
-          (Seq(idFieldName, dataFieldName, agreementFieldName)
+          (Seq(idFieldName, dataFieldName)
             ++ superCtorKeyArgs
             ++ Seq(signatoriesFieldName, observersFieldName)).map(CodeBlock.of("$L", _)).asJava,
           ",$W",
@@ -168,6 +165,11 @@ object ContractClass {
       val constructor = constructorBuilder.build()
 
       classBuilder.addMethod(constructor)
+
+      key.foreach { keyDamlType =>
+        classBuilder.addMethods(FromJsonGenerator.forKey(keyDamlType).asJava)
+        classBuilder.addMethods(ToJsonGenerator.forKey(keyDamlType).asJava)
+      }
 
       classBuilder
         .addMethod(generateGetCompanion(templateClassName))

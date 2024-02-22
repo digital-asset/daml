@@ -15,9 +15,12 @@ import com.daml.error.{
   Resolution,
 }
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LookupError, Reference}
-import com.digitalasset.canton.ledger.error.LedgerApiErrors.EarliestOffsetMetadataKey
+import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
+  EarliestOffsetMetadataKey,
+  LatestOffsetMetadataKey,
+}
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.RequestValidationErrorGroup
 
 import java.time.Duration
@@ -114,7 +117,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         ) {
 
       private def buildCause(
-          unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]]
+          unknownTemplatesOrInterfaces: Seq[Either[Ref.Identifier, Ref.Identifier]]
       ): String = {
         val unknownTemplateIds =
           unknownTemplatesOrInterfaces.collect { case Left(id) => id.toString }
@@ -131,8 +134,10 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         (templatesMessage + interfacesMessage).trim
       }
 
-      final case class Reject(unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]])(
-          implicit loggingContext: ContextualizedErrorLogger
+      final case class Reject(
+          unknownTemplatesOrInterfaces: Seq[Either[Ref.Identifier, Ref.Identifier]]
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = buildCause(unknownTemplatesOrInterfaces)) {
         override def resources: Seq[(ErrorResource, String)] =
           unknownTemplatesOrInterfaces.map {
@@ -143,21 +148,22 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     }
 
     @Explanation(
-      "The queried template qualified name could not be resolved to a fully-qualified template id."
+      "The queried package names do not match packages uploaded on this participant."
     )
     @Resolution(
-      "Use a valid template qualified name or ask the participant operator to upload the package containing the necessary interfaces/templates."
+      "Use valid package names or ask the participant operator to upload the necessary packages."
     )
-    object TemplateQualifiedNameNotFound
+    object PackageNamesNotFound
         extends ErrorCode(
-          id = "TEMPLATE_NAME_NOT_KNOWN",
+          id = "PACKAGE_NAMES_NOT_FOUND",
           category = ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Reject(unknownQualifiedName: Ref.QualifiedName)(implicit
+      final case class Reject(unknownPackageNames: Set[Ref.PackageName])(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause =
-              s"Could not resolve a fully-qualified template id from the specified template qualified name $unknownQualifiedName"
+              s"The following package names do not match upgradable packages uploaded on this participant: [${unknownPackageNames
+                  .mkString(", ")}]."
           )
     }
   }
@@ -174,6 +180,23 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause,
           extraContext = Map(EarliestOffsetMetadataKey -> earliestOffset),
+        )
+  }
+
+  @Explanation(
+    "This rejection is given when a read request tries to access data after the ledger end"
+  )
+  @Resolution("Use an offset that is before the ledger end.")
+  object ParticipantDataAccessedAfterLedgerEnd
+      extends ErrorCode(
+        id = "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(override val cause: String, latestOffset: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause,
+          extraContext = Map(LatestOffsetMetadataKey -> latestOffset),
         )
   }
 

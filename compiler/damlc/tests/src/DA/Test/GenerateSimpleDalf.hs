@@ -118,7 +118,6 @@ main = do
             , tplPrecondition = mkBool True
             , tplSignatories = tplParties
             , tplObservers = ENil TParty
-            , tplAgreement = mkEmptyText
             , tplChoices = NM.fromList ([chc,chc2] <> [arc | optWithArchiveChoice])
             , tplKey = Nothing
             , tplImplements = NM.empty
@@ -140,7 +139,7 @@ main = do
     let pkg = Package
             { packageLfVersion = optLfVersion
             , packageModules = NM.fromList [mod]
-            , packageMetadata = Just $ PackageMetadata (PackageName "simple-dalf") (PackageVersion "1.0.0") Nothing
+            , packageMetadata = PackageMetadata (PackageName "simple-dalf") (PackageVersion "1.0.0") Nothing
             }
     let (bytes, PackageId hash) = encodeArchiveAndHash pkg
     BSL.writeFile optFile bytes

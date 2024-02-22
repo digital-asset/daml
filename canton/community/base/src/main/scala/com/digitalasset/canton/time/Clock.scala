@@ -16,13 +16,14 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle, Unles
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.time.Clock.SystemClockRunningBackwards
-import com.digitalasset.canton.topology.admin.v0.InitializationServiceGrpc
-import com.digitalasset.canton.topology.admin.v1.IdentityInitializationServiceXGrpc
+import com.digitalasset.canton.topology.admin.v30.{
+  CurrentTimeRequest,
+  IdentityInitializationXServiceGrpc,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, PriorityBlockingQueueUtil}
 import com.google.common.annotations.VisibleForTesting
-import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock as JClock, Duration, Instant}
@@ -60,7 +61,7 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
 
   protected case class Queued(action: CantonTimestamp => Unit, timestamp: CantonTimestamp) {
 
-    val promise = Promise[UnlessShutdown[Unit]]()
+    val promise: Promise[UnlessShutdown[Unit]] = Promise()
 
     def run(now: CantonTimestamp): Unit =
       promise.complete(Try(UnlessShutdown.Outcome(action(now))))
@@ -382,7 +383,6 @@ class SimClock(
 class RemoteClock(
     config: ClientConfig,
     timeouts: ProcessingTimeout,
-    getTimeFromXNode: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContextExecutor)
     extends Clock
@@ -394,14 +394,10 @@ class RemoteClock(
     noTracingLogger,
   )
   private val channel = ClientChannelBuilder.createChannelToTrustedServer(config)
-  private val service = Either.cond(
-    getTimeFromXNode,
-    IdentityInitializationServiceXGrpc.stub(channel),
-    InitializationServiceGrpc.stub(channel),
-  )
+  private val service = IdentityInitializationXServiceGrpc.stub(channel)
 
   private def getCurrentRemoteTime(): Future[Timestamp] =
-    service.fold(_.currentTime(Empty()), _.currentTime(Empty()))
+    service.currentTime(CurrentTimeRequest()).map(_.getCurrentTime)
 
   private val running = new AtomicBoolean(true)
   private val updating = new AtomicReference[Option[CantonTimestamp]](None)
@@ -468,7 +464,7 @@ class RemoteClock(
         // so the grpc call might fail because the API is not online. but as we are doing testing only,
         // we don't make a big fuss about it, just emit a log and retry
         noTracingLogger.info(
-          s"Failed to fetch remote time from ${config.port.unwrap}: ${err}. Will try again"
+          s"Failed to fetch remote time from ${config.port.unwrap}: $err. Will try again"
         )
         Threading.sleep(500)
         getRemoteTime

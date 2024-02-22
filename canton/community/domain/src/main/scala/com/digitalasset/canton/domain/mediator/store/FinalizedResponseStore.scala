@@ -13,9 +13,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.mediator.FinalizedResponse
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.protocol.RequestId
-import com.digitalasset.canton.protocol.messages.{EnvelopeContent, MediatorRequest, Verdict}
+import com.digitalasset.canton.protocol.messages.{
+  EnvelopeContent,
+  MediatorConfirmationRequest,
+  Verdict,
+}
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -26,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.collection.immutable.SortedSet
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Stores and retrieves finalized mediator response aggregations
+/** Stores and retrieves finalized confirmation response aggregations
   */
 private[mediator] trait FinalizedResponseStore extends AutoCloseable {
 
@@ -39,7 +42,7 @@ private[mediator] trait FinalizedResponseStore extends AutoCloseable {
       finalizedResponse: FinalizedResponse
   )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit]
 
-  /** Fetch previously stored finalized mediator response aggregation by requestId.
+  /** Fetch previously stored finalized confirmation response aggregation by requestId.
     */
   def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
@@ -168,74 +171,82 @@ private[mediator] class DbFinalizedResponseStore(
   private implicit val setParameterTraceContext: SetParameter[SerializableTraceContext] =
     SerializableTraceContext.getVersionedSetParameter(protocolVersion)
 
-  implicit val getResultMediatorRequest: GetResult[MediatorRequest] = GetResult(r =>
-    EnvelopeContent
-      .messageFromByteArray[MediatorRequest](protocolVersion, cryptoApi)(r.<<[Array[Byte]])
-      .valueOr(error =>
-        throw new DbDeserializationException(s"Error deserializing mediator request $error")
-      )
-  )
-  implicit val setParameterMediatorRequest: SetParameter[MediatorRequest] =
-    (r: MediatorRequest, pp: PositionedParameters) =>
+  implicit val getResultMediatorConfirmationRequest: GetResult[MediatorConfirmationRequest] =
+    GetResult(r =>
+      EnvelopeContent
+        .messageFromByteArray[MediatorConfirmationRequest](protocolVersion, cryptoApi)(
+          r.<<[Array[Byte]]
+        )
+        .valueOr(error =>
+          throw new DbDeserializationException(
+            s"Error deserializing mediator confirmation request $error"
+          )
+        )
+    )
+  implicit val setParameterMediatorConfirmationRequest: SetParameter[MediatorConfirmationRequest] =
+    (r: MediatorConfirmationRequest, pp: PositionedParameters) =>
       pp >> EnvelopeContent.tryCreate(r, protocolVersion).toByteArray
-
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("finalized-response-store")
 
   override def store(
       finalizedResponse: FinalizedResponse
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] =
-    processingTime.event {
-      val insert = storage.profile match {
-        case _: DbStorage.Profile.Oracle =>
-          sqlu"""insert
+  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] = {
+    val insert = storage.profile match {
+      case _: DbStorage.Profile.Oracle =>
+        sqlu"""insert
                      /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( response_aggregations ( request_id ) ) */
-                     into response_aggregations(request_id, mediator_request, version, verdict, request_trace_context)
+                     into response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
                      values (
                        ${finalizedResponse.requestId},${finalizedResponse.request},${finalizedResponse.version},${finalizedResponse.verdict},
                        ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
                      )"""
-        case _ =>
-          sqlu"""insert into response_aggregations(request_id, mediator_request, version, verdict, request_trace_context)
+      case _ =>
+        sqlu"""insert into response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
                      values (
                        ${finalizedResponse.requestId},${finalizedResponse.request},${finalizedResponse.version},${finalizedResponse.verdict},
                        ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
                      ) on conflict do nothing"""
-      }
-
-      CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
-        closeContext =>
-          storage.update_(
-            insert,
-            operationName = s"${this.getClass}: store request ${finalizedResponse.requestId}",
-          )(traceContext, closeContext)
-      }
     }
+
+    CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
+      closeContext =>
+        storage.update_(
+          insert,
+          operationName = s"${this.getClass}: store request ${finalizedResponse.requestId}",
+        )(traceContext, closeContext)
+    }
+  }
 
   override def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): OptionT[Future, FinalizedResponse] =
-    processingTime.optionTEvent {
-      CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
-        closeContext =>
-          storage.querySingle(
-            sql"""select request_id, mediator_request, version, verdict, request_trace_context
+  ): OptionT[Future, FinalizedResponse] = {
+    CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
+      closeContext =>
+        storage.querySingle(
+          sql"""select request_id, mediator_confirmation_request, version, verdict, request_trace_context
               from response_aggregations where request_id=${requestId.unwrap}
            """
-              .as[(RequestId, MediatorRequest, CantonTimestamp, Verdict, SerializableTraceContext)]
-              .map {
-                _.headOption.map {
-                  case (reqId, mediatorRequest, version, verdict, requestTraceContext) =>
-                    FinalizedResponse(reqId, mediatorRequest, version, verdict)(
-                      requestTraceContext.unwrap
-                    )
-                }
-              },
-            operationName = s"${this.getClass}: fetch request $requestId",
-          )(traceContext, closeContext)
-      }
+            .as[
+              (
+                  RequestId,
+                  MediatorConfirmationRequest,
+                  CantonTimestamp,
+                  Verdict,
+                  SerializableTraceContext,
+              )
+            ]
+            .map {
+              _.headOption.map {
+                case (reqId, mediatorConfirmationRequest, version, verdict, requestTraceContext) =>
+                  FinalizedResponse(reqId, mediatorConfirmationRequest, version, verdict)(
+                    requestTraceContext.unwrap
+                  )
+              }
+            },
+          operationName = s"${this.getClass}: fetch request $requestId",
+        )(traceContext, closeContext)
     }
+  }
 
   override def prune(
       timestamp: CantonTimestamp

@@ -14,7 +14,7 @@ import com.digitalasset.canton.domain.block.{
   TransactionSignature,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
-import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v0.{
+import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1.{
   TracedBatchedBlockOrderingRequests,
   TracedBlockOrderingRequest,
 }
@@ -220,7 +220,7 @@ object ReferenceBlockOrderer {
             traceparent,
             requests.map { case traced @ Traced((tag, body)) =>
               val traceparent = traced.traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
-              TracedBlockOrderingRequest(traceparent, tag, body, 0)
+              TracedBlockOrderingRequest(traceparent, tag, body, microsecondsSinceEpoch = 0)
             },
           )
         }.toByteString
@@ -229,8 +229,9 @@ object ReferenceBlockOrderer {
 
     sendQueue
       .execute(
-        store.insertRequest(
-          BlockOrderer.OrderedRequest(timestamp.underlying.micros, tag, body)
+        store.insertRequestWithHeight(
+          blockHeight,
+          BlockOrderer.OrderedRequest(timestamp.toMicros, tag, body),
         ),
         s"send request at $timestamp",
       )

@@ -13,7 +13,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
-class TailCallTestV1 extends TailCallTest(LanguageMajorVersion.V1)
 class TailCallTestV2 extends TailCallTest(LanguageMajorVersion.V2)
 
 // TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
@@ -27,7 +26,9 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
-  val pkgs = SpeedyTestLib.typeAndCompile(p"""metadata ( 'pkg' : '1.0.0' )
+  val pkgs = SpeedyTestLib.typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
+
    module F {
 
      // *Non* tail-recursive definition

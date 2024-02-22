@@ -6,15 +6,13 @@ package com.digitalasset.canton.topology.client
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.transaction.{
-  ParticipantAttributes,
-  ParticipantPermission,
-  TrustLevel,
-}
+import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, LfPartyId}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.Ordered.orderingToOrdered
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
@@ -24,20 +22,11 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
   "party topology snapshot client" should {
     lazy val topology = Map(
       party1.toLf -> Map(
-        participant1 -> ParticipantAttributes(
-          ParticipantPermission.Submission,
-          TrustLevel.Ordinary,
-        ),
-        participant2 -> ParticipantAttributes(
-          ParticipantPermission.Observation,
-          TrustLevel.Ordinary,
-        ),
+        participant1 -> ParticipantAttributes(ParticipantPermission.Submission),
+        participant2 -> ParticipantAttributes(ParticipantPermission.Observation),
       ),
       party2.toLf -> Map(
-        participant2 -> ParticipantAttributes(
-          ParticipantPermission.Observation,
-          TrustLevel.Ordinary,
-        )
+        participant2 -> ParticipantAttributes(ParticipantPermission.Observation)
       ),
     )
     lazy val client = new PartyTopologySnapshotClient
@@ -45,7 +34,7 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
       with PartyTopologySnapshotBaseClient {
       override def activeParticipantsOf(
           party: LfPartyId
-      ): Future[Map[ParticipantId, ParticipantAttributes]] =
+      )(implicit traceContext: TraceContext): Future[Map[ParticipantId, ParticipantAttributes]] =
         Future.successful(topology.getOrElse(party, Map()))
       override protected implicit def executionContext: ExecutionContext =
         PartyTopologySnapshotClientTest.this.executionContext
@@ -54,15 +43,17 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
           filterParty: String,
           filterParticipant: String,
           limit: Int,
-      ): Future[Set[PartyId]] =
+      )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
         ???
 
       override def activeParticipantsOfParties(
           parties: Seq[LfPartyId]
-      ): Future[Map[LfPartyId, Set[ParticipantId]]] = ???
+      )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]] = ???
 
       override def activeParticipantsOfPartiesWithAttributes(
           parties: Seq[LfPartyId]
+      )(implicit
+          traceContext: TraceContext
       ): Future[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]] =
         Future.successful(
           parties.map { party =>
@@ -75,15 +66,24 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
         */
       override def authorityOf(
           parties: Set[LfPartyId]
+      )(implicit
+          traceContext: TraceContext
       ): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
         Future.successful(PartyTopologySnapshotClient.AuthorityOfResponse(Map.empty))
 
-      override def partiesWithGroupAddressing(parties: Seq[LfPartyId]): Future[Set[LfPartyId]] =
+      override def partiesWithGroupAddressing(parties: Seq[LfPartyId])(implicit
+          traceContext: TraceContext
+      ): Future[Set[LfPartyId]] =
         ???
 
       override def consortiumThresholds(
           parties: Set[LfPartyId]
-      ): Future[Map[LfPartyId, PositiveInt]] = ???
+      )(implicit traceContext: TraceContext): Future[Map[LfPartyId, PositiveInt]] = ???
+
+      override def canNotSubmit(
+          participant: ParticipantId,
+          parties: Seq[LfPartyId],
+      )(implicit traceContext: TraceContext): Future[immutable.Iterable[LfPartyId]] = ???
     }
 
     "allHaveActiveParticipants should yield correct results" in {
@@ -130,13 +130,13 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
 
     "canConfirm should yield correct results" in {
       for {
-        yes1 <- client.canConfirm(participant1, party1.toLf)
-        no1 <- client.canConfirm(participant1, party1.toLf, TrustLevel.Vip)
-        no2 <- client.canConfirm(participant2, party1.toLf)
+        yes1 <- client.canConfirm(participant1, Set(party1.toLf))
+        no1 <- client.canConfirm(participant1, Set(party2.toLf))
+        no2 <- client.canConfirm(participant2, Set(party1.toLf))
       } yield {
-        yes1 shouldBe true
-        no1 shouldBe false
-        no2 shouldBe false
+        yes1 shouldBe Set(party1.toLf)
+        no1 shouldBe Set.empty
+        no2 shouldBe Set.empty
       }
     }
   }

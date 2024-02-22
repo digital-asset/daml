@@ -11,7 +11,7 @@ import com.google.protobuf.Empty;
 import io.reactivex.Single;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-/** An RxJava version of {@link com.daml.ledger.api.v1.CommandServiceGrpc} */
+/** An RxJava version of {@link com.daml.ledger.api.v2.CommandServiceGrpc} */
 public interface CommandClient {
   Single<Empty> submitAndWait(CommandsSubmission submission);
 

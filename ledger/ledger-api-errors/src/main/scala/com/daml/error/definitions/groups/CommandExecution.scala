@@ -19,7 +19,6 @@ import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion}
-import com.daml.lf.value.ValueCoder.CidEncoder
 import com.daml.lf.value.{Value, ValueCoder}
 
 @Explanation(
@@ -28,7 +27,7 @@ import com.daml.lf.value.{Value, ValueCoder}
 object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
   def encodeValue(v: Value): Either[ValueCoder.EncodeError, String] =
     ValueCoder
-      .encodeValue(CidEncoder, TransactionVersion.VDev, v)
+      .encodeValue(TransactionVersion.VDev, v)
       .map(_.toStringUtf8)
 
   def withEncodedValue(
@@ -122,7 +121,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
               Seq(
                 (ErrorResource.TemplateId, key.templateId.toString),
                 (ErrorResource.ContractKey, encodedKey),
-                (ErrorResource.SharedKey, GlobalKey.isShared(key).toString),
               )
             }
         }
@@ -173,7 +171,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
               (ErrorResource.TemplateId, err.key.templateId.toString),
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.ContractKey, encodedKey),
-              (ErrorResource.SharedKey, GlobalKey.isShared(err.key).toString),
               (ErrorResource.ContractKeyHash, err.declaredHash.toString),
             )
           }
@@ -298,7 +295,6 @@ object CommandExecution extends ErrorGroup()(LedgerApiErrors.errorClass) {
             Seq(
               (ErrorResource.TemplateId, err.templateId.toString),
               (ErrorResource.ContractKey, encodedKey),
-              (ErrorResource.SharedKey, err.shared.toString),
             )
           }
       }

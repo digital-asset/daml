@@ -18,21 +18,21 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErr
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.topology.admin.v1.{
+import com.digitalasset.canton.topology.admin.v30.{
   ListPartyHostingLimitsRequest,
-  ListPartyHostingLimitsResult,
-  ListPurgeTopologyTransactionXRequest,
-  ListPurgeTopologyTransactionXResult,
+  ListPartyHostingLimitsResponse,
+  ListPurgeTopologyTransactionRequest,
+  ListPurgeTopologyTransactionResponse,
   ListTrafficStateRequest,
-  ListTrafficStateResult,
+  ListTrafficStateResponse,
 }
-import com.digitalasset.canton.topology.admin.v1 as adminProto
+import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,
-  TimeQueryX,
+  TimeQuery,
   TopologyStoreId,
   TopologyStoreX,
 }
@@ -67,7 +67,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final case class BaseQueryX(
     filterStore: Option[TopologyStore],
     proposals: Boolean,
-    timeQuery: TimeQueryX,
+    timeQuery: TimeQuery,
     ops: Option[TopologyChangeOpX],
     filterSigningKey: String,
     protocolVersion: Option[ProtocolVersion],
@@ -78,7 +78,7 @@ final case class BaseQueryX(
       proposals,
       ops.map(_.toProto).getOrElse(TopologyChangeOpX.Replace.toProto),
       filterOperation = true,
-      timeQuery.toProtoV1,
+      timeQuery.toProtoV30,
       filterSigningKey,
       protocolVersion.map(_.toProtoPrimitiveS),
     )
@@ -88,7 +88,7 @@ object BaseQueryX {
   def apply(
       filterStore: String,
       proposals: Boolean,
-      timeQuery: TimeQueryX,
+      timeQuery: TimeQuery,
       ops: Option[TopologyChangeOpX],
       filterSigningKey: String,
       protocolVersion: Option[ProtocolVersion],
@@ -107,8 +107,8 @@ object BaseQueryX {
       baseQuery <- ProtoConverter.required("base_query", value)
       proposals = baseQuery.proposals
       filterSignedKey = baseQuery.filterSignedKey
-      timeQuery <- TimeQueryX.fromProto(baseQuery.timeQuery, "time_query")
-      opsRaw <- TopologyChangeOpX.fromProtoV2(baseQuery.operation)
+      timeQuery <- TimeQuery.fromProto(baseQuery.timeQuery, "time_query")
+      opsRaw <- TopologyChangeOpX.fromProtoV30(baseQuery.operation)
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitiveS)
       filterStore <- baseQuery.filterStore.traverse(TopologyStore.fromProto(_, "filter_store"))
     } yield BaseQueryX(
@@ -162,12 +162,12 @@ object TopologyStore {
   }
 }
 
-class GrpcTopologyManagerReadServiceX(
+class GrpcTopologyManagerReadService(
     stores: => Seq[TopologyStoreX[TopologyStoreId]],
     crypto: Crypto,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends adminProto.TopologyManagerReadServiceXGrpc.TopologyManagerReadServiceX
+    extends adminProto.TopologyManagerReadServiceGrpc.TopologyManagerReadService
     with NamedLogging {
 
   private case class TransactionSearchResult(
@@ -301,7 +301,7 @@ class GrpcTopologyManagerReadServiceX(
 
   override def listNamespaceDelegation(
       request: adminProto.ListNamespaceDelegationRequest
-  ): Future[adminProto.ListNamespaceDelegationResult] = {
+  ): Future[adminProto.ListNamespaceDelegationResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -317,20 +317,20 @@ class GrpcTopologyManagerReadServiceX(
             (result, x)
         }
         .map { case (context, elem) =>
-          new adminProto.ListNamespaceDelegationResult.Result(
+          new adminProto.ListNamespaceDelegationResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListNamespaceDelegationResult(results = results)
+      adminProto.ListNamespaceDelegationResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listDecentralizedNamespaceDefinition(
       request: adminProto.ListDecentralizedNamespaceDefinitionRequest
-  ): Future[adminProto.ListDecentralizedNamespaceDefinitionResult] = {
+  ): Future[adminProto.ListDecentralizedNamespaceDefinitionResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -342,20 +342,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: DecentralizedNamespaceDefinitionX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListDecentralizedNamespaceDefinitionResult.Result(
+          new adminProto.ListDecentralizedNamespaceDefinitionResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListDecentralizedNamespaceDefinitionResult(results = results)
+      adminProto.ListDecentralizedNamespaceDefinitionResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listIdentifierDelegation(
       request: adminProto.ListIdentifierDelegationRequest
-  ): Future[adminProto.ListIdentifierDelegationResult] = {
+  ): Future[adminProto.ListIdentifierDelegationResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -371,20 +371,20 @@ class GrpcTopologyManagerReadServiceX(
             (result, x)
         }
         .map { case (context, elem) =>
-          new adminProto.ListIdentifierDelegationResult.Result(
+          new adminProto.ListIdentifierDelegationResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListIdentifierDelegationResult(results = results)
+      adminProto.ListIdentifierDelegationResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listOwnerToKeyMapping(
       request: adminProto.ListOwnerToKeyMappingRequest
-  ): Future[adminProto.ListOwnerToKeyMappingResult] = {
+  ): Future[adminProto.ListOwnerToKeyMappingResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -401,19 +401,19 @@ class GrpcTopologyManagerReadServiceX(
             (result, x)
         }
         .map { case (context, elem) =>
-          new adminProto.ListOwnerToKeyMappingResult.Result(
+          new adminProto.ListOwnerToKeyMappingResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
-      adminProto.ListOwnerToKeyMappingResult(results = results)
+      adminProto.ListOwnerToKeyMappingResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listDomainTrustCertificate(
       request: adminProto.ListDomainTrustCertificateRequest
-  ): Future[adminProto.ListDomainTrustCertificateResult] = {
+  ): Future[adminProto.ListDomainTrustCertificateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -425,20 +425,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: DomainTrustCertificateX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListDomainTrustCertificateResult.Result(
+          new adminProto.ListDomainTrustCertificateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListDomainTrustCertificateResult(results = results)
+      adminProto.ListDomainTrustCertificateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listPartyHostingLimits(
       request: ListPartyHostingLimitsRequest
-  ): Future[ListPartyHostingLimitsResult] = {
+  ): Future[ListPartyHostingLimitsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -450,20 +450,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: PartyHostingLimitsX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListPartyHostingLimitsResult.Result(
+          new adminProto.ListPartyHostingLimitsResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListPartyHostingLimitsResult(results = results)
+      adminProto.ListPartyHostingLimitsResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listParticipantDomainPermission(
       request: adminProto.ListParticipantDomainPermissionRequest
-  ): Future[adminProto.ListParticipantDomainPermissionResult] = {
+  ): Future[adminProto.ListParticipantDomainPermissionResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -475,20 +475,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: ParticipantDomainPermissionX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListParticipantDomainPermissionResult.Result(
+          new adminProto.ListParticipantDomainPermissionResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListParticipantDomainPermissionResult(results = results)
+      adminProto.ListParticipantDomainPermissionResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listVettedPackages(
       request: adminProto.ListVettedPackagesRequest
-  ): Future[adminProto.ListVettedPackagesResult] = {
+  ): Future[adminProto.ListVettedPackagesResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -500,20 +500,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: VettedPackagesX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListVettedPackagesResult.Result(
+          new adminProto.ListVettedPackagesResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListVettedPackagesResult(results = results)
+      adminProto.ListVettedPackagesResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listPartyToParticipant(
       request: adminProto.ListPartyToParticipantRequest
-  ): Future[adminProto.ListPartyToParticipantResult] = {
+  ): Future[adminProto.ListPartyToParticipantResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -533,20 +533,20 @@ class GrpcTopologyManagerReadServiceX(
             (result, x)
         }
         .map { case (context, elem) =>
-          new adminProto.ListPartyToParticipantResult.Result(
+          new adminProto.ListPartyToParticipantResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListPartyToParticipantResult(results = results)
+      adminProto.ListPartyToParticipantResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listAuthorityOf(
       request: adminProto.ListAuthorityOfRequest
-  ): Future[adminProto.ListAuthorityOfResult] = {
+  ): Future[adminProto.ListAuthorityOfResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -558,20 +558,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: AuthorityOfX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListAuthorityOfResult.Result(
+          new adminProto.ListAuthorityOfResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListAuthorityOfResult(results = results)
+      adminProto.ListAuthorityOfResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listDomainParametersState(
       request: adminProto.ListDomainParametersStateRequest
-  ): Future[adminProto.ListDomainParametersStateResult] = {
+  ): Future[adminProto.ListDomainParametersStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -583,20 +583,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: DomainParametersStateX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListDomainParametersStateResult.Result(
+          new adminProto.ListDomainParametersStateResponse.Result(
             context = Some(createBaseResult(context)),
-            item = Some(elem.parameters.toProtoV2),
+            item = Some(elem.parameters.toProtoV30),
           )
         }
 
-      adminProto.ListDomainParametersStateResult(results = results)
+      adminProto.ListDomainParametersStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listMediatorDomainState(
       request: adminProto.ListMediatorDomainStateRequest
-  ): Future[adminProto.ListMediatorDomainStateResult] = {
+  ): Future[adminProto.ListMediatorDomainStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -608,20 +608,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: MediatorDomainStateX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListMediatorDomainStateResult.Result(
+          new adminProto.ListMediatorDomainStateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListMediatorDomainStateResult(results = results)
+      adminProto.ListMediatorDomainStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listSequencerDomainState(
       request: adminProto.ListSequencerDomainStateRequest
-  ): Future[adminProto.ListSequencerDomainStateResult] = {
+  ): Future[adminProto.ListSequencerDomainStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -633,21 +633,21 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: SequencerDomainStateX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListSequencerDomainStateResult.Result(
+          new adminProto.ListSequencerDomainStateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListSequencerDomainStateResult(results = results)
+      adminProto.ListSequencerDomainStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listAvailableStores(
       request: adminProto.ListAvailableStoresRequest
-  ): Future[adminProto.ListAvailableStoresResult] = Future.successful(
-    adminProto.ListAvailableStoresResult(storeIds = stores.map(_.storeId.filterName))
+  ): Future[adminProto.ListAvailableStoresResponse] = Future.successful(
+    adminProto.ListAvailableStoresResponse(storeIds = stores.map(_.storeId.filterName))
   )
 
   override def listAll(request: adminProto.ListAllRequest): Future[adminProto.ListAllResponse] = {
@@ -682,14 +682,14 @@ class GrpcTopologyManagerReadServiceX(
       if (logger.underlying.isDebugEnabled()) {
         logger.debug(s"All listed topology transactions: ${res.result}")
       }
-      adminProto.ListAllResponse(result = Some(res.toProtoV0))
+      adminProto.ListAllResponse(result = Some(res.toProtoV30))
     }
     CantonGrpcUtil.mapErrNew(res)
   }
 
-  override def listPurgeTopologyTransactionX(
-      request: ListPurgeTopologyTransactionXRequest
-  ): Future[ListPurgeTopologyTransactionXResult] = {
+  override def listPurgeTopologyTransaction(
+      request: ListPurgeTopologyTransactionRequest
+  ): Future[ListPurgeTopologyTransactionResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -701,20 +701,20 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: PurgeTopologyTransactionX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListPurgeTopologyTransactionXResult.Result(
+          new adminProto.ListPurgeTopologyTransactionResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListPurgeTopologyTransactionXResult(results = results)
+      adminProto.ListPurgeTopologyTransactionResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }
 
   override def listTrafficState(
       request: ListTrafficStateRequest
-  ): Future[ListTrafficStateResult] = {
+  ): Future[ListTrafficStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStores(
@@ -726,13 +726,13 @@ class GrpcTopologyManagerReadServiceX(
       val results = res
         .collect { case (result, x: TrafficControlStateX) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListTrafficStateResult.Result(
+          new adminProto.ListTrafficStateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListTrafficStateResult(results = results)
+      adminProto.ListTrafficStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNew(ret)
   }

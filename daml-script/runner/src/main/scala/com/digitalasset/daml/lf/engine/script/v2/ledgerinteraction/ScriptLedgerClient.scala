@@ -6,7 +6,7 @@ package v2.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.CompiledPackages
 import com.daml.lf.command.ApiCommand
 import com.daml.lf.data.Ref._
@@ -17,6 +17,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.OneAnd
 import com.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -60,7 +61,7 @@ object ScriptLedgerClient {
 
   final case class SubmitFailure(
       statusError: RuntimeException,
-      submitError: Option[SubmitError],
+      submitError: SubmitError,
   )
 
   // Ideally this lives in ScriptF, but is needed to pass forward to IDELedgerClient
@@ -78,7 +79,7 @@ object ScriptLedgerClient {
       ledger: abstractLedgers.ScriptLedgerClient,
       enableContractUpgrading: Boolean,
       compiledPackages: CompiledPackages,
-  ): ScriptLedgerClient =
+  )(implicit namedLoggerFactory: NamedLoggerFactory): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, applicationId, oAdminClient) =>
         new grpcLedgerClient.GrpcLedgerClient(
@@ -88,14 +89,16 @@ object ScriptLedgerClient {
           enableContractUpgrading,
           compiledPackages,
         )
-      case abstractLedgers.JsonLedgerClient(uri, token, envIface, actorSystem) =>
-        if (enableContractUpgrading)
-          throw new IllegalArgumentException("The JSON client does not support Upgrades")
-        new JsonLedgerClient(uri, token, envIface, actorSystem)
       case abstractLedgers.IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled) =>
         if (enableContractUpgrading)
           throw new IllegalArgumentException("The IDE Ledger client does not support Upgrades")
-        new IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled)
+        new IdeLedgerClient(
+          pureCompiledPackages,
+          traceLog,
+          warningLog,
+          canceled,
+          namedLoggerFactory,
+        )
     }
 
   // Essentially PackageMetadata but without the possibility of extension
@@ -194,7 +197,7 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
-    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+    (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]]
 
   def allocateParty(partyIdHint: String, displayName: String)(implicit

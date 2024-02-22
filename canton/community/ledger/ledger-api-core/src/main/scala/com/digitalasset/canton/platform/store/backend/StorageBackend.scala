@@ -26,13 +26,13 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawUnassignEvent,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
 import com.digitalasset.canton.platform.store.backend.common.{
   EventReaderQueries,
   TransactionPointwiseQueries,
   TransactionStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
-import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.platform.store.entries.{
   ConfigurationEntry,
   PackageLedgerEntry,
@@ -114,6 +114,8 @@ trait ParameterStorageBackend {
 
   def prunedUpToInclusive(connection: Connection): Option[Offset]
 
+  def prunedUpToInclusiveAndLedgerEnd(connection: Connection): PruneUptoInclusiveAndLedgerEnd
+
   def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit
@@ -174,6 +176,10 @@ object ParameterStorageBackend {
   }
   final case class IdentityParams(participantId: ParticipantId)
 
+  final case class PruneUptoInclusiveAndLedgerEnd(
+      pruneUptoInclusive: Option[Offset],
+      ledgerEnd: Offset,
+  )
 }
 
 trait ConfigurationStorageBackend {
@@ -237,12 +243,6 @@ trait ContractStorageBackend {
   def assignedContracts(contractIds: Seq[ContractId])(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawCreatedContract]
-  def activeContractWithArgument(readers: Set[Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[ContractStorageBackend.RawContract]
-  def activeContractWithoutArgument(readers: Set[Party], contractId: ContractId)(
-      connection: Connection
-  ): Option[String]
 }
 
 object ContractStorageBackend {
@@ -250,6 +250,7 @@ object ContractStorageBackend {
 
   final case class RawCreatedContract(
       templateId: String,
+      packageName: String,
       flatEventWitnesses: Set[Party],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
@@ -268,6 +269,7 @@ object ContractStorageBackend {
 
   class RawContract(
       val templateId: String,
+      val packageName: String,
       val createArgument: Array[Byte],
       val createArgumentCompression: Option[Int],
   )
@@ -281,21 +283,14 @@ trait EventStorageBackend {
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
-  def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+  def pruneEvents(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
+  )(implicit
       connection: Connection,
       traceContext: TraceContext,
   ): Unit
-  def isPruningOffsetValidAgainstMigration(
-      pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
-      connection: Connection,
-  ): Boolean
-
-  def activeContractCreateEventBatch(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Set[Party],
-      endInclusive: Long,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
 
   def activeContractCreateEventBatchV2(
       eventSequentialIds: Iterable[Long],
@@ -365,8 +360,9 @@ object EventStorageBackend {
       ledgerEffectiveTime: Timestamp,
       commandId: String,
       workflowId: String,
-      domainId: Option[String],
+      domainId: String,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
       event: E,
   )
 
@@ -374,6 +370,7 @@ object EventStorageBackend {
       updateId: String,
       contractId: String,
       templateId: Identifier,
+      packageName: PackageName,
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],
@@ -411,6 +408,7 @@ object EventStorageBackend {
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 
   final case class RawAssignEvent(
@@ -424,6 +422,7 @@ object EventStorageBackend {
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
       traceContext: Option[Array[Byte]],
+      recordTime: Timestamp,
   )
 }
 
@@ -503,7 +502,7 @@ trait MeteringStorageReadBackend {
 
 trait MeteringStorageWriteBackend {
 
-  /** This method will return the maximum offset of the transaction_metering record
+  /** This method will return the maximum offset of the lapi_transaction_metering record
     * which has an offset greater than the from offset and a timestamp prior to the
     * to timestamp, if any.
     *

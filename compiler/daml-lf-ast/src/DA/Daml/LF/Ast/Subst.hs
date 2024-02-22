@@ -281,11 +281,6 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
-    USoftExercise templateName choiceName e1 e2 -> USoftExercise
-        templateName
-        choiceName
-        (applySubstInExpr subst e1)
-        (applySubstInExpr subst e2)
     UDynamicExercise templateName choiceName e1 e2 -> UDynamicExercise
         templateName
         choiceName
@@ -303,9 +298,6 @@ applySubstInUpdate subst = \case
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
     UFetch templateName e -> UFetch
-        templateName
-        (applySubstInExpr subst e)
-    USoftFetch templateName e -> USoftFetch
         templateName
         (applySubstInExpr subst e)
     UFetchInterface interface e -> UFetchInterface

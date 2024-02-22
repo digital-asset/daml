@@ -337,9 +337,9 @@ class RequestJournal(
 
 object RequestJournal {
 
-  /** Enumeration for the states a confirmation request can be in while it is being processed.
+  /** Enumeration for the states a transaction confirmation request can be in while it is being processed.
     *
-    * A confirmation request must transit the states in the order given by this enumeration.
+    * A transaction confirmation request must transit the states in the order given by this enumeration.
     */
   sealed trait RequestState
       extends Ordered[RequestState]
@@ -363,7 +363,7 @@ object RequestJournal {
     override def pretty: Pretty[this.type] = prettyOfObject[this.type]
   }
 
-  /** State of a confirmation request whose head value the request journal tracks with a cursor
+  /** State of a transaction confirmation request whose head value the request journal tracks with a cursor
     */
   sealed trait RequestStateWithCursor extends RequestState {
     override def hasCursor: Boolean = true

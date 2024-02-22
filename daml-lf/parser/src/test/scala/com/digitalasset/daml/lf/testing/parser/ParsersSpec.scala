@@ -17,7 +17,6 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
-class ParsersSpecV1 extends ParsersSpec(LanguageMajorVersion.V1)
 class ParsersSpecV2 extends ParsersSpec(LanguageMajorVersion.V2)
 
 class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -200,14 +199,10 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "TRACE" -> BTrace,
         "ADD_NUMERIC" -> BAddNumeric,
         "SUB_NUMERIC" -> BSubNumeric,
-        "MUL_NUMERIC_LEGACY" -> BMulNumericLegacy,
         "MUL_NUMERIC" -> BMulNumeric,
-        "DIV_NUMERIC_LEGACY" -> BDivNumericLegacy,
         "DIV_NUMERIC" -> BDivNumeric,
         "ROUND_NUMERIC" -> BRoundNumeric,
-        "CAST_NUMERIC_LEGACY" -> BCastNumericLegacy,
         "CAST_NUMERIC" -> BCastNumeric,
-        "SHIFT_NUMERIC_LEGACY" -> BShiftNumericLegacy,
         "SHIFT_NUMERIC" -> BShiftNumeric,
         "ADD_INT64" -> BAddInt64,
         "SUB_INT64" -> BSubInt64,
@@ -215,7 +210,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "DIV_INT64" -> BDivInt64,
         "MOD_INT64" -> BModInt64,
         "EXP_INT64" -> BExpInt64,
-        "INT64_TO_NUMERIC_LEGACY" -> BInt64ToNumericLegacy,
         "INT64_TO_NUMERIC" -> BInt64ToNumeric,
         "NUMERIC_TO_INT64" -> BNumericToInt64,
         "DATE_TO_UNIX_DAYS" -> BDateToUnixDays,
@@ -646,7 +640,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Cons @Party [person] (Nil @Party);
             observers Cons @Party [Mod:Person {person} this] (Nil @Party);
-            agreement "Agreement";
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
               , controllers Cons @Party [person] (Nil @Party)
               to upure @(ContractId Mod:Person) self;
@@ -681,7 +674,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
-          agreementText = e""" "Agreement" """,
           choices = Map(
             n"Sleep" ->
               TemplateChoice(
@@ -782,7 +774,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Unit;
               observers Nil @Unit;
-              agreement "Agreement";
             } ;
           }
         """
@@ -792,7 +783,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
-          agreementText = e""" "Agreement" """,
           choices = List.empty,
           observers = e"Nil @Unit",
           key = None,
@@ -870,17 +860,10 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               , observers Nil @Party
               to upure @Int64 i;
-            coimplements Mod1:Company {
-              view = Mod1:PersonView { name = callMethod @Mod:Person getName this };
-              method asParty = Mod1:Company {party} this;
-              method getName = Mod1:Company {legalName} this;
-            };
           } ;
        }
 
       """
-      val TTyCon(company) = t"Mod1:Company"
-
       val interface =
         DefInterface(
           requires = Set.empty,
@@ -912,25 +895,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               returnType = t"Int64",
               update = e"upure @Int64 i",
             ),
-          ),
-          coImplements = Map(
-            company ->
-              InterfaceCoImplements(
-                company,
-                InterfaceInstanceBody(
-                  Map(
-                    n"asParty" -> InterfaceInstanceMethod(
-                      n"asParty",
-                      e"Mod1:Company {party} this",
-                    ),
-                    n"getName" -> InterfaceInstanceMethod(
-                      n"getName",
-                      e"Mod1:Company {legalName} this",
-                    ),
-                  ),
-                  e"Mod1:PersonView { name = callMethod @Mod:Person getName this }",
-                ),
-              )
           ),
           view = t"Mod1:PersonView",
         )

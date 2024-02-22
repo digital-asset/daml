@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.interfaces
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Bytes
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{PackageName, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.GlobalKey
@@ -34,6 +34,7 @@ object TransactionLogUpdate {
     * @param offset The transaction's offset in the ledger.
     * @param events The transaction events, in execution order.
     * @param completionDetails The successful submission's completion details.
+    * @param recordTime The time at which the transaction was recorded.
     */
   final case class TransactionAccepted(
       transactionId: String,
@@ -44,6 +45,7 @@ object TransactionLogUpdate {
       events: Vector[Event],
       completionDetails: Option[CompletionDetails],
       domainId: Option[String],
+      recordTime: Timestamp,
   ) extends TransactionLogUpdate
 
   /** A rejected submission.
@@ -61,6 +63,7 @@ object TransactionLogUpdate {
       commandId: String,
       workflowId: String,
       offset: Offset,
+      recordTime: Timestamp,
       completionDetails: Option[CompletionDetails],
       reassignmentInfo: ReassignmentInfo,
       reassignment: ReassignmentAccepted.Reassignment,
@@ -109,6 +112,7 @@ object TransactionLogUpdate {
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
+      packageName: PackageName,
       commandId: String,
       workflowId: String,
       contractKey: Option[LfValue.VersionedValue],

@@ -4,7 +4,7 @@
 package com.daml.lf
 package crypto
 
-import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
+import com.daml.lf.data.{Numeric, Ref, SortedLookupList, Time}
 import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
@@ -21,7 +21,7 @@ class HashSpec extends AnyWordSpec with Matchers {
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
-    Hash.assertHashContractKey(templateId, key, shared = false)
+    Hash.assertHashContractKey(templateId, key)
   }
 
   private val complexRecordT =
@@ -31,8 +31,8 @@ class HashSpec extends AnyWordSpec with Matchers {
         fInt0 = VA.int64,
         fInt1 = VA.int64,
         fInt2 = VA.int64,
-        fNumeric0 = VA.numeric(Decimal.scale),
-        fNumeric1 = VA.numeric(Decimal.scale),
+        fNumeric0 = VA.numeric(Numeric.Scale.assertFromInt(10)),
+        fNumeric1 = VA.numeric(Numeric.Scale.assertFromInt(10)),
         fBool0 = VA.bool,
         fBool1 = VA.bool,
         fDate0 = VA.date,
@@ -90,7 +90,7 @@ class HashSpec extends AnyWordSpec with Matchers {
   "KeyHasher" should {
 
     "be stable" in {
-      val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
+      val hash = "1934eb3965284ccf3062f19548fa04284313e48ee81c9732f33c7fc05322c9f9"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
       assertHashContractKey(name, value).toHexString shouldBe hash
@@ -131,9 +131,10 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in list of decimals" in {
-      // Testing whether decimals are delimited: [10, 10] vs [101, 0]
+      // Testing whether numeric are delimited: [10, 10] vs [101, 0]
       def list(elements: String*) =
-        VA.list(VA.numeric(Decimal.scale)).inj(elements.map(Numeric.assertFromString).toVector)
+        VA.list(VA.numeric(Numeric.Scale.assertFromInt(10)))
+          .inj(elements.map(Numeric.assertFromString).toVector)
       val value1 = list("10.0000000000", "10.0000000000")
       val value2 = list("101.0000000000", "0.0000000000")
 
@@ -269,7 +270,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       hash1 should !==(hash2)
     }
 
-    "not produce collision in Decimal" in {
+    "not produce collision in Numeric" in {
       val value1 = ValueNumeric(Numeric.assertFromString("0."))
       val value2 = ValueNumeric(Numeric.assertFromString("1."))
 
@@ -352,9 +353,9 @@ class HashSpec extends AnyWordSpec with Matchers {
       val units = List(ValueUnit)
       val bools = List(true, false).map(VA.bool.inj(_))
       val ints = List(-1L, 0L, 1L).map(VA.int64.inj(_))
-      val decimals = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
+      val numeric10s = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
         .map(Numeric.assertFromString)
-        .map(VA.numeric(Decimal.scale).inj(_))
+        .map(VA.numeric(Numeric.Scale.assertFromInt(10)).inj(_))
       val numeric0s = List("-10000.", "0.", "10000.")
         .map(Numeric.assertFromString)
         .map(VA.numeric(Numeric.Scale.MinValue).inj(_))
@@ -473,7 +474,7 @@ class HashSpec extends AnyWordSpec with Matchers {
           List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj(_))
 
       val testCases: List[V] =
-        units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
+        units ++ bools ++ ints ++ numeric10s ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ genMaps ++ enums ++ records0 ++ records2 ++ variants
 
       val expectedOut =
         """ValueUnit
@@ -665,32 +666,18 @@ class HashSpec extends AnyWordSpec with Matchers {
     val nonSharedTrueHash =
       Hash.assertFromString("efab35fcbc9e2336fcc63259ba65e6601903be0a373c0b0f4d761872ffb23ded")
 
-    "produce backwardly compatible non-shared contract keys" in {
-      assertHashContractKey(templateId, ValueTrue) shouldBe nonSharedTrueHash
+    "produce ignore the packageId" in {
+      Hash.assertHashContractKey(templateId, ValueTrue) should not be nonSharedTrueHash
     }
 
-    "produce backwardly compatible keys when called with shared=false" in {
-      Hash.assertHashContractKey(templateId, ValueTrue, shared = false) shouldBe nonSharedTrueHash
-    }
-
-    "produce ignore the packageId when called with shared=true" in {
-      Hash.assertHashContractKey(
-        templateId,
-        ValueTrue,
-        shared = true,
-      ) should not be nonSharedTrueHash
-    }
-
-    "produce an identical hash to the same template in a different package if shared=true" in {
+    "produce an identical hash to the same template in a different package" in {
       val h1 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageA")),
         ValueTrue,
-        shared = true,
       )
       val h2 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageB")),
         ValueTrue,
-        shared = true,
       )
       h1 shouldBe h2
     }

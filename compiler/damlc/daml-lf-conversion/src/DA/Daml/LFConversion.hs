@@ -101,8 +101,6 @@ import           Control.Monad.Extra
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
-import           DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
-import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.Options.Types (EnableScenarios (..), AllowLargeTuples (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
@@ -365,7 +363,6 @@ data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
     , tbSignatory :: Maybe (GHC.Expr Var)
     , tbEnsure :: Maybe (GHC.Expr Var)
-    , tbAgreement :: Maybe (GHC.Expr Var)
     , tbObserver :: Maybe (GHC.Expr Var)
     , tbArchive :: Maybe (GHC.Expr Var)
     , tbKeyType :: Maybe GHC.Type
@@ -377,7 +374,7 @@ data TemplateBinds = TemplateBinds
 emptyTemplateBinds :: TemplateBinds
 emptyTemplateBinds = TemplateBinds
     Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing
 
 scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
 scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
@@ -388,8 +385,6 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
             Just (tpl, \tb -> tb { tbTyCon = Just tpl, tbSignatory = Just expr })
         HasEnsureDFunId tpl ->
             Just (tpl, \tb -> tb { tbEnsure = Just expr })
-        HasAgreementDFunId tpl ->
-            Just (tpl, \tb -> tb { tbAgreement = Just expr })
         HasObserverDFunId tpl ->
             Just (tpl, \tb -> tb { tbObserver = Just expr })
         HasArchiveDFunId tpl ->
@@ -668,8 +663,6 @@ convertInterfaces env mc =
 convertInterface :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> InterfaceBinds -> ConvertM [Definition]
 convertInterface env mc intName ib =
   withRange intLocation do
-    unless (envLfVersion env `supports` featureSimpleInterfaces) do
-      unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
     defInterfaceDataType <- convertDefInterfaceDataType
     defInterface <- convertDefInterface
     pure
@@ -699,7 +692,6 @@ convertInterface env mc intName ib =
       intRequires <- convertRequires (ibRequires ib)
       intMethods <- convertMethods (ibMethods ib)
       intChoices <- convertChoices env mc intName emptyTemplateBinds
-      intCoImplements <- convertCoImplements intName
       intView <- case ibViewType ib of
           Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
           Just viewType -> convertType env viewType
@@ -728,18 +720,6 @@ convertInterface env mc intName ib =
               }
         | (methodName, (retTy, loc)) <- MS.toList methods
         ]
-
-    convertCoImplements :: LF.TypeConName -> ConvertM (NM.NameMap InterfaceCoImplements)
-    convertCoImplements interface = NM.fromList <$>
-      mapM convertCoImplements1
-        (maybe [] interfaceInstanceGroupBinds (MS.lookup interface (mcInterfaceInstanceBinds mc)))
-      where
-        convertCoImplements1 :: InterfaceInstanceBinds -> ConvertM InterfaceCoImplements
-        convertCoImplements1 =
-          convertInterfaceInstance
-            (TemplateOrInterface.Interface interface)
-            (\_ template -> InterfaceCoImplements template)
-            env
 
 convertConsuming :: LF.Type -> ConvertM Consuming
 convertConsuming consumingTy = case consumingTy of
@@ -840,12 +820,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | not (envLfVersion env `supports` featureDynamicExercise)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasDynamicExercise" <- cls
-    -> pure []
-
-    -- Remove HasSoftFetch instances when softFetch is unsupported
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , Just cls <- tyConClass_maybe t
-    , NameIn DA_Internal_Template_Functions "HasSoftFetch" <- cls
     -> pure []
 
     -- Constraint tuples are represented by LF structs.
@@ -1096,14 +1070,12 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
     , Just fSignatory <- tbSignatory
     , Just fObserver <- tbObserver
     , Just fEnsure <- tbEnsure
-    , Just fAgreement <- tbAgreement
     , tplLocation <- convNameLoc (GHC.tyConName tplTyCon)
     = withRange tplLocation $ do
         let tplParam = this
         tplSignatories <- useSingleMethodDict env fSignatory (`ETmApp` EVar this)
         tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
         tplPrecondition <- useSingleMethodDict env fEnsure (wrapPrecondition . (`ETmApp` EVar this))
-        tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env mc tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
         tplImplements <- convertImplements env mc tplTypeCon
@@ -1179,36 +1151,26 @@ useSingleMethodDict env x _ =
 
 convertImplements :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
 convertImplements env mc tpl = NM.fromList <$>
-  mapM convertImplements1
+  mapM (convertInterfaceInstance tpl env)
     (maybe [] interfaceInstanceGroupBinds (MS.lookup tpl (mcInterfaceInstanceBinds mc)))
-  where
-    convertImplements1 :: InterfaceInstanceBinds -> ConvertM TemplateImplements
-    convertImplements1 =
-      convertInterfaceInstance
-        (TemplateOrInterface.Template tpl)
-        (\iface _ -> TemplateImplements iface)
-        env
 
 convertInterfaceInstance ::
      SdkVersioned
-  => TemplateOrInterface' TypeConName
-  -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> Maybe SourceLoc -> r)
+  => TypeConName
   -> Env
   -> InterfaceInstanceBinds
-  -> ConvertM r
-convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
-  unless (envLfVersion env `supports` featureSimpleInterfaces) do
-    unsupported "Daml interfaces are only available with --target=1.15 or higher" ()
+  -> ConvertM TemplateImplements
+convertInterfaceInstance parent env iib = withRange (iibLoc iib) do
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
-  checkParent interfaceQualTypeCon templateQualTypeCon
+  checkParent templateQualTypeCon
   methods <- convertMethods (iibMethods iib)
   view <- convertView (iibView iib)
-  pure $ mkR
-    interfaceQualTypeCon
-    templateQualTypeCon
-    (InterfaceInstanceBody methods view)
-    (iibLoc iib)
+  pure $ TemplateImplements
+    { tpiInterface = interfaceQualTypeCon
+    , tpiBody = InterfaceInstanceBody methods view
+    , tpiLocation = iibLoc iib
+    }
   where
     qualifyInterfaceCon =
       convertInterfaceTyCon env handleIsNotInterface
@@ -1222,18 +1184,12 @@ convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
         handleIsNotTemplate tyCon =
           mkErr $ "'" <> prettyPrint tyCon <> "' is not a template"
 
-    checkParent interfaceQualTypeCon templateQualTypeCon =
-      case parent of
-        TemplateOrInterface.Template t ->
-          checkParent' "template" (qualifyLocally env t == templateQualTypeCon)
-        TemplateOrInterface.Interface i ->
-          checkParent' "interface" (qualifyLocally env i == interfaceQualTypeCon)
-      where
-        checkParent' tOrI check = do
-          unless check $ conversionError $ mkErr $ unwords
-            [ "The", tOrI, "of this interface instance does not match the"
-            , "enclosing", tOrI, "declaration."
-            ]
+    checkParent templateQualTypeCon =
+      unless (qualifyLocally env parent == templateQualTypeCon) $
+        conversionError $ mkErr $ unwords
+          [ "The template of this interface instance does not match the"
+          , "enclosing template declaration."
+          ]
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ InterfaceInstanceMethod k . (`ETmApp` EVar this) <$> convertExpr env v
@@ -1415,20 +1371,6 @@ convertBind env mc (name, x)
     = pure []
     | not (envLfVersion env `supports` featureDynamicExercise)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasDynamicExercise") _ <- name
-    = pure []
-
-    -- Remove softFetch when unsupported
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , "$c_softFetch" `T.isPrefixOf` getOccText name
-    = pure []
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , NameIn DA_Internal_Template_Functions "_softFetch" <- name
-    = pure []
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , NameIn DA_Internal_Template_Functions "softFetch" <- name
-    = pure []
-    | not (envLfVersion env `supports` featurePackageUpgrades)
-    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasSoftFetch") _ <- name
     = pure []
 
     -- Remove internal functions.
@@ -1626,7 +1568,7 @@ convertExpr env0 e = do
                   )
             _ -> unsupported "primitiveInterface not applied to function from interface." t
     -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
-    -- preprocessor to magically implement the `HasField` instances for records.
+    -- preprocessor to magically implement the `GetField` and `SetField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
         withTmArg env record' args $ \x args ->
@@ -1637,17 +1579,26 @@ convertExpr env0 e = do
         withTmArg env field' args $ \x1 args ->
             withTmArg env record' args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
-    -- NOTE(MH): We only inline `getField` for record types. Projections on
+    -- NOTE(MH, MA): We only inline `getField` for record types, and only when the
+    -- type actually contains a field of the given name. Projections on
     -- sum-of-records types have to through the type class for `getField`.
     go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : args)
-        | isSingleConType recordTyCon = do
+          -- check that the type constructor has a single constructor
+        | Just data_con <- tyConSingleDataCon_maybe recordTyCon
+          -- check that the field name belongs to the single constructor
+        , Just _ <- dataConFieldType_maybe data_con name
+        = do
             recordType <- convertType env recordType
             withTmArg env recordType args $ \record args ->
                 pure (ERecProj (fromTCon recordType) (mkField $ fsToText name) record, args)
     -- NOTE(SF): We also need to inline `setField` in order to get the correct
     -- evaluation order (record first, then fields in order).
     go env (VarIn DA_Internal_Record "setField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
-        | isSingleConType recordTyCon = do
+          -- check that the type constructor has a single constructor
+        | Just data_con <- tyConSingleDataCon_maybe recordTyCon
+          -- check that the field name belongs to the single constructor
+        , Just _ <- dataConFieldType_maybe data_con name
+        = do
             record' <- convertType env record
             field' <- convertType env field
             withTmArg env field' args $ \x1 args ->
@@ -2447,8 +2398,8 @@ erasedTy env = do
 -- | Type-level strings are represented in Daml-LF via the PromotedText type. This is
 -- For example, the type-level string @"foo"@ will be represented by the type
 -- @PromotedText {"_foo": Unit}@. This allows us to preserve all the information we need
--- to reconstruct `HasField` instances in data-dependencies without resorting to
--- name-based hacks.
+-- to reconstruct `GetField` and `SetField` instances in data-dependencies without
+-- resorting to name-based hacks.
 --
 -- Note: It's fine to put arbitrary non-empty strings in field names, because we mangle
 -- the field names in daml-lf-proto to encode undesired characters. We later reconstruct

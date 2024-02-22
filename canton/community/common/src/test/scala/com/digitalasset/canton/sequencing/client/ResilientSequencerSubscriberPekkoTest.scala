@@ -140,7 +140,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
         subscriber
           .subscribeFrom(SequencerCounter.Genesis)
           .source
-          .map(_.unwrap)
+          .map(_.value)
           .toMat(TestSink.probe)(Keep.both)
           .run()
       sink.request(30)
@@ -252,7 +252,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       for (_ <- 1 to retries) {
         factory.add(Error(RetryableError))
       }
-      factory.add((1 to 10).map(sc => Event(SequencerCounter(sc.toLong))) *)
+      factory.add((1 to 10).map(sc => Event(SequencerCounter(sc.toLong)))*)
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
@@ -324,7 +324,7 @@ class TestSequencerSubscriptionFactoryPekko(
       .concat(Source.never[Element])
       .withUniqueKillSwitchMat()(Keep.right)
       .mapConcat { withKillSwitch =>
-        noTracingLogger.debug(s"Processing element ${withKillSwitch.unwrap}")
+        noTracingLogger.debug(s"Processing element ${withKillSwitch.value}")
         withKillSwitch.traverse {
           case Error(error) =>
             withKillSwitch.killSwitch.shutdown()

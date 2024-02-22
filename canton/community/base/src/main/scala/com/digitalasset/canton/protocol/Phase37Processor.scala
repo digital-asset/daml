@@ -7,8 +7,12 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.HandlerResult
-import com.digitalasset.canton.sequencing.protocol.{Deliver, EventWithErrors, SignedContent}
-import com.digitalasset.canton.topology.MediatorRef
+import com.digitalasset.canton.sequencing.protocol.{
+  Deliver,
+  MediatorsOfDomain,
+  SignedContent,
+  WithOpeningErrors,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
@@ -32,13 +36,10 @@ trait Phase37Processor[RequestBatch] {
       traceContext: TraceContext
   ): HandlerResult
 
-  def processMalformedMediatorRequestResult(
+  def processMalformedMediatorConfirmationRequestResult(
       timestamp: CantonTimestamp,
       sequencerCounter: SequencerCounter,
-      signedResultBatch: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      signedResultBatch: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): HandlerResult
 
   /** Processes a result message, commits the changes or rolls them back and emits events via the
@@ -51,10 +52,7 @@ trait Phase37Processor[RequestBatch] {
     *         or if the processing aborts with an error.
     */
   def processResult(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ]
+      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit
       traceContext: TraceContext
   ): HandlerResult
@@ -66,6 +64,6 @@ trait Phase37Processor[RequestBatch] {
 final case class RequestAndRootHashMessage[RequestEnvelope](
     requestEnvelopes: NonEmpty[Seq[RequestEnvelope]],
     rootHashMessage: RootHashMessage[SerializedRootHashMessagePayload],
-    mediator: MediatorRef,
+    mediator: MediatorsOfDomain,
     isReceipt: Boolean,
 )

@@ -8,14 +8,13 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.time.admin.v30
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, EitherUtil}
-import com.google.protobuf.empty.Empty
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,10 +24,10 @@ private[time] class GrpcDomainTimeService(
     lookupTimeTracker: Option[DomainId] => Either[String, DomainTimeTracker],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends v0.DomainTimeServiceGrpc.DomainTimeService
+    extends v30.DomainTimeServiceGrpc.DomainTimeService
     with NamedLogging {
 
-  override def fetchTime(requestP: v0.FetchTimeRequest): Future[v0.FetchTimeResponse] = {
+  override def fetchTime(requestP: v30.FetchTimeRequest): Future[v30.FetchTimeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     handle {
       for {
@@ -44,11 +43,11 @@ private[time] class GrpcDomainTimeService(
             .map(Right(_))
             .onShutdown(Left(Status.ABORTED.withDescription("shutdown")))
         )
-      } yield FetchTimeResponse(timestamp).toProtoV0
+      } yield FetchTimeResponse(timestamp).toProtoV30
     }
   }
 
-  override def awaitTime(requestP: v0.AwaitTimeRequest): Future[Empty] = {
+  override def awaitTime(requestP: v30.AwaitTimeRequest): Future[v30.AwaitTimeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     handle {
       for {
@@ -66,7 +65,7 @@ private[time] class GrpcDomainTimeService(
             .awaitTick(request.timestamp)
             .fold(Future.unit)(_.void)
         )
-      } yield Empty()
+      } yield v30.AwaitTimeResponse()
     }
   }
 
@@ -78,13 +77,13 @@ final case class FetchTimeRequest(
     domainIdO: Option[DomainId],
     freshnessBound: NonNegativeFiniteDuration,
 ) {
-  def toProtoV0: v0.FetchTimeRequest =
-    v0.FetchTimeRequest(domainIdO.map(_.toProtoPrimitive), freshnessBound.toProtoPrimitive.some)
+  def toProtoV30: v30.FetchTimeRequest =
+    v30.FetchTimeRequest(domainIdO.map(_.toProtoPrimitive), freshnessBound.toProtoPrimitive.some)
 }
 
 object FetchTimeRequest {
   def fromProto(
-      requestP: v0.FetchTimeRequest
+      requestP: v30.FetchTimeRequest
   ): ParsingResult[FetchTimeRequest] =
     for {
       domainIdO <- requestP.domainId.traverse(DomainId.fromProtoPrimitive(_, "domainId"))
@@ -97,13 +96,13 @@ object FetchTimeRequest {
 }
 
 final case class FetchTimeResponse(timestamp: CantonTimestamp) {
-  def toProtoV0: v0.FetchTimeResponse =
-    v0.FetchTimeResponse(timestamp.toProtoPrimitive.some)
+  def toProtoV30: v30.FetchTimeResponse =
+    v30.FetchTimeResponse(timestamp.toProtoPrimitive.some)
 }
 
 object FetchTimeResponse {
   def fromProto(
-      requestP: v0.FetchTimeResponse
+      requestP: v30.FetchTimeResponse
   ): ParsingResult[FetchTimeResponse] =
     for {
       timestamp <- ProtoConverter.parseRequired(
@@ -115,13 +114,13 @@ object FetchTimeResponse {
 }
 
 final case class AwaitTimeRequest(domainIdO: Option[DomainId], timestamp: CantonTimestamp) {
-  def toProtoV0: v0.AwaitTimeRequest =
-    v0.AwaitTimeRequest(domainIdO.map(_.toProtoPrimitive), timestamp.toProtoPrimitive.some)
+  def toProtoV30: v30.AwaitTimeRequest =
+    v30.AwaitTimeRequest(domainIdO.map(_.toProtoPrimitive), timestamp.toProtoPrimitive.some)
 }
 
 object AwaitTimeRequest {
   def fromProto(
-      requestP: v0.AwaitTimeRequest
+      requestP: v30.AwaitTimeRequest
   ): ParsingResult[AwaitTimeRequest] =
     for {
       domainIdO <- requestP.domainId.traverse(DomainId.fromProtoPrimitive(_, "domainId"))

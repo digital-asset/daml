@@ -10,7 +10,7 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.ContractAuthenticationFailed
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionProcessorError
-import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory
+import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, SerializableContract}
@@ -27,8 +27,8 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
   ) = new TransactionProcessingSteps(
     domainId = domainId,
     participantId = participantId,
-    confirmationRequestFactory = mock[ConfirmationRequestFactory],
-    confirmationResponseFactory = mock[ConfirmationResponseFactory],
+    confirmationRequestFactory = mock[TransactionConfirmationRequestFactory],
+    confirmationResponseFactory = mock[TransactionConfirmationResponseFactory],
     modelConformanceChecker = mock[ModelConformanceChecker],
     staticDomainParameters = defaultStaticDomainParameters,
     crypto = mock[DomainSyncCryptoClient],

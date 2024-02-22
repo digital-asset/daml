@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -18,7 +17,6 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, LfPartyId}
 
@@ -86,15 +84,12 @@ object ExtractUsedAndCreated {
       parties: Set[LfPartyId],
       participantId: ParticipantId,
       topologySnapshot: TopologySnapshot,
-  )(implicit ec: ExecutionContext): Future[Map[LfPartyId, Boolean]] = {
-    parties.toSeq
-      .parTraverse(partyId =>
-        topologySnapshot.hostedOn(partyId, participantId).map {
-          case Some(relationship) if relationship.permission.isActive => partyId -> true
-          case _ => partyId -> false
-        }
-      )
-      .map(_.toMap)
+  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[LfPartyId, Boolean]] = {
+    topologySnapshot.hostedOn(parties, participantId).map { partyWithAttributes =>
+      parties
+        .map(partyId => partyId -> partyWithAttributes.contains(partyId))
+        .toMap
+    }
   }
 
   def apply(

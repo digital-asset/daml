@@ -243,20 +243,14 @@ typeOfBuiltin = \case
   BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BEMulNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BEMulNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
-  BEDivNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BEDivNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BERoundNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BECastNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
   BECastNumeric      -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tBeta :-> TNumeric tAlpha :-> TNumeric tBeta
-  BEShiftNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
   BEShiftNumeric     -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tBeta :-> TNumeric tAlpha :-> TNumeric tBeta
-  BEInt64ToNumericLegacy -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
   BEInt64ToNumeric   -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64 :-> TNumeric tAlpha
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
   BENumericToText -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
-  BETextToNumericLegacy -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
   BETextToNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText :-> TOptional (TNumeric tAlpha)
 
   BEScaleBigNumeric -> pure $ TBigNumeric :-> TInt64
@@ -266,7 +260,6 @@ typeOfBuiltin = \case
   BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEShiftRightBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
-  BEBigNumericToNumericLegacy -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
   BEBigNumericToNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric :-> TNumeric tAlpha
   BENumericToBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
 
@@ -636,15 +629,9 @@ checkFetchInterface tpl cid = do
   checkExpr cid (TContractId (TCon tpl))
 
 -- | Check that there's a unique interface instance for the given
--- interface + template pair, and return relevant details.
-checkUniqueInterfaceInstance :: MonadGamma m =>
-  InterfaceInstanceHead -> m InterfaceInstanceInfo
-checkUniqueInterfaceInstance = inWorld . lookupInterfaceInstance
-
--- | Check that there's a unique interface instance for the given
 -- interface + template pair.
-checkUniqueInterfaceInstanceExists :: MonadGamma m => InterfaceInstanceHead -> m ()
-checkUniqueInterfaceInstanceExists = void . checkUniqueInterfaceInstance
+checkUniqueInterfaceInstance :: MonadGamma m => InterfaceInstanceHead -> m ()
+checkUniqueInterfaceInstance = inWorld . lookupInterfaceInstance
 
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
@@ -663,13 +650,11 @@ typeOfUpdate = \case
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UCreateInterface iface arg -> checkCreateInterface iface arg $> TUpdate (TContractId (TCon iface))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
-  USoftExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UDynamicExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UExerciseInterface tpl choice cid arg guard ->
     typeOfExerciseInterface tpl choice cid arg guard
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
-  USoftFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do
@@ -763,15 +748,15 @@ typeOf' = \case
     checkExpr val ty2
     pure ty1
   EToInterface iface tpl val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
+    checkUniqueInterfaceInstance (InterfaceInstanceHead iface tpl)
     checkExpr val (TCon tpl)
     pure (TCon iface)
   EFromInterface iface tpl val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
+    checkUniqueInterfaceInstance (InterfaceInstanceHead iface tpl)
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
   EUnsafeFromInterface iface tpl cid val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
+    checkUniqueInterfaceInstance (InterfaceInstanceHead iface tpl)
     checkExpr cid (TContractId (TCon iface))
     checkExpr val (TCon iface)
     pure (TCon tpl)
@@ -944,12 +929,6 @@ checkIface m iface = do
       withPart (IPChoice choice) do
         checkTemplateChoice tcon choice
 
-  -- check interface instances
-  forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody, iciLocation} -> do
-    let iiHead = InterfaceInstanceHead tcon iciTemplate
-    withPart (IPInterfaceInstance iiHead iciLocation) do
-      checkInterfaceInstance (intParam iface) iiHead iciBody
-
   where
     tcon = Qualified PRSelf (moduleName m) (intName iface)
     viewtype = intView iface
@@ -1002,7 +981,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers mbAutho
     checkExpr upd (TUpdate retType)
 
 checkTemplate :: forall m. MonadGamma m => Module -> Template -> m ()
-checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey implements) = do
+checkTemplate m t@(Template _loc tpl param precond signatories observers choices mbKey implements) = do
   let tcon = Qualified PRSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
   unless (null tparams) $ throwWithContext (EExpectedTemplatableType tpl)
@@ -1011,7 +990,6 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPPrecondition $ checkExpr precond TBool
     withPart TPSignatories $ checkExpr signatories (TList TParty)
     withPart TPObservers $ checkExpr observers (TList TParty)
-    withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   forM_ implements \TemplateImplements {tpiInterface, tpiBody, tpiLocation} -> do
     let iiHead = InterfaceInstanceHead tpiInterface tcon
@@ -1033,12 +1011,10 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
     InterfaceInstanceBody {iiMethods, iiView} = iiBody
 
   -- Check that this is the only interface instance with this head
-  iiInfo <- checkUniqueInterfaceInstance iiHead
-
-  let
-    DefInterface {intRequires, intMethods, intView} = defInterface iiInfo
+  checkUniqueInterfaceInstance iiHead
 
   -- check requires
+  DefInterface {intRequires, intMethods, intView} <- inWorld (lookupInterface iiInterface)
   forM_ intRequires \required -> do
     let requiredInterfaceInstance = InterfaceInstanceHead required iiTemplate
     eRequired <- inWorld (Right . lookupInterfaceInstance requiredInterfaceInstance)

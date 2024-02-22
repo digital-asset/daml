@@ -111,7 +111,7 @@ private[parser] object Lexer extends RegexParsers {
     (in: Input) =>
       data.Numeric.fromString(s) match {
         case Right(x) => Success(Numeric(x), in)
-        case Left(_) => Error(s"cannot interpret $s as a Decimal", in)
+        case Left(_) => Error(s"cannot interpret $s as a Numeric", in)
       }
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))

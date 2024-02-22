@@ -29,3 +29,40 @@ and ensure that the release notes and documentation has been included as part of
 ## Bugfixes
 
 ## What’s New
+
+* The type class `HasField` (methods `getField` and `setField`) has been split
+  in two: `GetField` and `SetField`, each one with the correspondingly named
+  method. `HasField` is now defined as a type synonym for the conjunction of
+  `GetField` and `SetField`. This means that functions with `HasField`
+  constraints will continue to work without any changes.
+
+  No action should be necessary for migrating the compiler-generated instances
+  for record types. For user-defined instances of the `HasField` class,
+  migration is a matter of replacing one instance declaration with two, for
+  example,
+
+  ```daml
+  instance HasField "field_name" RecType FieldType where
+    getField = <getFieldImpl>
+    setField = <setFieldImpl>
+  ```
+
+  would have to be rewritten as
+
+  ```daml
+  instance GetField "field_name" RecType FieldType where
+    getField = <getFieldImpl>
+
+  instance SetField "field_name" RecType FieldType where
+    setField = <setFieldImpl>
+  ```
+
+* User-defined instances of the class `GetField` enable the use of dot-syntax
+  for field access, i.e. `rec.field`
+
+* User-defined instances of the class `SetField` enable the use of with-syntax
+  for field update, i.e. `rec with field = newValue`
+
+* Removed support for "template-let" syntax, previously deprecated in Daml 2.8.0.
+  See [Template-local Definitions (Deprecated)](https://docs.daml.com/daml/reference/templates.html#template-local-definitions-deprecated)
+  for migration guidance.

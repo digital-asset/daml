@@ -12,10 +12,10 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
-  Disabled,
   Observation,
   Submission,
 }
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -60,7 +60,8 @@ private object PartyParticipantPermissions {
       sourceTopology: TopologySnapshot,
       targetTopology: TopologySnapshot,
   )(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, Nothing, PartyParticipantPermissions] =
     EitherT.right(
       stakeholders.toList
@@ -75,7 +76,7 @@ private object PartyParticipantPermissions {
       targetTopology: TopologySnapshot,
   )(
       stakeholder: LfPartyId
-  )(implicit ec: ExecutionContext): FutureUnlessShutdown[PerParty] = {
+  )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[PerParty] = {
     val sourceF = partyParticipants(sourceTopology, stakeholder)
     val targetF = partyParticipants(targetTopology, stakeholder)
     for {
@@ -85,7 +86,8 @@ private object PartyParticipantPermissions {
   }
 
   private def partyParticipants(topology: TopologySnapshot, party: LfPartyId)(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      tc: TraceContext,
   ): FutureUnlessShutdown[Permissions] = {
 
     val submission = mutable.Set.newBuilder[ParticipantId]
@@ -98,10 +100,6 @@ private object PartyParticipantPermissions {
           case Submission => submission += participantId
           case Confirmation => confirmation += participantId
           case Observation => other += participantId
-          case Disabled =>
-            throw new IllegalStateException(
-              s"activeParticipantsOf($party) returned a disabled participant $participantId"
-            )
         }
       }
       Permissions(

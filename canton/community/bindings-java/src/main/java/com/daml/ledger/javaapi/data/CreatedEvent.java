@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.EventOuterClass;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.StringValue;
 import com.google.rpc.Status;
 import java.time.Instant;
 import java.util.*;
@@ -30,8 +29,6 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final @NonNull Map<@NonNull Identifier, @NonNull Status> failedInterfaceViews;
 
-  private final Optional<String> agreementText;
-
   private final Optional<Value> contractKey;
 
   private final @NonNull Set<@NonNull String> signatories;
@@ -54,7 +51,6 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull ByteString createdEventBlob,
       @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
       @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
-      @NonNull Optional<String> agreementText,
       @NonNull Optional<Value> contractKey,
       @NonNull Collection<@NonNull String> signatories,
       @NonNull Collection<@NonNull String> observers,
@@ -67,7 +63,6 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.createdEventBlob = createdEventBlob;
     this.interfaceViews = Map.copyOf(interfaceViews);
     this.failedInterfaceViews = Map.copyOf(failedInterfaceViews);
-    this.agreementText = agreementText;
     this.contractKey = contractKey;
     this.signatories = Set.copyOf(signatories);
     this.observers = Set.copyOf(observers);
@@ -118,11 +113,6 @@ public final class CreatedEvent implements Event, TreeEvent {
   }
 
   @NonNull
-  public Optional<String> getAgreementText() {
-    return agreementText;
-  }
-
-  @NonNull
   public Optional<Value> getContractKey() {
     return contractKey;
   }
@@ -161,7 +151,6 @@ public final class CreatedEvent implements Event, TreeEvent {
         && Objects.equals(createdEventBlob, that.createdEventBlob)
         && Objects.equals(interfaceViews, that.interfaceViews)
         && Objects.equals(failedInterfaceViews, that.failedInterfaceViews)
-        && Objects.equals(agreementText, that.agreementText)
         && Objects.equals(contractKey, that.contractKey)
         && Objects.equals(signatories, that.signatories)
         && Objects.equals(observers, that.observers)
@@ -179,7 +168,6 @@ public final class CreatedEvent implements Event, TreeEvent {
         createdEventBlob,
         interfaceViews,
         failedInterfaceViews,
-        agreementText,
         contractKey,
         signatories,
         observers,
@@ -207,8 +195,6 @@ public final class CreatedEvent implements Event, TreeEvent {
         + interfaceViews
         + ", failedInterfaceViews="
         + failedInterfaceViews
-        + ", agreementText='"
-        + agreementText
         + "', contractKey="
         + contractKey
         + ", signatories="
@@ -244,7 +230,6 @@ public final class CreatedEvent implements Event, TreeEvent {
                     .setSeconds(this.createdAt.getEpochSecond())
                     .setNanos(this.createdAt.getNano())
                     .build());
-    agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
     contractKey.ifPresent(a -> builder.setContractKey(a.toProto()));
     return builder.build();
   }
@@ -285,9 +270,6 @@ public final class CreatedEvent implements Event, TreeEvent {
                 Collectors.toUnmodifiableMap(
                     iv -> Identifier.fromProto(iv.getInterfaceId()),
                     EventOuterClass.InterfaceView::getViewStatus)),
-        createdEvent.hasAgreementText()
-            ? Optional.of(createdEvent.getAgreementText().getValue())
-            : Optional.empty(),
         createdEvent.hasContractKey()
             ? Optional.of(Value.fromProto(createdEvent.getContractKey()))
             : Optional.empty(),

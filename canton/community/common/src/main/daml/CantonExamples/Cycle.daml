@@ -1,0 +1,17 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Cycle where
+
+template Cycle
+  with
+    id : Text
+    owner: Party
+  where
+    signatory owner
+
+    choice Repeat : ContractId Cycle
+      controller owner
+        do
+          create Cycle with id, owner
+

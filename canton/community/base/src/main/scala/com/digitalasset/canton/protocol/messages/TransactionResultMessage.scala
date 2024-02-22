@@ -3,18 +3,17 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash, v0, v3}
+import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Transaction result message that the mediator sends to all stakeholders of a confirmation request with its verdict.
+/** Transaction result message that the mediator sends to all stakeholders of a transaction confirmation request with its verdict.
   * https://engineering.da-int.net/docs/platform-architecture-handbook/arch/canton/transactions.html#phase-6-broadcast-of-result
   *
   * @param requestId        identifier of the confirmation request
@@ -31,7 +30,7 @@ case class TransactionResultMessage private (
       TransactionResultMessage.type
     ],
     override val deserializedFrom: Option[ByteString],
-) extends RegularMediatorResult
+) extends RegularConfirmationResult
     with HasProtocolVersionedWrapper[TransactionResultMessage]
     with PrettyPrinting {
 
@@ -59,21 +58,19 @@ case class TransactionResultMessage private (
   @transient override protected lazy val companionObj: TransactionResultMessage.type =
     TransactionResultMessage
 
-  protected def toProtoV3: v3.TransactionResultMessage =
-    v3.TransactionResultMessage(
+  protected def toProtoV30: v30.TransactionResultMessage =
+    v30.TransactionResultMessage(
       requestId = Some(requestId.toProtoPrimitive),
-      verdict = Some(verdict.toProtoV3),
+      verdict = Some(verdict.toProtoV30),
       rootHash = rootHash.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
     )
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransactionResult(
+      : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransactionResult(
       getCryptographicEvidence
     )
-
-  override def hashPurpose: HashPurpose = HashPurpose.TransactionResultSignature
 
   override def pretty: Pretty[TransactionResultMessage] =
     prettyOfClass(
@@ -91,11 +88,11 @@ object TransactionResultMessage
   override val name: String = "TransactionResultMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v3.TransactionResultMessage
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      v30.TransactionResultMessage
     )(
-      supportedProtoVersionMemoized(_)(fromProtoV3),
-      _.toProtoV3.toByteString,
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -111,10 +108,10 @@ object TransactionResultMessage
       None,
     )
 
-  private def fromProtoV3(protoResultMessage: v3.TransactionResultMessage)(
+  private def fromProtoV30(protoResultMessage: v30.TransactionResultMessage)(
       bytes: ByteString
   ): ParsingResult[TransactionResultMessage] = {
-    val v3.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =
+    val v30.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =
       protoResultMessage
     for {
       requestId <- ProtoConverter
@@ -122,11 +119,12 @@ object TransactionResultMessage
         .flatMap(RequestId.fromProtoPrimitive)
       transactionResult <- ProtoConverter
         .required("verdict", verdictPO)
-        .flatMap(Verdict.fromProtoV3)
+        .flatMap(Verdict.fromProtoV30)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransactionResultMessage(requestId, transactionResult, rootHash, domainId)(
-      protocolVersionRepresentativeFor(ProtoVersion(3)),
+      rpv,
       Some(bytes),
     )
   }

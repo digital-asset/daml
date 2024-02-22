@@ -8,12 +8,7 @@ import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{Created, Exercised}
 import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v2.transaction.TransactionTree as TransactionTreeV2
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.console.{
-  InstanceReferenceX,
-  LocalParticipantReferenceCommon,
-  LocalParticipantReferenceX,
-}
-import com.digitalasset.canton.participant.ParticipantNodeCommon
+import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.tracing.TraceContext
@@ -73,7 +68,7 @@ object IntegrationTestUtilities {
 
   def grabCounts(
       domainAlias: DomainAlias,
-      participant: LocalParticipantReferenceX,
+      participant: LocalParticipantReference,
       limit: Int = 100,
   ): GrabbedCounts = {
     val pcsCount = participant.testing.pcs_search(domainAlias, limit = limit).length
@@ -82,17 +77,17 @@ object IntegrationTestUtilities {
     mkGrabCounts(pcsCount, acceptedTransactionCount, limit)
   }
 
-  def expectedGrabbedCountsForBong(levels: Long, validators: Int = 0): GrabbedCounts = {
-    // 2^(n+2) - 3 contracts plus input ping (last collapse changes to pong) plus PingProposals for validator
-    val contracts = (math.pow(2, levels + 2d) - 3 + 1).toInt + validators
-    // 2^(n+1) + 1 + validator events expected
-    val events = (math.pow(2, levels + 1d) + 1).toInt + validators
+  def expectedGrabbedCountsForBong(levels: Int, validators: Int = 0): GrabbedCounts = {
+    // 2^(n+2) - 3 contracts plus input BongProposal (last collapse changes to bong) for validator
+    val contracts = (math.pow(2, levels + 2d) - 3).toInt + Math.max(1, validators)
+    // 2^(n+1) + validator events expected
+    val events = (math.pow(2, levels + 1d)).toInt + Math.max(1, validators)
     GrabbedCounts(contracts, events)
   }
 
-  def assertIncreasingRecordTime[ParticipantNodeT <: ParticipantNodeCommon](
+  def assertIncreasingRecordTime(
       domain: DomainAlias,
-      pr: LocalParticipantReferenceCommon[ParticipantNodeT],
+      pr: LocalParticipantReference,
   ): Unit =
     assertIncreasingRecordTime(domain, alias => pr.testing.event_search(alias))
 
@@ -154,7 +149,7 @@ object IntegrationTestUtilities {
 
   def runOnAllInitializedDomainsForAllOwners(
       initializedDomains: Map[DomainAlias, InitializedDomain],
-      run: (InstanceReferenceX, InitializedDomain) => Unit,
+      run: (InstanceReference, InitializedDomain) => Unit,
       topologyAwaitIdle: Boolean,
   ): Unit =
     initializedDomains.foreach { case (_, initializedDomain) =>

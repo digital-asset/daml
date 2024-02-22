@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.console.ParticipantReferenceX
+import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.topology.{Identifier, UniqueIdentifier}
@@ -64,7 +64,7 @@ import com.digitalasset.canton.demo.Step.*
 trait BaseScript extends NamedLogging {
 
   def steps: Seq[Step]
-  def parties(): Seq[(String, ParticipantReferenceX)]
+  def parties(): Seq[(String, ParticipantReference)]
   def subscriptions(): Map[String, ParticipantOffset]
   def maxImage: Int
   def imagePath: String
@@ -91,7 +91,7 @@ private[demo] final case class MetaInfo(darData: Seq[DarData], hosted: String, c
 
 class ParticipantTab(
     party: String,
-    participant: ParticipantReferenceX,
+    participant: ParticipantReference,
     isClosing: => Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -286,9 +286,21 @@ class ParticipantTab(
               .flatMap(_.event.created.toList)
               .map(_.contractId)
               .map(LfContractId.assertFromString)
+              .toSet
             val coidMap =
               if (isClosing) Map.empty[LfContractId, String]
-              else participant.transfer.lookup_contract_domain(coids *)
+              else
+                participant.ledger_api.state.acs
+                  .of_all()
+                  .flatMap(_.entry.activeContract)
+                  .map(c => c.domainId -> c.createdEvent)
+                  .collect { case (domainId, Some(createdEvent)) =>
+                    LfContractId.assertFromString(createdEvent.contractId) -> domainId
+                  }
+                  .filter { case (contractId, createdEventO) =>
+                    coids.contains(contractId)
+                  }
+                  .toMap
             transaction.events.foreach(event => {
               event.event.created.foreach(ce =>
                 Platform.runLater {
@@ -694,7 +706,6 @@ class DemoUI(script: BaseScript, val loggerFactory: NamedLoggerFactory)
     Threading.newExecutionContext(
       "demo-ui",
       noTracingLogger,
-      maybeMetrics = None,
     )
   private implicit val actorSystem: ActorSystem = PekkoUtil.createActorSystem("demo-ui")
   private implicit val sequencerPool: ExecutionSequencerFactory =

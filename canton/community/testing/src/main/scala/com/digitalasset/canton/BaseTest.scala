@@ -11,8 +11,7 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTime
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
-import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
+import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
 import com.digitalasset.canton.util.FutureInstances.*
@@ -20,7 +19,6 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionValidation,
   ReleaseProtocolVersion,
-  RepresentativeProtocolVersion,
 }
 import io.opentelemetry.api.trace.Tracer
 import org.mockito.{ArgumentMatchers, ArgumentMatchersSugar}
@@ -69,10 +67,6 @@ trait TestEssentials
     BaseTest.testedReleaseProtocolVersion
   protected lazy val defaultStaticDomainParameters: StaticDomainParameters =
     BaseTest.defaultStaticDomainParameters
-
-  protected def signedTransactionProtocolVersionRepresentative
-      : RepresentativeProtocolVersion[SignedTopologyTransaction.type] =
-    SignedTopologyTransaction.protocolVersionRepresentativeFor(testedProtocolVersion)
 
   // default to providing an empty trace context to all tests
   protected implicit def traceContext: TraceContext = TraceContext.empty
@@ -140,6 +134,21 @@ trait BaseTest
         value
       case Failure(ex) =>
         logger.error(s"Failed clue: $message", ex)
+        throw ex
+    }
+  }
+  def clueF[T](message: String)(expr: => Future[T])(implicit ec: ExecutionContext): Future[T] = {
+    logger.debug(s"Running clue: $message")
+    Try(expr) match {
+      case Success(value) =>
+        value.onComplete {
+          case Success(_) =>
+            logger.debug(s"Finished clue: $message")
+          case Failure(ex) =>
+            logger.error(s"Failed clue: $message", ex)
+        }
+        value
+      case Failure(ex) =>
         throw ex
     }
   }
@@ -366,7 +375,8 @@ object BaseTest {
     defaultStaticDomainParametersWith()
 
   def defaultStaticDomainParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion
+      protocolVersion: ProtocolVersion = testedProtocolVersion,
+      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = None,
   ): StaticDomainParameters = StaticDomainParameters.create(
     requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
     requiredEncryptionKeySchemes = SymbolicCryptoProvider.supportedEncryptionKeySchemes,
@@ -374,6 +384,7 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     protocolVersion = protocolVersion,
+    acsCommitmentsCatchUp = acsCommitmentsCatchUp,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =
@@ -388,16 +399,15 @@ object BaseTest {
 
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
   lazy val CantonTestsPath: String = getResourcePath("CantonTests.dar")
+  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev.dar")
   lazy val CantonLfDev: String = getResourcePath("CantonLfDev.dar")
   lazy val CantonLfV21: String = getResourcePath("CantonLfV21.dar")
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles.dar")
   lazy val DamlTestLfV21FilesPath: String = getResourcePath("DamlTestLfV21Files.dar")
-  lazy val UpgradeV1: String = getResourcePath("upgrade-v1.dar")
-  lazy val UpgradeV2: String = getResourcePath("upgrade-v2.dar")
 
-  private def getResourcePath(name: String): String =
+  def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))
       .map(_.getPath)
       .getOrElse(throw new IllegalArgumentException(s"Cannot find resource $name"))

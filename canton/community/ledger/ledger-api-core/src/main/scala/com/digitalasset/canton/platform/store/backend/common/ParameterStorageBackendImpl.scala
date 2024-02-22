@@ -9,7 +9,6 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.platform.common.MismatchException
 import com.digitalasset.canton.platform.store.backend.Conversions.offset
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}
@@ -27,7 +26,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
     discard(
       SQL"""
         UPDATE
-          parameters
+          lapi_parameters
         SET
           ledger_end = ${ledgerEnd.lastOffset},
           ledger_end_sequential_id = ${ledgerEnd.lastEventSeqId},
@@ -44,7 +43,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
         ledger_end_sequential_id,
         ledger_end_string_interning_id
       FROM
-        parameters
+        lapi_parameters
       """
 
   override def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd =
@@ -52,7 +51,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
       .as(LedgerEndParser.singleOpt)(connection)
       .getOrElse(ParameterStorageBackend.LedgerEnd.beforeBegin)
 
-  private val TableName: String = "parameters"
+  private val TableName: String = "lapi_parameters"
   private val ParticipantIdColumnName: String = "participant_id"
   private val LedgerEndColumnName: String = "ledger_end"
   private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
@@ -143,7 +142,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
     import Conversions.OffsetToStatement
     discard(
       SQL"""
-        update parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
+        update lapi_parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
         where participant_pruned_up_to_inclusive < $prunedUpToInclusive or participant_pruned_up_to_inclusive is null
         """
         .execute()(connection)
@@ -156,7 +155,7 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
     import Conversions.OffsetToStatement
     discard(
       SQL"""
-        update parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=$prunedUpToInclusive
+        update lapi_parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=$prunedUpToInclusive
         where participant_all_divulged_contracts_pruned_up_to_inclusive < $prunedUpToInclusive or participant_all_divulged_contracts_pruned_up_to_inclusive is null
         """
         .execute()(connection)
@@ -164,14 +163,14 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
   }
 
   private val SqlSelectMostRecentPruning =
-    SQL"select participant_pruned_up_to_inclusive from parameters"
+    SQL"select participant_pruned_up_to_inclusive from lapi_parameters"
 
   def prunedUpToInclusive(connection: Connection): Option[Offset] =
     SqlSelectMostRecentPruning
       .as(offset("participant_pruned_up_to_inclusive").?.single)(connection)
 
   private val SqlSelectMostRecentPruningAllDivulgedContracts =
-    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from parameters"
+    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from lapi_parameters"
 
   def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
@@ -182,4 +181,28 @@ private[backend] object ParameterStorageBackendImpl extends ParameterStorageBack
       )
   }
 
+  private val SqlSelectMostRecentPruningAndLedgerEnd =
+    SQL"select participant_pruned_up_to_inclusive, #$LedgerEndColumnName from lapi_parameters"
+
+  private val PruneUptoInclusiveAndLedgerEndParser
+      : RowParser[ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd] =
+    offset("participant_pruned_up_to_inclusive").? ~ LedgerEndOffsetParser map {
+      case pruneUptoInclusive ~ ledgerEndOffset =>
+        ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd(
+          pruneUptoInclusive = pruneUptoInclusive,
+          ledgerEnd = ledgerEndOffset,
+        )
+    }
+
+  override def prunedUpToInclusiveAndLedgerEnd(
+      connection: Connection
+  ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
+    SqlSelectMostRecentPruningAndLedgerEnd
+      .as(PruneUptoInclusiveAndLedgerEndParser.singleOpt)(connection)
+      .getOrElse(
+        ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd(
+          pruneUptoInclusive = None,
+          ledgerEnd = Offset.beforeBegin,
+        )
+      )
 }

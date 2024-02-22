@@ -377,7 +377,6 @@ object CantonRequireTypes {
     *
     * `TEXT`/`VARCHAR`/`CLOB` are only used for the following values (none are indices):
     * - daml_packages.source_description
-    * - service_agreements.agreement_text
     * - topology_transactions.ignore_reason
     */
   final case class String256M(str: String)(override val name: Option[String] = None)

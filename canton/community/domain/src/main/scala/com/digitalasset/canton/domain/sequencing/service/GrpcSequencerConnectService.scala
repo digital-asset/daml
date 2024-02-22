@@ -6,13 +6,18 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.api.v0.SequencerConnect.GetDomainParameters.Response.Parameters
-import com.digitalasset.canton.domain.api.v0.SequencerConnect.{GetDomainId, GetDomainParameters}
-import com.digitalasset.canton.domain.api.v0 as proto
+import com.digitalasset.canton.domain.api.v30.SequencerConnect
+import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
+import com.digitalasset.canton.domain.api.v30.SequencerConnect.{
+  GetDomainIdRequest,
+  GetDomainIdResponse,
+  GetDomainParametersRequest,
+  GetDomainParametersResponse,
+}
+import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.protocol.VerifyActiveResponse
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -34,20 +39,19 @@ class GrpcSequencerConnectService(
 
   protected val serverProtocolVersion: ProtocolVersion = staticDomainParameters.protocolVersion
 
-  def getDomainId(request: GetDomainId.Request): Future[GetDomainId.Response] =
+  def getDomainId(request: GetDomainIdRequest): Future[GetDomainIdResponse] =
     Future.successful(
-      GetDomainId
-        .Response(
-          domainId = domainId.toProtoPrimitive,
-          sequencerId = sequencerId.toProtoPrimitive,
-        )
+      GetDomainIdResponse(
+        domainId = domainId.toProtoPrimitive,
+        sequencerId = sequencerId.toProtoPrimitive,
+      )
     )
 
   def getDomainParameters(
-      request: GetDomainParameters.Request
-  ): Future[GetDomainParameters.Response] = {
+      request: GetDomainParametersRequest
+  ): Future[GetDomainParametersResponse] = {
     val response = staticDomainParameters.protoVersion.v match {
-      case 1 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV1))
+      case 30 => Future.successful(Parameters.ParametersV1(staticDomainParameters.toProtoV30))
       case unsupported =>
         Future.failed(
           new IllegalStateException(
@@ -56,13 +60,13 @@ class GrpcSequencerConnectService(
         )
     }
 
-    response.map(GetDomainParameters.Response(_))
+    response.map(GetDomainParametersResponse(_))
   }
 
   def verifyActive(
-      request: proto.SequencerConnect.VerifyActive.Request
-  ): Future[proto.SequencerConnect.VerifyActive.Response] = {
-    import proto.SequencerConnect.VerifyActive
+      request: proto.SequencerConnect.VerifyActiveRequest
+  ): Future[proto.SequencerConnect.VerifyActiveResponse] = {
+    import proto.SequencerConnect.VerifyActiveResponse
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val resultF = for {
       participant <- EitherT.fromEither[Future](getParticipantFromGrpcContext())
@@ -74,12 +78,27 @@ class GrpcSequencerConnectService(
     } yield VerifyActiveResponse.Success(isActive)
 
     resultF
-      .fold[VerifyActive.Response.Value](
-        reason => VerifyActive.Response.Value.Failure(VerifyActive.Failure(reason)),
-        success => VerifyActive.Response.Value.Success(VerifyActive.Success(success.isActive)),
+      .fold[VerifyActiveResponse.Value](
+        reason => VerifyActiveResponse.Value.Failure(VerifyActiveResponse.Failure(reason)),
+        success =>
+          VerifyActiveResponse.Value.Success(VerifyActiveResponse.Success(success.isActive)),
       )
-      .map(VerifyActive.Response(_))
+      .map(VerifyActiveResponse(_))
   }
+
+  override def handshake(
+      request: SequencerConnect.HandshakeRequest
+  ): Future[SequencerConnect.HandshakeResponse] =
+    Future.successful {
+      SequencerConnect.HandshakeResponse(
+        Some(
+          handshake(
+            request.getHandshakeRequest.clientProtocolVersions,
+            request.getHandshakeRequest.minimumProtocolVersion,
+          )
+        )
+      )
+    }
 
   /*
    Note: we only get the participantId from the context; we have no idea

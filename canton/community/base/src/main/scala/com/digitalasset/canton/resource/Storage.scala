@@ -62,7 +62,7 @@ import slick.lifted.Aliases
 import slick.util.{AsyncExecutor, AsyncExecutorWithMetrics, ClassLoaderUtil}
 
 import java.io.ByteArrayInputStream
-import java.sql.{Blob, SQLException, Statement}
+import java.sql.{Blob, SQLException, SQLTransientException, Statement}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
@@ -423,6 +423,9 @@ object DbStorage {
   final case class PassiveInstanceException(reason: String)
       extends RuntimeException(s"DbStorage instance is not active: $reason")
 
+  final case class NoConnectionAvailable()
+      extends SQLTransientException("No free connection available")
+
   sealed trait Profile extends Product with Serializable with PrettyPrinting {
     def jdbc: JdbcProfile
 
@@ -554,7 +557,7 @@ object DbStorage {
       GetResult(r => r.nextBytesOption().map(ByteString.copyFrom))
 
     implicit val setContractSalt: SetParameter[Option[Salt]] =
-      (c, pp) => pp >> c.map(_.toProtoV0.toByteString)
+      (c, pp) => pp >> c.map(_.toProtoV30.toByteString)
     implicit val getContractSalt: GetResult[Option[Salt]] =
       implicitly[GetResult[Option[ByteString]]] andThen {
         _.map(byteString =>
@@ -562,8 +565,8 @@ object DbStorage {
             .parse(
               // Even though it is versioned, the Salt is considered static
               // as it's used for authenticating contract ids which are immutable
-              com.digitalasset.canton.crypto.v0.Salt.parseFrom,
-              Salt.fromProtoV0,
+              com.digitalasset.canton.crypto.v30.Salt.parseFrom,
+              Salt.fromProtoV30,
               byteString,
             )
             .valueOr(err =>

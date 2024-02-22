@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.metrics.api.MetricsContext
 import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
@@ -98,9 +98,9 @@ final class RateLimitingInterceptorSpec
   /** Allowing metadata requests allows grpcurl to be used to debug problems */
 
   it should "allow metadata requests even when over limit" in {
-    metrics.registry
-      .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
-      .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
+    metrics.openTelemetryMetricsFactory
+      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")
+      .mark(config.maxApiServicesQueueSize.toLong + 1)(MetricsContext.Empty) // Over limit
 
     val protoService = ProtoReflectionService.newInstance()
 
@@ -130,9 +130,9 @@ final class RateLimitingInterceptorSpec
   }
 
   it should "allow health checks event when over limit" in {
-    metrics.registry
-      .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
-      .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
+    metrics.openTelemetryMetricsFactory
+      .meter(metrics.lapi.threadpool.apiServices :+ "submitted")
+      .mark(config.maxApiServicesQueueSize.toLong + 1)(MetricsContext.Empty) // Over limit
 
     val healthService =
       new GrpcHealthService(healthChecks, telemetry = NoOpTelemetry, loggerFactory = loggerFactory)(
@@ -221,7 +221,7 @@ final class RateLimitingInterceptorSpec
           fStatus2 <- streamHello(channel) // Ok
           // Metrics are used by the limiting interceptor, so the following assert causes the test to fail
           //  rather than being stuck if metrics don't work.
-          _ = metrics.daml.lapi.streams.active.getValue shouldBe limitStreamConfig.maxStreams
+          _ = metrics.lapi.streams.active.getValue shouldBe limitStreamConfig.maxStreams
           fStatus3 <- streamHello(channel) // Limited
           status3 <- fStatus3 // Closed as part of limiting
           _ = waitService.completeStream()
@@ -235,9 +235,9 @@ final class RateLimitingInterceptorSpec
           status1.getCode shouldBe Code.OK
           status2.getCode shouldBe Code.OK
           status3.getCode shouldBe Code.ABORTED
-          status3.getDescription should include(metrics.daml.lapi.streams.activeName)
+          status3.getDescription should include(metrics.lapi.streams.activeName)
           status4.getCode shouldBe Code.OK
-          eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
+          eventually { metrics.lapi.streams.active.getValue shouldBe 0 }
         }
       }
     }
@@ -257,7 +257,7 @@ final class RateLimitingInterceptorSpec
           fStatus2 <- streamHello(channel)
           fHelloStatus2 = singleHello(channel)
 
-          activeStreams = metrics.daml.lapi.streams.active.getValue
+          activeStreams = metrics.lapi.streams.active.getValue
 
           _ = waitService.completeStream()
           _ = waitService.completeSingle()
@@ -275,7 +275,7 @@ final class RateLimitingInterceptorSpec
           helloStatus1.getCode shouldBe Code.OK
           status2.getCode shouldBe Code.OK
           helloStatus2.getCode shouldBe Code.OK
-          eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
+          eventually { metrics.lapi.streams.active.getValue shouldBe 0 }
         }
       }
     }
@@ -321,7 +321,7 @@ final class RateLimitingInterceptorSpec
       } yield {
         status1.getCode shouldBe Code.CANCELLED
 
-        eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
+        eventually { metrics.lapi.streams.active.getValue shouldBe 0 }
       }
     }
   }

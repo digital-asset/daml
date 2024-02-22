@@ -32,9 +32,9 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceX,
-  LocalParticipantReferenceX,
-  ParticipantReferenceX,
+  InstanceReference,
+  LocalParticipantReference,
+  ParticipantReference,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeX
@@ -100,7 +100,7 @@ class ParticipantPartiesAdministrationGroupX(
     runner: AdminCommandRunner
       & ParticipantAdministration
       & BaseLedgerApiAdministration
-      & InstanceReferenceX,
+      & InstanceReference,
     consoleEnvironment: ConsoleEnvironment,
 ) extends PartiesAdministrationGroupX(runner, consoleEnvironment) {
 
@@ -165,7 +165,7 @@ class ParticipantPartiesAdministrationGroupX(
       displayName: Option[String] = None,
       // TODO(i10809) replace wait for domain for a clean topology synchronisation using the dispatcher info
       waitForDomain: DomainChoice = DomainChoice.Only(Seq()),
-      synchronizeParticipants: Seq[ParticipantReferenceX] = Seq(),
+      synchronizeParticipants: Seq[ParticipantReference] = Seq(),
       groupAddressing: Boolean = false,
       mustFullyAuthorize: Boolean = true,
   ): PartyId = {
@@ -274,7 +274,7 @@ class ParticipantPartiesAdministrationGroupX(
             // sync with ledger-api server if this node is connected to at least one domain
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
               retryE(
-                runner.ledger_api_v2.parties.list().map(_.party).contains(partyId),
+                runner.ledger_api.parties.list().map(_.party).contains(partyId),
                 show"The party $partyId never appeared on the ledger API server",
               )
             else Right(())
@@ -317,8 +317,8 @@ class ParticipantPartiesAdministrationGroupX(
             participants.map(pid =>
               HostingParticipant(
                 pid,
-                if (threshold.value > 1) ParticipantPermissionX.Confirmation
-                else ParticipantPermissionX.Submission,
+                if (threshold.value > 1) ParticipantPermission.Confirmation
+                else ParticipantPermission.Submission,
               )
             ),
             groupAddressing,
@@ -353,7 +353,7 @@ class ParticipantPartiesAdministrationGroupX(
       party: PartyId,
       modifier: PartyDetails => PartyDetails,
   ): PartyDetails = {
-    runner.ledger_api_v2.parties.update(
+    runner.ledger_api.parties.update(
       party = party,
       modifier = modifier,
     )
@@ -372,12 +372,12 @@ class ParticipantPartiesAdministrationGroupX(
 }
 
 class LocalParticipantPartiesAdministrationGroupX(
-    reference: LocalParticipantReferenceX,
+    reference: LocalParticipantReference,
     runner: AdminCommandRunner
       & BaseInspection[ParticipantNodeX]
       & ParticipantAdministration
       & BaseLedgerApiAdministration
-      & InstanceReferenceX,
+      & InstanceReference,
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends ParticipantPartiesAdministrationGroupX(reference.id, runner, consoleEnvironment)
@@ -389,7 +389,7 @@ class LocalParticipantPartiesAdministrationGroupX(
   @Help.Description(
     "Will throw an exception if the given topology has not been observed within the given timeout."
   )
-  def await_topology_observed[T <: ParticipantReferenceX](
+  def await_topology_observed[T <: ParticipantReference](
       partyAssignment: Set[(PartyId, T)],
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
   )(implicit env: ConsoleEnvironment): Unit =
@@ -403,8 +403,8 @@ class LocalParticipantPartiesAdministrationGroupX(
 
 object TopologySynchronisationX {
 
-  def awaitTopologyObserved[T <: ParticipantReferenceX](
-      reference: ParticipantReferenceX,
+  def awaitTopologyObserved[T <: ParticipantReference](
+      participant: ParticipantReference,
       partyAssignment: Set[(PartyId, T)],
       timeout: NonNegativeDuration,
   )(implicit env: ConsoleEnvironment): Unit =
@@ -413,12 +413,12 @@ object TopologySynchronisationX {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)
         }
-        env.domains.all.forall { domain =>
-          val domainId = domain.id
-          !reference.domains.active(domain) || {
-            val timestamp = reference.testing.fetch_domain_time(domainId)
+        env.sequencers.all.forall { sequencer =>
+          val domainId = sequencer.domain_id
+          !participant.domains.is_connected(domainId) || {
+            val timestamp = participant.testing.fetch_domain_time(domainId)
             partiesWithId.subsetOf(
-              reference.parties
+              participant.parties
                 .list(asOf = Some(timestamp.toInstant))
                 .flatMap(res => res.participants.map(par => (res.party, par.participant)))
                 .toSet

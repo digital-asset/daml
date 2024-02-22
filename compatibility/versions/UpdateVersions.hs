@@ -63,7 +63,7 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , [ "stable_versions = [" ]
         , map renderVersion (stableVersions <> [headVersion])
         , [ "]" ]
-        , [ "latest_stable_version = \"" <> SemVer.toText (last stableVersions) <> "\"" ]
+        , [ "latest_stable_version = \"" <> SemVer.toText latestVersion <> "\"" ]
         , [ "version_sha256s = {"]
         , concatMap renderChecksums (Map.toList checksums)
         , [ "}" ]
@@ -83,6 +83,7 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
     renderDigest digest = T.pack $ show (convertToBase Base16 digest :: ByteString)
     renderVersion ver = "    \"" <> SemVer.toText ver <> "\","
     stableVersions = filter (null . view SemVer.release) versions
+    latestVersion = if null stableVersions then SemVer.version 2 8 0 [] [] else last stableVersions
 
 data Opts = Opts
   { outputFile :: FilePath
@@ -152,8 +153,6 @@ latestPatchVersions allVersions =
 
 additionalVersions :: Set Version
 additionalVersions = Set.fromList [
-    -- we add 2.5.0 as 2.5.1 add a new version in the trigger Daml library
-    SemVer.version 2 5 0 [] []
   ]
 
 main :: IO ()

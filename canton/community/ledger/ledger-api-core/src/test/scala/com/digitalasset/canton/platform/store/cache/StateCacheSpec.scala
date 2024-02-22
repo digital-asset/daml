@@ -89,11 +89,11 @@ class StateCacheSpec
     }
   }
 
-  it should "putAsync 100_000 values for the same key in 1 second" in {
+  it should "putAsync 10_000 values for the same key in 1 second" in {
     // TODO(#12302) This value has been reduced from 100000L
     //              in order to allow running in Canton CI without exceeding the 1 second threshold.
-    //              Consider investigating and reverting the change.
-    val `number of competing updates` = 50000L
+    //              Consider extracting in a performance test as unit tests are subject to CI interference
+    val `number of competing updates` = 10000L
     val `number of keys in cache` = 1L
 
     val stateCache = buildStateCache(`number of keys in cache`)

@@ -23,8 +23,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
 
-import scala.annotation.nowarn
-
 //
 // Pretty-printer for the interpreter errors and the scenario ledger
 //
@@ -75,21 +73,6 @@ private[lf] object Pretty {
         text("Update failed due to rejected authority request") &
           text("holding:") & intercalate(comma + space, holding.map(prettyParty)) &
           text("requesting:") & intercalate(comma + space, requesting.map(prettyParty))
-      case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-        text(
-          "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
-        ) & prettyContractId(coid) &
-          char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
-          prettyValue(false)(gk.key) &
-          text("No reading party is a stakeholder:") &
-          text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
-            .tightBracketBy(char('{'), char('}')) &
-          text("readAs:") & intercalate(comma + space, readAs.map(prettyParty))
-            .tightBracketBy(char('{'), char('}')) +
-          char('.') / text("Stakeholders:") & intercalate(
-            comma + space,
-            stakeholders.map(prettyParty),
-          ) + char('.')
       case DuplicateContractKey(key) =>
         text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
       case InconsistentContractKey(key) =>
@@ -123,13 +106,12 @@ private[lf] object Pretty {
         text("Update failed due to a contract key with an empty set of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
           text("The computed key is") & prettyValue(true)(key)
-      case FetchEmptyContractKeyMaintainers(tid, key, sharedKey) =>
-        val sharedKeyText = if (sharedKey) "shared" else ""
+      case FetchEmptyContractKeyMaintainers(tid, key) =>
         text(
           "Update failed due to a contract key with an empty set of maintainers when fetching or looking up by key"
         ) &
           prettyTypeConName(tid) /
-          text(s"The provided $sharedKeyText key is") & prettyValue(true)(key)
+          text("The provided shared key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
       case NonComparableValues =>
@@ -580,7 +562,6 @@ private[lf] object Pretty {
       case SELocF(i) => char('F') + str(i)
     }
 
-    @nowarn("cat=deprecation&origin=com.daml.lf.speedy.SExpr.SEAppOnlyFunIsAtomic")
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
         case SEVal(defId) =>
@@ -625,10 +606,6 @@ private[lf] object Pretty {
             case SBUGetTime | SBSGetTime => text("$getTime")
             case _ => str(x)
           }
-        case SEAppOnlyFunIsAtomic(fun, args) =>
-          val prefix = prettySExpr(index)(fun) + text("@N(")
-          intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
-            .tightBracketBy(prefix, char(')'))
         case SEAppAtomicGeneral(fun, args) =>
           val prefix = prettySExpr(index)(fun) + text("@A(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))

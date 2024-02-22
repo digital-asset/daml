@@ -16,7 +16,7 @@ final class ActiveStreamMetricsInterceptor(
     metrics: Metrics
 ) extends ServerInterceptor {
 
-  private val activeStreamsGauge = metrics.daml.lapi.streams.active
+  private val activeStreamsGauge = metrics.lapi.streams.active
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],

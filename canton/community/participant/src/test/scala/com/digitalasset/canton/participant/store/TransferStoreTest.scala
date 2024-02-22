@@ -40,6 +40,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
@@ -49,7 +50,6 @@ import com.digitalasset.canton.{
   BaseTest,
   LedgerApplicationId,
   LedgerCommandId,
-  LedgerParticipantId,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
@@ -742,7 +742,7 @@ trait TransferStoreTest {
         val addTransfersET = transfersData.parTraverse(store.addTransfer)
 
         def lift(stakeholder: LfPartyId, others: LfPartyId*): Option[NonEmpty[Set[LfPartyId]]] =
-          Option(NonEmpty(Set, stakeholder, others: _*))
+          Option(NonEmpty(Set, stakeholder, others*))
 
         def stakeholdersOf(incompleteTransfers: Seq[IncompleteTransferData]): Seq[Set[LfPartyId]] =
           incompleteTransfers.map(_.contract.metadata.stakeholders)
@@ -1293,12 +1293,12 @@ object TransferStoreTest extends EitherValues with NoTracing {
   val domain1 = DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
   val sourceDomain1 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
   val targetDomain1 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-  val mediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator1", "DOMAIN1"))
+  val mediator1 = MediatorsOfDomain(MediatorGroupIndex.zero)
 
   val domain2 = DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
   val sourceDomain2 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
   val targetDomain2 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-  val mediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator2", "DOMAIN2"))
+  val mediator2 = MediatorsOfDomain(MediatorGroupIndex.one)
 
   val targetDomain = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("target", "DOMAIN")))
 
@@ -1312,11 +1312,11 @@ object TransferStoreTest extends EitherValues with NoTracing {
   )
   private implicit val _ec: ExecutionContext = ec
   val cryptoFactory =
-    TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
+    TestingIdentityFactoryX(loggerFactoryNotUsed).forOwnerAndDomain(
       DefaultTestIdentities.sequencerId
     )
   val sequencerKey =
-    TestingIdentityFactory(loggerFactoryNotUsed)
+    TestingIdentityFactoryX(loggerFactoryNotUsed)
       .newSigningPublicKey(DefaultTestIdentities.sequencerId)
       .fingerprint
   val privateCrypto = cryptoFactory.crypto.privateCrypto
@@ -1324,7 +1324,10 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   def sign(str: String): Signature = {
     val hash =
-      pureCryptoApi.build(HashPurpose.TransferResultSignature).addWithoutLengthPrefix(str).finish()
+      pureCryptoApi
+        .build(TestHash.testHashPurpose)
+        .addWithoutLengthPrefix(str)
+        .finish()
     Await.result(
       privateCrypto
         .sign(hash, sequencerKey)
@@ -1339,8 +1342,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
 
-    val submittingParticipant: LedgerParticipantId =
-      LedgerParticipantId.assertFromString("participant1")
+    val submittingParticipant: ParticipantId = DefaultTestIdentities.participant1
 
     val applicationId: LedgerApplicationId =
       LedgerApplicationId.assertFromString("application-tests")
@@ -1349,17 +1351,17 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
     TransferSubmitterMetadata(
       submitter,
-      applicationId,
       submittingParticipant,
       commandId,
       submissionId = None,
+      applicationId,
       workflowId = None,
     )
   }
 
   def mkTransferDataForDomain(
       transferId: TransferId,
-      sourceMediator: MediatorRef,
+      sourceMediator: MediatorsOfDomain,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetDomainId: TargetDomainId,
       creatingTransactionId: TransactionId = ExampleTransactionFactory.transactionId(0),
@@ -1410,7 +1412,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   private def mkTransferData(
       transferId: TransferId,
-      sourceMediator: MediatorId,
+      sourceMediator: MediatorsOfDomain,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
       creatingTransactionId: TransactionId = transactionId1,
       contract: SerializableContract = contract,
@@ -1418,7 +1420,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
   ) =
     mkTransferDataForDomain(
       transferId,
-      MediatorRef(sourceMediator),
+      sourceMediator,
       submitter,
       targetDomain,
       creatingTransactionId,
@@ -1430,8 +1432,9 @@ object TransferStoreTest extends EitherValues with NoTracing {
     DeliveredTransferOutResult {
       val requestId = RequestId(transferData.transferOutTimestamp)
 
-      val mediatorMessage = transferData.transferOutRequest.tree.mediatorMessage
-      val result = mediatorMessage.createMediatorResult(
+      val mediatorMessage =
+        transferData.transferOutRequest.tree.mediatorMessage(Signature.noSignature)
+      val result = mediatorMessage.createConfirmationResult(
         requestId,
         Verdict.Approve(BaseTest.testedProtocolVersion),
         mediatorMessage.allInformees,

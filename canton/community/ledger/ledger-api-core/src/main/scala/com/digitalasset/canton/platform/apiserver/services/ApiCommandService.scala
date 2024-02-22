@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService as CommandServiceGrpc
-import com.daml.ledger.api.v1.command_service.*
+import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService as CommandServiceGrpc
+import com.daml.ledger.api.v2.command_service.*
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.services.CommandService
@@ -45,10 +45,10 @@ class ApiCommandService(
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
     enrichRequestAndSubmit(request)(service.submitAndWait)
 
-  override def submitAndWaitForTransactionId(
+  override def submitAndWaitForUpdateId(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionIdResponse] =
-    enrichRequestAndSubmit(request)(service.submitAndWaitForTransactionId)
+  ): Future[SubmitAndWaitForUpdateIdResponse] =
+    enrichRequestAndSubmit(request)(service.submitAndWaitForUpdateId)
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
@@ -72,7 +72,7 @@ class ApiCommandService(
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
       .validate(
-        requestWithSubmissionId,
+        requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the domainId as well)
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration(),

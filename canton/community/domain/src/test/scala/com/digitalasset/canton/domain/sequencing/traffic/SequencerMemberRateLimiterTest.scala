@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError.AboveTrafficLimit
-import com.digitalasset.canton.metrics.MetricHandle.NoOpMetricsFactory
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
@@ -48,8 +48,8 @@ class SequencerMemberRateLimiterTest extends AnyFlatSpec with BaseTest {
   private val sequencerMetrics = new SequencerMetrics(
     MetricName("test"),
     NoOpMetricsFactory,
-    Metrics.ForTesting.daml.grpc,
-    metrics.Metrics.ForTesting.daml.health,
+    Metrics.ForTesting.grpc,
+    metrics.Metrics.ForTesting.health,
   )
 
   private def makeBatch(envelopes: List[ClosedEnvelope]) = {
@@ -131,13 +131,11 @@ class SequencerMemberRateLimiterTest extends AnyFlatSpec with BaseTest {
       AboveTrafficLimit(
         sender,
         NonNegativeLong.tryCreate(21),
-        Some(
-          TrafficState(
-            NonNegativeLong.zero,
-            NonNegativeLong.zero,
-            NonNegativeLong.tryCreate(20),
-            eventTimestamp,
-          )
+        TrafficState(
+          NonNegativeLong.zero,
+          NonNegativeLong.zero,
+          NonNegativeLong.tryCreate(20),
+          eventTimestamp,
         ),
       )
     ) -> None
@@ -283,13 +281,11 @@ class SequencerMemberRateLimiterTest extends AnyFlatSpec with BaseTest {
       AboveTrafficLimit(
         sender,
         NonNegativeLong.tryCreate(200L),
-        Some(
-          TrafficState(
-            extraTrafficRemainder = NonNegativeLong.tryCreate(50L),
-            extraTrafficConsumed = NonNegativeLong.zero,
-            baseTrafficRemainder = NonNegativeLong.tryCreate(100L),
-            timestamp = eventTimestamp,
-          )
+        TrafficState(
+          extraTrafficRemainder = NonNegativeLong.tryCreate(50L),
+          extraTrafficConsumed = NonNegativeLong.zero,
+          baseTrafficRemainder = NonNegativeLong.tryCreate(100L),
+          timestamp = eventTimestamp,
         ),
       )
     ) -> Some(topUp)

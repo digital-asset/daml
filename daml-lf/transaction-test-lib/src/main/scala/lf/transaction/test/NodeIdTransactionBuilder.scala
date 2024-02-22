@@ -56,7 +56,7 @@ class NodeIdTransactionBuilder extends TestIdFactory {
     val txVersion = finalNodes.values.foldLeft(TransactionVersion.minVersion)((acc, node) =>
       node.optVersion match {
         case Some(version) => acc max version
-        case None => acc max TransactionVersion.minExceptions
+        case None => acc
       }
     )
     val finalRoots = roots.toImmArray

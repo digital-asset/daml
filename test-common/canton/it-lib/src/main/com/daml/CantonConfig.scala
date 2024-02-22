@@ -6,18 +6,18 @@ package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.{LedgerClient, GrpcChannel}
-import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
+import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.digitalasset.canton.ledger.client.{GrpcChannel, LedgerClient}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
 import io.grpc.netty.NettyChannelBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 import java.nio.file.{Path, Paths}
+
+import com.digitalasset.canton.logging.NamedLoggerFactory
 
 object CantonConfig {
 
@@ -39,6 +39,11 @@ object CantonConfig {
 
   def noTlsConfig = TlsConfiguration(false)
 
+  sealed abstract class TimeProviderType extends Product with Serializable
+  object TimeProviderType {
+    case object Static extends TimeProviderType
+    case object WallClock extends TimeProviderType
+  }
 }
 
 final case class CantonConfig(
@@ -46,7 +51,7 @@ final case class CantonConfig(
     authSecret: Option[String] = None,
     devMode: Boolean = false,
     nParticipants: Int = 1,
-    timeProviderType: TimeProviderType = TimeProviderType.WallClock,
+    timeProviderType: CantonConfig.TimeProviderType = CantonConfig.TimeProviderType.WallClock,
     tlsEnable: Boolean = false,
     debug: Boolean = false,
     bootstrapScript: Option[String] = None,
@@ -87,7 +92,7 @@ final case class CantonConfig(
       port: Port,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   ): NettyChannelBuilder = {
-    import com.daml.ledger.client.configuration._
+    import com.digitalasset.canton.ledger.client.configuration._
     LedgerClientChannelConfiguration(
       sslContext = tlsClientConfig.client(),
       maxInboundMessageSize = maxInboundMessageSize,
@@ -111,41 +116,21 @@ final case class CantonConfig(
     )
   }
 
-  // LedgerIds are deprecated, prefer ledgerClientWithoutId (#16831)
   def ledgerClient(
       port: Port,
       token: Option[String],
       applicationId: Option[Ref.ApplicationId],
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-    import com.daml.ledger.client.configuration._
+    import com.digitalasset.canton.ledger.client.configuration._
     LedgerClient(
       channel = channel(port, maxInboundMessageSize),
       config = LedgerClientConfiguration(
         applicationId = token.fold(applicationId.getOrElse(""))(_ => ""),
-        ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = token,
       ),
-    )
-  }
-
-  // Prefer this whenever possible - ledgerIds should be avoided
-  def ledgerClientWithoutId(
-      port: Port,
-      token: Option[String],
-      applicationId: Option[Ref.ApplicationId],
-      maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClientWithoutId = {
-    import com.daml.ledger.client.configuration._
-    LedgerClientWithoutId(
-      channel = channel(port, maxInboundMessageSize),
-      config = LedgerClientConfiguration(
-        applicationId = token.orElse(applicationId).getOrElse(""),
-        ledgerIdRequirement = LedgerIdRequirement.none,
-        commandClient = CommandClientConfiguration.default,
-        token = token,
-      ),
+      loggerFactory = NamedLoggerFactory.root,
     )
   }
 }

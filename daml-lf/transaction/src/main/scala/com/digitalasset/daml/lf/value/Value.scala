@@ -166,9 +166,7 @@ object Value {
   /** A contract instance is a value plus the template that originated it. */
   // Prefer to use transaction.FatContractInstance
   final case class ContractInstance(
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      packageName: Option[Ref.PackageName] = None,
+      packageName: Ref.PackageName,
       template: Identifier,
       arg: Value,
   ) extends CidContainer[ContractInstance] {
@@ -182,27 +180,11 @@ object Value {
       copy(arg = arg.mapCid(f))
   }
 
-  final case class ContractInstanceWithAgreement(
-      contractInstance: ContractInstance,
-      agreementText: String,
-  ) extends CidContainer[ContractInstanceWithAgreement] {
-
-    override protected def self: this.type = this
-
-    def map(f: Value => Value): ContractInstanceWithAgreement =
-      copy(contractInstance = contractInstance.map(f))
-
-    def mapCid(f: ContractId => ContractId): ContractInstanceWithAgreement =
-      copy(contractInstance = contractInstance.mapCid(f))
-  }
-
   type VersionedContractInstance = transaction.Versioned[ContractInstance]
 
   object VersionedContractInstance {
     def apply(
-        // TODO: https://github.com/digital-asset/daml/issues/17
-        //  remove default value once canton handle it.
-        packageName: Option[Ref.PackageName] = None,
+        packageName: Ref.PackageName,
         template: Identifier,
         arg: VersionedValue,
     ): VersionedContractInstance =
@@ -211,7 +193,7 @@ object Value {
     @deprecated("use the version with 3 argument", since = "2.9.0")
     def apply(
         version: transaction.TransactionVersion,
-        packageName: Option[Ref.PackageName],
+        packageName: Ref.PackageName,
         template: Identifier,
         arg: Value,
     ): VersionedContractInstance =
@@ -222,13 +204,14 @@ object Value {
 
   sealed abstract class ContractId extends Product with Serializable {
     def coid: String
+    def toBytes: Bytes
   }
 
   object ContractId {
     final case class V1 private (discriminator: crypto.Hash, suffix: Bytes)
         extends ContractId
         with data.NoCopy {
-      lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
+      override lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"ContractId($coid)"
     }
@@ -284,6 +267,8 @@ object Value {
 
     def assertFromString(s: String): ContractId =
       assertRight(fromString(s))
+
+    def fromBytes(bytes: Bytes): Either[String, ContractId] = V1.fromBytes(bytes)
 
     implicit val `Cid Order`: Order[ContractId] = new Order[ContractId] {
       override def order(a: ContractId, b: ContractId) =

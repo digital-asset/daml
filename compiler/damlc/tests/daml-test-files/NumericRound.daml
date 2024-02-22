@@ -1,5 +1,5 @@
 
--- @SINCE-LF 1.7 2.0
+-- @SINCE-LF 2.1
 module NumericRound where
 
 import Daml.Script

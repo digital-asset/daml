@@ -5,11 +5,11 @@ package com.daml.lf.testing.archive
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.daml_lf_dev.{DamlLf1, DamlLf2}
+import com.daml.daml_lf_dev.DamlLf2
 import com.daml.lf.archive.{
   ArchivePayload,
   Dar,
-  DecodeCommon,
+  DecodeV2,
   UniversalArchiveDecoder,
   UniversalArchiveReader,
 }
@@ -36,12 +36,11 @@ class DamlLfEncoderTest
 
     "be readable" in {
 
-      val modules_1_8 = Set[DottedName](
+      val modules_2_1 = Set[DottedName](
         "UnitMod",
         "BoolMod",
         "Int64Mod",
         "TextMod",
-        "DecimalMod",
         "DateMod",
         "TimestampMod",
         "ListMod",
@@ -56,22 +55,19 @@ class DamlLfEncoderTest
         "NumericMod",
         "AnyMod",
         "SynonymMod",
+        "GenMapMod",
+        "ExceptionMod",
+        "InterfaceMod",
+        "InterfaceMod0",
       )
-      val modules_1_11 = modules_1_8 + "GenMapMod"
-      val modules_1_13 = modules_1_11 + "BigNumericMod"
-      val modules_1_14 = modules_1_13 + "ExceptionMod"
-      val modules_1_15 = modules_1_14 + "InterfaceMod" + "InterfaceMod0"
-      val modules_1_dev = modules_1_15 + "InterfaceExtMod"
-      val modules_2_dev = modules_1_dev
+      val modules_2_dev = modules_2_1 ++ Set[DottedName](
+        "BigNumericMod",
+        "InterfaceExtMod",
+      )
 
       val versions = Table(
         "versions" -> "modules",
-        "1.8" -> modules_1_8,
-        "1.11" -> modules_1_11,
-        "1.13" -> modules_1_13,
-        "1.14" -> modules_1_14,
-        "1.15" -> modules_1_15,
-        "1.dev" -> modules_1_dev,
+        "2.1" -> modules_2_1,
         "2.dev" -> modules_2_dev,
       )
 
@@ -97,33 +93,10 @@ class DamlLfEncoderTest
       payload <- dar.all
       ArchivePayload(_, pkg, version) = payload
       name <- version match {
-        case LanguageVersion(Major.V1, _) => getNonEmptyModules(version, pkg.getDamlLf1)
         case LanguageVersion(Major.V2, _) => getNonEmptyModules(pkg.getDamlLf2)
+        case _ => throw new RuntimeException(s"Unsupported language version: $version")
       }
     } yield name
-  }
-
-  private def getNonEmptyModules(
-      version: LanguageVersion,
-      pkg: DamlLf1.Package,
-  ): Seq[ModuleName] = {
-    val internedStrings = pkg.getInternedStringsList.asScala.toArray
-    val dottedNames = pkg.getInternedDottedNamesList.asScala.map(
-      _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
-    )
-    for {
-      segments <- pkg.getModulesList.asScala.toSeq.map {
-        case mod
-            if mod.getSynonymsCount != 0 ||
-              mod.getDataTypesCount != 0 ||
-              mod.getValuesCount != 0 ||
-              mod.getTemplatesCount != 0 =>
-          if (version < LanguageVersion.Features.internedStrings)
-            mod.getNameDname.getSegmentsList.asScala
-          else
-            dottedNames(mod.getNameInternedDname)
-      }
-    } yield DottedName.assertFromSegments(segments)
   }
 
   private def getNonEmptyModules(pkg: DamlLf2.Package): Seq[DottedName] = {
@@ -148,8 +121,7 @@ class DamlLfEncoderTest
     val builtinMod = ModuleName.assertFromString("BuiltinMod")
 
     "contains all builtins " in {
-      forEvery(Table("version", LanguageVersion.All.filter(LanguageVersion.v1_13 <= _): _*)) {
-        // We do not check package older that 1.11 as they are used for stable packages only
+      forEvery(Table("version", LanguageVersion.All.filter(LanguageVersion.v2_1 <= _): _*)) {
         version =>
           val Right(dar) =
             UniversalArchiveDecoder
@@ -161,8 +133,8 @@ class DamlLfEncoderTest
             .values
             .collect { case Ast.DValue(_, Ast.EBuiltin(builtin), _) => builtin }
             .toSet
-          val builtinsInVersion = DecodeCommon.builtinFunctionInfos.collect {
-            case DecodeCommon.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
+          val builtinsInVersion = DecodeV2.builtinFunctionInfos.collect {
+            case DecodeV2.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
                 if minVersion <= version && maxVersion.forall(version < _) =>
               builtin
           }.toSet

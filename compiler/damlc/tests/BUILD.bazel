@@ -189,6 +189,8 @@ da_haskell_library(
             ":cant-skip-preprocessor",
             ":daml-test-files",
             ":query-lf-lib",
+            "//compiler/damlc:ghcversion",
+            "//compiler/damlc:hpp-copy",
             "//compiler/damlc/pkg-db",
             "//compiler/damlc/stable-packages",
             "//compiler/scenario-service/server:scenario_service_jar",
@@ -226,6 +228,8 @@ da_haskell_test(
         ":package-vetting-package-a.dar",
         ":package-vetting-package-b.dar",
         ":query-lf-lib",
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp-copy",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
@@ -350,7 +354,6 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml:daml-script-1.15.dar",
         "//daml-script/daml3:daml3-script-2.1.dar",
         ghc_pkg,
     ],
@@ -475,6 +478,7 @@ da_haskell_test(
 # Tests for multi-package
 da_haskell_test(
     name = "multi-package",
+    timeout = "long",
     srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
     data = [
         "//daml-assistant:daml",
@@ -550,78 +554,54 @@ daml_compile(
     version = "0.0.1",
 )
 
-# Tests for data-dependencies
-[
-    da_haskell_test(
-        name = "data-dependencies-{}".format(suffix),
-        timeout = "long",
-        srcs = ["src/DA/Test/DataDependencies.hs"],
-        args = test_args,
-        data = [
-            "//compiler/damlc",
-            "@damlc_legacy",
-            "//compiler/damlc/tests:generate-simple-dalf",
-            "//daml-script/daml:daml-script-1.dev.dar",
-            "//daml-script/daml3:daml3-script-2.dev.dar",
-            # Feel free to update this to 0.13.55 once that is frozen.
-            ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
+da_haskell_test(
+    name = "data-dependencies",
+    timeout = "long",
+    srcs = ["src/DA/Test/DataDependencies.hs"],
+    data = [
+        "//compiler/damlc",
+        "@damlc_legacy",
+        "//compiler/damlc/tests:generate-simple-dalf",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
+        # Feel free to update this to 0.13.55 once that is frozen.
+        ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
 
-            # TODO(https://github.com/digital-asset/daml/issues/17366)
-            # During development of LF 2.x this is generated using the HEAD compiler.
-            # Once we release LF 2.1, we should replace this with a dar file
-            # produced by the compiler corresponding to that release.
-            ":old-proj-2.1.dar",
-        ],
-        hackage_deps = [
-            "base",
-            "bytestring",
-            "extra",
-            "ghc-lib-parser",
-            "filepath",
-            "process",
-            "safe",
-            "safe-exceptions",
-            "tasty",
-            "tasty-hunit",
-            "zip-archive",
-        ],
-        main_function = "DA.Test.DataDependencies.main",
-        src_strip_prefix = "src",
-        tags = [
-            "cpu:3",
-        ] + extra_tags,
-        visibility = ["//visibility:public"],
-        deps = [
-            "//compiler/daml-lf-ast",
-            "//compiler/daml-lf-proto",
-            "//compiler/daml-lf-reader",
-            "//compiler/damlc/stable-packages:stable-packages-lib",
-            "//libs-haskell/bazel-runfiles",
-            "//libs-haskell/da-hs-base",
-            "//libs-haskell/test-utils",
-            "//sdk-version/hs:sdk-version-lib",
-        ],
-    )
-    for (suffix, extra_tags, test_args) in [
-        # Test all LF versions on the main branch, after merging
-        (
-            "all",
-            ["main-only"],
-            [],
-        ),
-        # Don't test LF v1 when running the CI on a PR
-        (
-            "no-v1",
-            ["pr-only"],
-            [
-                "-p",
-                # Test paths for these tests are of the form "foo.{lf-version}.bar"
-                # This pattern excludes tests whose lf-version starts with "2."
-                "'$$2 !~ /1./'",
-            ],
-        ),
-    ]
-]
+        # TODO(https://github.com/digital-asset/daml/issues/17366)
+        # During development of LF 2.x this is generated using the HEAD compiler.
+        # Once we release LF 2.1, we should replace this with a dar file
+        # produced by the compiler corresponding to that release.
+        ":old-proj-2.1.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "extra",
+        "ghc-lib-parser",
+        "filepath",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "tasty",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DA.Test.DataDependencies.main",
+    src_strip_prefix = "src",
+    tags = [
+        "cpu:3",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
+    ],
+)
 
 [
     [
@@ -809,6 +789,7 @@ da_haskell_test(
     deps = [
         "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
@@ -864,6 +845,7 @@ da_haskell_test(
         "//compiler/repl-service/client",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
@@ -1104,48 +1086,6 @@ da_haskell_test(
 )
 
 da_haskell_test(
-    name = "script-service-interfaces",  # TODO: dedup with script-service test setup
-    srcs = ["src/DA/Test/ScriptService_1_15.hs"],
-    data = [
-        "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml:daml-script-1.15.dar",
-        ghc_pkg,
-    ],
-    hackage_deps = [
-        "base",
-        "containers",
-        "directory",
-        "data-default",
-        "extra",
-        "filepath",
-        "ghcide",
-        "lsp-types",
-        "unordered-containers",
-        "regex-tdfa",
-        "tasty",
-        "tasty-hunit",
-        "text",
-        "vector",
-    ],
-    main_function = "DA.Test.ScriptService.main",
-    deps = [
-        "//compiler/daml-lf-ast",
-        "//compiler/damlc:damlc-lib",
-        "//compiler/damlc/daml-ide-core",
-        "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/damlc/daml-package-config",
-        "//compiler/damlc/daml-rule-types",
-        "//compiler/scenario-service/client",
-        "//daml-assistant:daml-project-config",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-lib",
-    ],
-)
-
-da_haskell_test(
     name = "package-manager",
     size = "large",
     srcs = ["src/DamlcPkgManager.hs"],
@@ -1175,8 +1115,8 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
     ],
 )
@@ -1184,9 +1124,6 @@ da_haskell_test(
 daml_compile(
     name = "pkg-manager-test",
     srcs = glob(["PkgManagerTest.daml"]),
-    # TODO(https://github.com/digital-asset/daml/issues/17366): delete the
-    #  explicit target once the default major version is 2.
-    target = "2.1",
 )
 
 sh_test(
@@ -1352,4 +1289,19 @@ daml_compile(
     ],
     target = "2.dev",
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "divulgence-daml-test-files",
+    srcs = [
+        "daml-test-files/AuthFailure.daml",
+        "daml-test-files/AuthorizedDivulgence.daml",
+        "daml-test-files/DiscloseViaChoiceObserver.daml",
+        "daml-test-files/Divulgence.daml",
+        "daml-test-files/ExceptionSemantics.daml",
+        "daml-test-files/LFContractKeys.daml",
+        "daml-test-files/MoreChoiceObserverDivulgence.daml",
+        "daml-test-files/ScriptAssertHelpers.daml",
+    ],
+    visibility = ["//daml-script:__subpackages__"],
 )

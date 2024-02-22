@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.concurrent
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.logging.{LogEntry, SuppressingLogger}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.{BaseTest, TestMetrics}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -15,7 +15,7 @@ import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future}
 
 @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
-class ExecutionContextMonitorTest extends AnyWordSpec with BaseTest with TestMetrics {
+class ExecutionContextMonitorTest extends AnyWordSpec with BaseTest {
 
   def runAndCheck(loggerFactory: SuppressingLogger, check: Seq[LogEntry] => Assertion): Unit = {
     implicit val scheduler: ScheduledExecutorService =
@@ -25,7 +25,7 @@ class ExecutionContextMonitorTest extends AnyWordSpec with BaseTest with TestMet
       )
 
     val ecName = loggerFactory.threadName + "test-my-ec"
-    implicit val ec = Threading.newExecutionContext(ecName, noTracingLogger, executorServiceMetrics)
+    implicit val ec = Threading.newExecutionContext(ecName, noTracingLogger)
     val monitor =
       new ExecutionContextMonitor(
         loggerFactory,

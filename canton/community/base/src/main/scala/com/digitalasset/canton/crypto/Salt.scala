@@ -32,7 +32,7 @@ object SaltSeed {
 
 /** Indicates the algorithm used to generate and derive salts. */
 sealed trait SaltAlgorithm extends Product with Serializable with PrettyPrinting {
-  def toProtoOneOf: v0.Salt.Algorithm
+  def toProtoOneOf: v30.Salt.Algorithm
   def length: Long
 }
 
@@ -40,7 +40,8 @@ object SaltAlgorithm {
 
   /** Uses an HMAC algorithm as a pseudo-random function to generate/derive salts. */
   final case class Hmac(hmacAlgorithm: HmacAlgorithm) extends SaltAlgorithm {
-    override def toProtoOneOf: v0.Salt.Algorithm = v0.Salt.Algorithm.Hmac(hmacAlgorithm.toProtoEnum)
+    override def toProtoOneOf: v30.Salt.Algorithm =
+      v30.Salt.Algorithm.Hmac(hmacAlgorithm.toProtoEnum)
     override def length: Long = hmacAlgorithm.hashAlgorithm.length
     override def pretty: Pretty[Hmac] = prettyOfClass(
       param("hmacAlgorithm", _.hmacAlgorithm.name.unquoted)
@@ -49,11 +50,11 @@ object SaltAlgorithm {
 
   def fromProtoOneOf(
       field: String,
-      saltAlgorithmP: v0.Salt.Algorithm,
+      saltAlgorithmP: v30.Salt.Algorithm,
   ): ParsingResult[SaltAlgorithm] =
     saltAlgorithmP match {
-      case v0.Salt.Algorithm.Empty => Left(ProtoDeserializationError.FieldNotSet(field))
-      case v0.Salt.Algorithm.Hmac(hmacAlgorithmP) =>
+      case v30.Salt.Algorithm.Empty => Left(ProtoDeserializationError.FieldNotSet(field))
+      case v30.Salt.Algorithm.Hmac(hmacAlgorithmP) =>
         HmacAlgorithm.fromProtoEnum("hmac", hmacAlgorithmP).map(Hmac)
     }
 }
@@ -72,7 +73,7 @@ final case class Salt private (private val salt: ByteString, private val algorit
   )
 
   /** Returns the serialization used for networking/storing, must NOT be used for hashing. */
-  def toProtoV0: v0.Salt = v0.Salt(salt = salt, algorithm = algorithm.toProtoOneOf)
+  def toProtoV30: v30.Salt = v30.Salt(salt = salt, algorithm = algorithm.toProtoOneOf)
 
   /** Returns the salt used for hashing, must NOT be used for networking/storing. */
   def forHashing: ByteString = salt
@@ -136,7 +137,7 @@ object Salt {
       throw new IllegalStateException(err.toString)
     )
 
-  def fromProtoV0(saltP: v0.Salt): ParsingResult[Salt] =
+  def fromProtoV30(saltP: v30.Salt): ParsingResult[Salt] =
     for {
       saltAlgorithm <- SaltAlgorithm.fromProtoOneOf("algorithm", saltP.algorithm)
       salt <- create(saltP.salt, saltAlgorithm).leftMap(err =>

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.util.pekkostreams
 
-import com.codahale.metrics as codahale
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.metrics.api.dropwizard.{DropwizardCounter as Counter}
+import com.daml.metrics.api.MetricName
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.apache.pekko.stream.stage.*
 import org.apache.pekko.stream.{Attributes, FlowShape, Inlet, Outlet}
@@ -28,8 +28,8 @@ class MaxInFlightTest
       val elemCount = 1000L
       val bidi = MaxInFlight[Long, Long](
         1,
-        Counter("capacity", new codahale.Counter),
-        Counter("length", new codahale.Counter),
+        NoOpMetricsFactory.counter(MetricName("capacity")),
+        NoOpMetricsFactory.counter(MetricName("length")),
       )
 
       val result = Source.repeat(1L).take(elemCount).via(bidi.join(Flow[Long])).runFold(0L)(_ + _)
@@ -42,8 +42,8 @@ class MaxInFlightTest
       val maxElementsInFlight = 10
       val bidi = MaxInFlight[Long, Long](
         maxElementsInFlight,
-        Counter("capacity", new codahale.Counter),
-        Counter("length", new codahale.Counter),
+        NoOpMetricsFactory.counter(MetricName("capacity")),
+        NoOpMetricsFactory.counter(MetricName("length")),
       )
 
       val flow = bidi.join(new DiesOnTooManyInFlights(maxElementsInFlight, 1.second))

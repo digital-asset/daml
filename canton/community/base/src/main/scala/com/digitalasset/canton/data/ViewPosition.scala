@@ -8,7 +8,7 @@ import cats.instances.list.*
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex.Direction
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v2
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.google.protobuf.ByteString
 
@@ -30,7 +30,7 @@ final case class ViewPosition(position: List[MerklePathElement]) extends PrettyP
   /** Reverse the position, as well as all contained MerkleSeqIndex path elements */
   def reverse: ViewPositionFromRoot = ViewPositionFromRoot(position.reverse.map(_.reverse))
 
-  def toProtoV2: v2.ViewPosition = v2.ViewPosition(position = position.map(_.toProtoV2))
+  def toProtoV30: v30.ViewPosition = v30.ViewPosition(position = position.map(_.toProtoV30))
 
   override def pretty: Pretty[ViewPosition] = prettyOfClass(unnamedParam(_.position.mkShow()))
 }
@@ -58,9 +58,9 @@ object ViewPosition {
       catsKernelStdOrderForList(MerklePathElement.orderMerklePathElement)
     )
 
-  def fromProtoV2(viewPositionP: v2.ViewPosition): ViewPosition = {
-    val v2.ViewPosition(positionP) = viewPositionP
-    val position = positionP.map(MerkleSeqIndex.fromProtoV2).toList
+  def fromProtoV30(viewPositionP: v30.ViewPosition): ViewPosition = {
+    val v30.ViewPosition(positionP) = viewPositionP
+    val position = positionP.map(MerkleSeqIndex.fromProtoV30).toList
     ViewPosition(position)
   }
 
@@ -69,7 +69,7 @@ object ViewPosition {
     def encodeDeterministically: ByteString
     def reverse: MerklePathElement
 
-    def toProtoV2: v2.MerkleSeqIndex
+    def toProtoV30: v30.MerkleSeqIndex
   }
 
   /** For [[MerkleTreeInnerNode]]s which branch to a list of subviews,
@@ -85,7 +85,7 @@ object ViewPosition {
 
     override lazy val reverse: ListIndex = this
 
-    override def toProtoV2: v2.MerkleSeqIndex =
+    override def toProtoV30: v30.MerkleSeqIndex =
       throw new UnsupportedOperationException(
         "ListIndex is for legacy use only and should not be serialized"
       )
@@ -105,8 +105,8 @@ object ViewPosition {
 
     override lazy val reverse: MerkleSeqIndexFromRoot = MerkleSeqIndexFromRoot(index.reverse)
 
-    override def toProtoV2: v2.MerkleSeqIndex =
-      v2.MerkleSeqIndex(isRight = index.map(_ == Direction.Right))
+    override def toProtoV30: v30.MerkleSeqIndex =
+      v30.MerkleSeqIndex(isRight = index.map(_ == Direction.Right))
   }
 
   /** Same as [[MerkleSeqIndex]], with the position directed from the root to the leaf */
@@ -121,7 +121,7 @@ object ViewPosition {
 
     override lazy val reverse: MerkleSeqIndex = MerkleSeqIndex(index.reverse)
 
-    def toProtoV2: v2.MerkleSeqIndex = throw new UnsupportedOperationException(
+    def toProtoV30: v30.MerkleSeqIndex = throw new UnsupportedOperationException(
       "MerkleSeqIndexFromRoot is for internal use only and should not be serialized"
     )
   }
@@ -178,8 +178,8 @@ object ViewPosition {
       }
     }
 
-    def fromProtoV2(merkleSeqIndexP: v2.MerkleSeqIndex): MerkleSeqIndex = {
-      val v2.MerkleSeqIndex(isRightP) = merkleSeqIndexP
+    def fromProtoV30(merkleSeqIndexP: v30.MerkleSeqIndex): MerkleSeqIndex = {
+      val v30.MerkleSeqIndex(isRightP) = merkleSeqIndexP
       MerkleSeqIndex(isRightP.map(if (_) Direction.Right else Direction.Left).toList)
     }
   }

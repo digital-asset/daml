@@ -1,0 +1,18 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Proprietary code. All rights reserved.
+
+syntax = "proto3";
+
+package com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1;
+
+message TracedBlockOrderingRequest {
+  string traceparent = 1;
+  string tag = 2;
+  bytes body = 3;
+  int64 microseconds_since_epoch = 4;
+}
+
+message TracedBatchedBlockOrderingRequests {
+  string traceparent = 1;
+  repeated TracedBlockOrderingRequest requests = 2;
+}

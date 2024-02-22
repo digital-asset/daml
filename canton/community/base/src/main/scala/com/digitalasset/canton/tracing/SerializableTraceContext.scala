@@ -6,7 +6,7 @@ package com.digitalasset.canton.tracing
 import com.daml.ledger.api.v1.trace_context.TraceContext as DamlTraceContext
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.v0
+import com.digitalasset.canton.v30
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionCommon,
@@ -28,9 +28,9 @@ final case class SerializableTraceContext(traceContext: TraceContext)
   override protected def companionObj
       : HasVersionedMessageCompanionCommon[SerializableTraceContext] = SerializableTraceContext
 
-  def toProtoV0: v0.TraceContext = {
+  def toProtoV30: v30.TraceContext = {
     val w3cTraceContext = traceContext.asW3CTraceContext
-    v0.TraceContext(w3cTraceContext.map(_.parent), w3cTraceContext.flatMap(_.state))
+    v30.TraceContext(w3cTraceContext.map(_.parent), w3cTraceContext.flatMap(_.state))
   }
 
   def toDamlProto: DamlTraceContext = {
@@ -46,10 +46,10 @@ object SerializableTraceContext
     extends HasVersionedMessageCompanion[SerializableTraceContext]
     with HasVersionedMessageCompanionDbHelpers[SerializableTraceContext] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v0.TraceContext)(fromProtoV0),
-      _.toProtoV0.toByteString,
+      supportedProtoVersion(v30.TraceContext)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -61,20 +61,20 @@ object SerializableTraceContext
   /** Construct a TraceContext from provided protobuf structure.
     * Errors will be logged at a WARN level using the provided storageLogger and an empty TraceContext will be returned.
     */
-  def fromProtoSafeV0Opt(logger: Logger)(
-      traceContextP: Option[v0.TraceContext]
+  def fromProtoSafeV30Opt(logger: Logger)(
+      traceContextP: Option[v30.TraceContext]
   ): SerializableTraceContext =
-    safely(logger)(fromProtoV0Opt)(traceContextP)
+    safely(logger)(fromProtoV30Opt)(traceContextP)
 
-  def fromProtoV0Opt(
-      traceContextP: Option[v0.TraceContext]
+  def fromProtoV30Opt(
+      traceContextP: Option[v30.TraceContext]
   ): ParsingResult[SerializableTraceContext] =
     for {
       tcP <- ProtoConverter.required("traceContext", traceContextP)
-      tc <- fromProtoV0(tcP)
+      tc <- fromProtoV30(tcP)
     } yield tc
 
-  def fromProtoV0(tc: v0.TraceContext): ParsingResult[SerializableTraceContext] =
+  def fromProtoV30(tc: v30.TraceContext): ParsingResult[SerializableTraceContext] =
     Right(SerializableTraceContext(W3CTraceContext.toTraceContext(tc.traceparent, tc.tracestate)))
 
   def fromDamlProtoSafeOpt(logger: Logger)(

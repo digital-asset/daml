@@ -43,6 +43,8 @@ class StructProjBench {
 
   private[this] def pkg = {
     p"""
+       metadata ( 'pkg' : '1.0.0' )
+
        module Mod {
 
         synonym Struct = < ${(0 until N).map(i => s"x$i : Int64").mkString(",")} > ;

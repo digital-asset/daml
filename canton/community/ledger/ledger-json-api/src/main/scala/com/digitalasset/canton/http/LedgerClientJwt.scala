@@ -7,8 +7,15 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.admin.metering_report_service.{GetMeteringReportRequest, GetMeteringReportResponse}
-import com.daml.ledger.api.v2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitRequest}
+import com.daml.ledger.api.v1.admin.metering_report_service.{
+  GetMeteringReportRequest,
+  GetMeteringReportResponse,
+}
+import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitRequest,
+}
 import com.daml.ledger.api.v1.package_service
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
@@ -23,12 +30,16 @@ import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.ledger.api.domain.PartyDetails as domainPartyDetails
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
-import com.digitalasset.canton.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
-import com.digitalasset.canton.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.canton.ledger.client.services.admin.{MeteringReportClient, PackageManagementClient, PartyManagementClient}
-import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
+import com.digitalasset.canton.ledger.client.services.admin.{
+  MeteringReportClient,
+  PackageManagementClient,
+  PartyManagementClient,
+}
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
+import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
+import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
+import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
@@ -55,7 +66,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logFuture(SubmitAndWaitForTransactionLog) {
           client.v2.commandService
-            .submitAndWaitForTransaction(req, bearer(jwt))
+            .deprecatedSubmitAndWaitForTransactionForJsonApi(req, token = bearer(jwt))
         }
           .requireHandling(submitErrors)
       }
@@ -67,7 +78,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       implicit lc => {
         logFuture(SubmitAndWaitForTransactionTreeLog) {
           client.v2.commandService
-            .submitAndWaitForTransactionTree(req, bearer(jwt))
+            .deprecatedSubmitAndWaitForTransactionTreeForJsonApi(req, token = bearer(jwt))
         }
           .requireHandling(submitErrors)
       }
@@ -94,7 +105,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
         if (skipRequest(offset, end))
           Source.empty[Transaction]
         else {
-          log(GetTransactionsLog) {
+          log(GetUpdatesLog) {
             client.v2.updateService
               .getUpdatesSource(
                 begin = offset,
@@ -102,7 +113,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
                 verbose = true,
                 end = end,
                 token = bearer(jwt),
-              ).collect { response =>
+              )
+              .collect { response =>
                 response.update match {
                   case Update.Transaction(t) => t
                 }
@@ -128,24 +140,24 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory)
       }
   }
 
-//  TODO(#16065)
-//  def getByContractKey(client: DamlLedgerClient)(implicit ec: EC): GetContractByContractKey = {
-//    (jwt, key, templateId, requestingParties, continuationToken) =>
-//      { implicit lc =>
-//        logFuture(GetContractByContractKeyLog) {
-//          client.eventQueryServiceClient.getEventsByContractKey(
-//            token = bearer(jwt),
-//            contractKey = key,
-//            templateId = templateId,
-//            requestingParties = requestingParties.view.map(_.unwrap).toSeq,
-//            continuationToken = continuationToken,
-//          )
-//        }
-//          .requireHandling { case Code.PERMISSION_DENIED =>
-//            PermissionDenied
-//          }
-//      }
-//  }
+  //  TODO(#16065)
+  //  def getByContractKey(client: DamlLedgerClient)(implicit ec: EC): GetContractByContractKey = {
+  //    (jwt, key, templateId, requestingParties, continuationToken) =>
+  //      { implicit lc =>
+  //        logFuture(GetContractByContractKeyLog) {
+  //          client.eventQueryServiceClient.getEventsByContractKey(
+  //            token = bearer(jwt),
+  //            contractKey = key,
+  //            templateId = templateId,
+  //            requestingParties = requestingParties.view.map(_.unwrap).toSeq,
+  //            continuationToken = continuationToken,
+  //          )
+  //        }
+  //          .requireHandling { case Code.PERMISSION_DENIED =>
+  //            PermissionDenied
+  //          }
+  //      }
+  //  }
 
   private def skipRequest(start: ParticipantOffset, end: Option[ParticipantOffset]): Boolean = {
     import com.digitalasset.canton.http.util.ParticipantOffsetUtil.AbsoluteOffsetOrdering
@@ -314,16 +326,16 @@ object LedgerClientJwt {
         Set[domain.Party],
     ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractIdResponse]
 
-//  TODO(#16065)
-//  type ContinuationToken = String
-//  type GetContractByContractKey =
-//    (
-//        Jwt,
-//        com.daml.ledger.api.v1.value.Value,
-//        Identifier,
-//        Set[domain.Party],
-//        ContinuationToken,
-//    ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractKeyResponse]
+  //  TODO(#16065)
+  //  type ContinuationToken = String
+  //  type GetContractByContractKey =
+  //    (
+  //        Jwt,
+  //        com.daml.ledger.api.v1.value.Value,
+  //        Identifier,
+  //        Set[domain.Party],
+  //        ContinuationToken,
+  //    ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractKeyResponse]
 
   type ListKnownParties =
     Jwt => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
@@ -433,10 +445,9 @@ object LedgerClientJwt {
     }
 
     case object SubmitAndWaitForTransactionLog
-        extends RequestLog(classOf[SynchronousCommandClient], "submitAndWaitForTransaction")
+        extends RequestLog(classOf[CommandServiceClient], "submitAndWaitForTransaction")
     case object SubmitAndWaitForTransactionTreeLog
-        extends RequestLog(classOf[SynchronousCommandClient], "submitAndWaitForTransactionTree")
-    case object GetLedgerEndLog extends RequestLog(classOf[TransactionClient], "getLedgerEnd")
+        extends RequestLog(classOf[CommandServiceClient], "submitAndWaitForTransactionTree")
     case object ListKnownPartiesLog
         extends RequestLog(classOf[PartyManagementClient], "listKnownParties")
     case object GetPartiesLog extends RequestLog(classOf[PartyManagementClient], "getParties")
@@ -448,8 +459,8 @@ object LedgerClientJwt {
     case object GetMeteringReportLog
         extends RequestLog(classOf[MeteringReportClient], "getMeteringReport")
     case object GetActiveContractsLog
-        extends RequestLog(classOf[ActiveContractSetClient], "getActiveContracts")
-    case object GetTransactionsLog extends RequestLog(classOf[TransactionClient], "getTransactions")
+        extends RequestLog(classOf[StateServiceClient], "getActiveContracts")
+    case object GetUpdatesLog extends RequestLog(classOf[UpdateServiceClient], "getUpdates")
     case object GetContractByContractIdLog
         extends RequestLog(classOf[EventQueryServiceClient], "getContractByContractId")
 //    TODO(#16065)

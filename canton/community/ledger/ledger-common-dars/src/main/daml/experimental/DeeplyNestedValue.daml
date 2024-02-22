@@ -1,0 +1,47 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- file that contains the declarations used in the sandbox tests
+
+module DeeplyNestedValue where
+
+data Nat = Z | S Nat
+  deriving (Eq, Show)
+
+construct: Int -> Nat -> Nat
+construct x acc | x <= 0 = acc
+construct x acc  = construct (x-1) (S acc)
+
+toNat : Int -> Nat
+toNat x = construct x Z
+
+template ContractWithKey
+  with
+    party: Party
+    i: Int
+  where
+    signatory party
+    key (party, toNat i): (Party, Nat)
+    maintainer key._1
+
+template Handler
+  with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice CreateKey: ContractId ContractWithKey
+      with i : Int
+      controller party
+      do create ContractWithKey with
+           party = party
+           i = i
+    nonconsuming choice FetchByKey: ContractId ContractWithKey
+      with i: Int
+      controller party
+      do (cid, _) <- fetchByKey @ContractWithKey (party, toNat i)
+         pure cid
+    nonconsuming choice LookupByKey: Optional (ContractId ContractWithKey)
+      with i: Int
+      controller party
+      do lookupByKey @ContractWithKey (party, toNat i)

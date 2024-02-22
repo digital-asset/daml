@@ -27,7 +27,6 @@ import interpretation.{Error => IE}
 
 import scala.language.implicitConversions
 
-class InterfacesTestV1 extends InterfacesTest(LanguageMajorVersion.V1)
 class InterfacesTestV2 extends InterfacesTest(LanguageMajorVersion.V2)
 
 @SuppressWarnings(
@@ -59,13 +58,10 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
   "interfaces" should {
-    val (interfacesPkgId, interfacesPkg, _) =
+    val (interfacesPkgId, interfacesPkg, allInterfacesPkgs) =
       loadPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
-    val (interfaceRetroPkgId, _, allInterfacesPkgs) =
-      loadPackage(s"daml-lf/tests/InterfaceRetro-v${majorLanguageVersion.pretty}.dar")
     val idI1 = Identifier(interfacesPkgId, "Interfaces:I1")
     val idI2 = Identifier(interfacesPkgId, "Interfaces:I2")
-    val idI5 = Identifier(interfaceRetroPkgId, "InterfaceRetro:I5")
     val idT1 = Identifier(interfacesPkgId, "Interfaces:T1")
     val idT2 = Identifier(interfacesPkgId, "Interfaces:T2")
     val let = Time.Timestamp.now()
@@ -89,8 +85,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
         )
       ),
     )
-    def consume[X](x: Result[X]) =
-      x.consume(contracts, allInterfacesPkgs)
+    def consume[X](x: Result[X]) = x.consume(contracts, allInterfacesPkgs)
 
     def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessApiCommand(Map.empty, cmd))
     def run[Cmd](cmd: Cmd)(preprocess: Cmd => Result[speedy.Command]) =
@@ -187,16 +182,6 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
         ValueRecord(None, ImmArray.empty),
       )
       preprocessApi(command) shouldBe a[Left[_, _]]
-    }
-
-    "be able to exercise T2 by interface I5 and usedPackages should include I5's packageId" in {
-      val command = ApiCommand.Exercise(
-        idI5.toRef,
-        cid2,
-        "C5",
-        ValueRecord(None, ImmArray.empty),
-      )
-      runApi(command).value._2.usedPackages should contain(interfaceRetroPkgId)
     }
   }
 }

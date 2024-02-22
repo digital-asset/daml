@@ -22,13 +22,6 @@ import scala.jdk.CollectionConverters.*
   * @param failFastOnStartup If true, the node will fail-fast when the database cannot be connected to
   *                    If false, the node will wait indefinitely for the database to come up
   * @param migrationsPaths Where should database migrations be read from. Enables specialized DDL for different database servers (e.g. Postgres, Oracle).
-  * @param ledgerApiJdbcUrl Canton attempts to generate appropriate configuration for the daml ledger-api to persist the data it requires.
-  *                   In most circumstances this should be sufficient and there is no need to override this.
-  *                   However if this generation fails or an advanced configuration is required, the ledger-api jdbc url can be
-  *                   explicitly configured using this property.
-  *                   The jdbc url **must** specify the schema of `ledger_api` (using h2 parameter `schema` or postgres parameter `currentSchema`).
-  *                   This property is not used by a domain node as it does not run a ledger-api instance,
-  *                   and will be ignored if the node is configured with in-memory persistence.
   * @param connectionTimeout How long to wait for acquiring a database connection
   * @param warnOnSlowQuery Optional time when we start logging a query as slow.
   * @param warnOnSlowQueryInterval How often to repeat the logging statement for slow queries.
@@ -46,7 +39,6 @@ final case class DbParametersConfig(
     connectionAllocation: ConnectionAllocation = ConnectionAllocation(),
     failFastOnStartup: Boolean = true,
     migrationsPaths: Seq[String] = Seq.empty,
-    ledgerApiJdbcUrl: Option[String] = None,
     connectionTimeout: NonNegativeFiniteDuration = DbConfig.defaultConnectionTimeout,
     warnOnSlowQuery: Option[PositiveFiniteDuration] = None,
     warnOnSlowQueryInterval: PositiveFiniteDuration =
@@ -64,7 +56,6 @@ final case class DbParametersConfig(
             Some(x.migrationsPaths.map(_.doubleQuoted))
           else None,
       ),
-      paramIfDefined("ledgerApiJdbcUrl", _.ledgerApiJdbcUrl.map(_.doubleQuoted)),
       paramIfDefined("maxConnections", _.maxConnections),
       param("connectionAllocation", _.connectionAllocation),
       param("failFast", _.failFastOnStartup),

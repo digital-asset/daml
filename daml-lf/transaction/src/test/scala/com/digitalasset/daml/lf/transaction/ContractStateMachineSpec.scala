@@ -47,9 +47,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   val aliceS: Set[Ref.Party] = Set(alice)
   val templateId: Ref.TypeConName = "Template:Id"
   val choiceId: Ref.ChoiceName = "Choice"
-  val pkgName = Some(Ref.PackageName.assertFromString("package-name"))
+  val pkgName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
   val txVersion: TransactionVersion = TransactionVersion.maxVersion
-  val sharedKeys: Boolean = Util.sharedKey(txVersion)
   val unit: Value = Value.ValueUnit
 
   implicit def contractIdFromInt(coid: Int): ContractId = cid(coid)
@@ -68,7 +67,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       templateId: Ref.TypeConName,
       key: String,
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS, sharedKeys)
+    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS)
 
   private def toOptKeyWithMaintainers(
       templateId: Ref.TypeConName,
@@ -78,7 +77,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     else Some(toKeyWithMaintainers(templateId, key))
 
   def gkey(key: String): GlobalKey =
-    GlobalKey.assertBuild(templateId, Value.ValueText(key), sharedKeys)
+    GlobalKey.assertBuild(templateId, Value.ValueText(key))
 
   def mkCreate(
       contractId: ContractId,
@@ -89,7 +88,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       packageName = pkgName,
       templateId = templateId,
       arg = unit,
-      agreementText = "",
       signatories = aliceS,
       stakeholders = aliceS,
       keyOpt = toOptKeyWithMaintainers(templateId, key),

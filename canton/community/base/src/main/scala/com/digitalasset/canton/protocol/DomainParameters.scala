@@ -7,14 +7,15 @@ import cats.instances.option.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DynamicDomainParameters.InvalidDynamicDomainParameters
-import com.digitalasset.canton.protocol.{v1 as protoV1, v2 as protoV2}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -29,7 +30,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, checked}
+import com.digitalasset.canton.{ProtoDeserializationError, checked, protocol}
 
 import scala.concurrent.Future
 import scala.math.Ordered.orderingToOrdered
@@ -56,6 +57,14 @@ object DomainParameters {
   }
 }
 
+/** @param AcsCommitmentsCatchUp Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
+  *                              Defined starting with protobuf version v2 and protocol version v6.
+  *                              If None, the catch-up mode is disabled: the participant does not trigger the
+  *                              catch-up mode when lagging behind.
+  *                              If not None, it specifies the number of reconciliation intervals that the
+  *                              participant skips in catch-up mode, and the number of catch-up intervals
+  *                              intervals a participant should lag behind in order to enter catch-up mode.
+  */
 final case class StaticDomainParameters private (
     requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
     requiredEncryptionKeySchemes: NonEmpty[Set[EncryptionKeyScheme]],
@@ -63,6 +72,7 @@ final case class StaticDomainParameters private (
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     protocolVersion: ProtocolVersion,
+    acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig],
 ) extends HasProtocolVersionedWrapper[StaticDomainParameters] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -75,27 +85,29 @@ final case class StaticDomainParameters private (
   @transient override protected lazy val companionObj: StaticDomainParameters.type =
     StaticDomainParameters
 
-  def toProtoV1: protoV1.StaticDomainParameters =
-    protoV1.StaticDomainParameters(
+  def toProtoV30: v30.StaticDomainParameters =
+    v30.StaticDomainParameters(
       requiredSigningKeySchemes = requiredSigningKeySchemes.toSeq.map(_.toProtoEnum),
       requiredEncryptionKeySchemes = requiredEncryptionKeySchemes.toSeq.map(_.toProtoEnum),
       requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
       requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
       protocolVersion = protocolVersion.toProtoPrimitive,
+      acsCommitmentsCatchUp = acsCommitmentsCatchUp.map(_.toProtoV30),
     )
 }
 object StaticDomainParameters
     extends HasProtocolVersionedCompanion[StaticDomainParameters]
     with ProtocolVersionedCompanionDbHelpers[StaticDomainParameters] {
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      protoV1.StaticDomainParameters
-    )(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+  val supportedProtoVersions: protocol.StaticDomainParameters.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+        v30.StaticDomainParameters
+      )(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   override def name: String = "static domain parameters"
 
@@ -106,6 +118,7 @@ object StaticDomainParameters
       requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
       requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
       protocolVersion: ProtocolVersion,
+      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig],
   ): StaticDomainParameters = StaticDomainParameters(
     requiredSigningKeySchemes = requiredSigningKeySchemes,
     requiredEncryptionKeySchemes = requiredEncryptionKeySchemes,
@@ -113,6 +126,7 @@ object StaticDomainParameters
     requiredHashAlgorithms = requiredHashAlgorithms,
     requiredCryptoKeyFormats = requiredCryptoKeyFormats,
     protocolVersion = protocolVersion,
+    acsCommitmentsCatchUp = acsCommitmentsCatchUp,
   )
 
   private def requiredKeySchemes[P, A](
@@ -122,16 +136,17 @@ object StaticDomainParameters
   ): ParsingResult[NonEmpty[Set[A]]] =
     ProtoConverter.parseRequiredNonEmpty(parse(field, _), field, content).map(_.toSet)
 
-  def fromProtoV1(
-      domainParametersP: protoV1.StaticDomainParameters
+  def fromProtoV30(
+      domainParametersP: v30.StaticDomainParameters
   ): ParsingResult[StaticDomainParameters] = {
-    val protoV1.StaticDomainParameters(
+    val v30.StaticDomainParameters(
       requiredSigningKeySchemesP,
       requiredEncryptionKeySchemesP,
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
       requiredCryptoKeyFormatsP,
       protocolVersionP,
+      acsCommitmentsCatchUpP,
     ) = domainParametersP
 
     for {
@@ -161,6 +176,9 @@ object StaticDomainParameters
         CryptoKeyFormat.fromProtoEnum,
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
+      acsCommitmentsCatchUp <- acsCommitmentsCatchUpP.traverse(
+        AcsCommitmentsCatchUpConfig.fromProtoV30
+      )
     } yield StaticDomainParameters(
       requiredSigningKeySchemes,
       requiredEncryptionKeySchemes,
@@ -168,11 +186,66 @@ object StaticDomainParameters
       requiredHashAlgorithms,
       requiredCryptoKeyFormats,
       protocolVersion,
+      acsCommitmentsCatchUp,
     )
   }
 }
 
-/** @param participantResponseTimeout the amount of time (w.r.t. the sequencer clock) that a participant may take
+/** Onboarding restrictions for new participants joining a domain
+  *
+  * The domain administrators can set onboarding restrictions to control
+  * which participant can join the domain.
+  */
+sealed trait OnboardingRestriction extends Product with Serializable {
+  def toProtoV30: v30.OnboardingRestriction
+}
+object OnboardingRestriction {
+  def fromProtoV30(
+      onboardingRestrictionP: v30.OnboardingRestriction
+  ): ParsingResult[OnboardingRestriction] = onboardingRestrictionP match {
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN =>
+      Right(UnrestrictedOpen)
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED =>
+      Right(UnrestrictedLocked)
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_OPEN => Right(RestrictedOpen)
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_LOCKED =>
+      Right(RestrictedLocked)
+    case v30.OnboardingRestriction.Unrecognized(value) =>
+      Left(ProtoDeserializationError.UnrecognizedEnum("onboarding_restriction", value))
+    case v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNSPECIFIED =>
+      Left(ProtoDeserializationError.FieldNotSet("onboarding_restriction"))
+  }
+
+  /** Anyone can join */
+  final case object UnrestrictedOpen extends OnboardingRestriction {
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN
+  }
+
+  /** In theory, anyone can join, except now, the registration procedure is closed */
+  final case object UnrestrictedLocked extends OnboardingRestriction {
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED
+  }
+
+  /** Only participants on the allowlist can join
+    *
+    * Requires the domain owners to issue a valid ParticipantDomainPermission transaction
+    */
+  final case object RestrictedOpen extends OnboardingRestriction {
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_OPEN
+  }
+
+  /** Only participants on the allowlist can join in theory, except now, the registration procedure is closed */
+  final case object RestrictedLocked extends OnboardingRestriction {
+    override def toProtoV30: v30.OnboardingRestriction =
+      v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_LOCKED
+  }
+
+}
+
+/** @param confirmationResponseTimeout the amount of time (w.r.t. the sequencer clock) that a participant may take
   *                                   to validate a command and send a response.
   *                                   Once the timeout has elapsed for a request,
   *                                   the mediator will discard all responses for that request.
@@ -217,26 +290,28 @@ object StaticDomainParameters
   *                               compatibility.
   *                               Should be significantly longer than the period of time it takes to compute the commitment and have it sequenced of the domain.
   *                               Otherwise, ACS commitments will keep being exchanged continuously on an idle domain.
-  * @param maxRatePerParticipant maximum number of messages sent per participant per second
+  * @param confirmationRequestsMaxRate maximum number of mediator confirmation requests sent per participant per second
   * @param maxRequestSize maximum size of messages (in bytes) that the domain can receive through the public API
   * @param sequencerAggregateSubmissionTimeout the maximum time for how long an incomplete aggregate submission request is
   *                                            allowed to stay pending in the sequencer's state before it's removed.
-  *                                            Must be at least `participantResponseTimeout` + `mediatorReactionTimeout` in a practical system.
+  *                                            Must be at least `confirmationResponseTimeout` + `mediatorReactionTimeout` in a practical system.
+  * @param onboardingRestriction current onboarding restrictions for participants
   * @throws DynamicDomainParameters$.InvalidDynamicDomainParameters
   *   if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
   */
 final case class DynamicDomainParameters private (
-    participantResponseTimeout: NonNegativeFiniteDuration,
+    confirmationResponseTimeout: NonNegativeFiniteDuration,
     mediatorReactionTimeout: NonNegativeFiniteDuration,
     transferExclusivityTimeout: NonNegativeFiniteDuration,
     topologyChangeDelay: NonNegativeFiniteDuration,
     ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
     mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
     reconciliationInterval: PositiveSeconds,
-    maxRatePerParticipant: NonNegativeInt,
+    confirmationRequestsMaxRate: NonNegativeInt,
     maxRequestSize: MaxRequestSize,
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
     trafficControlParameters: Option[TrafficControlParameters],
+    onboardingRestriction: OnboardingRestriction,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       DynamicDomainParameters.type
@@ -254,16 +329,16 @@ final case class DynamicDomainParameters private (
         s"mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
     )
 
-  /** In some situations, the sequencer signs transaction with slightly outdated keys.
+  /** In some situations, the sequencer processes submission requests with a slightly outdated topology snapshot.
     * This is to allow recipients to verify sequencer signatures when the sequencer keys have been rolled over and
-    * they have not yet received the new keys.
-    * This parameter determines how much outdated a signing key can be.
+    * they have not yet received the new keys, and to resolve group addresses using a sender-specified snapshot.
+    * This parameter determines how much outdated the signing key or the group address resolution can be.
     * Choose a higher value to avoid that the sequencer refuses to sign and send messages.
-    * Choose a lower value to reduce the latency of sequencer key rollovers.
-    * The sequencer signing tolerance must be at least `participantResponseTimeout + mediatorReactionTimeout`.
+    * Choose a lower value to reduce the latency of sequencer key rollovers and updates of group addresses.
+    * The sequencer topology tolerance must be at least `confirmationResponseTimeout + mediatorReactionTimeout`.
     */
-  def sequencerSigningTolerance: NonNegativeFiniteDuration =
-    (participantResponseTimeout + mediatorReactionTimeout) * NonNegativeInt.tryCreate(2)
+  def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
+    (confirmationResponseTimeout + mediatorReactionTimeout) * NonNegativeInt.tryCreate(2)
 
   def automaticTransferInEnabled: Boolean =
     transferExclusivityTimeout > NonNegativeFiniteDuration.Zero
@@ -271,45 +346,47 @@ final case class DynamicDomainParameters private (
   def update(
       transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
       reconciliationInterval: PositiveSeconds = reconciliationInterval,
-      maxRatePerParticipant: NonNegativeInt = maxRatePerParticipant,
+      confirmationRequestsMaxRate: NonNegativeInt = confirmationRequestsMaxRate,
       maxRequestSize: MaxRequestSize = maxRequestSize,
   ): DynamicDomainParameters =
     this.copy(
       transferExclusivityTimeout = transferExclusivityTimeout,
       reconciliationInterval = reconciliationInterval,
-      maxRatePerParticipant = maxRatePerParticipant,
+      confirmationRequestsMaxRate = confirmationRequestsMaxRate,
       maxRequestSize = maxRequestSize,
     )(representativeProtocolVersion)
 
   def tryUpdate(
-      participantResponseTimeout: NonNegativeFiniteDuration = participantResponseTimeout,
+      confirmationResponseTimeout: NonNegativeFiniteDuration = confirmationResponseTimeout,
       mediatorReactionTimeout: NonNegativeFiniteDuration = mediatorReactionTimeout,
       transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
       topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration = mediatorDeduplicationTimeout,
       reconciliationInterval: PositiveSeconds = reconciliationInterval,
-      maxRatePerParticipant: NonNegativeInt = maxRatePerParticipant,
+      confirmationRequestsMaxRate: NonNegativeInt = confirmationRequestsMaxRate,
       maxRequestSize: MaxRequestSize = maxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
+      onboardingRestriction: OnboardingRestriction = onboardingRestriction,
   ): DynamicDomainParameters = DynamicDomainParameters.tryCreate(
-    participantResponseTimeout = participantResponseTimeout,
+    confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
     transferExclusivityTimeout = transferExclusivityTimeout,
     topologyChangeDelay = topologyChangeDelay,
     ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
     mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
     reconciliationInterval = reconciliationInterval,
-    maxRatePerParticipant = maxRatePerParticipant,
+    confirmationRequestsMaxRate = confirmationRequestsMaxRate,
     maxRequestSize = maxRequestSize,
     sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
     trafficControlParameters = trafficControlParameters,
+    onboardingRestriction = onboardingRestriction,
   )(representativeProtocolVersion)
 
-  def toProtoV2: protoV2.DynamicDomainParameters = protoV2.DynamicDomainParameters(
-    participantResponseTimeout = Some(participantResponseTimeout.toProtoPrimitive),
+  def toProtoV30: v30.DynamicDomainParameters = v30.DynamicDomainParameters(
+    confirmationResponseTimeout = Some(confirmationResponseTimeout.toProtoPrimitive),
     mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
     transferExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
     topologyChangeDelay = Some(topologyChangeDelay.toProtoPrimitive),
@@ -317,8 +394,7 @@ final case class DynamicDomainParameters private (
     mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
     reconciliationInterval = Some(reconciliationInterval.toProtoPrimitive),
     maxRequestSize = maxRequestSize.unwrap,
-    // TODO(#14053) add permissioned domain mode
-    permissionedDomain = false,
+    onboardingRestriction = onboardingRestriction.toProtoV30,
     // TODO(#14054) add restricted packages mode
     requiredPackages = Seq.empty,
     // TODO(#14054) add only restricted packages supported
@@ -328,12 +404,12 @@ final case class DynamicDomainParameters private (
     defaultMaxHostingParticipantsPerParty = 0,
     sequencerAggregateSubmissionTimeout =
       Some(sequencerAggregateSubmissionTimeout.toProtoPrimitive),
-    trafficControlParameters = trafficControlParameters.map(_.toProtoV0),
+    trafficControlParameters = trafficControlParameters.map(_.toProtoV30),
   )
 
   // TODO(#14052) add topology limits
   def v2DefaultParticipantLimits: ParticipantDomainLimits = ParticipantDomainLimits(
-    maxRate = maxRatePerParticipant.unwrap,
+    confirmationRequestsMaxRate = confirmationRequestsMaxRate.unwrap,
     maxNumParties = Int.MaxValue,
     maxNumPackages = Int.MaxValue,
   )
@@ -345,28 +421,28 @@ final case class DynamicDomainParameters private (
       )
     ) {
       prettyOfClass(
-        param("participant response timeout", _.participantResponseTimeout),
+        param("confirmation response timeout", _.confirmationResponseTimeout),
         param("mediator reaction timeout", _.mediatorReactionTimeout),
         param("transfer exclusivity timeout", _.transferExclusivityTimeout),
         param("topology change delay", _.topologyChangeDelay),
         param("ledger time record time tolerance", _.ledgerTimeRecordTimeTolerance),
         param("mediator deduplication timeout", _.mediatorDeduplicationTimeout),
         param("reconciliation interval", _.reconciliationInterval),
-        param("max rate per participant", _.maxRatePerParticipant),
+        param("confirmation requests max rate", _.confirmationRequestsMaxRate),
         param("max request size", _.maxRequestSize.value),
         param("sequencer aggregate submission timeout", _.sequencerAggregateSubmissionTimeout),
         paramIfDefined("traffic control config", _.trafficControlParameters),
       )
     } else {
       prettyOfClass(
-        param("participant response timeout", _.participantResponseTimeout),
+        param("confirmation response timeout", _.confirmationResponseTimeout),
         param("mediator reaction timeout", _.mediatorReactionTimeout),
         param("transfer exclusivity timeout", _.transferExclusivityTimeout),
         param("topology change delay", _.topologyChangeDelay),
         param("ledger time record time tolerance", _.ledgerTimeRecordTimeTolerance),
         param("mediator deduplication timeout", _.mediatorDeduplicationTimeout),
         param("reconciliation interval", _.reconciliationInterval),
-        param("max rate per participant", _.maxRatePerParticipant),
+        param("confirmation requests max rate", _.confirmationRequestsMaxRate),
         param("max request size", _.maxRequestSize.value),
       )
     }
@@ -375,24 +451,25 @@ final case class DynamicDomainParameters private (
 
 object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDomainParameters] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      protoV2.DynamicDomainParameters
-    )(
-      supportedProtoVersion(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
+  val supportedProtoVersions: canton.protocol.DynamicDomainParameters.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+        v30.DynamicDomainParameters
+      )(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   override def name: String = "dynamic domain parameters"
 
   lazy val defaultReconciliationInterval: PositiveSeconds = PositiveSeconds.tryOfSeconds(60)
-  lazy val defaultMaxRatePerParticipant: NonNegativeInt = NonNegativeInt.tryCreate(1000000)
+  lazy val defaultConfirmationRequestsMaxRate: NonNegativeInt = NonNegativeInt.tryCreate(1000000)
   lazy val defaultMaxRequestSize: MaxRequestSize = MaxRequestSize(
     NonNegativeInt.tryCreate(10 * 1024 * 1024)
   )
 
-  private val defaultParticipantResponseTimeout: NonNegativeFiniteDuration =
+  private val defaultConfirmationResponseTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(30)
   private val defaultMediatorReactionTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(30)
@@ -418,38 +495,43 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   private val defaultSequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMinutes(5)
 
+  private val defaultOnboardingRestriction: OnboardingRestriction =
+    OnboardingRestriction.UnrestrictedOpen
+
   /** Safely creates DynamicDomainParameters.
     *
     * @return `Left(...)` if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
     */
   private def create(
-      participantResponseTimeout: NonNegativeFiniteDuration,
+      confirmationResponseTimeout: NonNegativeFiniteDuration,
       mediatorReactionTimeout: NonNegativeFiniteDuration,
       transferExclusivityTimeout: NonNegativeFiniteDuration,
       topologyChangeDelay: NonNegativeFiniteDuration,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
       reconciliationInterval: PositiveSeconds,
-      maxRatePerParticipant: NonNegativeInt,
+      confirmationRequestsMaxRate: NonNegativeInt,
       maxRequestSize: MaxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
       trafficControlConfig: Option[TrafficControlParameters],
+      onboardingRestriction: OnboardingRestriction,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
   ): Either[InvalidDynamicDomainParameters, DynamicDomainParameters] =
     Either.catchOnly[InvalidDynamicDomainParameters](
       tryCreate(
-        participantResponseTimeout,
+        confirmationResponseTimeout,
         mediatorReactionTimeout,
         transferExclusivityTimeout,
         topologyChangeDelay,
         ledgerTimeRecordTimeTolerance,
         mediatorDeduplicationTimeout,
         reconciliationInterval,
-        maxRatePerParticipant,
+        confirmationRequestsMaxRate,
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
         trafficControlConfig,
+        onboardingRestriction,
       )(representativeProtocolVersion)
     )
 
@@ -458,32 +540,34 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     * @throws InvalidDynamicDomainParameters if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
     */
   def tryCreate(
-      participantResponseTimeout: NonNegativeFiniteDuration,
+      confirmationResponseTimeout: NonNegativeFiniteDuration,
       mediatorReactionTimeout: NonNegativeFiniteDuration,
       transferExclusivityTimeout: NonNegativeFiniteDuration,
       topologyChangeDelay: NonNegativeFiniteDuration,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
       reconciliationInterval: PositiveSeconds,
-      maxRatePerParticipant: NonNegativeInt,
+      confirmationRequestsMaxRate: NonNegativeInt,
       maxRequestSize: MaxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
       trafficControlParameters: Option[TrafficControlParameters],
+      onboardingRestriction: OnboardingRestriction,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
   ): DynamicDomainParameters = {
     DynamicDomainParameters(
-      participantResponseTimeout,
+      confirmationResponseTimeout,
       mediatorReactionTimeout,
       transferExclusivityTimeout,
       topologyChangeDelay,
       ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout,
       reconciliationInterval,
-      maxRatePerParticipant,
+      confirmationRequestsMaxRate,
       maxRequestSize,
       sequencerAggregateSubmissionTimeout,
       trafficControlParameters,
+      onboardingRestriction,
     )(representativeProtocolVersion)
   }
 
@@ -509,17 +593,18 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       mediatorReactionTimeout: NonNegativeFiniteDuration = defaultMediatorReactionTimeout,
   ): DynamicDomainParameters = checked( // safe because default values are safe
     DynamicDomainParameters.tryCreate(
-      participantResponseTimeout = defaultParticipantResponseTimeout,
+      confirmationResponseTimeout = defaultConfirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,
       transferExclusivityTimeout = defaultTransferExclusivityTimeout,
       topologyChangeDelay = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance = defaultLedgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout = defaultMediatorDeduplicationTimeout,
       reconciliationInterval = DynamicDomainParameters.defaultReconciliationInterval,
-      maxRatePerParticipant = DynamicDomainParameters.defaultMaxRatePerParticipant,
+      confirmationRequestsMaxRate = DynamicDomainParameters.defaultConfirmationRequestsMaxRate,
       maxRequestSize = DynamicDomainParameters.defaultMaxRequestSize,
       sequencerAggregateSubmissionTimeout = defaultSequencerAggregateSubmissionTimeout,
       trafficControlParameters = defaultTrafficControlParameters,
+      onboardingRestriction = defaultOnboardingRestriction,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -528,7 +613,8 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   def tryInitialValues(
       topologyChangeDelay: NonNegativeFiniteDuration,
       protocolVersion: ProtocolVersion,
-      maxRatePerParticipant: NonNegativeInt = DynamicDomainParameters.defaultMaxRatePerParticipant,
+      confirmationRequestsMaxRate: NonNegativeInt =
+        DynamicDomainParameters.defaultConfirmationRequestsMaxRate,
       maxRequestSize: MaxRequestSize = DynamicDomainParameters.defaultMaxRequestSize,
       mediatorReactionTimeout: NonNegativeFiniteDuration = defaultMediatorReactionTimeout,
       reconciliationInterval: PositiveSeconds =
@@ -537,17 +623,18 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         defaultSequencerAggregateSubmissionTimeout,
   ) =
     DynamicDomainParameters.tryCreate(
-      participantResponseTimeout = defaultParticipantResponseTimeout,
+      confirmationResponseTimeout = defaultConfirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,
       transferExclusivityTimeout = defaultTransferExclusivityTimeout,
       topologyChangeDelay = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance = defaultLedgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout = defaultMediatorDeduplicationTimeout,
       reconciliationInterval = reconciliationInterval,
-      maxRatePerParticipant = maxRatePerParticipant,
+      confirmationRequestsMaxRate = confirmationRequestsMaxRate,
       maxRequestSize = maxRequestSize,
       sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
       trafficControlParameters = defaultTrafficControlParameters,
+      onboardingRestriction = defaultOnboardingRestriction,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -563,11 +650,11 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   // if there is no topology change delay defined (or not yet propagated), we'll use this one
   val topologyChangeDelayIfAbsent: NonNegativeFiniteDuration = NonNegativeFiniteDuration.Zero
 
-  def fromProtoV2(
-      domainParametersP: protoV2.DynamicDomainParameters
+  def fromProtoV30(
+      domainParametersP: v30.DynamicDomainParameters
   ): ParsingResult[DynamicDomainParameters] = {
-    val protoV2.DynamicDomainParameters(
-      participantResponseTimeoutP,
+    val v30.DynamicDomainParameters(
+      confirmationResponseTimeoutP,
       mediatorReactionTimeoutP,
       transferExclusivityTimeoutP,
       topologyChangeDelayP,
@@ -575,7 +662,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       reconciliationIntervalP,
       mediatorDeduplicationTimeoutP,
       maxRequestSizeP,
-      _permissionedDomain,
+      onboardingRestrictionP,
       _requiredPackages,
       _onlyRequiredPackagesPermitted,
       defaultLimitsP,
@@ -585,10 +672,10 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     ) = domainParametersP
     for {
 
-      participantResponseTimeout <- NonNegativeFiniteDuration.fromProtoPrimitiveO(
-        "participantResponseTimeout"
+      confirmationResponseTimeout <- NonNegativeFiniteDuration.fromProtoPrimitiveO(
+        "confirmationResponseTimeout"
       )(
-        participantResponseTimeoutP
+        confirmationResponseTimeoutP
       )
       mediatorReactionTimeout <- NonNegativeFiniteDuration.fromProtoPrimitiveO(
         "mediatorReactionTimeout"
@@ -620,14 +707,15 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         mediatorDeduplicationTimeoutP
       )
 
-      maxRatePerParticipantP <- ProtoConverter.parseRequired[Int, v2.ParticipantDomainLimits](
-        item => Right(item.maxRate),
-        "default_limits",
-        defaultLimitsP,
-      )
+      confirmationRequestsMaxRateP <- ProtoConverter
+        .parseRequired[Int, v30.ParticipantDomainLimits](
+          item => Right(item.confirmationRequestsMaxRate),
+          "default_limits",
+          defaultLimitsP,
+        )
 
-      maxRatePerParticipant <- NonNegativeInt
-        .create(maxRatePerParticipantP)
+      confirmationRequestsMaxRate <- NonNegativeInt
+        .create(confirmationRequestsMaxRateP)
         .leftMap(InvariantViolation.toProtoDeserializationError)
 
       maxRequestSize <- NonNegativeInt
@@ -641,23 +729,26 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         sequencerAggregateSubmissionTimeoutP
       )
 
-      trafficControlConfig <- trafficControlConfigP.traverse(TrafficControlParameters.fromProtoV0)
+      trafficControlConfig <- trafficControlConfigP.traverse(TrafficControlParameters.fromProtoV30)
+
+      onboardingRestriction <- OnboardingRestriction.fromProtoV30(onboardingRestrictionP)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
 
       domainParameters <-
         create(
-          participantResponseTimeout = participantResponseTimeout,
+          confirmationResponseTimeout = confirmationResponseTimeout,
           mediatorReactionTimeout = mediatorReactionTimeout,
           transferExclusivityTimeout = transferExclusivityTimeout,
           topologyChangeDelay = topologyChangeDelay,
           ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
           mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
           reconciliationInterval = reconciliationInterval,
-          maxRatePerParticipant = maxRatePerParticipant,
+          confirmationRequestsMaxRate = confirmationRequestsMaxRate,
           maxRequestSize = maxRequestSize,
           sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
           trafficControlConfig = trafficControlConfig,
-        )(protocolVersionRepresentativeFor(ProtoVersion(2)))
-          .leftMap(_.toProtoDeserializationError)
+          onboardingRestriction = onboardingRestriction,
+        )(rpv).leftMap(_.toProtoDeserializationError)
     } yield domainParameters
   }
 
@@ -699,7 +790,7 @@ final case class DynamicDomainParametersWithValidity(
   def decisionTimeFor(activenessTime: CantonTimestamp): Either[String, CantonTimestamp] =
     checkValidity(activenessTime, "decision time").map(_ =>
       activenessTime
-        .add(parameters.participantResponseTimeout.unwrap)
+        .add(parameters.confirmationResponseTimeout.unwrap)
         .add(parameters.mediatorReactionTimeout.unwrap)
     )
 
@@ -721,7 +812,7 @@ final case class DynamicDomainParametersWithValidity(
 
   def participantResponseDeadlineFor(timestamp: CantonTimestamp): Either[String, CantonTimestamp] =
     checkValidity(timestamp, "participant response deadline").map(_ =>
-      timestamp.add(parameters.participantResponseTimeout.unwrap)
+      timestamp.add(parameters.confirmationResponseTimeout.unwrap)
     )
 
   def participantResponseDeadlineForF(timestamp: CantonTimestamp): Future[CantonTimestamp] =
@@ -733,5 +824,54 @@ final case class DynamicDomainParametersWithValidity(
 
   def topologyChangeDelay: NonNegativeFiniteDuration = parameters.topologyChangeDelay
   def transferExclusivityTimeout: NonNegativeFiniteDuration = parameters.transferExclusivityTimeout
-  def sequencerSigningTolerance: NonNegativeFiniteDuration = parameters.sequencerSigningTolerance
+  def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
+    parameters.sequencerTopologyTimestampTolerance
+}
+
+/** The class specifies the catch-up parameters governing the catch-up mode of a participant lagging behind with its
+  * ACS commitments computation.
+  *
+  * @param catchUpIntervalSkip         The number of reconciliation intervals that the participant skips in
+  *                                    catch-up mode.
+  *                                    A catch-up interval thus has a length of
+  *                                    reconciliation interval * `catchUpIntervalSkip`.
+  *                                    Note that, to ensure that all participants catch up to the same timestamp, the
+  *                                    interval count starts at the beginning of time, as opposed to starting at the
+  *                                    participant's current time when it triggers catch-up.
+  *                                    For example, with time beginning at 0, a reconciliation interval of 5 seconds,
+  *                                    and a catchUpIntervalSkip of 2 (intervals), a participant triggering catch-up at
+  *                                    time 15 seconds will catch-up to timestamp 20 seconds.
+  * @param nrIntervalsToTriggerCatchUp The number of catch-up intervals intervals a participant should lag behind in
+  *                                    order to enter catch-up mode. If a participant's current timestamp is behind
+  *                                    the timestamp of valid received commitments by reconciliation interval *
+  *                                    `catchUpIntervalSkip`.value` * `nrIntervalsToTriggerCatchUp`, and
+  *                                    `catchUpModeEnabled` is true, then the participant triggers catch-up mode.
+  */
+final case class AcsCommitmentsCatchUpConfig(
+    catchUpIntervalSkip: PositiveInt,
+    nrIntervalsToTriggerCatchUp: PositiveInt,
+) extends PrettyPrinting {
+  override def pretty: Pretty[AcsCommitmentsCatchUpConfig] = prettyOfClass(
+    param("catchUpIntervalSkip", _.catchUpIntervalSkip),
+    param("nrIntervalsToTriggerCatchUp", _.nrIntervalsToTriggerCatchUp),
+  )
+
+  def toProtoV30: v30.AcsCommitmentsCatchUpConfig = v30.AcsCommitmentsCatchUpConfig(
+    catchUpIntervalSkip.value,
+    nrIntervalsToTriggerCatchUp.value,
+  )
+}
+
+object AcsCommitmentsCatchUpConfig {
+  def fromProtoV30(
+      value: v30.AcsCommitmentsCatchUpConfig
+  ): ParsingResult[AcsCommitmentsCatchUpConfig] = {
+    val v30.AcsCommitmentsCatchUpConfig(catchUpIntervalSkipP, nrIntervalsToTriggerCatchUpP) = value
+    for {
+      catchUpIntervalSkip <- ProtoConverter.parsePositiveInt(catchUpIntervalSkipP)
+      nrIntervalsToTriggerCatchUp <- ProtoConverter.parsePositiveInt(
+        nrIntervalsToTriggerCatchUpP
+      )
+    } yield AcsCommitmentsCatchUpConfig(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
+  }
 }

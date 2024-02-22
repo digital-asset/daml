@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.domain.Domain
 import com.digitalasset.canton.domain.mediator.store.MediatorDomainConfiguration
-import com.digitalasset.canton.domain.metrics.MediatorNodeMetrics
+import com.digitalasset.canton.domain.metrics.MediatorMetrics
 import com.digitalasset.canton.domain.service.GrpcSequencerConnectionService
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.{HealthService, MutableHealthComponent}
@@ -47,7 +47,7 @@ trait MediatorNodeBootstrapCommon[
     NC <: LocalNodeConfig & MediatorNodeConfigCommon,
 ] {
 
-  this: CantonNodeBootstrapCommon[T, NC, MediatorNodeParameters, MediatorNodeMetrics] =>
+  this: CantonNodeBootstrapCommon[T, NC, MediatorNodeParameters, MediatorMetrics] =>
 
   type TopologyComponentFactory = (DomainId, ProtocolVersion) => EitherT[
     Future,
@@ -206,7 +206,7 @@ trait MediatorNodeBootstrapCommon[
             .map(Domain.setMemberRecordingPath(member)),
         member =>
           Domain.replaySequencerConfig.get().lift(member).map(Domain.defaultReplayPath(member)),
-        arguments.metrics.mediator.sequencerClient,
+        arguments.metrics.sequencerClient,
         parameters.loggingConfig,
         domainLoggerFactory,
         ProtocolVersionCompatibility.trySupportedProtocolsDomain(parameters),
@@ -295,7 +295,7 @@ trait MediatorNodeBootstrapCommon[
         parameters,
         domainConfig.domainParameters.protocolVersion,
         clock,
-        arguments.metrics.mediator,
+        arguments.metrics,
         futureSupervisor,
         domainLoggerFactory,
       )

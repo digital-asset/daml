@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, StaticDomainParameters}
 import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
 
 /** Configuration of domain parameters that all members connecting to a domain must adhere to.
@@ -22,13 +22,14 @@ import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
   * See <a href="https://docs.daml.com/canton/architecture/overview.html">the Canton architecture overview</a>
   * for further information.
   *
-  * @param requiredSigningKeySchemes The optional required signing key schemes that a member has to support. If none is specified, all the allowed schemes are required.
+  * @param requiredSigningKeySchemes    The optional required signing key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredEncryptionKeySchemes The optional required encryption key schemes that a member has to support. If none is specified, all the allowed schemes are required.
-  * @param requiredSymmetricKeySchemes The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
-  * @param requiredHashAlgorithms The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
-  * @param requiredCryptoKeyFormats The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
-  * @param protocolVersion          The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
-  * @param dontWarnOnDeprecatedPV If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
+  * @param requiredSymmetricKeySchemes  The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
+  * @param requiredHashAlgorithms       The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
+  * @param requiredCryptoKeyFormats     The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
+  * @param protocolVersion              The protocol version spoken on the domain. All participants and domain nodes attempting to connect to the sequencer need to support this protocol version to connect.
+  * @param dontWarnOnDeprecatedPV       If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
+  * @param acsCommitmentsCatchUp        The optional catch up parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]]. If None is specified, then the catch-up mode is disabled.
   */
 final case class DomainParametersConfig(
     requiredSigningKeySchemes: Option[NonEmpty[Set[SigningKeyScheme]]] = None,
@@ -39,6 +40,7 @@ final case class DomainParametersConfig(
     protocolVersion: DomainProtocolVersion = DomainProtocolVersion(
       ProtocolVersion.latest
     ),
+    acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = None,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val devVersionSupport: Boolean = true,
     override val dontWarnOnDeprecatedPV: Boolean = false,
@@ -54,6 +56,7 @@ final case class DomainParametersConfig(
     param("protocolVersion", _.protocolVersion.version),
     param("devVersionSupport", _.devVersionSupport),
     param("dontWarnOnDeprecatedPV", _.dontWarnOnDeprecatedPV),
+    param("acsCommitmentsCatchUp", _.acsCommitmentsCatchUp),
   )
 
   override def initialProtocolVersion: ProtocolVersion = protocolVersion.version
@@ -110,6 +113,7 @@ final case class DomainParametersConfig(
         requiredHashAlgorithms = newRequiredHashAlgorithms,
         requiredCryptoKeyFormats = newCryptoKeyFormats,
         protocolVersion = protocolVersion.unwrap,
+        acsCommitmentsCatchUp = acsCommitmentsCatchUp,
       )
     }
   }

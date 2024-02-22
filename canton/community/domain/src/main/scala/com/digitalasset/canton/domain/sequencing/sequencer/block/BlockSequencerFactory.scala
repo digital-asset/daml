@@ -18,7 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
 }
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
@@ -70,7 +70,6 @@ abstract class BlockSequencerFactory(
       driverClock: Clock,
       protocolVersion: ProtocolVersion,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,
@@ -109,7 +108,6 @@ abstract class BlockSequencerFactory(
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -135,16 +133,18 @@ abstract class BlockSequencerFactory(
 
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-    val stateManagerF = BlockSequencerStateManager(
-      protocolVersion,
-      domainId,
-      sequencerId,
-      store,
-      nodeParameters.enableAdditionalConsistencyChecks,
-      implicitMemberRegistration,
-      nodeParameters.processingTimeouts,
-      domainLoggerFactory,
-    )
+    val stateManagerF = {
+      implicit val closeContext = CloseContext(domainSyncCryptoApi)
+      BlockSequencerStateManager(
+        protocolVersion,
+        domainId,
+        sequencerId,
+        store,
+        nodeParameters.enableAdditionalConsistencyChecks,
+        nodeParameters.processingTimeouts,
+        domainLoggerFactory,
+      )
+    }
 
     stateManagerF.map { stateManager =>
       val sequencer = createBlockSequencer(
@@ -162,7 +162,6 @@ abstract class BlockSequencerFactory(
         driverClock,
         protocolVersion,
         rateLimitManager,
-        implicitMemberRegistration,
         orderingTimeFixMode,
         initialBlockHeight,
         domainLoggerFactory,

@@ -90,13 +90,13 @@ trait SequencerRateLimitManager {
 }
 
 sealed trait SequencerRateLimitError {
-  def trafficState: Option[TrafficState]
+  def trafficState: TrafficState
 }
 
 object SequencerRateLimitError {
   final case class AboveTrafficLimit(
       member: Member,
       trafficCost: NonNegativeLong,
-      override val trafficState: Option[TrafficState],
+      override val trafficState: TrafficState,
   ) extends SequencerRateLimitError
 }

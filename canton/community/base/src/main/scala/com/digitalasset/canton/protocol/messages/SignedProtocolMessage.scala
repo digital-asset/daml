@@ -16,7 +16,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
-import com.digitalasset.canton.protocol.v1
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -33,7 +33,6 @@ import com.digitalasset.canton.version.{
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordered.orderingToOrdered
 
 /** There can be any number of signatures.
   * Every signature covers the serialization of the `typedMessage` and needs to be valid.
@@ -57,45 +56,25 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   def verifySignature(
       snapshot: SyncCryptoApi,
       member: Member,
-  ): EitherT[Future, SignatureCheckError, Unit] =
-    if (
-      representativeProtocolVersion >=
-        companionObj.protocolVersionRepresentativeFor(ProtocolVersion.v30)
-    ) {
-      // TODO(#12390) Properly check the signatures, i.e. there shouldn't be multiple signatures from the same member on the same envelope
-      ClosedEnvelope.verifySignatures(
-        snapshot,
-        member,
-        typedMessage.getCryptographicEvidence,
-        signatures,
-      )
-    } else {
-      val hashPurpose = message.hashPurpose
-      val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
-      snapshot.verifySignatures(hash, member, signatures)
-    }
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+    // TODO(#12390) Properly check the signatures, i.e. there shouldn't be multiple signatures from the same member on the same envelope
+    ClosedEnvelope.verifySignatures(
+      snapshot,
+      member,
+      typedMessage.getCryptographicEvidence,
+      signatures,
+    )
 
   def verifySignature(
       snapshot: SyncCryptoApi,
       mediatorGroupIndex: MediatorGroupIndex,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
-    if (
-      representativeProtocolVersion >=
-        companionObj.protocolVersionRepresentativeFor(ProtocolVersion.v30)
-    ) {
-
-      ClosedEnvelope.verifySignatures(
-        snapshot,
-        mediatorGroupIndex,
-        typedMessage.getCryptographicEvidence,
-        signatures,
-      )
-    } else {
-      val hashPurpose = message.hashPurpose
-      val hash = snapshot.pureCrypto.digest(hashPurpose, message.getCryptographicEvidence)
-      snapshot.verifySignatures(hash, mediatorGroupIndex, signatures)
-    }
-  }
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+    ClosedEnvelope.verifySignatures(
+      snapshot,
+      mediatorGroupIndex,
+      typedMessage.getCryptographicEvidence,
+      signatures,
+    )
 
   def copy[MM <: SignedProtocolMessageContent](
       typedMessage: TypedSignedProtocolMessageContent[MM] = this.typedMessage,
@@ -105,9 +84,9 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 
   override def domainId: DomainId = message.domainId
 
-  protected def toProtoV1: v1.SignedProtocolMessage = {
-    v1.SignedProtocolMessage(
-      signature = signatures.map(_.toProtoV0),
+  protected def toProtoV30: v30.SignedProtocolMessage = {
+    v30.SignedProtocolMessage(
+      signature = signatures.map(_.toProtoV30),
       typedSignedProtocolMessageContent = typedMessage.toByteString,
     )
   }
@@ -133,11 +112,11 @@ object SignedProtocolMessage
   override val name: String = "SignedProtocolMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
-    )(v1.SignedProtocolMessage)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    )(v30.SignedProtocolMessage)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -158,7 +137,7 @@ object SignedProtocolMessage
       moreSignatures: Signature*
   ): SignedProtocolMessage[M] = SignedProtocolMessage(
     TypedSignedProtocolMessageContent(message, protocolVersion),
-    NonEmpty(Seq, signature, moreSignatures: _*),
+    NonEmpty(Seq, signature, moreSignatures*),
     protocolVersion,
   )
 
@@ -202,23 +181,22 @@ object SignedProtocolMessage
         throw new IllegalStateException(s"Failed to create signed protocol message: $err")
       )
 
-  private def fromProtoV1(
+  private def fromProtoV30(
       expectedProtocolVersion: ProtocolVersion,
-      signedMessageP: v1.SignedProtocolMessage,
+      signedMessageP: v30.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
-    val v1.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
+    val v30.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
     for {
       typedMessage <- TypedSignedProtocolMessageContent.fromByteString(expectedProtocolVersion)(
         typedMessageBytes
       )
       signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV0,
+        Signature.fromProtoV30,
         "signatures",
         signaturesP,
       )
-      signedMessage = SignedProtocolMessage(typedMessage, signatures)(
-        protocolVersionRepresentativeFor(ProtoVersion(1))
-      )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      signedMessage = SignedProtocolMessage(typedMessage, signatures)(rpv)
     } yield signedMessage
   }
 

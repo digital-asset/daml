@@ -7,8 +7,8 @@ import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion

@@ -8,7 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractInstance, ValueInt64, VersionedValue}
+import com.daml.lf.value.Value.{ContractInstance, ValueInt64}
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -227,7 +227,6 @@ private object MutableCacheBackedContractStoreRaceTests {
       keyIdx -> GlobalKey.assertBuild(
         Identifier.assertFromString("pkgId:module:entity"),
         ValueInt64(keyIdx),
-        shared = true,
       )
     }.toMap
 
@@ -302,8 +301,10 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   private def contract(idx: Long): Contract = {
     val templateId = Identifier.assertFromString(s"somePackage:someModule:someEntity")
+    val packageName = Ref.PackageName.assertFromString("pkg-name")
     val contractArgument = Value.ValueInt64(idx)
-    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
+    val contractInstance =
+      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 
@@ -462,24 +463,6 @@ private object MutableCacheBackedContractStoreRaceTests {
         })
         .getOrElse(KeyUnassigned)
     }(ec)
-
-    override def lookupActiveContractAndLoadArgument(readers: Set[Party], contractId: ContractId)(
-        implicit loggingContext: LoggingContextWithTrace
-    ): Future[Option[Contract]] = {
-      val _ = (loggingContext, readers, contractId)
-      // Needs to return None for divulgence lookups
-      Future.successful(None)
-    }
-
-    override def lookupActiveContractWithCachedArgument(
-        readers: Set[Party],
-        contractId: ContractId,
-        createArgument: VersionedValue,
-    )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Contract]] = {
-      val _ = (loggingContext, readers, contractId, createArgument)
-      // Needs to return None for divulgence lookups
-      Future.successful(None)
-    }
   }
 
   private def offset(idx: Long) = {

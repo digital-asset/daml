@@ -13,7 +13,6 @@ import com.daml.logging.entries.LoggingEntry
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.configuration.Configuration
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
@@ -26,12 +25,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
 }
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  LoggingContextWithTrace,
-  NamedLoggerFactory,
-  NamedLogging,
-}
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
@@ -93,7 +87,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ParticipantId]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getParticipantId)(
+      .executeSql(metrics.index.db.getParticipantId)(
         parameterStorageBackend.ledgerIdentity(_).map(_.participantId)
       )
 
@@ -103,7 +97,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[LedgerEnd] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerEnd)(
+      .executeSql(metrics.index.db.getLedgerEnd)(
         parameterStorageBackend.ledgerEnd
       )
 
@@ -112,7 +106,7 @@ private class JdbcLedgerDao(
       participantId: ParticipantId,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.initializeLedgerParameters)(
+      .executeSql(metrics.index.db.initializeLedgerParameters)(
         parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             participantId = participantId
@@ -124,7 +118,7 @@ private class JdbcLedgerDao(
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[(Offset, Configuration)]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
+    dbDispatcher.executeSql(metrics.index.db.lookupConfiguration)(
       readStorageBackend.configurationStorageBackend.ledgerConfiguration
     )
 
@@ -137,7 +131,7 @@ private class JdbcLedgerDao(
     paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
         implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
+          dbDispatcher.executeSql(metrics.index.db.loadConfigurationEntries) {
             readStorageBackend.configurationStorageBackend.configurationEntries(
               startExclusive = startExclusive,
               endInclusive = endInclusive,
@@ -160,7 +154,7 @@ private class JdbcLedgerDao(
     withEnrichedLoggingContext(Logging.submissionId(submissionId)) { implicit loggingContext =>
       logger.info("Storing configuration entry")
       dbDispatcher.executeSql(
-        metrics.daml.index.db.storeConfigurationEntryDbMetrics
+        metrics.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
         val update = Traced[Update](
           state.Update.ConfigurationChanged(
@@ -188,7 +182,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
-    dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
+    dbDispatcher.executeSql(metrics.index.db.storePartyEntryDbMetrics) { implicit conn =>
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           sequentialIndexer.store(
@@ -243,7 +237,7 @@ private class JdbcLedgerDao(
     paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
         implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
+          dbDispatcher.executeSql(metrics.index.db.loadPartyEntries)(
             readStorageBackend.partyStorageBackend.partyEntries(
               startExclusive = startExclusive,
               endInclusive = endInclusive,
@@ -264,7 +258,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
+      .executeSql(metrics.index.db.storeRejectionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
           conn,
           offset,
@@ -291,7 +285,7 @@ private class JdbcLedgerDao(
       Future.successful(List.empty)
     else
       dbDispatcher
-        .executeSql(metrics.daml.index.db.loadParties)(
+        .executeSql(metrics.index.db.loadParties)(
           readStorageBackend.partyStorageBackend.parties(parties)
         )
 
@@ -299,7 +293,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.loadAllParties)(
+      .executeSql(metrics.index.db.loadAllParties)(
         readStorageBackend.partyStorageBackend.knownParties
       )
 
@@ -307,7 +301,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[Map[PackageId, PackageDetails]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.loadPackages)(
+      .executeSql(metrics.index.db.loadPackages)(
         readStorageBackend.packageStorageBackend.lfPackages
       )
 
@@ -315,7 +309,7 @@ private class JdbcLedgerDao(
       packageId: PackageId
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Archive]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.loadArchive)(
+      .executeSql(metrics.index.db.loadArchive)(
         readStorageBackend.packageStorageBackend.lfArchive(packageId)
       )
       .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
@@ -330,56 +324,55 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse] = {
     logger.info("Storing package entry")
-    dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
-      implicit connection =>
-        // Note on knownSince and recordTime:
-        // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
-        // - There is only one time value in the intermediate values: PublicPackageUpload.recordTime
-        // - There are two different time values in the database schema: packages.known_since and package_entries.recorded_at
-        // This is not an issue since all callers of this method always use the same value for all knownSince and recordTime times.
-        //
-        // Note on sourceDescription:
-        // - In the input, each package can have its own source description (see PackageDetails.sourceDescription)
-        // - In the intermediate value, there is only one source description for all packages (see PublicPackageUpload.sourceDescription)
-        // - In the database schema, each package can have its own source description (see packages.source_description)
-        // This is again not an issue since all callers of this method always use the same value for all source descriptions.
-        val update = optEntry match {
-          case None =>
-            // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
-            // or in the case where the submission ID is unknown (package was submitted through a different participant).
-            state.Update.PublicPackageUpload(
-              archives = packages.view.map(_._1).toList,
-              sourceDescription = packages.headOption.flatMap(
-                _._2.sourceDescription
-              ),
-              recordTime = packages.headOption
-                .map(
-                  _._2.knownSince
-                )
-                .getOrElse(Timestamp.Epoch),
-              submissionId =
-                None, // If the submission ID is missing, this update will not insert a row in the package_entries table
-            )
+    dbDispatcher.executeSql(metrics.index.db.storePackageEntryDbMetrics) { implicit connection =>
+      // Note on knownSince and recordTime:
+      // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
+      // - There is only one time value in the intermediate values: PublicPackageUpload.recordTime
+      // - There are two different time values in the database schema: packages.known_since and lapi_package_entries.recorded_at
+      // This is not an issue since all callers of this method always use the same value for all knownSince and recordTime times.
+      //
+      // Note on sourceDescription:
+      // - In the input, each package can have its own source description (see PackageDetails.sourceDescription)
+      // - In the intermediate value, there is only one source description for all packages (see PublicPackageUpload.sourceDescription)
+      // - In the database schema, each package can have its own source description (see packages.source_description)
+      // This is again not an issue since all callers of this method always use the same value for all source descriptions.
+      val update = optEntry match {
+        case None =>
+          // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
+          // or in the case where the submission ID is unknown (package was submitted through a different participant).
+          state.Update.PublicPackageUpload(
+            archives = packages.view.map(_._1).toList,
+            sourceDescription = packages.headOption.flatMap(
+              _._2.sourceDescription
+            ),
+            recordTime = packages.headOption
+              .map(
+                _._2.knownSince
+              )
+              .getOrElse(Timestamp.Epoch),
+            submissionId =
+              None, // If the submission ID is missing, this update will not insert a row in the lapi_package_entries table
+          )
 
-          case Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)) =>
-            state.Update.PublicPackageUpload(
-              archives = packages.view.map(_._1).toList,
-              sourceDescription = packages.headOption.flatMap(
-                _._2.sourceDescription
-              ),
-              recordTime = recordTime,
-              submissionId = Some(submissionId),
-            )
+        case Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)) =>
+          state.Update.PublicPackageUpload(
+            archives = packages.view.map(_._1).toList,
+            sourceDescription = packages.headOption.flatMap(
+              _._2.sourceDescription
+            ),
+            recordTime = recordTime,
+            submissionId = Some(submissionId),
+          )
 
-          case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
-            state.Update.PublicPackageUploadRejected(
-              submissionId = submissionId,
-              recordTime = recordTime,
-              rejectionReason = reason,
-            )
-        }
-        sequentialIndexer.store(connection, offset, Some(Traced[Update](update)))
-        PersistenceResponse.Ok
+        case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
+          state.Update.PublicPackageUploadRejected(
+            submissionId = submissionId,
+            recordTime = recordTime,
+            rejectionReason = reason,
+          )
+      }
+      sequentialIndexer.store(connection, offset, Some(Traced[Update](update)))
+      PersistenceResponse.Ok
     }
   }
 
@@ -392,7 +385,7 @@ private class JdbcLedgerDao(
     paginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset: LoggingEntry) {
         implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries)(
+          dbDispatcher.executeSql(metrics.index.db.loadPackageEntries)(
             readStorageBackend.packageStorageBackend.packageEntries(
               startExclusive = startExclusive,
               endInclusive = endInclusive,
@@ -443,6 +436,7 @@ private class JdbcLedgerDao(
   override def prune(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     val allDivulgencePruningParticle =
       if (pruneAllDivulgedContracts) " (including all divulged contracts)" else ""
@@ -451,24 +445,11 @@ private class JdbcLedgerDao(
     )
 
     dbDispatcher
-      .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-        if (
-          !readStorageBackend.eventStorageBackend.isPruningOffsetValidAgainstMigration(
-            pruneUpToInclusive,
-            pruneAllDivulgedContracts,
-            conn,
-          )
-        ) {
-          throw RequestValidationErrors.OffsetOutOfRange
-            .Reject(
-              "Pruning offset for all divulged contracts needs to be after the migration offset"
-            )(ErrorLoggingContext(logger, loggingContext))
-            .asGrpcError
-        }
-
+      .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
         readStorageBackend.eventStorageBackend.pruneEvents(
           pruneUpToInclusive,
           pruneAllDivulgedContracts,
+          incompletReassignmentOffsets,
         )(
           conn,
           loggingContext.traceContext,
@@ -499,7 +480,7 @@ private class JdbcLedgerDao(
   override def pruningOffsets(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[(Option[Offset], Option[Offset])] =
-    dbDispatcher.executeSql(metrics.daml.index.db.fetchPruningOffsetsMetrics) { conn =>
+    dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics) { conn =>
       parameterStorageBackend.prunedUpToInclusive(conn) -> parameterStorageBackend
         .participantAllDivulgedContractsPrunedUpToInclusive(conn)
     }
@@ -512,7 +493,7 @@ private class JdbcLedgerDao(
       loggerFactory = loggerFactory,
     )
 
-  private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend, loggerFactory)
+  private val queryValidRange = QueryValidRangeImpl(parameterStorageBackend, loggerFactory)
 
   private val globalIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventIdQueries,
@@ -529,7 +510,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     incompleteOffsets = incompleteOffsets,
@@ -542,7 +523,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     metrics = metrics,
@@ -555,7 +536,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     metrics = metrics,
@@ -569,7 +550,7 @@ private class JdbcLedgerDao(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
+    queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
     metrics = metrics,
@@ -595,7 +576,7 @@ private class JdbcLedgerDao(
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
       dispatcher = dbDispatcher,
-      queryNonPruned = queryNonPruned,
+      queryValidRange = queryValidRange,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
       metrics = metrics,
       flatTransactionsStreamReader = flatTransactionsStreamReader,
@@ -634,7 +615,7 @@ private class JdbcLedgerDao(
     new CommandCompletionsReader(
       dbDispatcher,
       readStorageBackend.completionStorageBackend,
-      queryNonPruned,
+      queryValidRange,
       metrics,
       pageSize = completionsPageSize,
       loggerFactory,
@@ -651,7 +632,6 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfoO: Option[BlindingInfo],
       hostedWitnesses: List[Party],
       recordTime: Timestamp,
@@ -660,7 +640,7 @@ private class JdbcLedgerDao(
   ): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
     dbDispatcher
-      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
+      .executeSql(metrics.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
           conn,
           offset,
@@ -680,7 +660,6 @@ private class JdbcLedgerDao(
                 transaction = transaction,
                 transactionId = transactionId,
                 recordTime = recordTime,
-                divulgedContracts = divulgedContracts.toList,
                 blindingInfoO = blindingInfoO,
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
@@ -699,7 +678,7 @@ private class JdbcLedgerDao(
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] = {
-    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
+    dbDispatcher.executeSql(metrics.index.db.lookupConfiguration)(
       readStorageBackend.meteringStorageBackend.reportData(from, to, applicationId)
     )
   }

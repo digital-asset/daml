@@ -3,51 +3,58 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TransactionOuterClass;
+import com.daml.ledger.api.v1.TraceContextOuterClass;
+import com.daml.ledger.api.v2.TransactionOuterClass;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class TransactionTree {
 
-  private final String transactionId;
+  @NonNull private final String updateId;
 
-  private final String commandId;
+  @NonNull private final String commandId;
 
-  private final String workflowId;
+  @NonNull private final String workflowId;
 
-  private final Instant effectiveAt;
+  @NonNull private final Instant effectiveAt;
 
-  private final Map<String, TreeEvent> eventsById;
+  @NonNull private final String offset;
 
-  private final List<String> rootEventIds;
+  @NonNull private final Map<String, TreeEvent> eventsById;
 
-  private final String offset;
+  @NonNull private final List<String> rootEventIds;
+
+  @NonNull private final String domainId;
+
+  private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
   public TransactionTree(
-      @NonNull String transactionId,
+      @NonNull String updateId,
       @NonNull String commandId,
       @NonNull String workflowId,
       @NonNull Instant effectiveAt,
+      @NonNull String offset,
       @NonNull Map<@NonNull String, @NonNull TreeEvent> eventsById,
       List<String> rootEventIds,
-      @NonNull String offset) {
-    this.transactionId = transactionId;
+      @NonNull String domainId,
+      TraceContextOuterClass.@NonNull TraceContext traceContext) {
+    this.updateId = updateId;
     this.commandId = commandId;
     this.workflowId = workflowId;
     this.effectiveAt = effectiveAt;
+    this.offset = offset;
     this.eventsById = eventsById;
     this.rootEventIds = rootEventIds;
-    this.offset = offset;
+    this.domainId = domainId;
+    this.traceContext = traceContext;
   }
 
   public static TransactionTree fromProto(TransactionOuterClass.TransactionTree tree) {
-    String transactionId = tree.getTransactionId();
-    String commandId = tree.getCommandId();
-    String workflowId = tree.getWorkflowId();
     Instant effectiveAt =
         Instant.ofEpochSecond(tree.getEffectiveAt().getSeconds(), tree.getEffectiveAt().getNanos());
     Map<String, TreeEvent> eventsById =
@@ -63,32 +70,41 @@ public final class TransactionTree {
                     },
                     TreeEvent::fromProtoTreeEvent));
     List<String> rootEventIds = tree.getRootEventIdsList();
-    String offset = tree.getOffset();
     return new TransactionTree(
-        transactionId, commandId, workflowId, effectiveAt, eventsById, rootEventIds, offset);
+        tree.getUpdateId(),
+        tree.getCommandId(),
+        tree.getWorkflowId(),
+        effectiveAt,
+        tree.getOffset(),
+        eventsById,
+        rootEventIds,
+        tree.getDomainId(),
+        tree.getTraceContext());
   }
 
   public TransactionOuterClass.TransactionTree toProto() {
     return TransactionOuterClass.TransactionTree.newBuilder()
-        .setTransactionId(this.transactionId)
-        .setCommandId(this.commandId)
-        .setWorkflowId(this.workflowId)
+        .setUpdateId(updateId)
+        .setCommandId(commandId)
+        .setWorkflowId(workflowId)
         .setEffectiveAt(
             com.google.protobuf.Timestamp.newBuilder()
-                .setSeconds(this.effectiveAt.getEpochSecond())
-                .setNanos(this.effectiveAt.getNano())
+                .setSeconds(effectiveAt.getEpochSecond())
+                .setNanos(effectiveAt.getNano())
                 .build())
+        .setOffset(offset)
         .putAllEventsById(
-            this.eventsById.values().stream()
+            eventsById.values().stream()
                 .collect(Collectors.toMap(TreeEvent::getEventId, TreeEvent::toProtoTreeEvent)))
-        .addAllRootEventIds(this.rootEventIds)
-        .setOffset(this.offset)
+        .addAllRootEventIds(rootEventIds)
+        .setDomainId(domainId)
+        .setTraceContext(traceContext)
         .build();
   }
 
   @NonNull
-  public String getTransactionId() {
-    return transactionId;
+  public String getUpdateId() {
+    return updateId;
   }
 
   @NonNull
@@ -107,6 +123,11 @@ public final class TransactionTree {
   }
 
   @NonNull
+  public String getOffset() {
+    return offset;
+  }
+
+  @NonNull
   public Map<String, TreeEvent> getEventsById() {
     return eventsById;
   }
@@ -117,15 +138,19 @@ public final class TransactionTree {
   }
 
   @NonNull
-  public String getOffset() {
-    return offset;
+  public String getDomainId() {
+    return domainId;
+  }
+
+  public TraceContextOuterClass.@NonNull TraceContext getTraceContext() {
+    return traceContext;
   }
 
   @Override
   public String toString() {
     return "TransactionTree{"
-        + "transactionId='"
-        + transactionId
+        + "updateId='"
+        + updateId
         + '\''
         + ", commandId='"
         + commandId
@@ -135,13 +160,18 @@ public final class TransactionTree {
         + '\''
         + ", effectiveAt="
         + effectiveAt
+        + ", offset='"
+        + offset
+        + '\''
         + ", eventsById="
         + eventsById
         + ", rootEventIds="
         + rootEventIds
-        + ", offset='"
-        + offset
+        + ", domainId='"
+        + domainId
         + '\''
+        + ", traceContext="
+        + traceContext
         + '}';
   }
 
@@ -150,18 +180,28 @@ public final class TransactionTree {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     TransactionTree that = (TransactionTree) o;
-    return Objects.equals(transactionId, that.transactionId)
+    return Objects.equals(updateId, that.updateId)
         && Objects.equals(commandId, that.commandId)
         && Objects.equals(workflowId, that.workflowId)
         && Objects.equals(effectiveAt, that.effectiveAt)
         && Objects.equals(eventsById, that.eventsById)
         && Objects.equals(rootEventIds, that.rootEventIds)
-        && Objects.equals(offset, that.offset);
+        && Objects.equals(offset, that.offset)
+        && Objects.equals(domainId, that.domainId)
+        && Objects.equals(traceContext, that.traceContext);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        transactionId, commandId, workflowId, effectiveAt, eventsById, rootEventIds, offset);
+        updateId,
+        commandId,
+        workflowId,
+        effectiveAt,
+        offset,
+        eventsById,
+        rootEventIds,
+        domainId,
+        traceContext);
   }
 }

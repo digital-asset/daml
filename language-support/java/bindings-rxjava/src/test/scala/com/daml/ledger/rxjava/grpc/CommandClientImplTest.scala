@@ -3,11 +3,11 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
+import com.digitalasset.canton.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
 }
 import com.daml.ledger.javaapi.data.{
   Command,
@@ -23,12 +23,13 @@ import io.reactivex.Single
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.util.UUID.randomUUID
 import java.util.concurrent.TimeUnit
-import java.util.Optional
+import java.util.{Optional, UUID}
+
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
+import scala.util.chaining.scalaUtilChainingOps
 
 class CommandClientImplTest
     extends AnyFlatSpec
@@ -42,7 +43,7 @@ class CommandClientImplTest
   private def withCommandClient(authService: AuthService = AuthServiceWildcard) = {
     ledgerServices.withCommandClient(
       Future.successful(Empty.defaultInstance),
-      Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForUpdateIdResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       authService,
@@ -57,13 +58,9 @@ class CommandClientImplTest
 
   it should "send the given command to the Ledger" in {
     withCommandClient() { (client, service) =>
-      val commands = genCommands(List.empty)
-      val params = CommandsSubmission
-        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
-        .withActAs(commands.getParty)
-        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
-        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
-        .withDeduplicationTime(commands.getDeduplicationTime)
+      val domainId = UUID.randomUUID().toString
+      val params = genCommands(List.empty, Some(domainId))
+        .withActAs("party")
 
       client
         .submitAndWait(params)
@@ -81,37 +78,30 @@ class CommandClientImplTest
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val commands = genCommands(List(command))
+      val domainId = UUID.randomUUID().toString
 
-      val params = CommandsSubmission
-        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
-        .withWorkflowId(commands.getWorkflowId)
-        .withActAs(commands.getParty)
-        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
-        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
-        .withDeduplicationTime(commands.getDeduplicationTime)
+      val params = genCommands(List(command), Some(domainId))
+        .withActAs("party")
 
       client
         .submitAndWait(params)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
 
-      service.getLastRequest.value.getCommands.applicationId shouldBe commands.getApplicationId
-      service.getLastRequest.value.getCommands.commandId shouldBe commands.getCommandId
-      service.getLastRequest.value.getCommands.party shouldBe commands.getParty
-      service.getLastRequest.value.getCommands.actAs shouldBe commands.getActAs.asScala
-      service.getLastRequest.value.getCommands.readAs shouldBe commands.getReadAs.asScala
-      commands.getActAs.get(0) shouldBe commands.getParty
-      service.getLastRequest.value.getCommands.workflowId shouldBe commands.getWorkflowId
-      service.getLastRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
+      service.getLastRequest.value.getCommands.applicationId shouldBe params.getApplicationId
+      service.getLastRequest.value.getCommands.commandId shouldBe params.getCommandId
+      service.getLastRequest.value.getCommands.actAs shouldBe params.getActAs.asScala
+      service.getLastRequest.value.getCommands.readAs shouldBe params.getReadAs.asScala
+      service.getLastRequest.value.getCommands.workflowId shouldBe params.getWorkflowId.get()
+      service.getLastRequest.value.getCommands.domainId shouldBe domainId
       service.getLastRequest.value.getCommands.minLedgerTimeRel
-        .map(_.seconds) shouldBe commands.getMinLedgerTimeRelative.asScala.map(_.getSeconds)
+        .map(_.seconds) shouldBe params.getMinLedgerTimeRel.asScala.map(_.getSeconds)
       service.getLastRequest.value.getCommands.minLedgerTimeRel
-        .map(_.nanos) shouldBe commands.getMinLedgerTimeRelative.asScala.map(_.getNano)
+        .map(_.nanos) shouldBe params.getMinLedgerTimeRel.asScala.map(_.getNano)
       service.getLastRequest.value.getCommands.minLedgerTimeAbs
-        .map(_.seconds) shouldBe commands.getMinLedgerTimeAbsolute.asScala.map(_.getEpochSecond)
+        .map(_.seconds) shouldBe params.getMinLedgerTimeAbs.asScala.map(_.getEpochSecond)
       service.getLastRequest.value.getCommands.minLedgerTimeAbs
-        .map(_.nanos) shouldBe commands.getMinLedgerTimeAbsolute.asScala.map(_.getNano)
+        .map(_.nanos) shouldBe params.getMinLedgerTimeAbs.asScala.map(_.getNano)
       service.getLastRequest.value.getCommands.commands should have size 1
       val receivedCommand = service.getLastRequest.value.getCommands.commands.head.command
       receivedCommand.isCreate shouldBe true
@@ -142,10 +132,11 @@ class CommandClientImplTest
       .create(
         randomUUID().toString,
         randomUUID().toString,
+        randomUUID().toString,
         token.fold(dummyCommands)(_ => commands),
       )
       .withActAs(party)
-      .withAccessToken(Optional.ofNullable(token.orNull))
+      .pipe(p => token.fold(p)(p.withAccessToken))
 
     submit(params).timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS).blockingGet()
   }

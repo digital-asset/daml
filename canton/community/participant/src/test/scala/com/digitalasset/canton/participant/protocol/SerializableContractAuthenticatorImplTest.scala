@@ -3,15 +3,17 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import com.daml.lf.transaction.{Util, Versioned}
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.{DomainId, MediatorId, MediatorRef, UniqueIdentifier}
-import com.digitalasset.canton.util.LfTransactionBuilder.{defaultLanguageVersion, defaultTemplateId}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.util.LfTransactionBuilder.defaultTemplateId
 import com.digitalasset.canton.{BaseTest, LfPartyId, protocol}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
@@ -79,10 +81,10 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
           )
           testFailedAuthentication(
             _.copy(rawContractInstance =
-              ExampleTransactionFactory.asSerializableRaw(changedContractInstance, "")
+              ExampleTransactionFactory.asSerializableRaw(changedContractInstance)
             ),
             testedContractInstance =
-              ExampleTransactionFactory.asSerializableRaw(changedContractInstance, ""),
+              ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
           )
         }
       }
@@ -143,7 +145,6 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
             key = LfGlobalKey.assertBuild(
               defaultTemplateId,
               Value.ValueInt64(0),
-              Util.sharedKey(defaultLanguageVersion),
             ),
             maintainers = maintainers,
           )
@@ -218,15 +219,14 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     ContractMetadata.tryCreate(signatories, signatories ++ observers, Some(contractKey))
   protected lazy val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
     domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
-    mediator = MediatorRef(MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))),
+    mediator = MediatorsOfDomain(MediatorGroupIndex.one),
     transactionUuid = new UUID(1L, 1L),
     viewPosition = ViewPosition(List.empty),
     viewParticipantDataSalt = TestSalt.generateSalt(1),
     createIndex = 0,
     ledgerCreateTime = LedgerCreateTime(ledgerTime),
     metadata = contractMetadata,
-    suffixedContractInstance =
-      ExampleTransactionFactory.asSerializableRaw(contractInstance, agreementText = ""),
+    suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInstance),
     contractIdVersion = contractIdVersion,
   )
 
@@ -242,7 +242,6 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       metadata = contractMetadata,
       ledgerTime = ledgerTime,
       contractSalt = Some(contractSalt.unwrap),
-      unvalidatedAgreementText = AgreementText.empty,
     ).valueOrFail("Failed creating serializable contract instance")
 
   protected def testFailedAuthentication(
@@ -250,7 +249,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       testedSalt: Salt = contractSalt.unwrap,
       testedLedgerTime: CantonTimestamp = ledgerTime,
       testedContractInstance: SerializableRawContractInstance =
-        ExampleTransactionFactory.asSerializableRaw(contractInstance, ""),
+        ExampleTransactionFactory.asSerializableRaw(contractInstance),
       testedSignatories: Set[LfPartyId] = signatories,
       testedObservers: Set[LfPartyId] = observers,
       testedContractKey: Option[Versioned[protocol.LfGlobalKeyWithMaintainers]] = Some(contractKey),

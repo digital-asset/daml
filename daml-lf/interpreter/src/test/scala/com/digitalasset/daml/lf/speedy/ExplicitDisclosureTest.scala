@@ -19,7 +19,6 @@ import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.testing.parser.Implicits._
 
-class ExplicitDisclosureTestV1 extends ExplicitDisclosureTest(LanguageMajorVersion.V1)
 class ExplicitDisclosureTestV2 extends ExplicitDisclosureTest(LanguageMajorVersion.V2)
 
 private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVersion)
@@ -41,18 +40,6 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         inside(disclosedCaveContract) { case (`contractId`, contract) =>
           getOwner(contract.arg) shouldBe Some(disclosureParty)
         }
-      }
-
-      "ledger queried when contract ID is not disclosed" in {
-        ledgerQueriedWhenContractNotDisclosed(
-          SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
-          getContract = Map(contractId -> ledgerCaveContract),
-        )(result =>
-          inside(result) {
-            case Right(SValue.SAny(_, contract @ SValue.SRecord(`caveTemplateId`, _, _))) =>
-              getOwner(contract.toUnnormalizedValue) shouldBe Some(ledgerParty)
-          }
-        )
       }
 
       "disclosure table queried when contract ID is disclosed" - {

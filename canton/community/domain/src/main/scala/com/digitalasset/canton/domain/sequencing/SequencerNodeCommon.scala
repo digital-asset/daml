@@ -43,6 +43,7 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContextExecutorService, Future}
 
+// TODO(#15161): Fold SequencerNodeBootstrapCommon into SequencerNodeBootstrapX
 trait SequencerNodeBootstrapCommon[
     T <: CantonNode,
     NC <: LocalNodeConfig & SequencerNodeConfigCommon,
@@ -122,7 +123,6 @@ trait SequencerNodeBootstrapCommon[
       maybeDomainOutboxFactory: Option[DomainOutboxXFactorySingleCreate],
       memberAuthServiceFactory: MemberAuthenticationServiceFactory,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
       domainLoggerFactory: NamedLoggerFactory,
   ): EitherT[Future, String, SequencerRuntime] = {
     for {
@@ -150,7 +150,6 @@ trait SequencerNodeBootstrapCommon[
           syncCrypto,
           futureSupervisor,
           rateLimitManager,
-          implicitMemberRegistration,
         )
       )
 
@@ -227,6 +226,7 @@ trait SequencerNodeBootstrapCommon[
 
 }
 
+// TODO(#15161): Fold SequencerNodeCommon into SequencerNodeX
 class SequencerNodeCommon(
     config: SequencerNodeConfigCommon,
     metrics: SequencerMetrics,

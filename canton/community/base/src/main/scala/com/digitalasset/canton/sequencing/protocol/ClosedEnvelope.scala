@@ -24,7 +24,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
   TypedSignedProtocolMessageContent,
 }
-import com.digitalasset.canton.protocol.v1
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -95,10 +95,10 @@ final case class ClosedEnvelope private (
 
   override def closeEnvelope: this.type = this
 
-  def toProtoV1: v1.Envelope = v1.Envelope(
+  def toProtoV30: v30.Envelope = v30.Envelope(
     content = bytes,
-    recipients = Some(recipients.toProtoV0),
-    signatures = signatures.map(_.toProtoV0),
+    recipients = Some(recipients.toProtoV30),
+    signatures = signatures.map(_.toProtoV30),
   )
 
   @VisibleForTesting
@@ -112,7 +112,10 @@ final case class ClosedEnvelope private (
   def verifySignatures(
       snapshot: SyncCryptoApi,
       sender: Member,
-  )(implicit ec: ExecutionContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, SignatureCheckError, Unit] = {
     NonEmpty
       .from(signatures)
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
@@ -126,12 +129,12 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
   override def name: String = "ClosedEnvelope"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
-    )(v1.Envelope)(
+    )(v30.Envelope)(
       protoCompanion =>
-        ProtoConverter.protoParser(protoCompanion.parseFrom)(_).flatMap(fromProtoV1),
-      _.toProtoV1.toByteString,
+        ProtoConverter.protoParser(protoCompanion.parseFrom)(_).flatMap(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -151,21 +154,22 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
   ): ClosedEnvelope =
     create(bytes, recipients, signatures, protocolVersionRepresentativeFor(protocolVersion))
 
-  private[protocol] def fromProtoV1(envelopeP: v1.Envelope): ParsingResult[ClosedEnvelope] = {
-    val v1.Envelope(contentP, recipientsP, signaturesP) = envelopeP
+  private[protocol] def fromProtoV30(envelopeP: v30.Envelope): ParsingResult[ClosedEnvelope] = {
+    val v30.Envelope(contentP, recipientsP, signaturesP) = envelopeP
     for {
       recipients <- ProtoConverter.parseRequired(
-        Recipients.fromProtoV0(_, supportGroupAddressing = true),
+        Recipients.fromProtoV30(_, supportGroupAddressing = true),
         "recipients",
         recipientsP,
       )
-      signatures <- signaturesP.traverse(Signature.fromProtoV0)
+      signatures <- signaturesP.traverse(Signature.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       closedEnvelope = ClosedEnvelope
         .create(
           contentP,
           recipients,
           signatures,
-          protocolVersionRepresentativeFor(ProtoVersion(1)),
+          rpv,
         )
     } yield closedEnvelope
   }
@@ -212,7 +216,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       sender: Member,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
     snapshot.verifySignatures(hash, sender, signatures)
   }

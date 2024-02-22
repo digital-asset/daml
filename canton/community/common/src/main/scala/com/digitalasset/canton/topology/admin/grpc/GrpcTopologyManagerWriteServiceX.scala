@@ -14,12 +14,12 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.protocol.v2.TopologyMappingX.Mapping
+import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v1
-import com.digitalasset.canton.topology.admin.v1.AuthorizeRequest.{Proposal, Type}
+import com.digitalasset.canton.topology.admin.v30
+import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.{Proposal, Type}
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
@@ -31,7 +31,7 @@ import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidati
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcTopologyManagerWriteServiceX(
+class GrpcTopologyManagerWriteService(
     managers: => Seq[TopologyManagerX[TopologyStoreId]],
     topologyStoreX: TopologyStoreX[AuthorizedStore],
     getId: => Option[UniqueIdentifier],
@@ -40,10 +40,10 @@ class GrpcTopologyManagerWriteServiceX(
     clock: Clock,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends v1.TopologyManagerWriteServiceXGrpc.TopologyManagerWriteServiceX
+    extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService
     with NamedLogging {
 
-  override def authorize(request: v1.AuthorizeRequest): Future[v1.AuthorizeResponse] = {
+  override def authorize(request: v30.AuthorizeRequest): Future[v30.AuthorizeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = request.`type` match {
@@ -82,41 +82,41 @@ class GrpcTopologyManagerWriteServiceX(
         val validatedMappingE = for {
           // we treat serial=0 as "serial was not set". negative values should be rejected by parsePositiveInt
           serial <- Option.when(serial != 0)(serial).traverse(ProtoConverter.parsePositiveInt)
-          op <- TopologyChangeOpX.fromProtoV2(op)
+          op <- TopologyChangeOpX.fromProtoV30(op)
           mapping <- ProtoConverter.required("AuthorizeRequest.mapping", mapping)
           signingKeys <-
             request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
           validatedMapping <- mapping.mapping match {
             case Mapping.DecentralizedNamespaceDefinition(mapping) =>
-              DecentralizedNamespaceDefinitionX.fromProtoV2(mapping)
+              DecentralizedNamespaceDefinitionX.fromProtoV30(mapping)
             case Mapping.NamespaceDelegation(mapping) =>
-              NamespaceDelegationX.fromProtoV2(mapping)
+              NamespaceDelegationX.fromProtoV30(mapping)
             case Mapping.IdentifierDelegation(mapping) =>
-              IdentifierDelegationX.fromProtoV2(mapping)
+              IdentifierDelegationX.fromProtoV30(mapping)
             case Mapping.DomainParametersState(mapping) =>
-              DomainParametersStateX.fromProtoV2(mapping)
+              DomainParametersStateX.fromProtoV30(mapping)
             case Mapping.MediatorDomainState(mapping) =>
-              MediatorDomainStateX.fromProtoV2(mapping)
+              MediatorDomainStateX.fromProtoV30(mapping)
             case Mapping.SequencerDomainState(mapping) =>
-              SequencerDomainStateX.fromProtoV2(mapping)
+              SequencerDomainStateX.fromProtoV30(mapping)
             case Mapping.PartyToParticipant(mapping) =>
-              PartyToParticipantX.fromProtoV2(mapping)
+              PartyToParticipantX.fromProtoV30(mapping)
             case Mapping.AuthorityOf(mapping) =>
-              AuthorityOfX.fromProtoV2(mapping)
+              AuthorityOfX.fromProtoV30(mapping)
             case Mapping.DomainTrustCertificate(mapping) =>
-              DomainTrustCertificateX.fromProtoV2(mapping)
+              DomainTrustCertificateX.fromProtoV30(mapping)
             case Mapping.OwnerToKeyMapping(mapping) =>
-              OwnerToKeyMappingX.fromProtoV2(mapping)
+              OwnerToKeyMappingX.fromProtoV30(mapping)
             case Mapping.VettedPackages(mapping) =>
-              VettedPackagesX.fromProtoV2(mapping)
+              VettedPackagesX.fromProtoV30(mapping)
             case Mapping.ParticipantPermission(mapping) =>
-              ParticipantDomainPermissionX.fromProtoV2(mapping)
+              ParticipantDomainPermissionX.fromProtoV30(mapping)
             case Mapping.TrafficControlState(mapping) =>
-              TrafficControlStateX.fromProtoV2(mapping)
+              TrafficControlStateX.fromProtoV30(mapping)
             case Mapping.PartyHostingLimits(mapping) =>
-              PartyHostingLimitsX.fromProtoV2(mapping)
+              PartyHostingLimitsX.fromProtoV30(mapping)
             case Mapping.PurgeTopologyTxs(mapping) =>
-              PurgeTopologyTransactionX.fromProtoV2(mapping)
+              PurgeTopologyTransactionX.fromProtoV30(mapping)
             case _ =>
               // TODO(#14048): match missing cases
               ???
@@ -145,18 +145,18 @@ class GrpcTopologyManagerWriteServiceX(
           signedTopoTx
         }
     }
-    CantonGrpcUtil.mapErrNewEUS(result.map(tx => v1.AuthorizeResponse(Some(tx.toProtoV2))))
+    CantonGrpcUtil.mapErrNewEUS(result.map(tx => v30.AuthorizeResponse(Some(tx.toProtoV30))))
   }
 
   override def signTransactions(
-      request: v1.SignTransactionsRequest
-  ): Future[v1.SignTransactionsResponse] = {
+      request: v30.SignTransactionsRequest
+  ): Future[v30.SignTransactionsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
           .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
+            SignedTopologyTransactionX.fromProtoV30(ProtocolVersionValidation(protocolVersion), tx)
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
@@ -176,18 +176,18 @@ class GrpcTopologyManagerWriteServiceX(
       )
     } yield extendedTransactions
 
-    CantonGrpcUtil.mapErrNewEUS(res.map(txs => v1.SignTransactionsResponse(txs.map(_.toProtoV2))))
+    CantonGrpcUtil.mapErrNewEUS(res.map(txs => v30.SignTransactionsResponse(txs.map(_.toProtoV30))))
   }
 
   override def addTransactions(
-      request: v1.AddTransactionsRequest
-  ): Future[v1.AddTransactionsResponse] = {
+      request: v30.AddTransactionsRequest
+  ): Future[v30.AddTransactionsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       signedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         request.transactions
           .traverse(tx =>
-            SignedTopologyTransactionX.fromProtoV2(ProtocolVersionValidation(protocolVersion), tx)
+            SignedTopologyTransactionX.fromProtoV30(ProtocolVersionValidation(protocolVersion), tx)
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
@@ -196,7 +196,7 @@ class GrpcTopologyManagerWriteServiceX(
       _ <- manager
         .add(signedTxs, force = request.forceChange, expectFullAuthorization = false)
         .leftWiden[CantonError]
-    } yield v1.AddTransactionsResponse()
+    } yield v30.AddTransactionsResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }
 

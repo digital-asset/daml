@@ -1,0 +1,140 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v30;
+
+import "com/digitalasset/canton/admin/participant/v30/domain_connectivity.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// Perform participant repair operations, including exporting and importing ACS, purging
+// contracts, and migrating domains. These operations directly act on the internal state of the participant
+// and should be used with caution.
+service ParticipantRepairService {
+
+  // Export the ACS for the given parties from the participant
+  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
+
+  // Import an existing export into the participant
+  rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse);
+
+  // Remove the given contracts from the participant
+  rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
+
+  // Change the assignation of contracts to the given domain
+  rpc MigrateDomain(MigrateDomainRequest) returns (MigrateDomainResponse);
+}
+
+message PurgeContractsRequest {
+  // Alias of the domain on which the contracts are currently assigned
+  // Required
+  string domain = 1;
+
+  // Contracts to be purged
+  // Required
+  repeated string contract_ids = 2;
+
+  // If true, will ignore already purged contract; if false, will return an error if a contract is already purged
+  // Useful re-run the same request in case of failure in an idempotent fashion
+  // Optional, `true` by default
+  bool ignore_already_purged = 3;
+}
+
+message PurgeContractsResponse {}
+
+message MigrateDomainRequest {
+  // Alias of the domain on which the contracts are currently assigned
+  // Required
+  string source_alias = 1;
+  // Configuration to connect to the domain on which the contracts will be assigned as a result of the migration
+  // Required
+  DomainConnectionConfig target_domain_connection_config = 2;
+}
+
+message MigrateDomainResponse {}
+
+message ExportAcsRequest {
+  message TargetDomain {
+    // The ID of the domain where the contract is supposed to be assigned when the export is being imported
+    string domain_id = 1;
+    // The protocol version associated to the domain where the contract is supposed to be assigned when the contracts snapshot is being imported
+    int32 protocol_version = 2;
+  }
+
+  // The parties for which the ACS should be exported
+  // Required
+  repeated string parties = 1;
+
+  // The IDs of the domains to filter the contracts by
+  // Optional, if set the contracts will be filtered by the exact match of the ID of the domain to which it's assigned
+  string filter_domain_id = 2; // optional; exact match if set
+
+  // The timestamp at which the ACS should be valid. If provided, it will be checked that the ACS is
+  // available at the given timestamp (i.e. the timestamp is considered clean and the ACS has not been
+  // pruned).
+  // Optional, if missing the latest clean timestamp will be used
+  google.protobuf.Timestamp timestamp = 3;
+
+  // Mapping from one domain ID and protocol version. If provided, the contracts currently assigned to the domain
+  // ID in the key will be assigned to the domain ID and protocol version in the value. This is not a proper domain
+  // migration of contracts and it's supposed to be used only in exceptional cases.
+  // Optional, if not provided the contracts will be exported with the same domain id as they are currently assigned
+  map<string, TargetDomain> contract_domain_renames = 4;
+
+  // If true, do not check whether the provided timestamp is clean (see `timestamp` field).
+  // NOT FOR PRODUCTION USE.
+  // For this option to yield a consistent snapshot, you need to wait at least
+  // confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
+  // Optional, `false` by default
+  bool force = 5;
+
+  // true if the parties will be offboarded after the replication (party migration)
+  // Optional, `false` by default
+  bool parties_offboarding = 6;
+}
+
+message ExportAcsResponse {
+  // The raw binary of the ACS snapshot to be imported
+  // This is meant to be streamed and every message should be a chunk of the snapshot
+  // Required
+  bytes chunk = 1;
+}
+
+// Schema definition for the exported ACS snapshot
+message ActiveContract {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  // The protocol version of the domain the contract is currently assigned to
+  // Required
+  int32 protocol_version = 1;
+  // The ID of the domain where the contract was assigned at the time of the export
+  // Required
+  string domain_id = 2;
+  // The raw binary containing the contract and its associated metadata
+  // Required
+  bytes contract = 3;
+  // The number of times the contract has been reassigned at the time of the export
+  // Required
+  int64 reassignment_counter = 4;
+}
+
+message ImportAcsRequest {
+  // The raw binary of the ACS snapshot to be imported
+  // Required
+  bytes acs_snapshot = 1;
+  // The domain id prefix to be used for the imported contracts
+  // Optional, if not provided the service will generate a prefix
+  string workflow_id_prefix = 2;
+  // If false, the service will fail if any contract ID suffix doesn't match the scheme
+  // associated to the domain where the contract is being assigned as a result of the import.
+  // If true, any contract ID suffix will be recomputed to match the scheme associated to the domain.
+  // Optional, `false` by default
+  bool allow_contract_id_suffix_recomputation = 3;
+}
+
+message ImportAcsResponse {
+  // Mapping from the old contract id to the new contract id
+  map<string, string> contract_id_mapping = 1;
+}

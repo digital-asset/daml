@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology
 import cats.kernel.Order
 import cats.syntax.either.*
 import com.daml.ledger.javaapi.data.Party
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -351,7 +352,7 @@ object DomainMember {
   */
 final case class MediatorGroup(
     index: MediatorGroupIndex,
-    active: Seq[MediatorId],
+    active: NonEmpty[Seq[MediatorId]],
     passive: Seq[MediatorId],
     threshold: PositiveInt,
 ) {
@@ -362,6 +363,7 @@ final case class MediatorGroup(
 
 object MediatorGroup {
   type MediatorGroupIndex = NonNegativeInt
+  val MediatorGroupIndex = NonNegativeInt
 }
 
 final case class MediatorId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {
@@ -418,7 +420,7 @@ object DomainTopologyManagerId {
 }
 
 final case class SequencerGroup(
-    active: Seq[SequencerId],
+    active: NonEmpty[Seq[SequencerId]],
     passive: Seq[SequencerId],
     threshold: PositiveInt,
 )

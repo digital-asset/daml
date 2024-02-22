@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandleCommon
+import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -32,10 +32,7 @@ class QueueBasedDomainOutboxX(
     val domainId: DomainId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
-    val handle: RegisterTopologyTransactionHandleCommon[
-      GenericSignedTopologyTransactionX,
-      TopologyTransactionsBroadcastX.State,
-    ],
+    val handle: RegisterTopologyTransactionHandle,
     val targetClient: DomainTopologyClientWithInit,
     val domainOutboxQueue: DomainOutboxQueue,
     val targetStore: TopologyStoreX[TopologyStoreId.DomainStore],
@@ -256,18 +253,24 @@ class QueueBasedDomainOutboxX(
           // find pending transactions
           pending <- findPendingTransactions()
           // filter out applicable
-          applicablePotentiallyPresent <- onlyApplicable(pending)
+          applicable <- onlyApplicable(pending)
+          _ = if (applicable.size != pending.size)
+            logger.debug(
+              s"applicable transactions: $applicable"
+            )
           // not already present
-          applicable <- notAlreadyPresent(applicablePotentiallyPresent)
-        } yield (pending, applicable))
+          notPresent <- notAlreadyPresent(applicable)
+          _ = if (notPresent.size != applicable.size)
+            logger.debug(s"not already present transactions: $notPresent")
+        } yield (pending, notPresent))
         val ret = for {
-          pendingAndApplicable <- EitherT.right(pendingAndApplicableF)
-          (pending, applicable) = pendingAndApplicable
+          pendingAndNotPresent <- EitherT.right(pendingAndApplicableF)
+          (pending, notPresent) = pendingAndNotPresent
 
-          _ = lastDispatched.set(applicable.lastOption)
+          _ = lastDispatched.set(notPresent.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the domain
           convertedTxs <- performUnlessClosingEitherU(functionFullName) {
-            convertTransactions(applicable)
+            convertTransactions(notPresent)
           }
           // dispatch to domain
           _ <- dispatch(domain, transactions = convertedTxs)

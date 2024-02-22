@@ -34,7 +34,6 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",

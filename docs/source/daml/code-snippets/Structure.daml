@@ -17,9 +17,6 @@ template NameOfTemplate
   where
     signatory exampleParty
     observer exampleParty2
-    agreement
-      -- some text
-      ""
     ensure
       -- boolean condition
       True

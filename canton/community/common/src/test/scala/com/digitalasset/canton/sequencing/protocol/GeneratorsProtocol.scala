@@ -6,12 +6,12 @@ package com.digitalasset.canton.sequencing.protocol
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsDataTime}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.{DomainId, Member}
-import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, SequencerCounter}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -19,14 +19,13 @@ import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsProtocol(
     protocolVersion: ProtocolVersion,
-    generatorsDataTime: GeneratorsDataTime,
     generatorsMessages: GeneratorsMessages,
 ) {
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
+  import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
-  import generatorsDataTime.*
   import generatorsMessages.*
 
   implicit val acknowledgeRequestArb: Arbitrary[AcknowledgeRequest] = Arbitrary(for {
@@ -131,12 +130,8 @@ final class GeneratorsProtocol(
         envelopes <- Generators.nonEmptyListGen[ClosedEnvelope](closedEnvelopeArb)
         batch = Batch(envelopes.map(_.closeEnvelope), protocolVersion)
         maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
-        aggregationRule <- GeneratorsVersion.defaultValueGen(
-          protocolVersion,
-          SubmissionRequest.aggregationRuleDefaultValue,
-          Gen.option(Arbitrary.arbitrary[AggregationRule]),
-        )
-        timestampOfSigningKey <-
+        aggregationRule <- Gen.option(Arbitrary.arbitrary[AggregationRule])
+        topologyTimestamp <-
           if (aggregationRule.nonEmpty)
             Arbitrary.arbitrary[CantonTimestamp].map(Some(_))
           else Gen.const(None)
@@ -146,7 +141,7 @@ final class GeneratorsProtocol(
         isRequest,
         batch,
         maxSequencingTime,
-        timestampOfSigningKey,
+        topologyTimestamp,
         aggregationRule,
         SubmissionRequest.protocolVersionRepresentativeFor(protocolVersion).representative,
       )

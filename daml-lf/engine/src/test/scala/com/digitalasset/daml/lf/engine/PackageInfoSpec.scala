@@ -15,7 +15,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class PackageInfoSpecV1 extends PackageInfoSpec(LanguageMajorVersion.V1)
 class PackageInfoSpecV2 extends PackageInfoSpec(LanguageMajorVersion.V2)
 
 class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -28,7 +27,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg0-")
 
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
         module Mod0 {
           record @serializable MyUnit = {};
           record @serializable T0 = {};
@@ -36,7 +35,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
             };
        }
     """
@@ -46,14 +44,13 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg1-")
 
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
         module Mod11 {
           record @serializable T11 = {};
           template (this : T11) =  {
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
               implements 'pkgB':ModB:IB { view = Mod0:MyUnit {}; };
             };
@@ -65,7 +62,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
               implements 'pkgC':ModC:IC { view = Mod0:MyUnit {}; };
             };
@@ -77,7 +73,8 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg2-")
 
-    p"""
+    p""" metadata ( 'pkg' : '1.0.0' )
+
          module Mod {
            record @serializable MyUnit = {};
          }
@@ -85,24 +82,12 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
          module Mod21 {
            interface (this: I21) = {
              viewtype Mod:MyUnit;
-             coimplements '-pkg1-':Mod11:T11 {
-               view = Mod0:MyUnit {};
-             };
-             coimplements 'pkgA':ModA:TA {
-               view = Mod0:MyUnit {};
-             };
            };
          }
 
          module Mod22 {
            interface (this: I22) = {
              viewtype Mod0:MyUnit;
-             coimplements '-pkg1-':Mod11:T11 {
-               view = Mod0:MyUnit {};
-             };
-             coimplements 'pkgB':ModB:TB {
-               view = Mod0:MyUnit {};
-             };
            };
          }
      """
@@ -112,7 +97,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     implicit val parseParameters: parser.ParserParameters[this.type] =
       ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg3-")
 
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
 
         module Mod31 {
           record @serializable T31 = {};
@@ -120,7 +105,6 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Nil @Party;
             observers Nil @Party;
-            agreement "Agreement";
             implements '-pkg1-':Mod11:I11 {
               view = Mod0:MyUnit {};
             };
@@ -139,14 +123,11 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
               precondition True;
               signatories Nil @Party;
               observers Nil @Party;
-              agreement "Agreement";
               implements '-pkg3-':Mod32:I32 { view = Mod0:MyUnit {}; };
               implements 'pkgA':ModA:IA { view = Mod0:MyUnit {}; };
             };
             interface (this: I32) = {
              viewtype Mod0:MyUnit;
-             coimplements '-pkg1-':Mod11:T11 { view = Mod0:MyUnit {}; };
-             coimplements 'pkgB':ModB:TB { view = Mod0:MyUnit {}; };
            };
         }
         """
@@ -231,37 +212,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
           val (pkgIds, rels) = cases.unzip
           val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
           val expectedResult = rels.fold(Relation.empty)(Relation.union)
-          new PackageInfo(testPkgs).interfacesDirectImplementations shouldBe expectedResult
-        }
-    }
-  }
-
-  "interfaceRetroactiveInstances" should {
-    "return the relation between interface and their retroaction instances" in {
-
-      val testCases: List[(PackageId, Relation[TypeConName, TypeConName])] = List(
-        ("-pkg0-": Ref.PackageId) ->
-          Relation.empty[Ref.TypeConName, Ref.TypeConName],
-        ("-pkg1-": Ref.PackageId) ->
-          Relation.empty[Ref.TypeConName, Ref.TypeConName],
-        ("-pkg2-": Ref.PackageId) -> Map(
-          ("-pkg2-:Mod21:I21": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg1-:Mod11:T11", "pkgA:ModA:TA"),
-          ("-pkg2-:Mod22:I22": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg1-:Mod11:T11", "pkgB:ModB:TB"),
-        ),
-        ("-pkg3-": Ref.PackageId) -> Map(
-          ("-pkg3-:Mod32:I32": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg1-:Mod11:T11", "pkgB:ModB:TB")
-        ),
-      )
-
-      for (n <- 0 to testCases.size)
-        testCases.combinations(n).foreach { cases =>
-          val (pkgIds, rels) = cases.unzip
-          val testPkgs = pkgIds.view.map(pkgId => pkgId -> pkgs(pkgId)).toMap
-          val expectedResult = rels.fold(Relation.empty)(Relation.union)
-          new PackageInfo(testPkgs).interfacesRetroactiveInstances shouldBe expectedResult
+          new PackageInfo(testPkgs).interfaceInstances shouldBe expectedResult
         }
     }
   }

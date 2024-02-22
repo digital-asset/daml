@@ -12,15 +12,13 @@ import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, Transact
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
-import Ordering.Implicits._
-
 trait TestNodeBuilder {
 
   def packageVersion(packageId: PackageId): Option[TransactionVersion] = None
 
   private def assertPackageVersion(packageId: PackageId): TransactionVersion =
     packageVersion(packageId).getOrElse(
-      throw new IllegalArgumentException(s"Could not lookup transaction version for ${packageId}")
+      throw new IllegalArgumentException(s"Could not lookup transaction version for $packageId")
     )
 
   private def contractPackageVersion(contract: Node.Create): TransactionVersion =
@@ -33,11 +31,9 @@ trait TestNodeBuilder {
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
       key: CreateKey = CreateKey.NoKey,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  review if we should really provide a defaul package name.
+      // TODO https://github.com/digital-asset/daml/issues/17995
       packageName: PackageName = Ref.PackageName.assertFromString("package-name"),
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
-      agreementText: String = "",
   ): Node.Create = {
 
     val transactionVersion = version match {
@@ -51,21 +47,11 @@ trait TestNodeBuilder {
         None
       case CreateKey.SignatoryMaintainerKey(value) =>
         Some(
-          GlobalKeyWithMaintainers.assertBuild(
-            templateId,
-            value,
-            signatories,
-            Util.sharedKey(transactionVersion),
-          )
+          GlobalKeyWithMaintainers.assertBuild(templateId, value, signatories)
         )
       case CreateKey.KeyWithMaintainers(value, maintainers) =>
         Some(
-          GlobalKeyWithMaintainers.assertBuild(
-            templateId,
-            value,
-            maintainers,
-            Util.sharedKey(transactionVersion),
-          )
+          GlobalKeyWithMaintainers.assertBuild(templateId, value, maintainers)
         )
     }
 
@@ -73,11 +59,9 @@ trait TestNodeBuilder {
 
     Node.Create(
       coid = id,
-      packageName =
-        if (transactionVersion < TransactionVersion.minUpgrade) None else Some(packageName),
+      packageName = packageName,
       templateId = templateId,
       arg = argument,
-      agreementText = agreementText,
       signatories = signatories ++ maintainers,
       stakeholders = signatories ++ observers ++ maintainers,
       keyOpt = keyOpt,

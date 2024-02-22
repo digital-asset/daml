@@ -5,22 +5,20 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.utils.DeserializedCantonError
+import com.daml.error.utils.DecodedCantonError
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
+import com.digitalasset.canton.{LfPartyId, protocol}
 import com.google.protobuf.empty
 import com.google.rpc.status.Status
 import pprint.Tree
-
-import scala.Ordered.orderingToOrdered
 
 trait TransactionRejection {
   def logWithContext(extra: Map[String, String] = Map())(implicit
@@ -30,7 +28,7 @@ trait TransactionRejection {
   def rpcStatusWithoutLoggingContext(): com.google.rpc.status.Status
 }
 
-/** Verdicts sent from the mediator to the participants inside the [[MediatorResult]] message */
+/** Verdicts sent from the mediator to the participants inside the [[ConfirmationResult]] message */
 sealed trait Verdict
     extends Product
     with Serializable
@@ -42,27 +40,28 @@ sealed trait Verdict
 
   @transient override protected lazy val companionObj: Verdict.type = Verdict
 
-  private[messages] def toProtoV3: v3.Verdict
+  private[messages] def toProtoV30: v30.Verdict
 }
 
 object Verdict
     extends HasProtocolVersionedCompanion[Verdict]
     with ProtocolVersionedCompanionDbHelpers[Verdict] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v3.Verdict)(
-      supportedProtoVersion(_)(fromProtoV3),
-      _.toProtoV3.toByteString,
+  val supportedProtoVersions: protocol.messages.Verdict.SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.Verdict)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
+      )
     )
-  )
 
   final case class Approve()(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict {
     override def isTimeoutDeterminedByMediator: Boolean = false
 
-    private[messages] override def toProtoV3: v3.Verdict =
-      v3.Verdict(someVerdict = v3.Verdict.SomeVerdict.Approve(empty.Empty()))
+    private[messages] override def toProtoV30: v30.Verdict =
+      v30.Verdict(someVerdict = v30.Verdict.SomeVerdict.Approve(empty.Empty()))
 
     override def pretty: Pretty[Verdict] = prettyOfString(_ => "Approve")
   }
@@ -79,10 +78,10 @@ object Verdict
       with TransactionRejection {
     require(status.code != com.google.rpc.Code.OK_VALUE, "Rejection must not use status code OK")
 
-    private[messages] override def toProtoV3: v3.Verdict =
-      v3.Verdict(v3.Verdict.SomeVerdict.MediatorReject(toProtoMediatorRejectV2))
+    private[messages] override def toProtoV30: v30.Verdict =
+      v30.Verdict(v30.Verdict.SomeVerdict.MediatorReject(toProtoMediatorRejectV30))
 
-    def toProtoMediatorRejectV2: v2.MediatorReject = v2.MediatorReject(Some(status))
+    def toProtoMediatorRejectV30: v30.MediatorReject = v30.MediatorReject(Some(status))
 
     override def pretty: Pretty[MediatorReject.this.type] = prettyOfClass(
       unnamedParam(_.status)
@@ -91,7 +90,7 @@ object Verdict
     override def logWithContext(extra: Map[String, String])(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): Unit =
-      DeserializedCantonError.fromGrpcStatus(status) match {
+      DecodedCantonError.fromGrpcStatus(status) match {
         case Right(error) => error.logWithContext(extra)
         case Left(err) =>
           contextualizedErrorLogger.warn(s"Failed to parse mediator rejection: $err")
@@ -100,7 +99,7 @@ object Verdict
     override def rpcStatusWithoutLoggingContext(): Status = status
 
     override def isTimeoutDeterminedByMediator: Boolean =
-      DeserializedCantonError.fromGrpcStatus(status).exists(_.code.id == MediatorError.Timeout.id)
+      DecodedCantonError.fromGrpcStatus(status).exists(_.code.id == MediatorError.Timeout.id)
   }
 
   object MediatorReject {
@@ -111,32 +110,29 @@ object Verdict
     ): MediatorReject =
       MediatorReject(status)(Verdict.protocolVersionRepresentativeFor(protocolVersion))
 
-    private[messages] def fromProtoV2(
-        mediatorRejectP: v2.MediatorReject
+    private[messages] def fromProtoV30(
+        mediatorRejectP: v30.MediatorReject
     ): ParsingResult[MediatorReject] = {
-      // Proto version 3 because mediator rejections are versioned according to verdicts
-      // and verdicts use mediator reject V2 in proto version 3.
-      val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(3))
-
-      val v2.MediatorReject(statusO) = mediatorRejectP
+      val v30.MediatorReject(statusO) = mediatorRejectP
       for {
         status <- ProtoConverter.required("rejection_reason", statusO)
-      } yield MediatorReject(status)(representativeProtocolVersion)
+        rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      } yield MediatorReject(status)(rpv)
     }
   }
 
-  /** @param reasons Mapping from the parties of a [[com.digitalasset.canton.protocol.messages.MediatorResponse]]
-    *                to the rejection reason from the [[com.digitalasset.canton.protocol.messages.MediatorResponse]]
+  /** @param reasons Mapping from the parties of a [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
+    *                to the rejection reason from the [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
     */
   final case class ParticipantReject(reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]])(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict {
 
-    private[messages] override def toProtoV3: v3.Verdict = {
-      val reasonsP = v2.ParticipantReject(reasons.map { case (parties, message) =>
-        v2.RejectionReason(parties.toSeq, Some(message.toLocalRejectProtoV1))
+    private[messages] override def toProtoV30: v30.Verdict = {
+      val reasonsP = v30.ParticipantReject(reasons.map { case (parties, message) =>
+        v30.RejectionReason(parties.toSeq, Some(message.toLocalRejectProtoV30))
       })
-      v3.Verdict(someVerdict = v3.Verdict.SomeVerdict.ParticipantReject(reasonsP))
+      v30.Verdict(someVerdict = v30.Verdict.SomeVerdict.ParticipantReject(reasonsP))
     }
 
     override def pretty: Pretty[ParticipantReject] = {
@@ -170,50 +166,51 @@ object Verdict
     ): ParticipantReject =
       ParticipantReject(reasons)(Verdict.protocolVersionRepresentativeFor(protocolVersion))
 
-    private def fromProtoRejectionReasonsV2(
-        reasonsP: Seq[v2.RejectionReason],
+    private def fromProtoRejectionReasonsV30(
+        reasonsP: Seq[v30.RejectionReason],
         pv: RepresentativeProtocolVersion[Verdict.type],
     ): ParsingResult[ParticipantReject] =
       for {
-        reasons <- reasonsP.traverse(fromProtoReasonV2)
+        reasons <- reasonsP.traverse(fromProtoReasonV30)
         reasonsNE <- NonEmpty
           .from(reasons.toList)
           .toRight(InvariantViolation("Field reasons must not be empty!"))
       } yield ParticipantReject(reasonsNE)(pv)
 
-    def fromProtoV2(
-        participantRejectP: v2.ParticipantReject,
+    def fromProtoV30(
+        participantRejectP: v30.ParticipantReject,
         pv: RepresentativeProtocolVersion[Verdict.type],
     ): ParsingResult[ParticipantReject] = {
-      val v2.ParticipantReject(reasonsP) = participantRejectP
-      fromProtoRejectionReasonsV2(reasonsP, pv)
+      val v30.ParticipantReject(reasonsP) = participantRejectP
+      fromProtoRejectionReasonsV30(reasonsP, pv)
     }
   }
 
   override def name: String = "verdict"
 
-  def fromProtoV3(verdictP: v3.Verdict): ParsingResult[Verdict] = {
-    val v3.Verdict(someVerdictP) = verdictP
-    import v3.Verdict.{SomeVerdict as V}
+  def fromProtoV30(verdictP: v30.Verdict): ParsingResult[Verdict] = {
+    val v30.Verdict(someVerdictP) = verdictP
+    import v30.Verdict.SomeVerdict as V
 
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(ProtoVersion(3))
-    someVerdictP match {
-      case V.Approve(empty.Empty(_)) => Right(Approve()(representativeProtocolVersion))
-      case V.MediatorReject(mediatorRejectP) =>
-        MediatorReject.fromProtoV2(mediatorRejectP)
-      case V.ParticipantReject(participantRejectP) =>
-        ParticipantReject.fromProtoV2(participantRejectP, representativeProtocolVersion)
-      case V.Empty => Left(OtherError("empty verdict type"))
+    protocolVersionRepresentativeFor(ProtoVersion(30)).flatMap { rpv =>
+      someVerdictP match {
+        case V.Approve(empty.Empty(_)) => Right(Approve()(rpv))
+        case V.MediatorReject(mediatorRejectP) =>
+          MediatorReject.fromProtoV30(mediatorRejectP)
+        case V.ParticipantReject(participantRejectP) =>
+          ParticipantReject.fromProtoV30(participantRejectP, rpv)
+        case V.Empty => Left(OtherError("empty verdict type"))
+      }
     }
   }
 
-  private def fromProtoReasonV2(
-      protoReason: v2.RejectionReason
+  private def fromProtoReasonV30(
+      protoReason: v30.RejectionReason
   ): ParsingResult[(Set[LfPartyId], LocalReject)] = {
-    val v2.RejectionReason(partiesP, messageP) = protoReason
+    val v30.RejectionReason(partiesP, messageP) = protoReason
     for {
       parties <- partiesP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
-      message <- ProtoConverter.parseRequired(LocalReject.fromProtoV1, "reject", messageP)
+      message <- ProtoConverter.parseRequired(LocalReject.fromProtoV30, "reject", messageP)
     } yield (parties, message)
   }
 }

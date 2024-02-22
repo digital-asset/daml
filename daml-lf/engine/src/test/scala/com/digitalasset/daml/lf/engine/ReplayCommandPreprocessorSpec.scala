@@ -20,7 +20,6 @@ import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ReplayCommandPreprocessorSpecV1 extends ReplayCommandPreprocessorSpec(LanguageMajorVersion.V1)
 class ReplayCommandPreprocessorSpecV2 extends ReplayCommandPreprocessorSpec(LanguageMajorVersion.V2)
 
 class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -38,7 +37,8 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   private implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId
 
   private[this] val pkg =
-    p"""
+    p"""metadata ( 'pkg' : '1.0.0' )
+
         module Mod {
 
           record @serializable Box a = { content: a };
@@ -49,7 +49,6 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Mod:Record {owners} this;
             observers Mod:Record {owners} this;
-            agreement "Agreement";
             choice Transfer (self) (box: Mod:Box (List Party)) : ContractId Mod:Record,
                 controllers Mod:Record {owners} this,
                 observers Nil @Party
@@ -63,7 +62,6 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             precondition True;
             signatories Mod:RecordRef {owners} this;
             observers Mod:RecordRef {owners} this;
-            agreement "Agreement";
             choice Change (self) (newCid: ContractId Mod:Record) : ContractId Mod:RecordRef,
                 controllers Mod:RecordRef {owners} this,
                 observers Nil @Party

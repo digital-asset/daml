@@ -13,7 +13,6 @@ import com.digitalasset.canton.admin.api.client.data.{
   DynamicDomainParameters as ConsoleDynamicDomainParameters,
   TrafficControlParameters,
 }
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
 import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
@@ -21,18 +20,20 @@ import com.digitalasset.canton.console.{
   CommandErrors,
   ConsoleCommandResult,
   ConsoleEnvironment,
+  ConsoleMacros,
   FeatureFlag,
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceCommon,
-  InstanceReferenceX,
+  InstanceReference,
+  ParticipantReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{BaseQueryX, TopologyStore}
@@ -40,7 +41,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
   StoredTopologyTransactionsX,
-  TimeQueryX,
+  TimeQuery,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
@@ -50,6 +51,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{DiscardOps, config}
 import com.google.protobuf.ByteString
 
 import java.time.Duration
@@ -57,7 +59,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
 
-trait InitNodeIdX extends ConsoleCommandGroup {
+trait InitNodeId extends ConsoleCommandGroup {
 
   @Help.Summary("Initialize the node with a unique identifier")
   @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
@@ -77,8 +79,8 @@ trait InitNodeIdX extends ConsoleCommandGroup {
 
 }
 
-class TopologyAdministrationGroupX(
-    instance: InstanceReferenceX,
+class TopologyAdministrationGroup(
+    instance: InstanceReference,
     topologyQueueStatus: => Option[TopologyQueueStatus],
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
@@ -88,7 +90,7 @@ class TopologyAdministrationGroupX(
       consoleEnvironment,
       loggerFactory,
     )
-    with InitNodeIdX
+    with InitNodeId
     with Helpful
     with FeatureFlagFilter {
 
@@ -148,7 +150,7 @@ class TopologyAdministrationGroupX(
       instance.topology.transactions
         .list()
         .collectOfMapping(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
-        .filter(_.mapping.namespace == instance.id.uid.namespace)
+        .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
         .writeToFile(file)
     }
 
@@ -195,7 +197,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = AuthorizedStore.filterName,
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
@@ -232,7 +234,7 @@ class TopologyAdministrationGroupX(
     ): Option[StoredTopologyTransactionX[TopologyChangeOpX, M]] = {
       val latestAuthorized = list(filterStore = filterStore)
         .collectOfMapping[M]
-        .filter(_.mapping.uniqueKey == mappingHash)
+        .filter(_.transaction.mapping.uniqueKey == mappingHash)
         .result
       val latestProposal =
         if (includeProposals)
@@ -250,14 +252,14 @@ class TopologyAdministrationGroupX(
       def list(
           filterStore: String = "",
           proposals: Boolean = false,
-          timeQuery: TimeQueryX = TimeQueryX.HeadState,
+          timeQuery: TimeQuery = TimeQuery.HeadState,
           operation: Option[TopologyChangeOpX] = None,
           filterDomain: String = "",
           filterSigningKey: String = "",
           protocolVersion: Option[String] = None,
-      ): Seq[ListPurgeTopologyTransactionXResult] = consoleEnvironment.run {
+      ): Seq[ListPurgeTopologyTransactionResult] = consoleEnvironment.run {
         adminCommand(
-          TopologyAdminCommandsX.Read.PurgeTopologyTransactionX(
+          TopologyAdminCommandsX.Read.PurgeTopologyTransaction(
             BaseQueryX(
               filterStore,
               proposals,
@@ -315,6 +317,7 @@ class TopologyAdministrationGroupX(
                 ),
               signedBy = thisNodeRootKey,
               store = Some(AuthorizedStore.filterName),
+              synchronize = None,
             )
           )
 
@@ -355,7 +358,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterNamespace: String = "",
         filterSigningKey: String = "",
@@ -405,6 +408,9 @@ class TopologyAdministrationGroupX(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
     ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
       val ownersNE = NonEmpty
         .from(owners)
@@ -421,7 +427,14 @@ class TopologyAdministrationGroupX(
           ownersNE,
         )
         .valueOr(error => consoleEnvironment.run(GenericCommandError(error)))
-      authorize(decentralizedNamespace, store, mustFullyAuthorize, signedBy.toList, serial)
+      authorize(
+        decentralizedNamespace,
+        store,
+        mustFullyAuthorize,
+        signedBy.toList,
+        serial,
+        synchronize,
+      )
     }
 
     def authorize(
@@ -430,20 +443,23 @@ class TopologyAdministrationGroupX(
         mustFullyAuthorize: Boolean = false,
         signedBy: Seq[Fingerprint],
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] =
-      consoleEnvironment.run(
-        adminCommand {
-          TopologyAdminCommandsX.Write.Propose(
-            decentralizedNamespace,
-            signedBy = signedBy.toList,
-            serial = serial,
-            change = TopologyChangeOpX.Replace,
-            mustFullyAuthorize = mustFullyAuthorize,
-            forceChange = false,
-            store = store,
-          )
-        }
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): SignedTopologyTransactionX[TopologyChangeOpX, DecentralizedNamespaceDefinitionX] = {
+
+      val command = TopologyAdminCommandsX.Write.Propose(
+        decentralizedNamespace,
+        signedBy = signedBy.toList,
+        serial = serial,
+        change = TopologyChangeOpX.Replace,
+        mustFullyAuthorize = mustFullyAuthorize,
+        forceChange = false,
+        store = store,
       )
+
+      synchronisation.runAdminCommand(synchronize)(command)
+    }
 
     def join(
         decentralizedNamespace: Fingerprint,
@@ -582,7 +598,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterNamespace: String = "",
         filterSigningKey: String = "",
@@ -661,7 +677,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
@@ -696,7 +712,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterKeyOwnerType: Option[MemberCode] = None,
         filterKeyOwnerUid: String = "",
@@ -815,13 +831,13 @@ class TopologyAdministrationGroupX(
       """
     )
     def rotate_key(
-        nodeInstance: InstanceReferenceCommon,
+        nodeInstance: InstanceReference,
         member: Member,
         currentKey: PublicKey,
         newKey: PublicKey,
         synchronize: Option[config.NonNegativeDuration],
     ): Unit = nodeInstance match {
-      case nodeInstanceX: InstanceReferenceX =>
+      case nodeInstanceX: InstanceReference =>
         val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
         require(
           keysInStore.contains(currentKey),
@@ -873,7 +889,7 @@ class TopologyAdministrationGroupX(
         }
       case _ =>
         throw new IllegalArgumentException(
-          "InstanceReferenceX.owner_to_key_mapping.rotate_key called with a non-XNode"
+          "InstanceReference.owner_to_key_mapping.rotate_key called with a non-XNode"
         )
     }
 
@@ -889,7 +905,7 @@ class TopologyAdministrationGroupX(
         add: Boolean,
         mustFullyAuthorize: Boolean = true,
         force: Boolean = false,
-        nodeInstance: InstanceReferenceX,
+        nodeInstance: InstanceReference,
     ): Unit = {
       // Ensure the specified key has a private key in the vault.
       val publicKey = nodeInstance.keys.secret.list(
@@ -1026,7 +1042,7 @@ class TopologyAdministrationGroupX(
       """)
     def propose_delta(
         party: PartyId,
-        adds: List[(ParticipantId, ParticipantPermissionX)] = Nil,
+        adds: List[(ParticipantId, ParticipantPermission)] = Nil,
         removes: List[ParticipantId] = Nil,
         domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = Some(
@@ -1048,13 +1064,13 @@ class TopologyAdministrationGroupX(
 
       val (existingPermissions, newSerial) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOpX.Remove =>
-          (Map.empty[ParticipantId, ParticipantPermissionX], Some(current.context.serial.increment))
+          (Map.empty[ParticipantId, ParticipantPermission], Some(current.context.serial.increment))
         case Some(current) =>
           val currentPermissions =
             current.item.participants.map(p => p.participantId -> p.permission).toMap
           (currentPermissions, Some(current.context.serial.increment))
         case None =>
-          (Map.empty[ParticipantId, ParticipantPermissionX], None)
+          (Map.empty[ParticipantId, ParticipantPermission], None)
       }
 
       val newPermissions = new PartyToParticipantComputations(loggerFactory)
@@ -1105,7 +1121,7 @@ class TopologyAdministrationGroupX(
       """)
     def propose(
         party: PartyId,
-        newParticipants: Seq[(ParticipantId, ParticipantPermissionX)],
+        newParticipants: Seq[(ParticipantId, ParticipantPermission)],
         threshold: PositiveInt = PositiveInt.one,
         domainId: Option[DomainId] = None,
         signedBy: Option[Fingerprint] = Some(
@@ -1165,7 +1181,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParty: String = "",
         filterParticipant: String = "",
@@ -1195,7 +1211,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         // TODO(#14048) should be filterDomain and filterParticipant
         filterUid: String = "",
@@ -1291,7 +1307,6 @@ class TopologyAdministrationGroupX(
         domainId: the target domain
         participantId: the participant whose permissions should be changed
         permission: the participant's permission
-        trustLevel: the participant's trust level
         loginAfter: the earliest time a participant may connect to the domain
         limits: domain limits for this participant
 
@@ -1312,8 +1327,7 @@ class TopologyAdministrationGroupX(
     def propose(
         domainId: DomainId,
         participantId: ParticipantId,
-        permission: ParticipantPermissionX,
-        trustLevel: TrustLevelX = TrustLevelX.Ordinary,
+        permission: ParticipantPermission,
         loginAfter: Option[CantonTimestamp] = None,
         limits: Option[ParticipantDomainLimits] = None,
         synchronize: Option[NonNegativeDuration] = Some(
@@ -1328,7 +1342,6 @@ class TopologyAdministrationGroupX(
           domainId = domainId,
           participantId = participantId,
           permission = permission,
-          trustLevel = trustLevel,
           limits = limits,
           loginAfter = loginAfter,
         ),
@@ -1344,7 +1357,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
@@ -1388,7 +1401,7 @@ class TopologyAdministrationGroupX(
         filterMember: String = instance.id.filterString,
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
@@ -1420,25 +1433,27 @@ class TopologyAdministrationGroupX(
         member: Member = instance.id.member,
         serial: Option[PositiveInt] = None,
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
     ): SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX] = {
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommandsX.Write.Propose(
-            TrafficControlStateX
-              .create(
-                domainId,
-                member,
-                newTotalTrafficAmount,
-              ),
-            signedBy = signedBy.toList,
-            serial = serial,
-            change = TopologyChangeOpX.Replace,
-            mustFullyAuthorize = true,
-            forceChange = false,
-            store = domainId.filterString,
-          )
-        )
-      }
+
+      val command = TopologyAdminCommandsX.Write.Propose(
+        TrafficControlStateX
+          .create(
+            domainId,
+            member,
+            newTotalTrafficAmount,
+          ),
+        signedBy = signedBy.toList,
+        serial = serial,
+        change = TopologyChangeOpX.Replace,
+        mustFullyAuthorize = true,
+        forceChange = false,
+        store = domainId.filterString,
+      )
+
+      synchronisation.runAdminCommand(synchronize)(command)
     }
   }
 
@@ -1448,7 +1463,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterUid: String = "",
         filterSigningKey: String = "",
@@ -1652,7 +1667,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParticipant: String = "",
         filterSigningKey: String = "",
@@ -1709,28 +1724,31 @@ class TopologyAdministrationGroupX(
         //  let the grpc service figure out the right key to use, once that's implemented
         signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
         serial: Option[PositiveInt] = None,
-    ): SignedTopologyTransactionX[TopologyChangeOpX, AuthorityOfX] =
-      consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommandsX.Write.Propose(
-            AuthorityOfX(
-              partyId,
-              domainId,
-              PositiveInt.tryCreate(threshold),
-              parties,
-            ),
-            signedBy = signedBy.toList,
-            serial = serial,
-            store = store,
-            mustFullyAuthorize = mustFullyAuthorize,
-          )
-        )
-      }
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): SignedTopologyTransactionX[TopologyChangeOpX, AuthorityOfX] = {
+
+      val command = TopologyAdminCommandsX.Write.Propose(
+        AuthorityOfX(
+          partyId,
+          domainId,
+          PositiveInt.tryCreate(threshold),
+          parties,
+        ),
+        signedBy = signedBy.toList,
+        serial = serial,
+        store = store,
+        mustFullyAuthorize = mustFullyAuthorize,
+      )
+
+      synchronisation.runAdminCommand(synchronize)(command)
+    }
 
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterParty: String = "",
         filterSigningKey: String = "",
@@ -1758,7 +1776,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
@@ -1891,7 +1909,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
@@ -1968,7 +1986,7 @@ class TopologyAdministrationGroupX(
     def list(
         filterStore: String = "",
         proposals: Boolean = false,
-        timeQuery: TimeQueryX = TimeQueryX.HeadState,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
         filterDomain: String = "",
         filterSigningKey: String = "",
@@ -1996,7 +2014,7 @@ class TopologyAdministrationGroupX(
           list(
             filterStore = domainId.filterString,
             proposals = false,
-            timeQuery = TimeQueryX.HeadState,
+            timeQuery = TimeQuery.HeadState,
             operation = Some(TopologyChangeOpX.Replace),
             filterDomain = domainId.filterString,
           )
@@ -2024,6 +2042,8 @@ class TopologyAdministrationGroupX(
                exists, or if there is a gap between this serial and the most recently used serial.
                If None, the serial will be automatically selected by the node.
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       waitForParticipants: if synchronize is defined, the command will also wait until parameters have been propagated
+                            to the listed participants
        force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
     )
     def propose(
@@ -2038,13 +2058,18 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: Boolean = false,
     ): SignedTopologyTransactionX[TopologyChangeOpX, DomainParametersStateX] = { // TODO(#15815): Don't expose internal TopologyMappingX and TopologyChangeOpX classes
-      synchronisation.runAdminCommand(synchronize)(
+
+      val parametersInternal =
+        parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))
+
+      val res = synchronisation.runAdminCommand(synchronize)(
         TopologyAdminCommandsX.Write.Propose(
           DomainParametersStateX(
             domainId,
-            parameters.toInternal,
+            parametersInternal,
           ),
           signedBy.toList,
           serial = serial,
@@ -2053,6 +2078,37 @@ class TopologyAdministrationGroupX(
           forceChange = force,
         )
       )
+
+      def waitForParameters(ref: TopologyAdministrationGroup): Unit =
+        synchronize
+          .foreach(timeout =>
+            ConsoleMacros.utils.retry_until_true(timeout)(
+              {
+                // cannot use get_dynamic_domain_parameters, as this will throw if there are no prior parameters
+                val headState = ref.domain_parameters
+                  .list(
+                    filterStore = domainId.filterString,
+                    timeQuery = TimeQuery.HeadState,
+                    operation = Some(TopologyChangeOpX.Replace),
+                    filterDomain = domainId.filterString,
+                  )
+                  .map(r => ConsoleDynamicDomainParameters(r.item))
+
+                headState == Seq(parameters)
+              },
+              s"The dynamic domain parameters never became effective within $timeout",
+            )
+          )
+
+      waitForParameters(TopologyAdministrationGroup.this)
+      waitForParticipants
+        .filter(p =>
+          p.health.running() && p.health.initialized() && p.domains.is_connected(domainId)
+        )
+        .map(_.topology)
+        .foreach(waitForParameters)
+
+      res
     }
 
     @Help.Summary("Propose an update to dynamic domain parameters")
@@ -2066,6 +2122,8 @@ class TopologyAdministrationGroupX(
                            satisfy the mapping's authorization requirements.
        signedBy: the fingerprint of the key to be used to sign this proposal
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+       waitForParticipants: if synchronize is defined, the command will also wait until the update has been propagated
+                            to the listed participants
        force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
     )
     def propose_update(
@@ -2077,6 +2135,7 @@ class TopologyAdministrationGroupX(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: Boolean = false,
     ): Unit = {
       val domainStore = domainId.filterString
@@ -2101,16 +2160,19 @@ class TopologyAdministrationGroupX(
           signedBy,
           Some(previousParameters.context.serial.increment),
           synchronize,
+          waitForParticipants,
           force,
         ).discard
       }
     }
 
-    @Help.Summary("Update the participant response timeout in the dynamic domain parameters")
-    def set_participant_response_timeout(
+    @Help.Summary(
+      "Update the confirmation response timeout (for participants) in the dynamic domain parameters"
+    )
+    def set_confirmation_response_timeout(
         domainId: DomainId,
         timeout: config.NonNegativeFiniteDuration,
-    ): Unit = propose_update(domainId, _.update(participantResponseTimeout = timeout))
+    ): Unit = propose_update(domainId, _.update(confirmationResponseTimeout = timeout))
 
     @Help.Summary("Update the mediator reaction timeout in the dynamic domain parameters")
     def set_mediator_reaction_timeout(
@@ -2129,6 +2191,12 @@ class TopologyAdministrationGroupX(
         domainId: DomainId,
         delay: config.NonNegativeFiniteDuration,
     ): Unit = propose_update(domainId, _.update(topologyChangeDelay = delay))
+
+    @Help.Summary("Update the onboarding restrictions")
+    def set_onboarding_restrictions(
+        domainId: DomainId,
+        restriction: OnboardingRestriction,
+    ): Unit = propose_update(domainId, _.update(onboardingRestriction = restriction))
 
     @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
     @Help.Description(
@@ -2219,7 +2287,7 @@ class TopologyAdministrationGroupX(
           domainId.filterString,
           // We can't specify a lower bound in range because that would be compared against validFrom.
           // (But we need to compare to validUntil).
-          timeQuery = TimeQueryX.Range(None, None),
+          timeQuery = TimeQuery.Range(None, None),
         )
 
         // This serves as a lower bound of validFrom for the next topology transaction.
@@ -2302,11 +2370,13 @@ class TopologyAdministrationGroupX(
         interval: config.PositiveDurationSeconds,
     ): Unit = propose_update(domainId, _.update(reconciliationInterval = interval))
 
-    @Help.Summary("Update the maximum rate per participant in the dynamic domain parameters")
-    def set_max_rate_per_participant(
+    @Help.Summary(
+      "Update the maximum rate of confirmation requests per participant in the dynamic domain parameters"
+    )
+    def set_confirmation_requests_max_rate(
         domainId: DomainId,
         rate: NonNegativeInt,
-    ): Unit = propose_update(domainId, _.update(maxRatePerParticipant = rate))
+    ): Unit = propose_update(domainId, _.update(confirmationRequestsMaxRate = rate))
 
     @Help.Summary("Update the maximum request size in the dynamic domain parameters")
     @Help.Description(

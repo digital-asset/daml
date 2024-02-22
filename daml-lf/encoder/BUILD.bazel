@@ -11,7 +11,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "LF_VERSIONS",
+    "ENGINE_LF_VERSIONS",
     "lf_version_configuration",
     "lf_version_is_dev",
     "mangle_for_java",
@@ -45,7 +45,7 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":testing-dar-%s" % target for target in LF_VERSIONS],
+    data = [":testing-dar-%s" % target for target in ENGINE_LF_VERSIONS],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -63,7 +63,6 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/validation",
-        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -100,7 +99,7 @@ da_scala_binary(
             "src/test/lf/*_%s_*.lf" % target,
         ]),
     )
-    for target in LF_VERSIONS
+    for target in ENGINE_LF_VERSIONS
 ]
 
 [
@@ -112,7 +111,7 @@ da_scala_binary(
         tools = [":encoder_binary"],
         visibility = ["//visibility:public"],
     )
-    for target in LF_VERSIONS
+    for target in ENGINE_LF_VERSIONS
 ]
 
 [
@@ -122,10 +121,6 @@ da_scala_binary(
         args = [
             "$(location //daml-lf/repl:repl)",
             "$(location :testing-dar-%s)" % target,
-            "--v2" if version_in(
-                target,
-                v2_minor_version_range = ("0", "dev"),
-            ) else "",
             "--dev" if (lf_version_is_dev(target) or target == lf_version_configuration.get("preview")) else "",
         ],
         data = [
@@ -136,7 +131,7 @@ da_scala_binary(
             "@bazel_tools//tools/bash/runfiles",
         ],
     )
-    for target in LF_VERSIONS
+    for target in ENGINE_LF_VERSIONS
 ]
 
 [
@@ -176,6 +171,6 @@ EOF
 
 filegroup(
     name = "testing-dars",
-    srcs = ["testing-dar-%s" % version for version in LF_VERSIONS],
+    srcs = ["testing-dar-%s" % version for version in ENGINE_LF_VERSIONS],
     visibility = ["//visibility:public"],
 )

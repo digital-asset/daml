@@ -91,7 +91,7 @@ object DomainParametersLookup {
     new DynamicDomainParametersLookup(
       params =>
         SequencerDomainParameters(
-          params.maxRatePerParticipant,
+          params.confirmationRequestsMaxRate,
           overrideMaxRequestSize.map(MaxRequestSize).getOrElse(params.maxRequestSize),
         ),
       topologyClient,
@@ -102,7 +102,7 @@ object DomainParametersLookup {
   }
 
   final case class SequencerDomainParameters(
-      maxRatePerParticipant: NonNegativeInt,
+      confirmationRequestsMaxRate: NonNegativeInt,
       maxRequestSize: MaxRequestSize,
   )
 }

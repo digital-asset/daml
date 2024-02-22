@@ -15,7 +15,7 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceCommon,
+  InstanceReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 
 class SecretKeyAdministration(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     override protected val consoleEnvironment: ConsoleEnvironment,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -249,15 +249,7 @@ class SecretKeyAdministration(
       owner: Member,
   ): Seq[PublicKey] =
     topologyAdmin match {
-      case t: TopologyAdministrationGroup =>
-        t.owner_to_key_mappings
-          .list(
-            filterStore = AuthorizedStore.filterName,
-            filterKeyOwnerUid = owner.filterString,
-            filterKeyOwnerType = Some(owner.code),
-          )
-          .map(_.item.key)
-      case tx: TopologyAdministrationGroupX =>
+      case tx: TopologyAdministrationGroup =>
         tx.owner_to_key_mappings
           .list(
             filterStore = AuthorizedStore.filterName,
@@ -266,8 +258,9 @@ class SecretKeyAdministration(
           )
           .flatMap(_.item.keys)
       case _ =>
+        // TODO(#15161): Remove the match when flattening TopologyAdministrationGroup and Common
         throw new IllegalStateException(
-          "Impossible to encounter topology admin group besides X and non-X"
+          "Impossible to encounter topology admin group besides X"
         )
     }
 
@@ -469,7 +462,7 @@ class PublicKeyAdministration(
   @Help.Summary("List active owners with keys for given search arguments.")
   @Help.Description("""This command allows deep inspection of the topology state.
       |The response includes the public keys.
-      |Optional filterKeyOwnerType type can be 'ParticipantId.Code' , 'MediatorId.Code','SequencerId.Code', 'DomainTopologyManagerId.Code'.
+      |Optional filterKeyOwnerType type can be 'ParticipantId.Code' , 'MediatorId.Code','SequencerId.Code'.
       |""")
   def list_owners(
       filterKeyOwnerUid: String = "",
@@ -508,7 +501,7 @@ class PublicKeyAdministration(
 }
 
 class KeyAdministrationGroup(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
@@ -530,7 +523,7 @@ class KeyAdministrationGroup(
 }
 
 class LocalSecretKeyAdministration(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     crypto: => Crypto,
@@ -596,7 +589,7 @@ class LocalSecretKeyAdministration(
 }
 
 class LocalKeyAdministrationGroup(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     crypto: => Crypto,

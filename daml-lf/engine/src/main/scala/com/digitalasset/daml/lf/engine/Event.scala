@@ -35,7 +35,6 @@ final case class CreateEvent(
     templateId: Identifier,
     contractKey: Option[GlobalKeyWithMaintainers],
     argument: Value,
-    agreementText: String,
     signatories: Set[Party],
     observers: Set[Party],
     witnesses: Set[Party],

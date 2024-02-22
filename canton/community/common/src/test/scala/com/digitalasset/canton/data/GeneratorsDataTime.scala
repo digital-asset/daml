@@ -7,7 +7,7 @@ import org.scalacheck.{Arbitrary, Gen}
 
 import java.time.Duration
 
-final class GeneratorsDataTime() {
+object GeneratorsDataTime {
   private val tenYears: Duration = Duration.ofDays(365 * 10)
 
   implicit val cantonTimestampArb: Arbitrary[CantonTimestamp] = Arbitrary(

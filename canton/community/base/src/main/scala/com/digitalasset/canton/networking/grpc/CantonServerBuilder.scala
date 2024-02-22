@@ -9,7 +9,7 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.MetricHandle
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.*
 import io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
@@ -141,7 +141,7 @@ object CantonServerBuilder {
   def forConfig(
       config: ServerConfig,
       metricsPrefix: MetricName,
-      metricsFactory: MetricHandle.LabeledMetricsFactory,
+      metricsFactory: CantonLabeledMetricsFactory,
       executor: Executor,
       loggerFactory: NamedLoggerFactory,
       apiLoggingConfig: ApiLoggingConfig,
@@ -178,7 +178,7 @@ object CantonServerBuilder {
     import scala.jdk.CollectionConverters.*
     val s1 =
       GrpcSslContexts.forServer(config.certChainFile.unwrap, config.privateKeyFile.unwrap)
-    val s2 = config.protocols.fold(s1)(protocols => s1.protocols(protocols *))
+    val s2 = config.protocols.fold(s1)(protocols => s1.protocols(protocols*))
     config.ciphers.fold(s2)(ciphers => s2.ciphers(ciphers.asJava))
   }
 

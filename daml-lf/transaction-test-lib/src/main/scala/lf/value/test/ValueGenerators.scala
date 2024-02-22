@@ -16,7 +16,6 @@ import com.daml.lf.transaction.{
   TransactionVersion,
   Versioned,
   VersionedTransaction,
-  Util,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
@@ -29,9 +28,6 @@ import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 
 object ValueGenerators {
-
-  import TransactionVersion.minExceptions
-  import TransactionVersion.minInterfaces
 
   // generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
@@ -71,16 +67,13 @@ object ValueGenerators {
     segments <- Gen.listOfN(n, dottedNameSegmentGen)
   } yield DottedName.assertFromSegments(segments)
 
-  def pkgNameGen(version: TransactionVersion): Gen[Option[PackageName]] =
-    if (version < TransactionVersion.minUpgrade)
-      None
-    else
-      for {
-        n <- Gen.choose(1, 64)
-        pkgName <- Gen
-          .listOfN(n, Gen.alphaNumChar)
-          .map(s => PackageName.assertFromString(s.mkString))
-      } yield Some(pkgName)
+  val pkgNameGen: Gen[PackageName] =
+    for {
+      n <- Gen.choose(1, 64)
+      pkgName <- Gen
+        .listOfN(n, Gen.alphaNumChar)
+        .map(s => PackageName.assertFromString(s.mkString))
+    } yield pkgName
 
   // generate a junk identifier
   val idGen: Gen[Identifier] = for {
@@ -218,7 +211,6 @@ object ValueGenerators {
     dateGen.map(ValueDate),
     Gen.alphaStr.map(ValueText),
     unscaledNumGen.map(ValueNumeric),
-    numGen(Decimal.scale).map(ValueNumeric),
     arbitrary[Long].map(ValueInt64),
     Gen.alphaStr.map(ValueText),
     timestampGen.map(ValueTimestamp),
@@ -273,26 +265,17 @@ object ValueGenerators {
     for {
       template <- idGen
       arg <- versionedValueGen
-      pkgName <- pkgNameGen(arg.version)
+      pkgName <- pkgNameGen
     } yield arg.map(Value.ContractInstance(pkgName, template, _))
 
-  def keyWithMaintainersGen(
-      templateId: Ref.TypeConName,
-      version: TransactionVersion,
-  ): Gen[GlobalKeyWithMaintainers] = {
+  def keyWithMaintainersGen(templateId: TypeConName): Gen[GlobalKeyWithMaintainers] = {
     for {
       key <- valueGen()
       maintainers <- genNonEmptyParties
-      gkey = GlobalKey.build(templateId, key, Util.sharedKey(version)).toOption
+      gkey = GlobalKey.build(templateId, key).toOption
       if gkey.isDefined
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
-
-  val versionedContraactInstanceWithAgreement: Gen[Versioned[Value.ContractInstanceWithAgreement]] =
-    for {
-      coinst <- versionedContractInstanceGen
-      agrement <- Arbitrary.arbitrary[String]
-    } yield coinst.map(Value.ContractInstanceWithAgreement(_, agrement))
 
   /** Makes create nodes that violate the rules:
     *
@@ -300,7 +283,7 @@ object ValueGenerators {
     * 2. key's maintainers may not be a subset of signatories
     */
   def malformedCreateNodeGen(
-      minVersion: TransactionVersion = TransactionVersion.V14
+      minVersion: TransactionVersion = TransactionVersion.V31
   ): Gen[Node.Create] = {
     for {
       version <- transactionVersionGen(minVersion)
@@ -318,19 +301,17 @@ object ValueGenerators {
   ): Gen[Node.Create] =
     for {
       coid <- coidGen
-      packageName <- pkgNameGen(version)
+      packageName <- pkgNameGen
       templateId <- idGen
       arg <- valueGen()
-      agreement <- Arbitrary.arbitrary[String]
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, version))
+      key <- Gen.option(keyWithMaintainersGen(templateId))
     } yield Node.Create(
       coid = coid,
       packageName = packageName,
       templateId = templateId,
       arg = arg,
-      agreementText = agreement,
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = key,
@@ -346,12 +327,12 @@ object ValueGenerators {
   def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] =
     for {
       coid <- coidGen
-      pkgName <- pkgNameGen(version)
+      pkgName <- pkgNameGen
       templateId <- idGen
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, version))
+      key <- Gen.option(keyWithMaintainersGen(templateId))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
@@ -388,9 +369,9 @@ object ValueGenerators {
   ): Gen[Node.Exercise] =
     for {
       targetCoid <- coidGen
-      pkgName <- pkgNameGen(version)
+      pkgName <- pkgNameGen
       templateId <- idGen
-      interfaceId <- if (version < minInterfaces) Gen.const(None) else Gen.option(idGen)
+      interfaceId <- Gen.option(idGen)
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
@@ -404,9 +385,8 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(_.to(ImmArray))
-      exerciseResult <-
-        if (version < minExceptions) valueGen().map(Some(_)) else Gen.option(valueGen())
-      key <- Gen.option(keyWithMaintainersGen(templateId, version))
+      exerciseResult <- Gen.option(valueGen())
+      key <- Gen.option(keyWithMaintainersGen(templateId))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
@@ -432,9 +412,9 @@ object ValueGenerators {
     for {
       version <- transactionVersionGen()
       targetCoid <- coidGen
-      pkgName <- pkgNameGen(version)
+      pkgName <- pkgNameGen
       templateId <- idGen
-      key <- keyWithMaintainersGen(templateId, version)
+      key <- keyWithMaintainersGen(templateId)
       result <- Gen.option(targetCoid)
     } yield Node.LookupByKey(
       packageName = pkgName,
@@ -485,15 +465,11 @@ object ValueGenerators {
       )
     )
 
-  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] = {
-    if (version < minExceptions)
-      danglingRefGenActionNodeWithVersion(version)
-    else
-      Gen.frequency(
-        3 -> danglingRefGenActionNodeWithVersion(version),
-        1 -> refGenNode(danglingRefRollbackNodeGen),
-      )
-  }
+  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] =
+    Gen.frequency(
+      3 -> danglingRefGenActionNodeWithVersion(version),
+      1 -> refGenNode(danglingRefRollbackNodeGen),
+    )
 
   /** Aside from the invariants failed as listed under `malformedCreateNodeGen`,
     * resulting transactions may be malformed in several other ways:

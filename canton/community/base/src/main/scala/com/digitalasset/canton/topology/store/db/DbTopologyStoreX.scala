@@ -13,7 +13,6 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.DbStorage.SQLActionBuilderChain
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.topology.*
@@ -32,21 +31,14 @@ import com.digitalasset.canton.topology.transaction.TopologyTransactionX.{
   GenericTopologyTransactionX,
   TxHash,
 }
-import com.digitalasset.canton.topology.transaction.{
-  DomainTrustCertificateX,
-  MediatorDomainStateX,
-  PartyToParticipantX,
-  SignedTopologyTransactionX,
-  TopologyChangeOpX,
-  TopologyMappingX,
-  TopologyTransactionX,
-}
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import slick.jdbc.GetResult
+import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.canton.SQLActionBuilder
+import slick.jdbc.{GetResult, TransactionIsolation}
 import slick.sql.SqlStreamingAction
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,10 +48,9 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     val storeId: StoreId,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
-    override protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(100),
+    protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(100),
 )(implicit ec: ExecutionContext)
     extends TopologyStoreX[StoreId]
-    with DbTopologyStoreCommon[StoreId]
     with DbStore {
 
   import DbStorage.Implicits.BuilderChain.*
@@ -71,11 +62,6 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     SignedTopologyTransactionX.createGetResultDomainTopologyTransaction
 
   protected val transactionStoreIdName: LengthLimitedString = storeId.dbString
-
-  protected val updatingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("topology-store-x-update")
-  protected val readTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("topology-store-x-read")
 
   def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
@@ -173,7 +159,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     ) ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
 
     lazy val updateRemovals =
-      (sql"UPDATE topology_transactions_x SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
+      (sql"UPDATE topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
         transactionRemovals
           .intercalate(
             sql" OR "
@@ -192,19 +178,24 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         )
       )(additions)
 
-    updatingTime.event {
-      storage.update_(
-        DBIO.seq(
+    storage.update_(
+      DBIO
+        .seq(
           if (transactionRemovals.nonEmpty) updateRemovals else DBIO.successful(0),
-          if (additions.nonEmpty) insertAdditions else DBIO.successful(0),
-        ),
-        operationName = "update-topology-transactions",
-      )
-    }
+          if (additions.nonEmpty) insertAdditions
+          else DBIO.successful(0),
+        )
+        .transactionally
+        .withTransactionIsolation(TransactionIsolation.Serializable),
+      operationName = "update-topology-transactions",
+    )
+
   }
 
-  // TODO(#14048) only a temporary crutch to inspect the topology state
-  override def dumpStoreContent()(implicit traceContext: TraceContext): Unit = {
+  @VisibleForTesting
+  override protected[topology] def dumpStoreContent()(implicit
+      traceContext: TraceContext
+  ): Future[GenericStoredTopologyTransactionsX] = {
     // Helper case class to produce comparable output to the InMemoryStore
     case class TopologyStoreEntry(
         transaction: GenericSignedTopologyTransactionX,
@@ -215,8 +206,9 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     )
 
     val query =
-      sql"SELECT instance, sequenced, valid_from, valid_until, rejection_reason FROM topology_transactions_x WHERE store_id = $transactionStoreIdName ORDER BY id"
-    val entries = timeouts.io.await("dumpStoreContent")(readTime.event {
+      sql"SELECT instance, sequenced, valid_from, valid_until, rejection_reason FROM topology_transactions WHERE store_id = $transactionStoreIdName ORDER BY id"
+
+    val entriesF =
       storage
         .query(
           query.as[
@@ -239,18 +231,22 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
             rejectionReason,
           )
         })
-    })
 
-    logger.debug(
-      entries
-        .map(_.toString)
-        .mkString("Topology Store Content[", ", ", "]")
-    )
+    entriesF.map { entries =>
+      logger.debug(
+        entries
+          .map(_.toString)
+          .mkString("Topology Store Content[", ", ", "]")
+      )
+      StoredTopologyTransactionsX(
+        entries.map(e => StoredTopologyTransactionX(e.sequenced, e.from, e.until, e.transaction))
+      )
+    }
   }
 
   override def inspect(
       proposals: Boolean,
-      timeQuery: TimeQueryX,
+      timeQuery: TimeQuery,
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       typ: Option[TopologyMappingX.Code],
@@ -262,13 +258,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     logger.debug(s"Inspecting store for type=$typ, filter=$idFilter, time=$timeQuery")
 
     val timeFilter: SQLActionBuilderChain = timeQuery match {
-      case TimeQueryX.HeadState =>
+      case TimeQuery.HeadState =>
         getHeadStateQuery(recentTimestampO)
-      case TimeQueryX.Snapshot(asOf) =>
+      case TimeQuery.Snapshot(asOf) =>
         asOfQuery(asOf = asOf, asOfInclusive = false)
-      case TimeQueryX.Range(None, None) =>
+      case TimeQuery.Range(None, None) =>
         sql"" // The case below inserts an additional `AND` that we don't want
-      case TimeQueryX.Range(from, until) =>
+      case TimeQuery.Range(from, until) =>
         sql" AND " ++ ((from.toList.map(ts => sql"valid_from >= $ts") ++ until.toList.map(ts =>
           sql"valid_from <= $ts"
         ))
@@ -449,17 +445,16 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   override def bootstrap(snapshot: GenericStoredTopologyTransactionsX)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = updatingTime.event {
+  ): Future[Unit] =
     // inserts must not be processed in parallel to keep the insertion order (as indicated by the `id` column)
     // in sync with the monotonicity of sequenced
     performBatchedDbOperation(snapshot.result, "bootstrap", processInParallel = false) { txs =>
       insertSignedTransaction[GenericStoredTopologyTransactionX](TransactionEntry.fromStoredTx)(txs)
     }
-  }
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change]] = {
+  ): Future[Seq[TopologyStoreX.Change]] = {
     logger.debug(s"Querying upcoming effective changes as of $asOfInclusive")
 
     queryForTransactions(
@@ -494,19 +489,21 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   }
 
   override def findStored(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericSignedTopologyTransactionX,
       includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): Future[Option[GenericStoredTopologyTransactionX]] = {
-    logger.debug(s"Querying for transaction $transaction")
+    logger.debug(s"Querying for transaction at $asOfExclusive: $transaction")
 
-    findStoredSql(transaction.transaction, includeRejected = includeRejected).map(
+    findStoredSql(asOfExclusive, transaction.transaction, includeRejected = includeRejected).map(
       _.result.lastOption
     )
   }
 
   override def findStoredForVersion(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransactionX,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -517,6 +514,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     logger.debug(s"Querying for transaction $transaction with protocol version $protocolVersion")
 
     findStoredSql(
+      asOfExclusive,
       transaction,
       subQuery = sql" AND representative_protocol_version = ${rpv.representative}",
     ).map(_.result.lastOption)
@@ -587,15 +585,18 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       }
     }
 
+    // TODO(#14061): Decide whether we want additional indices by mapping_key_hash and tx_hash (e.g. for update/removal and lookups)
+    // TODO(#14061): Come up with columns/indexing for efficient ParticipantId => Seq[PartyId] lookup
+    // TODO(#12390) should mapping_key_hash rather be tx_hash?
     storage.profile match {
       case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-        (sql"""INSERT INTO topology_transactions_x (store_id, sequenced, valid_from, valid_until, transaction_type, namespace,
+        (sql"""INSERT INTO topology_transactions (store_id, sequenced, valid_from, valid_until, transaction_type, namespace,
                   identifier, mapping_key_hash, serial_counter, operation, instance, tx_hash, is_proposal, rejection_reason, representative_protocol_version, hash_of_signatures) VALUES""" ++
           transactions
             .map(sqlTransactionParameters)
             .toList
             .intercalate(sql", ")
-          ++ sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on topology_transactions_x unique constraint
+          ++ sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on topology_transactions unique constraint
         ).asUpdate
       case _: DbStorage.Profile.Oracle =>
         throw new IllegalStateException("Oracle not supported by daml 3.0/X yet")
@@ -693,6 +694,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   }
 
   private def findStoredSql(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransactionX,
       subQuery: SQLActionBuilder = sql"",
       includeRejected: Boolean = false,
@@ -701,9 +703,10 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   ): Future[GenericStoredTopologyTransactionsX] = {
     val mapping = transaction.mapping
     queryForTransactions(
-      // Query for leading fields of `topology_transactions_x_idx` to enable use of this index
+      // Query for leading fields of `topology_transactions_idx` to enable use of this index
       sql" AND transaction_type = ${mapping.code} AND namespace = ${mapping.namespace} AND identifier = ${mapping.maybeUid
           .fold(String185.empty)(_.id.toLengthLimitedString)}"
+        ++ sql" AND valid_from < $asOfExclusive"
         ++ sql" AND mapping_key_hash = ${mapping.uniqueKey.hash.toLengthLimitedHexString}"
         ++ sql" AND serial_counter = ${transaction.serial}"
         ++ sql" AND tx_hash = ${transaction.hash.hash.toLengthLimitedHexString}"
@@ -724,33 +727,100 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactionsX] = {
     val query =
-      sql"SELECT instance, sequenced, valid_from, valid_until FROM topology_transactions_x WHERE store_id = $transactionStoreIdName" ++
+      sql"SELECT instance, sequenced, valid_from, valid_until FROM topology_transactions WHERE store_id = $transactionStoreIdName" ++
         subQuery ++ (if (!includeRejected) sql" AND rejection_reason IS NULL"
                      else sql"") ++ sql" #${orderBy} #${limit}"
-    readTime.event {
-      storage
-        .query(
-          query.as[
-            (
-                GenericSignedTopologyTransactionX,
-                CantonTimestamp,
-                CantonTimestamp,
-                Option[CantonTimestamp],
-            )
-          ],
-          s"$functionFullName-$operation",
-        )
-        .map(_.map { case (tx, sequencedTs, validFrom, validUntil) =>
-          StoredTopologyTransactionX(
-            SequencedTime(sequencedTs),
-            EffectiveTime(validFrom),
-            validUntil.map(EffectiveTime(_)),
-            tx,
+    storage
+      .query(
+        query.as[
+          (
+              GenericSignedTopologyTransactionX,
+              CantonTimestamp,
+              CantonTimestamp,
+              Option[CantonTimestamp],
           )
-        })
-        .map(StoredTopologyTransactionsX(_))
-    }
+        ],
+        s"$functionFullName-$operation",
+      )
+      .map(_.map { case (tx, sequencedTs, validFrom, validUntil) =>
+        StoredTopologyTransactionX(
+          SequencedTime(sequencedTs),
+          EffectiveTime(validFrom),
+          validUntil.map(EffectiveTime(_)),
+          tx,
+        )
+      })
+      .map(StoredTopologyTransactionsX(_))
   }
+
+  override def currentDispatchingWatermark(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] = {
+    val query =
+      sql"SELECT watermark_ts FROM topology_dispatching WHERE store_id =$transactionStoreIdName"
+        .as[CantonTimestamp]
+        .headOption
+    storage.query(query, functionFullName)
+
+  }
+
+  override def updateDispatchingWatermark(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    val query = storage.profile match {
+      case _: DbStorage.Profile.Postgres =>
+        sqlu"""insert into topology_dispatching (store_id, watermark_ts)
+                    VALUES ($transactionStoreIdName, $timestamp)
+                 on conflict (store_id) do update
+                  set
+                    watermark_ts = $timestamp
+                 """
+      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
+        sqlu"""merge into topology_dispatching
+                  using dual
+                  on (store_id = $transactionStoreIdName)
+                  when matched then
+                    update set
+                       watermark_ts = $timestamp
+                  when not matched then
+                    insert (store_id, watermark_ts)
+                    values ($transactionStoreIdName, $timestamp)
+                 """
+    }
+    storage.update_(query, functionFullName)
+
+  }
+
+  protected def asOfQuery(asOf: CantonTimestamp, asOfInclusive: Boolean): SQLActionBuilder =
+    if (asOfInclusive)
+      sql" AND valid_from <= $asOf AND (valid_until is NULL OR $asOf < valid_until)"
+    else
+      sql" AND valid_from < $asOf AND (valid_until is NULL OR $asOf <= valid_until)"
+
+  protected def getHeadStateQuery(
+      recentTimestampO: Option[CantonTimestamp]
+  ): SQLActionBuilderChain = recentTimestampO match {
+    case Some(value) => asOfQuery(value, asOfInclusive = false)
+    case None => sql" AND valid_until is NULL"
+  }
+
+  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+  protected def andIdFilter(
+      previousFilter: SQLActionBuilderChain,
+      idFilter: String,
+      namespaceOnly: Boolean,
+  ): SQLActionBuilderChain = if (idFilter.isEmpty) previousFilter
+  else if (namespaceOnly) {
+    previousFilter ++ sql" AND namespace LIKE ${idFilter + "%"}"
+  } else {
+    val (prefix, suffix) = UniqueIdentifier.splitFilter(idFilter, "%")
+    val tmp = previousFilter ++ sql" AND identifier like $prefix "
+    if (suffix.sizeCompare(1) > 0) {
+      tmp ++ sql" AND namespace like $suffix "
+    } else
+      tmp
+  }
+
 }
 
 // Helper case class to hold StoredTopologyTransactionX-fields in update() providing umbrella

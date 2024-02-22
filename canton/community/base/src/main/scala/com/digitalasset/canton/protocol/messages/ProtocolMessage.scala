@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v4
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.{
@@ -34,7 +34,7 @@ trait ProtocolMessage
 
 /** Marker trait for [[ProtocolMessage]]s that are not a [[SignedProtocolMessage]] */
 trait UnsignedProtocolMessage extends ProtocolMessage {
-  protected[messages] def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent
+  protected[messages] def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent
 }
 
 object ProtocolMessage {

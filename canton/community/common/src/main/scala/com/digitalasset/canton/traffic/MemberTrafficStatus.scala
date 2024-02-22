@@ -5,7 +5,7 @@ package com.digitalasset.canton.traffic
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.admin.traffic.v0.MemberTrafficStatus as MemberTrafficStatusP
+import com.digitalasset.canton.admin.traffic.v30.MemberTrafficStatus as MemberTrafficStatusP
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -17,19 +17,19 @@ final case class MemberTrafficStatus(
     trafficState: SequencedEventTrafficState,
     currentAndFutureTopUps: List[TopUpEvent],
 ) {
-  def toProtoV0: MemberTrafficStatusP = {
+  def toProtoV30: MemberTrafficStatusP = {
     MemberTrafficStatusP(
       member.toProtoPrimitive,
       trafficState.extraTrafficLimit.map(_.value),
       trafficState.extraTrafficConsumed.value,
-      currentAndFutureTopUps.map(_.toProtoV0),
+      currentAndFutureTopUps.map(_.toProtoV30),
       Some(timestamp.toProtoPrimitive),
     )
   }
 }
 
 object MemberTrafficStatus {
-  def fromProtoV0(
+  def fromProtoV30(
       trafficStatusP: MemberTrafficStatusP
   ): Either[ProtoDeserializationError, MemberTrafficStatus] = {
     for {
@@ -46,7 +46,7 @@ object MemberTrafficStatus {
       totalExtraTrafficRemainder <- ProtoConverter.parseNonNegativeLong(
         totalExtraTrafficLimitOpt.map(_.value - totalExtraTrafficConsumed.value).getOrElse(0L)
       )
-      topUps <- trafficStatusP.topUpEvents.toList.traverse(TopUpEvent.fromProtoV0)
+      topUps <- trafficStatusP.topUpEvents.toList.traverse(TopUpEvent.fromProtoV30)
       ts <- ProtoConverter.parseRequired(
         CantonTimestamp.fromProtoPrimitive,
         "ts",

@@ -145,8 +145,8 @@ class DecentralizedNamespaceAuthorizationGraphXTest
         Seq(key1, key2, key3)
           .combinations(decentralizedNamespaceDefinition.threshold.value)
           .foreach { keys =>
-            check(graph, requireRoot = false, valid = true)(keys *)
-            check(graph, requireRoot = true, valid = true)(keys *)
+            check(graph, requireRoot = false, valid = true)(keys*)
+            check(graph, requireRoot = true, valid = true)(keys*)
           }
       }
       "support longer chains" in {

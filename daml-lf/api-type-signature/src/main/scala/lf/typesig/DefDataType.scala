@@ -12,17 +12,7 @@ import scalaz.syntax.semigroup._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.map._
 import scalaz.syntax.std.option._
-import scalaz.{
-  Applicative,
-  Bifunctor,
-  Bitraverse,
-  Bifoldable,
-  Foldable,
-  Functor,
-  Monoid,
-  Semigroup,
-  Traverse,
-}
+import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import scalaz.Tags.FirstVal
 import java.{util => j}
 
@@ -213,29 +203,6 @@ final case class DefTemplate[+Ty](
   }
 
   def getKey: j.Optional[_ <: Ty] = key.toJava
-
-  private[typesig] def extendWithInterface[OTy >: Ty](
-      ifaceName: Ref.TypeConName,
-      ifc: DefInterface[OTy],
-  ): DefTemplate[OTy] = {
-    import TemplateChoices.{Resolved, Unresolved}
-    copy(
-      implementedInterfaces = implementedInterfaces :+ ifaceName,
-      tChoices = tChoices match {
-        case unr @ Unresolved(_, sources) =>
-          unr.copy(unresolvedChoiceSources = sources incl ifaceName)
-        // If unresolved, we need only add ifc as a future interface to resolve;
-        // otherwise, we must self-resolve and add to preexisting resolutions
-        case r @ Resolved(rc) =>
-          type K[C] = Semigroup[Resolved.Choices[C]]
-          r.copy(resolvedChoices =
-            FirstVal
-              .unsubst[K, TemplateChoice[OTy]](Semigroup.apply)
-              .append(rc, ifc choicesAsResolved ifaceName)
-          )
-      },
-    )
-  }
 }
 
 object DefTemplate {
@@ -315,14 +282,16 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
-      type ResolutionResult[C] = (Set[Ref.TypeConName], Resolved.Choices[C])
+      type ResolutionResult[C] =
+        (Set[Ref.TypeConName], Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]])
       val (missing, resolved): ResolutionResult[TemplateChoice[O]] =
         FirstVal.unsubst[ResolutionResult, TemplateChoice[O]](
           unresolved.forgetNE
             .foldMap { tcn =>
               getAstInterface(tcn).cata(
                 { astIf =>
-                  val tcnResolved = astIf choicesAsResolved tcn
+                  val tcnResolved =
+                    astIf.choices.transform((_, tc) => NonEmpty(Map, some(tcn) -> tc))
                   FirstVal.subst[ResolutionResult, TemplateChoice[O]](
                     Set.empty[Ref.TypeConName],
                     tcnResolved,
@@ -381,11 +350,6 @@ object TemplateChoices {
   object Resolved {
     private[daml] def fromDirect[Ty](directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]) =
       Resolved(directAsResolved(directChoices))
-
-    // choice type abstracted over the TemplateChoice, for specifying
-    // aggregation of choices (typically with tags, foldMap, semigroup)
-    private[typesig] type Choices[C] =
-      Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
   }
 
   implicit val `TemplateChoices traverse`: Traverse[TemplateChoices] = new Traverse[TemplateChoices]
@@ -424,37 +388,13 @@ object TemplateChoice {
 }
 
 /** @param choices Choices of this interface, indexed by name
-  * @param retroImplements IDs of templates that implement this interface, upon
-  *                        introduction of this interface into the environment
   */
 final case class DefInterface[+Ty](
     choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-    retroImplements: Set[Ref.TypeConName],
     viewType: Option[Ref.TypeConName],
 ) {
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
-
-  // Restructure `choices` in the resolved-choices data structure format,
-  // for aggregation with [[TemplateChoices.Resolved]].
-  private[typesig] def choicesAsResolved[Name](
-      selfName: Name
-  ): Map[Ref.ChoiceName, NonEmpty[Map[Option[Name], TemplateChoice[Ty]]]] =
-    choices transform ((_, tc) => NonEmpty(Map, some(selfName) -> tc))
-
-  private[typesig] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
-      setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate[OTy]]
-  ): (S, DefInterface[OTy]) = {
-    def addMySelf(dt: DefTemplate[OTy]) =
-      dt.extendWithInterface(selfName, this)
-
-    retroImplements
-      .foldLeft((s, retroImplements)) { (sr, tplName) =>
-        val (s, remaining) = sr
-        setTemplate(s, tplName).cata(setter => (setter(addMySelf), remaining - tplName), sr)
-      }
-      .map(remaining => copy(retroImplements = remaining))
-  }
 }
 
 object DefInterface extends FWTLike[DefInterface] {

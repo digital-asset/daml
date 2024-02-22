@@ -12,11 +12,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.RecipientsInfo
-import com.digitalasset.canton.protocol.messages.{
-  EncryptedView,
-  EncryptedViewMessage,
-  RootHashMessageRecipients,
-}
+import com.digitalasset.canton.protocol.messages.{EncryptedView, EncryptedViewMessage}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
@@ -29,15 +25,6 @@ import com.google.protobuf.ByteString
 import scala.concurrent.{ExecutionContext, Future}
 
 object EncryptedViewMessageFactory {
-
-  private final case class EncryptedViewMessageCommon[VT <: ViewType](
-      symmetricViewKeyRandomness: SecureRandomness,
-      symmetricViewKey: SymmetricKey,
-      recipientsInfo: RecipientsInfo,
-      usingGroupAddressing: Boolean,
-      signature: Option[Signature],
-      encryptedView: EncryptedView[VT],
-  )
 
   def create[VT <: ViewType](viewType: VT)(
       viewTree: viewType.View,
@@ -66,47 +53,18 @@ object EncryptedViewMessageFactory {
       EitherT.fromEither[Future](value)
 
     def getRecipientInfo: EitherT[Future, UnableToDetermineParticipant, RecipientsInfo] = {
-      RootHashMessageRecipients
-        .encryptedViewMessageRecipientsInfo(
-          cryptoSnapshot.ipsSnapshot,
-          informeeParties,
-        )
-        .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.domainId))
-    }
-
-    // creates encrypted view message common elements between versions
-    def createEVMCommon()
-        : EitherT[Future, EncryptedViewMessageCreationError, EncryptedViewMessageCommon[VT]] =
       for {
-        symmetricViewKeyRandomness <- eitherT(
-          cryptoPureApi
-            .computeHkdf(randomness.unwrap, viewKeyLength, HkdfInfo.ViewKey)
-            .leftMap(FailedToExpandKey)
+        informeeParticipants <- cryptoSnapshot.ipsSnapshot
+          .activeParticipantsOfAll(informeeParties)
+          .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.domainId))
+        partiesWithGroupAddressing <- EitherT.right(
+          cryptoSnapshot.ipsSnapshot.partiesWithGroupAddressing(informeeParties)
         )
-        symmetricViewKey <- eitherT(
-          cryptoPureApi
-            .createSymmetricKey(symmetricViewKeyRandomness, viewEncryptionScheme)
-            .leftMap(FailedToCreateEncryptionKey)
-        )
-        recipientsInfo <- getRecipientInfo
-        usingGroupAddressing = recipientsInfo.partiesWithGroupAddressing.nonEmpty
-        signature <- viewTree.toBeSigned
-          .parTraverse(rootHash =>
-            cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage)
-          )
-        encryptedView <- eitherT(
-          EncryptedView
-            .compressed[VT](cryptoPureApi, symmetricViewKey, viewType, protocolVersion)(viewTree)
-            .leftMap(FailedToEncryptViewMessage)
-        )
-      } yield EncryptedViewMessageCommon(
-        symmetricViewKeyRandomness,
-        symmetricViewKey,
-        recipientsInfo,
-        usingGroupAddressing,
-        signature,
-        encryptedView,
+      } yield RecipientsInfo(
+        informeeParticipants = informeeParticipants,
+        doNotEncrypt = partiesWithGroupAddressing.nonEmpty,
       )
+    }
 
     def generateAndEncryptSessionKeyRandomness(
         recipients: NonEmpty[Set[ParticipantId]]
@@ -169,15 +127,20 @@ object EncryptedViewMessageFactory {
               for {
                 // check that that all recipients are represented in the message, in other words,
                 // that at least one of their active public keys is present in the sequence `encryptedSessionKeys`
-                checkActiveParticipantKeys <- recipients.forgetNE.toSeq
-                  .parTraverse(member =>
-                    EitherT.right[EncryptedViewMessageCreationError](
+                checkActiveParticipantKeys <-
+                  EitherT
+                    .right[EncryptedViewMessageCreationError](
                       cryptoSnapshot.ipsSnapshot
-                        .encryptionKeys(member)
-                        .map(_.exists(key => allPubKeysIdsInMessage.contains(key.id)))
+                        .encryptionKeys(recipients.forgetNE.toSeq)
+                        .map { memberToKeysMap =>
+                          recipients.map(recipient =>
+                            memberToKeysMap
+                              .getOrElse(recipient, Seq.empty)
+                              .exists(key => allPubKeysIdsInMessage.contains(key.id))
+                          )
+                        }
                     )
-                  )
-                  .map(_.forall(_ == true))
+                    .map(_.forall(_ == true))
                 // all public keys used to encrypt the session key must be present and active for each recipient
                 sessionKeyData <-
                   if (checkActiveParticipantKeys)
@@ -200,11 +163,13 @@ object EncryptedViewMessageFactory {
       } yield sessionKeyAndMap
 
     def createEncryptedViewMessage(
-        evmCommon: EncryptedViewMessageCommon[VT]
+        recipientsInfo: RecipientsInfo,
+        signature: Option[Signature],
+        encryptedView: EncryptedView[VT],
     ): EitherT[Future, EncryptedViewMessageCreationError, EncryptedViewMessage[VT]] =
-      (if (!evmCommon.usingGroupAddressing) {
+      (if (!recipientsInfo.doNotEncrypt) {
          for {
-           sessionKeyAndRandomnessMap <- getSessionKey(evmCommon.recipientsInfo)
+           sessionKeyAndRandomnessMap <- getSessionKey(recipientsInfo)
            (sessionKey, sessionKeyRandomnessMap) = sessionKeyAndRandomnessMap
            sessionKeyRandomnessMapNE <- EitherT.fromEither[Future](
              NonEmpty
@@ -239,16 +204,14 @@ object EncryptedViewMessageFactory {
          )
        }).map { case (randomnessV2, sessionKeyMap) =>
         EncryptedViewMessage[VT](
-          evmCommon.signature,
+          signature,
           viewTree.viewHash,
           randomnessV2,
           sessionKeyMap,
-          evmCommon.encryptedView,
+          encryptedView,
           viewTree.domainId,
           viewEncryptionScheme,
           protocolVersion,
-        )(
-          Some(evmCommon.recipientsInfo)
         )
       }
 
@@ -262,9 +225,27 @@ object EncryptedViewMessageFactory {
       )
 
     for {
-      evmCommon <- createEVMCommon()
-      message <- createEncryptedViewMessage(evmCommon)
-
+      symmetricViewKeyRandomness <- eitherT(
+        cryptoPureApi
+          .computeHkdf(randomness.unwrap, viewKeyLength, HkdfInfo.ViewKey)
+          .leftMap(FailedToExpandKey)
+      )
+      symmetricViewKey <- eitherT(
+        cryptoPureApi
+          .createSymmetricKey(symmetricViewKeyRandomness, viewEncryptionScheme)
+          .leftMap(FailedToCreateEncryptionKey)
+      )
+      recipientsInfo <- getRecipientInfo
+      signature <- viewTree.toBeSigned
+        .parTraverse(rootHash =>
+          cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage)
+        )
+      encryptedView <- eitherT(
+        EncryptedView
+          .compressed[VT](cryptoPureApi, symmetricViewKey, viewType, protocolVersion)(viewTree)
+          .leftMap(FailedToEncryptViewMessage)
+      )
+      message <- createEncryptedViewMessage(recipientsInfo, signature, encryptedView)
     } yield message
   }
 
@@ -274,23 +255,20 @@ object EncryptedViewMessageFactory {
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
       version: ProtocolVersion,
   )(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      tc: TraceContext,
   ): EitherT[Future, EncryptedViewMessageCreationError, Map[
     ParticipantId,
     AsymmetricEncrypted[M],
   ]] =
-    participants
-      .parTraverse { participant =>
-        cryptoSnapshot
-          .encryptFor(data, participant, version)
-          .bimap(
-            UnableToDetermineKey(
-              participant,
-              _,
-              cryptoSnapshot.domainId,
-            ): EncryptedViewMessageCreationError,
-            participant -> _,
-          )
+    cryptoSnapshot
+      .encryptFor(data, participants, version)
+      .leftMap { case (member, error) =>
+        UnableToDetermineKey(
+          member,
+          error,
+          cryptoSnapshot.domainId,
+        ): EncryptedViewMessageCreationError
       }
       .map(_.toMap)
 

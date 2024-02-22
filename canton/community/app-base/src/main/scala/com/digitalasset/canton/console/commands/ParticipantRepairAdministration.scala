@@ -8,7 +8,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
 }
-import com.digitalasset.canton.admin.participant.v0.{ExportAcsRequest, ExportAcsResponse}
+import com.digitalasset.canton.admin.participant.v30.{ExportAcsRequest, ExportAcsResponse}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
@@ -108,24 +108,41 @@ class ParticipantRepairAdministration(
         |Such ACS export (and import) is interesting for recovery and operational purposes only.
         |Note that the 'export_acs' command execution may take a long time to complete and may require significant
         |resources.
+        |
+        |
+
+        |The arguments are:
+        |- parties: identifying contracts having at least one stakeholder from the given set
+        |- partiesOffboarding: true if the parties will be offboarded (party migration)
+        |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a  compressed file (recommended)
+        |- filterDomainId: restrict the export to a given domain
+        |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
+        |- contractDomainRenames: As part of the export, allow to rename the associated domain id of contracts from one domain to another based on the mapping.
+        |- force: if is set to true, then the check that the timestamp is clean will not be done.
+        |         For this option to yield a consistent snapshot, you need to wait at least
+        |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
         """
   )
   def export_acs(
       parties: Set[PartyId],
+      partiesOffboarding: Boolean,
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       filterDomainId: Option[DomainId] = None,
       timestamp: Option[Instant] = None,
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)] = Map.empty,
+      force: Boolean = false,
   ): Unit = {
     check(FeatureFlag.Repair) {
       val collector = AcsSnapshotFileCollector[ExportAcsRequest, ExportAcsResponse](outputFile)
       val command = ParticipantAdminCommands.ParticipantRepairManagement
         .ExportAcs(
           parties,
+          partiesOffboarding = partiesOffboarding,
           filterDomainId,
           timestamp,
           collector.observer,
           contractDomainRenames,
+          force = force,
         )
       collector.materializeFile(command)
     }
@@ -186,19 +203,41 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This command imports contracts from an ACS snapshot file into the participant's ACS.
         |The given ACS snapshot file needs to be the resulting file from a previous 'export_acs' command invocation.
+        |
+        |The contract IDs of the imported contracts will be checked ahead of starting the process. If any contract
+        |ID doesn't match the contract ID scheme associated to the domain where the contract is assigned to, the
+        |whole import process will fail depending on the value of `allowContractIdSuffixRecomputation`.
+        |
+        |By default `allowContractIdSuffixRecomputation` is set to `false`. If set to `true`, any contract ID
+        |that wouldn't pass the check above will be recomputed. Note that the recomputation of contract IDs will
+        |fail under the following circumstances:
+        | - the contract salt used to compute the contract ID is missing
+        | - the contract ID discriminator version is unknown
+        | - an imported contract references the ID of a contract which is missing from the import
+        |
+        |Note that only the Canton-specific contract ID suffix will be recomputed. The discriminator cannot be
+        |recomputed and will be left as is.
+        |
+        |The last requirement means that the import process will fail if you try to import a contract without the
+        |contract ID it references in its payload being present in the import (this is because the contract ID
+        |requires the payload of the contract to exist in order compute the contract ID for it).
+        |
+        |If the import process succeeds, the mapping from the old contract IDs to the new contract IDs will be returned.
+        |An empty map means that all contract IDs were valid and no contract ID was recomputed.
         """
   )
   def import_acs(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       workflowIdPrefix: String = "",
-  ): Unit = {
+      allowContractIdSuffixRecomputation: Boolean = false,
+  ): Map[LfContractId, LfContractId] = {
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
             ByteString.copyFrom(File(inputFile).loadBytes),
-            if (workflowIdPrefix.nonEmpty) workflowIdPrefix
-            else s"import-${UUID.randomUUID}",
+            if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
+            allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
           )
         )
       }
@@ -269,28 +308,28 @@ abstract class LocalParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary("Move contracts with specified Contract IDs from one domain to another.")
+  @Help.Summary("Change assignation of contracts from one domain to another.")
   @Help.Description(
     """This is a last resort command to recover from data corruption in scenarios in which a domain is
-        |irreparably broken and formerly connected participants need to move contracts to another, healthy domain.
-        |The participant needs to be disconnected from both the "sourceDomain" and the "targetDomain". Also as of now
-        |the target domain cannot have had any inflight requests.
-        |Contracts already present in the target domain will be skipped, and this makes it possible to invoke this
+        |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
+        |healthy domain. The participant needs to be disconnected from both the "sourceDomain" and the "targetDomain".
+        |The target domain cannot have had any inflight requests.
+        |Contracts already assigned to the target domain will be skipped, and this makes it possible to invoke this
         |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
-        |The "skipInactive" flag makes it possible to only move active contracts in the "sourceDomain".
+        |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceDomain".
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of
         |contract ids passed in. Be sure to not connect the participant to either domain until the call returns.
 
         Arguments:
-        - contractIds - set of contract ids that should be moved to the new domain
+        - contractIds - set of contract ids that should change assignation to the new domain
         - sourceDomain - alias of the source domain
         - targetDomain - alias of the target domain
         - skipInactive - (default true) whether to skip inactive contracts mentioned in the contractIds list
         - batchSize - (default 100) how many contracts to write at once to the database"""
   )
-  def change_domain(
+  def change_assignation(
       contractIds: Seq[LfContractId],
       sourceDomain: DomainAlias,
       targetDomain: DomainAlias,
@@ -299,7 +338,7 @@ abstract class LocalParticipantRepairAdministration(
   ): Unit =
     runRepairCommand(tc =>
       access(
-        _.sync.repairService.changeDomainAwait(
+        _.sync.repairService.changeAssignationAwait(
           contractIds,
           sourceDomain,
           targetDomain,
@@ -364,6 +403,5 @@ abstract class LocalParticipantRepairAdministration(
 }
 
 object ParticipantRepairAdministration {
-  private val DefaultFile = "canton-acs-snapshot.gz"
   private val ExportAcsDefaultFile = "canton-acs-export.gz"
 }

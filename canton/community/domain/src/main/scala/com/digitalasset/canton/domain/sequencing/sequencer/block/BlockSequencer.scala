@@ -9,23 +9,23 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.PeanoQueue.NotInserted
 import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.{
-  BlockSequencerStateManager,
+  BlockSequencerStateManagerBase,
   BlockUpdateGenerator,
   RawLedgerBlock,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.EventSource
+import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
-  OperationError,
   RegisterMemberError,
   SequencerWriteError,
 }
@@ -33,34 +33,29 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.{
-  BaseSequencer,
-  PruningError,
-  PruningSupportError,
-  SequencerHealthConfig,
-  SequencerSnapshot,
-  SequencerValidations,
-  SignatureVerifier,
-  *,
-}
-import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
   AsyncOrSyncCloseable,
+  CloseContext,
   FlagCloseableAsync,
+  FutureUnlessShutdown,
   SyncCloseable,
 }
+import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.traffic.TrafficBalanceSubmissionHandler
+import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, OptionUtil, PekkoUtil}
+import com.digitalasset.canton.util.{EitherTUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -69,7 +64,7 @@ import org.apache.pekko.stream.scaladsl.{Keep, Merge, Sink, Source}
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
+import scala.util.chaining.*
 import scala.util.{Failure, Success}
 
 class BlockSequencer(
@@ -79,7 +74,7 @@ class BlockSequencer(
     initialBlockHeight: Option[Long],
     cryptoApi: DomainSyncCryptoClient,
     topologyClientMember: Member,
-    stateManager: BlockSequencerStateManager,
+    stateManager: BlockSequencerStateManagerBase,
     store: SequencerBlockStore,
     storage: Storage,
     futureSupervisor: FutureSupervisor,
@@ -87,12 +82,13 @@ class BlockSequencer(
     clock: Clock,
     protocolVersion: ProtocolVersion,
     rateLimitManager: Option[SequencerRateLimitManager],
-    implicitMemberRegistration: Boolean,
     orderingTimeFixMode: OrderingTimeFixMode,
-    parameters: CantonNodeParameters,
+    processingTimeouts: ProcessingTimeout,
+    logEventDetails: Boolean,
+    prettyPrinter: CantonPrettyPrinter,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext, materializer: Materializer, trace: Tracer)
+)(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BaseSequencer(
       DomainTopologyManagerId(domainId),
       loggerFactory,
@@ -103,8 +99,10 @@ class BlockSequencer(
     with NamedLogging
     with FlagCloseableAsync {
 
-  override def timeouts: ProcessingTimeout = parameters.processingTimeouts
+  override def timeouts: ProcessingTimeout = processingTimeouts
 
+  private val trafficBalanceSubmissionHandler =
+    new TrafficBalanceSubmissionHandler(clock, loggerFactory)
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
@@ -117,46 +115,53 @@ class BlockSequencer(
       protocolVersion,
       cryptoApi,
       topologyClientMember,
-      stateManager.maybeLowerSigningTimestampBound,
+      stateManager.maybeLowerTopologyTimestampBound,
       rateLimitManager,
-      implicitMemberRegistration,
       orderingTimeFixMode,
       loggerFactory,
-    )
+    )(CloseContext(cryptoApi))
     val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
-      ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty),
-      Source
-        .combineMat(
-          blockSequencerOps
-            .subscribe()(TraceContext.empty)
-            .statefulMapConcat(BlockSequencer.ensureBlocksAreOrdered(initialBlockHeight))
-            .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock]),
-          Source
-            .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
-            .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock]),
-        )(Merge(_))(Keep.both)
-        .mapAsync(
-          // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
-          parallelism = 1
-        ) {
-          case Right(blockEvents) =>
-            implicit val tc: TraceContext =
-              blockEvents.events.headOption.map(_.traceContext).getOrElse(TraceContext.empty)
-            logger.debug(
-              s"Handle block with height=${blockEvents.blockHeight} with num-events=${blockEvents.events.length}"
-            )
-            stateManager
-              .handleBlock(
-                updateGenerator.asBlockUpdate(blockEvents)
+      ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
+        val driverSource = blockSequencerOps
+          .subscribe()(TraceContext.empty)
+          .statefulMapConcat(BlockSequencer.ensureBlocksAreOrdered(initialBlockHeight))
+          .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+        val localSource = Source
+          .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
+          .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+        val combinedSource = Source
+          .combineMat(
+            driverSource,
+            localSource,
+          )(Merge(_))(Keep.both)
+        val combinedSourceWithBlockHandling = combinedSource
+          .mapAsync(
+            // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
+            parallelism = 1
+          ) {
+            case Right(blockEvents) =>
+              implicit val tc: TraceContext =
+                blockEvents.events.headOption.map(_.traceContext).getOrElse(TraceContext.empty)
+              logger.debug(
+                s"Handle block with height=${blockEvents.blockHeight} with num-events=${blockEvents.events.length}"
               )
-              .map { state =>
-                metrics.sequencerClient.delay
-                  .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
-                ()
-              }
-          case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
-        }
-        .toMat(Sink.ignore)(Keep.both),
+              stateManager
+                .handleBlock(
+                  updateGenerator.asBlockUpdate(blockEvents)
+                )
+                .map { state =>
+                  metrics.sequencerClient.handler.delay
+                    .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
+                }
+                .onShutdown(
+                  logger.debug(
+                    s"Block with height=${blockEvents.blockHeight} wasn't handled because sequencer is shutting down"
+                  )
+                )
+            case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
+          }
+        combinedSourceWithBlockHandling.toMat(Sink.ignore)(Keep.both)
+      },
     )
     (killSwitch, localEventsQueue, done)
   }
@@ -166,49 +171,42 @@ class BlockSequencer(
     case Failure(ex) => noTracingLogger.error("Sequencer flow has failed", ex)
   }
 
-  private object TimestampOfSigningKeyCheck
+  private object TopologyTimestampCheck
 
-  private def ensureTimestampOfSigningKeyPresentForAggregationRule(
+  private def ensureTopologyTimestampPresentForAggregationRuleAndSignatures(
       submission: SubmissionRequest
-  ): EitherT[Future, SendAsyncError, TimestampOfSigningKeyCheck.type] = {
-    EitherTUtil
-      .condUnitET[Future](
-        submission.aggregationRule.isEmpty || submission.timestampOfSigningKey.isDefined,
-        SendAsyncError.RequestInvalid(
-          s"Submission id ${submission.messageId} has `aggregationRule` set, but `timestampOfSigningKey` is not defined. Please check that `timestampOfSigningKey` has been set for the submission."
-        ): SendAsyncError,
-      )
-      .map(_ => TimestampOfSigningKeyCheck)
-  }
+  ): EitherT[Future, SendAsyncError, TopologyTimestampCheck.type] =
+    EitherT.cond[Future](
+      submission.aggregationRule.isEmpty || submission.topologyTimestamp.isDefined ||
+        submission.batch.envelopes.forall(_.signatures.isEmpty),
+      TopologyTimestampCheck,
+      SendAsyncError.RequestInvalid(
+        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `topologyTimestamp` is not defined. Please set the `topologyTimestamp` for the submission."
+      ): SendAsyncError,
+    )
 
   private def validateMaxSequencingTime(
-      _timestampOfSigningKeyCheck: TimestampOfSigningKeyCheck.type,
+      _topologyTimestampCheck: TopologyTimestampCheck.type,
       submission: SubmissionRequest,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
-    val estimateSequencingTimestamp = clock.now
+    val estimatedSequencingTimestamp = clock.now
     submission.aggregationRule match {
       case Some(_) =>
         for {
           _ <- EitherTUtil.condUnitET[Future](
-            submission.maxSequencingTime > estimateSequencingTimestamp,
+            submission.maxSequencingTime > estimatedSequencingTimestamp,
             SendAsyncError.RequestInvalid(
-              s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimateSequencingTimestamp"
+              s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is already past the sequencer clock timestamp $estimatedSequencingTimestamp"
             ),
           )
-          timestampOfSigningKey <- EitherT.fromOption[Future](
-            submission.timestampOfSigningKey,
-            ErrorUtil.internalError(
-              new IllegalStateException(
-                "timestampOfSigningKey is expected to be defined at this point"
-              )
-            ),
-          )
-          // We can't easily use snapshot(timestampOfSigningKey), because the effective last snapshot transaction
-          // visible in the BlockSequencer can be behind the timestampOfSigningKey and tracking that there's an
+          // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction
+          // visible in the BlockSequencer can be behind the topologyTimestamp and tracking that there's an
           // intermediate topology change is impossible here (will need to communicate with the BlockUpdateGenerator).
-          // If timestampOfSigningKey happens to be ahead of current topology's timestamp we grab the latter
+          // If topologyTimestamp happens to be ahead of current topology's timestamp we grab the latter
           // to prevent a deadlock.
-          topologyTimestamp = cryptoApi.approximateTimestamp.min(timestampOfSigningKey)
+          topologyTimestamp = cryptoApi.approximateTimestamp.min(
+            submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
+          )
           snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
           domainParameters <- EitherT(
             snapshot.ipsSnapshot.findDynamicDomainParameters()
@@ -216,7 +214,7 @@ class BlockSequencer(
             .leftMap(error =>
               SendAsyncError.Internal(s"Could not fetch dynamic domain parameters: $error")
             )
-          maxSequencingTimeUpperBound = estimateSequencingTimestamp.add(
+          maxSequencingTimeUpperBound = estimatedSequencingTimestamp.add(
             domainParameters.parameters.sequencerAggregateSubmissionTimeout.duration
           )
           _ <- EitherTUtil.condUnitET[Future](
@@ -255,32 +253,25 @@ class BlockSequencer(
     )
 
     for {
-      timestampOfSigningKeyCheck <- ensureTimestampOfSigningKeyPresentForAggregationRule(submission)
-      _ <- validateMaxSequencingTime(timestampOfSigningKeyCheck, submission)
-      memberCheck <-
-        if (implicitMemberRegistration) {
-          EitherT
-            .right[SendAsyncError](
-              cryptoApi.currentSnapshotApproximation.ipsSnapshot
-                .allMembers()
-                .map(allMembers =>
-                  (member: Member) => allMembers.contains(member) || !member.isAuthenticated
-                )
-            )
-        } else {
-          EitherT.rightT[Future, SendAsyncError]((member: Member) =>
-            stateManager.isMemberRegistered(member)
+      topologyTimestampCheck <-
+        ensureTopologyTimestampPresentForAggregationRuleAndSignatures(submission)
+      _ <- validateMaxSequencingTime(topologyTimestampCheck, submission)
+      memberCheck <- EitherT.right[SendAsyncError](
+        cryptoApi.currentSnapshotApproximation.ipsSnapshot
+          .allMembers()
+          .map(allMembers =>
+            (member: Member) => allMembers.contains(member) || !member.isAuthenticated
           )
-        }
+      )
       _ <- SequencerValidations
         .checkSenderAndRecipientsAreRegistered(
           submission,
           memberCheck,
         )
         .toEitherT[Future]
-      _ = if (parameters.loggingConfig.eventDetails)
+      _ = if (logEventDetails)
         logger.debug(
-          s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${parameters.loggingConfig.api.printer
+          s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${prettyPrinter
               .printAdHoc(submission.toProtoVersioned)}"
         )
       _ <-
@@ -299,75 +290,36 @@ class BlockSequencer(
       traceContext: TraceContext
   ): EitherT[Future, CreateSubscriptionError, EventSource] = {
     logger.debug(s"Answering readInternal(member = $member, offset = $offset)")
-    if (implicitMemberRegistration) {
-      if (!member.isAuthenticated) {
-        // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
-        // and then proceeding with the subscription.
-        // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
-        EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-      } else {
-        EitherT
-          .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
-          .flatMap { isKnown =>
-            if (isKnown) {
-              EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-            } else {
-              EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
-            }
-          }
-      }
-    } else {
+    if (!member.isAuthenticated) {
+      // allowing unauthenticated members to read events is the same as automatically registering an unauthenticated member
+      // and then proceeding with the subscription.
+      // optimization: if the member is unauthenticated, we don't need to fetch all members from the snapshot
       EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+    } else {
+      EitherT
+        .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
+        .flatMap { isKnown =>
+          if (isKnown) {
+            EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
+          } else {
+            EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
+          }
+        }
     }
   }
 
   override def isRegistered(
       member: Member
   )(implicit traceContext: TraceContext): Future[Boolean] = {
-    if (implicitMemberRegistration) {
-      if (!member.isAuthenticated) Future.successful(true)
-      else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
-    } else {
-      logger.debug(s"Answering isRegistered(member = $member)")
-      Future.successful(stateManager.isMemberRegistered(member))
-    }
+    if (!member.isAuthenticated) Future.successful(true)
+    else cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
   }
 
   override def registerMember(member: Member)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit] = {
-    if (implicitMemberRegistration) {
-      // there is nothing extra to be done for member registration in Canton 3.x
-      EitherT.rightT[Future, SequencerWriteError[RegisterMemberError]](())
-    } else {
-      logger.debug(s"Registering $member at the $name sequencer")
-      if (stateManager.isMemberRegistered(member)) {
-        val error = OperationError(RegisterMemberError.AlreadyRegisteredError(member))
-        EitherT.leftT[Future, Unit](error)
-      } else {
-        val actuallyRegisteredF =
-          futureSupervisor.supervised(s"Waiting for member $member to be exist")(
-            stateManager.waitForMemberToExist(member)
-          )
-        for {
-          _ <- blockSequencerOps.register(member)
-          // wait for the blockchain to reflect that the member is registered
-          _ <- EitherT[Future, SequencerWriteError[
-            RegisterMemberError
-          ], CantonTimestamp](
-            actuallyRegisteredF.map(Right(_)).recover { case NonFatal(throwable) =>
-              logger.error("Failed waiting for the member registration event", throwable)
-              Left(
-                OperationError(
-                  RegisterMemberError
-                    .UnexpectedError(member, "Failed waiting for the member registration event")
-                )
-              )
-            }
-          )
-        } yield ()
-      }
-    }
+    // there is nothing extra to be done for member registration in Canton 3.x
+    EitherT.rightT[Future, SequencerWriteError[RegisterMemberError]](())
   }
 
   /** Important: currently both the disable member and the prune functionality on the block sequencer are
@@ -419,8 +371,19 @@ class BlockSequencer(
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
     store
       .readStateForBlockContainingTimestamp(timestamp)
-      .map(_.toSequencerSnapshot(protocolVersion))
-      .leftMap(_ => s"Provided timestamp $timestamp is not linked to a block")
+      .bimap(
+        _ => s"Provided timestamp $timestamp is not linked to a block",
+        blockEphemeralState =>
+          blockEphemeralState
+            .toSequencerSnapshot(protocolVersion)
+            .tap(snapshot =>
+              if (logger.underlying.isDebugEnabled()) {
+                logger.debug(
+                  s"Snapshot for timestamp $timestamp: $snapshot with ephemeral state: $blockEphemeralState"
+                )
+              }
+            ),
+      )
 
   override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
     store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))
@@ -493,6 +456,7 @@ class BlockSequencer(
     import TraceContext.Implicits.Empty.*
     logger.debug(s"$name sequencer shutting down")
     Seq[AsyncOrSyncCloseable](
+      SyncCloseable("stateManager.close()", stateManager.close()),
       SyncCloseable("localEventsQueue.complete", localEventsQueue.complete()),
       AsyncCloseable(
         "localEventsQueue.watchCompletion",
@@ -502,7 +466,6 @@ class BlockSequencer(
       // The kill switch ensures that we don't process the remaining contents of the queue buffer
       SyncCloseable("killSwitch.shutdown()", killSwitch.shutdown()),
       AsyncCloseable("done", done, timeouts.shutdownProcessing),
-      SyncCloseable("stateManager.close()", stateManager.close()),
       SyncCloseable("blockSequencerOps.close()", blockSequencerOps.close()),
     )
   }
@@ -523,6 +486,25 @@ class BlockSequencer(
         parameters,
       )
     }
+  }
+
+  override def setTrafficBalance(
+      member: Member,
+      serial: NonNegativeLong,
+      totalTrafficBalance: NonNegativeLong,
+      sequencerClient: SequencerClient,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
+    trafficBalanceSubmissionHandler.sendTrafficBalanceRequest(
+      member,
+      domainId,
+      protocolVersion,
+      serial,
+      totalTrafficBalance,
+      sequencerClient,
+      cryptoApi,
+    )
   }
 
   override def trafficStatus(requestedMembers: Seq[Member])(implicit

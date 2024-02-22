@@ -347,7 +347,6 @@ object Ast {
     // works because Numeric.Scale.MinValue = 0
     val values = Numeric.Scale.values.map(new TNat(_))
     def apply(n: Numeric.Scale): TNat = values(n)
-    val Decimal: TNat = values(10)
   }
 
   /** Fully applied type synonym. */
@@ -429,19 +428,13 @@ object Ast {
   // Numeric arithmetic
   final case object BAddNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Numeric s
   final case object BSubNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BMulNumericLegacy
-      extends BuiltinFunction // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
   final case object BMulNumeric
       extends BuiltinFunction // :  ∀s1 s2 s. Numeric s → Numeric s1 → Numeric s2 → Numeric s
-  final case object BDivNumericLegacy
-      extends BuiltinFunction // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
   final case object BDivNumeric
       extends BuiltinFunction // :  ∀s1 s2 s.  Numeric s → Numeric s1 → Numeric s2 → Numeric s
   final case object BRoundNumeric extends BuiltinFunction // :  ∀s. Integer → Numeric s → Numeric s
-  final case object BCastNumericLegacy extends BuiltinFunction // : ∀s1 s2. Numeric s1 → Numeric s2
   final case object BCastNumeric
       extends BuiltinFunction // : ∀s1 s2.  Numeric s → Numeric s1 → Numeric s2
-  final case object BShiftNumericLegacy extends BuiltinFunction // : ∀s1 s2. Numeric s1 → Numeric s2
   final case object BShiftNumeric
       extends BuiltinFunction // : ∀s1 s2.  Numeric s → Numeric s1 → Numeric s2
 
@@ -454,7 +447,6 @@ object Ast {
   final case object BExpInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
 
   // Conversions
-  final case object BInt64ToNumericLegacy extends BuiltinFunction // : ∀s. Int64 → Numeric s
   final case object BInt64ToNumeric extends BuiltinFunction // : ∀s.  Numeric s → Int64 → Numeric s
   final case object BNumericToInt64 extends BuiltinFunction // : ∀s. Numeric s → Int64
   final case object BDateToUnixDays extends BuiltinFunction // : Date -> Int64
@@ -549,8 +541,6 @@ object Ast {
       extends BuiltinFunction // : Int64 -> RoundingMode → BigNumeric → BigNumeric → BigNumeric s
   final case object BShiftRightBigNumeric
       extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
-  final case object BBigNumericToNumericLegacy
-      extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
   final case object BBigNumericToNumeric
       extends BuiltinFunction // :  ∀s.  Numeric s → BigNumeric → Numeric s
   final case object BNumericToBigNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
@@ -745,7 +735,6 @@ object Ast {
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
-      coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
       view: Type,
   )
 
@@ -756,7 +745,6 @@ object Ast {
         param: ExprVarName, // Binder for template argument.
         choices: Iterable[GenTemplateChoice[E]],
         methods: Iterable[InterfaceMethod],
-        coImplements: Iterable[GenInterfaceCoImplements[E]],
         view: Type,
     ): GenDefInterface[E] = {
       val requiresSet = toSetWithoutDuplicate(
@@ -771,12 +759,8 @@ object Ast {
         methods.view.map(c => c.name -> c),
         (name: MethodName) => PackageError(s"collision on interface method name $name"),
       )
-      val coImplementsMap = toMapWithoutDuplicate(
-        coImplements.view.map(c => c.templateId -> c),
-        (templateId: TypeConName) =>
-          PackageError(s"repeated interface co-implementation ${templateId.toString}"),
-      )
-      GenDefInterface(requiresSet, param, choiceMap, methodMap, coImplementsMap, view)
+
+      GenDefInterface(requiresSet, param, choiceMap, methodMap, view)
     }
 
     def apply(
@@ -784,10 +768,9 @@ object Ast {
         param: ExprVarName,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         methods: Map[MethodName, InterfaceMethod],
-        coImplements: Map[TypeConName, GenInterfaceCoImplements[E]],
         view: Type,
     ): GenDefInterface[E] =
-      GenDefInterface(requires, param, choices, methods, coImplements, view)
+      GenDefInterface(requires, param, choices, methods, view)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
@@ -795,11 +778,10 @@ object Ast {
           ExprVarName,
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
-          Map[TypeConName, GenInterfaceCoImplements[E]],
           Type,
       )
     ] =
-      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.coImplements, arg.view))
+      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.view))
   }
 
   type DefInterface = GenDefInterface[Expr]
@@ -813,44 +795,10 @@ object Ast {
       returnType: Type,
   )
 
-  final case class GenInterfaceCoImplements[E](
-      templateId: TypeConName,
-      body: GenInterfaceInstanceBody[E],
-  )
-
-  final class GenInterfaceCoImplementsCompanion[E] private[Ast] {
-    def build(
-        templateId: TypeConName,
-        body: GenInterfaceInstanceBody[E],
-    ): GenInterfaceCoImplements[E] =
-      new GenInterfaceCoImplements[E](
-        templateId = templateId,
-        body = body,
-      )
-
-    def apply(
-        templateId: TypeConName,
-        body: GenInterfaceInstanceBody[E],
-    ): GenInterfaceCoImplements[E] =
-      GenInterfaceCoImplements[E](templateId, body)
-
-    def unapply(
-        arg: GenInterfaceCoImplements[E]
-    ): Some[(TypeConName, GenInterfaceInstanceBody[E])] =
-      Some((arg.templateId, arg.body))
-  }
-
-  type InterfaceCoImplements = GenInterfaceCoImplements[Expr]
-  val InterfaceCoImplements = new GenInterfaceCoImplementsCompanion[Expr]
-
-  type InterfaceCoImplementsSignature = GenInterfaceCoImplements[Unit]
-  val InterfaceCoImplementsSignature = new GenInterfaceCoImplementsCompanion[Unit]
-
   final case class GenTemplate[E](
       param: ExprVarName, // Binder for template argument.
       precond: E, // Template creation precondition.
       signatories: E, // Parties agreeing to the contract.
-      agreementText: E, // Text the parties agree to.
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
@@ -865,7 +813,6 @@ object Ast {
         param: ExprVarName,
         precond: E,
         signatories: E,
-        agreementText: E,
         choices: Iterable[GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
@@ -875,7 +822,6 @@ object Ast {
         param = param,
         precond = precond,
         signatories = signatories,
-        agreementText = agreementText,
         choices = toMapWithoutDuplicate(
           choices.view.map(c => c.name -> c),
           (choiceName: ChoiceName) => PackageError(s"collision on choice name $choiceName"),
@@ -893,7 +839,6 @@ object Ast {
         param: ExprVarName,
         precond: E,
         signatories: E,
-        agreementText: E,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
@@ -902,7 +847,6 @@ object Ast {
       param = param,
       precond = precond,
       signatories = signatories,
-      agreementText = agreementText,
       choices = choices,
       observers = observers,
       key = key,
@@ -912,7 +856,6 @@ object Ast {
     def unapply(arg: GenTemplate[E]): Some[
       (
           ExprVarName,
-          E,
           E,
           E,
           Map[ChoiceName, GenTemplateChoice[E]],
@@ -925,7 +868,6 @@ object Ast {
         arg.param,
         arg.precond,
         arg.signatories,
-        arg.agreementText,
         arg.choices,
         arg.observers,
         arg.key,
@@ -1248,16 +1190,9 @@ object Ast {
       modules: Map[ModuleName, GenModule[E]],
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
-      metadata: Option[PackageMetadata],
+      metadata: PackageMetadata,
   ) {
-    import Ordering.Implicits._
-
-    // package Name if the package support upgrade
-    // TODO: https://github.com/digital-asset/daml/issues/17965
-    //  drop that in daml-3
-    private[lf] val name: Option[Ref.PackageName] = metadata.collect {
-      case md if languageVersion >= LanguageVersion.Features.packageUpgrades => md.name
-    }
+    private[lf] val name: Ref.PackageName = metadata.name
   }
 
   final class GenPackageCompanion[E] private[Ast] {
@@ -1266,7 +1201,7 @@ object Ast {
         modules: Iterable[GenModule[E]],
         directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
-        metadata: Option[PackageMetadata],
+        metadata: PackageMetadata,
     ): GenPackage[E] =
       GenPackage(
         modules = toMapWithoutDuplicate(
@@ -1281,7 +1216,7 @@ object Ast {
         modules: Map[ModuleName, GenModule[E]],
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
-        metadata: Option[PackageMetadata],
+        metadata: PackageMetadata,
     ): GenPackage[E] =
       GenPackage(
         modules = modules,
@@ -1295,7 +1230,7 @@ object Ast {
           Map[ModuleName, GenModule[E]],
           Set[PackageId],
           LanguageVersion,
-          Option[PackageMetadata],
+          PackageMetadata,
       )
     ] = {
       Some(

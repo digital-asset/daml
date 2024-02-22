@@ -10,3 +10,5 @@ Forked or extended Daml and third-party libraries:
 - [slick](https://github.com/slick/slick) - Modified sql interpolations to set read and write effects
 
 - [wartremover](http://www.wartremover.org/) - Implementations of custom warts
+
+- [magnolify](https://github.com/spotify/magnolify) - Implementations of our own type class derivations

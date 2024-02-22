@@ -9,9 +9,10 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.api.v0.SequencerConnectServiceGrpc.SequencerConnectServiceStub
-import com.digitalasset.canton.domain.api.v0.SequencerServiceGrpc.SequencerServiceStub
+import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.domain.api.v30.SequencerConnect
+import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
+import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -61,7 +62,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     with NamedLogging {
 
   private val sequencerConnectServiceClient = new SequencerConnectServiceStub(channel)
-  protected val sequencerServiceClient = clientAuth(
+  protected val sequencerServiceClient: SequencerServiceStub = clientAuth(
     new SequencerServiceStub(channel, options = callOptions)
   )
   private val noLoggingShutdownErrorsLogPolicy: GrpcError => TracedLogger => TraceContext => Unit =
@@ -86,7 +87,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     for {
       responseP <- CantonGrpcUtil
         .sendGrpcRequest(sequencerConnectServiceClient, "sequencer")(
-          _.handshake(request.toProtoV0),
+          _.handshake(SequencerConnect.HandshakeRequest(Some(request.toProtoV30))),
           requestDescription = "handshake",
           logger = logger,
           retryPolicy =
@@ -99,7 +100,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         )
         .leftMap(err => HandshakeRequestError(err.toString, err.retry))
       response <- HandshakeResponse
-        .fromProtoV0(responseP)
+        .fromProtoV30(responseP.getHandshakeResponse)
         // if deserialization failed it likely means we have a version conflict on the handshake itself
         .leftMap(err =>
           HandshakeRequestError(s"Deserialization of response failed: $err", retryable = false)
@@ -114,12 +115,12 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     sendInternal(
       stub =>
         stub.sendAsyncVersioned(
-          v0.SendAsyncVersionedRequest(signedSubmissionRequest = request.toByteString)
+          v30.SendAsyncVersionedRequest(signedSubmissionRequest = request.toByteString)
         ),
       "send-async-versioned",
       request.content.messageId,
       timeout,
-      SendAsyncResponse.fromSendAsyncSignedResponseProto,
+      SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncVersionedResponseProto,
     )
   }
 
@@ -128,12 +129,12 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   ): EitherT[Future, SendAsyncClientError, Unit] = sendInternal(
     stub =>
       stub.sendAsyncUnauthenticatedVersioned(
-        v0.SendAsyncUnauthenticatedVersionedRequest(submissionRequest = request.toByteString)
+        v30.SendAsyncUnauthenticatedVersionedRequest(submissionRequest = request.toByteString)
       ),
     "send-async-unauthenticated-versioned",
     request.messageId,
     timeout,
-    SendAsyncResponse.fromSendAsyncResponseProto,
+    SendAsyncUnauthenticatedVersionedResponse.fromSendAsyncUnauthenticatedVersionedResponseProto,
   )
 
   private def sendInternal[Resp](
@@ -141,7 +142,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       endpoint: String,
       messageId: MessageId,
       timeout: Duration,
-      fromResponseProto: Resp => ParsingResult[SendAsyncResponse],
+      fromResponseProto: Resp => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     // sends are at-most-once so we cannot retry when unavailable as we don't know if the request has been accepted
     val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
@@ -162,7 +163,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
   private def fromResponse[Proto](
       p: Proto,
-      deserializer: Proto => ParsingResult[SendAsyncResponse],
+      deserializer: Proto => ParsingResult[SendAsyncUnauthenticatedVersionedResponse],
   ) = {
     for {
       response <- deserializer(p)
@@ -242,7 +243,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       traceContext: TraceContext
   ): Future[Unit] = {
     val timestamp = request.timestamp
-    val requestP = request.toProtoV0
+    val requestP = request.toProtoV30
     val responseP = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
       _.acknowledge(requestP),
       requestDescription = s"acknowledge/$timestamp",
@@ -266,11 +267,11 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   ): EitherT[Future, String, Unit] = {
     val request = signedRequest.content
     val timestamp = request.timestamp
-    val requestP = signedRequest.toProtoV1
+    val requestP = signedRequest.toProtoV30
     logger.debug(s"Acknowledging timestamp: $timestamp")
     CantonGrpcUtil
       .sendGrpcRequest(sequencerServiceClient, "sequencer")(
-        _.acknowledgeSigned(requestP),
+        _.acknowledgeSigned(v30.AcknowledgeSignedRequest(Some(requestP))),
         requestDescription = s"acknowledge-signed/$timestamp",
         timeout = timeouts.network.duration,
         logger = logger,
@@ -287,8 +288,8 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     logger.debug("Downloading topology state for initialization")
 
     ClientAdapter
-      .serverStreaming(request.toProtoV0, sequencerServiceClient.downloadTopologyStateForInit)
-      .map(TopologyStateForInitResponse.fromProtoV0(_))
+      .serverStreaming(request.toProtoV30, sequencerServiceClient.downloadTopologyStateForInit)
+      .map(TopologyStateForInitResponse.fromProtoV30(_))
       .flatMapConcat { parsingResult =>
         parsingResult.fold(
           err => Source.failed(ProtoDeserializationFailure.Wrap(err).asGrpcError),
@@ -364,12 +365,12 @@ class GrpcSequencerClientTransport(
       TraceContextGrpc.withGrpcContext(traceContext) {
         if (requiresAuthentication) {
           sequencerServiceClient.subscribeVersioned(
-            subscriptionRequest.toProtoV0,
+            subscriptionRequest.toProtoV30,
             subscription.observer,
           )
         } else {
           sequencerServiceClient.subscribeUnauthenticatedVersioned(
-            subscriptionRequest.toProtoV0,
+            subscriptionRequest.toProtoV30,
             subscription.observer,
           )
         }

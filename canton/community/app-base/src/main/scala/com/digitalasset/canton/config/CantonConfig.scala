@@ -33,7 +33,6 @@ import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.domain.DomainNodeParameters
 import com.digitalasset.canton.domain.block.{SequencerDriver, SequencerDriverFactory}
 import com.digitalasset.canton.domain.config.*
 import com.digitalasset.canton.domain.mediator.{
@@ -62,7 +61,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
   userManagementServiceConfigConvert,
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.metrics.{MetricsConfig, MetricsPrefix, MetricsReporterConfig}
+import com.digitalasset.canton.metrics.{MetricsConfig, MetricsReporterConfig}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
@@ -71,11 +70,13 @@ import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.indexer.PackageMetadataViewConfig
+import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{
@@ -100,35 +101,6 @@ import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 import scala.util.Try
-
-/** Configuration for a check */
-sealed trait CheckConfig
-object CheckConfig {
-
-  /** Always return a healthy result - useful for testing and where there may be no suitable domain configured to use the ping health check */
-  case object AlwaysHealthy extends CheckConfig
-
-  /** Attempt to ping the given participant to determine health
-    *
-    * @param participant Alias of a locally configured participant (will ping itself)
-    * @param interval    The duration to wait between pings
-    * @param timeout     Duration to allow for the ping to complete
-    */
-  final case class Ping(
-      participant: String,
-      interval: NonNegativeFiniteDuration,
-      timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
-  ) extends CheckConfig
-
-  /** Returns the isActive state of a node.
-    * Intended for a HA node where only one of potentially many replicas will be active concurrently.
-    * @param node If unset will default to picking the only configured node as this is the likely usage of this check.
-    *                    If many nodes are available within the process it will pick the first participant node.
-    *                    If using many nodes in process then set to the configured name of the node to return
-    *                    the active status of.
-    */
-  final case class IsActive(node: Option[String] = None) extends CheckConfig
-}
 
 /** Deadlock detection configuration
   *
@@ -304,23 +276,12 @@ final case class CantonFeatures(
 /** Root configuration parameters for a single Canton process. */
 trait CantonConfig {
 
-  type DomainConfigType <: DomainConfig & ConfigDefaults[DefaultPorts, DomainConfigType]
   type ParticipantConfigType <: LocalParticipantConfig & ConfigDefaults[
     DefaultPorts,
     ParticipantConfigType,
   ]
   type MediatorNodeXConfigType <: MediatorNodeConfigCommon
   type SequencerNodeXConfigType <: SequencerNodeConfigCommon
-
-  /** all domains that this Canton process can operate
-    *
-    * domains are grouped by their alias, which is used to identify domains locally
-    */
-  def domains: Map[InstanceName, DomainConfigType]
-
-  /** Use `domains` instead!
-    */
-  def domainsByString: Map[String, DomainConfigType] = domains.map { case (n, c) => n.unwrap -> c }
 
   /** all participants that this Canton process can operate or connect to
     *
@@ -334,77 +295,46 @@ trait CantonConfig {
     n.unwrap -> c
   }
 
-  /** all participants that this Canton process can operate or connect to
-    *
-    * participants are grouped by their local name
-    */
-  def participantsX: Map[InstanceName, ParticipantConfigType]
+  def sequencers: Map[InstanceName, SequencerNodeXConfigType]
 
-  /** Use `participantsX` instead!
+  /** Use `sequencers` instead!
     */
-  def participantsByStringX: Map[String, ParticipantConfigType] = participantsX.map { case (n, c) =>
+  def sequencersByString: Map[String, SequencerNodeXConfigType] = sequencers.map { case (n, c) =>
     n.unwrap -> c
   }
 
-  def sequencersX: Map[InstanceName, SequencerNodeXConfigType]
+  def remoteSequencers: Map[InstanceName, RemoteSequencerConfig]
 
-  /** Use `sequencersX` instead!
+  /** Use `remoteSequencers` instead!
     */
-  def sequencersByStringX: Map[String, SequencerNodeXConfigType] = sequencersX.map { case (n, c) =>
-    n.unwrap -> c
-  }
-
-  def remoteSequencersX: Map[InstanceName, RemoteSequencerConfig]
-
-  /** Use `remoteSequencersX` instead!
-    */
-  def remoteSequencersByStringX: Map[String, RemoteSequencerConfig] = remoteSequencersX.map {
+  def remoteSequencersByString: Map[String, RemoteSequencerConfig] = remoteSequencers.map {
     case (n, c) =>
       n.unwrap -> c
   }
 
-  def mediatorsX: Map[InstanceName, MediatorNodeXConfigType]
+  def mediators: Map[InstanceName, MediatorNodeXConfigType]
 
-  /** Use `mediatorsX` instead!
+  /** Use `mediators` instead!
     */
-  def mediatorsByStringX: Map[String, MediatorNodeXConfigType] = mediatorsX.map { case (n, c) =>
+  def mediatorsByString: Map[String, MediatorNodeXConfigType] = mediators.map { case (n, c) =>
     n.unwrap -> c
   }
 
-  def remoteMediatorsX: Map[InstanceName, RemoteMediatorConfig]
+  def remoteMediators: Map[InstanceName, RemoteMediatorConfig]
 
   /** Use `remoteMediators` instead!
     */
-  def remoteMediatorsByStringX: Map[String, RemoteMediatorConfig] = remoteMediatorsX.map {
+  def remoteMediatorsByString: Map[String, RemoteMediatorConfig] = remoteMediators.map {
     case (n, c) =>
       n.unwrap -> c
-  }
-
-  /** all remotely running domains to which the console can connect and operate on */
-  def remoteDomains: Map[InstanceName, RemoteDomainConfig]
-
-  /** Use `remoteDomains` instead!
-    */
-  def remoteDomainsByString: Map[String, RemoteDomainConfig] = remoteDomains.map { case (n, c) =>
-    n.unwrap -> c
   }
 
   /** all remotely running participants to which the console can connect and operate on */
   def remoteParticipants: Map[InstanceName, RemoteParticipantConfig]
 
-  /** all remotely running participants to which the console can connect and operate on */
-  def remoteParticipantsX: Map[InstanceName, RemoteParticipantConfig]
-
   /** Use `remoteParticipants` instead!
     */
   def remoteParticipantsByString: Map[String, RemoteParticipantConfig] = remoteParticipants.map {
-    case (n, c) =>
-      n.unwrap -> c
-  }
-
-  /** Use `remoteParticipantsX` instead!
-    */
-  def remoteParticipantsByStringX: Map[String, RemoteParticipantConfig] = remoteParticipantsX.map {
     case (n, c) =>
       n.unwrap -> c
   }
@@ -424,25 +354,8 @@ trait CantonConfig {
   /** run a validation on the current config and return possible warning messages */
   def validate: Validated[NonEmpty[Seq[String]], Unit]
 
-  private lazy val domainNodeParameters_ : Map[InstanceName, DomainNodeParameters] = domains.fmap {
-    domainConfig =>
-      DomainNodeParameters(
-        general = CantonNodeParameterConverter.general(this, domainConfig),
-        protocol = CantonNodeParameterConverter.protocol(this, domainConfig.init.domainParameters),
-        maxBurstFactor = domainConfig.parameters.maxBurstFactor,
-      )
-  }
-
-  private[canton] def domainNodeParameters(name: InstanceName): DomainNodeParameters =
-    nodeParametersFor(domainNodeParameters_, "domain", name)
-
-  /** Use `domainNodeParameters` instead!
-    */
-  private[canton] def domainNodeParametersByString(name: String): DomainNodeParameters =
-    domainNodeParameters(InstanceName.tryCreate(name))
-
   private lazy val participantNodeParameters_ : Map[InstanceName, ParticipantNodeParameters] =
-    (participants ++ participantsX).fmap { participantConfig =>
+    participants.fmap { participantConfig =>
       val participantParameters = participantConfig.parameters
       ParticipantNodeParameters(
         general = CantonNodeParameterConverter.general(this, participantConfig),
@@ -463,6 +376,8 @@ trait CantonConfig {
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
         enableContractUpgrading = participantParameters.enableContractUpgrading,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
+        journalGarbageCollectionDelay =
+          participantParameters.journalGarbageCollectionDelay.toInternal,
       )
     }
 
@@ -478,7 +393,7 @@ trait CantonConfig {
   )
 
   private lazy val sequencerNodeParametersX_ : Map[InstanceName, SequencerNodeParameters] =
-    sequencersX.fmap { sequencerNodeXConfig =>
+    sequencers.fmap { sequencerNodeXConfig =>
       SequencerNodeParameters(
         general = CantonNodeParameterConverter.general(this, sequencerNodeXConfig),
         protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeXConfig.parameters),
@@ -493,7 +408,7 @@ trait CantonConfig {
     sequencerNodeParametersX(InstanceName.tryCreate(name))
 
   private lazy val mediatorNodeParametersX_ : Map[InstanceName, MediatorNodeParameters] =
-    mediatorsX.fmap { mediatorNodeConfig =>
+    mediators.fmap { mediatorNodeConfig =>
       MediatorNodeParameters(
         general = CantonNodeParameterConverter.general(this, mediatorNodeConfig),
         protocol = CantonNodeParameterConverter.protocol(this, mediatorNodeConfig.parameters),
@@ -528,9 +443,6 @@ trait CantonConfig {
     def participant(config: LocalParticipantConfig): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("ledger-api", _.ledgerApi)))
 
-    def domain(config: DomainConfig): Seq[String] =
-      portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("public-api", _.publicApi)))
-
     def sequencer(config: SequencerNodeConfigCommon): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("public-api", _.publicApi)))
 
@@ -538,11 +450,9 @@ trait CantonConfig {
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi)))
 
     Seq(
-      domains.fmap(domain),
       participants.fmap(participant),
-      participantsX.fmap(participant),
-      sequencersX.fmap(sequencer),
-      mediatorsX.fmap(mediator),
+      sequencers.fmap(sequencer),
+      mediators.fmap(mediator),
     )
       .flatMap(_.map { case (name, ports) =>
         nodePortsDescription(name, ports)
@@ -774,9 +684,6 @@ object CantonConfig {
     lazy implicit val participantInitConfigReader: ConfigReader[ParticipantInitConfig] =
       deriveReader[ParticipantInitConfig]
         .enableNestedOpt("auto-init", _.copy(identity = None))
-    lazy implicit val domainInitConfigReader: ConfigReader[DomainInitConfig] =
-      deriveReader[DomainInitConfig]
-        .enableNestedOpt("auto-init", _.copy(identity = None))
     lazy implicit val httpHealthServerConfigReader: ConfigReader[HttpHealthServerConfig] =
       deriveReader[HttpHealthServerConfig]
     implicit val grpcHealthServerConfigReader: ConfigReader[GrpcHealthServerConfig] =
@@ -798,8 +705,6 @@ object CantonConfig {
     lazy implicit val communityCryptoReader: ConfigReader[CommunityCryptoConfig] =
       deriveReader[CommunityCryptoConfig]
     lazy implicit val clientConfigReader: ConfigReader[ClientConfig] = deriveReader[ClientConfig]
-    lazy implicit val remoteDomainConfigReader: ConfigReader[RemoteDomainConfig] =
-      deriveReader[RemoteDomainConfig]
     lazy implicit val remoteParticipantConfigReader: ConfigReader[RemoteParticipantConfig] =
       deriveReader[RemoteParticipantConfig]
     lazy implicit val batchingReader: ConfigReader[BatchingConfig] =
@@ -892,8 +797,6 @@ object CantonConfig {
       deriveReader[ActiveContractsServiceStreamsConfig]
     lazy implicit val packageMetadataViewConfigReader: ConfigReader[PackageMetadataViewConfig] =
       deriveReader[PackageMetadataViewConfig]
-    lazy implicit val identityConfigReader: ConfigReader[TopologyConfig] =
-      deriveReader[TopologyConfig]
     lazy implicit val topologyXConfigReader: ConfigReader[TopologyXConfig] =
       deriveReader[TopologyXConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileReader
@@ -957,50 +860,26 @@ object CantonConfig {
       deriveReader[SequencerNodeParameterConfig]
     lazy implicit val SequencerHealthConfigReader: ConfigReader[SequencerHealthConfig] =
       deriveReader[SequencerHealthConfig]
-    lazy implicit val remoteSequencerConfigGrpcReader: ConfigReader[RemoteSequencerConfig.Grpc] =
-      deriveReader[RemoteSequencerConfig.Grpc]
     lazy implicit val remoteSequencerConfigReader: ConfigReader[RemoteSequencerConfig] =
       deriveReader[RemoteSequencerConfig]
-        // since the big majority of users will use GRPC, default to it so that they don't need to specify `type = grpc`
-        .orElse(ConfigReader[RemoteSequencerConfig.Grpc])
     lazy implicit val mediatorNodeParameterConfigReader: ConfigReader[MediatorNodeParameterConfig] =
       deriveReader[MediatorNodeParameterConfig]
     lazy implicit val remoteMediatorConfigReader: ConfigReader[RemoteMediatorConfig] =
       deriveReader[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigReader: ConfigReader[DomainParametersConfig] =
       deriveReader[DomainParametersConfig]
-    lazy implicit val domainNodeParametersConfigReader: ConfigReader[DomainNodeParametersConfig] =
-      deriveReader[DomainNodeParametersConfig]
+    lazy implicit val acsCommitmentsCatchUpConfigReader: ConfigReader[AcsCommitmentsCatchUpConfig] =
+      deriveReader[AcsCommitmentsCatchUpConfig]
     lazy implicit val deadlockDetectionConfigReader: ConfigReader[DeadlockDetectionConfig] =
       deriveReader[DeadlockDetectionConfig]
-    lazy implicit val checkConfigAlwaysHealthyReader: ConfigReader[CheckConfig.AlwaysHealthy.type] =
-      deriveReader[CheckConfig.AlwaysHealthy.type]
-    lazy implicit val checkConfigPingReader: ConfigReader[CheckConfig.Ping] =
-      deriveReader[CheckConfig.Ping]
-    lazy implicit val checkConfigIsActiveReader: ConfigReader[CheckConfig.IsActive] =
-      deriveReader[CheckConfig.IsActive]
-    lazy implicit val checkConfigReader: ConfigReader[CheckConfig] = deriveReader[CheckConfig]
 
     lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsConfig.MetricsFilterConfig] =
       deriveReader[MetricsConfig.MetricsFilterConfig]
-    lazy implicit val metricsConfigGraphitePrefixStatic: ConfigReader[MetricsPrefix.Static] =
-      deriveReader[MetricsPrefix.Static]
-    lazy implicit val metricsConfigGraphitePrefixNoPrefix
-        : ConfigReader[MetricsPrefix.NoPrefix.type] =
-      deriveReader[MetricsPrefix.NoPrefix.type]
-    lazy implicit val metricsConfigGraphitePrefixHostname
-        : ConfigReader[MetricsPrefix.Hostname.type] =
-      deriveReader[MetricsPrefix.Hostname.type]
-    lazy implicit val metricsConfigGraphitePrefix: ConfigReader[MetricsPrefix] =
-      deriveReader[MetricsPrefix]
-    lazy implicit val metricsConfigGraphiteReader: ConfigReader[MetricsConfig.Graphite] =
-      deriveReader[MetricsConfig.Graphite]
-    lazy implicit val metricsConfigPrometheusReader: ConfigReader[MetricsConfig.Prometheus] =
-      deriveReader[MetricsConfig.Prometheus]
-    lazy implicit val metricsConfigCsvReader: ConfigReader[MetricsConfig.Csv] =
-      deriveReader[MetricsConfig.Csv]
-    lazy implicit val metricsConfigJMXReader: ConfigReader[MetricsConfig.JMX] =
-      deriveReader[MetricsConfig.JMX]
+    lazy implicit val metricsConfigPrometheusReader
+        : ConfigReader[MetricsReporterConfig.Prometheus] =
+      deriveReader[MetricsReporterConfig.Prometheus]
+    lazy implicit val metricsConfigCsvReader: ConfigReader[MetricsReporterConfig.Csv] =
+      deriveReader[MetricsReporterConfig.Csv]
     lazy implicit val metricsReporterConfigReader: ConfigReader[MetricsReporterConfig] =
       deriveReader[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigReader: ConfigReader[HistogramDefinition] =
@@ -1185,8 +1064,6 @@ object CantonConfig {
       deriveWriter[NodeIdentifierConfig]
     lazy implicit val participantInitConfigWriter: ConfigWriter[ParticipantInitConfig] =
       deriveWriter[ParticipantInitConfig]
-    lazy implicit val domainInitConfigWriter: ConfigWriter[DomainInitConfig] =
-      deriveWriter[DomainInitConfig]
     lazy implicit val communityCryptoProviderWriter: ConfigWriter[CommunityCryptoProvider] =
       deriveEnumerationWriter[CommunityCryptoProvider]
     lazy implicit val cryptoSigningKeySchemeWriter: ConfigWriter[SigningKeyScheme] =
@@ -1204,8 +1081,6 @@ object CantonConfig {
     lazy implicit val communityCryptoWriter: ConfigWriter[CommunityCryptoConfig] =
       deriveWriter[CommunityCryptoConfig]
     lazy implicit val clientConfigWriter: ConfigWriter[ClientConfig] = deriveWriter[ClientConfig]
-    lazy implicit val remoteDomainConfigWriter: ConfigWriter[RemoteDomainConfig] =
-      deriveWriter[RemoteDomainConfig]
     lazy implicit val remoteParticipantConfigWriter: ConfigWriter[RemoteParticipantConfig] =
       deriveWriter[RemoteParticipantConfig]
     lazy implicit val nodeMonitoringConfigWriter: ConfigWriter[NodeMonitoringConfig] =
@@ -1299,8 +1174,6 @@ object CantonConfig {
       deriveWriter[ActiveContractsServiceStreamsConfig]
     lazy implicit val packageMetadataViewConfigWriter: ConfigWriter[PackageMetadataViewConfig] =
       deriveWriter[PackageMetadataViewConfig]
-    lazy implicit val identityConfigWriter: ConfigWriter[TopologyConfig] =
-      deriveWriter[TopologyConfig]
     lazy implicit val topologyXConfigWriter: ConfigWriter[TopologyXConfig] =
       deriveWriter[TopologyXConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileWriter
@@ -1370,8 +1243,6 @@ object CantonConfig {
       deriveWriter[SequencerNodeParameterConfig]
     lazy implicit val SequencerHealthConfigWriter: ConfigWriter[SequencerHealthConfig] =
       deriveWriter[SequencerHealthConfig]
-    lazy implicit val remoteSequencerConfigGrpcWriter: ConfigWriter[RemoteSequencerConfig.Grpc] =
-      deriveWriter[RemoteSequencerConfig.Grpc]
     lazy implicit val remoteSequencerConfigWriter: ConfigWriter[RemoteSequencerConfig] =
       deriveWriter[RemoteSequencerConfig]
     lazy implicit val mediatorNodeParameterConfigWriter: ConfigWriter[MediatorNodeParameterConfig] =
@@ -1380,36 +1251,19 @@ object CantonConfig {
       deriveWriter[RemoteMediatorConfig]
     lazy implicit val domainParametersConfigWriter: ConfigWriter[DomainParametersConfig] =
       deriveWriter[DomainParametersConfig]
-    lazy implicit val domainNodeParametersConfigWriter: ConfigWriter[DomainNodeParametersConfig] =
-      deriveWriter[DomainNodeParametersConfig]
+    lazy implicit val acsCommitmentsCatchUpConfigWriter: ConfigWriter[AcsCommitmentsCatchUpConfig] =
+      deriveWriter[AcsCommitmentsCatchUpConfig]
     lazy implicit val deadlockDetectionConfigWriter: ConfigWriter[DeadlockDetectionConfig] =
       deriveWriter[DeadlockDetectionConfig]
-    lazy implicit val checkConfigAlwaysHealthyWriter: ConfigWriter[CheckConfig.AlwaysHealthy.type] =
-      deriveWriter[CheckConfig.AlwaysHealthy.type]
-    lazy implicit val checkConfigPingWriter: ConfigWriter[CheckConfig.Ping] =
-      deriveWriter[CheckConfig.Ping]
-    lazy implicit val checkConfigIsActiveWriter: ConfigWriter[CheckConfig.IsActive] =
-      deriveWriter[CheckConfig.IsActive]
-    lazy implicit val checkConfigWriter: ConfigWriter[CheckConfig] = deriveWriter[CheckConfig]
 
     lazy implicit val metricsFilterConfigWriter: ConfigWriter[MetricsConfig.MetricsFilterConfig] =
       deriveWriter[MetricsConfig.MetricsFilterConfig]
-    lazy implicit val metricsConfigGraphiteNoPrefix: ConfigWriter[MetricsPrefix.NoPrefix.type] =
-      deriveWriter[MetricsPrefix.NoPrefix.type]
-    lazy implicit val metricsConfigGraphiteStatic: ConfigWriter[MetricsPrefix.Static] =
-      deriveWriter[MetricsPrefix.Static]
-    lazy implicit val metricsConfigGraphiteHostname: ConfigWriter[MetricsPrefix.Hostname.type] =
-      deriveWriter[MetricsPrefix.Hostname.type]
-    lazy implicit val metricsConfigGraphitePrefix: ConfigWriter[MetricsPrefix] =
-      deriveWriter[MetricsPrefix]
-    lazy implicit val metricsConfigGraphiteWriter: ConfigWriter[MetricsConfig.Graphite] =
-      deriveWriter[MetricsConfig.Graphite]
-    lazy implicit val metricsConfigPrometheusWriter: ConfigWriter[MetricsConfig.Prometheus] =
-      deriveWriter[MetricsConfig.Prometheus]
-    lazy implicit val metricsConfigCsvWriter: ConfigWriter[MetricsConfig.Csv] =
-      deriveWriter[MetricsConfig.Csv]
-    lazy implicit val metricsConfigJMXWriter: ConfigWriter[MetricsConfig.JMX] =
-      deriveWriter[MetricsConfig.JMX]
+    lazy implicit val metricsConfigPrometheusWriter
+        : ConfigWriter[MetricsReporterConfig.Prometheus] =
+      deriveWriter[MetricsReporterConfig.Prometheus]
+    lazy implicit val metricsConfigCsvWriter: ConfigWriter[MetricsReporterConfig.Csv] =
+      deriveWriter[MetricsReporterConfig.Csv]
+
     lazy implicit val metricsReporterConfigWriter: ConfigWriter[MetricsReporterConfig] =
       deriveWriter[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigWriter: ConfigWriter[HistogramDefinition] =

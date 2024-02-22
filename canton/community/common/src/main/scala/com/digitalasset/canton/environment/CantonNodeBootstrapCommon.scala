@@ -28,7 +28,7 @@ import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPubl
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
-import com.digitalasset.canton.health.admin.v0.StatusServiceGrpc
+import com.digitalasset.canton.health.admin.v30.StatusServiceGrpc
 import com.digitalasset.canton.health.{
   GrpcHealthReporter,
   GrpcHealthServer,
@@ -38,8 +38,7 @@ import com.digitalasset.canton.health.{
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.DbStorageMetrics
-import com.digitalasset.canton.metrics.MetricHandle.LabeledMetricsFactory
+import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, DbStorageMetrics}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
@@ -83,7 +82,7 @@ object CantonNodeBootstrap {
 trait BaseMetrics {
   def prefix: MetricName
 
-  def openTelemetryMetricsFactory: LabeledMetricsFactory
+  def openTelemetryMetricsFactory: CantonLabeledMetricsFactory
 
   def grpcMetrics: GrpcServerMetrics
   def healthMetrics: HealthMetrics
@@ -112,6 +111,7 @@ final case class CantonNodeBootstrapCommonArguments[
     tracerProvider: TracerProvider,
 )
 
+// TODO(#15161) collapse with base trait and CantonNodeBootstrapX
 abstract class CantonNodeBootstrapCommon[
     T <: CantonNode,
     NodeConfig <: LocalNodeConfig,

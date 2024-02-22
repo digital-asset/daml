@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.configuration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.LedgerOffset
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -62,7 +62,7 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
     }
 
   private final class Subscription(
-      startingConfiguration: Option[(LedgerOffset.Absolute, Configuration)],
+      startingConfiguration: Option[(ParticipantOffset.Absolute, Configuration)],
       configurationLoadTimeout: Duration,
   )(implicit loggingContext: LoggingContextWithTrace)
       extends LedgerConfigurationSubscription
@@ -147,27 +147,29 @@ private[apiserver] final class LedgerConfigurationSubscriptionFromIndex(
 
 private[apiserver] object LedgerConfigurationSubscriptionFromIndex {
   private sealed trait State {
-    def latestOffset: Option[LedgerOffset.Absolute]
+    def latestOffset: Option[ParticipantOffset.Absolute]
 
     def latestConfiguration: Option[Configuration]
   }
 
   private object State {
     case object NoConfiguration extends State {
-      override val latestOffset: Option[LedgerOffset.Absolute] = None
+      override val latestOffset: Option[ParticipantOffset.Absolute] = None
 
       override val latestConfiguration: Option[Configuration] = None
     }
 
-    final case class OnlyRejectedConfigurations(offset: LedgerOffset.Absolute) extends State {
-      override val latestOffset: Option[LedgerOffset.Absolute] = Some(offset)
+    final case class OnlyRejectedConfigurations(offset: ParticipantOffset.Absolute) extends State {
+      override val latestOffset: Option[ParticipantOffset.Absolute] = Some(offset)
 
       override val latestConfiguration: Option[Configuration] = None
     }
 
-    final case class ConfigurationFound(offset: LedgerOffset.Absolute, configuration: Configuration)
-        extends State {
-      override val latestOffset: Option[LedgerOffset.Absolute] = Some(offset)
+    final case class ConfigurationFound(
+        offset: ParticipantOffset.Absolute,
+        configuration: Configuration,
+    ) extends State {
+      override val latestOffset: Option[ParticipantOffset.Absolute] = Some(offset)
 
       override val latestConfiguration: Option[Configuration] = Some(configuration)
     }

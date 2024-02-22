@@ -6,10 +6,10 @@
 package com.daml.lf.engine.script.v2.ledgerinteraction
 package grpcLedgerClient
 
-import com.daml.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
-import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
-import com.daml.ledger.client.GrpcChannel
-import com.digitalasset.canton.admin.participant.{v0 => admin_package_service}
+import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub
+import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
+import com.digitalasset.canton.ledger.client.GrpcChannel
+import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
@@ -21,6 +21,11 @@ final class AdminLedgerClient private (
     token: Option[String],
 )(implicit ec: ExecutionContext)
     extends Closeable {
+
+  // Follow community/app-base/src/main/scala/com/digitalasset/canton/console/commands/TopologyAdministration.scala:1149
+  // Shows how to do a list request
+  // Try filtering for just Adds, assuming a Remove cancels an Add.
+  // If it doesn't, change the filter to all and fold them
 
   private val packageServiceStub =
     AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)

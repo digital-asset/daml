@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.ledger.client
 
+import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.error.DecodedRpcStatus
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.*
@@ -37,7 +37,7 @@ import scala.util.{Failure, Success, Try}
   */
 class ResilientLedgerSubscription[S, T](
     makeSource: ParticipantOffset => Source[S, NotUsed],
-    mapOperator: Flow[S, T, ?],
+    consumingFlow: Flow[S, T, ?],
     subscriptionName: String,
     startOffset: ParticipantOffset,
     extractOffset: S => Option[ParticipantOffset],
@@ -145,7 +145,7 @@ class ResilientLedgerSubscription[S, T](
           extractOffset(item).foreach(offsetRef.set)
           item
         }
-        .via(mapOperator),
+        .via(consumingFlow),
       subscriptionName,
       timeouts,
       loggerFactory,
@@ -154,9 +154,10 @@ class ResilientLedgerSubscription[S, T](
 
   private def handlePrunedDataAccessed: Throwable => Unit = {
     case sre: StatusRuntimeException =>
-      DecodedRpcStatus
+      DecodedCantonError
         .fromStatusRuntimeException(sre)
-        .filter(_.id == RequestValidationErrors.ParticipantPrunedDataAccessed.id)
+        .toOption
+        .filter(_.code.id == RequestValidationErrors.ParticipantPrunedDataAccessed.id)
         .flatMap(_.context.get(LedgerApiErrors.EarliestOffsetMetadataKey))
         .foreach { earliestOffset =>
           if (resubscribeIfPruned) {

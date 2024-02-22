@@ -51,23 +51,6 @@ template GetCash
     amount: Amount
   where
     signatory payer, owner
-    agreement
-      show payer <> " pays " <> amountAsText amount <>" to " <> show owner
-
-template DiscloseIou
-  with
-    sender: Party
-    receiver: Party
-    iou: ContractId Iou
-  where
-    signatory sender
-    observer receiver
-
-    choice Disclose: ()
-      controller sender
-      do
-        fetch iou
-        return ()
 
 template Dummy
   with

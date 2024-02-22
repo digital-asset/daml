@@ -34,14 +34,6 @@ main = withSdkVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
-    v1TestArgs <- do
-        let targetDevVersion = LF.version1_dev
-        let exceptionsVersion = minExceptionVersion LF.V1
-        let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V1
-        scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
-        oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
-        let lfVersionTestPairs = lfVersionTestPairsV1
-        return TestArgs{..}
     v2TestArgs <- do
         let targetDevVersion = LF.version2_dev
         let exceptionsVersion = minExceptionVersion LF.V2
@@ -50,7 +42,7 @@ main = withSdkVersions $ do
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
         return TestArgs{..}
-    let testTrees = map tests [v1TestArgs, v2TestArgs]
+    let testTrees = map tests [v2TestArgs]
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
     minExceptionVersion major =
@@ -81,25 +73,6 @@ darPackageIds fp = do
     Dalfs mainDalf dalfDeps <- either fail pure $ readDalfs archive
     Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
     pure dalfPkgIds
-
--- | We test two sets of versions:
--- 1. Versions no longer supported as output versions by damlc are tested against
---    1.14.
--- 2. For all other versions we test them against the next version + extra (1.dev, 1.dev)
-lfVersionTestPairsV1 :: [(LF.Version, LF.Version)]
-lfVersionTestPairsV1 =
-    let supportedInputVersions =
-            sortOn LF.versionMinor $
-                filter (hasMajorVersion LF.V1) LF.supportedInputVersions
-        supportedOutputVersions =
-            sortOn LF.versionMinor $
-                filter (hasMajorVersion LF.V1) LF.supportedOutputVersions
-        legacyPairs = map (,LF.version1_14) (supportedInputVersions \\ supportedOutputVersions)
-        nPlusOnePairs = zip supportedOutputVersions (tail supportedOutputVersions)
-        selfPair = (LF.version1_dev, LF.version1_dev)
-     in selfPair : concat [legacyPairs, nPlusOnePairs]
-  where
-    hasMajorVersion major v = LF.versionMajor v == major
 
 -- | We test each version against the next one + extra (2.dev, 2.dev)
 lfVersionTestPairsV2 :: [(LF.Version, LF.Version)]
@@ -1109,8 +1082,8 @@ tests TestArgs{..} =
             , "    D () -> ()"
             ]
 
-    , simpleImportTest "HasField across data-dependencies"
-        -- This test checks that HasField instances are correctly imported via
+    , simpleImportTest "GetField/SetFiled across data-dependencies"
+        -- This test checks that GetField/SetField instances are correctly imported via
         -- data-dependencies. This is a regression test for issue #7284.
             [ "module Lib where"
             , "data T x y"
@@ -1121,6 +1094,32 @@ tests TestArgs{..} =
             , "import Lib"
             , "getA : T x y -> x"
             , "getA t = t.a"
+            , "setA : x -> T x y -> T x y"
+            , "setA x t = t with a = x"
+            ]
+
+    , simpleImportTest "Custom GetField across data-dependencies"
+            [ "module Lib where"
+            , "data T = T Int"
+            , "instance GetField \"foo\" T Text where"
+            , "  getField (T a) = show a"
+            ]
+            [ "module Main where"
+            , "import Lib"
+            , "getFoo : T -> Text"
+            , "getFoo t = t.foo"
+            ]
+
+    , simpleImportTest "Custom SetField across data-dependencies"
+            [ "module Lib where"
+            , "data T = T Int"
+            , "instance SetField \"foo\" T Bool where"
+            , "  setField b (T a) = T (if b then a else -a)"
+            ]
+            [ "module Main where"
+            , "import Lib"
+            , "setFoo : Bool -> T -> T"
+            , "setFoo b t = t with foo = b"
             ]
 
     , simpleImportTest "Dictionary function names match despite conflicts"
@@ -2449,52 +2448,6 @@ tests TestArgs{..} =
             [ "build"
             , "--project-root", path mainProj
             ]
-
-    , simpleImportTestOptions "retroactive interface instance of template from data-dependency"
-        optionsDev
-        [ "module Lib where"
-
-        , "template T with"
-        , "    p : Party"
-        , "  where"
-        , "    signatory p"
-        ]
-        [ "{-# OPTIONS_GHC -Werror #-}"
-        , "module Main where"
-        , "import Lib"
-
-        , "data EmptyInterfaceView = EmptyInterfaceView {}"
-
-        , "interface I where"
-        , "  viewtype EmptyInterfaceView"
-        , "  m : ()"
-        , "  interface instance I for T where"
-        , "    view = EmptyInterfaceView"
-        , "    m = ()"
-        ]
-
-    , simpleImportTestOptions "retroactive interface instance of qualified template from data-dependency"
-        optionsDev
-        [ "module Lib where"
-
-        , "template T with"
-        , "    p : Party"
-        , "  where"
-        , "    signatory p"
-        ]
-        [ "{-# OPTIONS_GHC -Werror #-}"
-        , "module Main where"
-        , "import qualified Lib"
-
-        , "data EmptyInterfaceView = EmptyInterfaceView {}"
-
-        , "interface I where"
-        , "  viewtype EmptyInterfaceView"
-        , "  m : ()"
-        , "  interface instance I for Lib.T where"
-        , "    view = EmptyInterfaceView"
-        , "    m = ()"
-        ]
 
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"

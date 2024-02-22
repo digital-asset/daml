@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
 import cats.implicits.toFunctorFilterOps
+import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -33,7 +34,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencerErrors,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorId, MediatorRef, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{MediatorId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -44,7 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[mediator] trait VerdictSender {
   def sendResult(
       requestId: RequestId,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       verdict: Verdict,
       decisionTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Unit]
@@ -57,14 +58,14 @@ private[mediator] trait VerdictSender {
       sendVerdict: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit]
 
-  /** Mediator rejects are important for situations where malformed mediator request or RHMs can have valid state
+  /** Mediator rejects are important for situations where malformed mediator confirmation request or RHMs can have valid state
     * and thus consume resources on the participant side. A prompt rejection will allow to free these resources.
     * RHMs are used in this method to identify the affected participants that may have received them and to whom
     * the rejects will be addressed to.
     */
   def sendReject(
       requestId: RequestId,
-      requestO: Option[MediatorRequest],
+      requestO: Option[MediatorConfirmationRequest],
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       rejectionReason: Verdict.MediatorReject,
       decisionTime: CantonTimestamp,
@@ -93,7 +94,7 @@ private[mediator] class DefaultVerdictSender(
     with NamedLogging {
   override def sendResult(
       requestId: RequestId,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       verdict: Verdict,
       decisionTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Unit] = {
@@ -170,6 +171,7 @@ private[mediator] class DefaultVerdictSender(
         callback = callback,
         maxSequencingTime = decisionTime,
         aggregationRule = aggregationRule,
+        amplify = true,
       )
     } else {
       logger.info(
@@ -186,7 +188,7 @@ private[mediator] class DefaultVerdictSender(
 
   private[this] def createResults(
       requestId: RequestId,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       verdict: Verdict,
   )(implicit
       traceContext: TraceContext
@@ -201,7 +203,7 @@ private[mediator] class DefaultVerdictSender(
       )
       (informeesMap, informeesWithGroupAddressing) = result
       envelopes <- {
-        val result = request.createMediatorResult(requestId, verdict, request.allInformees)
+        val result = request.createConfirmationResult(requestId, verdict, request.allInformees)
         val recipientSeq =
           informeesMap.keys.toSeq.map(MemberRecipient) ++ informeesWithGroupAddressing.toSeq
             .map(p => ParticipantsOfParty(PartyId.tryFromLfParty(p)))
@@ -225,6 +227,8 @@ private[mediator] class DefaultVerdictSender(
   private def informeesByParticipantAndWithGroupAddressing(
       informees: List[LfPartyId],
       topologySnapshot: TopologySnapshot,
+  )(implicit
+      traceContext: TraceContext
   ): Future[(Map[ParticipantId, Set[LfPartyId]], Set[LfPartyId])] =
     for {
       partiesWithGroupAddressing <- topologySnapshot.partiesWithGroupAddressing(informees)
@@ -244,60 +248,59 @@ private[mediator] class DefaultVerdictSender(
     }
 
   private def shouldSendVerdict(
-      mediatorRef: MediatorRef,
+      mediatorGroup: MediatorsOfDomain,
       topologySnapshot: TopologySnapshot,
-  )(implicit traceContext: TraceContext): Future[Boolean] = mediatorRef match {
-    case MediatorRef.Single(_) => Future.successful(true)
-    case MediatorRef.Group(MediatorsOfDomain(mediatorGroupIndex)) =>
-      topologySnapshot.mediatorGroup(mediatorGroupIndex).map { groupO =>
-        groupO
-          .getOrElse(
-            // This has been checked in the `validateRequest`
-            ErrorUtil.invalidState(
-              s"Unexpected absent mediator group $mediatorGroupIndex."
-            )
+  )(implicit traceContext: TraceContext): Future[Boolean] = {
+    val mediatorGroupIndex = mediatorGroup.group
+    topologySnapshot.mediatorGroup(mediatorGroupIndex).map { groupO =>
+      groupO
+        .getOrElse(
+          // This has been checked in the `validateRequest`
+          ErrorUtil.invalidState(
+            s"Unexpected absent mediator group $mediatorGroupIndex."
           )
-          .active
-          .contains(mediatorId)
-      }
+        )
+        .active
+        .contains(mediatorId)
+    }
   }
 
   private def groupAggregationRule(
       topologySnapshot: TopologySnapshot,
-      mediatorRef: MediatorRef,
+      mediatorGroup: MediatorsOfDomain,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Option[AggregationRule]] =
-    mediatorRef match {
-      case MediatorRef.Group(MediatorsOfDomain(index)) =>
-        for {
-          mediatorGroup <- EitherT(
-            topologySnapshot
-              .mediatorGroup(index)
-              .map(
-                _.toRight(
-                  s"Mediator group $index does not exist in topology at ${topologySnapshot.timestamp}"
-                )
-              )
-          )
-          activeNE = NonEmpty
-            .from(mediatorGroup.active)
-            .getOrElse(
-              ErrorUtil.invalidState(
-                "MediatorGroup is expected to have at least 1 active member at this point"
-              )
+  ): EitherT[Future, String, Option[AggregationRule]] = {
+    val index = mediatorGroup.group
+    for {
+      mediatorGroup <- EitherT(
+        topologySnapshot
+          .mediatorGroup(index)
+          .map(
+            _.toRight(
+              s"Mediator group $index does not exist in topology at ${topologySnapshot.timestamp}"
             )
-        } yield {
-          Some(AggregationRule(activeNE, mediatorGroup.threshold, protocolVersion))
-        }
-      case MediatorRef.Single(_) =>
-        EitherT.right[String](Future.successful(Option.empty[AggregationRule]))
+          )
+      )
+    } yield {
+      val activeNE = NonEmpty
+        .from(mediatorGroup.active)
+        .getOrElse(
+          ErrorUtil.invalidState(
+            "MediatorGroup is expected to have at least 1 active member at this point"
+          )
+        )
+      // We need aggregation only if the mediator group is truly decentralized
+      Option.when(mediatorGroup.threshold.unwrap > 1)(
+        AggregationRule(activeNE, mediatorGroup.threshold, protocolVersion)
+      )
     }
+  }
 
   override def sendReject(
       requestId: RequestId,
-      requestO: Option[MediatorRequest],
+      requestO: Option[MediatorConfirmationRequest],
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       rejectionReason: Verdict.MediatorReject,
       decisionTime: CantonTimestamp,
@@ -323,20 +326,20 @@ private[mediator] class DefaultVerdictSender(
           .parTraverse { case (viewType, flatRecipients) =>
             // This is currently a bit messy. We need to a TransactionResultMessage or TransferXResult whenever possible,
             // because that allows us to easily intercept and change the verdict in tests.
-            // However, in some cases, the required information is not available, so we fall back to MalformedMediatorRequestResult.
-            // TODO(i11326): Remove unnecessary fields from the result message types, so we can get rid of MalformedMediatorRequestResult and simplify this code.
+            // However, in some cases, the required information is not available, so we fall back to MalformedMediatorConfirmationRequestResult.
+            // TODO(i11326): Remove unnecessary fields from the result message types, so we can get rid of MalformedMediatorConfirmationRequestResult and simplify this code.
             val rejection = (viewType match {
               case ViewType.TransactionViewType =>
                 requestO match {
-                  case Some(request @ InformeeMessage(_)) =>
-                    request.createMediatorResult(
+                  case Some(request @ InformeeMessage(_, _)) =>
+                    request.createConfirmationResult(
                       requestId,
                       rejectionReason,
                       Set.empty,
                     )
                   // For other kinds of request, or if the request is unknown, we send a generic result
                   case _ =>
-                    MalformedMediatorRequestResult.tryCreate(
+                    MalformedConfirmationRequestResult.tryCreate(
                       requestId,
                       crypto.domainId,
                       viewType,
@@ -362,14 +365,14 @@ private[mediator] class DefaultVerdictSender(
                   protocolVersion,
                 )
               case _: ViewType =>
-                MalformedMediatorRequestResult.tryCreate(
+                MalformedConfirmationRequestResult.tryCreate(
                   requestId,
                   crypto.domainId,
                   viewType,
                   rejectionReason,
                   protocolVersion,
                 )
-            }): MediatorResult
+            }): ConfirmationResult
 
             val recipients = Recipients.recipientGroups(flatRecipients.map(r => NonEmpty(Set, r)))
 
@@ -377,15 +380,14 @@ private[mediator] class DefaultVerdictSender(
               .trySignAndCreate(rejection, snapshot, protocolVersion)
               .map(_ -> recipients)
           }
-        batch = Batch.of(protocolVersion, envs *)
+        batch = Batch.of(protocolVersion, envs*)
         // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow rhms with inconsistent mediators from other than participant domain nodes)
-        mediatorRefO = // we always use RHMs to figure out mediator ref, to address rejections from a correct mediator that participants that received the RHMs expect
+        mediatorGroupO = // we always use RHMs to figure out the mediator group, to address rejections from a correct mediator that participants that received the RHMs expect
           rootHashMessages.headOption // one RHM is enough because sequencer checks that all RHMs specify the same mediator recipient
             .map { rhm =>
               rhm.recipients.allRecipients
-                .collectFirst {
-                  case MemberRecipient(mediatorId: MediatorId) => MediatorRef(mediatorId)
-                  case mediatorsOfDomain: MediatorsOfDomain => MediatorRef(mediatorsOfDomain)
+                .collectFirst { case mediatorsOfDomain: MediatorsOfDomain =>
+                  mediatorsOfDomain
                 }
                 .getOrElse {
                   ErrorUtil.invalidState(
@@ -393,33 +395,30 @@ private[mediator] class DefaultVerdictSender(
                   )
                 }
             }
-        _ <- {
-          mediatorRefO match {
-            case Some(mediatorRef) =>
-              for {
-                aggregationRuleO <- groupAggregationRule(
-                  snapshot.ipsSnapshot,
-                  mediatorRef,
-                  protocolVersion,
-                )
-                  .valueOr(reason =>
-                    ErrorUtil.invalidState(
-                      s"MediatorReject not sent. Failed to determine group aggregation rule for mediator $mediatorRef due to: $reason"
-                    )
+        _ <- mediatorGroupO.traverse_ {
+          // if no mediator could be detected from RHMs, participants will also detect this and there's not need to send a reject
+          mediatorGroup =>
+            for {
+              aggregationRuleO <- groupAggregationRule(
+                snapshot.ipsSnapshot,
+                mediatorGroup,
+                protocolVersion,
+              )
+                .valueOr(reason =>
+                  ErrorUtil.invalidState(
+                    s"MediatorReject not sent. Failed to determine group aggregation rule for mediator $mediatorGroup due to: $reason"
                   )
-                sendVerdict <- shouldSendVerdict(mediatorRef, snapshot.ipsSnapshot)
-              } yield {
-                sendResultBatch(
-                  requestId,
-                  batch,
-                  decisionTime,
-                  aggregationRule = aggregationRuleO,
-                  sendVerdict,
                 )
-              }
-            case None => // if no mediator could be detected from RHMs, participants will also detect this and there's not need to send a reject
-              Future.unit
-          }
+              sendVerdict <- shouldSendVerdict(mediatorGroup, snapshot.ipsSnapshot)
+            } yield {
+              sendResultBatch(
+                requestId,
+                batch,
+                decisionTime,
+                aggregationRule = aggregationRuleO,
+                sendVerdict,
+              )
+            }
         }
       } yield ()
     } else Future.unit

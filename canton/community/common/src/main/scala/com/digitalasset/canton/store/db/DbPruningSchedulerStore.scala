@@ -8,7 +8,6 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String3
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.DbStorage.Profile
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
@@ -29,24 +28,19 @@ final class DbPruningSchedulerStore(
     with NamedLogging {
   import storage.api.*
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("pruning-scheduler-store")
-
   override def setSchedule(schedule: PruningSchedule)(implicit
       tc: TraceContext
   ): Future[Unit] = {
-    processingTime
-      .event {
-        storage.update_(
-          storage.profile match {
-            case _: Profile.Postgres =>
-              sqlu"""insert into pruning_schedules (node_type, cron, max_duration, retention)
+    storage.update_(
+      storage.profile match {
+        case _: Profile.Postgres =>
+          sqlu"""insert into pruning_schedules (node_type, cron, max_duration, retention)
                      values ($nodeCode, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention})
                      on conflict (node_type) do
                        update set cron = ${schedule.cron}, max_duration = ${schedule.maxDuration}, retention = ${schedule.retention}
                   """
-            case _: Profile.Oracle | _: Profile.H2 =>
-              sqlu"""merge into pruning_schedules using dual
+        case _: Profile.Oracle | _: Profile.H2 =>
+          sqlu"""merge into pruning_schedules using dual
                      on (node_type = $nodeCode)
                      when matched then
                        update set cron = ${schedule.cron}, max_duration = ${schedule.maxDuration}, retention = ${schedule.retention}
@@ -54,23 +48,20 @@ final class DbPruningSchedulerStore(
                        insert (node_type, cron, max_duration, retention)
                        values ($nodeCode, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention})
                   """
-          },
-          functionFullName,
-        )
-      }
+      },
+      functionFullName,
+    )
   }
 
-  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] = processingTime
-    .event {
-      storage.update_(
-        sqlu"""delete from pruning_schedules where node_type = $nodeCode""",
-        functionFullName,
-      )
-    }
+  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] =
+    storage.update_(
+      sqlu"""delete from pruning_schedules where node_type = $nodeCode""",
+      functionFullName,
+    )
 
   override def getSchedule()(implicit
       tc: TraceContext
-  ): Future[Option[PruningSchedule]] = processingTime.event {
+  ): Future[Option[PruningSchedule]] = {
     storage
       .query(
         sql"""select cron, max_duration, retention
@@ -91,47 +82,38 @@ final class DbPruningSchedulerStore(
   }
 
   override def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[Future, String, Unit] =
-    EitherT(
-      processingTime
-        .event {
-          storage
-            .update(
-              sqlu"""update pruning_schedules set cron = $cron where node_type = $nodeCode""",
-              functionFullName,
-            )
-            .map(errorOnUpdateOfMissingSchedule("cron"))
-        }
-    )
+    EitherT {
+      storage
+        .update(
+          sqlu"""update pruning_schedules set cron = $cron where node_type = $nodeCode""",
+          functionFullName,
+        )
+        .map(errorOnUpdateOfMissingSchedule("cron"))
+    }
 
   override def updateMaxDuration(
       maxDuration: PositiveSeconds
   )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
-    EitherT(
-      processingTime
-        .event {
-          storage
-            .update(
-              sqlu"""update pruning_schedules set max_duration = $maxDuration where node_type = $nodeCode""",
-              functionFullName,
-            )
-            .map(errorOnUpdateOfMissingSchedule("max_duration"))
-        }
-    )
+    EitherT {
+      storage
+        .update(
+          sqlu"""update pruning_schedules set max_duration = $maxDuration where node_type = $nodeCode""",
+          functionFullName,
+        )
+        .map(errorOnUpdateOfMissingSchedule("max_duration"))
+    }
 
   override def updateRetention(
       retention: PositiveSeconds
   )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
-    EitherT(
-      processingTime
-        .event {
-          storage
-            .update(
-              sqlu"""update pruning_schedules set retention = $retention where node_type = $nodeCode""",
-              functionFullName,
-            )
-            .map(errorOnUpdateOfMissingSchedule("retention"))
-        }
-    )
+    EitherT {
+      storage
+        .update(
+          sqlu"""update pruning_schedules set retention = $retention where node_type = $nodeCode""",
+          functionFullName,
+        )
+        .map(errorOnUpdateOfMissingSchedule("retention"))
+    }
 
   private def errorOnUpdateOfMissingSchedule(
       field: String

@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.syntax.foldable.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApiProvider}
-import com.digitalasset.canton.protocol.{LfGlobalKey, LfGlobalKeyWithMaintainers, TransactionId}
+import com.digitalasset.canton.protocol.TransactionId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,23 +29,13 @@ package object repair {
     TransactionId(hash)
   }
 
-  private[repair] def hostsParty(snapshot: TopologySnapshot, participantId: ParticipantId)(
-      party: LfPartyId
-  )(implicit executionContext: ExecutionContext): Future[Boolean] =
-    snapshot.hostedOn(party, participantId).map(_.exists(_.permission.isActive))
-
-  private[repair] def getKeyIfOneMaintainerIsLocal(
+  private[repair] def hostsParties(
       snapshot: TopologySnapshot,
-      keyO: Option[LfGlobalKeyWithMaintainers],
+      parties: Set[LfPartyId],
       participantId: ParticipantId,
-  )(implicit executionContext: ExecutionContext): Future[Option[LfGlobalKey]] = {
-    keyO.collect { case LfGlobalKeyWithMaintainers(key, maintainers) =>
-      (maintainers, key)
-    } match {
-      case None => Future.successful(None)
-      case Some((maintainers, key)) =>
-        maintainers.toList.findM(hostsParty(snapshot, participantId)).map(_.map(_ => key))
-    }
-  }
-
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): Future[Set[LfPartyId]] =
+    snapshot.hostedOn(parties, participantId).map(_.keySet)
 }

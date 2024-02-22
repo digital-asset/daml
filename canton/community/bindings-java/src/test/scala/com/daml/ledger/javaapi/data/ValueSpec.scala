@@ -13,7 +13,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-import java.util.{Optional as JOptional}
+import java.util.Optional as JOptional
 
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
 class ValueSpec

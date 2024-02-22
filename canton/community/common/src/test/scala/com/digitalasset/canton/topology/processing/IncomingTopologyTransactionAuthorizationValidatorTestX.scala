@@ -3,16 +3,18 @@
 
 package com.digitalasset.canton.topology.processing
 
+import cats.Apply
+import cats.instances.list.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.TestDomainParameters
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DefaultTestIdentities.domainManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
+  NoDelegationFoundForKeys,
+  NotAuthorized,
+}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
@@ -20,192 +22,10 @@ import com.digitalasset.canton.topology.store.{
   ValidatedTopologyTransactionX,
 }
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.ExecutionContext
-
-class TopologyTransactionXTestFactory(loggerFactory: NamedLoggerFactory, initEc: ExecutionContext)
-    extends TestingOwnerWithKeysX(domainManager, loggerFactory, initEc) {
-
-  import SigningKeys.*
-
-  def createNsX(ns: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
-    NamespaceDelegationX.tryCreate(ns, key, isRootDelegation)
-
-  val ns1 = Namespace(key1.fingerprint)
-  val ns2 = Namespace(key2.fingerprint)
-  val ns3 = Namespace(key3.fingerprint)
-  val ns4 = Namespace(key4.fingerprint)
-  val ns6 = Namespace(key6.fingerprint)
-  val ns7 = Namespace(key7.fingerprint)
-  val ns8 = Namespace(key8.fingerprint)
-  val ns9 = Namespace(key9.fingerprint)
-  val domainId1 = DomainId(UniqueIdentifier(Identifier.tryCreate("domain"), ns1))
-  val uid1a = UniqueIdentifier(Identifier.tryCreate("one"), ns1)
-  val uid1b = UniqueIdentifier(Identifier.tryCreate("two"), ns1)
-  val uid6 = UniqueIdentifier(Identifier.tryCreate("other"), ns6)
-  val party1b = PartyId(uid1b)
-  val party6 = PartyId(uid6)
-  val participant1 = ParticipantId(uid1a)
-  val participant6 = ParticipantId(uid6)
-  val ns1k1_k1 = mkAdd(createNsX(ns1, key1, isRootDelegation = true), key1)
-  val ns1k2_k1 = mkAdd(createNsX(ns1, key2, isRootDelegation = true), key1)
-  val ns1k2_k1p = mkAdd(createNsX(ns1, key2, isRootDelegation = true), key1)
-  val ns1k3_k2 = mkAdd(createNsX(ns1, key3, isRootDelegation = false), key2)
-  val ns1k8_k3_fail = mkAdd(createNsX(ns1, key8, isRootDelegation = false), key3)
-  val ns6k3_k6 = mkAdd(createNsX(ns6, key3, isRootDelegation = false), key6)
-  val ns6k6_k6 = mkAdd(createNsX(ns6, key6, isRootDelegation = true), key6)
-  val id1ak4_k2 = mkAdd(IdentifierDelegationX(uid1a, key4), key2)
-  val id1ak4_k2p = mkAdd(IdentifierDelegationX(uid1a, key4), key2)
-  val id1ak4_k1 = mkAdd(IdentifierDelegationX(uid1a, key4), key1)
-
-  val id6k4_k1 = mkAdd(IdentifierDelegationX(uid6, key4), key1)
-
-  val okm1ak5_k3 =
-    mkAdd(OwnerToKeyMappingX(participant1, Some(domainId1), NonEmpty(Seq, key5)), key3)
-  val okm1ak1E_k3 = mkAdd(
-    OwnerToKeyMappingX(participant1, Some(domainId1), NonEmpty(Seq, EncryptionKeys.key1)),
-    key3,
-  )
-  val okm1ak5_k2 =
-    mkAdd(OwnerToKeyMappingX(participant1, Some(domainId1), NonEmpty(Seq, key5)), key2)
-  val okm1bk5_k1 =
-    mkAdd(OwnerToKeyMappingX(participant1, Some(domainId1), NonEmpty(Seq, key5)), key1)
-  val okm1bk5_k4 =
-    mkAdd(OwnerToKeyMappingX(participant1, Some(domainId1), NonEmpty(Seq, key5)), key4)
-
-  val sequencer1 = SequencerId(UniqueIdentifier(Identifier.tryCreate("sequencer1"), ns1))
-  val okmS1k7_k1 =
-    mkAdd(OwnerToKeyMappingX(sequencer1, Some(domainId1), NonEmpty(Seq, key7)), key1)
-  val okmS1k9_k1 =
-    mkAdd(OwnerToKeyMappingX(sequencer1, Some(domainId1), NonEmpty(Seq, key9)), key1)
-  val okmS1k7_k1_remove =
-    mkTrans(okmS1k7_k1.transaction.reverse, NonEmpty(Set, key1), isProposal = false)
-
-  val defaultDomainParameters = TestDomainParameters.defaultDynamic
-
-  val p1p1B_k2 =
-    mkAdd(
-      PartyToParticipantX(
-        party1b,
-        None,
-        threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
-        groupAddressing = false,
-      ),
-      key2,
-    )
-  val p1p6_k2 =
-    mkAdd(
-      PartyToParticipantX(
-        party1b,
-        None,
-        threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
-        groupAddressing = false,
-      ),
-      key2,
-      isProposal = true,
-    )
-  val p1p6_k6 =
-    mkAdd(
-      PartyToParticipantX(
-        party1b,
-        None,
-        threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
-        groupAddressing = false,
-      ),
-      key6,
-      isProposal = true,
-    )
-  val p1p6_k2k6 =
-    mkAddMultiKey(
-      PartyToParticipantX(
-        party1b,
-        None,
-        threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
-        groupAddressing = false,
-      ),
-      NonEmpty(Set, key2, key6),
-    )
-
-  val p1p6B_k3 =
-    mkAdd(
-      PartyToParticipantX(
-        party1b,
-        Some(domainId1),
-        threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
-        groupAddressing = false,
-      ),
-      key3,
-    )
-
-  val dmp1_k2 = mkAdd(
-    DomainParametersStateX(DomainId(uid1a), defaultDomainParameters),
-    key2,
-  )
-
-  val dmp1_k1 = mkAdd(
-    DomainParametersStateX(
-      DomainId(uid1a),
-      defaultDomainParameters
-        .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
-    ),
-    key1,
-  )
-
-  val dmp1_k1_bis = mkAdd(
-    DomainParametersStateX(
-      DomainId(uid1a),
-      defaultDomainParameters
-        .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
-    ),
-    key1,
-  )
-
-  val ns7k7_k7 = mkAdd(createNsX(ns7, key7, isRootDelegation = true), key7)
-  val ns8k8_k8 = mkAdd(createNsX(ns8, key8, isRootDelegation = true), key8)
-  val ns9k9_k9 = mkAdd(createNsX(ns9, key9, isRootDelegation = true), key9)
-
-  val dns1 = mkAddMultiKey(
-    DecentralizedNamespaceDefinitionX
-      .create(ns7, PositiveInt.two, NonEmpty(Set, ns1, ns8, ns9))
-      .fold(
-        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 1: $err"),
-        identity,
-      ),
-    NonEmpty(Set, key1, key8, key9),
-    serial = PositiveInt.one,
-  )
-  val dns2 = mkAdd(
-    DecentralizedNamespaceDefinitionX
-      .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
-      .fold(
-        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 2: $err"),
-        identity,
-      ),
-    key9,
-    serial = PositiveInt.two,
-    isProposal = true,
-  )
-  val dns3 = mkAdd(
-    DecentralizedNamespaceDefinitionX
-      .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
-      .fold(
-        err => sys.error(s"Failed to create DecentralizedNamespaceDefinitionX 3: $err"),
-        identity,
-      ),
-    key8,
-    serial = PositiveInt.two,
-    isProposal = true,
-  )
-  val decentralizedNamespaceWithMultipleOwnerThreshold =
-    List(ns1k1_k1, ns8k8_k8, ns9k9_k9, ns7k7_k7, dns1)
-}
 
 class IncomingTopologyTransactionAuthorizationValidatorTestX
     extends AsyncWordSpec
@@ -215,19 +35,21 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
 
   "topology transaction authorization" when {
 
-    object Factory extends TopologyTransactionXTestFactory(loggerFactory, parallelExecutionContext)
+    object Factory extends TopologyTransactionTestFactoryX(loggerFactory, parallelExecutionContext)
 
     def ts(seconds: Long) = CantonTimestamp.Epoch.plusSeconds(seconds)
 
     def mk(
         store: InMemoryTopologyStoreX[TopologyStoreId] =
-          new InMemoryTopologyStoreX(DomainStore(Factory.domainId1), loggerFactory, timeouts)
+          new InMemoryTopologyStoreX(DomainStore(Factory.domainId1), loggerFactory, timeouts),
+        validationIsFinal: Boolean = true,
     ) = {
       val validator =
         new IncomingTopologyTransactionAuthorizationValidatorX(
           Factory.cryptoApi.crypto.pureCrypto,
           store,
           Some(Factory.domainId1),
+          validationIsFinal = validationIsFinal,
           loggerFactory,
         )
       validator
@@ -246,9 +68,6 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
       }
       assert(true)
     }
-
-    val unauthorized =
-      Some((err: TopologyTransactionRejection) => err == TopologyTransactionRejection.NotAuthorized)
 
     "receiving transactions with signatures" should {
       "succeed to add if the signature is valid" in {
@@ -348,7 +167,16 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized, None, None))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key6.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              None,
+              None,
+            ),
+          )
         }
       }
       "succeed and use load existing delegations" in {
@@ -387,7 +215,17 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           )
 
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized, None, unauthorized, None))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key6.fingerprint))),
+              None,
+            ),
+          )
         }
       }
 
@@ -419,7 +257,15 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(unauthorized, None, None, unauthorized))
+          check(
+            res._2,
+            Seq(
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
+            ),
+          )
         }
       }
     }
@@ -451,7 +297,14 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized, unauthorized))
+          check(
+            res._2,
+            Seq(
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+            ),
+          )
         }
       }
       "succeed with loading existing identifier delegations" in {
@@ -510,7 +363,18 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, None, None, unauthorized, unauthorized))
+          check(
+            res._2,
+            Seq(
+              None,
+              None,
+              None,
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+            ),
+          )
         }
       }
 
@@ -562,7 +426,10 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, unauthorized))
+          check(
+            res._2,
+            Seq(None, Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint)))),
+          )
           res._1.cascadingNamespaces shouldBe Set(ns1)
         }
       }
@@ -628,9 +495,123 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             expectFullAuthorization = true,
           )
         } yield {
-          check(res._2, Seq(None, None, None, unauthorized))
+          check(
+            res._2,
+            Seq(
+              None,
+              None,
+              None,
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
+            ),
+          )
           res._1.cascadingNamespaces shouldBe Set(ns1)
           res._1.filteredCascadingUids shouldBe Set(uid6)
+        }
+      }
+    }
+
+    "observing PartyToParticipant mappings" should {
+      "allow participants to unilaterally disassociate themselves from parties" in {
+        val store =
+          new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        val validator = mk(store)
+        import Factory.*
+
+        val pid2 = ParticipantId(UniqueIdentifier(Identifier.tryCreate("participant2"), ns2))
+        val participant2HostsParty1 = mkAddMultiKey(
+          PartyToParticipantX(
+            party1b, // lives in the namespace of p1, corresponding to `SigningKeys.key1`
+            None,
+            threshold = PositiveInt.two,
+            Seq(
+              HostingParticipant(participant1, ParticipantPermission.Submission),
+              HostingParticipant(pid2, ParticipantPermission.Submission),
+            ),
+            groupAddressing = false,
+          ),
+          // both the party's owner and the participant sign
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+          serial = PositiveInt.one,
+        )
+
+        val unhostingMapping = PartyToParticipantX(
+          party1b,
+          None,
+          threshold = PositiveInt.two,
+          Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
+          groupAddressing = false,
+        )
+        val participant2RemovesItselfUnilaterally = mkAdd(
+          unhostingMapping,
+          // only the unhosting participant signs
+          SigningKeys.key2,
+          serial = PositiveInt.two,
+        )
+
+        val participant2RemovedFullyAuthorized = mkAddMultiKey(
+          unhostingMapping,
+          // both the unhosting participant as well as the party's owner signs
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+          serial = PositiveInt.two,
+        )
+
+        val ptpMappingHash = participant2HostsParty1.mapping.uniqueKey
+        import monocle.syntax.all.*
+        for {
+          _ <- store.update(
+            SequencedTime(ts(0)),
+            EffectiveTime(ts(0)),
+            removeMapping = Set.empty,
+            removeTxs = Set.empty,
+            additions = List(ns1k1_k1, ns2k2_k2).map(
+              ValidatedTopologyTransactionX(_)
+            ),
+          )
+          hostingResult <- validator.validateAndUpdateHeadAuthState(
+            ts(1),
+            List(participant2HostsParty1),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = false,
+          )
+
+          // unilateral unhosting by participant2 only signed by the participant
+          unhostingResult <- validator.validateAndUpdateHeadAuthState(
+            ts(2),
+            List(participant2RemovesItselfUnilaterally),
+            transactionsInStore = Map(ptpMappingHash -> participant2HostsParty1),
+            expectFullAuthorization = false,
+          )
+
+          // it is still allowed to have a mix of signatures for unhosting
+          unhostingMixedResult <- validator.validateAndUpdateHeadAuthState(
+            ts(2),
+            List(participant2RemovedFullyAuthorized),
+            transactionsInStore = Map(ptpMappingHash -> participant2HostsParty1),
+            expectFullAuthorization = false,
+          )
+
+          // the participant being removed may not sign if anything else changes
+          unhostingAndThresholdChangeResult <- validator.validateAndUpdateHeadAuthState(
+            ts(2),
+            List(
+              mkAddMultiKey(
+                unhostingMapping
+                  .focus(_.threshold)
+                  .replace(PositiveInt.one),
+                NonEmpty(Set, SigningKeys.key2),
+              )
+            ),
+            transactionsInStore = Map(ptpMappingHash -> participant2HostsParty1),
+            expectFullAuthorization = false,
+          )
+        } yield {
+          check(hostingResult._2, Seq(None))
+          check(unhostingResult._2, Seq(None))
+          check(unhostingMixedResult._2, Seq(None))
+          check(
+            unhostingAndThresholdChangeResult._2,
+            Seq(Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint)))),
+          )
         }
       }
     }
@@ -704,6 +685,283 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         } yield {
           check(res._2, Seq(None))
         }
+      }
+    }
+
+    def checkProposalFlatAfterValidation(validationIsFinal: Boolean, expectProposal: Boolean) = {
+      val store =
+        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+      val validator = mk(store, validationIsFinal)
+      import Factory.*
+      import SigningKeys.{ec as _, *}
+
+      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8))
+      val dns_2_owners = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(dns_id, PositiveInt.two, NonEmpty(Set, ns1, ns8))
+          .value,
+        NonEmpty(Set, key1, key8),
+        serial = PositiveInt.one,
+      )
+      val decentralizedNamespaceWithThreeOwners = List(ns1k1_k1, ns8k8_k8, dns_2_owners)
+
+      for {
+        _ <- store.update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Set.empty,
+          removeTxs = Set.empty,
+          additions = decentralizedNamespaceWithThreeOwners.map(
+            ValidatedTopologyTransactionX(_)
+          ),
+        )
+
+        pkgTx = TopologyTransactionX(
+          TopologyChangeOpX.Replace,
+          serial = PositiveInt.one,
+          VettedPackagesX(
+            ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+            None,
+            Seq.empty,
+          ),
+          BaseTest.testedProtocolVersion,
+        )
+        result_packageVetting <- validator
+          .validateAndUpdateHeadAuthState(
+            ts(1),
+            transactionsToValidate = List(
+              // Setting isProposal=true despite having enough keys.
+              // This simulates processing a proposal with the signature of a node,
+              // that got merged with another proposal already in the store.
+              mkTrans(pkgTx, signingKeys = NonEmpty(Set, key1, key8), isProposal = true)
+            ),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = false,
+          )
+
+      } yield {
+        val validatedPkgTx = result_packageVetting._2.loneElement
+
+        validatedPkgTx.rejectionReason shouldBe None
+        withClue("package transaction is proposal")(
+          validatedPkgTx.transaction.isProposal shouldBe expectProposal
+        )
+      }
+    }
+
+    "change the proposal status when the validation is final" in {
+      checkProposalFlatAfterValidation(validationIsFinal = true, expectProposal = false)
+    }
+
+    "not change the proposal status when the validation is not final" in {
+      checkProposalFlatAfterValidation(validationIsFinal = false, expectProposal = true)
+    }
+
+    "remove superfluous signatures" in {
+      val store =
+        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+      val validator = mk(store)
+      import Factory.*
+      import SigningKeys.{ec as _, *}
+
+      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8))
+      val dnsTwoOwners = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(dns_id, PositiveInt.two, NonEmpty(Set, ns1, ns8))
+          .value,
+        NonEmpty(Set, key1, key8),
+        serial = PositiveInt.one,
+      )
+      val decentralizedNamespaceWithTwoOwners = List(ns1k1_k1, ns8k8_k8, dnsTwoOwners)
+
+      for {
+        _ <- store.update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Set.empty,
+          removeTxs = Set.empty,
+          additions = decentralizedNamespaceWithTwoOwners.map(
+            ValidatedTopologyTransactionX(_)
+          ),
+        )
+
+        pkgTx = TopologyTransactionX(
+          TopologyChangeOpX.Replace,
+          serial = PositiveInt.one,
+          VettedPackagesX(
+            ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+            None,
+            Seq.empty,
+          ),
+          BaseTest.testedProtocolVersion,
+        )
+        resultPackageVetting <- validator
+          .validateAndUpdateHeadAuthState(
+            ts(1),
+            transactionsToValidate = List(
+              // Signing this transaction also with key9 simulates that ns9 was part of the
+              // decentralized namespace before and was eligible for signing the transaction.
+              // After this validation, we expect the signature of key9 to be removed
+              mkTrans(pkgTx, signingKeys = NonEmpty(Set, key9, key1, key8), isProposal = true)
+            ),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = false,
+          )
+
+        // if there are only superfluous signatures, reject the transaction
+        resultOnlySuperfluousSignatures <- validator.validateAndUpdateHeadAuthState(
+          ts(2),
+          transactionsToValidate = List(
+            mkTrans(pkgTx, signingKeys = NonEmpty(Set, key3, key5), isProposal = true)
+          ),
+          transactionsInStore = Map.empty,
+          expectFullAuthorization = false,
+        )
+
+      } yield {
+        val validatedPkgTx = resultPackageVetting._2.loneElement
+        val signatures = validatedPkgTx.transaction.signatures
+
+        validatedPkgTx.rejectionReason shouldBe None
+        signatures.map(_.signedBy).forgetNE should contain theSameElementsAs (Set(key1, key8).map(
+          _.id
+        ))
+
+        resultOnlySuperfluousSignatures._2.loneElement.rejectionReason shouldBe Some(
+          TopologyTransactionRejection.NoDelegationFoundForKeys(Set(key3.id, key5.id))
+        )
+      }
+    }
+
+    "respect the threshold of decentralized namespaces" in {
+      val store =
+        new InMemoryTopologyStoreX(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+      val validator = mk(store)
+      import Factory.*
+      import SigningKeys.{ec as _, *}
+
+      val dns_id = DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns8, ns9))
+      val dns = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(dns_id, PositiveInt.tryCreate(3), NonEmpty(Set, ns1, ns8, ns9))
+          .value,
+        NonEmpty(Set, key1, key8, key9),
+        serial = PositiveInt.one,
+      )
+
+      val decentralizedNamespaceWithThreeOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9, dns)
+
+      val pkgMapping = VettedPackagesX(
+        ParticipantId(Identifier.tryCreate("consortium-participiant"), dns_id),
+        None,
+        Seq.empty,
+      )
+      val pkgTx = TopologyTransactionX(
+        TopologyChangeOpX.Replace,
+        serial = PositiveInt.one,
+        pkgMapping,
+        BaseTest.testedProtocolVersion,
+      )
+
+      def validateTx(
+          isProposal: Boolean,
+          expectFullAuthorization: Boolean,
+          signingKeys: SigningPublicKey*
+      ) = TraceContext.withNewTraceContext { freshTraceContext =>
+        validator
+          .validateAndUpdateHeadAuthState(
+            ts(1),
+            transactionsToValidate = List(
+              mkTrans(
+                pkgTx,
+                isProposal = isProposal,
+                signingKeys = NonEmpty.from(signingKeys.toSet).value,
+              )
+            ),
+            transactionsInStore = Map.empty,
+            expectFullAuthorization = expectFullAuthorization,
+          )(freshTraceContext)
+          .map(_._2.loneElement)
+      }
+
+      for {
+        _ <- store.update(
+          SequencedTime(ts(0)),
+          EffectiveTime(ts(0)),
+          removeMapping = Set.empty,
+          removeTxs = Set.empty,
+          additions = decentralizedNamespaceWithThreeOwners.map(
+            ValidatedTopologyTransactionX(_)
+          ),
+        )
+
+        combinationsThatAreNotAuthorized = Seq(
+          ( /* isProposal*/ true, /* expectFullAuthorization*/ true),
+          ( /* isProposal*/ false, /* expectFullAuthorization*/ true),
+          // doesn't make much sense. a non-proposal by definition must be fully authorized
+          ( /* isProposal*/ false, /* expectFullAuthorization*/ false),
+        )
+
+        // try with 1/3 signatures
+        _ <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
+          case (isProposal, expectFullAuthorization) =>
+            clueF(
+              s"key1: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
+            )(
+              validateTx(isProposal, expectFullAuthorization, key1).map(
+                _.rejectionReason shouldBe Some(NotAuthorized)
+              )
+            )
+        }
+
+        // authorizing as proposal should succeed
+        _ <- clueF(s"key1: isProposal=true, expectFullAuthorization=false")(
+          validateTx(isProposal = true, expectFullAuthorization = false, key1).map(
+            _.rejectionReason shouldBe None
+          )
+        )
+
+        // try with 2/3 signatures
+        key1_key8_notAuthorized <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
+          case (isProposal, expectFullAuthorization) =>
+            clueF(
+              s"key1, key8: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
+            )(
+              validateTx(isProposal, expectFullAuthorization, key1, key8).map(
+                _.rejectionReason shouldBe Some(NotAuthorized)
+              )
+            )
+        }
+
+        _ <- clueF(
+          s"key1, key8: isProposal=true, expectFullAuthorization=false"
+        )(
+          validateTx(
+            isProposal = true,
+            expectFullAuthorization = false,
+            key1,
+            key8,
+          ).map(
+            _.rejectionReason shouldBe None
+          )
+        )
+
+        // when there are enough signatures, the transaction should become fully authorized
+        // regardless of the `isProposal` and `expectFullAuthorization` flags
+        allCombinations = Apply[List].product(List(true, false), List(true, false))
+        _ <- MonadUtil.sequentialTraverse(allCombinations) {
+          case (isProposal, expectFullAuthorization) =>
+            clueF(
+              s"key1, key8, key9: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
+            )(
+              validateTx(isProposal, expectFullAuthorization, key1, key8, key9).map(
+                _.rejectionReason shouldBe None
+              )
+            )
+        }
+
+      } yield {
+        succeed
       }
     }
   }

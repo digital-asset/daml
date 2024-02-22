@@ -17,7 +17,6 @@ import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescriptor}
 import com.digitalasset.canton.participant.store.DamlPackageStore
@@ -54,9 +53,6 @@ class DbDamlPackageStore(
     timeouts,
     loggerFactory,
   )
-
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("daml-packages-dars-store")
 
   private def exists(packageId: PackageId): DbAction.ReadOnly[Option[DamlLf.Archive]] =
     sql"select data from daml_packages where package_id = $packageId"
@@ -163,7 +159,7 @@ class DbDamlPackageStore(
       dar: Option[PackageService.Dar],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = processingTime.eventUS {
+  ): FutureUnlessShutdown[Unit] = {
 
     val insertPkgs = insertOrUpdatePackages(
       pkgs.map(pkg => DamlPackage(readPackageId(pkg), pkg.toByteArray)),
@@ -198,13 +194,11 @@ class DbDamlPackageStore(
   override def getPackage(
       packageId: PackageId
   )(implicit traceContext: TraceContext): Future[Option[DamlLf.Archive]] =
-    processingTime.event {
-      storage.querySingle(exists(packageId), functionFullName).value
-    }
+    storage.querySingle(exists(packageId), functionFullName).value
 
   override def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]] = processingTime.event {
+  ): Future[Option[PackageDescription]] = {
     storage
       .querySingle(
         sql"select package_id, source_description from daml_packages where package_id = $packageId"
@@ -218,13 +212,11 @@ class DbDamlPackageStore(
   override def listPackages(
       limit: Option[Int]
   )(implicit traceContext: TraceContext): Future[Seq[PackageDescription]] =
-    processingTime.event {
-      storage.query(
-        sql"select package_id, source_description from daml_packages #${limit.fold("")(storage.limit(_))}"
-          .as[PackageDescription],
-        functionFullName,
-      )
-    }
+    storage.query(
+      sql"select package_id, source_description from daml_packages #${limit.fold("")(storage.limit(_))}"
+        .as[PackageDescription],
+      functionFullName,
+    )
 
   override def removePackage(
       packageId: PackageId
@@ -303,21 +295,18 @@ class DbDamlPackageStore(
   override def getDar(
       hash: Hash
   )(implicit traceContext: TraceContext): Future[Option[Dar]] =
-    processingTime.event {
-      storage.querySingle(existing(hash), functionFullName).value
-    }
+    storage.querySingle(existing(hash), functionFullName).value
 
   override def listDars(
       limit: Option[Int]
-  )(implicit traceContext: TraceContext): Future[Seq[DarDescriptor]] =
-    processingTime.event {
-      val query = limit match {
-        case None => sql"select hash, name from dars".as[DarDescriptor]
-        case Some(amount) =>
-          sql"select hash, name from dars #${storage.limit(amount)}".as[DarDescriptor]
-      }
-      storage.query(query, functionFullName)
+  )(implicit traceContext: TraceContext): Future[Seq[DarDescriptor]] = {
+    val query = limit match {
+      case None => sql"select hash, name from dars".as[DarDescriptor]
+      case Some(amount) =>
+        sql"select hash, name from dars #${storage.limit(amount)}".as[DarDescriptor]
     }
+    storage.query(query, functionFullName)
+  }
 
   private def existing(hash: Hash): DbAction.ReadOnly[Option[Dar]] =
     sql"select hash, name, data from dars where hash_hex = ${hash.toLengthLimitedHexString}"

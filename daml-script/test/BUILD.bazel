@@ -22,13 +22,23 @@ load(
 
 [
     genrule(
-        name = "script-test-v{}".format(major),
+        name = "script{scriptVersion}-test-v{major}".format(
+            major = major,
+            scriptVersion = scriptVersion,
+        ),
         srcs =
             glob(["**/*.daml"]) + [
-                "//daml-script/daml:daml-script-{}.dar".format(target),
+                "//daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar".format(
+                    scriptVersion = scriptVersion,
+                    target = target,
+                ),
                 "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+                "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
-        outs = ["script-test-v{}.dar".format(major)],
+        outs = ["script{scriptVersion}-test-v{major}.dar".format(
+            major = major,
+            scriptVersion = scriptVersion,
+        )],
         cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -39,6 +49,7 @@ load(
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
 initializeFixed = do
@@ -48,23 +59,24 @@ initializeFixed = do
   let parties = LedgerParties{{..}}
   initialize parties
 EOF
-      cp -L $(location //daml-script/daml:daml-script-{target}.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml{scriptVersion}:daml{scriptVersion}-script-{target}.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
-name: script-test
+name: script{scriptVersion}-test
 source: daml
 version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script-{target}.dar
+  - daml{scriptVersion}-script-{target}.dar
 build-options:
   - --target={target}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-v{major}.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script{scriptVersion}-test-v{major}.dar)
       rm -rf $$TMP_DIR
     """.format(
             major = major,
+            scriptVersion = scriptVersion,
             sdk = sdk_version,
             target = target,
         ),
@@ -73,6 +85,10 @@ EOF
     )
     for major in LF_MAJOR_VERSIONS
     for target in [lf_version_default_or_latest(major)]
+    for scriptVersion in [
+        "",
+        "3",
+    ]
 ]
 
 [
@@ -174,6 +190,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
@@ -181,8 +198,6 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -356,16 +371,19 @@ da_scala_test_suite(
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
     ] + [
-        ":script-test-v{}.dar".format(major)
+        ":script{scriptVersion}-test-v{major}.dar".format(
+            major = major,
+            scriptVersion = scriptVersion,
+        )
         for major in LF_MAJOR_VERSIONS
+        for scriptVersion in [
+            "",
+            "3",
+        ]
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
-        "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:io_spray_spray_json",
         "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_http",
-        "@maven//:org_apache_pekko_pekko_http_core",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -375,45 +393,25 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//canton:community_ledger_ledger-common",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//ledger-service/cli-opts",
-        "//ledger-service/lf-value-json",
-        "//ledger-service/metrics",
-        "//ledger-service/utils",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/fs-utils",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/rs-grpc-pekko",
-        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
-        "//observability/metrics",
         "//test-common/canton/it-lib",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_netty_netty_handler",
     ],
 )
 
 da_scala_test_suite(
     name = "test-dev",
-    # TODO[#18195] Fix daml3-script and re-enable this test.
     srcs = glob(
         ["src/com/**/*Dev*.scala"],
-        exclude = ["**/UpgradesITDev.scala"],
     ),
     data = [dep for deps in [[
         ":coin-upgrade-v1-v2-{}.dar".format(lf),
@@ -436,11 +434,7 @@ da_scala_test_suite(
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
-        "@maven//:org_apache_pekko_pekko_http_core",
-        "@maven//:org_apache_pekko_pekko_http",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:io_spray_spray_json",
-        "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
@@ -451,41 +445,17 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//canton:community_ledger_ledger-common",
         "//daml-lf/data",
-        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//ledger-service/cli-opts",
-        "//ledger-service/lf-value-json",
-        "//ledger-service/metrics",
-        "//ledger-service/utils",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//libs-scala/caching",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/fs-utils",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
-        "//libs-scala/logging-entries",
         "//libs-scala/ports",
-        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/rs-grpc-pekko",
-        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
-        "//observability/metrics",
         "//test-common/canton/it-lib",
-        "@maven//:com_auth0_java_jwt",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

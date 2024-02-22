@@ -4,7 +4,7 @@
 package com.daml.lf.engine.script
 package test
 
-import com.daml.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
@@ -25,9 +25,6 @@ class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
 
   final override protected lazy val authSecret = Some("secret")
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
-
-  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
-  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
 
   "Daml Script against authorized ledger" can {
     "auth" should {

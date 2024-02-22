@@ -12,11 +12,10 @@ import com.digitalasset.canton.domain.block.BlockUpdateGenerator.SignedEvents
 import com.digitalasset.canton.domain.block.data.BlockInfo
 import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdates
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.MapsUtil
-
-import scala.concurrent.Future
 
 /** A series of changes from processing the chunks of updates within a block. */
 sealed trait BlockUpdates extends Product with Serializable
@@ -34,7 +33,7 @@ sealed trait BlockUpdates extends Product with Serializable
   */
 final case class PartialBlockUpdate(
     chunk: ChunkUpdate,
-    continuation: Future[BlockUpdates],
+    continuation: FutureUnlessShutdown[BlockUpdates],
 ) extends BlockUpdates
 
 /** Signals that all updates in a block have been delivered as chunks.

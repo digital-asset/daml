@@ -80,8 +80,9 @@ instance DA.Internal.Desugar.HasChoiceObserver Gettable Get where
 data Get
   = Get {anyActor : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "anyActor" Get Party where
+instance DA.Internal.Record.GetField "anyActor" Get Party where
   getField = DA.Internal.Record.getFieldPrim @"anyActor" @Get @Party
+instance DA.Internal.Record.SetField "anyActor" Get Party where
   setField = DA.Internal.Record.setFieldPrim @"anyActor" @Get @Party
 _choice$_Gettable$Archive :
   (DA.Internal.Desugar.Consuming Gettable,

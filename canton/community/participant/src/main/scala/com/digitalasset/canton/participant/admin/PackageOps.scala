@@ -15,17 +15,11 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageMissingDependencies
-import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.{
-  DarUnvettingError,
-  PackageInUse,
-}
+import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
-import com.digitalasset.canton.participant.topology.{
-  ParticipantTopologyManager,
-  ParticipantTopologyManagerError,
-}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{
@@ -36,7 +30,6 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -114,83 +107,7 @@ abstract class PackageOpsCommon(
   }
 }
 
-class PackageOpsImpl(
-    val participantId: ParticipantId,
-    val headAuthorizedTopologySnapshot: TopologySnapshot,
-    stateManager: SyncDomainPersistentStateManager,
-    topologyManager: ParticipantTopologyManager,
-    protocolVersion: ProtocolVersion,
-    val loggerFactory: NamedLoggerFactory,
-)(implicit override val ec: ExecutionContext)
-    extends PackageOpsCommon(participantId, headAuthorizedTopologySnapshot, stateManager) {
-
-  override def vetPackages(
-      packages: Seq[PackageId],
-      synchronize: Boolean,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] = {
-    val packageSet = packages.toSet
-
-    for {
-      unvettedPackages <- EitherT
-        .right(topologyManager.unvettedPackages(participantId, packageSet))
-        .mapK(FutureUnlessShutdown.outcomeK)
-      _ <-
-        if (unvettedPackages.isEmpty) {
-          logger.debug(show"The following packages are already vetted: $packages")
-          EitherT.rightT[FutureUnlessShutdown, ParticipantTopologyManagerError](())
-        } else {
-          topologyManager.authorize(
-            TopologyStateUpdate.createAdd(VettedPackages(participantId, packages), protocolVersion),
-            None,
-            protocolVersion,
-            force = false,
-          )
-        }
-
-      appeared <-
-        if (synchronize)
-          topologyManager.waitForPackagesBeingVetted(packageSet, participantId)
-        else EitherT.rightT[FutureUnlessShutdown, ParticipantTopologyManagerError](false)
-    } yield {
-      if (appeared) {
-        logger.debug("Packages appeared on all connected domains.")
-      }
-    }
-  }
-
-  override def revokeVettingForPackages(
-      mainPkg: LfPackageId,
-      packages: List[LfPackageId],
-      darDescriptor: DarDescriptor,
-  )(implicit
-      tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, Unit] = {
-    val op = TopologyChangeOp.Remove
-    val mapping = VettedPackages(participantId, packages)
-
-    for {
-      tx <- topologyManager
-        .genTransaction(op, mapping, protocolVersion)
-        .leftMap(ParticipantTopologyManagerError.IdentityManagerParentError(_))
-        .leftMap { err =>
-          logger.info(s"Unable to automatically revoke the vetting the dar $darDescriptor.")
-          new DarUnvettingError(err, darDescriptor, mainPkg)
-        }
-        .leftWiden[CantonError]
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      _ = logger.debug(s"Revoking vetting for DAR $darDescriptor")
-
-      _ <- topologyManager
-        .authorize(tx, signingKey = None, protocolVersion, force = true)
-        .leftMap(new DarUnvettingError(_, darDescriptor, mainPkg))
-        .leftWiden[CantonError]
-    } yield ()
-  }
-}
-
+// TODO(#15161) collapse with PackageOpsCommon
 class PackageOpsX(
     val participantId: ParticipantId,
     val headAuthorizedTopologySnapshot: TopologySnapshot,

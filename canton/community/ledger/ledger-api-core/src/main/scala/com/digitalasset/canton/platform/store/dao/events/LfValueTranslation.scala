@@ -21,6 +21,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.engine as LfEngine
 import com.daml.metrics.Timed
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -30,7 +31,6 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, RejectionGenerators}
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation.ApiContractData
@@ -44,6 +44,7 @@ import com.digitalasset.canton.platform.{
   Identifier as LfIdentifier,
   ModuleName as LfModuleName,
   PackageId as LfPackageId,
+  PackageName as LfPackageName,
   QualifiedName as LfQualifiedName,
   Value as LfValue,
 }
@@ -192,7 +193,7 @@ final class LfValueTranslation(
           .loadPackage(
             packageId = packageId,
             delegate = packageId => loadPackage(packageId, loggingContext),
-            metric = metrics.daml.index.db.translation.getLfPackage,
+            metric = metrics.index.db.translation.getLfPackage,
           )
           .flatMap(pkgO => consumeEnricherResult(resume(pkgO)))
       case result =>
@@ -274,13 +275,14 @@ final class LfValueTranslation(
           moduleName <- DottedName.fromString(apiTemplateId.moduleName)
           entityName <- DottedName.fromString(apiTemplateId.entityName)
           templateId = Identifier(packageId, LfQualifiedName(moduleName, entityName))
+          packageName <- LfPackageName.fromString(raw.partial.packageName)
           signatories <- raw.partial.signatories.traverse(Party.fromString).map(_.toSet)
           observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
           maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
           globalKey <- createKey
             .traverse(key =>
               GlobalKey
-                .build(templateId, key.unversioned, Util.sharedKey(key.version))
+                .build(templateId, key.unversioned)
                 .left
                 .map(_.msg)
             )
@@ -292,6 +294,7 @@ final class LfValueTranslation(
           Node.Create(
             coid = contractId,
             templateId = templateId,
+            packageName = packageName,
             arg = createArgument.unversioned,
             agreementText = raw.partial.agreementText.getOrElse(""),
             signatories = signatories,
@@ -404,7 +407,7 @@ final class LfValueTranslation(
           globalKey <- createKey
             .traverse(key =>
               GlobalKey
-                .build(templateId, key.unversioned, Util.sharedKey(key.version))
+                .build(templateId, key.unversioned)
                 .left
                 .map(_.msg)
             )
@@ -412,6 +415,7 @@ final class LfValueTranslation(
           Node.Create(
             coid = contractId,
             templateId = createdEvent.templateId,
+            packageName = createdEvent.packageName,
             arg = createArgument.unversioned,
             agreementText = createdEvent.agreementText.getOrElse(""),
             signatories = signatories,
@@ -568,7 +572,7 @@ final class LfValueTranslation(
       loggingContext: LoggingContextWithTrace,
       executionContext: ExecutionContext,
   ): Future[Either[Status, Versioned[Value]]] = Timed.future(
-    metrics.daml.index.lfValue.computeInterfaceView, {
+    metrics.index.lfValue.computeInterfaceView, {
       implicit val errorLogger: ContextualizedErrorLogger =
         ErrorLoggingContext(logger, loggingContext)
 
@@ -600,7 +604,7 @@ final class LfValueTranslation(
               .loadPackage(
                 packageId = packageId,
                 delegate = packageId => loadPackage(packageId, loggingContext),
-                metric = metrics.daml.index.db.translation.getLfPackage,
+                metric = metrics.index.db.translation.getLfPackage,
               )
               .map(resume)
               .flatMap(goAsync)

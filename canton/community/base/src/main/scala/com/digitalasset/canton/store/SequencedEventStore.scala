@@ -13,7 +13,7 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, ProtocolMessage}
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.pruning.PruningStatus
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.protocol.*
@@ -29,12 +29,7 @@ import com.digitalasset.canton.store.SequencedEventStore.*
 import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbType
 import com.digitalasset.canton.store.db.{DbSequencedEventStore, SequencerClientDiscriminator}
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
-import com.digitalasset.canton.tracing.{
-  HasTraceContext,
-  SerializableTraceContext,
-  TraceContext,
-  Traced,
-}
+import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -176,13 +171,13 @@ object SequencedEventStore {
 
     def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env]
 
-    def toProtoV0: v0.PossiblyIgnoredSequencedEvent =
-      v0.PossiblyIgnoredSequencedEvent(
+    def toProtoV30: v30.PossiblyIgnoredSequencedEvent =
+      v30.PossiblyIgnoredSequencedEvent(
         counter = counter.toProtoPrimitive,
         timestamp = Some(timestamp.toProtoPrimitive),
-        traceContext = Some(SerializableTraceContext(traceContext).toProtoV0),
+        traceContext = Some(SerializableTraceContext(traceContext).toProtoV30),
         isIgnored = isIgnored,
-        underlying = underlying.map(_.toProtoV1),
+        underlying = underlying.map(_.toProtoV30),
       )
   }
 
@@ -193,7 +188,7 @@ object SequencedEventStore {
     * If an ignored event `ie` is inserted as a placeholder for an event that has not been received, the underlying
     * event `ie.underlying` is left empty.
     */
-  final case class IgnoredSequencedEvent[+Env <: Envelope[_]](
+  final case class IgnoredSequencedEvent[+Env <: Envelope[?]](
       override val timestamp: CantonTimestamp,
       override val counter: SequencerCounter,
       override val underlying: Option[SignedContent[SequencedEvent[Env]]],
@@ -217,7 +212,7 @@ object SequencedEventStore {
       case None => this
     }
 
-    override def pretty: Pretty[IgnoredSequencedEvent[Envelope[_]]] =
+    override def pretty: Pretty[IgnoredSequencedEvent[Envelope[?]]] =
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("counter", _.counter),
@@ -232,19 +227,14 @@ object SequencedEventStore {
     )(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): Either[
-      Traced[EventWithErrors[SequencedEvent[DefaultOpenEnvelope]]],
-      IgnoredSequencedEvent[DefaultOpenEnvelope],
-    ] = {
+    ): WithOpeningErrors[IgnoredSequencedEvent[DefaultOpenEnvelope]] = {
       event.underlying match {
         case Some(signedEvent) =>
           SignedContent
             .openEnvelopes(signedEvent)(protocolVersion, hashOps)
-            .fold(
-              err => Left(Traced(err.copy(isIgnored = true))(event.traceContext)),
-              evt => Right(event.copy(underlying = Some(evt))(event.traceContext)),
-            )
-        case None => Right(event.asInstanceOf[IgnoredSequencedEvent[DefaultOpenEnvelope]])
+            .map(evt => event.copy(underlying = Some(evt))(event.traceContext))
+        case None =>
+          NoOpeningErrors(event.asInstanceOf[IgnoredSequencedEvent[DefaultOpenEnvelope]])
       }
     }
   }
@@ -284,36 +274,28 @@ object SequencedEventStore {
   }
 
   object OrdinarySequencedEvent {
-    def openEnvelopes(
-        event: OrdinarySequencedEvent[ClosedEnvelope]
-    )(
+    def openEnvelopes(event: OrdinarySequencedEvent[ClosedEnvelope])(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): Either[
-      Traced[EventWithErrors[SequencedEvent[DefaultOpenEnvelope]]],
-      OrdinarySequencedEvent[DefaultOpenEnvelope],
-    ] = {
-      val openSignedEventE =
-        SignedContent.openEnvelopes(event.signedEvent)(protocolVersion, hashOps)
-      openSignedEventE.fold(
-        err => Left(Traced(err)(event.traceContext)),
-        evt => Right(event.copy(signedEvent = evt)(event.traceContext)),
-      )
+    ): WithOpeningErrors[OrdinarySequencedEvent[DefaultOpenEnvelope]] = {
+      SignedContent
+        .openEnvelopes(event.signedEvent)(protocolVersion, hashOps)
+        .map(evt => event.copy(signedEvent = evt)(event.traceContext))
     }
   }
 
   object PossiblyIgnoredSequencedEvent {
 
-    private[store] def dbTypeOfEvent(content: SequencedEvent[_]): SequencedEventDbType =
+    private[store] def dbTypeOfEvent(content: SequencedEvent[?]): SequencedEventDbType =
       content match {
         case _: DeliverError => SequencedEventDbType.DeliverError
         case _: Deliver[_] => SequencedEventDbType.Deliver
       }
 
-    def fromProtoV0(protocolVersion: ProtocolVersion, hashOps: HashOps)(
-        possiblyIgnoredSequencedEventP: v0.PossiblyIgnoredSequencedEvent
+    def fromProtoV30(protocolVersion: ProtocolVersion, hashOps: HashOps)(
+        possiblyIgnoredSequencedEventP: v30.PossiblyIgnoredSequencedEvent
     ): ParsingResult[PossiblyIgnoredProtocolEvent] = {
-      val v0.PossiblyIgnoredSequencedEvent(
+      val v30.PossiblyIgnoredSequencedEvent(
         counter,
         timestampPO,
         traceContextPO,
@@ -326,7 +308,7 @@ object SequencedEventStore {
       for {
         underlyingO <- underlyingPO.traverse(
           SignedContent
-            .fromProtoV1(_)
+            .fromProtoV30(_)
             .flatMap(
               _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, protocolVersion))
             )
@@ -336,7 +318,7 @@ object SequencedEventStore {
           .flatMap(CantonTimestamp.fromProtoPrimitive)
         traceContext <- ProtoConverter
           .required("trace_context", traceContextPO)
-          .flatMap(SerializableTraceContext.fromProtoV0)
+          .flatMap(SerializableTraceContext.fromProtoV30)
         possiblyIgnoredSequencedEvent <-
           if (isIgnored) {
             Right(
@@ -356,19 +338,14 @@ object SequencedEventStore {
       } yield possiblyIgnoredSequencedEvent
     }
 
-    def openEnvelopes(
-        event: PossiblyIgnoredSequencedEvent[ClosedEnvelope]
-    )(
+    def openEnvelopes(event: PossiblyIgnoredSequencedEvent[ClosedEnvelope])(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): Either[
-      Traced[EventWithErrors[SequencedEvent[OpenEnvelope[ProtocolMessage]]]],
-      PossiblyIgnoredSequencedEvent[OpenEnvelope[ProtocolMessage]],
-    ] =
+    ): WithOpeningErrors[PossiblyIgnoredSequencedEvent[OpenEnvelope[ProtocolMessage]]] =
       event match {
-        case evt: OrdinarySequencedEvent[_] =>
+        case evt: OrdinarySequencedEvent[ClosedEnvelope] =>
           OrdinarySequencedEvent.openEnvelopes(evt)(protocolVersion, hashOps)
-        case evt: IgnoredSequencedEvent[_] =>
+        case evt: IgnoredSequencedEvent[ClosedEnvelope] =>
           IgnoredSequencedEvent.openEnvelopes(evt)(protocolVersion, hashOps)
       }
   }

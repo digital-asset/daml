@@ -10,11 +10,11 @@ import spray.json.*
 
 import java.sql.PreparedStatement
 
-private[oracle] final case class OracleStringArrayOptional[FROM](
-    extract: StringInterning => FROM => Option[Iterable[String]]
-) extends Field[FROM, Option[Iterable[String]], String] {
-  override def convert: Option[Iterable[String]] => String =
-    _.map(_.toList.toJson.compactPrint).getOrElse("[]")
+private[oracle] final case class OracleStringArray[FROM](
+    extract: StringInterning => FROM => Iterable[String]
+) extends Field[FROM, Iterable[String], String] {
+  override def convert: Iterable[String] => String =
+    _.toList.toJson.compactPrint
   override def prepareDataTemplate(
       preparedStatement: PreparedStatement,
       index: Int,

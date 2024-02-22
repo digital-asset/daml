@@ -3,10 +3,20 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.PackageServiceAuthorization
-import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.daml.ledger.api.v1.package_service._
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageResponse,
+  GetPackageStatusResponse,
+  ListPackagesResponse,
+}
+import com.daml.ledger.api.v2.package_service.{
+  GetPackageRequest,
+  GetPackageStatusRequest,
+  ListPackagesRequest,
+  PackageServiceGrpc,
+}
+import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.ledger.api.auth.services.PackageServiceAuthorization
+import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}

@@ -11,14 +11,12 @@ module EnumMod {
     precondition True;
     signatories (PartyMod:one (EnumMod:Box {party} this));
     observers (Nil @Party);
-    agreement "Agreement for EnumMod:Box";
   };
 
-  val createColoredContract: EnumMod:Color -> Scenario (ContractId EnumMod:Box) = \ (color: EnumMod:Color) ->
-    sbind
-      bob : Party <- sget_party "Bob"
-    in
-      commit @(ContractId EnumMod:Box) bob (create @EnumMod:Box (EnumMod:Box { x = color, party = bob }));
+  val createColoredContract:
+    Party -> EnumMod:Color -> Update (ContractId EnumMod:Box) =
+      \ (p: Party) (color: EnumMod:Color) ->
+        create @EnumMod:Box (EnumMod:Box { x = color, party = p });
 
   enum Nothing = ;
 
@@ -42,15 +40,14 @@ module EnumMod {
     precondition True;
     signatories (PartyMod:one (EnumMod:NestedEnumTemplate {party} this));
     observers (Nil @Party);
-    agreement "Agreement for EnumMod:NestedEnumTemplate";
   };
 
-  val createContracts: Scenario Unit =
-    sbind
-      c1 : ContractId EnumMod:Box <- EnumMod:createColoredContract EnumMod:Color:Red ;
-      c2 : ContractId EnumMod:Box <- EnumMod:createColoredContract EnumMod:Color:Green ;
-      c3 : ContractId EnumMod:Box <- EnumMod:createColoredContract EnumMod:Color:Blue
+  val createContracts: Party -> Update Unit = \(p: Party) ->
+    ubind
+      c1 : ContractId EnumMod:Box <- EnumMod:createColoredContract p EnumMod:Color:Red ;
+      c2 : ContractId EnumMod:Box <- EnumMod:createColoredContract p EnumMod:Color:Green ;
+      c3 : ContractId EnumMod:Box <- EnumMod:createColoredContract p EnumMod:Color:Blue
     in
-      spure @Unit () ;
+      upure @Unit () ;
 
 }

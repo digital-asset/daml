@@ -7,7 +7,6 @@ import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
-import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.value.{Identifier, Record}
@@ -19,10 +18,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
-import com.digitalasset.canton.ledger.api.validation.{
-  FieldValidator as LedgerApiFieldValidations,
-  StricterValueValidator as LedgerApiValueValidator,
-}
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi
+import com.digitalasset.canton.ledger.api.validation.StricterValueValidator as LedgerApiValueValidator
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -49,7 +46,6 @@ import com.digitalasset.canton.participant.sync.{
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.participant.{ParticipantNodeParameters, RequestOffset}
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.resource.TransactionalStoreUpdate
@@ -324,7 +320,7 @@ final class RepairService(
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Adding ${contracts.length} contracts to domain ${domain} with ignoreAlreadyAdded=${ignoreAlreadyAdded} and ignoreStakeholderCheck=${ignoreStakeholderCheck}"
+      s"Adding ${contracts.length} contracts to domain $domain with ignoreAlreadyAdded=$ignoreAlreadyAdded and ignoreStakeholderCheck=$ignoreStakeholderCheck"
     )
     if (contracts.isEmpty) {
       Either.right(logger.info("No contracts to add specified"))
@@ -369,11 +365,13 @@ final class RepairService(
                       .parTraverse_(packageKnown)
 
                     hostedParties <- EitherT.right(
-                      filteredContracts
-                        .flatMap(_.witnesses)
-                        .distinct
-                        .parFilterA(hostsParty(repair.domain.topologySnapshot, participantId))
-                        .map(_.toSet)
+                      hostsParties(
+                        repair.domain.topologySnapshot,
+                        filteredContracts
+                          .flatMap(_.witnesses)
+                          .toSet,
+                        participantId,
+                      )
                     )
 
                     _ = logger.debug(s"Publishing ${filteredContracts.size} added contracts")
@@ -454,16 +452,16 @@ final class RepairService(
     )
   }
 
-  /** Participant repair utility for manually moving contracts from a source domain to a target domain in an offline
-    * fashion.
+  /** Participant repair utility to manually change assignation of contracts
+    * from a source domain to a target domain in an offline fashion.
     *
-    * @param contractIds    ids of contracts to move that reside in the sourceDomain
-    * @param sourceDomain alias of source domain from which to move contracts
-    * @param targetDomain alias of target domain to which to move contracts
-    * @param skipInactive   whether to only move contracts that are active in the source domain
-    * @param batchSize      how big the batches should be used during the migration
+    * @param contractIds    IDs of contracts that will change assignation
+    * @param sourceDomain   alias of source domain the contracts are assigned to before the change
+    * @param targetDomain   alias of target domain the contracts will be assigned to after the change
+    * @param skipInactive   whether to only change assignment of contracts that are active in the source domain
+    * @param batchSize      how big the batches should be used during the change assignation process
     */
-  def changeDomainAwait(
+  def changeAssignationAwait(
       contractIds: Seq[LfContractId],
       sourceDomain: DomainAlias,
       targetDomain: DomainAlias,
@@ -471,14 +469,14 @@ final class RepairService(
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Change domain request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
+      s"Change assignation request for ${contractIds.length} contracts from $sourceDomain to $targetDomain with skipInactive=$skipInactive"
     )
     lockAndAwaitEitherT(
-      "repair.change_domain", {
+      "repair.change_assignation", {
         for {
           sourceDomainId <- aliasToUnconnectedDomainId(sourceDomain)
           targetDomainId <- aliasToUnconnectedDomainId(targetDomain)
-          _ <- changeDomain(
+          _ <- changeAssignation(
             contractIds,
             sourceDomainId,
             targetDomainId,
@@ -490,7 +488,7 @@ final class RepairService(
     )
   }
 
-  /** Change the association of a contract from one domain to another
+  /** Change the assignation of a contract from one domain to another
     *
     * This function here allows us to manually insert a transfer out / in into the respective
     * journals in order to move a contract from one domain to another. The procedure will result in
@@ -499,7 +497,7 @@ final class RepairService(
     *
     * @param skipInactive if true, then the migration will skip contracts in the contractId list that are inactive
     */
-  def changeDomain(
+  def changeAssignation(
       contractIds: Seq[LfContractId],
       sourceDomainId: DomainId,
       targetDomainId: DomainId,
@@ -517,17 +515,17 @@ final class RepairService(
           repairSource <- initRepairRequestAndVerifyPreconditions(sourceDomainId, numberOfContracts)
           repairTarget <- initRepairRequestAndVerifyPreconditions(targetDomainId, numberOfContracts)
 
-          migration =
+          changeAssignationData =
             contractIds
               .zip(repairSource.timesOfChange)
               .zip(repairTarget.timesOfChange)
-              .map { case (((contractId, sourceToc), targetToc)) =>
-                MigrateContracts.Data(contractId, sourceToc, targetToc)
+              .map { case ((contractId, sourceToc), targetToc) =>
+                ChangeAssignation.Data(contractId, sourceToc, targetToc)
               }
 
           // Note the following purposely fails if any contract fails which results in not all contracts being processed.
-          _ <- migrateContractsBatched(
-            migration,
+          _ <- changeAssignationBatched(
+            changeAssignationData,
             repairSource,
             repairTarget,
             skipInactive,
@@ -616,7 +614,7 @@ final class RepairService(
     EitherT.fromEither[Future](
       for {
         rawContractInstance <- SerializableRawContractInstance
-          .create(computed.instance, computed.agreementText)
+          .create(computed.instance)
           .leftMap(err =>
             log(s"Failed to serialize contract ${inputContract.contractId}: ${err.errorMessage}")
           )
@@ -646,14 +644,17 @@ final class RepairService(
       )
 
       // Witnesses all known locally.
-      _witnessesKnownLocally <- contractToAdd.witnesses.toList.parTraverse_ { p =>
-        EitherT(hostsParty(topologySnapshot, participantId)(p).map { hosted =>
-          EitherUtil.condUnitE(
-            hosted,
-            log(s"Witness $p not active on domain ${repair.domain.alias} and local participant"),
-          )
-        })
-      }
+      _witnessesKnownLocally <-
+        EitherT(
+          hostsParties(topologySnapshot, contractToAdd.witnesses, participantId).map { hosted =>
+            contractToAdd.witnesses.toList.traverse(p =>
+              EitherUtil.condUnitE(
+                hosted.contains(p),
+                log(s"Witness $p not active on domain ${repair.domain.alias} and local participant"),
+              )
+            )
+          }
+        )
 
       _ <-
         if (ignoreStakeholderCheck) EitherT.rightT[Future, String](())
@@ -661,17 +662,15 @@ final class RepairService(
           for {
             // At least one stakeholder is hosted locally if no witnesses are defined
             _localStakeholderOrWitnesses <- EitherT(
-              contract.metadata.stakeholders.toList
-                .findM(hostsParty(topologySnapshot, participantId))
-                .map(_.isDefined)
-                .map { oneStakeholderIsLocal =>
+              hostsParties(topologySnapshot, contract.metadata.stakeholders, participantId).map {
+                localStakeholders =>
                   EitherUtil.condUnitE(
-                    contractToAdd.witnesses.nonEmpty || oneStakeholderIsLocal,
+                    contractToAdd.witnesses.nonEmpty || localStakeholders.nonEmpty,
                     log(
                       s"Contract ${contract.contractId} has no local stakeholders ${contract.metadata.stakeholders} and no witnesses defined"
                     ),
                   )
-                }
+              }
             )
             // All stakeholders exist on the domain
             _ <- topologySnapshot
@@ -779,8 +778,8 @@ final class RepairService(
     } yield contractToArchiveInEvent
   }
 
-  private def migrateContractsBatched(
-      contractIds: Seq[MigrateContracts.Data[LfContractId]],
+  private def changeAssignationBatched(
+      contractIds: Seq[ChangeAssignation.Data[LfContractId]],
       repairSource: RepairRequest,
       repairTarget: RepairRequest,
       skipInactive: Boolean,
@@ -790,7 +789,7 @@ final class RepairService(
       .batchedSequentialTraverse(threadsAvailableForWriting * PositiveInt.two, batchSize)(
         contractIds
       )(
-        MigrateContracts(
+        ChangeAssignation(
           _,
           repairSource,
           repairTarget,
@@ -890,6 +889,7 @@ final class RepairService(
   private def toArchive(c: SerializableContract): LfNodeExercises = LfNodeExercises(
     targetCoid = c.contractId,
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
+    packageName = c.rawContractInstance.contractInstance.unversioned.packageName,
     interfaceId = None,
     choiceId = LfChoiceName.assertFromString("Archive"),
     consuming = true,
@@ -1297,6 +1297,7 @@ object RepairService {
 
     def contractDataToInstance(
         templateId: Identifier,
+        packageName: LfPackageName,
         createArguments: Record,
         signatories: Set[String],
         observers: Set[String],
@@ -1305,7 +1306,7 @@ object RepairService {
         contractSalt: Option[Salt],
     )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] = {
       for {
-        template <- LedgerApiFieldValidations.validateIdentifier(templateId).leftMap(_.getMessage)
+        template <- LedgerApiValueValidator.validateIdentifier(templateId).leftMap(_.getMessage)
 
         argsValue <- LedgerApiValueValidator
           .validateRecord(createArguments)
@@ -1316,14 +1317,14 @@ object RepairService {
           argsValue,
         )
 
-        lfContractInst = LfContractInst(template = template, arg = argsVersionedValue)
+        lfContractInst = LfContractInst(
+          packageName = packageName,
+          template = template,
+          arg = argsVersionedValue,
+        )
 
-        /*
-         It is fine to set the agreement text to empty because method `addContract` recomputes the agreement text
-         and will discard this value.
-         */
         serializableRawContractInst <- SerializableRawContractInstance
-          .create(lfContractInst, AgreementText.empty)
+          .create(lfContractInst)
           .leftMap(_.errorMessage)
 
         signatoriesAsParties <- signatories.toList.traverse(LfPartyId.fromString).map(_.toSet)
@@ -1347,7 +1348,16 @@ object RepairService {
         contract: SerializableContract
     ): Either[
       String,
-      (Identifier, Record, Set[String], Set[String], LfContractId, Option[Salt], LedgerCreateTime),
+      (
+          Identifier,
+          LfPackageName,
+          Record,
+          Set[String],
+          Set[String],
+          LfContractId,
+          Option[Salt],
+          LedgerCreateTime,
+      ),
     ] = {
       val contractInstance = contract.rawContractInstance.contractInstance
       LfEngineToApi
@@ -1360,6 +1370,7 @@ object RepairService {
             val stakeholders = contract.metadata.stakeholders.map(_.toString)
             (
               LfEngineToApi.toApiIdentifier(contractInstance.unversioned.template),
+              contractInstance.unversioned.packageName,
               record,
               signatories,
               stakeholders -- signatories,

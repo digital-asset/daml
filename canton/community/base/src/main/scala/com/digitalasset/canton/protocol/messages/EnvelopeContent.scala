@@ -8,7 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.v4
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -19,17 +19,17 @@ final case class EnvelopeContent(message: UnsignedProtocolMessage)(
   @transient override protected lazy val companionObj: EnvelopeContent.type = EnvelopeContent
 
   def toByteStringUnversioned: ByteString =
-    v4.EnvelopeContent(message.toProtoSomeEnvelopeContentV4).toByteString
+    v30.EnvelopeContent(message.toProtoSomeEnvelopeContentV30).toByteString
 }
 
 object EnvelopeContent
     extends HasProtocolVersionedWithContextCompanion[EnvelopeContent, (HashOps, ProtocolVersion)] {
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(4) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v30
-    )(v4.EnvelopeContent)(
-      supportedProtoVersion(_)(fromProtoV4),
+    )(v30.EnvelopeContent)(
+      supportedProtoVersion(_)(fromProtoV30),
       _.toByteStringUnversioned,
     )
   )
@@ -53,38 +53,30 @@ object EnvelopeContent
   ): EnvelopeContent =
     create(message, protocolVersion).valueOr(err => throw new IllegalArgumentException(err))
 
-  private def fromProtoV4(
+  private def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      contentP: v4.EnvelopeContent,
+      contentP: v30.EnvelopeContent,
   ): ParsingResult[EnvelopeContent] = {
     val (_, expectedProtocolVersion) = context
-    import v4.EnvelopeContent.SomeEnvelopeContent as Content
+    import v30.EnvelopeContent.SomeEnvelopeContent as Content
     for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       content <- (contentP.someEnvelopeContent match {
         case Content.InformeeMessage(messageP) =>
-          InformeeMessage.fromProtoV1(context)(messageP)
-        case Content.DomainTopologyTransactionMessage(messageP) =>
-          DomainTopologyTransactionMessage.fromProtoV1(
-            expectedProtocolVersion,
-            messageP,
-          )
+          InformeeMessage.fromProtoV30(context)(messageP)
         case Content.EncryptedViewMessage(messageP) =>
           EncryptedViewMessage.fromProto(messageP)
         case Content.TransferOutMediatorMessage(messageP) =>
-          TransferOutMediatorMessage.fromProtoV1(context)(messageP)
+          TransferOutMediatorMessage.fromProtoV30(context)(messageP)
         case Content.TransferInMediatorMessage(messageP) =>
-          TransferInMediatorMessage.fromProtoV1(context)(messageP)
+          TransferInMediatorMessage.fromProtoV30(context)(messageP)
         case Content.RootHashMessage(messageP) =>
-          RootHashMessage.fromProtoV0(SerializedRootHashMessagePayload.fromByteString)(messageP)
-        case Content.RegisterTopologyTransactionRequest(messageP) =>
-          RegisterTopologyTransactionRequest.fromProtoV0(expectedProtocolVersion, messageP)
-        case Content.RegisterTopologyTransactionResponse(messageP) =>
-          RegisterTopologyTransactionResponse.fromProtoV1(messageP)
+          RootHashMessage.fromProtoV30(SerializedRootHashMessagePayload.fromByteString)(messageP)
         case Content.TopologyTransactionsBroadcast(messageP) =>
-          TopologyTransactionsBroadcastX.fromProtoV2(expectedProtocolVersion, messageP)
+          TopologyTransactionsBroadcastX.fromProtoV30(expectedProtocolVersion, messageP)
         case Content.Empty => Left(OtherError("Cannot deserialize an empty message content"))
       }): ParsingResult[UnsignedProtocolMessage]
-    } yield EnvelopeContent(content)(protocolVersionRepresentativeFor(ProtoVersion(4)))
+    } yield EnvelopeContent(content)(rpv)
   }
 
   override def name: String = "EnvelopeContent"

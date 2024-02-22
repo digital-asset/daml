@@ -12,6 +12,13 @@ import Daml.Script
 
 import DA.Assert
 
+-- ASSET_INTERFACE_BEGIN
+data AssetInfo = AssetInfo { info : Text } deriving (Eq,Show)
+
+interface Asset where
+  viewtype AssetInfo
+-- ASSET_INTERFACE_END
+
 -- COIN_TEMPLATE_BEGIN
 template Coin
   with
@@ -19,6 +26,9 @@ template Coin
     owner : Party
   where
     signatory issuer, owner
+    
+    interface instance Asset for Coin where
+      view = AssetInfo { info = "A Coin" }    
 -- COIN_TEMPLATE_END
 
 -- COIN_PROPOSAL_TEMPLATE_BEGIN
@@ -33,18 +43,6 @@ template CoinProposal
       controller coin.owner
       do create coin
 -- COIN_PROPOSAL_TEMPLATE_END
-
--- ASSET_INTERFACE_BEGIN
-
-data AssetInfo = AssetInfo { info : Text } deriving (Eq,Show)
-
-interface Asset where
-  viewtype AssetInfo
-
-  interface instance Asset for Coin where
-    view = AssetInfo { info = "A Coin" }
-
--- ASSET_INTERFACE_END
 
 -- LEDGER_PARTIES_BEGIN
 data LedgerParties = LedgerParties with
@@ -104,6 +102,9 @@ test = do
 -- TEST_QUERIES_END
 
 -- TEST_INTERFACE_BEGIN
+  aliceCoins <- query @Coin alice
+  assertEq [Coin bank alice] (map snd aliceCoins)
+
   aliceAssets <- queryInterface @Asset alice
   assertEq [Some $ AssetInfo "A Coin"] (map snd aliceAssets)
 -- TEST_INTERFACE_END
@@ -126,7 +127,7 @@ initializeUser = do
 tries : Int
 tries = 60
 
-waitForCid : (Template t, HasAgreement t) => Int -> Party -> ContractId t -> Script ()
+waitForCid : (Template t, HasEnsure t) => Int -> Party -> ContractId t -> Script ()
 waitForCid tries p cid
   | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
   | otherwise = do

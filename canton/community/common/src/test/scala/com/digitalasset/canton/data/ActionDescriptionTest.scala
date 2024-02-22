@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.data
 
-import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.ActionDescription.*
@@ -23,7 +22,6 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       .build(
         LfTransactionBuilder.defaultTemplateId,
         Value.ValueInt64(10L),
-        shared = Util.sharedKey(testTxVersion),
       )
       .value
   private val choiceName: LfChoiceName = LfChoiceName.assertFromString("choice")
@@ -59,7 +57,6 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
             .build(
               LfTransactionBuilder.defaultTemplateId,
               ExampleTransactionFactory.veryDeepValue,
-              Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
             )
             .value,
           testTxVersion,

@@ -24,10 +24,6 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
   *                                to the sequencer which allows the sequencer to remove this data when pruning.
   * @param keepAlive keep alive config used for GRPC sequencers
   * @param authToken configuration settings for the authentication token manager
-  * @param optimisticSequencedEventValidation if true, sequenced event signatures will be validated first optimistically
-  *                                           and only strict if the optimistic evaluation failed. this means that
-  *                                           for a split second, we might still accept an event signed with a key that
-  *                                           has just been revoked.
   * @param skipSequencedEventValidation if true, sequenced event validation will be skipped. the default setting is false.
   *                                     this option should only be enabled if a defective validation is blocking processing.
   *                                     therefore, unless you know what you are doing, you shouldn't touch this setting.
@@ -53,8 +49,6 @@ final case class SequencerClientConfig(
     acknowledgementInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(1),
     keepAliveClient: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
     authToken: AuthenticationTokenManagerConfig = AuthenticationTokenManagerConfig(),
-    // TODO(#10040) remove optimistic validation
-    optimisticSequencedEventValidation: Boolean = true,
     skipSequencedEventValidation: Boolean = false,
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
     maximumInFlightEventBatches: PositiveInt = PositiveInt.tryCreate(20),

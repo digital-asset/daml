@@ -41,19 +41,11 @@ jobs:
             curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
         }
 
-        if has_changed "infra/" || has_changed "LATEST"; then
+        if has_changed "LATEST"; then
             fail_if_missing_std_change_label
         fi
       env:
         PR: $(System.PullRequest.PullRequestNumber)
-
-- job: compatiblity_target_protobuf
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-    - bash: ci/check-protobuf-stability.sh --target
 
 # required for collect_build_data
 - job: release

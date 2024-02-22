@@ -5,14 +5,12 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -21,7 +19,6 @@ import com.daml.logging.ContextualizedLogger
 
 import scala.language.implicitConversions
 
-class InterpreterTestV1 extends InterpreterTest(LanguageMajorVersion.V1)
 class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
 
 class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
@@ -33,9 +30,6 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
   import SpeedyTestLib.loggingContext
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
-
-  private implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
 
   private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
   private val languageVersion = compilerConfig.allowedLanguageVersions.max
@@ -106,36 +100,6 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
       val xss2 = ECons(int64List, ImmArray(int64Cons(ImmArray(2, 5, 7), int64Nil)), ENil(int64List))
       runExpr(EApp(concat, xss1)) shouldBe runExpr(EApp(concat, xss2))
     }
-  }
-
-  "compilation and evaluation handle properly nat types" in {
-
-    def result(s: String) =
-      SValue.SOptional(Some(SValue.SNumeric(Numeric.assertFromString(s))))
-
-    val testCases = Table(
-      "input" -> "output",
-      e"""(/\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n "0") @1""" ->
-        result("0.0"),
-      e"""(/\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n "1") @2 @3 """ ->
-        result("1.000"),
-      e"""(/\ (n: nat). /\ (n: nat). \(n: Text) -> TEXT_TO_NUMERIC_LEGACY @n n) @4 @5 "2"""" ->
-        result("2.00000"),
-      e"""(/\ (n: nat). \(n: Text) -> /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n n) @6 "3" @7""" ->
-        result("3.0000000"),
-      e"""(\(n: Text) -> /\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n n) "4" @8 @9""" ->
-        result("4.000000000"),
-      e"""(\(n: Text) -> /\ (n: *). /\ (n: nat). TEXT_TO_NUMERIC_LEGACY @n n) "5" @Text @10""" ->
-        result("5.0000000000"),
-    )
-
-    forEvery(testCases) { (input, output) =>
-      runExpr(input) shouldBe output
-    }
-
-    a[Compiler.CompilationError] shouldBe thrownBy(
-      runExpr(e"""(/\ (n: nat). /\ (n: *). TEXT_TO_NUMERIC_LEGACY @n n) @4 @Text""")
-    )
   }
 
   "large lists" should {
@@ -221,7 +185,11 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
               ),
               Set.empty[PackageId],
               languageVersion,
-              None,
+              Ast.PackageMetadata(
+                Ref.PackageName.assertFromString("foo"),
+                Ref.PackageVersion.assertFromString("0.0.0"),
+                None,
+              ),
             )
         ),
         compilerConfig,
@@ -242,7 +210,11 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
             ),
             Set.empty[PackageId],
             languageVersion,
-            None,
+            Ast.PackageMetadata(
+              Ref.PackageName.assertFromString("foo"),
+              Ref.PackageVersion.assertFromString("0.0.0"),
+              None,
+            ),
           )
       ),
       compilerConfig,

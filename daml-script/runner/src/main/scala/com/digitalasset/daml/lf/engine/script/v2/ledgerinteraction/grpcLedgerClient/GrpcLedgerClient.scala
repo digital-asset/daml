@@ -8,26 +8,24 @@ package grpcLedgerClient
 import java.time.Instant
 import java.util.UUID
 import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v1.commands._
-import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
-import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
-import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
+import com.daml.ledger.api.v1.event.InterfaceView
+import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
+import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
-  TransactionFilter,
+  TemplateFilter,
 }
 import com.daml.ledger.api.v1.{value => api}
-import com.daml.ledger.api.validation.NoLoggingValueValidator
-import com.daml.ledger.client.LedgerClient
 import com.daml.lf.CompiledPackages
+import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
@@ -36,7 +34,7 @@ import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.participant.util.LfEngineToApi.{
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier,
   lfValueToApiRecord,
@@ -44,13 +42,14 @@ import com.daml.platform.participant.util.LfEngineToApi.{
 }
 import com.daml.script.converter.ConverterException
 import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.protobuf.StatusProto
+import com.google.rpc.status.{Status => GoogleStatus}
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
-import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -83,7 +82,7 @@ class GrpcLedgerClient(
       .getPackageName(compiledPackages, identifier.packageId)
       .getOrElse(throw new IllegalArgumentException("Couldn't get package name"))
     if (explicitPackageId || !enableContractUpgrading) converted
-    else converted.copy(packageId = "n#" + pkgName)
+    else converted.copy(packageId = "#" + pkgName)
   }
 
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
@@ -92,7 +91,18 @@ class GrpcLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
   ): TransactionFilter = {
-    val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifierUpgrades(templateId, false)))))
+    val filters = Filters(
+      Some(
+        InclusiveFilters(templateFilters =
+          Seq(
+            TemplateFilter(
+              Some(toApiIdentifierUpgrades(templateId, false)),
+              includeCreatedEventBlob = true,
+            )
+          )
+        )
+      )
+    )
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
@@ -104,8 +114,7 @@ class GrpcLedgerClient(
       Filters(
         Some(
           InclusiveFilters(
-            List(),
-            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)),
+            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true))
           )
         )
       )
@@ -121,36 +130,35 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
     val filter = templateFilter(parties, templateId)
-    val acsResponses =
-      grpcClient.activeContractSetClient
+    val acsResponse =
+      grpcClient.v2.stateService
         .getActiveContracts(filter, verbose = false)
-        .runWith(Sink.seq)
-    acsResponses.map(acsPages =>
-      acsPages.toVector.flatMap(page =>
-        page.activeContracts.toVector.map(createdEvent => {
-          val argument =
-            NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
-              case Left(err) => throw new ConverterException(err.toString)
-              case Right(argument) => argument
-            }
-          val key: Option[Value] = createdEvent.contractKey.map { key =>
-            NoLoggingValueValidator.validateValue(key) match {
-              case Left(err) => throw new ConverterException(err.toString)
-              case Right(argument) => argument
-            }
+        .map(_._1)
+    acsResponse.map(activeContracts =>
+      activeContracts.toVector.map(activeContract => {
+        val createdEvent = activeContract.getCreatedEvent
+        val argument =
+          NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
+            case Left(err) => throw new ConverterException(err.toString)
+            case Right(argument) => argument
           }
-          val cid =
-            ContractId
-              .fromString(createdEvent.contractId)
-              .fold(
-                err => throw new ConverterException(err),
-                identity,
-              )
-          val blob =
-            Bytes.fromByteString(createdEvent.createdEventBlob)
-          (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
-        })
-      )
+        val key: Option[Value] = createdEvent.contractKey.map { key =>
+          NoLoggingValueValidator.validateValue(key) match {
+            case Left(err) => throw new ConverterException(err.toString)
+            case Right(argument) => argument
+          }
+        }
+        val cid =
+          ContractId
+            .fromString(createdEvent.contractId)
+            .fold(
+              err => throw new ConverterException(err),
+              identity,
+            )
+        val blob =
+          Bytes.fromByteString(createdEvent.createdEventBlob)
+        (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
+      })
     )
   }
 
@@ -179,33 +187,32 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[Seq[(ContractId, Option[Value])]] = {
     val filter = interfaceFilter(parties, interfaceId)
-    val acsResponses =
-      grpcClient.activeContractSetClient
+    val acsResponse =
+      grpcClient.v2.stateService
         .getActiveContracts(filter, verbose = false)
-        .runWith(Sink.seq)
-    acsResponses.map { acsPages: Seq[GetActiveContractsResponse] =>
-      acsPages.toVector.flatMap { page: GetActiveContractsResponse =>
-        page.activeContracts.toVector.flatMap { createdEvent: CreatedEvent =>
-          val cid =
-            ContractId
-              .fromString(createdEvent.contractId)
-              .fold(
-                err => throw new ConverterException(err),
-                identity,
-              )
-          createdEvent.interfaceViews.map { iv: InterfaceView =>
-            val viewValue: Value.ValueRecord =
-              NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
-                case Left(err) => throw new ConverterException(err.toString)
-                case Right(argument) => argument
-              }
-            // Because we filter for a specific interfaceId,
-            // we will get at most one view for a given cid.
-            (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
-          }
+        .map(_._1)
+    acsResponse.map(activeContracts =>
+      activeContracts.toVector.flatMap(activeContract => {
+        val createdEvent = activeContract.getCreatedEvent
+        val cid =
+          ContractId
+            .fromString(createdEvent.contractId)
+            .fold(
+              err => throw new ConverterException(err),
+              identity,
+            )
+        createdEvent.interfaceViews.map { iv: InterfaceView =>
+          val viewValue: Value.ValueRecord =
+            NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
+              case Left(err) => throw new ConverterException(err.toString)
+              case Right(argument) => argument
+            }
+          // Because we filter for a specific interfaceId,
+          // we will get at most one view for a given cid.
+          (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
         }
-      }
-    }
+      })
+    )
   }
 
   override def queryInterfaceContractId(
@@ -268,7 +275,7 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
-    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+    (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = {
     import scalaz.syntax.traverse._
     val ledgerDisclosures =
@@ -279,42 +286,42 @@ class GrpcLedgerClient(
           createdEventBlob = blob.toByteString,
         )
       }
-    val resultFuture =
-      for {
-        ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
-        // We need to remember the original package ID for each command result, so we can reapply them
-        // after we get the results (for upgrades)
-        commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+    for {
+      ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
+      // We need to remember the original package ID for each command result, so we can reapply them
+      // after we get the results (for upgrades)
+      commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
 
-        apiCommands = Commands(
-          party = actAs.head,
-          actAs = actAs.toList,
-          readAs = readAs.toList,
-          commands = ledgerCommands,
-          ledgerId = grpcClient.ledgerId.unwrap,
-          applicationId = applicationId.getOrElse(""),
-          commandId = UUID.randomUUID.toString,
-          disclosedContracts = ledgerDisclosures,
-        )
-        request = SubmitAndWaitRequest(Some(apiCommands))
-        resp <- grpcClient.commandServiceClient
-          .submitAndWaitForTransactionTree(request)
-        tree <- Converter.toFuture(
-          Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
-        )
-        results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
-      } yield Right((results, Some(tree)))
-    resultFuture
-      .recoverWith({ case s: StatusRuntimeException =>
-        Future.successful(
-          Left(
-            ScriptLedgerClient.SubmitFailure(
-              s,
-              Some(GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup)),
+      apiCommands = Commands(
+        actAs = actAs.toList,
+        readAs = readAs.toList,
+        commands = ledgerCommands,
+        applicationId = applicationId.getOrElse(""),
+        commandId = UUID.randomUUID.toString,
+        disclosedContracts = ledgerDisclosures,
+      )
+      eResp <- grpcClient.v2.commandService
+        .submitAndWaitForTransactionTree(apiCommands)
+
+      result <- eResp match {
+        case Right(resp) =>
+          for {
+            tree <- Converter.toFuture(
+              Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
+            )
+            results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
+          } yield Right((results, tree))
+        case Left(status) =>
+          Future.successful(
+            Left(
+              ScriptLedgerClient.SubmitFailure(
+                StatusProto.toStatusRuntimeException(GoogleStatus.toJavaProto(status)),
+                GrpcErrorParser.convertStatusRuntimeException(status),
+              )
             )
           )
-        )
-      })
+      }
+    } yield result
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
@@ -338,9 +345,7 @@ class GrpcLedgerClient(
   ): Future[Time.Timestamp] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
-      resp <- ClientAdapter
-        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
-        .runWith(Sink.head)
+      resp <- timeService.getTime(GetTimeRequest())
       instant = Instant.ofEpochSecond(resp.getCurrentTime.seconds, resp.getCurrentTime.nanos.toLong)
     } yield Time.Timestamp.assertFromInstant(instant, java.math.RoundingMode.HALF_UP)
   }
@@ -352,12 +357,9 @@ class GrpcLedgerClient(
   ): Future[Unit] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
-      oldTime <- ClientAdapter
-        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
-        .runWith(Sink.head)
+      oldTime <- timeService.getTime(GetTimeRequest())
       _ <- timeService.setTime(
         SetTimeRequest(
-          grpcClient.ledgerId.unwrap,
           oldTime.currentTime,
           Some(toTimestamp(time.toInstant)),
         )

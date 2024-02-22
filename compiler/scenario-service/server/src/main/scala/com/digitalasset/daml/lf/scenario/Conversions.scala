@@ -157,15 +157,6 @@ final class Conversions(
                     .setDeclaredHash(hash.toHexString)
                     .build
                 )
-              case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-                builder.setScenarioContractKeyNotVisible(
-                  proto.ScenarioError.ContractKeyNotVisible.newBuilder
-                    .setContractRef(mkContractRef(coid, gk.templateId))
-                    .addAllActAs(actAs.map(convertParty).asJava)
-                    .addAllReadAs(readAs.map(convertParty).asJava)
-                    .addAllStakeholders(stakeholders.map(convertParty).asJava)
-                    .build
-                )
               case ContractKeyNotFound(gk) =>
                 builder.setScenarioContractKeyNotFound(
                   proto.ScenarioError.ContractKeyNotFound.newBuilder
@@ -191,7 +182,7 @@ final class Conversions(
                     .setTemplateId(convertIdentifier(tid))
                     .setKey(convertValue(key))
                 )
-              case FetchEmptyContractKeyMaintainers(tid, key, _) =>
+              case FetchEmptyContractKeyMaintainers(tid, key) =>
                 builder.setFetchEmptyContractKeyMaintainers(
                   proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
                     .setTemplateId(convertIdentifier(tid))
@@ -343,12 +334,6 @@ final class Conversions(
             nstBuilder.setNotFound(
               proto.ScenarioError.LookupError.NotFound.newBuilder
                 .setNotFound(notFound.pretty)
-                .setContext(context.pretty)
-            )
-          case language.LookupError.AmbiguousInterfaceInstance(instance, context) =>
-            nstBuilder.setAmbiguousInterfaceInstance(
-              proto.ScenarioError.LookupError.AmbiguousInterfaceInstance.newBuilder
-                .setInstance(instance.pretty)
                 .setContext(context.pretty)
             )
         }
@@ -863,7 +848,7 @@ final class Conversions(
             .build
         )
       case V.ValueInt64(v) => builder.setInt64(v)
-      case V.ValueNumeric(d) => builder.setDecimal(Numeric.toString(d))
+      case V.ValueNumeric(d) => builder.setNumeric(Numeric.toString(d))
       case V.ValueText(t) => builder.setText(t)
       case V.ValueTimestamp(ts) => builder.setTimestamp(ts.micros)
       case V.ValueDate(d) => builder.setDate(d.days)

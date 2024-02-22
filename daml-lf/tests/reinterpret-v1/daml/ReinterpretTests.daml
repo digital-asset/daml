@@ -17,7 +17,6 @@ exception MyError
 template MySimple
   with p: Party
   where
-    agreement show p
     signatory p
 
     choice MyHello : Text

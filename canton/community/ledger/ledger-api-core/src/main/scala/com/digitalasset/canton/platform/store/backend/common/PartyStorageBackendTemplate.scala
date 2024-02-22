@@ -82,7 +82,7 @@ class PartyStorageBackendTemplate(
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
-    SQL"""select * from party_entries
+    SQL"""select * from lapi_party_entries
       where ${queryStrategy.offsetIsBetween(
         nonNullableColumn = "ledger_offset",
         startExclusive = startExclusive,
@@ -114,7 +114,7 @@ class PartyStorageBackendTemplate(
   ): Vector[IndexerPartyDetails] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     val partyFilter = parties match {
-      case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
+      case Some(requestedParties) => cSQL"lapi_party_entries.party in ($requestedParties) AND"
       case None => cSQL""
     }
     val ledgerEndOffset = ledgerEndCache()._1
@@ -124,7 +124,7 @@ class PartyStorageBackendTemplate(
             party,
             max(ledger_offset) ledger_offset,
             #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
-          FROM party_entries
+          FROM lapi_party_entries
           WHERE
             ledger_offset <= $ledgerEndOffset AND
             $partyFilter
@@ -132,12 +132,12 @@ class PartyStorageBackendTemplate(
           GROUP BY party
         )
         SELECT
-          party_entries.party,
-          party_entries.display_name,
+          lapi_party_entries.party,
+          lapi_party_entries.display_name,
           relevant_offsets.is_local
-        FROM party_entries INNER JOIN relevant_offsets ON
-          party_entries.party = relevant_offsets.party AND
-          party_entries.ledger_offset = relevant_offsets.ledger_offset
+        FROM lapi_party_entries INNER JOIN relevant_offsets ON
+          lapi_party_entries.party = relevant_offsets.party AND
+          lapi_party_entries.ledger_offset = relevant_offsets.ledger_offset
        """.asVectorOf(partyDetailsParser)(connection)
   }
 

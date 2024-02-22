@@ -8,9 +8,10 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.common.domain.{
-  RegisterTopologyTransactionHandleCommon,
+  RegisterTopologyTransactionHandle,
   SequencerBasedRegisterTopologyTransactionHandleX,
 }
+import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyXConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -22,21 +23,12 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   TracedLogger,
 }
-import com.digitalasset.canton.protocol.messages.{
-  RegisterTopologyTransactionResponseResult,
-  TopologyTransactionsBroadcastX,
-}
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, DomainTopologyClientWithInit}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.{
-  TopologyStore,
-  TopologyStoreCommon,
-  TopologyStoreId,
-  TopologyStoreX,
-}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransactionX,
@@ -53,85 +45,13 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.chaining.*
 
-class StoreBasedDomainOutbox(
-    domain: DomainAlias,
-    domainId: DomainId,
-    memberId: Member,
-    protocolVersion: ProtocolVersion,
-    val handle: RegisterTopologyTransactionHandleCommon[
-      GenericSignedTopologyTransaction,
-      RegisterTopologyTransactionResponseResult.State,
-    ],
-    targetClient: DomainTopologyClientWithInit,
-    val authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
-    val targetStore: TopologyStore[TopologyStoreId.DomainStore],
-    timeouts: ProcessingTimeout,
-    loggerFactory: NamedLoggerFactory,
-    crypto: Crypto,
-    // TODO(#9270) clean up how we parameterize our nodes
-    batchSize: Int = 100,
-)(implicit ec: ExecutionContext)
-    extends StoreBasedDomainOutboxCommon[
-      GenericSignedTopologyTransaction,
-      RegisterTopologyTransactionResponseResult.State,
-      RegisterTopologyTransactionHandleCommon[
-        GenericSignedTopologyTransaction,
-        RegisterTopologyTransactionResponseResult.State,
-      ],
-      TopologyStore[TopologyStoreId.DomainStore],
-    ](
-      domain,
-      domainId,
-      memberId,
-      protocolVersion,
-      targetClient,
-      timeouts,
-      loggerFactory,
-      crypto,
-      syncTransactionAfterDispatch = false,
-    )
-    with DomainOutboxDispatchHelperOld {
-  override protected def awaitTransactionObserved(
-      client: DomainTopologyClient,
-      transaction: GenericSignedTopologyTransaction,
-      timeout: Duration,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
-    TopologyStore.awaitTxObserved(targetClient, transaction, targetStore, timeout)
-
-  override protected def findPendingTransactions(
-      watermarks: Watermarks
-  )(implicit
-      traceContext: TraceContext
-  ): Future[PendingTransactions[GenericSignedTopologyTransaction]] =
-    authorizedStore
-      .findDispatchingTransactionsAfter(
-        timestampExclusive = watermarks.dispatched,
-        limit = Some(batchSize),
-      )
-      .map(storedTransactions =>
-        PendingTransactions(
-          storedTransactions.result.map(_.transaction),
-          storedTransactions.result.map(_.validFrom.value).fold(watermarks.dispatched)(_ max _),
-        )
-      )
-
-  override def maxAuthorizedStoreTimestamp()(implicit
-      traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]] =
-    authorizedStore.timestamp(useStateStore =
-      false // can't use TopologyStore.maxTimestamp which uses state-store
-    )
-}
-
+// TODO(#15161) merge with common trait
 class StoreBasedDomainOutboxX(
     domain: DomainAlias,
     domainId: DomainId,
     memberId: Member,
     protocolVersion: ProtocolVersion,
-    val handle: RegisterTopologyTransactionHandleCommon[
-      GenericSignedTopologyTransactionX,
-      TopologyTransactionsBroadcastX.State,
-    ],
+    val handle: RegisterTopologyTransactionHandle,
     targetClient: DomainTopologyClientWithInit,
     val authorizedStore: TopologyStoreX[TopologyStoreId.AuthorizedStore],
     val targetStore: TopologyStoreX[TopologyStoreId.DomainStore],
@@ -140,16 +60,9 @@ class StoreBasedDomainOutboxX(
     crypto: Crypto,
     batchSize: Int = 100,
     maybeObserverCloseable: Option[AutoCloseable] = None,
+    futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
-    extends StoreBasedDomainOutboxCommon[
-      GenericSignedTopologyTransactionX,
-      TopologyTransactionsBroadcastX.State,
-      RegisterTopologyTransactionHandleCommon[
-        GenericSignedTopologyTransactionX,
-        TopologyTransactionsBroadcastX.State,
-      ],
-      TopologyStoreX[TopologyStoreId.DomainStore],
-    ](
+    extends StoreBasedDomainOutboxCommon(
       domain,
       domainId,
       memberId,
@@ -159,6 +72,7 @@ class StoreBasedDomainOutboxX(
       loggerFactory,
       crypto,
       syncTransactionAfterDispatch = true,
+      futureSupervisor = futureSupervisor,
     )
     with StoreBasedDomainOutboxDispatchHelperX {
   override protected def awaitTransactionObserved(
@@ -166,7 +80,9 @@ class StoreBasedDomainOutboxX(
       transaction: GenericSignedTopologyTransactionX,
       timeout: Duration,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
-    TopologyStoreX.awaitTxObserved(targetClient, transaction, targetStore, timeout)
+    supervisedUS(s"Waiting for transaction $transaction to be observed")(
+      TopologyStoreX.awaitTxObserved(targetClient, transaction, targetStore, timeout)
+    )
 
   override protected def findPendingTransactions(watermarks: Watermarks)(implicit
       traceContext: TraceContext
@@ -213,12 +129,7 @@ abstract class DomainOutboxCommon extends DomainOutboxHandle {
   ): FutureUnlessShutdown[Unit]
 }
 
-abstract class StoreBasedDomainOutboxCommon[
-    TX,
-    State,
-    +H <: RegisterTopologyTransactionHandleCommon[TX, State],
-    +DTS <: TopologyStoreCommon[TopologyStoreId.DomainStore, ?, ?, TX],
-](
+abstract class StoreBasedDomainOutboxCommon(
     domain: DomainAlias,
     val domainId: DomainId,
     val memberId: Member,
@@ -228,13 +139,15 @@ abstract class StoreBasedDomainOutboxCommon[
     val loggerFactory: NamedLoggerFactory,
     override protected val crypto: Crypto,
     syncTransactionAfterDispatch: Boolean,
-)(implicit val ec: ExecutionContext)
+    override protected val futureSupervisor: FutureSupervisor,
+)(implicit override protected val executionContext: ExecutionContext)
     extends DomainOutboxCommon
-    with DomainOutboxDispatch[TX, State, H, DTS] {
-  this: DomainOutboxDispatchStoreSpecific[TX, State] =>
+    with DomainOutboxDispatch
+    with HasFutureSupervision {
+  this: DomainOutboxDispatchStoreSpecific =>
 
-  def handle: H
-  def targetStore: DTS
+  def handle: RegisterTopologyTransactionHandle
+  def targetStore: TopologyStoreX[TopologyStoreId.DomainStore]
 
   runOnShutdown_(new RunOnShutdown {
     override def name: String = "close-participant-topology-outbox"
@@ -245,7 +158,7 @@ abstract class StoreBasedDomainOutboxCommon[
 
   protected def awaitTransactionObserved(
       client: DomainTopologyClient,
-      transaction: TX,
+      transaction: GenericSignedTopologyTransactionX,
       timeout: Duration,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean]
 
@@ -323,7 +236,7 @@ abstract class StoreBasedDomainOutboxCommon[
   /** a future we provide that gets fulfilled once we are done dispatching */
   private val idleFuture = new AtomicReference[Option[Promise[UnlessShutdown[Unit]]]](None)
   private val lastDispatched =
-    new AtomicReference[Option[TX]](None)
+    new AtomicReference[Option[GenericSignedTopologyTransactionX]](None)
   private def ensureIdleFutureIsSet(): Unit = idleFuture.updateAndGet {
     case None =>
       Some(Promise())
@@ -395,7 +308,9 @@ abstract class StoreBasedDomainOutboxCommon[
 
   protected def findPendingTransactions(
       watermarks: Watermarks
-  )(implicit traceContext: TraceContext): Future[PendingTransactions[TX]]
+  )(implicit
+      traceContext: TraceContext
+  ): Future[PendingTransactions[GenericSignedTopologyTransactionX]]
 
   protected final def flush(initialize: Boolean = false)(implicit
       traceContext: TraceContext
@@ -480,9 +395,9 @@ abstract class StoreBasedDomainOutboxCommon[
   }
 
   private def updateWatermark(
-      found: PendingTransactions[TX],
-      applicable: Seq[TX],
-      responses: Seq[State],
+      found: PendingTransactions[GenericSignedTopologyTransactionX],
+      applicable: Seq[GenericSignedTopologyTransactionX],
+      responses: Seq[TopologyTransactionsBroadcastX.State],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val valid = applicable.zipWithIndex.zip(responses).foldLeft(true) {
       case (valid, ((item, idx), response)) =>
@@ -549,6 +464,7 @@ class DomainOutboxXFactory(
     crypto: Crypto,
     topologyXConfig: TopologyXConfig,
     timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -600,6 +516,7 @@ class DomainOutboxXFactory(
       maybeObserverCloseable = new AutoCloseable {
         override def close(): Unit = authorizedObserver.removeObserver()
       }.some,
+      futureSupervisor = futureSupervisor,
     )
     authorizedObserver.addObserver(storeBasedDomainOutbox)
 
@@ -663,6 +580,7 @@ class DomainOutboxXFactorySingleCreate(
     crypto: Crypto,
     topologyXConfig: TopologyXConfig,
     override val timeouts: ProcessingTimeout,
+    futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 ) extends DomainOutboxXFactory(
       domainId,
@@ -672,6 +590,7 @@ class DomainOutboxXFactorySingleCreate(
       crypto,
       topologyXConfig,
       timeouts,
+      futureSupervisor,
       loggerFactory,
     )
     with FlagCloseable {
@@ -709,7 +628,7 @@ class DomainOutboxXFactorySingleCreate(
   }
 
   override protected def onClosed(): Unit =
-    Lifecycle.close(outboxRef.get.toList: _*)(logger)
+    Lifecycle.close(outboxRef.get.toList*)(logger)
 }
 
 final case class PendingTransactions[TX](

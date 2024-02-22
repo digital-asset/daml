@@ -6,20 +6,21 @@ package engine
 package script
 package v1
 
-import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
-import com.daml.ledger.api.validation.NoLoggingValueValidator
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.v1.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.StablePackagesV1
+import com.daml.lf.language.StablePackagesV2
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.{Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -27,7 +28,7 @@ import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
 
-object Converter extends script.ConverterMethods(StablePackagesV1) {
+object Converter extends script.ConverterMethods(StablePackagesV2) {
   import com.daml.script.converter.Converter._
 
   def translateExerciseResult(
@@ -214,7 +215,7 @@ object Converter extends script.ConverterMethods(StablePackagesV1) {
     for {
       anyTpl <- fromContract(translator, contract)
     } yield record(
-      StablePackagesV1.Tuple2,
+      StablePackagesV2.Tuple2,
       ("_1", SContractId(contract.contractId)),
       ("_2", anyTpl),
     )

@@ -1,0 +1,77 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v30;
+
+import "com/digitalasset/canton/admin/pruning/v30/pruning.proto";
+import "google/protobuf/timestamp.proto";
+
+// Canton-internal pruning service that prunes only canton state, but leaves the ledger-api
+// state unpruned.
+service PruningService {
+  // Prune the participant specifying the offset before and at which ledger transactions
+  // should be removed. Only returns when the potentially long-running prune request ends
+  // successfully or with one of the following errors:
+  // - ``INVALID_ARGUMENT``: if the payload, particularly the offset is malformed or missing
+  // - ``INTERNAL``: if the participant has encountered a failure and has potentially
+  //   applied pruning partially. Such cases warrant verifying the participant health before
+  //   retrying the prune with the same (or a larger, valid) offset. Successful retries
+  //   after such errors ensure that different components reach a consistent pruning state.
+  // - ``FAILED_PRECONDITION``: if the participant is not yet able to prune at the specified
+  //   offset or if pruning is invoked on a participant running the Community Edition.
+  rpc Prune(PruneRequest) returns (PruneResponse);
+
+  // Retrieve the safe pruning offset
+  rpc GetSafePruningOffset(GetSafePruningOffsetRequest) returns (GetSafePruningOffsetResponse);
+
+  // Enable automatic pruning using the specified schedule parameters
+  // The following errors may occur on the SetSchedule or Update commands:
+  // - ``INVALID_ARGUMENT``: if a parameter is missing or an invalid cron expression
+  //   or duration.
+  // - ``FAILED_PRECONDITION``: if automatic background pruning has not been enabled
+  //   or if invoked on a participant running the Community Edition.
+  rpc SetSchedule(com.digitalasset.canton.admin.pruning.v30.SetSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetSchedule.Response);
+
+  // Enable automatic pruning with participant-specific schedule parameters.
+  rpc SetParticipantSchedule(com.digitalasset.canton.admin.pruning.v30.SetParticipantSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetParticipantSchedule.Response);
+
+  // Modify individual pruning schedule parameters.
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or no schedule is configured
+  rpc SetCron(com.digitalasset.canton.admin.pruning.v30.SetCron.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetCron.Response);
+  rpc SetMaxDuration(com.digitalasset.canton.admin.pruning.v30.SetMaxDuration.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetMaxDuration.Response);
+  rpc SetRetention(com.digitalasset.canton.admin.pruning.v30.SetRetention.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetRetention.Response);
+
+  // Disable automatic pruning and remove the persisted schedule configuration.
+  rpc ClearSchedule(com.digitalasset.canton.admin.pruning.v30.ClearSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.ClearSchedule.Response);
+
+  // Retrieve the automatic pruning configuration.
+  rpc GetSchedule(com.digitalasset.canton.admin.pruning.v30.GetSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.GetSchedule.Response);
+
+  // Retrieve the automatic, participant-specific pruning configuration.
+  rpc GetParticipantSchedule(com.digitalasset.canton.admin.pruning.v30.GetParticipantSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.GetParticipantSchedule.Response);
+}
+
+message PruneRequest {
+  // Inclusive offset up to which the ledger is to be pruned.
+  string prune_up_to = 1;
+}
+
+message PruneResponse {
+  // Empty for now, but may contain fields in the future
+}
+
+message GetSafePruningOffsetRequest {
+  google.protobuf.Timestamp before_or_at = 1;
+  string ledger_end = 2;
+}
+
+message GetSafePruningOffsetResponse {
+  message NoSafePruningOffset {}
+
+  oneof response {
+    string safe_pruning_offset = 1;
+    NoSafePruningOffset no_safe_pruning_offset = 2;
+  }
+}

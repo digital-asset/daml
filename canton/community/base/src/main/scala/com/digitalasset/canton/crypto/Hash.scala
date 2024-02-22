@@ -36,7 +36,7 @@ import slick.jdbc.{GetResult, SetParameter}
   */
 sealed abstract class HashAlgorithm(val name: String, val index: Long, val length: Long)
     extends PrettyPrinting {
-  def toProtoEnum: v0.HashAlgorithm
+  def toProtoEnum: v30.HashAlgorithm
 
   override def pretty: Pretty[HashAlgorithm] = prettyOfString(_.name)
 }
@@ -50,7 +50,7 @@ object HashAlgorithm {
   }
 
   case object Sha256 extends HashAlgorithm("SHA-256", 0x12, 32) {
-    override def toProtoEnum: v0.HashAlgorithm = v0.HashAlgorithm.Sha256
+    override def toProtoEnum: v30.HashAlgorithm = v30.HashAlgorithm.HASH_ALGORITHM_SHA256
   }
 
   def lookup(index: Long, length: Long): Either[String, HashAlgorithm] =
@@ -65,14 +65,14 @@ object HashAlgorithm {
 
   def fromProtoEnum(
       field: String,
-      hashAlgorithmP: v0.HashAlgorithm,
+      hashAlgorithmP: v30.HashAlgorithm,
   ): ParsingResult[HashAlgorithm] =
     hashAlgorithmP match {
-      case v0.HashAlgorithm.MissingHashAlgorithm =>
+      case v30.HashAlgorithm.HASH_ALGORITHM_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
-      case v0.HashAlgorithm.Unrecognized(value) =>
+      case v30.HashAlgorithm.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v0.HashAlgorithm.Sha256 => Right(Sha256)
+      case v30.HashAlgorithm.HASH_ALGORITHM_SHA256 => Right(Sha256)
     }
 }
 

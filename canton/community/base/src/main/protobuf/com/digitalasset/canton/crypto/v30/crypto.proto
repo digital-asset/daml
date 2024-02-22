@@ -1,0 +1,196 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.crypto.v30;
+
+enum HashAlgorithm {
+  HASH_ALGORITHM_UNSPECIFIED = 0;
+  HASH_ALGORITHM_SHA256 = 1;
+}
+
+enum HmacAlgorithm {
+  HMAC_ALGORITHM_UNSPECIFIED = 0;
+  HMAC_ALGORITHM_HMAC_SHA256 = 1;
+}
+
+message Hmac {
+  HmacAlgorithm algorithm = 1;
+  bytes hmac = 2;
+}
+
+message Salt {
+  oneof algorithm {
+    HmacAlgorithm hmac = 1;
+  }
+  bytes salt = 2;
+}
+
+message Signature {
+  SignatureFormat format = 1;
+
+  bytes signature = 2;
+
+  // The fingerprint/id of the keypair used to create this signature and needed to verify.
+  // The referenced key provides the context for the used signature scheme.
+  string signed_by = 3;
+}
+
+enum SignatureFormat {
+  SIGNATURE_FORMAT_UNSPECIFIED = 0;
+
+  // Signature scheme specific signature format
+  SIGNATURE_FORMAT_RAW = 1;
+}
+
+message PublicKey {
+  oneof key {
+    SigningPublicKey signing_public_key = 1;
+    EncryptionPublicKey encryption_public_key = 2;
+  }
+}
+
+message PublicKeyWithName {
+  PublicKey public_key = 1;
+
+  // Optional name of the public key
+  string name = 2;
+}
+
+message PrivateKey {
+  oneof key {
+    SigningPrivateKey signing_private_key = 1;
+    EncryptionPrivateKey encryption_private_key = 2;
+  }
+}
+
+enum KeyPurpose {
+  KEY_PURPOSE_UNSPECIFIED = 0;
+  KEY_PURPOSE_SIGNING = 1;
+  KEY_PURPOSE_ENCRYPTION = 2;
+}
+
+message SigningPublicKey {
+  string id = 1;
+
+  CryptoKeyFormat format = 2;
+
+  // Serialized public key in the format specified above
+  bytes public_key = 3;
+
+  // Explicit state the key scheme of the serialized public key
+  SigningKeyScheme scheme = 4;
+}
+
+message SigningPrivateKey {
+  string id = 1;
+
+  CryptoKeyFormat format = 2;
+
+  // Serialized private key in the format specified above
+  bytes private_key = 3;
+
+  // Explicit state the key scheme of the serialized private key
+  SigningKeyScheme scheme = 4;
+}
+
+message SigningKeyPair {
+  SigningPublicKey public_key = 1;
+  SigningPrivateKey private_key = 2;
+}
+
+enum SigningKeyScheme {
+  SIGNING_KEY_SCHEME_UNSPECIFIED = 0;
+
+  // Signature based on Curve25519
+  // http://ed25519.cr.yp.to/
+  SIGNING_KEY_SCHEME_ED25519 = 1;
+
+  // EC-DSA with NIST curve P-256 or P-384
+  SIGNING_KEY_SCHEME_EC_DSA_P256 = 2;
+  SIGNING_KEY_SCHEME_EC_DSA_P384 = 3;
+}
+
+message EncryptionPublicKey {
+  string id = 1;
+
+  CryptoKeyFormat format = 2;
+
+  // Serialized public key in the format specified above
+  bytes public_key = 3;
+
+  // Explicit state the key scheme of the serialized public key
+  EncryptionKeyScheme scheme = 4;
+}
+
+message EncryptionPrivateKey {
+  string id = 1;
+
+  CryptoKeyFormat format = 2;
+
+  // Serialized private key in the format specified above
+  bytes private_key = 3;
+
+  // Explicit state the key scheme of the serialized private key
+  EncryptionKeyScheme scheme = 4;
+}
+
+message EncryptionKeyPair {
+  EncryptionPublicKey public_key = 1;
+  EncryptionPrivateKey private_key = 2;
+}
+
+enum EncryptionKeyScheme {
+  ENCRYPTION_KEY_SCHEME_UNSPECIFIED = 0;
+
+  // ECIES with ECDH over NIST P-256, AES128 GCM, and HKDF with HMAC-SHA256
+  ENCRYPTION_KEY_SCHEME_ECIES_P256_HKDF_HMAC_SHA256_AES128GCM = 1;
+
+  // ECIES with ECDH over NIST P-256, AES128 CBC, and HKDF and authentication with HMAC-SHA256
+  ENCRYPTION_KEY_SCHEME_ECIES_P256_HMAC_SHA256A_ES128CBC = 2;
+
+  /* RSA with a 2048 bit key with OAEP Padding,
+     using SHA-256 for both the hash and in the MGF1 mask generation function along with an empty label. */
+  ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 = 3;
+}
+
+message CryptoKeyPair {
+  oneof pair {
+    SigningKeyPair signing_key_pair = 1;
+    EncryptionKeyPair encryption_key_pair = 2;
+  }
+}
+
+message SymmetricKey {
+  CryptoKeyFormat format = 1;
+
+  bytes key = 2;
+
+  SymmetricKeyScheme scheme = 3;
+}
+
+enum SymmetricKeyScheme {
+  SYMMETRIC_KEY_SCHEME_UNSPECIFIED = 0;
+
+  // AES with 128bit keys in GCM
+  SYMMETRIC_KEY_SCHEME_AES128GCM = 1;
+}
+
+// Serialization format for crypto keys and signatures
+enum CryptoKeyFormat {
+  CRYPTO_KEY_FORMAT_UNSPECIFIED = 0;
+
+  // Tink's KeySet proto serialization format
+  // https://github.com/google/tink/tree/1.5/proto
+  CRYPTO_KEY_FORMAT_TINK = 1;
+
+  // ASN.1 + DER encoding
+  CRYPTO_KEY_FORMAT_DER = 2;
+
+  // Raw encoding of a key, typically used for symmetric keys or Ed25519 keypairs.
+  CRYPTO_KEY_FORMAT_RAW = 3;
+
+  // Symbolic crypto, must only be used for testing
+  CRYPTO_KEY_FORMAT_SYMBOLIC = 10000;
+}

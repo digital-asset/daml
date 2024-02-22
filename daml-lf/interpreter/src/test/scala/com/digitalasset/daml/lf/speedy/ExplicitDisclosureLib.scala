@@ -12,13 +12,7 @@ import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-  Util,
-  Versioned,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -42,7 +36,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
            precondition True;
            signatories (TestMod:listOf @Party (TestMod:House {owner} this));
            observers (Nil @Party);
-           agreement "Agreement for TestMod:House";
 
            choice Destroy (self) (arg: Unit): Unit,
              controllers (TestMod:listOf @Party (TestMod:House {owner} this)),
@@ -59,7 +52,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
            precondition True;
            signatories (TestMod:listOf @Party (TestMod:Cave {owner} this));
            observers (Nil @Party);
-           agreement "Agreement for TestMod:Cave";
 
            choice Destroy (self) (arg: Unit): Unit,
              controllers (TestMod:listOf @Party (TestMod:Cave {owner} this)),
@@ -87,7 +79,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
        }
        """
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(pkg)
-  val useSharedKeys: Boolean = Util.sharedKey(defaultParserParameters.languageVersion)
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")
   val disclosureParty: IdString.Party = Ref.Party.assertFromString("disclosureParty")
@@ -130,7 +121,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildDisclosedHouseContract(
       owner: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
@@ -143,7 +134,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
             globalKeyWithMaintainers =
               GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
             key = buildContractSKey(maintainer),
-            shared = Util.sharedKey(TransactionVersion.maxVersion),
           )
         )
       else
@@ -157,7 +147,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
         ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
-      agreementText = "Agreement1",
       signatories = Set(owner, maintainer),
       observers = Set.empty,
       keyOpt = cachedKey,
@@ -166,7 +155,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
   def buildDisclosedCaveContract(
       owner: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = caveTemplateId,
   ): Speedy.ContractInfo = {
     Speedy.ContractInfo(
@@ -178,7 +167,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         ImmArray(Ref.Name.assertFromString("owner")),
         ArrayList(SValue.SParty(owner)),
       ),
-      agreementText = "Agreement2",
       signatories = Set(owner),
       observers = Set.empty,
       keyOpt = None,
@@ -195,11 +183,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     )
 
   def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
-    GlobalKey.assertBuild(
-      houseTemplateType,
-      buildContractKeyValue(maintainer, label),
-      useSharedKeys,
-    )
+    GlobalKey.assertBuild(houseTemplateType, buildContractKeyValue(maintainer, label))
 
   def buildContractSKey(maintainer: Party, label: String = testKeyName): SValue =
     SValue.SRecord(
@@ -214,7 +198,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildContract(
       owner: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
   ): Versioned[ContractInstance] = {
     val contractFields = templateId match {
@@ -236,7 +220,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     }
 
     Versioned(
-      TransactionVersion.minExplicitDisclosure,
+      TransactionVersion.minVersion,
       Value.ContractInstance(
         packageName = packageName,
         template = templateId,
@@ -248,11 +232,10 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildHouseContractInfo(
       signatory: Party,
       maintainer: Party,
-      packageName: Option[Ref.PackageName] = pkg.name,
+      packageName: Ref.PackageName = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
-      sharedKey: Boolean = true,
   ): ContractInfo = {
     val contract = SValue.SRecord(
       templateId,
@@ -268,19 +251,17 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
           CachedKey(
             packageName = packageName,
             GlobalKeyWithMaintainers
-              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer), sharedKey),
+              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
             contract,
-            sharedKey,
           )
         )
       else None
 
     ContractInfo(
-      version = TransactionVersion.minExplicitDisclosure,
+      version = TransactionVersion.minVersion,
       packageName = packageName,
       templateId = templateId,
       value = contract,
-      agreementText = "Agreement3",
       signatories = Set(signatory),
       observers = Set.empty,
       keyOpt = mbKey,

@@ -24,7 +24,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class LargeTransactionTestV1 extends LargeTransactionTest(LanguageMajorVersion.V1)
 class LargeTransactionTestV2 extends LargeTransactionTest(LanguageMajorVersion.V2)
 
 class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
@@ -74,7 +73,8 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
     ): PartialFunction[ContractId, VersionedContractInstance] =
       Function.unlift((id: ContractId) =>
         ledger.lookupGlobalContract(
-          ParticipantView(Set(submitter), Set.empty),
+          Set(submitter),
+          Set.empty,
           effectiveAt,
           id,
         ) match {

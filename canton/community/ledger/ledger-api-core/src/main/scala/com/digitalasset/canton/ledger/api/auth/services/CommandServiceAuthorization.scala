@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
-import com.daml.ledger.api.v1.command_service.*
+import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
+import com.daml.ledger.api.v2.command_service.*
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -27,7 +27,7 @@ final class CommandServiceAuthorization(
     with GrpcApiService {
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
@@ -39,7 +39,7 @@ final class CommandServiceAuthorization(
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
@@ -48,22 +48,22 @@ final class CommandServiceAuthorization(
     )(request)
   }
 
-  override def submitAndWaitForTransactionId(
+  override def submitAndWaitForUpdateId(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionIdResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
+  ): Future[SubmitAndWaitForUpdateIdResponse] = {
+    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
       applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
-      call = service.submitAndWaitForTransactionId,
+      call = service.submitAndWaitForUpdateId,
     )(request)
   }
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
+    val effectiveSubmitters = CommandsValidator.effectiveSubmittersV2(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
@@ -74,7 +74,4 @@ final class CommandServiceAuthorization(
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, executionContext)
-
-  override def close(): Unit = service.close()
-
 }

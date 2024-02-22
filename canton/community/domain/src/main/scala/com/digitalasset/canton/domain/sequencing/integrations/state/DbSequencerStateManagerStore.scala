@@ -13,13 +13,12 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.protocol.v0
+import com.digitalasset.canton.domain.protocol.v30
 import com.digitalasset.canton.domain.sequencing.integrations.state.SequencerStateManagerStore.PruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.{DbAction, dbEitherT}
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
@@ -60,17 +59,13 @@ class DbSequencerStateManagerStore(
   import storage.api.*
   import storage.converters.*
 
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("sequencer-store")
-
   private implicit val setParameterTraceContext: SetParameter[SerializableTraceContext] =
     SerializableTraceContext.getVersionedSetParameter(protocolVersion)
 
   override def readAtBlockTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[EphemeralState] = processingTime.event {
+  )(implicit traceContext: TraceContext): Future[EphemeralState] =
     storage.query(readAtBlockTimestampDBIO(timestamp), functionFullName)
-  }
 
   /** Compute the state up until (inclusive) the given timestamp. */
   def readAtBlockTimestampDBIO(
@@ -259,7 +254,7 @@ class DbSequencerStateManagerStore(
             where ts > $startTsExclusive and ts <= $endTsInclusive
         """.as[(Member, Array[Byte], SerializableTraceContext)]
     for {
-      events <- processingTime.event(storage.query(query, functionFullName))
+      events <- (storage.query(query, functionFullName))
     } yield {
       events
         .map { case (member, bytes, eventTraceContext) =>
@@ -279,15 +274,14 @@ class DbSequencerStateManagerStore(
             select member, added_at from sequencer_state_manager_members
             where added_at > $startTsExclusive and added_at <= $endTsInclusive
            """.as[(Member, CantonTimestamp)]
-    processingTime.event(storage.query(query, functionFullName))
+    (storage.query(query, functionFullName))
   }
 
   override def addMember(member: Member, addedAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    processingTime.event {
-      storage.queryAndUpdate(addMemberDBIO(member, addedAt), functionFullName)
-    }
+  ): Future[Unit] = {
+    storage.queryAndUpdate(addMemberDBIO(member, addedAt), functionFullName)
+  }
 
   def addMemberDBIO(member: Member, addedAt: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -308,7 +302,7 @@ class DbSequencerStateManagerStore(
   override def addEvents(
       events: Map[Member, OrdinarySerializedEvent],
       trafficSate: Map[Member, TrafficState],
-  )(implicit traceContext: TraceContext): Future[Unit] = processingTime.event {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     storage.queryAndUpdate(addEventsDBIO(trafficSate)(events), functionFullName)
   }
 
@@ -354,7 +348,7 @@ class DbSequencerStateManagerStore(
       )
     }
 
-    DBIO.seq(inserts.toSeq: _*).transactionally
+    DBIO.seq(inserts.toSeq*).transactionally
   }
 
   override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
@@ -650,10 +644,10 @@ object DbSequencerStateManagerStore {
     @transient override protected lazy val companionObj: AggregatedSignaturesOfSender.type =
       AggregatedSignaturesOfSender
 
-    private def toProtoV0: v0.AggregatedSignaturesOfSender =
-      v0.AggregatedSignaturesOfSender(
+    private def toProtoV30: v30.AggregatedSignaturesOfSender =
+      v30.AggregatedSignaturesOfSender(
         signaturesByEnvelope = signaturesByEnvelope.map(sigs =>
-          v0.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigs.map(_.toProtoV0))
+          v30.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigs.map(_.toProtoV30))
         )
       )
   }
@@ -664,25 +658,26 @@ object DbSequencerStateManagerStore {
     override def name: String = "AggregatedSignaturesOfSender"
 
     override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(0) -> VersionedProtoConverter.storage(
+      ProtoVersion(30) -> VersionedProtoConverter.storage(
         ReleaseProtocolVersion(ProtocolVersion.v30),
-        v0.AggregatedSignaturesOfSender,
+        v30.AggregatedSignaturesOfSender,
       )(
-        supportedProtoVersion(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30.toByteString,
       )
     )
 
-    private def fromProtoV0(
-        proto: v0.AggregatedSignaturesOfSender
+    private def fromProtoV30(
+        proto: v30.AggregatedSignaturesOfSender
     ): ParsingResult[AggregatedSignaturesOfSender] = {
-      val v0.AggregatedSignaturesOfSender(sigsP) = proto
+      val v30.AggregatedSignaturesOfSender(sigsP) = proto
       for {
         sigs <- sigsP.traverse {
-          case v0.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigsForEnvelope) =>
-            sigsForEnvelope.traverse(Signature.fromProtoV0)
+          case v30.AggregatedSignaturesOfSender.SignaturesForEnvelope(sigsForEnvelope) =>
+            sigsForEnvelope.traverse(Signature.fromProtoV30)
         }
-      } yield AggregatedSignaturesOfSender(sigs)(protocolVersionRepresentativeFor(ProtoVersion(0)))
+        rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      } yield AggregatedSignaturesOfSender(sigs)(rpv)
     }
   }
 

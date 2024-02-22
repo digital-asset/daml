@@ -58,6 +58,7 @@ import com.digitalasset.canton.participant.admin.inspection.{
   SyncStateInspection,
 }
 import com.digitalasset.canton.participant.admin.repair.RepairService
+import com.digitalasset.canton.participant.admin.workflows.java.canton
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -158,8 +159,6 @@ class CantonSyncService(
     val isActive: () => Boolean,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
-    skipRecipientsCheck: Boolean,
-    multiDomainLedgerAPIEnabled: Boolean,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -167,7 +166,8 @@ class CantonSyncService(
     with FlagCloseable
     with Spanning
     with NamedLogging
-    with HasCloseContext {
+    with HasCloseContext
+    with InternalStateServiceProviderImpl {
 
   import ShowUtil.*
 
@@ -182,12 +182,38 @@ class CantonSyncService(
     participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration
       .getOrElse(throw new RuntimeException("Max deduplication duration is not available"))
 
-  val eventTranslationStrategy = new EventTranslationStrategy(
-    multiDomainLedgerAPIEnabled = multiDomainLedgerAPIEnabled,
-    excludeInfrastructureTransactions = parameters.excludeInfrastructureTransactions,
-  )
+  // Augment event with transaction statistics "as late as possible" as stats are redundant data and so that
+  // we don't need to persist stats and deal with versioning stats changes. Also every event is usually consumed
+  // only once.
+  private[sync] def augmentTransactionStatistics(
+      e: LedgerSyncEvent
+  ): LedgerSyncEvent = e match {
+    case e: LedgerSyncEvent.TransactionAccepted =>
+      e.copy(completionInfoO =
+        e.completionInfoO.map(completionInfo =>
+          completionInfo.copy(statistics =
+            Some(LedgerTransactionNodeStatistics(e.transaction, excludedPackageIds))
+          )
+        )
+      )
+    case e => e
+  }
 
-  type ConnectionListener = DomainAlias => Unit
+  private val excludedPackageIds: Set[LfPackageId] =
+    if (parameters.excludeInfrastructureTransactions) {
+      Set(
+        canton.internal.ping.Ping.TEMPLATE_ID,
+        canton.internal.bong.BongProposal.TEMPLATE_ID,
+        canton.internal.bong.Bong.TEMPLATE_ID,
+        canton.internal.bong.Merge.TEMPLATE_ID,
+        canton.internal.bong.Explode.TEMPLATE_ID,
+        canton.internal.bong.Collapse.TEMPLATE_ID,
+      ).map(x => LfPackageId.assertFromString(x.getPackageId))
+    } else {
+      Set.empty[LfPackageId]
+    }
+
+  private type ConnectionListener = Traced[DomainId] => Unit
 
   // Listeners to domain connections
   private val connectionListeners = new AtomicReference[List[ConnectionListener]](List.empty)
@@ -241,7 +267,7 @@ class CantonSyncService(
     sync.ready
   }
 
-  private def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
+  private[canton] def syncDomainForAlias(alias: DomainAlias): Option[SyncDomain] =
     aliasManager.domainIdForAlias(alias).flatMap(connectedDomainsMap.get)
 
   private val domainRouter =
@@ -411,6 +437,8 @@ class CantonSyncService(
           .foreach(_.removeJournalGarageCollectionLock())
       }
     },
+    connectedDomainsLookup,
+    participantId,
     loggerFactory,
   )
 
@@ -423,7 +451,7 @@ class CantonSyncService(
       span.setAttribute("submission_id", submissionId)
       pruneInternally(pruneUpToInclusive)
         .fold(
-          err => PruningResult.NotPruned(err.code.asGrpcStatus(err)),
+          err => PruningResult.NotPruned(ErrorCode.asGrpcStatus(err)),
           _ => PruningResult.ParticipantPruned,
         )
         .onShutdown(
@@ -587,7 +615,8 @@ class CantonSyncService(
               .subscribe(beginStartingAt)
               .mapConcat { case (offset, event) =>
                 event
-                  .traverse(eventTranslationStrategy.translate)
+                  .map(augmentTransactionStatistics)
+                  .traverse(_.toDamlUpdate)
                   .map { e =>
                     logger.debug(show"Emitting event at offset $offset. Event: ${event.value}")(
                       e.traceContext
@@ -1216,7 +1245,6 @@ class CantonSyncService(
           trafficStateController,
           futureSupervisor,
           domainLoggerFactory,
-          skipRecipientsCheck = skipRecipientsCheck,
         )
 
         // update list of connected domains
@@ -1283,7 +1311,9 @@ class CantonSyncService(
       ): UnlessShutdown[Either[SyncServiceError, Unit]] =
         outcome match {
           case x @ UnlessShutdown.Outcome(Right(())) =>
-            connectionListeners.get().foreach(_(domainAlias))
+            aliasManager.domainIdForAlias(domainAlias).foreach { domainId =>
+              connectionListeners.get().foreach(_(Traced(domainId)))
+            }
             x
           case UnlessShutdown.AbortedDueToShutdown =>
             disconnectOn()
@@ -1463,7 +1493,7 @@ class CantonSyncService(
       sequencerClientHealth,
     )
 
-    Lifecycle.close(instances: _*)(logger)
+    Lifecycle.close(instances*)(logger)
   }
 
   override def toString: String = s"CantonSyncService($participantId)"
@@ -1528,7 +1558,7 @@ class CantonSyncService(
               submitterMetadata = TransferSubmitterMetadata(
                 submitter = submitter,
                 applicationId = applicationId,
-                submittingParticipant = participantId.toLf,
+                submittingParticipant = participantId,
                 commandId = commandId,
                 submissionId = submissionId,
                 workflowId = workflowId,
@@ -1548,7 +1578,7 @@ class CantonSyncService(
               submitterMetadata = TransferSubmitterMetadata(
                 submitter = submitter,
                 applicationId = applicationId,
-                submittingParticipant = participantId.toLf,
+                submittingParticipant = participantId,
                 commandId = commandId,
                 submissionId = submissionId,
                 workflowId = workflowId,
@@ -1579,14 +1609,19 @@ class CantonSyncService(
       .collect { case (domainAlias, (domainId, true)) =>
         for {
           topology <- getSnapshot(domainAlias, domainId)
-          attributesO <- topology.hostedOn(request.party, participantId = participantId)
-        } yield attributesO.map(attributes =>
-          ConnectedDomainResponse.ConnectedDomain(
-            domainAlias,
-            domainId,
-            attributes.permission,
+          partyWithAttributes <- topology.hostedOn(
+            Set(request.party),
+            participantId = participantId,
           )
-        )
+        } yield partyWithAttributes
+          .get(request.party)
+          .map(attributes =>
+            ConnectedDomainResponse.ConnectedDomain(
+              domainAlias,
+              domainId,
+              attributes.permission,
+            )
+          )
       }.toSeq
 
     Future.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)
@@ -1651,8 +1686,6 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
-        multiDomainLedgerAPIEnabled: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1682,8 +1715,6 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-        skipRecipientsCheck: Boolean,
-        multiDomainLedgerAPIEnabled: Boolean,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1716,8 +1747,6 @@ object CantonSyncService {
         () => storage.isActive,
         futureSupervisor,
         loggerFactory,
-        skipRecipientsCheck = skipRecipientsCheck,
-        multiDomainLedgerAPIEnabled: Boolean,
       )
   }
 }
@@ -1806,8 +1835,6 @@ object SyncServiceError extends SyncServiceErrorGroup {
   abstract class MigrationErrors extends ErrorGroup()
 
   abstract class DomainRegistryErrorGroup extends ErrorGroup()
-
-  abstract class TrafficControlErrorGroup extends ErrorGroup()
 
   final case class SyncServiceFailedDomainConnection(
       domain: DomainAlias,

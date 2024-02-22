@@ -21,7 +21,6 @@ object LedgerApiServer {
       executionContext: ExecutionContext,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
-      multiDomainEnabled: Boolean,
   )(implicit
       traceContext: TraceContext
   ): ResourceOwner[(InMemoryState, InMemoryStateUpdater.UpdaterFlow)] = {
@@ -47,7 +46,6 @@ object LedgerApiServer {
           indexServiceConfig.preparePackageMetadataTimeOutWarning.underlying,
         metrics = metrics,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
       )
     } yield inMemoryState -> inMemoryStateUpdater
   }

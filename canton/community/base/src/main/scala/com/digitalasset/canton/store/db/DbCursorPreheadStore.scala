@@ -7,7 +7,6 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.{DbStorage, DbStore, TransactionalStoreUpdate}
 import com.digitalasset.canton.store.{CursorPrehead, CursorPreheadStore}
 import com.digitalasset.canton.tracing.TraceContext
@@ -31,7 +30,6 @@ class DbCursorPreheadStore[Discr](
     client: SequencerClientDiscriminator,
     override protected val storage: DbStorage,
     cursorTable: String,
-    processingTime: TimedLoadGauge,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(override private[store] implicit val ec: ExecutionContext)
@@ -42,27 +40,26 @@ class DbCursorPreheadStore[Discr](
   @nowarn("msg=match may not be exhaustive")
   override def prehead(implicit
       traceContext: TraceContext
-  ): Future[Option[CursorPrehead[Discr]]] =
-    processingTime.event {
-      val preheadQuery =
-        sql"""select prehead_counter, ts from #$cursorTable where client = $client order by prehead_counter desc #${storage
-            .limit(2)}"""
-          .as[(Counter[Discr], CantonTimestamp)]
-      storage.query(preheadQuery, functionFullName).map {
-        case Seq() => None
-        case (preheadCounter, preheadTimestamp) +: rest =>
-          if (rest.nonEmpty)
-            logger.warn(
-              s"Found several preheads for $client in $cursorTable instead of at most one; using $preheadCounter as prehead"
-            )
-          Some(CursorPrehead(preheadCounter, preheadTimestamp))
-      }
+  ): Future[Option[CursorPrehead[Discr]]] = {
+    val preheadQuery =
+      sql"""select prehead_counter, ts from #$cursorTable where client = $client order by prehead_counter desc #${storage
+          .limit(2)}"""
+        .as[(Counter[Discr], CantonTimestamp)]
+    storage.query(preheadQuery, functionFullName).map {
+      case Seq() => None
+      case (preheadCounter, preheadTimestamp) +: rest =>
+        if (rest.nonEmpty)
+          logger.warn(
+            s"Found several preheads for $client in $cursorTable instead of at most one; using $preheadCounter as prehead"
+          )
+        Some(CursorPrehead(preheadCounter, preheadTimestamp))
     }
+  }
 
   @VisibleForTesting
   override private[canton] def overridePreheadUnsafe(
       newPrehead: Option[CursorPrehead[Discr]]
-  )(implicit traceContext: TraceContext): Future[Unit] = processingTime.event {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     logger.info(s"Override prehead counter in $cursorTable to $newPrehead")
     newPrehead match {
       case None => delete()
@@ -134,7 +131,6 @@ class DbCursorPreheadStore[Discr](
     new TransactionalStoreUpdate.DbTransactionalStoreUpdate(
       query,
       storage,
-      Some(processingTime),
       loggerFactory,
     )
   }
@@ -156,7 +152,5 @@ class DbCursorPreheadStore[Discr](
   }
 
   private[this] def delete()(implicit traceContext: TraceContext): Future[Unit] =
-    processingTime.event {
-      storage.update_(sqlu"""delete from #$cursorTable where client = $client""", functionFullName)
-    }
+    storage.update_(sqlu"""delete from #$cursorTable where client = $client""", functionFullName)
 }

@@ -10,7 +10,6 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ExecutionMetrics(
     prefix: MetricName,
-    dropWizardMetricsFactory: LabeledMetricsFactory,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
 
@@ -22,7 +21,7 @@ class ExecutionMetrics(
     qualification = Debug,
   )
   val lookupActiveContract: Timer =
-    dropWizardMetricsFactory.timer(prefix :+ "lookup_active_contract")
+    openTelemetryMetricsFactory.timer(prefix :+ "lookup_active_contract")
 
   @MetricDoc.Tag(
     summary = "The compound time to lookup all active contracts in a single Daml command.",
@@ -32,7 +31,7 @@ class ExecutionMetrics(
     qualification = Debug,
   )
   val lookupActiveContractPerExecution: Timer =
-    dropWizardMetricsFactory.timer(prefix :+ "lookup_active_contract_per_execution")
+    openTelemetryMetricsFactory.timer(prefix :+ "lookup_active_contract_per_execution")
 
   @MetricDoc.Tag(
     summary = "The number of the active contracts looked up per Daml command.",
@@ -42,7 +41,7 @@ class ExecutionMetrics(
     qualification = Debug,
   )
   val lookupActiveContractCountPerExecution: Histogram =
-    dropWizardMetricsFactory.histogram(prefix :+ "lookup_active_contract_count_per_execution")
+    openTelemetryMetricsFactory.histogram(prefix :+ "lookup_active_contract_count_per_execution")
 
   @MetricDoc.Tag(
     summary = "The time to lookup individual contract keys during interpretation.",
@@ -51,7 +50,7 @@ class ExecutionMetrics(
                     |individual contract keys.""",
     qualification = Debug,
   )
-  val lookupContractKey: Timer = dropWizardMetricsFactory.timer(prefix :+ "lookup_contract_key")
+  val lookupContractKey: Timer = openTelemetryMetricsFactory.timer(prefix :+ "lookup_contract_key")
 
   @MetricDoc.Tag(
     summary = "The compound time to lookup all contract keys in a single Daml command.",
@@ -61,7 +60,7 @@ class ExecutionMetrics(
     qualification = Debug,
   )
   val lookupContractKeyPerExecution: Timer =
-    dropWizardMetricsFactory.timer(prefix :+ "lookup_contract_key_per_execution")
+    openTelemetryMetricsFactory.timer(prefix :+ "lookup_contract_key_per_execution")
 
   @MetricDoc.Tag(
     summary = "The number of contract keys looked up per Daml command.",
@@ -71,7 +70,7 @@ class ExecutionMetrics(
     qualification = Debug,
   )
   val lookupContractKeyCountPerExecution: Histogram =
-    dropWizardMetricsFactory.histogram(prefix :+ "lookup_contract_key_count_per_execution")
+    openTelemetryMetricsFactory.histogram(prefix :+ "lookup_contract_key_count_per_execution")
 
   @MetricDoc.Tag(
     summary = "The time to fetch individual Daml code packages during interpretation.",
@@ -80,7 +79,7 @@ class ExecutionMetrics(
                     |the packages that are necessary for interpretation.""",
     qualification = Debug,
   )
-  val getLfPackage: Timer = dropWizardMetricsFactory.timer(prefix :+ "get_lf_package")
+  val getLfPackage: Timer = openTelemetryMetricsFactory.timer(prefix :+ "get_lf_package")
 
   @MetricDoc.Tag(
     summary = "The number of the interpretation retries.",
@@ -88,7 +87,7 @@ class ExecutionMetrics(
                     |effective time in this ledger api server process.""",
     qualification = Debug,
   )
-  val retry: Meter = dropWizardMetricsFactory.meter(prefix :+ "retry")
+  val retry: Meter = openTelemetryMetricsFactory.meter(prefix :+ "retry")
 
   @MetricDoc.Tag(
     summary = "The overall time spent interpreting a Daml command.",
@@ -96,7 +95,7 @@ class ExecutionMetrics(
                     |executing Daml and fetching data).""",
     qualification = Debug,
   )
-  val total: Timer = dropWizardMetricsFactory.timer(prefix :+ "total")
+  val total: Timer = openTelemetryMetricsFactory.timer(prefix :+ "total")
 
   @MetricDoc.Tag(
     summary = "The number of Daml commands currently being interpreted.",
@@ -104,7 +103,7 @@ class ExecutionMetrics(
                     |executing Daml code and fetching data).""",
     qualification = Debug,
   )
-  val totalRunning: Counter = dropWizardMetricsFactory.counter(prefix :+ "total_running")
+  val totalRunning: Counter = openTelemetryMetricsFactory.counter(prefix :+ "total_running")
 
   @MetricDoc.Tag(
     summary = "The time spent executing a Daml command.",
@@ -112,7 +111,7 @@ class ExecutionMetrics(
                     |data).""",
     qualification = Debug,
   )
-  val engine: Timer = dropWizardMetricsFactory.timer(prefix :+ "engine")
+  val engine: Timer = openTelemetryMetricsFactory.timer(prefix :+ "engine")
 
   @MetricDoc.Tag(
     summary = "The number of Daml commands currently being executed.",
@@ -120,7 +119,7 @@ class ExecutionMetrics(
                     |engine (excluding fetching data).""",
     qualification = Debug,
   )
-  val engineRunning: Counter = dropWizardMetricsFactory.counter(prefix :+ "engine_running")
+  val engineRunning: Counter = openTelemetryMetricsFactory.counter(prefix :+ "engine_running")
 
   object cache {
     val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
@@ -137,7 +136,7 @@ class ExecutionMetrics(
         qualification = Debug,
       )
       val registerCacheUpdate: Timer =
-        dropWizardMetricsFactory.timer(prefix :+ "key_state" :+ "register_update")
+        openTelemetryMetricsFactory.timer(prefix :+ "key_state" :+ "register_update")
     }
 
     object contractState {
@@ -152,32 +151,8 @@ class ExecutionMetrics(
         qualification = Debug,
       )
       val registerCacheUpdate: Timer =
-        dropWizardMetricsFactory.timer(prefix :+ "contract_state" :+ "register_update")
+        openTelemetryMetricsFactory.timer(prefix :+ "contract_state" :+ "register_update")
     }
-
-    @MetricDoc.Tag(
-      summary =
-        "The number of lookups trying to resolve divulged contracts on active contracts cache hits.",
-      description = """Divulged contracts are not cached in the contract state caches. On active
-                      |contract cache hits, where stakeholders are not within the submission readers,
-                      |a contract activeness lookup is performed against the Index database. On such
-                      |lookups, this counter is incremented.""",
-      qualification = Debug,
-    )
-    val resolveDivulgenceLookup: Counter =
-      dropWizardMetricsFactory.counter(prefix :+ "resolve_divulgence_lookup")
-
-    @MetricDoc.Tag(
-      summary =
-        "The number of lookups trying to resolve divulged contracts on archived contracts cache hits.",
-      description = """Divulged contracts are not cached in the contract state caches. On archived
-                      |contract cache hits, where stakeholders are not within the submission readers,
-                      |a full contract activeness lookup (including fetching contract arguments) is
-                      |performed against the Index database. On such lookups, this counter is incremented.""",
-      qualification = Debug,
-    )
-    val resolveFullLookup: Counter =
-      dropWizardMetricsFactory.counter(prefix :+ "resolve_full_lookup")
 
     @MetricDoc.Tag(
       summary = "The number of cache read-throughs resulting in not found contracts.",
@@ -188,6 +163,6 @@ class ExecutionMetrics(
       qualification = Debug,
     )
     val readThroughNotFound: Counter =
-      dropWizardMetricsFactory.counter(prefix :+ "read_through_not_found")
+      openTelemetryMetricsFactory.counter(prefix :+ "read_through_not_found")
   }
 }

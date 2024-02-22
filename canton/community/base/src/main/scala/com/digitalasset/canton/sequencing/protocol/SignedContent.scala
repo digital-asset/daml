@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.protocol.v1
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
@@ -48,12 +48,13 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
 ) extends HasProtocolVersionedWrapper[SignedContent[HasCryptographicEvidence]]
     with Serializable
     with Product {
+
   @transient override protected lazy val companionObj: SignedContent.type = SignedContent
 
-  def toProtoV1: v1.SignedContent =
-    v1.SignedContent(
+  def toProtoV30: v30.SignedContent =
+    v30.SignedContent(
       Some(content.getCryptographicEvidence),
-      signatures.map(_.toProtoV0),
+      signatures.map(_.toProtoV30),
       timestampOfSigningKey.map(_.toProtoPrimitive),
     )
 
@@ -70,7 +71,7 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
       snapshot: SyncCryptoApi,
       member: Member,
       purpose: HashPurpose,
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
     val hash = SignedContent.hashContent(snapshot.pureCrypto, content, purpose)
     snapshot.verifySignature(hash, member, signature)
   }
@@ -105,9 +106,9 @@ object SignedContent
   override def name: String = "SignedContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v30)(v1.SignedContent)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SignedContent)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -134,14 +135,17 @@ object SignedContent
       signatures: NonEmpty[Seq[Signature]],
       timestampOfSigningKey: Option[CantonTimestamp],
       protoVersion: ProtoVersion,
-  ): SignedContent[A] = checked( // There is only a single signature
-    SignedContent.tryCreate(
-      content,
-      signatures,
-      timestampOfSigningKey,
-      protocolVersionRepresentativeFor(protoVersion),
-    )
-  )
+  ): ParsingResult[SignedContent[A]] =
+    protocolVersionRepresentativeFor(protoVersion).map { rpv =>
+      checked( // There is only a single signature
+        SignedContent.tryCreate(
+          content,
+          signatures,
+          timestampOfSigningKey,
+          rpv,
+        )
+      )
+    }
 
   def create[A <: HasCryptographicEvidence](
       content: A,
@@ -208,23 +212,24 @@ object SignedContent
     create(cryptoApi, cryptoPrivateApi, content, timestampOfSigningKey, purpose, protocolVersion)
       .valueOr(err => throw new IllegalStateException(s"Failed to create signed content: $err"))
 
-  def fromProtoV1(
-      signedValueP: v1.SignedContent
+  def fromProtoV30(
+      signedValueP: v30.SignedContent
   ): ParsingResult[SignedContent[BytestringWithCryptographicEvidence]] = {
-    val v1.SignedContent(content, signatures, timestampOfSigningKey) = signedValueP
+    val v30.SignedContent(content, signatures, timestampOfSigningKey) = signedValueP
     for {
       contentB <- ProtoConverter.required("content", content)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV0,
+        Signature.fromProtoV30,
         "signature",
         signatures,
       )
       ts <- timestampOfSigningKey.traverse(CantonTimestamp.fromProtoPrimitive)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       signedContent <- create(
         BytestringWithCryptographicEvidence(contentB),
         signatures,
         ts,
-        protocolVersionRepresentativeFor(ProtoVersion(1)),
+        rpv,
       ).leftMap(ProtoDeserializationError.InvariantViolation.toProtoDeserializationError)
     } yield signedContent
   }
@@ -240,29 +245,17 @@ object SignedContent
     )
   }
 
-  def openEnvelopes(
-      event: SignedContent[SequencedEvent[ClosedEnvelope]]
-  )(
+  def openEnvelopes(event: SignedContent[SequencedEvent[ClosedEnvelope]])(
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,
-  ): Either[
-    EventWithErrors[SequencedEvent[DefaultOpenEnvelope]],
-    SignedContent[SequencedEvent[DefaultOpenEnvelope]],
-  ] = {
+  ): WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]] = {
     val (openSequencedEvent, openingErrors) =
       SequencedEvent.openEnvelopes(event.content)(protocolVersion, hashOps)
-
-    Either.cond(
-      openingErrors.isEmpty,
-      event.copy(content = openSequencedEvent), // The signature is still valid
-      EventWithErrors(openSequencedEvent, openingErrors, isIgnored = false),
+    WithOpeningErrors(
+      // The signature is still valid
+      event.copy(content = openSequencedEvent),
+      openingErrors,
     )
   }
 
 }
-
-final case class EventWithErrors[Event <: SequencedEvent[_]](
-    content: Event,
-    openingErrors: Seq[ProtoDeserializationError],
-    isIgnored: Boolean,
-)

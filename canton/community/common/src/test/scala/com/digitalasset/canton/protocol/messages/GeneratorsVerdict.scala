@@ -17,7 +17,7 @@ final case class GeneratorsVerdict(
 
   // TODO(#14515): move elsewhere?
   implicit val protoMediatorRejectionCodeArb
-      : Arbitrary[com.digitalasset.canton.protocol.v0.MediatorRejection.Code] = genArbitrary
+      : Arbitrary[com.digitalasset.canton.protocol.v30.MediatorRejection.Code] = genArbitrary
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val mediatorRejectArb: Arbitrary[Verdict.MediatorReject] =

@@ -15,10 +15,10 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 
 private[oracle] object OracleSchema {
   private val OracleFieldStrategy = new FieldStrategy {
-    override def stringArrayOptional[FROM](
-        extractor: StringInterning => FROM => Option[Iterable[String]]
-    ): Field[FROM, Option[Iterable[String]], _] =
-      OracleStringArrayOptional(extractor)
+    override def stringArray[FROM](
+        extractor: StringInterning => FROM => Iterable[String]
+    ): Field[FROM, Iterable[String], _] =
+      OracleStringArray(extractor)
 
     override def intArray[FROM](
         extractor: StringInterning => FROM => Iterable[Int]
@@ -33,7 +33,7 @@ private[oracle] object OracleSchema {
     override def insert[FROM](tableName: String)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      Table.batchedInsert(tableName)(fields: _*)
+      Table.batchedInsert(tableName)(fields*)
 
     override def idempotentInsert[FROM](
         tableName: String,
@@ -42,7 +42,7 @@ private[oracle] object OracleSchema {
     )(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
-      OracleTable.idempotentInsert(tableName, keyFieldIndex, ordering)(fields: _*)
+      OracleTable.idempotentInsert(tableName, keyFieldIndex, ordering)(fields*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(OracleFieldStrategy)

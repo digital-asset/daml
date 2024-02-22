@@ -30,7 +30,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
 
   val clock: SimClock = new SimClock(loggerFactory = loggerFactory)
 
-  val topology = TestingTopology().withSimpleParticipants(participant1).build()
+  val topology = TestingTopologyX().withSimpleParticipants(participant1).build()
   val syncCrypto = topology.forOwnerAndDomain(participant1, domainId)
 
   def service(

@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndexFromRoot
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.{v1, *}
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.{EitherUtil, MonadUtil}
@@ -126,7 +126,7 @@ final case class GenTransactionTree private (
   def tryFullInformeeTree(protocolVersion: ProtocolVersion): FullInformeeTree = {
     val tree = blind({
       case _: GenTransactionTree => RevealIfNeedBe
-      case _: SubmitterMetadata => BlindSubtree
+      case _: SubmitterMetadata => RevealSubtree
       case _: CommonMetadata => RevealSubtree
       case _: ParticipantMetadata => BlindSubtree
       case _: TransactionView => RevealIfNeedBe
@@ -224,12 +224,12 @@ final case class GenTransactionTree private (
     }
   }
 
-  def toProtoV1: v1.GenTransactionTree =
-    v1.GenTransactionTree(
-      submitterMetadata = Some(MerkleTree.toBlindableNodeV1(submitterMetadata)),
-      commonMetadata = Some(MerkleTree.toBlindableNodeV1(commonMetadata)),
-      participantMetadata = Some(MerkleTree.toBlindableNodeV1(participantMetadata)),
-      rootViews = Some(rootViews.toProtoV1),
+  def toProtoV30: v30.GenTransactionTree =
+    v30.GenTransactionTree(
+      submitterMetadata = Some(MerkleTree.toBlindableNodeV30(submitterMetadata)),
+      commonMetadata = Some(MerkleTree.toBlindableNodeV30(commonMetadata)),
+      participantMetadata = Some(MerkleTree.toBlindableNodeV30(participantMetadata)),
+      rootViews = Some(rootViews.toProtoV30),
     )
 
   def mapUnblindedRootViews(f: TransactionView => TransactionView): GenTransactionTree =
@@ -281,19 +281,19 @@ object GenTransactionTree {
   val rootViewsUnsafe: Lens[GenTransactionTree, MerkleSeq[TransactionView]] =
     GenLens[GenTransactionTree](_.rootViews)
 
-  def fromProtoV1(
+  def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      protoTransactionTree: v1.GenTransactionTree,
+      protoTransactionTree: v30.GenTransactionTree,
   ): ParsingResult[GenTransactionTree] = {
     val (hashOps, expectedProtocolVersion) = context
     for {
       submitterMetadata <- MerkleTree
-        .fromProtoOptionV1(
+        .fromProtoOptionV30(
           protoTransactionTree.submitterMetadata,
           SubmitterMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
       commonMetadata <- MerkleTree
-        .fromProtoOptionV1(
+        .fromProtoOptionV30(
           protoTransactionTree.commonMetadata,
           CommonMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
@@ -301,22 +301,22 @@ object GenTransactionTree {
         InvariantViolation("GenTransactionTree.commonMetadata is blinded")
       )
       participantMetadata <- MerkleTree
-        .fromProtoOptionV1(
+        .fromProtoOptionV30(
           protoTransactionTree.participantMetadata,
           ParticipantMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
       rootViewsP <- ProtoConverter
         .required("GenTransactionTree.rootViews", protoTransactionTree.rootViews)
-      rootViews <- MerkleSeq.fromProtoV1(
+      rootViews <- MerkleSeq.fromProtoV30(
         (
           hashOps,
-          TransactionView.fromByteStringLegacy(ProtoVersion(1))(
+          TransactionView.fromByteStringLegacy(ProtoVersion(30))(
             (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
           ),
         ),
         rootViewsP,
       )
-      genTransactionTree <- createGenTransactionTreeV0V1(
+      genTransactionTree <- createGenTransactionTreeV30(
         hashOps,
         submitterMetadata,
         commonMetadata,
@@ -326,7 +326,7 @@ object GenTransactionTree {
     } yield genTransactionTree
   }
 
-  def createGenTransactionTreeV0V1(
+  def createGenTransactionTreeV30(
       hashOps: HashOps,
       submitterMetadata: MerkleTree[SubmitterMetadata],
       commonMetadata: MerkleTree[CommonMetadata],

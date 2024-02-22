@@ -5,7 +5,6 @@ package com.daml.sdk
 
 import com.daml.codegen.{CodegenMain => Codegen}
 import com.daml.lf.engine.script.{ScriptMain => Script}
-import com.daml.script.export.{Main => Export}
 
 object SdkMain {
   def main(args: Array[String]): Unit = {
@@ -13,7 +12,6 @@ object SdkMain {
     val rest = args.drop(1)
     command match {
       case "script" => Script.main(rest)
-      case "export" => Export.main(rest)
       case "codegen" => Codegen.main(rest)
       case _ => sys.exit(1)
     }

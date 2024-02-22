@@ -45,7 +45,7 @@ object Generators {
     size <- Gen.choose(1, nonEmptyMaxSize - 1)
     element <- arb.arbitrary
     elements <- Gen.containerOfN[List, T](size, arb.arbitrary)
-  } yield NonEmpty(List, element, elements: _*)
+  } yield NonEmpty(List, element, elements*)
 
   def nonEmptySetGen[T](implicit arb: Arbitrary[T]): Gen[NonEmpty[Set[T]]] =
     nonEmptyListGen[T].map(_.toSet)

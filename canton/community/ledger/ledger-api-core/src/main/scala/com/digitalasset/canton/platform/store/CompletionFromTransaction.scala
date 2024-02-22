@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.store
 
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.ledger.offset.Offset
@@ -27,7 +27,7 @@ private[platform] object CompletionFromTransaction {
       commandId: String,
       transactionId: String,
       applicationId: String,
-      domainId: Option[String],
+      domainId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[String] = None,
@@ -49,7 +49,7 @@ private[platform] object CompletionFromTransaction {
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
         )
       ),
-      domainId = domainId.getOrElse(""),
+      domainId = domainId,
     )
 
   def rejectedCompletion(
@@ -58,7 +58,7 @@ private[platform] object CompletionFromTransaction {
       commandId: String,
       status: StatusProto,
       applicationId: String,
-      domainId: Option[String],
+      domainId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[String] = None,
@@ -80,13 +80,13 @@ private[platform] object CompletionFromTransaction {
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
         )
       ),
-      domainId = domainId.getOrElse(""),
+      domainId = domainId,
     )
 
   private def toApiCheckpoint(recordTime: Timestamp, offset: Offset): Checkpoint =
     Checkpoint.of(
       recordTime = Some(fromInstant(recordTime.toInstant)),
-      offset = Some(LedgerOffset.of(LedgerOffset.Value.Absolute(offset.toApiString))),
+      offset = Some(ParticipantOffset.of(ParticipantOffset.Value.Absolute(offset.toApiString))),
     )
 
   private[store] def toApiCompletion(

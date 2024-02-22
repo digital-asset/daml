@@ -37,9 +37,12 @@ object GeneratorsSequencing {
         .nonEmptySetGen[SequencerConnection]
         .map(_.toSeq)
         .map(_.distinctBy(_.sequencerAlias))
-      sequencerTrustThreshold <- Gen
-        .choose(1, connections.size)
-        .map(PositiveInt.tryCreate)
-    } yield SequencerConnections.tryMany(connections, sequencerTrustThreshold)
+      sequencerTrustThreshold <- Gen.choose(1, connections.size).map(PositiveInt.tryCreate)
+      submissionRequestAmplification <- Gen.choose(1, connections.size).map(PositiveInt.tryCreate)
+    } yield SequencerConnections.tryMany(
+      connections,
+      sequencerTrustThreshold,
+      submissionRequestAmplification,
+    )
   )
 }

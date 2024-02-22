@@ -7,7 +7,7 @@ module RecordsMore where
 import Daml.Script
 import DA.Assert
 
--- Tests for 'HasField' record preprocessor rewrites.
+-- Tests for 'GetField'/'SetField' record preprocessor rewrites.
 
 data A = A with x: Int deriving (Eq, Show)
 data B = B with y: A; z: A deriving (Eq, Show)

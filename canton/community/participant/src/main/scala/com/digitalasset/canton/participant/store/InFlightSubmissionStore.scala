@@ -137,7 +137,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     * corresponding completion event has been published by the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
     * However, this happens only after the earlier request has signalled its tick, i.e., when Phase 3 has finished (via the
     * [[com.digitalasset.canton.participant.protocol.Phase37Synchronizer]] and either a
-    * [[com.digitalasset.canton.protocol.messages.MediatorResult]] has been processed or the decision time has elapsed.
+    * [[com.digitalasset.canton.protocol.messages.ConfirmationResult]] has been processed or the decision time has elapsed.
     * By this time, the row with the stale data has been overwritten by the earlier request.
     *
     * Calls to this method also race with calls to [[observeSequencing]] for later messages, e.g., if a submission

@@ -26,8 +26,8 @@ private[apiserver] class TimedCommandExecutor(
       loggingContext: LoggingContextWithTrace
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     Timed.timedAndTrackedFuture(
-      metrics.daml.execution.total,
-      metrics.daml.execution.totalRunning,
+      metrics.execution.total,
+      metrics.execution.totalRunning,
       delegate.execute(commands, submissionSeed, ledgerConfiguration),
     )
 

@@ -37,7 +37,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
 
   override lazy val environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition
-      .fromFiles(configPaths *)
+      .fromFiles(configPaths*)
       .addConfigTransforms(
         // lets not share databases
         CommunityConfigTransforms.uniqueH2DatabaseNames,
@@ -87,7 +87,7 @@ sealed abstract class SimplePingExampleXIntegrationTest
 
   "run simple-ping.canton successfully" in { implicit env =>
     import env.*
-    val port = sequencer1x.sequencerConnection.endpoints.head.port.unwrap.toString
+    val port = sequencer1.sequencerConnection.endpoints.head.port.unwrap.toString
     ensureSystemProperties(("canton-examples.da-port", port))
     runScript(simpleTopology / "simple-ping.canton")(environment)
   }

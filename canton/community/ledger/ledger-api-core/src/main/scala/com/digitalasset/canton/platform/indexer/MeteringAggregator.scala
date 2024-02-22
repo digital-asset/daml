@@ -103,14 +103,14 @@ class MeteringAggregator(
   private[platform] def initialize(): Future[Unit] = {
     val initTimestamp = toOffsetDateTime(clock()).truncatedTo(ChronoUnit.HOURS).minusHours(1)
     val initLedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, toTimestamp(initTimestamp))
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeMeteringAggregator) {
+    dbDispatcher.executeSql(metrics.index.db.initializeMeteringAggregator) {
       meteringParameterStore.initializeLedgerMeteringEnd(initLedgerMeteringEnd, loggerFactory)
     }
   }
 
   private[platform] def run(): Future[Unit] = {
 
-    val future = dbDispatcher.executeSql(metrics.daml.index.db.meteringAggregator) { conn =>
+    val future = dbDispatcher.executeSql(metrics.index.db.meteringAggregator) { conn =>
       val nowUtcTime = toOffsetDateTime(clock())
       val lastLedgerMeteringEnd = meteringParameterStore.assertLedgerMeteringEnd(conn)
       val startUtcTime: OffsetDateTime = toOffsetDateTime(lastLedgerMeteringEnd.timestamp)
@@ -125,7 +125,7 @@ class MeteringAggregator(
 
         val (
           periodIngested, // This is true if the time period is closed fully ingested
-          hasMetering, // This is true if there are transaction_metering records to aggregate
+          hasMetering, // This is true if there are lapi_transaction_metering records to aggregate
           toOffsetEnd, // This is the 'to' offset for the period being aggregated
         ) = maybeMaxOffset match {
           case Some(offset) => (offset <= ingestedLedgerEnd, true, offset)

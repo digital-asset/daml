@@ -7,7 +7,7 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 
 case class RunnerMainConfig(
     darPath: File,
@@ -17,7 +17,6 @@ case class RunnerMainConfig(
     timeMode: ScriptTimeMode,
     accessTokenFile: Option[Path],
     tlsConfig: TlsConfiguration,
-    jsonApi: Boolean,
     maxInboundMessageSize: Int,
     // While we do have a default application id, we
     // want to differentiate between not specifying the application id
@@ -69,7 +68,6 @@ private[script] case class RunnerMainConfigIntermediate(
     outputFile: Option[File],
     accessTokenFile: Option[Path],
     tlsConfig: TlsConfiguration,
-    jsonApi: Boolean,
     maxInboundMessageSize: Int,
     // While we do have a default application id, we
     // want to differentiate between not specifying the application id
@@ -105,7 +103,6 @@ private[script] case class RunnerMainConfigIntermediate(
       case (ParticipantMode.IdeLedgerParticipant(), _) =>
         // We don't need to upload the dar when using the IDE ledger
         Right(false)
-      case (_, Some(true)) if jsonApi => Left("Cannot upload dar via JSON API")
       case (_, Some(v)) => Right(v)
       case (_, None) =>
         Right(cliMode match {
@@ -135,7 +132,6 @@ private[script] case class RunnerMainConfigIntermediate(
         timeMode = resolvedTimeMode,
         accessTokenFile = accessTokenFile,
         tlsConfig = tlsConfig,
-        jsonApi = jsonApi,
         maxInboundMessageSize = maxInboundMessageSize,
         applicationId = applicationId,
         uploadDar = resolvedUploadDar,
@@ -186,14 +182,14 @@ private[script] object RunnerMainConfigIntermediate {
       .optional()
       .action((t, c) => c.copy(ledgerHost = Some(t)))
       .text(
-        "Ledger hostname. If --json-api is specified, this is used to connect to the JSON API and must include the protocol, e.g. \"http://localhost\"."
+        "Ledger hostname."
       )
 
     opt[Int]("ledger-port")
       .optional()
       .action((t, c) => c.copy(ledgerPort = Some(t)))
       .text(
-        "Ledger port. If --json-api is specified, this is the port used to connect to the JSON API."
+        "Ledger port."
       )
 
     opt[Int]("admin-port")
@@ -249,14 +245,6 @@ private[script] object RunnerMainConfigIntermediate {
       c.copy(tlsConfig = f(c.tlsConfig))
     )
 
-    opt[Unit]("json-api")
-      .action { (_, c) =>
-        c.copy(jsonApi = true)
-      }
-      .text(
-        "Run Daml Script via the HTTP JSON API instead of via gRPC; use --ledger-host and --ledger-port for JSON API host and port. The JSON API requires an access token."
-      )
-
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
@@ -303,8 +291,6 @@ private[script] object RunnerMainConfigIntermediate {
         failure(
           "Must specify one and only one of --ledger-host, --participant-config, --ide-ledger"
         )
-      } else if (c.isIdeLedger && c.jsonApi) {
-        failure("Cannot specify --json-api with --ide-ledger, as ide-ledger is run locally.")
       } else {
         success
       }
@@ -352,7 +338,6 @@ private[script] object RunnerMainConfigIntermediate {
         outputFile = None,
         accessTokenFile = None,
         tlsConfig = TlsConfiguration(false, None, None, None),
-        jsonApi = false,
         maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
         applicationId = None,
         uploadDar = None,

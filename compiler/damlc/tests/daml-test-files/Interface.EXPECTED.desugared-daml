@@ -173,31 +173,35 @@ instance DA.Internal.Desugar.HasChoiceObserver Token GetRich where
 data Split
   = Split {splitAmount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "splitAmount" Split Int where
+instance DA.Internal.Record.GetField "splitAmount" Split Int where
   getField
     = DA.Internal.Record.getFieldPrim @"splitAmount" @Split @Int
+instance DA.Internal.Record.SetField "splitAmount" Split Int where
   setField
     = DA.Internal.Record.setFieldPrim @"splitAmount" @Split @Int
 data Transfer
   = Transfer {newOwner : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "newOwner" Transfer Party where
+instance DA.Internal.Record.GetField "newOwner" Transfer Party where
   getField
     = DA.Internal.Record.getFieldPrim @"newOwner" @Transfer @Party
+instance DA.Internal.Record.SetField "newOwner" Transfer Party where
   setField
     = DA.Internal.Record.setFieldPrim @"newOwner" @Transfer @Party
 data Noop
   = Noop {nothing : ()}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "nothing" Noop () where
+instance DA.Internal.Record.GetField "nothing" Noop () where
   getField = DA.Internal.Record.getFieldPrim @"nothing" @Noop @()
+instance DA.Internal.Record.SetField "nothing" Noop () where
   setField = DA.Internal.Record.setFieldPrim @"nothing" @Noop @()
 data GetRich
   = GetRich {byHowMuch : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
+instance DA.Internal.Record.GetField "byHowMuch" GetRich Int where
   getField
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
+instance DA.Internal.Record.SetField "byHowMuch" GetRich Int where
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
 _choice$_Token$Archive :
@@ -308,14 +312,17 @@ instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "issuer" Asset Party where
+instance DA.Internal.Record.GetField "issuer" Asset Party where
   getField = DA.Internal.Record.getFieldPrim @"issuer" @Asset @Party
+instance DA.Internal.Record.SetField "issuer" Asset Party where
   setField = DA.Internal.Record.setFieldPrim @"issuer" @Asset @Party
-instance DA.Internal.Record.HasField "owner" Asset Party where
+instance DA.Internal.Record.GetField "owner" Asset Party where
   getField = DA.Internal.Record.getFieldPrim @"owner" @Asset @Party
+instance DA.Internal.Record.SetField "owner" Asset Party where
   setField = DA.Internal.Record.setFieldPrim @"owner" @Asset @Party
-instance DA.Internal.Record.HasField "amount" Asset Int where
+instance DA.Internal.Record.GetField "amount" Asset Int where
   getField = DA.Internal.Record.getFieldPrim @"amount" @Asset @Int
+instance DA.Internal.Record.SetField "amount" Asset Int where
   setField = DA.Internal.Record.setFieldPrim @"amount" @Asset @Int
 instance DA.Internal.Desugar.HasSignatory Asset where
   signatory this@Asset {..}
@@ -332,11 +339,6 @@ instance DA.Internal.Desugar.HasObserver Asset where
 instance DA.Internal.Desugar.HasEnsure Asset where
   ensure this@Asset {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Asset where
-  agreement this@Asset {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Asset where

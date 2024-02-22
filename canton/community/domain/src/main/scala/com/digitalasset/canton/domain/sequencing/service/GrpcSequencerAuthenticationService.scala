@@ -8,8 +8,13 @@ import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.domain.Domain.GrpcSequencerAuthenticationErrorGroup
-import com.digitalasset.canton.domain.api.v0.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
-import com.digitalasset.canton.domain.api.v0.{Authentication, Challenge}
+import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
+  AuthenticateRequest,
+  AuthenticateResponse,
+  ChallengeRequest,
+  ChallengeResponse,
+}
+import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.domain.sequencing.authentication.MemberAuthenticationService
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAuthenticationService.{
   SequencerAuthenticationFailure,
@@ -37,18 +42,16 @@ class GrpcSequencerAuthenticationService(
     extends SequencerAuthenticationService
     with NamedLogging {
 
-  private val handshakeValidator = new HandshakeValidator(protocolVersion, loggerFactory)
-
   /** This will complete the participant authentication process using the challenge information and returning a token
     * to be used for further authentication.
     */
-  override def authenticate(request: Authentication.Request): Future[Authentication.Response] = {
+  override def authenticate(request: AuthenticateRequest): Future[AuthenticateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     (for {
       member <- eitherT(deserializeMember(request.member))
       signature <- eitherT(
         ProtoConverter
-          .parseRequired(Signature.fromProtoV0, "signature", request.signature)
+          .parseRequired(Signature.fromProtoV30, "signature", request.signature)
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
       )
       providedNonce <- eitherT(
@@ -60,7 +63,7 @@ class GrpcSequencerAuthenticationService(
         .validateSignature(member, signature, providedNonce)
         .leftMap(handleAuthError)
     } yield tokenAndExpiry)
-      .fold[Authentication.Response.Value](
+      .fold[AuthenticateResponse.Value](
         error => {
           val sensitive =
             if (
@@ -78,21 +81,21 @@ class GrpcSequencerAuthenticationService(
                 .discard
               false
             }
-          Authentication.Response.Value.Failure(
-            Authentication.Failure(
+          AuthenticateResponse.Value.Failure(
+            AuthenticateResponse.Failure(
               code = error.getCode.value(),
               reason = if (sensitive) "Bad authentication request" else error.getDescription,
             )
           )
         },
         { case AuthenticationTokenWithExpiry(token, expiry) =>
-          Authentication.Response.Value.Success(
-            Authentication
+          AuthenticateResponse.Value.Success(
+            AuthenticateResponse
               .Success(token = token.toProtoPrimitive, expiresAt = Some(expiry.toProtoPrimitive))
           )
         },
       )
-      .map(Authentication.Response(_))
+      .map(AuthenticateResponse(_))
   }
 
   /** This is will return a random number (nonce) plus the fingerprint of the key the participant needs to use to complete
@@ -101,7 +104,7 @@ class GrpcSequencerAuthenticationService(
     * While the pure handshake can be called without any prior setup, this endpoint will only work after topology state
     * for the participant has been pushed to this domain.
     */
-  override def challenge(request: Challenge.Request): Future[Challenge.Response] = {
+  override def challenge(request: ChallengeRequest): Future[ChallengeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     (for {
       _ <- eitherT(handshakeValidation(request))
@@ -110,7 +113,7 @@ class GrpcSequencerAuthenticationService(
         .generateNonce(member)
         .leftMap(handleAuthError)
     } yield result)
-      .fold[Challenge.Response.Value](
+      .fold[ChallengeResponse.Value](
         error => {
           val sensitive =
             if (
@@ -134,16 +137,16 @@ class GrpcSequencerAuthenticationService(
                 .discard
               false
             }
-          Challenge.Response.Value.Failure(
-            Challenge.Failure(
+          ChallengeResponse.Value.Failure(
+            ChallengeResponse.Failure(
               code = error.getCode.value(),
               reason = if (sensitive) "Bad challenge request" else error.getDescription,
             )
           )
         },
         { case (nonce, fingerprints) =>
-          Challenge.Response.Value.Success(
-            Challenge.Success(
+          ChallengeResponse.Value.Success(
+            ChallengeResponse.Success(
               protocolVersion.toProtoPrimitiveS,
               nonce.toProtoPrimitive,
               fingerprints.map(_.unwrap).toList,
@@ -151,7 +154,7 @@ class GrpcSequencerAuthenticationService(
           )
         },
       )
-      .map(Challenge.Response(_))
+      .map(ChallengeResponse(_))
   }
 
   private def handleAuthError(err: AuthenticationError): Status = {
@@ -161,8 +164,6 @@ class GrpcSequencerAuthenticationService(
       case MemberAuthentication.ParticipantAccessDisabled(_) |
           MemberAuthentication.MediatorAccessDisabled(_) =>
         Status.PERMISSION_DENIED.withDescription(err.reason)
-      case MemberAuthentication.ServiceAgreementAcceptanceError(_, _) =>
-        Status.FAILED_PRECONDITION.withDescription(err.reason)
       case MemberAuthentication.NonMatchingDomainId(_, _) =>
         Status.FAILED_PRECONDITION.withDescription(err.reason)
       case MemberAuthentication.PassiveSequencer =>
@@ -188,9 +189,9 @@ class GrpcSequencerAuthenticationService(
         Status.INVALID_ARGUMENT.withDescription(s"Failed to deserialize member: $err")
       )
 
-  private def handshakeValidation(request: Challenge.Request): Either[Status, Unit] =
-    handshakeValidator
-      .clientIsCompatible(request.memberProtocolVersions, minClientVersionP = None)
+  private def handshakeValidation(request: ChallengeRequest): Either[Status, Unit] =
+    HandshakeValidator
+      .clientIsCompatible(protocolVersion, request.memberProtocolVersions, minClientVersionP = None)
       .leftMap(err => Status.FAILED_PRECONDITION.withDescription(err))
 
 }

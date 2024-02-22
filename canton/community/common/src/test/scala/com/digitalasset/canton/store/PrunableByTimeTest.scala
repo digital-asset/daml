@@ -15,7 +15,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, TestMetrics}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.{AsyncWordSpecLike, FixtureAsyncWordSpec}
 import org.scalatest.{Assertion, FutureOutcome}
 
@@ -25,7 +25,7 @@ import scala.Ordered.orderingToOrdered
 import scala.concurrent.{ExecutionContext, Future}
 
 trait PrunableByTimeTest {
-  this: AsyncWordSpecLike & BaseTest & TestMetrics =>
+  this: AsyncWordSpecLike & BaseTest =>
 
   def prunableByTime(mkPrunable: ExecutionContext => PrunableByTime): Unit = {
 
@@ -66,7 +66,6 @@ trait PrunableByTimeTest {
       val parallelEc = Threading.newExecutionContext(
         "pruning-parallel-ec",
         noTracingLogger,
-        executorServiceMetrics,
       )
       val prunable = mkPrunable(parallelEc)
       val iterations = 100

@@ -4,6 +4,8 @@
 package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -20,7 +22,7 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessage,
   UnsignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.v4
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
@@ -72,7 +74,13 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     val store = new InMemorySequencerStore(loggerFactory)
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
     val crypto: DomainSyncCryptoClient = valueOrFail(
-      TestingTopology()
+      TestingTopologyX(sequencerGroup =
+        SequencerGroup(
+          active = NonEmpty.mk(Seq, SequencerId(domainId)),
+          passive = Seq.empty,
+          threshold = PositiveInt.one,
+        )
+      )
         .build(loggerFactory)
         .forOwner(SequencerId(domainId))
         .forDomain(domainId)
@@ -147,8 +155,8 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
 
     override protected val companionObj: AnyRef = TestProtocolMessage
 
-    override def toProtoSomeEnvelopeContentV4: v4.EnvelopeContent.SomeEnvelopeContent =
-      v4.EnvelopeContent.SomeEnvelopeContent.Empty
+    override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
+      v30.EnvelopeContent.SomeEnvelopeContent.Empty
 
     override def productElement(n: Int): Any = fail("shouldn't be used")
     override def productArity: Int = fail("shouldn't be used")

@@ -4,11 +4,9 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.commands.{
-  Commands as ProtoCommands,
-  DisclosedContract as ProtoDisclosedContract,
-}
+import com.daml.ledger.api.v1.commands.{DisclosedContract as ProtoDisclosedContract}
 import com.daml.ledger.api.v1.value.Identifier as ProtoIdentifier
+import com.daml.ledger.api.v2.commands.{Commands as ProtoCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.*
@@ -18,7 +16,6 @@ import com.digitalasset.canton.LfValue
 import com.digitalasset.canton.ledger.api.domain.UpgradableDisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
-  disabledValidateDisclosedContracts,
   lf,
   validateDisclosedContracts,
 }
@@ -39,21 +36,6 @@ class ValidateDisclosedContractsTest
 
   it should "validate the disclosed contracts when enabled" in {
     validateDisclosedContracts(api.protoCommands) shouldBe Right(lf.expectedDisclosedContracts)
-  }
-
-  it should "pass validation if feature disabled on empty disclosed contracts" in {
-    val input = ProtoCommands(disclosedContracts = scala.Seq.empty)
-    disabledValidateDisclosedContracts(input) shouldBe Right(ImmArray.empty)
-  }
-
-  it should "fail validation if feature disabled on provided disclosed contracts" in {
-    requestMustFailWith(
-      request = disabledValidateDisclosedContracts(api.protoCommands),
-      code = Status.Code.INVALID_ARGUMENT,
-      description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field disclosed_contracts: feature disabled: disclosed_contracts should not be set",
-      metadata = Map.empty,
-    )
   }
 
   it should "fail validation on missing created event blob" in {
@@ -229,16 +211,12 @@ object ValidateDisclosedContractsTest {
 
   private val testTxVersion = TransactionVersion.maxVersion
 
-  private val validateDisclosedContracts = new ValidateDisclosedContracts(
-    explicitDisclosureFeatureEnabled = true
-  )
-  private val disabledValidateDisclosedContracts = new ValidateDisclosedContracts(
-    explicitDisclosureFeatureEnabled = false
-  )
+  private val validateDisclosedContracts = new ValidateDisclosedContracts
 
   private object api {
     val templateId: ProtoIdentifier =
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
+    val packageName: String = "pkg-name"
     val contractId: String = "00" + "00" * 31 + "ef"
     val alice: Ref.Party = Ref.Party.assertFromString("alice")
     private val bob: Ref.Party = Ref.Party.assertFromString("bob")
@@ -272,6 +250,7 @@ object ValidateDisclosedContractsTest {
         Ref.DottedName.assertFromString(api.templateId.entityName),
       ),
     )
+    private val packageName: Ref.PackageName = Ref.PackageName.assertFromString(api.packageName)
     private val createArg: ValueRecord = ValueRecord(
       tycon = Some(templateId),
       fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
@@ -294,7 +273,6 @@ object ValidateDisclosedContractsTest {
         ),
       ),
       api.keyMaintainers,
-      shared = Util.sharedKey(testTxVersion),
     )
 
     private val keyHash: Hash = keyWithMaintainers.globalKey.hash
@@ -303,6 +281,7 @@ object ValidateDisclosedContractsTest {
       create = Node.Create(
         coid = lf.lfContractId,
         templateId = lf.templateId,
+        packageName = lf.packageName,
         arg = lf.createArg,
         agreementText = "",
         signatories = api.signatories,
@@ -317,6 +296,7 @@ object ValidateDisclosedContractsTest {
     val expectedDisclosedContracts: ImmArray[UpgradableDisclosedContract] = ImmArray(
       UpgradableDisclosedContract(
         templateId,
+        packageName,
         lfContractId,
         argument = createArgWithoutLabels,
         createdAt = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),

@@ -167,20 +167,18 @@ object CodeGenRunner extends StrictLogging {
       Reference.Module(id.packageId, id.qualifiedName.module)
     }
 
-    val resolvedSignatures = resolveRetroInterfaces(signatures)
-
     implicit val resolvedPrefixes: PackagePrefixes =
       PackagePrefixes(
         resolvePackagePrefixes(
           packagePrefixes,
           modulePrefixes,
-          resolvedSignatures,
+          signatures,
           generatedModuleIds,
         )
       )
 
     new CodeGenRunner.Scope(
-      resolvedSignatures,
+      signatures,
       transitiveClosure.serializableTypes,
     )
   }
@@ -271,11 +269,6 @@ object CodeGenRunner extends StrictLogging {
       interface
     }
 
-  private[this] def resolveRetroInterfaces(
-      signatures: Seq[PackageSignature]
-  ): Seq[PackageSignature] =
-    PackageSignature.resolveRetroImplements((), signatures)((_, _) => None)._2
-
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
     */
@@ -286,10 +279,8 @@ object CodeGenRunner extends StrictLogging {
       generatedModules: Set[Reference.Module],
   ): Map[PackageId, String] = {
     val metadata: Map[PackageReference.NameVersion, PackageId] = signatures.view
-      .flatMap(iface =>
-        iface.metadata.iterator.map(metadata =>
-          PackageReference.NameVersion(metadata.name, metadata.version) -> iface.packageId
-        )
+      .map(iface =>
+        PackageReference.NameVersion(iface.metadata.name, iface.metadata.version) -> iface.packageId
       )
       .toMap
     def resolveRef(ref: PackageReference): PackageId = ref match {

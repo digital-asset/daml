@@ -3,6 +3,7 @@
 module CollectAuthority where
 
 import DA.Action
+import DA.Scenario
 
 template Token with
     operator: Party

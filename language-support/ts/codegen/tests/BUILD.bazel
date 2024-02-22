@@ -15,7 +15,7 @@ daml_compile(
         ["daml/**/*.daml"],
         exclude = ["daml/Hidden.daml"],
     ),
-    target = "2.dev",
+    target = "2.1",
     version = "1.0.0",
 )
 
@@ -23,7 +23,7 @@ daml_compile(
     name = "hidden",
     srcs = ["daml/Hidden.daml"],
     data_dependencies = ["//language-support/ts/codegen/tests:build-and-lint.dar"],
-    target = "2.dev",
+    target = "2.1",
 )
 
 # build-and-lint

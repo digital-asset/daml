@@ -7,8 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.api.v0.DomainTimeServiceGrpc
+import com.digitalasset.canton.domain.admin.v30.MediatorAdministrationServiceGrpc
 import com.digitalasset.canton.domain.mediator.store.{
   FinalizedResponseStore,
   MediatorDeduplicationStore,
@@ -22,6 +21,7 @@ import com.digitalasset.canton.networking.grpc.StaticGrpcServices
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
+import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.time.{Clock, GrpcDomainTimeService}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
@@ -157,7 +157,7 @@ object CommunityMediatorRuntimeFactory extends MediatorRuntimeFactory {
         clock,
         metrics,
         protocolVersion,
-        nodeParameters.cachingConfigs.finalizedMediatorRequests,
+        nodeParameters.cachingConfigs.finalizedMediatorConfirmationRequests,
         nodeParameters.processingTimeouts,
         loggerFactory,
       )

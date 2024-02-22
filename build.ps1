@@ -63,13 +63,12 @@ bazel build //... `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
   `-`-build_event_json_file build-events.json `
-  `-`-build_event_publish_all_actions `
-  `-`-build_tag_filters=-canton-ee
+  `-`-build_event_publish_all_actions
 
 bazel shutdown
 
 function Has-Run-All-Tests-Trailer {
-  if ($env:BUILD_REASON -eq "PullRequest") {
+  if (2 -eq ((git show -s --format=%p HEAD | Measure-Object -Word).Words)) {
     $ref = "HEAD^2"
   } else {
     $ref = "HEAD"
@@ -84,19 +83,18 @@ if ($env:SKIP_TESTS -ceq "False") {
     ./ci/remap-scala-test-short-names.ps1 `
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
-    $ALL_TESTS_FILTER = "-pr-only"
     $FEWER_TESTS_FILTER = "-main-only"
 
-    $tag_filter = "-dev-canton-test,-canton-ee"
+    $tag_filter = "-dev-canton-test"
     switch ($env:TEST_MODE) {
       'main' {
-        $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
+          Write-Output "Running all tests because TEST_MODE is 'main'"
       }
       'pr' {
         if (Has-Run-All-Tests-Trailer) {
           Write-Output "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
-          $tag_filter = "$tag_filter,$ALL_TESTS_FILTER"
         } else {
+          Write-Output "Running fewer tests because TEST_MODE is 'pr'"
           $tag_filter = "$tag_filter,$FEWER_TESTS_FILTER"
         }
       }

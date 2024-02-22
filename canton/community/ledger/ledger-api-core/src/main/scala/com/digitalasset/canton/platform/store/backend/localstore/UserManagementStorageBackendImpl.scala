@@ -66,7 +66,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val createdAt = user.createdAt
     val internalId: Try[Int] =
       SQL"""
-         INSERT INTO participant_users (user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at)
+         INSERT INTO lapi_users (user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at)
          VALUES ($id, $primaryParty, $identityProviderId, $isDeactivated, $resourceVersion, $createdAt)
        """.executeInsert1("internal_id")(SqlParser.scalar[Int].single)(connection)
     internalId.fold(throw _, identity)
@@ -75,7 +75,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def addUserAnnotation(internalId: Int, key: String, value: String, updatedAt: Long)(
       connection: Connection
   ): Unit = {
-    ParticipantMetadataBackend.addAnnotation("participant_user_annotations")(
+    ParticipantMetadataBackend.addAnnotation("lapi_user_annotations")(
       internalId,
       key,
       value,
@@ -84,13 +84,13 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   }
 
   override def deleteUserAnnotations(internalId: Int)(connection: Connection): Unit = {
-    ParticipantMetadataBackend.deleteAnnotations("participant_user_annotations")(internalId)(
+    ParticipantMetadataBackend.deleteAnnotations("lapi_user_annotations")(internalId)(
       connection
     )
   }
 
   override def getUserAnnotations(internalId: Int)(connection: Connection): Map[String, String] = {
-    ParticipantMetadataBackend.getAnnotations("participant_user_annotations")(internalId)(
+    ParticipantMetadataBackend.getAnnotations("lapi_user_annotations")(internalId)(
       connection
     )
   }
@@ -99,7 +99,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       internalId: Int,
       expectedResourceVersion: Long,
   )(connection: Connection): Boolean = {
-    ParticipantMetadataBackend.compareAndIncreaseResourceVersion("participant_users")(
+    ParticipantMetadataBackend.compareAndIncreaseResourceVersion("lapi_users")(
       internalId,
       expectedResourceVersion,
     )(connection)
@@ -108,7 +108,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def increaseResourceVersion(internalId: Int)(
       connection: Connection
   ): Boolean = {
-    ParticipantMetadataBackend.increaseResourceVersion("participant_users")(internalId)(connection)
+    ParticipantMetadataBackend.increaseResourceVersion("lapi_users")(internalId)(connection)
   }
 
   override def getUser(
@@ -116,7 +116,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   )(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId] = {
     SQL"""
        SELECT internal_id, user_id, primary_party, is_deactivated, identity_provider_id, resource_version, created_at
-       FROM participant_users
+       FROM lapi_users
        WHERE user_id = ${id: String}
        """
       .as(ParticipantUserParser.singleOpt)(connection)
@@ -170,7 +170,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
         cSQL""
     }
     SQL"""SELECT internal_id, user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at
-          FROM participant_users
+          FROM lapi_users
           $whereClause
           ORDER BY user_id
           ${QueryStrategy.limitClause(Some(maxResults))}"""
@@ -202,7 +202,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   override def deleteUser(userId: UserId)(connection: Connection): Boolean = {
     val updatedRowsCount =
       SQL"""
-         DELETE FROM participant_users WHERE user_id = ${userId: String}
+         DELETE FROM lapi_users WHERE user_id = ${userId: String}
          """.executeUpdate()(connection)
     updatedRowsCount == 1
   }
@@ -216,7 +216,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val res: Seq[_] =
       SQL"""
          SELECT 1 AS dummy
-         FROM participant_user_rights ur
+         FROM lapi_user_rights ur
          WHERE ur.user_internal_id = ${internalId}
                AND
                ur.user_right = ${userRight}
@@ -232,7 +232,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
     val _ =
       SQL"""
-         INSERT INTO participant_user_rights (user_internal_id, user_right, for_party, granted_at)
+         INSERT INTO lapi_user_rights (user_internal_id, user_right, for_party, granted_at)
          VALUES (
             ${internalId},
             ${userRight},
@@ -248,7 +248,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val rec =
       SQL"""
          SELECT ur.user_right, ur.for_party, ur.granted_at
-         FROM participant_user_rights ur
+         FROM lapi_user_rights ur
          WHERE ur.user_internal_id = ${internalId}
          """.asVectorOf(UserRightParser)(connection)
     rec.map { case (userRight, forPartyRaw, grantedAt) =>
@@ -270,7 +270,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
     val updatedRowCount: Int =
       SQL"""
-           DELETE FROM participant_user_rights ur
+           DELETE FROM lapi_user_rights ur
            WHERE
             ur.user_internal_id = ${internalId}
             AND
@@ -282,7 +282,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
   }
 
   override def countUserRights(internalId: Int)(connection: Connection): Int = {
-    SQL"SELECT count(*) AS user_rights_count from participant_user_rights WHERE user_internal_id = ${internalId}"
+    SQL"SELECT count(*) AS user_rights_count from lapi_user_rights WHERE user_internal_id = ${internalId}"
       .as(SqlParser.int("user_rights_count").single)(connection)
   }
 
@@ -329,7 +329,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       connection: Connection
   ): Boolean = {
     val rowsUpdated = SQL"""
-         UPDATE participant_users
+         UPDATE lapi_users
          SET primary_party  = ${primaryPartyO: Option[String]}
          WHERE
              internal_id = ${internalId}
@@ -341,7 +341,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       connection: Connection
   ): Boolean = {
     val rowsUpdated = SQL"""
-         UPDATE participant_users
+         UPDATE lapi_users
          SET is_deactivated  = $isDeactivated
          WHERE
              internal_id = ${internalId}
@@ -355,7 +355,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val idpId = identityProviderId.map(_.value): Option[String]
     val rowsUpdated =
       SQL"""
-         UPDATE participant_users
+         UPDATE lapi_users
          SET identity_provider_id = $idpId
          WHERE
              internal_id = ${internalId}

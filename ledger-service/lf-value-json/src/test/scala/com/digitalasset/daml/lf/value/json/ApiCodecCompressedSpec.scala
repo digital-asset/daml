@@ -6,7 +6,7 @@ package value.json
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.value.Value.ContractId
-import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
+import data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
 import value.test.TypedValueGenerators.{genAddend, genTypeAndValue, ValueAddend => VA}
 import value.test.ValueGenerators.coidGen
@@ -65,6 +65,8 @@ class ApiCodecCompressedSpec
   private def roundtrip(va: VA)(v: va.Inj): Option[va.Inj] =
     va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
 
+  private val decimalScale = Numeric.Scale.assertFromInt(10)
+
   private object C /* based on navigator DamlConstants */ {
     import shapeless.syntax.singleton._
     val packageId0 = Ref.PackageId assertFromString "hash"
@@ -94,7 +96,7 @@ class ApiCodecCompressedSpec
         HRecord(
           fText = VA.text,
           fBool = VA.bool,
-          fDecimal = VA.numeric(Decimal.scale),
+          fDecimal = VA.numeric(decimalScale),
           fUnit = VA.unit,
           fInt64 = VA.int64,
           fParty = VA.party,
@@ -115,7 +117,7 @@ class ApiCodecCompressedSpec
       HRecord(
         fText = "foo",
         fBool = true,
-        fDecimal = Decimal assertFromString "100",
+        fDecimal = Numeric.assertFromString("100.0000000000"),
         fUnit = (),
         fInt64 = 100L,
         fParty = Ref.Party assertFromString "BANK1",
@@ -271,38 +273,38 @@ class ApiCodecCompressedSpec
           "0000000000000000000000000000000000000000000000000000000000000000000123"
         )
       ),
-      cn("\"42.0\"", "42.0", VA.numeric(Decimal.scale))(
-        Decimal assertFromString "42",
+      cn("\"42.0\"", "42.0", VA.numeric(decimalScale))(
+        Numeric.assertFromString("42.0000000000"),
         "\"42\"",
         "42",
         "42.0",
         "\"+42\"",
       ),
-      cn("\"2000.0\"", "2000", VA.numeric(Decimal.scale))(
-        Decimal assertFromString "2000",
+      cn("\"2000.0\"", "2000", VA.numeric(decimalScale))(
+        Numeric.assertFromString("2000.0000000000"),
         "\"2000\"",
         "2000",
         "2e3",
       ),
-      cn("\"0.3\"", "0.3", VA.numeric(Decimal.scale))(
-        Decimal assertFromString "0.3",
+      cn("\"0.3\"", "0.3", VA.numeric(decimalScale))(
+        Numeric.assertFromString("0.3000000000"),
         "\"0.30000000000000004\"",
         "0.30000000000000004",
       ),
       cn(
         "\"9999999999999999999999999999.9999999999\"",
         "9999999999999999999999999999.9999999999",
-        VA.numeric(Decimal.scale),
-      )(Decimal assertFromString "9999999999999999999999999999.9999999999"),
-      cn("\"0.1234512346\"", "0.1234512346", VA.numeric(Decimal.scale))(
-        Decimal assertFromString "0.1234512346",
+        VA.numeric(decimalScale),
+      )(Numeric.assertFromString("9999999999999999999999999999.9999999999")),
+      cn("\"0.1234512346\"", "0.1234512346", VA.numeric(decimalScale))(
+        Numeric.assertFromString("0.1234512346"),
         "0.12345123455",
         "0.12345123465",
         "\"0.12345123455\"",
         "\"0.12345123465\"",
       ),
-      cn("\"0.1234512345\"", "0.1234512345", VA.numeric(Decimal.scale))(
-        Decimal assertFromString "0.1234512345",
+      cn("\"0.1234512345\"", "0.1234512345", VA.numeric(decimalScale))(
+        Numeric.assertFromString("0.1234512345"),
         "0.123451234549",
         "0.12345123445001",
         "\"0.123451234549\"",

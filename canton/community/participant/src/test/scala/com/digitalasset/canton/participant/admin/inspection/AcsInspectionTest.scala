@@ -21,7 +21,6 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   ContractMetadata,
   LfContractId,
   LfTransactionVersion,
@@ -133,11 +132,11 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
         LfVersioned(
           LfTransactionVersion.VDev,
           LfValue.ContractInstance(
+            packageName = Ref.PackageName.assertFromString("pkg-name"),
             template = Ref.Identifier.assertFromString("pkg:Mod:Template"),
             arg = LfValue.ValueNil,
           ),
-        ),
-        AgreementText.empty,
+        )
       )
       .left
       .map(e => new RuntimeException(e.errorMessage))
@@ -206,10 +205,14 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
     TraceContext.withNewTraceContext { implicit tc =>
       val builder = Vector.newBuilder[SerializableContract]
       AcsInspection
-        .forEachVisibleActiveContract(FakeDomainId, state, parties, timestamp = None) {
-          case (contract, _) =>
-            builder += contract
-            Right(())
+        .forEachVisibleActiveContract(
+          FakeDomainId,
+          state,
+          parties,
+          timestamp = None,
+        ) { case (contract, _) =>
+          builder += contract
+          Right(())
         }
         .map(_ => builder.result())
         .value

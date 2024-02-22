@@ -58,14 +58,6 @@ object Error {
       declaredHash: crypto.Hash,
   ) extends Error
 
-  final case class ContractKeyNotVisible(
-      coid: ContractId,
-      key: GlobalKey,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      stakeholders: Set[Party],
-  ) extends Error
-
   /** Fetch-by-key failed
     */
   final case class ContractKeyNotFound(
@@ -96,11 +88,8 @@ object Error {
   ) extends Error
 
   /** A fetch or lookup of a contract key without maintainers */
-  final case class FetchEmptyContractKeyMaintainers(
-      templateId: TypeConName,
-      key: Value,
-      shared: Boolean,
-  ) extends Error
+  final case class FetchEmptyContractKeyMaintainers(templateId: TypeConName, key: Value)
+      extends Error
 
   /** We tried to fetch / exercise a contract of the wrong type --
     * see <https://github.com/digital-asset/daml/issues/1005>.

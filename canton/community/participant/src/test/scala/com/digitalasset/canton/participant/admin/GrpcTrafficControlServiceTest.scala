@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.canton.admin.participant.v0.TrafficControlStateRequest
+import com.digitalasset.canton.admin.participant.v30.TrafficControlStateRequest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.grpc.GrpcTrafficControlService
@@ -48,10 +48,10 @@ class GrpcTrafficControlServiceTest
       val response = timeouts.default.await("wait_for_response") {
         service.trafficControlState(TrafficControlStateRequest(did.toProtoPrimitive))
       }
-      response.trafficState shouldBe Some(status.toProtoV0)
+      response.trafficState shouldBe Some(status.toProtoV30)
     }
 
-    "return FAILED_PRECONDITION if the domain is not found" in {
+    "return NOT_FOUND if the domain is not found" in {
       val (service, syncService) = setupTest
       val did = DefaultTestIdentities.domainId
       when(syncService.readySyncDomainById(did)).thenReturn(None)
@@ -60,7 +60,7 @@ class GrpcTrafficControlServiceTest
           service.trafficControlState(TrafficControlStateRequest(did.toProtoPrimitive))
         }
       }
-      response.getStatus.getCode.value() shouldBe io.grpc.Status.FAILED_PRECONDITION.getCode.value()
+      response.getStatus.getCode.value() shouldBe io.grpc.Status.NOT_FOUND.getCode.value()
     }
 
     "return NOT_FOUND if traffic state is not available" in {

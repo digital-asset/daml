@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command
 import com.daml.lf
 import com.daml.lf.command.ApiCommands as LfCommands
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.{Identifier, PackageName}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.Error as LfError
@@ -36,8 +36,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
 }
-import com.digitalasset.canton.platform.apiserver.services.ErrorCause
-import com.digitalasset.canton.platform.services.time.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.rpc.status.Status as RpcStatus
@@ -88,7 +87,7 @@ class CommandSubmissionServiceImplSpec
   }
 
   private val transaction = SubmittedTransaction(
-    TreeTransactionBuilder.toVersionedTransaction(nodes *)
+    TreeTransactionBuilder.toVersionedTransaction(nodes*)
   )
 
   behavior of "submit"
@@ -107,7 +106,6 @@ class CommandSubmissionServiceImplSpec
     loggerFactory.assertLogs(
       within = {
         val tmplId = toIdentifier("M:T")
-        val sharedKeys = true
 
         val errorsToExpectedStatuses: Seq[(ErrorCause, Status)] = List(
           ErrorCause.DamlLf(
@@ -122,7 +120,7 @@ class CommandSubmissionServiceImplSpec
             LfError.Interpretation(
               LfError.Interpretation.DamlException(
                 LfInterpretationError.DuplicateContractKey(
-                  GlobalKey.assertBuild(tmplId, Value.ValueUnit, sharedKeys)
+                  GlobalKey.assertBuild(tmplId, Value.ValueUnit)
                 )
               ),
               None,
@@ -223,6 +221,7 @@ class CommandSubmissionServiceImplSpec
       )
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
+      packageName = PackageName.assertFromString("pkg-name"),
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
       createdAt = Timestamp.Epoch,
@@ -230,11 +229,9 @@ class CommandSubmissionServiceImplSpec
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,
-      agreementText = "",
       version = TransactionVersion.StableVersions.max,
     )
     val commands = Commands(
-      ledgerId = None,
       workflowId = None,
       applicationId = Ref.ApplicationId.assertFromString("app"),
       commandId = CommandId(Ref.CommandId.assertFromString("cmd")),

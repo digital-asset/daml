@@ -16,7 +16,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class MetaDataTestV1 extends MetaDataTest(LanguageMajorVersion.V1)
 class MetaDataTestV2 extends MetaDataTest(LanguageMajorVersion.V2)
 
 class MetaDataTest(majorVersion: LanguageMajorVersion)
@@ -157,18 +156,28 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
 
   val engine = Engine.DevEngine(majorLanguageVersion)
 
-  val emptyPkg = language.Ast.Package(Map.empty, Set.empty, langVersion, None)
+  def emptyPkg(pkgName: String): language.Ast.Package =
+    language.Ast.Package(
+      Map.empty,
+      Set.empty,
+      langVersion,
+      language.Ast.PackageMetadata(
+        Ref.PackageName.assertFromString(pkgName),
+        Ref.PackageVersion.assertFromString("0.0.0"),
+        None,
+      ),
+    )
 
   // For the sake of simplicity we load the engine with empty packages where only the directDeps is set.
   List(
-    "pkgTLib" -> emptyPkg,
-    "pkgT" -> emptyPkg.copy(directDeps = Set("pkgTLib")),
-    "pkgIntLib" -> emptyPkg,
-    "pkgInt" -> emptyPkg.copy(directDeps = Set("pkgIntLib")),
-    "pkgBaseLib" -> emptyPkg,
-    "pkgBase" -> emptyPkg.copy(directDeps = Set("pkgBaseLib", "pkgT", "pkgInt")),
-    "pkgImplLib" -> emptyPkg,
-    "pkgImpl" -> emptyPkg.copy(directDeps = Set("pkgImplLib", "pkgInt")),
+    "pkgTLib" -> emptyPkg("pkgTLibName"),
+    "pkgT" -> emptyPkg("pkgTName").copy(directDeps = Set("pkgTLib")),
+    "pkgIntLib" -> emptyPkg("pkgIntLibName"),
+    "pkgInt" -> emptyPkg("pkgIntName").copy(directDeps = Set("pkgIntLib")),
+    "pkgBaseLib" -> emptyPkg("pkgBaseLibName"),
+    "pkgBase" -> emptyPkg("pkgBaseName").copy(directDeps = Set("pkgBaseLib", "pkgT", "pkgInt")),
+    "pkgImplLib" -> emptyPkg("pkgImplLibName"),
+    "pkgImpl" -> emptyPkg("pkgImplName").copy(directDeps = Set("pkgImplLib", "pkgInt")),
   ).foreach { case (pkgId, pkg) =>
     require(engine.preloadPackage(pkgId, pkg).isInstanceOf[ResultDone[_]])
   }

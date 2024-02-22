@@ -91,9 +91,10 @@ instance DA.Internal.Desugar.HasChoiceObserver Token GetRich where
 data GetRich
   = GetRich {byHowMuch : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
+instance DA.Internal.Record.GetField "byHowMuch" GetRich Int where
   getField
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
+instance DA.Internal.Record.SetField "byHowMuch" GetRich Int where
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
 _choice$_Token$Archive :
@@ -223,14 +224,17 @@ instance DA.Internal.Desugar.HasFromAnyView SubToken EmptyInterfaceView where
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "issuer" Asset Party where
+instance DA.Internal.Record.GetField "issuer" Asset Party where
   getField = DA.Internal.Record.getFieldPrim @"issuer" @Asset @Party
+instance DA.Internal.Record.SetField "issuer" Asset Party where
   setField = DA.Internal.Record.setFieldPrim @"issuer" @Asset @Party
-instance DA.Internal.Record.HasField "owner" Asset Party where
+instance DA.Internal.Record.GetField "owner" Asset Party where
   getField = DA.Internal.Record.getFieldPrim @"owner" @Asset @Party
+instance DA.Internal.Record.SetField "owner" Asset Party where
   setField = DA.Internal.Record.setFieldPrim @"owner" @Asset @Party
-instance DA.Internal.Record.HasField "amount" Asset Int where
+instance DA.Internal.Record.GetField "amount" Asset Int where
   getField = DA.Internal.Record.getFieldPrim @"amount" @Asset @Int
+instance DA.Internal.Record.SetField "amount" Asset Int where
   setField = DA.Internal.Record.setFieldPrim @"amount" @Asset @Int
 instance DA.Internal.Desugar.HasSignatory Asset where
   signatory this@Asset {..}
@@ -245,11 +249,6 @@ instance DA.Internal.Desugar.HasObserver Asset where
 instance DA.Internal.Desugar.HasEnsure Asset where
   ensure this@Asset {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Asset where
-  agreement this@Asset {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Asset where
@@ -348,14 +347,16 @@ instance DA.Internal.Desugar.HasFromInterface Asset Token where
 data GHC.Types.DamlTemplate => AnotherAsset
   = AnotherAsset {owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "owner" AnotherAsset Party where
+instance DA.Internal.Record.GetField "owner" AnotherAsset Party where
   getField
     = DA.Internal.Record.getFieldPrim @"owner" @AnotherAsset @Party
+instance DA.Internal.Record.SetField "owner" AnotherAsset Party where
   setField
     = DA.Internal.Record.setFieldPrim @"owner" @AnotherAsset @Party
-instance DA.Internal.Record.HasField "amount" AnotherAsset Int where
+instance DA.Internal.Record.GetField "amount" AnotherAsset Int where
   getField
     = DA.Internal.Record.getFieldPrim @"amount" @AnotherAsset @Int
+instance DA.Internal.Record.SetField "amount" AnotherAsset Int where
   setField
     = DA.Internal.Record.setFieldPrim @"amount" @AnotherAsset @Int
 instance DA.Internal.Desugar.HasSignatory AnotherAsset where
@@ -371,11 +372,6 @@ instance DA.Internal.Desugar.HasObserver AnotherAsset where
 instance DA.Internal.Desugar.HasEnsure AnotherAsset where
   ensure this@AnotherAsset {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement AnotherAsset where
-  agreement this@AnotherAsset {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive AnotherAsset where
@@ -494,9 +490,10 @@ instance DA.Internal.Desugar.HasFromInterface AnotherAsset SubToken where
 data DA.Internal.Desugar.DamlException => GuardException
   = GuardException {m : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "m" GuardException Text where
+instance DA.Internal.Record.GetField "m" GuardException Text where
   getField
     = DA.Internal.Record.getFieldPrim @"m" @GuardException @Text
+instance DA.Internal.Record.SetField "m" GuardException Text where
   setField
     = DA.Internal.Record.setFieldPrim @"m" @GuardException @Text
 instance DA.Internal.Desugar.HasMessage GuardException where
@@ -515,8 +512,9 @@ getRich = GetRich {byHowMuch = 1000000}
 data GHC.Types.DamlTemplate => Test
   = Test {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" Test Party where
+instance DA.Internal.Record.GetField "p" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
+instance DA.Internal.Record.SetField "p" Test Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
 data TrueGuard
   = TrueGuard {}
@@ -549,11 +547,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

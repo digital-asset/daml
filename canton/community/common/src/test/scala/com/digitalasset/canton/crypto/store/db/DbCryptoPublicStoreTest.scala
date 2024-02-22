@@ -18,8 +18,7 @@ trait DbCryptoPublicStoreTest extends AsyncWordSpec with CryptoPublicStoreTest {
 
     storage.update(
       DBIO.seq(
-        sqlu"truncate table crypto_certs",
-        sqlu"truncate table crypto_public_keys",
+        sqlu"truncate table crypto_public_keys"
       ),
       operationName = s"${this.getClass}: Truncate public crypto tables",
     )

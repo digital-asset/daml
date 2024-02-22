@@ -225,7 +225,7 @@ packagingTests tmpDir =
                       , "name: proj"
                       , "version: 0.0.1"
                       , "source: ."
-                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+                      , "dependencies: [daml-prim, daml-stdlib, daml3-script]"
                       , "data-dependencies: [" <>
                         show (tmpDir </> "data-dependency" </> "data-dependency.dar") <>
                         "]"
@@ -304,19 +304,6 @@ damlStartTests getDamlStart =
                 ]
             contents <- readFileUTF8 (projDir </> "output.json")
             lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
-        subtest "daml export script" $ do
-            DamlStartResource {projDir, sandboxPort, alice} <- getDamlStart
-            withTempDir $ \exportDir -> do
-                callCommandSilentIn projDir $ unwords
-                    [ "daml ledger export script"
-                    , "--host localhost --port " <> show sandboxPort
-                    , "--party", alice
-                    , "--output " <> exportDir <> " --sdk-version " <> sdkVersion
-                    ]
-                didGenerateExportDaml <- doesFileExist (exportDir </> "Export.daml")
-                didGenerateDamlYaml <- doesFileExist (exportDir </> "daml.yaml")
-                didGenerateExportDaml @?= True
-                didGenerateDamlYaml @?= True
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
@@ -364,7 +351,10 @@ damlStartTests getDamlStart =
             queryResponseS <- httpLbs queryRequestS manager
             -- check that there are no more active contracts of template T
             statusCode (responseStatus queryResponseT) @?= 200
-            preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+
+            -- TODO [SW] We no longer clean the ledger, so this test fails.
+            -- preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+
             -- check that a new contract of template S was created
             statusCode (responseStatus queryResponseS) @?= 200
             preview

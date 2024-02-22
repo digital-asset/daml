@@ -4,7 +4,7 @@
 package com.daml.lf
 package language
 
-import com.daml.lf.data.{Decimal, ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.nameof.NameOf
 
@@ -94,14 +94,14 @@ object Util {
   val TContractId = new ParametricType1(BTContractId)
 
   val TParties = TList(TParty)
-  val TDecimalScale = TNat(Decimal.scale)
-  val TDecimal = TNumeric(TDecimalScale)
 
   val TAnyException = TBuiltin(BTAnyException)
 
   val EUnit = EPrimCon(PCUnit)
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
+
+  val EEmptyString = EPrimLit(PLText(""))
 
   def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
 
@@ -242,10 +242,9 @@ object Util {
 
   private[this] def toSignature(template: Template): TemplateSignature =
     template match {
-      case Template(param, _, _, _, choices, _, key, implements) =>
+      case Template(param, _, _, choices, _, key, implements) =>
         TemplateSignature(
           param,
-          (),
           (),
           (),
           choices.transform((_, v) => toSignature(v)),
@@ -255,26 +254,14 @@ object Util {
         )
     }
 
-  private[this] def toSignature(
-      coImplements: InterfaceCoImplements
-  ): InterfaceCoImplementsSignature =
-    coImplements match {
-      case InterfaceCoImplements(name, body) =>
-        InterfaceCoImplementsSignature(
-          name,
-          toSignature(body),
-        )
-    }
-
   private def toSignature(interface: DefInterface): DefInterfaceSignature =
     interface match {
-      case DefInterface(requires, param, choices, methods, coImplements, view) =>
+      case DefInterface(requires, param, choices, methods, view) =>
         DefInterfaceSignature(
           requires,
           param,
           choices.transform((_, choice) => toSignature(choice)),
           methods,
-          coImplements.transform((_, v) => toSignature(v)),
           view,
         )
     }

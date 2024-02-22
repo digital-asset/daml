@@ -20,7 +20,7 @@ final case class CommunitySequencerNodeXConfig(
     override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),
     override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory(),
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
-    override val sequencer: CommunitySequencerConfig = CommunitySequencerConfig.Database(),
+    override val sequencer: CommunitySequencerConfig = CommunitySequencerConfig.default,
     override val auditLogging: Boolean = false,
     override val timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
@@ -59,16 +59,4 @@ final case class CommunitySequencerNodeXConfig(
   */
 final case class SequencerNodeInitXConfig(
     identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity())
-) extends SequencerNodeInitConfigCommon() {
-
-  /** the following case class match will help us detect any additional configuration options added
-    * for "classic" non-X nodes that may apply to X-nodes as well.
-    */
-  private def _completenessCheck(
-      classicConfig: CommunitySequencerNodeInitConfig
-  ): SequencerNodeInitXConfig =
-    classicConfig match {
-      case CommunitySequencerNodeInitConfig() =>
-        SequencerNodeInitXConfig( /* identity */ )
-    }
-}
+) extends SequencerNodeInitConfigCommon()

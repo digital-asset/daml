@@ -9,7 +9,6 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.TransferDomainId.TransferDomainIdCast
@@ -21,23 +20,26 @@ import com.digitalasset.canton.protocol.{
   TargetDomainId,
   TransferDomainId,
   TransferId,
-  v0,
-  v3,
+  v30,
 }
 import com.digitalasset.canton.sequencing.RawProtocolEvent
-import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, EventWithErrors, SignedContent}
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  Deliver,
+  SignedContent,
+  WithOpeningErrors,
+}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Mediator result for a transfer request
+/** Confirmation request result for a transfer request
   *
   * @param requestId timestamp of the corresponding [[TransferOutRequest]] on the source domain
   */
-@SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class TransferResult[+Domain <: TransferDomainId] private (
+final case class TransferResult[+Domain <: TransferDomainId] private (
     override val requestId: RequestId,
     informees: Set[LfPartyId],
     domain: Domain, // For transfer-out, this is the source domain. For transfer-in, this is the target domain.
@@ -45,7 +47,7 @@ case class TransferResult[+Domain <: TransferDomainId] private (
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[TransferResult.type],
     override val deserializedFrom: Option[ByteString],
-) extends RegularMediatorResult
+) extends RegularConfirmationResult
     with HasProtocolVersionedWrapper[TransferResult[TransferDomainId]]
     with PrettyPrinting {
 
@@ -54,32 +56,30 @@ case class TransferResult[+Domain <: TransferDomainId] private (
   override def viewType: ViewType = domain.toViewType
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransferResult(
+      : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.TransferResult(
       getCryptographicEvidence
     )
 
   @transient override protected lazy val companionObj: TransferResult.type = TransferResult
 
-  private def toProtoV3: v3.TransferResult = {
+  private def toProtoV30: v30.TransferResult = {
     val domainP = (domain: @unchecked) match {
       case SourceDomainId(domainId) =>
-        v3.TransferResult.Domain.SourceDomain(domainId.toProtoPrimitive)
+        v30.TransferResult.Domain.SourceDomain(domainId.toProtoPrimitive)
       case TargetDomainId(domainId) =>
-        v3.TransferResult.Domain.TargetDomain(domainId.toProtoPrimitive)
+        v30.TransferResult.Domain.TargetDomain(domainId.toProtoPrimitive)
     }
-    v3.TransferResult(
+    v30.TransferResult(
       requestId = Some(requestId.toProtoPrimitive),
       domain = domainP,
       informees = informees.toSeq,
-      verdict = Some(verdict.toProtoV3),
+      verdict = Some(verdict.toProtoV30),
     )
   }
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
-
-  override def hashPurpose: HashPurpose = HashPurpose.TransferResultSignature
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[TransferResult] def traverse[F[_], Domain2 <: TransferDomainId](
@@ -113,9 +113,9 @@ object TransferResult
   override val name: String = "TransferResult"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v30)(v3.TransferResult)(
-      supportedProtoVersionMemoized(_)(fromProtoV3),
-      _.toProtoV3.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.TransferResult)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -131,11 +131,11 @@ object TransferResult
       None,
     )
 
-  private def fromProtoV3(transferResultP: v3.TransferResult)(
+  private def fromProtoV30(transferResultP: v30.TransferResult)(
       bytes: ByteString
   ): ParsingResult[TransferResult[TransferDomainId]] = {
-    val v3.TransferResult(maybeRequestIdPO, domainP, informeesP, verdictPO) = transferResultP
-    import v3.TransferResult.Domain
+    val v30.TransferResult(maybeRequestIdPO, domainP, informeesP, verdictPO) = transferResultP
+    import v30.TransferResult.Domain
     for {
       requestId <- ProtoConverter
         .required("TransferOutResult.requestId", maybeRequestIdPO)
@@ -154,11 +154,9 @@ object TransferResult
       informees <- informeesP.traverse(ProtoConverter.parseLfPartyId)
       verdict <- ProtoConverter
         .required("TransferResult.verdict", verdictPO)
-        .flatMap(Verdict.fromProtoV3)
-    } yield TransferResult(requestId, informees.toSet, domain, verdict)(
-      protocolVersionRepresentativeFor(ProtoVersion(3)),
-      Some(bytes),
-    )
+        .flatMap(Verdict.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield TransferResult(requestId, informees.toSet, domain, verdict)(rpv, Some(bytes))
   }
 
   implicit def transferResultCast[Kind <: TransferDomainId](implicit
@@ -205,25 +203,20 @@ object DeliveredTransferOutResult {
   ) extends RuntimeException(s"$message: $transferOutResult")
 
   def create(
-      resultE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[RawProtocolEvent],
-      ]
+      resultE: WithOpeningErrors[SignedContent[RawProtocolEvent]]
   ): Either[InvalidTransferOutResult, DeliveredTransferOutResult] =
     for {
       // The event signature would be invalid if some envelopes could not be opened upstream.
       // However, this should not happen, because transfer out messages are sent by the mediator,
       // who is trusted not to send bad envelopes.
-      result <- resultE match {
-        case Left(eventWithErrors) =>
-          Left(
-            InvalidTransferOutResult(
-              eventWithErrors.content,
-              "Result event contains envelopes that could not be deserialized.",
-            )
-          )
-        case Right(event) => Right(event)
-      }
+      result <- Either.cond(
+        resultE.hasNoErrors,
+        resultE.event,
+        InvalidTransferOutResult(
+          resultE.event.content,
+          "Result event contains envelopes that could not be deserialized.",
+        ),
+      )
       castToDeliver <- result
         .traverse(Deliver.fromSequencedEvent)
         .toRight(

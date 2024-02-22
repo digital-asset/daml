@@ -47,7 +47,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
 
   /*
   Simple topology, with two parties (signatory, observer) each connected to one
-  participant (submitterParticipantId, observerParticipantId)
+  participant (submittingParticipantId, observerParticipantId)
    */
   object SimpleTopology {
     val submitterParticipantId: ParticipantId = ParticipantId("submitter")
@@ -68,13 +68,12 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
         packages: Seq[LfPackageId] = Seq(),
     ): TopologySnapshot = {
       val participants = topology.values.flatten
-      val testingIdentityFactory = TestingTopology(
+      val testingIdentityFactory = TestingTopologyX(
         topology = topology.map { case (partyId, participantIds) =>
           partyId -> participantIds.map(_ -> Submission).toMap
         },
-        participants =
-          participants.map(_ -> ParticipantAttributes(Submission, TrustLevel.Vip)).toMap,
-        packages = participants.view.map(VettedPackages(_, packages)).toSeq,
+        participants = participants.map(_ -> ParticipantAttributes(Submission)).toMap,
+        packages = participants.view.map(_ -> packages).toMap,
       ).build()
 
       testingIdentityFactory.topologySnapshot()
@@ -149,7 +148,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
 
       private val value =
         inputContractIds.map[NodeWrapper](buildExerciseNode(version, _, signatory, observer))
-      val tx: LfVersionedTransaction = toVersionedTransaction(value *)
+      val tx: LfVersionedTransaction = toVersionedTransaction(value*)
 
     }
 

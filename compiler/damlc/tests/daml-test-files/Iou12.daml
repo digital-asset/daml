@@ -26,10 +26,6 @@ template Iou
     ensure amount > 0.0
     observer owner :: regulators
 
-    agreement show issuer <> " promises to pay " <>
-              show amount <> " " <> currency <>
-              " on demand to " <> show owner
-
     nonconsuming choice DoNothing : () -- DEL-6496
       controller owner
       do return ()

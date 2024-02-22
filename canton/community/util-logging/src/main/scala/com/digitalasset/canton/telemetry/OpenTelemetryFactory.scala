@@ -13,7 +13,6 @@ import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.propagation.ContextPropagators
 import io.opentelemetry.exporter.jaeger.JaegerGrpcSpanExporter
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter
-import io.opentelemetry.exporter.prometheus.PrometheusCollector
 import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.metrics.{SdkMeterProvider, SdkMeterProviderBuilder}
@@ -26,17 +25,16 @@ import io.opentelemetry.sdk.trace.samplers.Sampler
 import io.opentelemetry.sdk.trace.{SdkTracerProvider, SdkTracerProviderBuilder}
 
 import java.util.concurrent.TimeUnit
-import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.chaining.scalaUtilChainingOps
 
 object OpenTelemetryFactory {
 
-  @nowarn("msg=deprecated")
   def initializeOpenTelemetry(
       initializeGlobalOpenTelemetry: Boolean,
       metricsEnabled: Boolean,
+      attachReporters: SdkMeterProviderBuilder => SdkMeterProviderBuilder,
       config: TracingConfig.Tracer,
       histograms: Seq[HistogramDefinition],
       loggerFactory: NamedLoggerFactory,
@@ -60,17 +58,6 @@ object OpenTelemetryFactory {
     ): BatchSpanProcessorBuilder => BatchSpanProcessorBuilder = builder =>
       scheduleDelay.fold(builder)(_.toJava pipe builder.setScheduleDelay)
 
-    def setMetricsReader: SdkMeterProviderBuilder => SdkMeterProviderBuilder = builder =>
-      /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
-       * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
-       * This forces us to keep the current OpenTelemetry version (see ticket for potential paths forward).
-       */
-      if (metricsEnabled) {
-        builder
-          .registerMetricReader(PrometheusCollector.create())
-          .registerMetricReader(onDemandMetricReader)
-      } else builder
-
     val tracerProviderBuilder: SdkTracerProviderBuilder = SdkTracerProvider.builder
       .addSpanProcessor(
         BatchSpanProcessor
@@ -80,6 +67,10 @@ object OpenTelemetryFactory {
           .build
       )
       .setSampler(sampler)
+
+    def setMetricsReader: SdkMeterProviderBuilder => SdkMeterProviderBuilder = builder =>
+      if (metricsEnabled) builder.registerMetricReader(onDemandMetricReader).pipe(attachReporters)
+      else builder
 
     val meterProviderBuilder = addViewsToProvider(SdkMeterProvider.builder, histograms)
       .pipe(setMetricsReader)
@@ -100,6 +91,7 @@ object OpenTelemetryFactory {
       tracerProviderBuilder = tracerProviderBuilder,
       onDemandMetricsReader =
         if (metricsEnabled) onDemandMetricReader else NoOpOnDemandMetricsReader$,
+      metricsEnabled = metricsEnabled,
     )
 
   }

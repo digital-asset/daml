@@ -38,17 +38,17 @@ import java.nio.file.Paths
 class ConsoleTest extends AnyWordSpec with BaseTest {
 
   lazy val DefaultConfig: CantonCommunityConfig = CantonCommunityConfig(
-    sequencersX = Map(
+    sequencers = Map(
       InstanceName.tryCreate("s1") -> ConfigStubs.sequencerx,
       InstanceName.tryCreate("s2") -> ConfigStubs.sequencerx,
       InstanceName.tryCreate("s-3") -> ConfigStubs.sequencerx,
     ),
-    mediatorsX = Map(
+    mediators = Map(
       InstanceName.tryCreate("m1") -> ConfigStubs.mediatorx,
       InstanceName.tryCreate("m2") -> ConfigStubs.mediatorx,
       InstanceName.tryCreate("m-3") -> ConfigStubs.mediatorx,
     ),
-    participantsX = Map(
+    participants = Map(
       InstanceName.tryCreate("p1") -> ConfigStubs.participant
         .copy(adminApi = ConfigStubs.adminApi), // for testing admin api
       InstanceName.tryCreate("p2") -> ConfigStubs.participant,
@@ -58,13 +58,13 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
   )
 
   lazy val NameClashConfig: CantonCommunityConfig = CantonCommunityConfig(
-    participantsX = Map(
+    participants = Map(
       // Reserved keyword
       InstanceName.tryCreate("participantsX") -> ConfigStubs.participant,
       // Name collision
       InstanceName.tryCreate("s1") -> ConfigStubs.participant,
     ),
-    sequencersX = Map(
+    sequencers = Map(
       InstanceName.tryCreate("s1") -> ConfigStubs.sequencerx
     ),
   )
@@ -79,10 +79,6 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       mock[
         ParticipantNodes[ParticipantNodeBootstrapX, ParticipantNodeX, config.ParticipantConfigType]
       ]
-    val domains: DomainNodes[config.DomainConfigType] = {
-      mock[DomainNodes[config.DomainConfigType]]
-
-    }
     val sequencersX: SequencerNodesX[config.SequencerNodeXConfigType] =
       mock[SequencerNodesX[config.SequencerNodeXConfigType]]
     val mediatorsX: MediatorNodesX[config.MediatorNodeXConfigType] =
@@ -95,9 +91,9 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     when(environment.testingConfig).thenReturn(
       TestingConfigInternal(initializeGlobalOpenTelemetry = false)
     )
-    when(environment.participantsX).thenReturn(participants)
-    when(environment.sequencersX).thenReturn(sequencersX)
-    when(environment.mediatorsX).thenReturn(mediatorsX)
+    when(environment.participants).thenReturn(participants)
+    when(environment.sequencers).thenReturn(sequencersX)
+    when(environment.mediators).thenReturn(mediatorsX)
     when(environment.simClock).thenReturn(None)
     when(environment.loggerFactory).thenReturn(loggerFactory)
     when(environment.configuredOpenTelemetry).thenReturn(
@@ -105,6 +101,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         OpenTelemetrySdk.builder().build(),
         SdkTracerProvider.builder(),
         NoOpOnDemandMetricsReader$,
+        metricsEnabled = false,
       )
     )
     type NodeGroup = Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
@@ -113,8 +110,6 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     when(participants.startAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
     when(participants.stopAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
     when(participants.isRunning(anyString())).thenReturn(true)
-
-    when(domains.startAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
 
     val adminCommandRunner: ConsoleGrpcAdminCommandRunner = mock[ConsoleGrpcAdminCommandRunner]
     val testConsoleOutput: TestConsoleOutput = new TestConsoleOutput(loggerFactory)
@@ -139,7 +134,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       )
 
     def runOrFail(commands: String*): Unit = {
-      val (result, stderr) = run(commands: _*)
+      val (result, stderr) = run(commands*)
 
       // fail if unexpected content was printed to stderr (this likely indicates an error of some form which wasn't bubbled up through the interpreter)
       assertExpectedStdErrorOutput(stderr)

@@ -16,7 +16,7 @@ module DA.Internal.RebindableSyntax
   ,negate
   ,(>>), (>>=), fail, return, guard
   ,(<*>), fmap, pure, join -- ApplicativeDo
-  ,HasField, setField, getField
+  ,SetField, GetField, HasField, setField, getField
   ) where
 
 import DA.Internal.Prelude

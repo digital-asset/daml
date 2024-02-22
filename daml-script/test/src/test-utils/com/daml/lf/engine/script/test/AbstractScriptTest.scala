@@ -7,6 +7,7 @@ package test
 
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
@@ -14,7 +15,6 @@ import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedg
 import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackages}
 import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value
-import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 
 import scala.concurrent.{ExecutionContext, Future}

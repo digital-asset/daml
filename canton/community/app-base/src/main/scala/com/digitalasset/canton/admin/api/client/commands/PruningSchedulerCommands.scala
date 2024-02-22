@@ -5,8 +5,8 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.api.client.data.PruningSchedule
-import com.digitalasset.canton.admin.pruning.v0
-import com.digitalasset.canton.admin.pruning.v0.{PruningSchedule as PruningScheduleP, *}
+import com.digitalasset.canton.admin.pruning.v30
+import com.digitalasset.canton.admin.pruning.v30.{PruningSchedule as PruningScheduleP, *}
 import com.digitalasset.canton.config.PositiveDurationSeconds
 import io.grpc.ManagedChannel
 import io.grpc.stub.AbstractStub
@@ -22,7 +22,7 @@ class PruningSchedulerCommands[Stub <: AbstractStub[Stub]](
     submitSetSchedule: (Stub, SetSchedule.Request) => Future[SetSchedule.Response],
     submitClearSchedule: (Stub, ClearSchedule.Request) => Future[ClearSchedule.Response],
     submitSetCron: (Stub, SetCron.Request) => Future[SetCron.Response],
-    submitSetMaxDuration: (Stub, v0.SetMaxDuration.Request) => Future[SetMaxDuration.Response],
+    submitSetMaxDuration: (Stub, v30.SetMaxDuration.Request) => Future[SetMaxDuration.Response],
     submitSetRetention: (Stub, SetRetention.Request) => Future[SetRetention.Response],
     submitGetSchedule: (Stub, GetSchedule.Request) => Future[GetSchedule.Response],
 ) {
@@ -153,6 +153,6 @@ class PruningSchedulerCommands[Stub <: AbstractStub[Stub]](
       Option[PruningSchedule],
     ] = response.schedule.fold(
       Right(None): Either[String, Option[PruningSchedule]]
-    )(PruningSchedule.fromProtoV0(_).bimap(_.message, Some(_)))
+    )(PruningSchedule.fromProtoV30(_).bimap(_.message, Some(_)))
   }
 }

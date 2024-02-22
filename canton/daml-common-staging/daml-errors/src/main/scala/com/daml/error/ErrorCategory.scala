@@ -362,7 +362,7 @@ object ErrorCategory {
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 
   /** Generic error category class meant to be used as a data container for
-    * information deserialized from gRPC statuses (see [[com.daml.error.utils.DeserializedCantonError]]).
+    * information deserialized from gRPC statuses (see [[com.daml.error.utils.DecodedCantonError]]).
     *
     * Note: Do NOT use this class for adding error category information to error code instances
     * but instead re-use existing ones or define new ones (see [[ErrorCategory.all]])

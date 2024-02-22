@@ -20,9 +20,6 @@ class TlsIT(override val majorLanguageVersion: LanguageMajorVersion)
   final override protected lazy val tlsEnable = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  // TODO(#17366): Delete once 2.0 is introduced and Canton supports LF v2 in non-dev mode.
-  final override protected lazy val devMode = (majorLanguageVersion == LanguageMajorVersion.V2)
-
   "Daml Script against ledger with TLS" can {
     "test0" should {
       "create and accept Proposal" in {

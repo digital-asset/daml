@@ -10,10 +10,8 @@ import com.digitalasset.canton.crypto.store.CryptoPublicStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.UniqueIdentifier
-import com.digitalasset.canton.topology.admin.v1 as adminProto
+import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.google.protobuf.empty.Empty
-import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -23,7 +21,7 @@ class GrpcIdentityInitializationServiceX(
     cryptoPublicStore: CryptoPublicStore,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends adminProto.IdentityInitializationServiceXGrpc.IdentityInitializationServiceX
+    extends adminProto.IdentityInitializationXServiceGrpc.IdentityInitializationXService
     with NamedLogging {
 
   override def initId(request: adminProto.InitIdRequest): Future[adminProto.InitIdResponse] = {
@@ -49,7 +47,7 @@ class GrpcIdentityInitializationServiceX(
       request: adminProto.GetOnboardingTransactionsRequest
   ): Future[adminProto.GetOnboardingTransactionsResponse] = ???
 
-  override def getId(request: Empty): Future[adminProto.GetIdResponse] = {
+  override def getId(request: adminProto.GetIdRequest): Future[adminProto.GetIdResponse] = {
     val id = bootstrap.getId
     Future.successful(
       adminProto.GetIdResponse(
@@ -59,8 +57,10 @@ class GrpcIdentityInitializationServiceX(
     )
   }
 
-  override def currentTime(request: Empty): Future[Timestamp] =
-    Future.successful(clock.now.toProtoPrimitive)
+  override def currentTime(
+      request: adminProto.CurrentTimeRequest
+  ): Future[adminProto.CurrentTimeResponse] =
+    Future.successful(adminProto.CurrentTimeResponse(Some(clock.now.toProtoPrimitive)))
 }
 
 object GrpcIdentityInitializationServiceX {

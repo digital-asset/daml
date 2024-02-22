@@ -173,16 +173,17 @@ class ContractStateCachesSpec
     GlobalKey.assertBuild(
       Identifier.assertFromString(s"some:template:name"),
       ValueInt64(id.toLong),
-      shared = true,
     )
 
   private def contract(id: Int): Contract = {
     val templateId = Identifier.assertFromString(s"some:template:name")
+    val packageName = Ref.PackageName.assertFromString("pkg-name")
     val contractArgument = ValueRecord(
       Some(templateId),
       ImmArray(None -> ValueInt64(id.toLong)),
     )
-    val contractInstance = ContractInstance(template = templateId, arg = contractArgument)
+    val contractInstance =
+      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

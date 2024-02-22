@@ -1,0 +1,105 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.topology.admin.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/topology.proto";
+import "google/protobuf/timestamp.proto";
+
+/**
+ * Topology information aggregation service
+ *
+ * This service allows deep inspection into the aggregated topology state.
+ * The services runs both on the domain and on the participant and uses the same
+ * data. The service provides GRPC access to the information aggregated by the identity providing
+ * service client.
+ */
+service TopologyAggregationService {
+  /**
+   * Obtain information about a certain set of active parties matching a given filter criterion.
+   *
+   * The request allows to filter per (domain, party, asOf) where the domain and party argument are
+   * used in order to filter the result list using the `startsWith` method on the respective resulting string.
+   *
+   * As such, if you just need to do a lookup, then define a precise filter. Given the uniqueness of the
+   * identifiers (and the fact that the identifiers contain key fingerprints), we should only ever get a single
+   * result back if we are doing a precise lookup.
+   *
+   * The response is a sequence of tuples (party, domain, participant, privilege, trust-level).
+   * The response is restricted to active parties and their active participants.
+   */
+  rpc ListParties(ListPartiesRequest) returns (ListPartiesResponse);
+
+  /**
+   * Obtain key owner information matching a given filter criterion.
+   *
+   * Key owners in the system are different types of entities: Participant, Mediator, Domain Topology Manager and
+   * Sequencer. The present method allows to define a filter to search for a key owner
+   * using filters on (asOf, domain, ownerType, owner)
+   *
+   * The response is a sequence of (domain, ownerType, owner, keys) where keys is a sequence of
+   * (fingerprint, bytes, key purpose). As such, we can use this method to export currently used signing or encryption
+   * public keys.
+   *
+   * This method is quite general, as depending on the arguments, very different results can be obtained.
+   *
+   * Using OwnerType = 'Participant' allows to query for all participants.
+   * Using OwnerType = 'Sequencer' allows to query for all sequencers defined.
+   */
+  rpc ListKeyOwners(ListKeyOwnersRequest) returns (ListKeyOwnersResponse);
+}
+
+message ListPartiesRequest {
+  google.protobuf.Timestamp as_of = 1;
+  int32 limit = 2;
+  string filter_domain = 3;
+  string filter_party = 4;
+  string filter_participant = 5;
+}
+
+message ListPartiesResponse {
+  message Result {
+    string party = 1;
+
+    message ParticipantDomains {
+      message DomainPermissions {
+        string domain = 1;
+        com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission permission = 2;
+      }
+
+      string participant = 1;
+
+      /**
+       * permissions of this participant for this party on a per domain basis
+       *
+       * for records that only exist in the authorized store, this list will be empty.
+       */
+      repeated DomainPermissions domains = 2;
+    }
+
+    repeated ParticipantDomains participants = 2;
+  }
+
+  repeated Result results = 2;
+}
+
+message ListKeyOwnersRequest {
+  google.protobuf.Timestamp as_of = 1;
+  int32 limit = 2;
+  string filter_domain = 3;
+  string filter_key_owner_type = 4;
+  string filter_key_owner_uid = 5;
+}
+
+message ListKeyOwnersResponse {
+  message Result {
+    string domain = 1;
+    string key_owner = 2;
+    repeated com.digitalasset.canton.crypto.v30.SigningPublicKey signing_keys = 3;
+    repeated com.digitalasset.canton.crypto.v30.EncryptionPublicKey encryption_keys = 4;
+  }
+  repeated Result results = 1;
+}

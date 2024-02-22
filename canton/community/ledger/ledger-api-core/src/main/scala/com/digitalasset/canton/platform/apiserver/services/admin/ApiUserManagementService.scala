@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 }
 import com.daml.ledger.api.v1.admin.user_management_service as proto
 import com.daml.lf.data.Ref
-import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
+import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.auth.ClaimAdmin
@@ -22,12 +22,13 @@ import com.digitalasset.canton.ledger.api.auth.ClaimSet.Claims
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
-import com.digitalasset.canton.ledger.api.validation.FieldValidator
+import com.digitalasset.canton.ledger.api.validation.{FieldValidator, ValueValidator}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
   UserManagementServiceErrors,
 }
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withEnrichedLoggingContext
@@ -39,7 +40,6 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.platform.apiserver.update
 import com.digitalasset.canton.platform.apiserver.update.UserUpdateMapper
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either.*
 import scalaz.std.list.*
@@ -67,6 +67,7 @@ private[apiserver] final class ApiUserManagementService(
 
   import ApiUserManagementService.*
   import FieldValidator.*
+  import ValueValidator.*
   import UserManagementStore.handleResult
 
   override def close(): Unit = ()

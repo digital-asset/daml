@@ -8,26 +8,23 @@ import java.util.UUID
 import java.time.Instant
 
 import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.daml.ledger.api.domain.{User, UserRight}
-import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v1.commands._
-import com.daml.ledger.api.v1.event.{CreatedEvent, InterfaceView}
-import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
-import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
+import com.daml.ledger.api.v1.event.InterfaceView
+import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
+import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
   TemplateFilter,
-  TransactionFilter,
 }
-import com.daml.ledger.api.validation.NoLoggingValueValidator
-import com.daml.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
@@ -36,21 +33,23 @@ import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{SValue, svalue}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.participant.util.LfEngineToApi.{
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier,
   toTimestamp,
 }
 import com.daml.script.converter.ConverterException
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.protobuf.StatusProto
+import io.grpc.StatusRuntimeException
+import io.grpc.Status.Code
+import com.google.rpc.status.Status
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
-import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -87,8 +86,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       Filters(
         Some(
           InclusiveFilters(
-            List(),
-            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)),
+            List(InterfaceFilter(Some(toApiIdentifier(interfaceId)), true))
           )
         )
       )
@@ -101,35 +99,34 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
     val filter = templateFilter(parties, templateId)
-    val acsResponses =
-      grpcClient.activeContractSetClient
+    val acsResponse =
+      grpcClient.v2.stateService
         .getActiveContracts(filter, verbose = false)
-        .runWith(Sink.seq)
-    acsResponses.map(acsPages =>
-      acsPages.toVector.flatMap(page =>
-        page.activeContracts.toVector.map(createdEvent => {
-          val argument =
-            NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
-              case Left(err) => throw new ConverterException(err.toString)
-              case Right(argument) => argument
-            }
-          val key: Option[Value] = createdEvent.contractKey.map { key =>
-            NoLoggingValueValidator.validateValue(key) match {
-              case Left(err) => throw new ConverterException(err.toString)
-              case Right(argument) => argument
-            }
+        .map(_._1)
+    acsResponse.map(activeContracts =>
+      activeContracts.toVector.map(activeContract => {
+        val createdEvent = activeContract.getCreatedEvent
+        val argument =
+          NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
+            case Left(err) => throw new ConverterException(err.toString)
+            case Right(argument) => argument
           }
-          val cid =
-            ContractId
-              .fromString(createdEvent.contractId)
-              .fold(
-                err => throw new ConverterException(err),
-                identity,
-              )
-          val blob = Bytes.fromByteString(createdEvent.createdEventBlob)
-          (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
-        })
-      )
+        val key: Option[Value] = createdEvent.contractKey.map { key =>
+          NoLoggingValueValidator.validateValue(key) match {
+            case Left(err) => throw new ConverterException(err.toString)
+            case Right(argument) => argument
+          }
+        }
+        val cid =
+          ContractId
+            .fromString(createdEvent.contractId)
+            .fold(
+              err => throw new ConverterException(err),
+              identity,
+            )
+        val blob = Bytes.fromByteString(createdEvent.createdEventBlob)
+        (ScriptLedgerClient.ActiveContract(templateId, cid, argument, blob), key)
+      })
     )
   }
 
@@ -158,33 +155,32 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Seq[(ContractId, Option[Value])]] = {
     val filter = interfaceFilter(parties, interfaceId)
-    val acsResponses =
-      grpcClient.activeContractSetClient
+    val acsResponse =
+      grpcClient.v2.stateService
         .getActiveContracts(filter, verbose = false)
-        .runWith(Sink.seq)
-    acsResponses.map { acsPages: Seq[GetActiveContractsResponse] =>
-      acsPages.toVector.flatMap { page: GetActiveContractsResponse =>
-        page.activeContracts.toVector.flatMap { createdEvent: CreatedEvent =>
-          val cid =
-            ContractId
-              .fromString(createdEvent.contractId)
-              .fold(
-                err => throw new ConverterException(err),
-                identity,
-              )
-          createdEvent.interfaceViews.map { iv: InterfaceView =>
-            val viewValue: Value.ValueRecord =
-              NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
-                case Left(err) => throw new ConverterException(err.toString)
-                case Right(argument) => argument
-              }
-            // Because we filter for a specific interfaceId,
-            // we will get at most one view for a given cid.
-            (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
-          }
+        .map(_._1)
+    acsResponse.map(activeContracts =>
+      activeContracts.toVector.flatMap(activeContract => {
+        val createdEvent = activeContract.getCreatedEvent
+        val cid =
+          ContractId
+            .fromString(createdEvent.contractId)
+            .fold(
+              err => throw new ConverterException(err),
+              identity,
+            )
+        createdEvent.interfaceViews.map { iv: InterfaceView =>
+          val viewValue: Value.ValueRecord =
+            NoLoggingValueValidator.validateRecord(iv.getViewValue) match {
+              case Left(err) => throw new ConverterException(err.toString)
+              case Right(argument) => argument
+            }
+          // Because we filter for a specific interfaceId,
+          // we will get at most one view for a given cid.
+          (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
         }
-      }
-    }
+      })
+    )
   }
 
   override def queryInterfaceContractId(
@@ -208,16 +204,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   // TODO (MK) https://github.com/digital-asset/daml/issues/11737
   private val catchableStatusCodes =
     Set(
-      Status.Code.NOT_FOUND,
-      Status.Code.INVALID_ARGUMENT,
-      Status.Code.FAILED_PRECONDITION,
-      Status.Code.ALREADY_EXISTS,
-    )
+      Code.NOT_FOUND,
+      Code.INVALID_ARGUMENT,
+      Code.FAILED_PRECONDITION,
+      Code.ALREADY_EXISTS,
+    ).map(_.value())
 
-  private def isSubmitMustFailError(status: StatusRuntimeException): Boolean = {
-    val code = status.getStatus.getCode
-    // We handle ABORTED for backwards compatibility with pre-1.18 error codes.
-    catchableStatusCodes.contains(code) || code == Status.Code.ABORTED
+  private def isSubmitMustFailError(status: Status): Boolean = {
+    catchableStatusCodes.contains(status.code)
   }
 
   override def queryContractKey(
@@ -270,24 +264,23 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       case Right(cmds) => cmds
     }
     val apiCommands = Commands(
-      party = actAs.head,
       actAs = actAs.toList,
       readAs = readAs.toList,
       disclosedContracts = ledgerDisclosures,
       commands = ledgerCommands,
-      ledgerId = grpcClient.ledgerId.unwrap,
       applicationId = applicationId.getOrElse(""),
       commandId = UUID.randomUUID.toString,
     )
-    val request = SubmitAndWaitRequest(Some(apiCommands))
-    val transactionTreeF = grpcClient.commandServiceClient
-      .submitAndWaitForTransactionTree(request)
-      .map(Right(_))
-      .recoverWith({
-        case s: StatusRuntimeException if isSubmitMustFailError(s) =>
-          Future.successful(Left(s))
-
-      })
+    val transactionTreeF = grpcClient.v2.commandService
+      .submitAndWaitForTransactionTree(apiCommands)
+      .flatMap {
+        case Right(tree) => Future.successful(Right(tree))
+        // daml2-script is being deleted, i dont mind rebuilding the error
+        case Left(status) if isSubmitMustFailError(status) =>
+          Future.successful(Left(StatusProto.toStatusRuntimeException(Status.toJavaProto(status))))
+        case Left(status) =>
+          Future.failed(StatusProto.toStatusRuntimeException(Status.toJavaProto(status)))
+      }
     transactionTreeF.map(r =>
       r.map(transactionTree => {
         val events = transactionTree.getTransaction.rootEventIds
@@ -328,17 +321,20 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
     for {
       ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
       apiCommands = Commands(
-        party = actAs.head,
         actAs = actAs.toList,
         readAs = readAs.toList,
         commands = ledgerCommands,
-        ledgerId = grpcClient.ledgerId.unwrap,
         applicationId = applicationId.getOrElse(""),
         commandId = UUID.randomUUID.toString,
       )
-      request = SubmitAndWaitRequest(Some(apiCommands))
-      resp <- grpcClient.commandServiceClient
-        .submitAndWaitForTransactionTree(request)
+      resp <- grpcClient.v2.commandService
+        .submitAndWaitForTransactionTree(apiCommands)
+        .flatMap {
+          case Right(tree) => Future.successful(tree)
+          // daml2-script is being deleted, i dont mind rebuilding the error
+          case Left(status) =>
+            Future.failed(StatusProto.toStatusRuntimeException(Status.toJavaProto(status)))
+        }
       converted <- Converter.toFuture(Converter.fromTransactionTree(resp.getTransaction))
     } yield converted
   }
@@ -364,9 +360,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   ): Future[Time.Timestamp] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
-      resp <- ClientAdapter
-        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
-        .runWith(Sink.head)
+      resp <- timeService.getTime(GetTimeRequest())
       instant = Instant.ofEpochSecond(resp.getCurrentTime.seconds, resp.getCurrentTime.nanos.toLong)
     } yield Time.Timestamp.assertFromInstant(instant, java.math.RoundingMode.HALF_UP)
   }
@@ -378,12 +372,9 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   ): Future[Unit] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
-      oldTime <- ClientAdapter
-        .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
-        .runWith(Sink.head)
+      oldTime <- timeService.getTime(GetTimeRequest())
       _ <- timeService.setTime(
         SetTimeRequest(
-          grpcClient.ledgerId.unwrap,
           oldTime.currentTime,
           Some(toTimestamp(time.toInstant)),
         )
@@ -458,7 +449,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[Unit]] =
     grpcClient.userManagementClient.createUser(user, rights).map(_ => Some(())).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.ALREADY_EXISTS => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.ALREADY_EXISTS => None
     }
 
   override def getUser(id: UserId)(implicit
@@ -467,7 +458,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[User]] =
     grpcClient.userManagementClient.getUser(id).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 
   override def deleteUser(id: UserId)(implicit
@@ -476,7 +467,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[Unit]] =
     grpcClient.userManagementClient.deleteUser(id).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 
   override def listAllUsers()(implicit
@@ -513,7 +504,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     grpcClient.userManagementClient.grantUserRights(id, rights).map(_.toList).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 
   override def revokeUserRights(
@@ -529,7 +520,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       .map(_.toList)
       .map(Some(_))
       .recover {
-        case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+        case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
       }
 
   override def listUserRights(id: UserId)(implicit
@@ -538,6 +529,6 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     grpcClient.userManagementClient.listUserRights(id).map(_.toList).map(Some(_)).recover {
-      case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
+      case e: StatusRuntimeException if e.getStatus.getCode == Code.NOT_FOUND => None
     }
 }

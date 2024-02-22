@@ -39,7 +39,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-private[platform] trait DbDispatcher {
+private[canton] trait DbDispatcher {
   val executor: QueueAwareExecutor with NamedExecutor
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContextWithTrace
@@ -142,7 +142,6 @@ object DbDispatcher {
         minimumIdle = connectionPoolSize,
         maxPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,
-        metrics = Some(metrics.registry),
       ).afterReleased(log("HikariDataSource released"))
       connectionProvider <- DataSourceConnectionProvider
         .owner(
@@ -152,7 +151,7 @@ object DbDispatcher {
         )
         .afterReleased(log("DataSourceConnectionProvider released"))
       threadPoolName = MetricName(
-        metrics.daml.index.db.threadpool.connection,
+        metrics.index.db.threadpool.connection,
         serverRole.threadPoolSuffix,
       )
       executor <- ResourceOwner
@@ -169,7 +168,6 @@ object DbDispatcher {
                     .error("Uncaught exception in the SQL executor.", e)(TraceContext.empty)
                 )
                 .build(),
-              metrics.executorServiceMetrics,
             ),
           gracefulAwaitTerminationMillis =
             5000, // waiting 5s for ongoing SQL operations to finish and then forcing them with Thread.interrupt...
@@ -179,8 +177,8 @@ object DbDispatcher {
     } yield new DbDispatcherImpl(
       connectionProvider = connectionProvider,
       executor = executor,
-      overallWaitTimer = metrics.daml.index.db.waitAll,
-      overallExecutionTimer = metrics.daml.index.db.execAll,
+      overallWaitTimer = metrics.index.db.waitAll,
+      overallExecutionTimer = metrics.index.db.execAll,
       loggerFactory = loggerFactory,
     )
   }

@@ -8,11 +8,12 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v0
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionX.GenericStoredTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.*
 
@@ -33,9 +34,9 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
     result.map(_.transaction.transaction.mapping).toList
 
   // note, we are reusing v0, as v0 just expects bytestrings ...
-  def toProtoV0: v0.TopologyTransactions = v0.TopologyTransactions(
+  def toProtoV30: v30.TopologyTransactions = v30.TopologyTransactions(
     items = result.map { item =>
-      v0.TopologyTransactions.Item(
+      v30.TopologyTransactions.Item(
         sequenced = Some(item.sequenced.toProtoPrimitive),
         validFrom = Some(item.validFrom.toProtoPrimitive),
         validUntil = item.validUntil.map(_.toProtoPrimitive),
@@ -65,9 +66,9 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   }
 
   def filter(
-      pred: SignedTopologyTransactionX[Op, M] => Boolean
+      pred: StoredTopologyTransactionX[Op, M] => Boolean
   ): StoredTopologyTransactionsX[Op, M] =
-    StoredTopologyTransactionsX(result.filter(stored => pred(stored.transaction)))
+    StoredTopologyTransactionsX(result.filter(stored => pred(stored)))
 
   def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] =
     StoredTopologyTransactionsX(
@@ -135,18 +136,18 @@ object StoredTopologyTransactionsX
     StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
+    ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v30,
-      supportedProtoVersion(v0.TopologyTransactions)(fromProtoV0),
-      _.toProtoV0.toByteString,
+      supportedProtoVersion(v30.TopologyTransactions)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
-  def fromProtoV0(
-      value: v0.TopologyTransactions
+  def fromProtoV30(
+      value: v30.TopologyTransactions
   ): ParsingResult[GenericStoredTopologyTransactionsX] = {
     def parseItem(
-        item: v0.TopologyTransactions.Item
+        item: v30.TopologyTransactions.Item
     ): ParsingResult[GenericStoredTopologyTransactionX] = {
       for {
         sequenced <- ProtoConverter.parseRequired(
@@ -206,4 +207,34 @@ final case class SignedTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
 object SignedTopologyTransactionsX {
   type PositiveSignedTopologyTransactionsX =
     SignedTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX]
+
+  /** Merges the signatures of transactions with the same transaction hash,
+    * while maintaining the order of the first occurrence of each hash.
+    *
+    * For example:
+    * {{{
+    * val original = Seq(hash_A, hash_B, hash_A, hash_C, hash_B)
+    * compact(original) == Seq(hash_A, hash_B, hash_C)
+    * }}}
+    */
+  def compact(
+      txs: Seq[GenericSignedTopologyTransactionX]
+  ): Seq[GenericSignedTopologyTransactionX] = {
+    val byHash = txs
+      .groupBy(_.transaction.hash)
+      .view
+      .mapValues(_.reduceLeftOption((tx1, tx2) => tx1.addSignatures(tx2.signatures.toSeq)))
+      .collect { case (k, Some(v)) => k -> v }
+      .toMap
+
+    val (compacted, _) = {
+      txs.foldLeft((Vector.empty[GenericSignedTopologyTransactionX], byHash)) {
+        case ((result, byHash), tx) =>
+          val newResult = byHash.get(tx.transaction.hash).map(result :+ _).getOrElse(result)
+          val txHashRemoved = byHash.removed(tx.transaction.hash)
+          (newResult, txHashRemoved)
+      }
+    }
+    compacted
+  }
 }

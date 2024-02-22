@@ -3,15 +3,14 @@
 
 package com.digitalasset.canton.integration
 
-import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
-import com.digitalasset.canton.config.NonNegativeDuration
-import com.digitalasset.canton.console.{CommandFailure, ParticipantReferenceCommon}
+import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.{
   BaseTest,
   ProtocolVersionChecksFixtureAnyWordSpec,
   RepeatableTestSuiteTest,
+  config,
 }
 import org.scalactic.source
 import org.scalactic.source.Position
@@ -19,7 +18,6 @@ import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, ConfigMap, Outcome}
 
 import scala.collection.immutable
-import scala.concurrent.duration.*
 
 /** A highly opinionated base trait for writing integration tests interacting with a canton environment using console commands.
   * Tests must mixin a further [[EnvironmentSetup]] implementation to define when the canton environment is setup around the individual tests:
@@ -84,8 +82,8 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
     * But unlike `ping`, this version mixes nicely with `eventually`.
     */
   def assertPingSucceeds(
-      sender: ParticipantReferenceCommon,
-      receiver: ParticipantReferenceCommon,
+      sender: ParticipantReference,
+      receiver: ParticipantReference,
       timeoutMillis: Long = 20000,
       workflowId: String = "",
       id: String = "",
@@ -93,35 +91,11 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
     withClue(s"${sender.name} was unable to ping ${receiver.name} within ${timeoutMillis}ms:") {
       sender.health.maybe_ping(
         receiver.id,
-        NonNegativeDuration(timeoutMillis.millis),
-        workflowId,
-        id,
+        config.NonNegativeDuration.ofMillis(timeoutMillis),
+        workflowId = workflowId,
+        id = id,
       ) shouldBe defined
     }
-
-  /** Similar to [[com.digitalasset.canton.console.commands.ParticipantAdministration#ping]]
-    * But unlike `ping`, this version mixes nicely with `eventually` and it waits until all pong contracts have been archived.
-    */
-  def assertPingSucceedsAndIsClean(
-      sender: ParticipantReferenceCommon,
-      receiver: ParticipantReferenceCommon,
-      timeoutMillis: Long = 20000,
-      workflowId: String = "",
-      id: String = "",
-  ): Assertion = {
-    assertPingSucceeds(sender, receiver, timeoutMillis, workflowId, id)
-    // wait for pong to be archived before proceeding to avoid race conditions
-    eventually() {
-      import com.digitalasset.canton.participant.admin.workflows.java as W
-      forEvery(Seq(sender, receiver)) { p =>
-        p.ledger_api_v2.state.acs
-          .of_party(
-            p.id.adminParty,
-            filterTemplates = templateIdsFromJava(W.pingpong.Pong.TEMPLATE_ID),
-          ) shouldBe empty
-      }
-    }
-  }
 
   class TestWithSetup(test: OneArgTest) extends NoArgTest {
     override val configMap: ConfigMap = test.configMap

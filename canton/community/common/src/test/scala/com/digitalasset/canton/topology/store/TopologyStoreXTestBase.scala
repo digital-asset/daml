@@ -41,7 +41,7 @@ private[store] trait TopologyStoreXTestBase extends BaseTest with HasExecutionCo
 
   protected def inspect(
       store: TopologyStoreX[TopologyStoreId],
-      timeQuery: TimeQueryX,
+      timeQuery: TimeQuery,
       proposals: Boolean = false,
       recentTimestampO: Option[CantonTimestamp] = None,
       op: Option[TopologyChangeOpX] = None,

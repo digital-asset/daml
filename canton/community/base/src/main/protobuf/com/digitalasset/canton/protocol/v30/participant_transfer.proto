@@ -1,0 +1,103 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/common.proto";
+import "com/digitalasset/canton/protocol/v30/merkle.proto";
+import "com/digitalasset/canton/protocol/v30/signed_content.proto";
+import "com/digitalasset/canton/time/v30/time_proof.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// Messages sent by a participant as part of the transfer protocol
+
+message TransferId {
+  string source_domain = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+// Messages sent by a participant as part of the transfer protocol
+
+message TransferOutCommonData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  string source_domain = 2;
+  repeated string stakeholders = 3;
+  repeated string admin_parties = 4;
+  string uuid = 5;
+  string source_mediator = 6;
+  int32 source_protocol_version = 7;
+  TransferSubmitterMetadata submitter_metadata = 8;
+}
+
+message TransferViewTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  bytes common_data = 1;
+  BlindableNode participant_data = 2;
+}
+
+message TransferInMediatorMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  TransferViewTree tree = 1;
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
+}
+
+message TransferOutMediatorMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  TransferViewTree tree = 1;
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
+}
+
+message TransferInCommonData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  string target_domain = 2;
+  repeated string stakeholders = 3;
+  string uuid = 4;
+  string target_mediator = 6;
+  int32 target_protocol_version = 7;
+  TransferSubmitterMetadata submitter_metadata = 8;
+}
+
+message TransferSubmitterMetadata {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  string submitter = 1;
+  string submitting_participant = 2;
+  string command_id = 3;
+  string submission_id = 4; // optional
+  string application_id = 5;
+  string workflow_id = 6; // optional
+}
+
+message TransferOutView {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  string target_domain = 3;
+  com.digitalasset.canton.time.v30.TimeProof target_time_proof = 4;
+  int32 target_protocol_version = 5;
+  int64 transfer_counter = 11;
+  bytes creating_transaction_id = 12;
+  com.digitalasset.canton.protocol.v30.SerializableContract contract = 13;
+}
+
+message TransferInView {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  v30.SerializableContract contract = 3;
+  v30.SignedContent transfer_out_result_event = 4;
+  bytes creating_transaction_id = 5;
+  int32 source_protocol_version = 6;
+  int64 transfer_counter = 12;
+}

@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import cats.syntax.parallel.*
 import com.daml.lf.data.Bytes
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DecryptionError as _, EncryptionError as _, *}
@@ -48,7 +47,6 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
@@ -112,7 +110,7 @@ private[transfer] class TransferInProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -129,15 +127,22 @@ private[transfer] class TransferInProcessingSteps(
     val submitter = submitterMetadata.submitter
 
     def activeParticipantsOfParty(
-        party: LfPartyId
-    ): EitherT[Future, TransferProcessorError, Set[ParticipantId]] =
-      EitherT(topologySnapshot.activeParticipantsOf(party).map(_.keySet).map { participants =>
-        Either.cond(
-          participants.nonEmpty,
-          participants,
-          NoParticipantForReceivingParty(transferId, party),
-        )
-      })
+        parties: Seq[LfPartyId]
+    ): EitherT[Future, TransferProcessorError, Set[ParticipantId]] = EitherT(
+      topologySnapshot.activeParticipantsOfPartiesWithAttributes(parties).map {
+        partyToParticipantAttributes =>
+          import cats.syntax.traverse.*
+          partyToParticipantAttributes.toSeq
+            .traverse { case (party, participants) =>
+              Either.cond(
+                participants.nonEmpty,
+                participants.keySet,
+                NoParticipantForReceivingParty(transferId, party),
+              )
+            }
+            .map(_.toSet.flatten)
+      }
+    )
 
     val result = for {
       transferData <- ephemeralState.transferLookup
@@ -183,12 +188,11 @@ private[transfer] class TransferInProcessingSteps(
       )
 
       rootHash = fullTree.rootHash
-      mediatorMessage = fullTree.mediatorMessage
-      recipientsSet <- {
-        stakeholders.toSeq
-          .parTraverse(activeParticipantsOfParty)
-          .map(_.foldLeft(Set.empty[Member])(_ ++ _))
-      }
+      submittingParticipantSignature <- recentSnapshot
+        .sign(rootHash.unwrap)
+        .leftMap(TransferSigningError)
+      mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
+      recipientsSet <- activeParticipantsOfParty(stakeholders.toSeq)
       recipients <- EitherT.fromEither[Future](
         Recipients
           .ofSet(recipientsSet)
@@ -217,17 +221,17 @@ private[transfer] class TransferInProcessingSteps(
           checked(
             NonEmptyUtil.fromUnsafe(
               recipientsSet.toSeq.map(participant =>
-                NonEmpty(Set, mediator.toRecipient, MemberRecipient(participant))
+                NonEmpty(Set, mediator, MemberRecipient(participant))
               )
             )
           )
         )
       val messages = Seq[(ProtocolMessage, Recipients)](
-        mediatorMessage -> Recipients.cc(mediator.toRecipient),
+        mediatorMessage -> Recipients.cc(mediator),
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
-      TransferSubmission(Batch.of(targetProtocolVersion.v, messages: _*), rootHash)
+      TransferSubmission(Batch.of(targetProtocolVersion.v, messages*), rootHash)
     }
 
     result.mapK(FutureUnlessShutdown.outcomeK).widen[Submission]
@@ -284,7 +288,7 @@ private[transfer] class TransferInProcessingSteps(
       ],
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -343,7 +347,7 @@ private[transfer] class TransferInProcessingSteps(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -446,7 +450,7 @@ private[transfer] class TransferInProcessingSteps(
 
           EitherT
             .fromEither[FutureUnlessShutdown](
-              MediatorResponse
+              ConfirmationResponse
                 .create(
                   requestId,
                   participantId,
@@ -459,7 +463,7 @@ private[transfer] class TransferInProcessingSteps(
                 )
             )
             .leftMap(e => FailedToCreateResponse(transferId, e): TransferProcessorError)
-            .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator.toRecipient)))
+            .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator)))
       }
     } yield {
       StorePendingDataAndSendResponseAndCreateTimeout(
@@ -477,11 +481,8 @@ private[transfer] class TransferInProcessingSteps(
     s"Transfer-in $requestId: $message"
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      messageE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
-      resultE: Either[MalformedMediatorRequestResult, TransferInResult],
+      messageE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[MalformedConfirmationRequestResult, TransferInResult],
       pendingRequestData: PendingTransferIn,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -504,7 +505,7 @@ private[transfer] class TransferInProcessingSteps(
     ) = pendingRequestData
 
     import scala.util.Either.MergeableEither
-    MergeableEither[MediatorResult](resultE).merge.verdict match {
+    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -579,8 +580,8 @@ private[transfer] class TransferInProcessingSteps(
       LfNodeCreate(
         coid = contract.contractId,
         templateId = contractInst.template,
+        packageName = contractInst.packageName,
         arg = contractInst.arg,
-        agreementText = "", // TODO(i12451): get the right agreement text from `contractInst`
         signatories = contract.metadata.signatories,
         stakeholders = contract.metadata.stakeholders,
         keyOpt = contract.metadata.maybeKeyWithMaintainers,
@@ -606,7 +607,7 @@ private[transfer] class TransferInProcessingSteps(
       )
 
       completionInfo =
-        Option.when(participantId.toLf == submitterMetadata.submittingParticipant)(
+        Option.when(participantId == submitterMetadata.submittingParticipant)(
           CompletionInfo(
             actAs = List(submitterMetadata.submitter),
             applicationId = submitterMetadata.applicationId,
@@ -627,7 +628,6 @@ private[transfer] class TransferInProcessingSteps(
       contractMetadata = driverContractMetadata,
       transferId = transferId,
       targetDomain = targetDomain,
-      createTransactionAccepted = !isTransferringParticipant,
       workflowId = submitterMetadata.workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
@@ -664,7 +664,7 @@ object TransferInProcessingSteps {
       isTransferringParticipant: Boolean,
       transferId: TransferId,
       hostedStakeholders: Set[LfPartyId],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ) extends PendingTransfer
       with PendingRequestData
 
@@ -677,7 +677,7 @@ object TransferInProcessingSteps {
       transferCounter: TransferCounterO,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorRef,
+      targetMediator: MediatorsOfDomain,
       transferOutResult: DeliveredTransferOutResult,
       transferInUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,
@@ -693,6 +693,7 @@ object TransferInProcessingSteps {
         targetMediator,
         stakeholders,
         transferInUuid,
+        submitterMetadata,
         targetProtocolVersion,
       )
 
@@ -700,7 +701,6 @@ object TransferInProcessingSteps {
       view <- TransferInView
         .create(pureCrypto)(
           viewSalt,
-          submitterMetadata,
           contract,
           creatingTransactionId,
           transferOutResult,

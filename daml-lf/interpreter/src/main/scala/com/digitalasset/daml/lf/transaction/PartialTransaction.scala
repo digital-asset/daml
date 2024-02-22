@@ -142,7 +142,7 @@ private[lf] object PartialTransaction {
     */
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
-      packageName: Option[PackageName],
+      packageName: PackageName,
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
       contractKey: Option[GlobalKeyWithMaintainers],
@@ -449,7 +449,7 @@ private[speedy] case class PartialTransaction(
     * Must be closed by a `endExercises` or an `abortExercise`.
     */
   def beginExercises(
-      packageName: Option[PackageName],
+      packageName: PackageName,
       templateId: TypeConName,
       targetId: Value.ContractId,
       contract: ContractInfo,
@@ -618,13 +618,7 @@ private[speedy] case class PartialTransaction(
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
-  def rollbackTry(ex: SValue.SAny): PartialTransaction = {
-    // we must never create a rollback containing a node with a version pre-dating exceptions
-    if (context.minChildVersion < TxVersion.minExceptions) {
-      throw SError.SErrorDamlException(
-        interpretation.Error.UnhandledException(ex.ty, ex.value.toUnnormalizedValue)
-      )
-    }
+  def rollbackTry(): PartialTransaction = {
     context.info match {
       case info: TryContextInfo =>
         // In the case of there being no children we could drop the entire rollback node.

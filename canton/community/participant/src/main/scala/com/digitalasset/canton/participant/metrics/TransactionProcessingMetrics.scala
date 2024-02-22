@@ -4,21 +4,22 @@
 package com.digitalasset.canton.participant.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 
 class TransactionProcessingMetrics(
     val prefix: MetricName,
-    factory: LabeledMetricsFactory,
-) {
+    factory: CantonLabeledMetricsFactory,
+)(implicit context: MetricsContext) {
 
   object protocolMessages {
     private val prefix = TransactionProcessingMetrics.this.prefix :+ "protocol-messages"
 
     @MetricDoc.Tag(
-      summary = "Time to create a confirmation request",
+      summary = "Time to create a transaction confirmation request",
       description =
-        """The time that the transaction protocol processor needs to create a confirmation request.""",
+        """The time that the transaction protocol processor needs to create a transaction confirmation request.""",
       qualification = Debug,
     )
     val confirmationRequestCreation: Timer =

@@ -35,7 +35,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class AuthPropagationSpecV1 extends AuthPropagationSpec(LanguageMajorVersion.V1)
 class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
 
 class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -101,7 +100,8 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
       toContractId("x1c") -> x1InstanceFor("Charlie"),
     )
 
-  private val readAs: Set[Party] = Set.empty
+  // we want all contracts to be visible
+  private val readAs: Set[Party] = Set("Alice", "Bob", "Charlie")
   private val let: Time.Timestamp = Time.Timestamp.now()
   private val participant: ParticipantId = ParticipantId.assertFromString("participant")
   private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")

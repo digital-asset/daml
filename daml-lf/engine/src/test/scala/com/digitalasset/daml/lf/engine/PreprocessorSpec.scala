@@ -8,7 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.daml.lf.command.ApiCommand
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageMinorVersion, LanguageVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.{ArrayList, Command, DisclosedContract, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
 import org.scalatest.{Assertion, Inside, Inspectors}
@@ -20,9 +20,7 @@ import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
 import com.daml.lf.value.Value
 import com.daml.lf.speedy.Compiler
-import com.daml.lf.transaction.Util
 
-class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
 class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
 class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -108,7 +106,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       compiledPkgs.addPackage(defaultPackageId, pkg)
       val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
 
-      val priority = Map(pkgName.get -> defaultPackageId)
+      val priority = Map(pkgName -> defaultPackageId)
 
       forEvery(cmdsByPackageName)(cmd =>
         inside(
@@ -288,8 +286,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-      // TODO(#17366): use something like LanguageVersion.default(major) once available
-      LanguageVersion(majorLanguageVersion, LanguageMinorVersion("dev")),
+      LanguageVersion.defaultOrLatestStable(majorLanguageVersion),
     )
 
   implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId
@@ -305,7 +302,6 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             precondition True;
             signatories Mod:WithoutKey {owners} this;
             observers Mod:WithoutKey {owners} this;
-            agreement "Agreement";
             choice Noop (self) (u: Unit) : Unit,
               controllers (Mod:WithoutKey {owners} this),
               observers Nil @Party
@@ -318,7 +314,6 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             precondition True;
             signatories Mod:WithKey {owners} this;
             observers Mod:WithKey {owners} this;
-            agreement "Agreement";
             choice Noop (self) (u: Unit) : Unit,
               controllers (Mod:WithKey {owners} this),
               observers Nil @Party
@@ -339,7 +334,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       crypto.Hash.hashPrivateKey("test-contract-id"),
       Bytes.assertFromString("deadbeef"),
     )
-  val pkgRef = Ref.PackageRef.Name(pkgName.get)
+  val pkgRef = Ref.PackageRef.Name(pkgName)
   val withoutKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithoutKey")
   val withoutKeyTmplRef: Ref.TypeConRef = Ref.TypeConRef(pkgRef, withoutKeyTmplId.qualifiedName)
   val withKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithKey")
@@ -352,7 +347,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
     ),
   )
   val keyHash: Hash =
-    crypto.Hash.assertHashContractKey(withKeyTmplId, key, Util.sharedKey(pkg.languageVersion))
+    crypto.Hash.assertHashContractKey(withKeyTmplId, key)
   val choiceId = Ref.Name.assertFromString("Noop")
 
   def buildDisclosedContract(

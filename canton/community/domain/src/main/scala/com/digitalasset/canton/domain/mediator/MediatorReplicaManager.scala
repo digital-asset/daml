@@ -5,12 +5,12 @@ package com.digitalasset.canton.domain.mediator
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.admin.v0.MediatorAdministrationServiceGrpc
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.admin.v30.MediatorAdministrationServiceGrpc
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FlagCloseableAsync, SyncCloseable}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonMutableHandlerRegistry, GrpcDynamicService}
+import com.digitalasset.canton.time.admin.v30
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 
@@ -23,8 +23,7 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
       : SingleUseCell[() => EitherT[Future, String, MediatorRuntime]] =
     new SingleUseCell
 
-  protected def getMediatorRuntimeFactory()
-      : Option[() => EitherT[Future, String, MediatorRuntime]] =
+  protected def getMediatorRuntimeFactory: Option[() => EitherT[Future, String, MediatorRuntime]] =
     mediatorRuntimeFactoryRef.get
 
   protected val mediatorRuntimeRef = new AtomicReference[Option[MediatorRuntime]](None)
@@ -35,7 +34,7 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
 
   val domainTimeService =
     new GrpcDynamicService(
-      v0.DomainTimeServiceGrpc.SERVICE,
+      v30.DomainTimeServiceGrpc.SERVICE,
       serviceUnavailableMessage,
       loggerFactory,
     )

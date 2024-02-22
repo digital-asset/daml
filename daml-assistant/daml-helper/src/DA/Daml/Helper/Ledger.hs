@@ -22,7 +22,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerUploadDar',
     runLedgerFetchDar,
     runLedgerExport,
-    runLedgerReset,
+    -- runLedgerReset,
     runLedgerGetDalfs,
     runLedgerListPackages,
     runLedgerListPackages0,
@@ -35,7 +35,7 @@ import Control.Exception (SomeException(..), catch)
 import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
-import Control.Monad.IO.Class (liftIO)
+-- import Control.Monad.IO.Class (liftIO)
 import Data.Aeson ((.=), encode)
 import qualified Data.Aeson as A
 import Data.Aeson.Text
@@ -51,8 +51,8 @@ import Data.String (fromString)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
-import qualified Data.UUID as UUID
-import qualified Data.UUID.V4 as UUID
+-- import qualified Data.UUID as UUID
+-- import qualified Data.UUID.V4 as UUID
 import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Numeric.Natural
 import System.Exit
@@ -60,7 +60,7 @@ import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
 
-import Com.Daml.Ledger.Api.V1.TransactionFilter
+-- import Com.Daml.Ledger.Api.V1.TransactionFilter
 import DA.Daml.Compiler.Dar (createArchive, createDarFile)
 import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF
@@ -277,29 +277,25 @@ fetchDar args rootPid saveAs = do
   let (dalf,pkgId) = LFArchive.encodeArchiveAndHash rootPkg
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
         [ (txt,bs,pkgId)
-        | (pid,Just pkg) <- Map.toList (Map.delete rootPid pkgs)
-        , let txt = recoverPackageName pkg pid
+        | Just pkg <- Map.elems (Map.delete rootPid pkgs)
+        , let txt = recoverPackageName pkg
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
         ]
   let (pName,pVersion) = do
         let LF.Package {packageMetadata} = rootPkg
         case packageMetadata of
-          Nothing -> (LF.PackageName $ T.pack "reconstructed",Nothing)
-          Just LF.PackageMetadata{packageName,packageVersion} -> (packageName,Just packageVersion)
+          LF.PackageMetadata{packageName,packageVersion} -> (packageName,Just packageVersion)
   let pSdkVersion = unresolvedBuiltinSdkVersion
   let srcRoot = error "unexpected use of srcRoot when there are no sources"
   let za = createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot [] [] []
   createDarFile loggerH saveAs za
   return $ Map.size pkgs
 
-recoverPackageName :: LF.Package -> LF.PackageId -> T.Text
-recoverPackageName pkg pid= do
-  let LF.Package {packageMetadata} = pkg
-  case packageMetadata of
-    Just LF.PackageMetadata{packageName} -> LF.unPackageName packageName
-    -- fallback, manufacture a name from the pid
-    Nothing -> LF.unPackageId pid
+recoverPackageName :: LF.Package -> T.Text
+recoverPackageName pkg = do
+  let LF.Package{packageMetadata = LF.PackageMetadata{packageName}} = pkg
+  LF.unPackageName packageName
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
 downloadAllReachablePackages ::
@@ -344,8 +340,7 @@ downloadPackage args pid = do
   bs <-
       do
         runWithLedgerArgs args $ do
-          lid <- L.getLedgerIdentity
-          mbPkg <- L.getPackage lid $ convPid pid
+          mbPkg <- L.getPackage $ convPid pid
           case mbPkg of
             Nothing -> fail $ "Unable to download package with identity: " <> show pid
             Just (L.Package bs) -> pure bs
@@ -358,8 +353,8 @@ downloadPackage args pid = do
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
 data RemoteDalf = RemoteDalf
-    { remoteDalfName :: Maybe LF.PackageName
-    , remoteDalfVersion :: Maybe LF.PackageVersion
+    { remoteDalfName :: LF.PackageName
+    , remoteDalfVersion :: LF.PackageVersion
     , remoteDalfBs :: BS.ByteString
     , remoteDalfIsMain :: Bool
     , remoteDalfPkgId :: LF.PackageId
@@ -384,18 +379,17 @@ runLedgerGetDalfs lflags pkgIds exclPkgIds
             , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
             , let LF.Package {packageMetadata} = pkg
             , let remoteDalfPkgId = pid
-            , let remoteDalfName = LF.packageName <$> packageMetadata
+            , let remoteDalfName = LF.packageName packageMetadata
             , let remoteDalfBs = BSL.toStrict bsl
             , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
-            , let remoteDalfVersion = LF.packageVersion <$> packageMetadata
+            , let remoteDalfVersion = LF.packageVersion packageMetadata
             ]
 
 runLedgerListPackages :: LedgerFlags -> IO [LF.PackageId]
 runLedgerListPackages lflags = do
     args <- getDefaultArgs lflags
     runWithLedgerArgs args $ do
-            lid <- L.getLedgerIdentity
-            pkgIds <- L.listPackages lid
+            pkgIds <- L.listPackages
             pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
 
 -- | Same as runLedgerListPackages, but print output.
@@ -413,11 +407,8 @@ runLedgerListPackages0 flags = do
         , versionM <- [remoteDalfVersion]
         ]
   where
-    suffix (Just name) (Just version) =
+    suffix name version =
         "(" <> LF.unPackageName name <> "-" <> LF.unPackageVersion version <> ")"
-    suffix (Just name) Nothing = "(" <> LF.unPackageName name <> ")"
-    suffix Nothing (Just _version) = ""
-    suffix Nothing Nothing = ""
 
 listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =
@@ -438,56 +429,58 @@ allocateParty args name = do
         L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text}
   return party
 
-runLedgerReset :: LedgerFlags -> IO ()
-runLedgerReset flags = do
-  putStrLn "Resetting ledger."
-  args <- getDefaultArgs flags
-  reset args
+-- TODO[SW] Implementation not ported to ledger-api-v1, as it wasn't fully working in the first place, and we're moving away from
+-- hs-bindings stream support. We may add this back later in a different form.
+-- runLedgerReset :: LedgerFlags -> IO ()
+-- runLedgerReset flags = do
+--   putStrLn "Resetting ledger."
+--   args <- getDefaultArgs flags
+--   reset args
 
-reset :: LedgerArgs -> IO ()
-reset args = do
-    runWithLedgerArgs args $ do
-        parties <- map L.party <$> L.listKnownParties
-        unless (null parties) $ do
-          ledgerId <- L.getLedgerIdentity
-          activeContracts <-
-            L.getActiveContracts
-              ledgerId
-              (TransactionFilter $
-               Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
-              (L.Verbosity False)
-          let chunks = chunksOf 100 activeContracts
-          forM_ chunks $ \chunk -> do
-            let cmds cmdId =
-                  L.Commands
-                    { coms =
-                        [ L.ExerciseCommand
-                          { tid = tid
-                          , cid = cid
-                          , choice = L.Choice "Archive"
-                          , arg = L.VRecord $ L.Record Nothing []
-                          }
-                        | (_offset, _mbWid, events) <- chunk
-                        , L.CreatedEvent {cid, tid} <- events
-                        ]
-                    , lid = ledgerId
-                    , wid = Nothing
-                    , aid = L.ApplicationId "ledger-reset"
-                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
-                    , actAs = parties
-                    , readAs = []
-                    , dedupPeriod = Nothing
-                    , minLeTimeAbs = Nothing
-                    , minLeTimeRel = Nothing
-                    , sid = Nothing
-                    }
-            let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
-            unless noCommands $ do
-              cmdId <- liftIO UUID.nextRandom
-              errOrEmpty <- L.submit $ cmds cmdId
-              case errOrEmpty of
-                Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
-                Right () -> pure ()
+-- reset :: LedgerArgs -> IO ()
+-- reset args = do
+--     runWithLedgerArgs args $ do
+--         parties <- map L.party <$> L.listKnownParties
+--         unless (null parties) $ do
+--           ledgerId <- L.getLedgerIdentity
+--           activeContracts <-
+--             L.getActiveContracts
+--               ledgerId
+--               (TransactionFilter $
+--                Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
+--               (L.Verbosity False)
+--           let chunks = chunksOf 100 activeContracts
+--           forM_ chunks $ \chunk -> do
+--             let cmds cmdId =
+--                   L.Commands
+--                     { coms =
+--                         [ L.ExerciseCommand
+--                           { tid = tid
+--                           , cid = cid
+--                           , choice = L.Choice "Archive"
+--                           , arg = L.VRecord $ L.Record Nothing []
+--                           }
+--                         | (_offset, _mbWid, events) <- chunk
+--                         , L.CreatedEvent {cid, tid} <- events
+--                         ]
+--                     , lid = ledgerId
+--                     , wid = Nothing
+--                     , aid = L.ApplicationId "ledger-reset"
+--                     , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+--                     , actAs = parties
+--                     , readAs = []
+--                     , dedupPeriod = Nothing
+--                     , minLeTimeAbs = Nothing
+--                     , minLeTimeRel = Nothing
+--                     , sid = Nothing
+--                     }
+--             let noCommands = null [ x | (_offset, _mbWid, events) <- chunk, x <- events ]
+--             unless noCommands $ do
+--               cmdId <- liftIO UUID.nextRandom
+--               errOrEmpty <- L.submit $ cmds cmdId
+--               case errOrEmpty of
+--                 Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+--                 Right () -> pure ()
 
 -- | Run export against configured ledger.
 runLedgerExport :: LedgerFlags -> [String] -> IO ()

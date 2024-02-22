@@ -60,6 +60,9 @@ template Iou
       controller owner
       do create this with observers = filter (/= oldObserver) observers
 
+    interface instance IIou for Iou where
+      view = AmountAndCurrency currency amount
+
 template IouTransfer
   with
     iou : Iou
@@ -81,3 +84,13 @@ template IouTransfer
       do create iou with
            owner = newOwner
            observers = []
+
+data AmountAndCurrency = AmountAndCurrency with
+    -- pointlessly different field names to ensure that template
+    -- payloads aren't being returned
+    icurrency : Text
+    iamount : Decimal
+
+interface IIou where
+  viewtype AmountAndCurrency
+

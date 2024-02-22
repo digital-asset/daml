@@ -29,12 +29,6 @@ object Encode {
     val LanguageVersion(major, minor) = version
 
     major match {
-      case LanguageMajorVersion.V1 =>
-        PLF.ArchivePayload
-          .newBuilder()
-          .setMinor(minor.toProtoIdentifier)
-          .setDamlLf1(new EncodeV1(minor).encodePackage(pkgId, pkg))
-          .build()
       case LanguageMajorVersion.V2 =>
         PLF.ArchivePayload
           .newBuilder()

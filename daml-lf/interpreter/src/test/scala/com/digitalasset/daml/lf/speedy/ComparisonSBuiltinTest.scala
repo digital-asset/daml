@@ -14,7 +14,6 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ComparisonSBuiltinTestV1 extends ComparisonSBuiltinTest(LanguageMajorVersion.V1)
 class ComparisonSBuiltinTestV2 extends ComparisonSBuiltinTest(LanguageMajorVersion.V2)
 
 class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
@@ -60,7 +59,6 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
              precondition True;
              signatories (Nil @Party);
              observers (Nil @Party);
-             agreement "Agreement for Mod:Template";
           };
         }
 
@@ -112,7 +110,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           t"Unit" -> List(e"()"),
           t"Bool" -> List(e"False", e"True"),
           t"Int64" -> List(e"-3", e"0", e"1"),
-          t"Decimal" -> List(e"-10000.0000000000", e"0.0000000000", e"10000.0000000000"),
+          t"Numeric 10" -> List(e"-10000.0000000000", e"0.0000000000", e"10000.0000000000"),
           t"Numeric 0" -> List(e"-10000.", e"0.", e"10000."),
           t"Text" ->
             // Note that in UTF8  "｡" < "😂" but in UTF16 "｡" > "😂"

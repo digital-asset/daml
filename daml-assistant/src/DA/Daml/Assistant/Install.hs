@@ -22,7 +22,7 @@ import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Version as DAVersion
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
-import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..), resolveSdkVersionToRelease)
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion, UseCache (..), resolveSdkVersionToRelease, CouldNotResolveReleaseVersion(..))
 import DA.Daml.Assistant.Cache (CacheTimeout (..))
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
@@ -52,6 +52,7 @@ import Options.Applicative.Extended (determineAuto)
 import qualified Data.SemVer as V
 import qualified Data.Text as T
 import qualified Control.Exception
+import qualified Data.List.NonEmpty as NonEmpty
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -371,19 +372,39 @@ httpInstall env@InstallEnv{targetVersionM = releaseVersion, ..} = do
         !firstEEVersion =
             let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
             in either Control.Exception.throw id (unsafeParseOldReleaseVersion verStr)
+
         downloadLocation :: DAVersion.InstallLocation -> IO ()
-        downloadLocation (DAVersion.HttpInstallLocation url headers) = do
-            request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
-            withResponse (setRequestHeaders headers request) $ \response -> do
-                when (getResponseStatusCode response /= 200) $
-                    throwIO . assistantErrorBecause ("Failed to download release from " <> url <> ".")
-                            . pack . show $ getResponseStatus response
-                let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
-                extractAndInstall (fmap Just env)
-                    . maybe id (\s -> (.| observeProgress s)) totalSizeM
-                    $ getResponseBody response
+        downloadLocation (DAVersion.HttpInstallLocations (location NonEmpty.:| alternatives)) = do
+            installationSucceeded <- go location alternatives
+            when (not installationSucceeded) $
+              throwIO $ assistantError "Could not download release from any of the following locations: "
+            where
+            go :: DAVersion.HttpInstallLocation -> [DAVersion.HttpInstallLocation] -> IO Bool
+            go location alternatives = do
+                location <- try (downloadHttpLocation location)
+                case location of
+                  Left err@AssistantError {} -> do
+                      hPutStrLn stderr $ displayException err
+                      case alternatives of
+                        [] -> pure False
+                        (next:rest) -> go next rest
+                  Right () -> pure True
+
+            downloadHttpLocation :: DAVersion.HttpInstallLocation -> IO ()
+            downloadHttpLocation (DAVersion.HttpInstallLocation url headers name) = do
+                hPutStrLn stderr $ "Trying to install version via HTTP from " <> T.unpack name
+                request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
+                withResponse (setRequestHeaders headers request) $ \response -> do
+                    when (getResponseStatusCode response /= 200) $
+                        throwIO . assistantErrorBecause ("Failed to download release from " <> url <> ".")
+                                . pack . show $ getResponseStatus response
+                    let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
+                    extractAndInstall (fmap Just env)
+                        . maybe id (\s -> (.| observeProgress s)) totalSizeM
+                        $ getResponseBody response
         downloadLocation (DAVersion.FileInstallLocation file) =
             extractAndInstall (fmap Just env) (sourceFileBS file)
+
         observeProgress :: MonadResource m =>
             Int -> ConduitT BS.ByteString BS.ByteString m ()
         observeProgress totalSize = do
@@ -468,32 +489,33 @@ versionInstall env@InstallEnv{targetVersionM = version, ..} = withInstallLock en
 
 -- | Install the latest version of the SDK.
 latestInstall :: InstallEnvWithoutVersion -> IO ()
-latestInstall env@InstallEnv{..} = do
-    version1 <- getLatestReleaseVersion useCache
-        -- override the cache if it's older than 1 day, even if daml-config.yaml says otherwise
-        { overrideTimeout = Just (CacheTimeout 86400)
-        }
-    version2M <- if iSnapshots options
-        then tryAssistantM $ getLatestSdkSnapshotVersion useCache
-        else pure Nothing
-    let version = maybe version1 (max version1) version2M
-    versionInstall env { targetVersionM = version }
+latestInstall env@InstallEnv{..} =
+    wrapErr "Installing latest daml version" $ do
+        version1 <- getLatestReleaseVersion useCache
+            -- override the cache if it's older than 1 day, even if daml-config.yaml says otherwise
+            { overrideTimeout = Just (CacheTimeout 86400)
+            }
+        version2M <- if iSnapshots options
+            then tryAssistantM $ getLatestSdkSnapshotVersion useCache
+            else pure Nothing
+        let version = maybe version1 (max version1) version2M
+        versionInstall env { targetVersionM = version }
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnvWithoutVersion -> ProjectPath -> IO ()
 projectInstall env projectPath = do
+    wrapErr "Installing daml version in project config (daml.yaml)" $ do
     projectConfig <- readProjectConfig projectPath
     unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromProjectConfig projectConfig
     unresolvedVersion <- required "SDK version missing from project config (daml.yaml)." unresolvedVersionM
-    version <- DAVersion.resolveReleaseVersion (useCache env) unresolvedVersion
+    version <- DAVersion.resolveReleaseVersionUnsafe (useCache env) unresolvedVersion
     versionInstall env { targetVersionM = version }
 
 -- | Determine whether the assistant should be installed.
 shouldInstallAssistant :: InstallEnvWithVersion -> Bool
 shouldInstallAssistant InstallEnv{targetVersionM = versionToInstall, ..} =
     let isNewer = maybe True ((< versionToInstall) . unwrapDamlAssistantSdkVersion) assistantVersion
-    in unActivateInstall (iActivate options)
-    || determineAuto (isNewer || missingAssistant || installingFromOutside)
+    in determineAuto (isNewer || missingAssistant || installingFromOutside)
         (unwrapInstallAssistant (iAssistant options))
 
 pattern RawInstallTarget_Project :: RawInstallTarget
@@ -504,73 +526,71 @@ pattern RawInstallTarget_Latest = RawInstallTarget "latest"
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> UseCache -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
-install options damlPath useCache projectPathM assistantVersion = do
-    when (unActivateInstall (iActivate options)) $
-        hPutStr stderr . unlines $
-            [ "WARNING: --activate is deprecated, use --install-assistant=yes instead."
-            , ""
-            ]
-
-    missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
-    execPath <- getExecutablePath
-    damlConfigE <- tryConfig $ readDamlConfig damlPath
-    let installingFromOutside = not $
-            isPrefixOf (unwrapDamlPath damlPath </> "") execPath
-        targetVersionM = () -- determined later
-        output = putStrLn -- Output install messages to stdout.
-        artifactoryApiKeyM = DAVersion.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
-        env = InstallEnv {..}
-        warnAboutAnyInstallFlags command = do
-            when (unInstallWithInternalVersion (iInstallWithInternalVersion options)) $
-                hPutStrLn stderr $ unlines
-                    [ "WARNING: You have supplied --install-with-internal-version=yes, but `" <> command <> "` does not take that option."
-                    ]
-            case unInstallWithCustomVersion (iInstallWithCustomVersion options) of
-                Just customVersion ->
+install options damlPath useCache projectPathM assistantVersion =
+    wrapErr "Running daml install command" $ do
+        missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
+        execPath <- getExecutablePath
+        damlConfigE <- tryConfig $ readDamlConfig damlPath
+        let installingFromOutside = not $
+                isPrefixOf (unwrapDamlPath damlPath </> "") execPath
+            targetVersionM = () -- determined later
+            output = putStrLn -- Output install messages to stdout.
+            artifactoryApiKeyM = DAVersion.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
+            env = InstallEnv {..}
+            warnAboutAnyInstallFlags command = do
+                when (unInstallWithInternalVersion (iInstallWithInternalVersion options)) $
                     hPutStrLn stderr $ unlines
-                        [ "WARNING: You have supplied --install-with-custom-version=" <> customVersion <> ", but `" <> command <> "` does not take that option."
+                        [ "WARNING: You have supplied --install-with-internal-version=yes, but `" <> command <> "` does not take that option."
                         ]
-                Nothing -> pure ()
+                case unInstallWithCustomVersion (iInstallWithCustomVersion options) of
+                    Just customVersion ->
+                        hPutStrLn stderr $ unlines
+                            [ "WARNING: You have supplied --install-with-custom-version=" <> customVersion <> ", but `" <> command <> "` does not take that option."
+                            ]
+                    Nothing -> pure ()
 
-    case iTargetM options of
-        Nothing -> do
-            hPutStrLn stderr $ unlines
-                [ "ERROR: daml install requires a target."
-                , ""
-                , "Available install targets:"
-                , "    daml install latest     Install the latest stable SDK version."
-                , "    daml install project    Install the project SDK version."
-                , "    daml install VERSION    Install a specific SDK version."
-                , "    daml install PATH       Install SDK from an SDK release tarball."
-                ]
-            exitFailure
+        case iTargetM options of
+            Nothing -> do
+                hPutStrLn stderr $ unlines
+                    [ "ERROR: daml install requires a target."
+                    , ""
+                    , "Available install targets:"
+                    , "    daml install latest     Install the latest stable SDK version."
+                    , "    daml install project    Install the project SDK version."
+                    , "    daml install VERSION    Install a specific SDK version."
+                    , "    daml install PATH       Install SDK from an SDK release tarball."
+                    ]
+                exitFailure
 
-        Just RawInstallTarget_Project -> do
-            projectPath <- required "'daml install project' must be run from within a project."
-                projectPathM
-            warnAboutAnyInstallFlags "daml install project"
-            projectInstall env projectPath
+            Just RawInstallTarget_Project -> do
+                projectPath <- required "'daml install project' must be run from within a project."
+                    projectPathM
+                warnAboutAnyInstallFlags "daml install project"
+                projectInstall env projectPath
 
-        Just RawInstallTarget_Latest -> do
-            warnAboutAnyInstallFlags "daml install latest"
-            latestInstall env
+            Just RawInstallTarget_Latest -> do
+                warnAboutAnyInstallFlags "daml install latest"
+                latestInstall env
 
-        Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) -> do
-            warnAboutAnyInstallFlags "daml install <version>"
-            releaseVersion <- DAVersion.resolveReleaseVersion useCache version
-            versionInstall env { targetVersionM = releaseVersion }
+            Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) -> do
+                warnAboutAnyInstallFlags "daml install <version>"
+                releaseVersion <- DAVersion.resolveReleaseVersionUnsafe useCache version
+                versionInstall env { targetVersionM = releaseVersion }
 
-        Just (RawInstallTarget arg) -> do
-            testD <- doesDirectoryExist arg
-            testF <- doesFileExist arg
-            if testD || testF then
-                pathInstall env arg
-            else
-                throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
+            Just (RawInstallTarget arg) -> do
+                testD <- doesDirectoryExist arg
+                testF <- doesFileExist arg
+                if testD || testF then
+                    pathInstall env arg
+                else
+                    throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
 
 -- | Uninstall a specific SDK version.
-uninstallVersion :: Env -> ReleaseVersion -> IO ()
-uninstallVersion Env{..} releaseVersion = wrapErr "Uninstalling SDK version." $ do
+uninstallVersion :: Env -> Either CouldNotResolveReleaseVersion ReleaseVersion -> IO ()
+uninstallVersion Env{} (Left (CouldNotResolveReleaseVersion _ unresolvedVersion)) =
+    wrapErr "Uninstalling SDK version." $ 
+        throwErr ("SDK version " <> unresolvedReleaseVersionToText unresolvedVersion <> " is not installed.")
+uninstallVersion Env{..} (Right releaseVersion) = wrapErr "Uninstalling SDK version." $ do
     let (SdkPath path) = defaultSdkPath envDamlPath releaseVersion
 
     exists <- doesDirectoryExist path

@@ -19,9 +19,9 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.apiserver.TimedIndexService
-import com.digitalasset.canton.platform.common.{MismatchException, ParticipantIdNotFoundException}
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.store.DbSupport
+import com.digitalasset.canton.platform.store.backend.common.MismatchException
 import com.digitalasset.canton.platform.store.cache.*
 import com.digitalasset.canton.platform.store.dao.events.{
   BufferedTransactionsReader,
@@ -216,9 +216,8 @@ final class IndexServiceOwner(
     ResourceOwner
       .forExecutorService(() =>
         InstrumentedExecutors.newWorkStealingExecutor(
-          metrics.daml.lapi.threadpool.inMemoryFanOut.toString,
+          metrics.lapi.threadpool.inMemoryFanOut.toString,
           threadPoolSize,
-          metrics.executorServiceMetrics,
         )
       )
 

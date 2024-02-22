@@ -6,16 +6,16 @@ package com.digitalasset.canton.participant.admin.grpc
 import cats.data.EitherT
 import cats.implicits.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.admin.participant.v0.*
-import com.digitalasset.canton.error.CantonError
+import com.digitalasset.canton.admin.participant.v30.*
+import com.digitalasset.canton.error.{BaseCantonError, CantonError}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.sync.CantonSyncService
-import com.digitalasset.canton.participant.traffic.TrafficStateController.TrafficControlError
-import com.digitalasset.canton.participant.traffic.TrafficStateController.TrafficControlError.TrafficStateNotFound
+import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors.InvalidDomainId
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.traffic.MemberTrafficStatus
+import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficStateNotFound
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -42,19 +42,19 @@ class GrpcTrafficControlService(
         .fromEither[Future](
           service
             .readySyncDomainById(domainId)
-            .toRight(TrafficControlError.DomainIdNotFound.Error(domainId))
+            .toRight(InvalidDomainId.Error(request.domainId))
         )
-        .leftWiden[CantonError]
-      trafficStateOpt <- EitherT.liftF[Future, CantonError, Option[MemberTrafficStatus]](
+        .leftWiden[BaseCantonError]
+      trafficStateOpt <- EitherT.liftF[Future, BaseCantonError, Option[MemberTrafficStatus]](
         syncDomain.getTrafficControlState
       )
       trafficState <- EitherT
         .fromEither[Future](
           trafficStateOpt.toRight(TrafficStateNotFound.Error())
         )
-        .leftWiden[CantonError]
+        .leftWiden[BaseCantonError]
     } yield {
-      TrafficControlStateResponse(Some(trafficState.toProtoV0))
+      TrafficControlStateResponse(Some(trafficState.toProtoV30))
     }
 
     CantonGrpcUtil.mapErrNew(result)

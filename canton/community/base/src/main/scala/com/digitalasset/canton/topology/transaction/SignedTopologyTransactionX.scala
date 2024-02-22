@@ -11,7 +11,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v2
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbSerializationException
@@ -33,7 +33,8 @@ import scala.reflect.ClassTag
   *
   * Whether the key is eligible to authorize the topology transaction depends on the topology state
   */
-final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX](
+@SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
+case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX](
     transaction: TopologyTransactionX[Op, M],
     signatures: NonEmpty[Set[Signature]],
     isProposal: Boolean,
@@ -52,7 +53,7 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
     HashPurpose.TopologyTransactionSignature,
     signatures.toList
       .sortBy(_.signedBy.toProtoPrimitive)
-      .map(_.toProtoV0.toByteString)
+      .map(_.toProtoV30.toByteString)
       .reduceLeft(_.concat(_)),
     HashAlgorithm.Sha256,
   )
@@ -63,6 +64,11 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
       signatures ++ add,
       isProposal,
     )(representativeProtocolVersion)
+
+  def removeSignatures(keys: Set[Fingerprint]): Option[SignedTopologyTransactionX[Op, M]] =
+    NonEmpty
+      .from(signatures.filterNot(sig => keys.contains(sig.signedBy)))
+      .map(updatedSignatures => copy(signatures = updatedSignatures))
 
   def operation: Op = transaction.op
 
@@ -91,10 +97,10 @@ final case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
     selectMapping[TargetMapping].flatMap(_.selectOp[TargetOp])
   }
 
-  def toProtoV2: v2.SignedTopologyTransactionX =
-    v2.SignedTopologyTransactionX(
+  def toProtoV30: v30.SignedTopologyTransaction =
+    v30.SignedTopologyTransaction(
       transaction = transaction.getCryptographicEvidence,
-      signatures = signatures.toSeq.map(_.toProtoV0),
+      signatures = signatures.toSeq.map(_.toProtoV30),
       proposal = isProposal,
     )
 
@@ -131,11 +137,11 @@ object SignedTopologyTransactionX
     SignedTopologyTransactionX[TopologyChangeOpX.Replace, TopologyMappingX]
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v30)(
-      v2.SignedTopologyTransactionX
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      v30.SignedTopologyTransaction
     )(
-      supportedProtoVersion(_)(fromProtoV2),
-      _.toProtoV2.toByteString,
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -198,22 +204,20 @@ object SignedTopologyTransactionX
       EitherT.rightT(signedTx)
   }
 
-  def fromProtoV2(
+  def fromProtoV30(
       protocolVersionValidation: ProtocolVersionValidation,
-      transactionP: v2.SignedTopologyTransactionX,
+      transactionP: v30.SignedTopologyTransaction,
   ): ParsingResult[GenericSignedTopologyTransactionX] = {
-    val v2.SignedTopologyTransactionX(txBytes, signaturesP, isProposal) = transactionP
+    val v30.SignedTopologyTransaction(txBytes, signaturesP, isProposal) = transactionP
     for {
       transaction <- TopologyTransactionX.fromByteString(protocolVersionValidation)(txBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV0,
+        Signature.fromProtoV30,
         "SignedTopologyTransactionX.signatures",
         signaturesP,
       )
-    } yield SignedTopologyTransactionX(transaction, signatures.toSet, isProposal)(
-      supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(2))
-    )
-
+      rpv <- supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield SignedTopologyTransactionX(transaction, signatures.toSet, isProposal)(rpv)
   }
 
   def createGetResultDomainTopologyTransaction: GetResult[GenericSignedTopologyTransactionX] =

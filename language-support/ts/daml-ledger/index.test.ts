@@ -124,7 +124,6 @@ const fooCreateEvent = (
     contractId: coid.toString() as ContractId<Foo>,
     signatories: [],
     observers: [],
-    agreementText: "fooAgreement",
     key: key || fooKey,
     payload: { key: fooKey },
   };

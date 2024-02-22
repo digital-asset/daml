@@ -3,41 +3,43 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.commands.Commands
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.daml.ledger.api.v2.commands.Commands
+import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.error.ErrorCodeUtils
-import com.digitalasset.canton.ledger.client.services.commands.SynchronousCommandClient
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.client.LedgerClientUtils
+import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.DelayUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.google.rpc.code.Code
+import com.digitalasset.canton.util.{DelayUtil, LoggerUtil}
 import com.google.rpc.status.Status
-import io.grpc.protobuf.StatusProto
 
-import scala.concurrent.duration.{Duration, FiniteDuration, *}
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.Failure
 
-/** Wraps a synchronous command client with the ability to retry commands that failed with retryable errors
-  *  up to a given max number of retries.
-  */
+/** Wraps a synchronous command client with the ability to retry commands that failed with retryable errors */
 class CommandSubmitterWithRetry(
-    maxRetries: Int,
-    synchronousCommandClient: SynchronousCommandClient,
+    commandServiceClient: CommandServiceClient,
+    clock: Clock,
     futureSupervisor: FutureSupervisor,
     protected override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-    overrideRetryable: PartialFunction[Status, Boolean] = PartialFunction.empty,
+    decideRetry: Status => Option[FiniteDuration] = LedgerClientUtils.defaultRetryRules,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync {
 
-  private val DefaultRetryableDelay = 1.second
+  private val directEc = DirectExecutionContext(logger)
+
+  // abort retries if the remaining timeout is less than this (in case there is little chance that the command will succeed)
+  // if our descendants ever get to lower latencies, they should lower this value as well
+  private val DEFAULT_MINIMUM_DEADLINE = 10.millis
 
   /** Submits commands and retries timed out ones (at most the amount given by `maxRetries`)
     *
@@ -47,7 +49,7 @@ class CommandSubmitterWithRetry(
     */
   def submitCommands(
       commands: Commands,
-      timeout: Duration,
+      timeout: FiniteDuration,
   )(implicit traceContext: TraceContext): Future[CommandResult] =
     submitCommandsInternal(commands, timeout).unwrap
       .map {
@@ -56,96 +58,78 @@ class CommandSubmitterWithRetry(
       }
       .thereafter {
         case Failure(ex) =>
-          logger.warn(s"Command failed [${commands.commandId}] badly due to an exception", ex)
+          logger.error(s"Command failed [${commands.commandId}] badly due to an exception", ex)
         case _ => ()
       }
 
-  private def submitCommandsInternal(commands: Commands, timeout: Duration)(implicit
+  /** Aborts a future immediately if this object is closing.
+    *
+    * For very long running futures where you don't want to wait for it to complete in case of
+    * an abort, you can wrap it here into a future unless shutdown.
+    */
+  def abortIfClosing[R](name: String, futureSupervisor: FutureSupervisor)(
+      future: => Future[R]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[R] = {
+    if (isClosing) FutureUnlessShutdown.abortedDueToShutdown
+    else {
+      implicit val ec: ExecutionContext = directEc
+      val promise = new PromiseUnlessShutdown[R](
+        description = name,
+        futureSupervisor = futureSupervisor,
+      )
+      val taskId = runOnShutdown(promise)
+      promise.completeWith(FutureUnlessShutdown.outcomeF(future))
+      promise.futureUS.thereafter(_ => cancelShutdownTask(taskId))
+    }
+  }
+
+  private def submitCommandsInternal(commands: Commands, timeout: FiniteDuration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[CommandResult] = {
     val commandId = commands.commandId
-
-    def go(retriesLeft: Int): FutureUnlessShutdown[CommandResult] =
-      runWithAbortOnShutdown(submitAndWait(commands, timeout))
+    val deadline: CantonTimestamp = clock.now.plus(timeout.toJava)
+    def go(): FutureUnlessShutdown[CommandResult] = {
+      traceContext.context.makeCurrent()
+      abortIfClosing("submit-with-retry", futureSupervisor) {
+        logger.debug(s"Submitting command=${commandId} to command service")
+        commandServiceClient
+          .submitAndWaitForUpdateId(commands, timeout = Some(timeout))
+      }
         .flatMap {
           case Left(status) =>
-            getErrorRetryability(status)
+            decideRetry(status)
               .map { retryAfter =>
-                if (retriesLeft > 0) {
+                val nextAttempt =
+                  clock.now.plus(retryAfter.toJava).plus(DEFAULT_MINIMUM_DEADLINE.toJava)
+                if (nextAttempt < deadline) {
                   logger.info(
-                    s"Command with id = $commandId failed with a retryable error. Retrying (attempt ${maxRetries - retriesLeft + 1}/$maxRetries)"
+                    s"Command with id = $commandId failed with a retryable error ${status}. Retrying after ${LoggerUtil
+                        .roundDurationForHumans(retryAfter)}"
                   )
                   DelayUtil
                     .delayIfNotClosing("command-retry-delay", retryAfter, this)
-                    .flatMap(_ => performUnlessClosingUSF("retry-command")(go(retriesLeft - 1)))
+                    .flatMap(_ => go())
                 } else {
                   logger.info(
-                    s"Command with id = $commandId failed after reaching max retries of $maxRetries."
+                    s"Command with id = $commandId failed after reaching the deadline ${deadline}. Failure is ${status}."
                   )
-                  FutureUnlessShutdown.pure(CommandResult.MaxRetriesReached(commandId, status))
+                  FutureUnlessShutdown.pure(CommandResult.TimeoutReached(commandId, status))
                 }
               }
               .getOrElse {
-                logger.info(s"Command with id = $commandId failed.")
-                FutureUnlessShutdown.pure(CommandResult.Failed(commandId, status))
+                logger.info(s"Command with id = $commandId failed non-retryable with ${status}.")
+                if (status.code == com.google.rpc.Code.DEADLINE_EXCEEDED.getNumber) {
+                  FutureUnlessShutdown.pure(CommandResult.TimeoutReached(commandId, status))
+                } else {
+                  FutureUnlessShutdown.pure(CommandResult.Failed(commandId, status))
+                }
               }
-          case Right(transactionId) =>
-            FutureUnlessShutdown.pure(CommandResult.Success(transactionId))
+          case Right(result) =>
+            FutureUnlessShutdown.pure(CommandResult.Success(result.updateId))
         }
-
-    go(maxRetries)
+    }
+    go()
   }
-
-  /** Decides on error retryabillity and if positive, the backoff delay to be followed until retry:
-    * * `overrideRetryable` has highest precedence
-    * * then, the extracted error category
-    * * and last, whether an error is a DEADLINE_EXCEEDED status. We look for DEADLINE_EXCEEDED
-    * since it can be returned directly by the gRPC server and does not conform to our
-    * self-service error codes shape.
-    */
-  private def getErrorRetryability(status: Status): Option[FiniteDuration] =
-    overrideRetryable
-      .andThen(retryableOverride => Option.when(retryableOverride)(DefaultRetryableDelay))
-      .applyOrElse(
-        status,
-        { (status: Status) =>
-          ErrorCodeUtils
-            .errorCategoryFromString(status.message)
-            .flatMap(_.retryable)
-            .map(_.duration)
-            .orElse(Option.when(status.code == Code.DEADLINE_EXCEEDED.value)(DefaultRetryableDelay))
-        },
-      )
-
-  private def runWithAbortOnShutdown(f: => Future[Either[Status, String]])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Either[Status, String]] = {
-    val promise = new PromiseUnlessShutdown[Either[Status, String]](
-      description = "submit-command-with-retry",
-      futureSupervisor = futureSupervisor,
-    )
-
-    val taskId = runOnShutdown(promise)
-    promise.completeWith(FutureUnlessShutdown.outcomeF(f))
-    promise.futureUS.thereafter(_ => cancelShutdownTask(taskId))
-  }
-
-  private def submitAndWait(
-      commands: Commands,
-      timeout: Duration,
-  )(implicit traceContext: TraceContext): Future[Either[Status, String]] =
-    synchronousCommandClient
-      .submitAndWaitForTransactionId(SubmitAndWaitRequest(Some(commands)), timeout = Some(timeout))
-      .map(response => Right(response.transactionId))
-      .recoverWith { case throwable =>
-        Option(StatusProto.fromThrowable(throwable))
-          .map(Status.fromJavaProto)
-          .map(errStatus => Future.successful(Left(errStatus)))
-          .getOrElse {
-            logger.info(s"Could not decode submission result error", throwable)
-            Future.failed(throwable)
-          }
-      }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Nil
 }
@@ -171,25 +155,11 @@ object CommandResult {
       prettyOfObject[AbortedDueToShutdown.this.type]
   }
 
-  final case class MaxRetriesReached(commandId: String, lastErrorStatus: Status)
+  final case class TimeoutReached(commandId: String, lastErrorStatus: Status)
       extends CommandResult {
-    override def pretty: Pretty[MaxRetriesReached] = prettyOfClass(
+    override def pretty: Pretty[TimeoutReached] = prettyOfClass(
       param("commandId", _.commandId.doubleQuoted),
       param("lastError", _.lastErrorStatus),
     )
   }
-}
-
-object CommandSubmitterWithRetry {
-
-  def isSuccess(status: Status): Boolean = status.code == Code.OK.value
-
-  def isRetryable(
-      status: Status,
-      overrideRetryable: PartialFunction[Status, Boolean] = PartialFunction.empty,
-  ): Boolean =
-    overrideRetryable.applyOrElse(
-      status,
-      (s: Status) => ErrorCodeUtils.errorCategoryFromString(s.message).exists(_.retryable.nonEmpty),
-    )
 }

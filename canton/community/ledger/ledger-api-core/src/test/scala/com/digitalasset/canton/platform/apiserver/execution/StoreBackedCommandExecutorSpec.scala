@@ -8,13 +8,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.daml.lf.engine.{
-  Engine,
-  Result,
-  ResultDone,
-  ResultInterruption,
-  ResultNeedUpgradeVerification,
-}
+import com.daml.lf.engine.*
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -28,7 +22,7 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
+import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -39,6 +33,7 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -64,7 +59,7 @@ class StoreBackedCommandExecutorSpec
   ).toLfBytes(ProtocolVersion.dev)
   val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
-
+  val packageName: PackageName = PackageName.assertFromString("pkg-name")
   private val processedDisclosedContracts = ImmArray(
   )
 
@@ -102,7 +97,6 @@ class StoreBackedCommandExecutorSpec
 
   private def mkCommands(ledgerEffectiveTime: Time.Timestamp) =
     Commands(
-      ledgerId = Some(LedgerId("ledgerId")),
       workflowId = None,
       applicationId = Ref.ApplicationId.assertFromString("applicationId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
@@ -220,7 +214,7 @@ class StoreBackedCommandExecutorSpec
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
         LfTransactionVersion.maxVersion,
-        ContractInstance(template = identifier, arg = Value.ValueTrue),
+        ContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
       ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
@@ -240,6 +234,7 @@ class StoreBackedCommandExecutorSpec
 
     val disclosedContract: domain.DisclosedContract = domain.UpgradableDisclosedContract(
       templateId = identifier,
+      packageName = packageName,
       contractId = disclosedContractId,
       argument = ValueTrue,
       createdAt = mock[Timestamp],
@@ -275,12 +270,7 @@ class StoreBackedCommandExecutorSpec
             observers = Set(Ref.Party.assertFromString("observer")),
             keyOpt = Some(
               GlobalKeyWithMaintainers
-                .assertBuild(
-                  identifier,
-                  someContractKey(signatory, "some key"),
-                  Set(signatory),
-                  shared = true,
-                )
+                .assertBuild(identifier, someContractKey(signatory, "some key"), Set(signatory))
             ),
             resume = verdict => {
               ref.set(Some(verdict))
@@ -303,7 +293,6 @@ class StoreBackedCommandExecutorSpec
       ).thenReturn(engineResult)
 
       val commands = Commands(
-        ledgerId = Some(LedgerId("ledgerId")),
         workflowId = None,
         applicationId = Ref.ApplicationId.assertFromString("applicationId"),
         commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
@@ -332,10 +321,10 @@ class StoreBackedCommandExecutorSpec
 
       val store = mock[ContractStore]
       when(
-        store.lookupContractStateWithoutDivulgence(any[LfContractId])(any[LoggingContextWithTrace])
+        store.lookupContractState(any[LfContractId])(any[LoggingContextWithTrace])
       ).thenReturn(Future.successful(ContractState.NotFound))
       when(
-        store.lookupContractStateWithoutDivulgence(same(stakeholderContractId))(
+        store.lookupContractState(same(stakeholderContractId))(
           any[LoggingContextWithTrace]
         )
       ).thenReturn(
@@ -344,7 +333,7 @@ class StoreBackedCommandExecutorSpec
         )
       )
       when(
-        store.lookupContractStateWithoutDivulgence(same(archivedContractId))(
+        store.lookupContractState(same(archivedContractId))(
           any[LoggingContextWithTrace]
         )
       ).thenReturn(Future.successful(ContractState.Archived))
@@ -403,7 +392,7 @@ class StoreBackedCommandExecutorSpec
         Some(divulgedContractId),
         Some(
           Some(
-            s"Contract with $divulgedContractId was not found or it refers to a divulged contract."
+            s"Contract with $divulgedContractId was not found."
           )
         ),
       )

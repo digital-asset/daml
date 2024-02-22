@@ -11,7 +11,7 @@ import com.digitalasset.canton.common.domain.SequencerConnectClient.{
 }
 import com.digitalasset.canton.common.domain.grpc.GrpcSequencerConnectClient
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
@@ -52,12 +52,13 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
   ): EitherT[Future, Error, Boolean]
 
   protected def handleVerifyActiveResponse(
-      response: v0.SequencerConnect.VerifyActive.Response
+      response: v30.SequencerConnect.VerifyActiveResponse
   ): Either[Error, Boolean] = response.value match {
-    case v0.SequencerConnect.VerifyActive.Response.Value.Success(success) => Right(success.isActive)
-    case v0.SequencerConnect.VerifyActive.Response.Value.Failure(failure) =>
+    case v30.SequencerConnect.VerifyActiveResponse.Value.Success(success) =>
+      Right(success.isActive)
+    case v30.SequencerConnect.VerifyActiveResponse.Value.Failure(failure) =>
       Left(Error.DeserializationFailure(failure.reason))
-    case v0.SequencerConnect.VerifyActive.Response.Value.Empty =>
+    case v30.SequencerConnect.VerifyActiveResponse.Value.Empty =>
       Left(Error.InvalidResponse("Missing response from VerifyActive"))
   }
 }

@@ -52,11 +52,11 @@ class SequencedEventTestFixture(
 
   lazy val defaultDomainId: DomainId = DefaultTestIdentities.domainId
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
-  lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
+  lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerIdX
   lazy val subscriberCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(subscriberId, defaultDomainId)
+    TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(subscriberId, defaultDomainId)
   private lazy val sequencerCryptoApi: DomainSyncCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultDomainId)
+    TestingIdentityFactoryX(loggerFactory).forOwnerAndDomain(sequencerAlice, defaultDomainId)
   lazy val updatedCounter: Long = 42L
   val sequencerBob: SequencerId = SequencerId(
     UniqueIdentifier(Identifier.tryCreate("da2"), namespace)
@@ -135,7 +135,6 @@ class SequencedEventTestFixture(
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl = {
     new SequencedEventValidatorImpl(
       unauthenticated = false,
-      optimistic = false,
       defaultDomainId,
       testedProtocolVersion,
       syncCryptoApi,
@@ -155,7 +154,7 @@ class SequencedEventTestFixture(
     import cats.syntax.option.*
     val message = {
       val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
-      InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+      InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     }
     val deliver: Deliver[ClosedEnvelope] = Deliver.create[ClosedEnvelope](
       SequencerCounter(counter),

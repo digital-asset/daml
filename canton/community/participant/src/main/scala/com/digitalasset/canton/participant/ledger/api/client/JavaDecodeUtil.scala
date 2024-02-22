@@ -15,14 +15,19 @@ import com.daml.ledger.javaapi.data.{
   Event,
   Transaction as JavaTransaction,
   TransactionTree,
-  TransactionTreeV2,
-  TransactionV2 as JavaTransactionV2,
   TreeEvent,
 }
 
 import scala.jdk.CollectionConverters.*
 
+/** Java event decoders
+  *
+  * If you use scalapb GRPC bindings, then you need to map the events to Java Proto using:
+  *   JavaCreatedEvent.fromProto(ScalaCreatedEvent.toJavaProto(scalaProtoEvent))
+  *   javaapi.data.Transaction.fromProto(Transaction.toJavaProto(scalaTx))
+  */
 object JavaDecodeUtil {
+
   def decodeCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(event: JavaCreatedEvent): Option[TC] =
@@ -40,17 +45,9 @@ object JavaDecodeUtil {
   def flatToCreated(transaction: JavaTransaction): Seq[JavaCreatedEvent] =
     transaction.getEvents.iterator.asScala.collect { case e: JavaCreatedEvent => e }.toSeq
 
-  def flatToCreatedV2(transaction: JavaTransactionV2): Seq[JavaCreatedEvent] =
-    transaction.getEvents.iterator.asScala.collect { case e: JavaCreatedEvent => e }.toSeq
-
   def decodeAllCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(transaction: JavaTransaction): Seq[TC] =
-    decodeAllCreatedFromEvents(companion)(transaction.getEvents.asScala.toSeq)
-
-  def decodeAllCreatedV2[TC](
-      companion: ContractCompanion[TC, ?, ?]
-  )(transaction: JavaTransactionV2): Seq[TC] =
     decodeAllCreatedFromEvents(companion)(
       transaction.getEvents.iterator.asScala.toSeq
     )
@@ -68,11 +65,6 @@ object JavaDecodeUtil {
   def decodeAllArchived[T](
       companion: ContractCompanion[?, ?, T]
   )(transaction: JavaTransaction): Seq[ContractId[T]] =
-    decodeAllArchivedFromEvents(companion)(transaction.getEvents.asScala.toSeq)
-
-  def decodeAllArchivedV2[T](
-      companion: ContractCompanion[?, ?, T]
-  )(transaction: JavaTransactionV2): Seq[ContractId[T]] =
     decodeAllArchivedFromEvents(companion)(transaction.getEvents.asScala.toSeq)
 
   def decodeAllArchivedFromEvents[T](
@@ -97,9 +89,6 @@ object JavaDecodeUtil {
   private def treeToCreated(transaction: TransactionTree): Seq[JavaCreatedEvent] =
     transaction.getEventsById.asScala.valuesIterator.collect { case e: JavaCreatedEvent => e }.toSeq
 
-  private def treeToCreatedV2(transaction: TransactionTreeV2): Seq[JavaCreatedEvent] =
-    transaction.getEventsById.asScala.valuesIterator.collect { case e: JavaCreatedEvent => e }.toSeq
-
   def decodeAllCreatedTree[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(transaction: TransactionTree): Seq[TC] =
@@ -108,22 +97,9 @@ object JavaDecodeUtil {
       a <- decodeCreated(companion)(created).toList
     } yield a
 
-  def decodeAllCreatedTreeV2[TC](
-      companion: ContractCompanion[TC, ?, ?]
-  )(transaction: TransactionTreeV2): Seq[TC] =
-    for {
-      created <- treeToCreatedV2(transaction)
-      a <- decodeCreated(companion)(created).toList
-    } yield a
-
   def decodeAllArchivedTree[TCid](
       companion: ContractCompanion[?, TCid, ?]
   )(transaction: TransactionTree): Seq[TCid] =
-    decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap)
-
-  def decodeAllArchivedTreeV2[TCid](
-      companion: ContractCompanion[?, TCid, ?]
-  )(transaction: TransactionTreeV2): Seq[TCid] =
     decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap)
 
   def decodeAllArchivedTreeFromTreeEvents[TCid](

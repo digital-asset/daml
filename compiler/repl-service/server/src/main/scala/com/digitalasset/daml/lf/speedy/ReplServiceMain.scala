@@ -22,7 +22,7 @@ import com.daml.lf.language.{
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Compiler, SDefinition, SError, SValue}
 import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyServerBuilder
@@ -155,7 +155,7 @@ object ReplServiceMain extends App {
           maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
           applicationId = None,
-          majorLanguageVersion = LanguageMajorVersion.V1,
+          majorLanguageVersion = LanguageMajorVersion.V2,
         ),
       )
   }
@@ -208,6 +208,12 @@ object ReplServiceMain extends App {
 
 object ReplService {
   private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
+  private val homePackageMetadata: PackageMetadata =
+    PackageMetadata(
+      PackageName.assertFromString("homePackage"),
+      PackageVersion.assertFromString("0.0.0"),
+      None,
+    )
 
   private def moduleRefs(v: SValue): Set[ModuleName] = {
     def moduleRefs(acc: Set[ModuleName], e: SExpr): Set[ModuleName] =
@@ -282,7 +288,7 @@ class ReplService(
   ): Unit = {
     val lfVer = LanguageVersion(majorLanguageVersion, LanguageVersion.Minor(req.getMinor))
     val mod = archive.moduleDecoder(lfVer, homePackageId).assertFromByteString(req.getDamlLf1)
-    val pkg = Package(mainModules.updated(mod.name, mod), Set.empty, lfVer, None)
+    val pkg = Package(mainModules.updated(mod.name, mod), Set.empty, lfVer, homePackageMetadata)
     // TODO[AH] Provide daml-script package id from REPL client.
     val scriptPackageId = this.signatures
       .collectFirst {
