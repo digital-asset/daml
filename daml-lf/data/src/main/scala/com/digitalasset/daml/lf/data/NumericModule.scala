@@ -228,7 +228,7 @@ abstract class NumericModule {
   /** Given a string representation of a decimal and a scale s returns the corresponding `Numeric s`.
     * If the input does not match (where i = 38-s)
     *   `-?([1-9]\d{1,i}|0).([1-9]{s})`
-    * or if the result of the conversion cannot be mapped into a numeric without loss of precision
+    * or if the result of the conversion cannot be mapped into a numeric of scale `s` without loss of precision
     * returns an error message instead.
     */
   def fromString(s: Scale, str: String): Either[String, Numeric] = for {
