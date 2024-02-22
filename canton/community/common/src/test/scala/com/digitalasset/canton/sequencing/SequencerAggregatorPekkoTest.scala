@@ -326,7 +326,6 @@ class SequencerAggregatorPekkoTest
       val validator = new SequencedEventValidatorImpl(
         // Disable signature checking
         unauthenticated = true,
-        optimistic = false,
         defaultDomainId,
         testedProtocolVersion,
         subscriberCryptoApi,

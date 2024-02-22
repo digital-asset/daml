@@ -151,7 +151,6 @@ object SequencerClientFactory {
               } else {
                 new SequencedEventValidatorImpl(
                   unauthenticated,
-                  config.optimisticSequencedEventValidation,
                   domainId,
                   domainParameters.protocolVersion,
                   syncCryptoApi,

@@ -23,7 +23,12 @@ import com.digitalasset.canton.protocol.{
   v30,
 }
 import com.digitalasset.canton.sequencing.RawProtocolEvent
-import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, EventWithErrors, SignedContent}
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  Deliver,
+  SignedContent,
+  WithOpeningErrors,
+}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
@@ -198,25 +203,20 @@ object DeliveredTransferOutResult {
   ) extends RuntimeException(s"$message: $transferOutResult")
 
   def create(
-      resultE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[RawProtocolEvent],
-      ]
+      resultE: WithOpeningErrors[SignedContent[RawProtocolEvent]]
   ): Either[InvalidTransferOutResult, DeliveredTransferOutResult] =
     for {
       // The event signature would be invalid if some envelopes could not be opened upstream.
       // However, this should not happen, because transfer out messages are sent by the mediator,
       // who is trusted not to send bad envelopes.
-      result <- resultE match {
-        case Left(eventWithErrors) =>
-          Left(
-            InvalidTransferOutResult(
-              eventWithErrors.content,
-              "Result event contains envelopes that could not be deserialized.",
-            )
-          )
-        case Right(event) => Right(event)
-      }
+      result <- Either.cond(
+        resultE.hasNoErrors,
+        resultE.event,
+        InvalidTransferOutResult(
+          resultE.event.content,
+          "Result event contains envelopes that could not be deserialized.",
+        ),
+      )
       castToDeliver <- result
         .traverse(Deliver.fromSequencedEvent)
         .toRight(

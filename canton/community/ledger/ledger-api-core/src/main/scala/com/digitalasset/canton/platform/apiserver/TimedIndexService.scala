@@ -23,7 +23,6 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   ConfigurationEntry,
-  LedgerId,
   ParticipantOffset,
   TransactionId,
 }
@@ -41,8 +40,6 @@ import org.apache.pekko.stream.scaladsl.Source
 import scala.concurrent.Future
 
 final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends IndexService {
-
-  override def ledgerId: LedgerId = delegate.ledgerId
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContextWithTrace

@@ -35,7 +35,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
+import com.digitalasset.canton.sequencing.protocol.{NoOpeningErrors, SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.DomainId
@@ -708,7 +708,7 @@ object DbTransferStore {
           )
         )
       result <- DeliveredTransferOutResult
-        .create(Right(signedContent))
+        .create(NoOpeningErrors(signedContent))
         .leftMap(err => OtherError(err.toString))
     } yield result
 

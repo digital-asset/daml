@@ -241,7 +241,7 @@ class SequencerAggregatorPekko(
         .validatePekko(config.subscriptionFactory.create(exclusiveStart + 1L), prior, sequencerId)
       val source = subscription.source
         .buffer(bufferSize.value, OverflowStrategy.backpressure)
-        .mapConcat(_.unwrap match {
+        .mapConcat(_.value match {
           case Left(err) =>
             // Errors cannot be aggregated because they are specific to a particular sequencer or subscription.
             // So we log them here and do not propagate them.

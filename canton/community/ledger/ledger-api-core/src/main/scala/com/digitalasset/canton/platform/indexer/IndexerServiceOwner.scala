@@ -87,6 +87,10 @@ final class IndexerServiceOwner(
         }
 
     startupMode match {
+      case IndexerStartupMode.JustStart =>
+        startIndexer(
+          migration = Future.unit
+        )
       case IndexerStartupMode.MigrateAndStart =>
         startIndexer(
           migration = flywayMigrations.migrate()

@@ -220,7 +220,7 @@ object ReferenceBlockOrderer {
             traceparent,
             requests.map { case traced @ Traced((tag, body)) =>
               val traceparent = traced.traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
-              TracedBlockOrderingRequest(traceparent, tag, body, 0)
+              TracedBlockOrderingRequest(traceparent, tag, body, microsecondsSinceEpoch = 0)
             },
           )
         }.toByteString
@@ -231,7 +231,7 @@ object ReferenceBlockOrderer {
       .execute(
         store.insertRequestWithHeight(
           blockHeight,
-          BlockOrderer.OrderedRequest(timestamp.underlying.micros, tag, body),
+          BlockOrderer.OrderedRequest(timestamp.toMicros, tag, body),
         ),
         s"send request at $timestamp",
       )

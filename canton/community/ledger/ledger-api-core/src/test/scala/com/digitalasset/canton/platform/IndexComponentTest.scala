@@ -25,9 +25,12 @@ import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.IndexComponentTest.{TestReadService, TestServices}
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
-import com.digitalasset.canton.platform.indexer.IndexerConfig.DefaultIndexerStartupMode
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.{IndexerConfig, IndexerServiceOwner}
+import com.digitalasset.canton.platform.indexer.{
+  IndexerConfig,
+  IndexerServiceOwner,
+  IndexerStartupMode,
+}
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -127,7 +130,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          startupMode = DefaultIndexerStartupMode,
+          startupMode = IndexerStartupMode.MigrateAndStart,
           dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(
             indexerConfig.ingestionParallelism.unwrap
           ),

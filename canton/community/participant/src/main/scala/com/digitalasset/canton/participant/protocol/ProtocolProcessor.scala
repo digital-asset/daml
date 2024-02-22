@@ -1188,11 +1188,9 @@ abstract class ProtocolProcessor[
   override def processMalformedMediatorConfirmationRequestResult(
       timestamp: CantonTimestamp,
       sequencerCounter: SequencerCounter,
-      signedResultBatch: Either[EventWithErrors[Deliver[DefaultOpenEnvelope]], SignedContent[
-        Deliver[DefaultOpenEnvelope]
-      ]],
+      signedResultBatch: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatch.fold(_.content, _.content)
+    val content = signedResultBatch.event.content
     val ts = content.timestamp
 
     val processedET = performUnlessClosingEitherU(functionFullName) {
@@ -1240,12 +1238,9 @@ abstract class ProtocolProcessor[
   }
 
   override def processResult(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ]
+      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatchE.fold(_.content, _.content)
+    val content = signedResultBatchE.event.content
     val ts = content.timestamp
     val sc = content.counter
 
@@ -1275,15 +1270,11 @@ abstract class ProtocolProcessor[
 
   @VisibleForTesting
   private[protocol] def performResultProcessing(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
+      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[
+        SignedProtocolMessage[MalformedConfirmationRequestResult],
+        SignedProtocolMessage[Result],
       ],
-      resultE: Either[SignedProtocolMessage[
-        MalformedConfirmationRequestResult
-      ], SignedProtocolMessage[
-        Result
-      ]],
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1367,10 +1358,7 @@ abstract class ProtocolProcessor[
     * The inner `EitherT` corresponds to the subsequent async stage.
     */
   private[this] def performResultProcessing2(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[
         SignedProtocolMessage[MalformedConfirmationRequestResult],
         SignedProtocolMessage[Result],
@@ -1498,10 +1486,7 @@ abstract class ProtocolProcessor[
 
   // The processing in this method is done in the asynchronous part of the processing
   private[this] def performResultProcessing3(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[MalformedConfirmationRequestResult, Result],
       requestId: RequestId,
       resultTs: CantonTimestamp,
