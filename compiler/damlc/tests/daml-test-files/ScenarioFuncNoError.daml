@@ -6,6 +6,9 @@
 -- This tests that defining scenario-returning functions doesn't trigger
 -- an error even when scenarios are disabled.
 -- Remove when scenarios are fully deleted (See #16583 for steps towards this)
+
+{-# OPTIONS -Wno-deprecations #-}
+
 module ScenarioFuncNoError where
 
 test () = scenario do

@@ -3,6 +3,9 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE CPP #-}
+#ifdef DAML_SCENARIOS
+{-# OPTIONS -Wno-deprecations #-}
+#endif
 
 -- | MOVE Prelude
 module DA.Internal.Assert

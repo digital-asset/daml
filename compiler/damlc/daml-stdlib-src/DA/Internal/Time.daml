@@ -3,6 +3,9 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+#ifdef DAML_SCENARIOS
+{-# OPTIONS -Wno-deprecations #-}
+#endif
 
 -- | MOVE DA.Time Daml-LF types and primitives, apart from templates/contracts.
 module DA.Internal.Time where
