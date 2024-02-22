@@ -120,36 +120,10 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       })
   }
 
-  def macroDef(n: Int) =
-    s"""#define V$n(code)
-       |#if DU_VERSION == $n
-       |  #define V$n(code) code
-       |#endif
-       |""".stripMargin
-
-  def buildPackages(p: PackageDefinition, tmpDir: Path): Seq[Dar] = {
-    val dir = Files.createDirectory(tmpDir.resolve("daml-package-" + p.name))
-    (1 to p.versions).toSeq.map { version =>
-      assertBuildDar(
-        name = p.name,
-        version,
-        modules = p.modules.map { case (moduleName, content) =>
-          val fileContent = "{-# LANGUAGE CPP #-}\n" + (1 to p.versions)
-            .map(macroDef _)
-            .mkString + "\nmodule " + moduleName + " where\n\n" + content
-          (moduleName, fileContent)
-        },
-        deps = Seq(damlScriptDar.toPath),
-        opts = Seq("--ghc-option", s"-DDU_VERSION=${version}"),
-        tmpDir = Some(dir),
-      )
-    }
-  }
-
   def buildTestCaseDar(testCase: TestCase): (Path, Seq[Dar]) = {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
-    val dars: Seq[Dar] = testCase.pkgDefs.flatMap(buildPackages(_, testCaseRoot))
+    val dars: Seq[Dar] = testCase.pkgDefs.map(_.build(testCaseRoot))
 
     val darPath = assertBuildDar(
       name = testCase.name,
@@ -213,7 +187,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       case Some(names) => Some(names :+ c.name)
     }
     packageNameDefiners.foreach {
-      case (packageName, caseNames) if (caseNames.length > 1) =>
+      case (packageName, caseNames) if (caseNames.distinct.length > 1) =>
         throw new IllegalArgumentException(
           s"Package with name $packageName is defined multiple times within the following case(s): ${caseNames.distinct
               .mkString(",")}"
@@ -240,9 +214,20 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   case class PackageDefinition(
       name: String,
-      versions: Int,
+      version: Int,
       modules: Map[String, String],
-  )
+  ) {
+    def build(tmpDir: Path): Dar = {
+      assertBuildDar(
+        name = this.name,
+        version = this.version,
+        modules = this.modules,
+        deps = Seq(damlScriptDar.toPath),
+        opts = Seq("--ghc-option", s"-DDU_VERSION=${this.version}"),
+        tmpDir = Some(tmpDir),
+      )
+    }
+  }
 
   object PackageDefinition {
 
@@ -277,6 +262,13 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
     lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
 
+    def macroDef(n: Int) =
+      s"""#define V$n(code)
+        |#if DU_VERSION == $n
+        |  #define V$n(code) code
+        |#endif
+        |""".stripMargin
+
     def readFromFile(path: Path): Seq[PackageDefinition] = {
       val packageComments =
         packagePattern.findAllMatchIn(Files.readString(path)).toSeq.map { m =>
@@ -287,12 +279,19 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
             .flatMap(_.as[PackageComment])
             .fold(throw _, identity)
         }
-      packageComments.map { c =>
-        PackageDefinition(
-          name = c.name,
-          versions = c.versions,
-          modules = c.modules,
-        )
+      packageComments.flatMap { c =>
+        (1 to c.versions).toSeq.map { version =>
+          PackageDefinition(
+            name = c.name,
+            version = version,
+            modules = c.modules.map { case (moduleName, content) =>
+              val fileContent = "{-# LANGUAGE CPP #-}\n" + (1 to c.versions)
+                .map(macroDef _)
+                .mkString + "\nmodule " + moduleName + " where\n\n" + content
+              (moduleName, fileContent)
+            },
+          )
+        }
       }
     }
   }
