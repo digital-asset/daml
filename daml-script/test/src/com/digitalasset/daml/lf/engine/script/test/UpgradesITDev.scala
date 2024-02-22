@@ -8,13 +8,13 @@ import io.circe._
 import io.circe.yaml
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
-import java.nio.charset.StandardCharsets
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
-import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
+import com.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
+import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import org.scalatest.Inside
@@ -23,7 +23,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.Future
 import scala.sys.process._
 import scala.util.matching.Regex
-import scala.collection.mutable.Map
+import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 
 class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
@@ -106,22 +106,19 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   private def assertDepsVetted(
       client: TestingAdminLedgerClient,
-      deps: Seq[DataDep],
+      deps: Seq[Dar],
   ): Future[Unit] = {
     client
       .listVettedPackages()
       .map(_.foreach { case (participantId, packageIds) =>
         deps.foreach { dep =>
-          if (!packageIds.contains(dep.packageId))
+          if (!packageIds.contains(dep.mainPackageId))
             throw new Exception(
               s"Couldn't find package ${dep.versionedName} on participant $participantId"
             )
         }
       })
   }
-
-  private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
-  private val damlc = requiredResource(s"compiler/damlc/damlc$exe")
 
   case class PackageDefinition(
       name: String,
@@ -172,89 +169,71 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
        |#endif
        |""".stripMargin
 
-  def buildModules(p: PackageDefinition, dir: Path) =
-    p.modules.foreach { case (moduleFullName, content) =>
-      val path = dir.resolve(Paths.get(moduleFullName.replace(".", "/") + ".daml"))
-      val moduleName = moduleFullName.substring(moduleFullName.lastIndexOf(".") + 1)
-      val fileContent = "{-# LANGUAGE CPP #-}\n" + (1 to p.versions)
-        .map(macroDef _)
-        .mkString + "\nmodule " + moduleName + " where\n\n" + content
-      Files.createDirectories(path.getParent());
-      Files.write(path, fileContent.getBytes(StandardCharsets.UTF_8))
-    }
-
-  def buildDar(
-      dir: Path,
-      name: String,
-      version: Int,
-      dataDeps: Seq[DataDep] = Seq.empty,
-      opts: Seq[String] = Seq.empty,
-  ): Path = {
-    writeDamlYaml(dir, name, version, dataDeps)
-    (Seq(
-      damlc.toString,
-      "build",
-      "--project-root",
-      dir.toString,
-    ) ++ opts).! shouldBe 0
-    dir.resolve(s".daml/dist/${name}-$version.0.0.dar")
-  }
-
-  def buildPackages(p: PackageDefinition, tmpDir: Path): Seq[DataDep] = {
-    val dir = tmpDir.resolve("daml-package-" + p.name)
-    buildModules(p, dir)
+  def buildPackages(p: PackageDefinition, tmpDir: Path): Seq[Dar] = {
+    val dir = Files.createDirectory(tmpDir.resolve("daml-package-" + p.name))
     (1 to p.versions).toSeq.map { version =>
-      val path =
-        buildDar(dir, p.name, version, opts = Seq("--ghc-option", s"-DDU_VERSION=${version}"))
-      DataDep(
-        versionedName = s"${p.name}-${version}.0.0",
-        path,
-        prefix = s"V${version}",
-        packageId =
-          PackageId.assertFromString(DarParser.assertReadArchiveFromFile(path.toFile).main.getHash),
+      assertBuildDar(
+        name = p.name,
+        version,
+        modules = p.modules.map { case (moduleName, content) =>
+          val fileContent = "{-# LANGUAGE CPP #-}\n" + (1 to p.versions)
+            .map(macroDef _)
+            .mkString + "\nmodule " + moduleName + " where\n\n" + content
+          (moduleName, fileContent)
+        },
+        deps = Seq(damlScriptDar.toPath),
+        opts = Seq("--ghc-option", s"-DDU_VERSION=${version}"),
+        tmpDir = Some(dir),
       )
     }
   }
 
-  case class DataDep(
-      versionedName: String,
-      path: Path,
-      prefix: String,
-      packageId: PackageId,
-  )
-
-  def writeDamlYaml(
-      dir: Path,
-      name: String,
-      version: Int,
-      dataDeps: Seq[DataDep] = Seq.empty,
-  ) = {
-    val fileContent =
-      s"""sdk-version: 0.0.0
-         |build-options: [--target=2.dev]
-         |name: $name
-         |source: .
-         |version: $version.0.0
-         |dependencies:
-         |  - daml-prim
-         |  - daml-stdlib
-         |  - ${damlScriptDar.toString}
-         |data-dependencies:
-         |  - ${upgradeTestLibDar.toString}
-         |${dataDeps.map(d => "  - " + d.path.toString).mkString("\n")}
-         |module-prefixes:
-         |${dataDeps.map(d => s"  ${d.versionedName}: ${d.prefix}").mkString("\n")}
-         |""".stripMargin
-    Files.write(dir.resolve("daml.yaml"), fileContent.getBytes(StandardCharsets.UTF_8))
-  }
-
-  def buildTestCaseDar(testCase: TestCase): (Path, Seq[DataDep]) = {
+  def buildTestCaseDar(testCase: TestCase): (Path, Seq[Dar]) = {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
-    val dars = testCase.pkgDefs.flatMap(buildPackages(_, testCaseRoot))
-    Files.copy(testCase.damlPath, testCasePkg.resolve(testCase.damlRelPath))
-    val testDar = buildDar(testCasePkg, testCase.name, 1, dars)
-    (testDar, dars)
+    val dars: Seq[Dar] = testCase.pkgDefs.flatMap(buildPackages(_, testCaseRoot))
+
+    val darPath = assertBuildDar(
+      name = testCase.name,
+      modules = Map((testCase.name, Files.readString(testCase.damlPath))),
+      dataDeps = Seq(DataDep(upgradeTestLibDar)) :++ dars.map { dar =>
+        DataDep(
+          path = dar.path,
+          prefix = Some((dar.versionedName, s"V${dar.version}")),
+        )
+      },
+      tmpDir = Some(testCasePkg),
+    ).path
+    (darPath, dars)
+  }
+
+  def assertBuildDar(
+      name: String,
+      version: Int = 1,
+      modules: Map[String, String],
+      deps: Seq[Path] = Seq.empty,
+      dataDeps: Seq[DataDep] = Seq.empty,
+      opts: Seq[String] = Seq(),
+      tmpDir: Option[Path] = None,
+  ): Dar = {
+    val builder = new StringBuilder
+    def log(t: String)(s: String) = discard(builder.append(s"${t}: ${s}\n"))
+    buildDar(
+      name = name,
+      version = version,
+      modules = modules,
+      deps = deps,
+      dataDeps = dataDeps,
+      opts = opts,
+      tmpDir = tmpDir,
+      logger = ProcessLogger(log("stdout"), log("stderr")),
+    ) match {
+      case Right(dar) => dar
+      case Left(exitCode) =>
+        fail(
+          s"While building ${name}-${version}.0.0: 'daml build' exited with ${exitCode}\n${builder.toString}"
+        )
+    }
   }
 
   case class TestCase(
@@ -267,7 +246,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
   // Ensures no package name is defined twice across all test files
   def getTestCases(testFileDir: Path): Seq[TestCase] = {
     val cases = getTestCasesUnsafe(testFileDir)
-    val packageNameDefiners = Map[String, Seq[String]]()
+    val packageNameDefiners = mutable.Map[String, Seq[String]]()
     for {
       c <- cases
       pkg <- c.pkgDefs
