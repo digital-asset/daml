@@ -120,48 +120,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
       })
   }
 
-  case class PackageDefinition(
-      name: String,
-      versions: Int,
-      modules: Map[String, String],
-  )
-
-  // TODO[SW] Consider another attempt at using io.circe.generic.auto._
-  // [MA] we make this lazy because we're calling it from the top level before
-  // the entire class has finished loading
-  implicit lazy val decodePackageDefinition: Decoder[PackageDefinition] =
-    new Decoder[PackageDefinition] {
-      final def apply(c: HCursor): Decoder.Result[PackageDefinition] =
-        for {
-          name <- c.downField("name").as[String]
-          versions <- c.downField("versions").as[Int]
-          modules <- c
-            .downField("modules")
-            .as(
-              Decoder
-                .decodeList(Decoder.forProduct2("name", "contents") { (x: String, y: String) =>
-                  (x, y)
-                })
-                .map(Map.from _)
-            )
-        } yield {
-          new PackageDefinition(name, versions, modules)
-        }
-    }
-
-  lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
-
-  def readPackageDefinitions(fileContent: String): Seq[PackageDefinition] = {
-    packagePattern.findAllMatchIn(fileContent).toSeq.map { m =>
-      yaml.parser
-        .parse(m.group(1))
-        .left
-        .map(err => err: Error)
-        .flatMap(_.as[PackageDefinition])
-        .fold(throw _, identity)
-    }
-  }
-
   def macroDef(n: Int) =
     s"""#define V$n(code)
        |#if DU_VERSION == $n
@@ -276,7 +234,52 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
         name = damlRelPath.toString.stripSuffix(".daml"),
         damlPath,
         damlRelPath,
-        pkgDefs = readPackageDefinitions(Files.readString(damlPath)),
+        pkgDefs = PackageDefinition.readFromFile(damlPath),
       )
     }
+
+  case class PackageDefinition(
+      name: String,
+      versions: Int,
+      modules: Map[String, String],
+  )
+
+  object PackageDefinition {
+
+    // TODO[SW] Consider another attempt at using io.circe.generic.auto._
+    // [MA] we make this lazy because we're calling it from the top level before
+    // the entire class has finished loading
+    implicit lazy val decodePackageDefinition: Decoder[PackageDefinition] =
+      new Decoder[PackageDefinition] {
+        final def apply(c: HCursor): Decoder.Result[PackageDefinition] =
+          for {
+            name <- c.downField("name").as[String]
+            versions <- c.downField("versions").as[Int]
+            modules <- c
+              .downField("modules")
+              .as(
+                Decoder
+                  .decodeList(Decoder.forProduct2("name", "contents") { (x: String, y: String) =>
+                    (x, y)
+                  })
+                  .map(Map.from _)
+              )
+          } yield {
+            new PackageDefinition(name, versions, modules)
+          }
+      }
+
+    lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
+
+    def readFromFile(path: Path): Seq[PackageDefinition] = {
+      packagePattern.findAllMatchIn(Files.readString(path)).toSeq.map { m =>
+        yaml.parser
+          .parse(m.group(1))
+          .left
+          .map(err => err: Error)
+          .flatMap(_.as[PackageDefinition])
+          .fold(throw _, identity)
+      }
+    }
+  }
 }
