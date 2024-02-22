@@ -8,18 +8,19 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{Future}
+import scala.concurrent.Future
 import com.google.protobuf.ByteString
 import com.daml.bazeltools.BazelRunfiles
+
 import java.io.File
 import java.io.FileInputStream
 import org.scalatest.compatible.Assertion
 
 import scala.io.Source
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.archive.DarReader
 
-import com.daml.lf.archive.{DarReader}
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 
 class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   override lazy val devMode = true;
@@ -139,37 +140,30 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
           Option[Throwable],
       ) => String => Assertion,
   ): Future[Assertion] = {
-    if (sys.props("os.name").startsWith("Windows")) {
-      Future {
-        info("Tests are disabled on Windows")
-        succeed
-      }
-    } else {
-      for {
-        client <- defaultLedgerClient()
-        (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
-        (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
-        uploadV1Result <- client.packageManagementClient
-          .uploadDarFile(testPackageV1BS)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
-        uploadV2Result <- client.packageManagementClient
-          .uploadDarFile(testPackageV2BS)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
-      } yield {
-        val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-        try {
-          uploadAssertion(testPackageV1Id, uploadV1Result, testPackageV2Id, uploadV2Result)(
-            cantonLog.mkString
-          )
-        } finally {
-          cantonLog.close()
-        }
+    for {
+      client <- defaultLedgerClient()
+      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
+      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
+      uploadV1Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV1BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+      uploadV2Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV2BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+    } yield {
+      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
+      try {
+        uploadAssertion(testPackageV1Id, uploadV1Result, testPackageV2Id, uploadV2Result)(
+          cantonLog.mkString
+        )
+      } finally {
+        cantonLog.close()
       }
     }
   }
