@@ -245,19 +245,12 @@ object SequencedEventValidator extends HasLoggerName {
     *                                      such that no topology update has happened
     *                                      between this timestamp (exclusive) and the sequencing timestamp (exclusive).
     * @param warnIfApproximate             Whether to emit a warning if an approximate topology snapshot is used
-    * @param optimistic if true, we'll try to be optimistic and validate the event with the current snapshot approximation
-    *                   instead of the proper snapshot for the signing timestamp.
-    *                   During sequencer key rolling or while updating the dynamic domain parameters,
-    *                   an event might have been signed by a key that was just revoked or with a signing key timestamp
-    *                   that exceeds the [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]].
-    *                   Optimistic validation may not catch such problems.
     * @return [[scala.Left$]] if the signing timestamp is after the sequencing timestamp or the sequencing timestamp
     *         is after the signing timestamp by more than the
     *         [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]] valid at the signing timestamp.
     *         [[scala.Right$]] the topology snapshot that can be used for signing the event
     *         and verifying the signature on the event;
     */
-  // TODO(#10040) remove optimistic validation
   def validateSigningTimestamp(
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
       signingTimestamp: CantonTimestamp,
@@ -265,7 +258,6 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      optimistic: Boolean = false,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -278,7 +270,6 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp,
       protocolVersion,
       warnIfApproximate,
-      optimistic,
     )(
       SyncCryptoClient.getSnapshotForTimestamp _,
       (topology, traceContext) => topology.findDynamicDomainParameters()(traceContext),
@@ -292,7 +283,6 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      optimistic: Boolean = false,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
@@ -305,7 +295,6 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp,
       protocolVersion,
       warnIfApproximate,
-      optimistic,
     )(
       SyncCryptoClient.getSnapshotForTimestampUS _,
       (topology, traceContext) =>
@@ -325,7 +314,6 @@ object SequencedEventValidator extends HasLoggerName {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      optimistic: Boolean = false,
   )(
       getSnapshotF: (
           SyncCryptoClient[SyncCryptoApi],
@@ -370,19 +358,6 @@ object SequencedEventValidator extends HasLoggerName {
 
     if (signingTimestamp > sequencingTimestamp) {
       EitherT.leftT[F, SyncCryptoApi](SigningTimestampAfterSequencingTime)
-    } else if (optimistic) {
-      val approximateSnapshot = syncCryptoApi.currentSnapshotApproximation(traceContext)
-      val approximateSnapshotTime = approximateSnapshot.ipsSnapshot.timestamp
-      // If the topology client has caught up to the signing timestamp,
-      // use the right snapshot
-      if (signingTimestamp <= approximateSnapshotTime) {
-        EitherT(snapshotF.flatMap(validateWithSnapshot))
-      } else {
-        loggingContext.debug(
-          s"Validating event at $sequencingTimestamp optimistically with snapshot taken at $approximateSnapshotTime"
-        )
-        EitherT(validateWithSnapshot(approximateSnapshot))
-      }
     } else if (signingTimestamp == sequencingTimestamp) {
       // If the signing timestamp is the same as the sequencing timestamp,
       // we don't need to check the tolerance because it is always non-negative.
@@ -453,16 +428,9 @@ object SequencedEventValidatorFactory {
 /** Validate whether a received event is valid for processing.
   *
   * @param unauthenticated if true, then the connection is unauthenticated. in such cases, we have to skip some validations.
-  * @param optimistic if true, we'll try to be optimistic and validate the event possibly with some stale data. this
-  *                   means that during sequencer key rolling, a message might have been signed by a key that was just revoked.
-  *                   the security impact is very marginal (and an adverse scenario only possible in the async ms of
-  *                   this node validating a few inflight transactions). therefore, this parameter should be set to
-  *                   true due to performance reasons.
   */
-// TODO(#10040) remove optimistic validation
 class SequencedEventValidatorImpl(
     unauthenticated: Boolean,
-    optimistic: Boolean,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
@@ -614,38 +582,24 @@ class SequencedEventValidatorImpl(
     } else {
       val signingTs = event.signedEvent.timestampOfSigningKey.getOrElse(event.timestamp)
 
-      def doValidate(
-          optimistic: Boolean
-      ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
-        for {
-          snapshot <- SequencedEventValidator
-            .validateSigningTimestampUS(
-              syncCryptoApi,
-              signingTs,
-              event.timestamp,
-              lastTopologyClientTimestamp(priorEventO),
-              protocolVersion,
-              warnIfApproximate = priorEventO.nonEmpty,
-              optimistic,
-            )
-            .leftMap(InvalidTimestampOfSigningKey(event.timestamp, signingTs, _))
-          _ <- event.signedEvent
-            .verifySignature(snapshot, sequencerId, HashPurpose.SequencedEventSignature)
-            .leftMap[SequencedEventValidationError[Nothing]](
-              SignatureInvalid(event.timestamp, signingTs, _)
-            )
-            .mapK(FutureUnlessShutdown.outcomeK)
-        } yield ()
-
-      doValidate(optimistic).leftFlatMap { err =>
-        // When optimistic validation fails, retry with the right snapshot
-        if (optimistic) {
-          logger.debug(
-            s"Optimistic event validation failed with $err. Falling back to validation with the proper topology state."
+      for {
+        snapshot <- SequencedEventValidator
+          .validateSigningTimestampUS(
+            syncCryptoApi,
+            signingTs,
+            event.timestamp,
+            lastTopologyClientTimestamp(priorEventO),
+            protocolVersion,
+            warnIfApproximate = priorEventO.nonEmpty,
           )
-          doValidate(optimistic = false)
-        } else EitherT.leftT(err)
-      }
+          .leftMap(InvalidTimestampOfSigningKey(event.timestamp, signingTs, _))
+        _ <- event.signedEvent
+          .verifySignature(snapshot, sequencerId, HashPurpose.SequencedEventSignature)
+          .leftMap[SequencedEventValidationError[Nothing]](
+            SignatureInvalid(event.timestamp, signingTs, _)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
+      } yield ()
     }
   }
 
@@ -685,7 +639,7 @@ class SequencedEventValidatorImpl(
                 _.traverse((_: Unit) => None)
               )
             else {
-              val previousEvent = rememberedAndCurrent.head1.unwrap.valueOr { previousErr =>
+              val previousEvent = rememberedAndCurrent.head1.value.valueOr { previousErr =>
                 implicit val traceContext: TraceContext = current.traceContext
                 ErrorUtil.invalidState(
                   s"Subscription for sequencer $sequencerId delivered an event at counter ${current.counter} after having previously signalled the error $previousErr"
@@ -715,7 +669,7 @@ class SequencedEventValidatorImpl(
           FutureUnlessShutdown.pure(failedPreviously -> event.last1.map(_ => None))
         else
           performValidation(event).map { validation =>
-            val failed = validation.unwrap.exists(_.isLeft)
+            val failed = validation.value.exists(_.isLeft)
             failed -> validation
           }
       }

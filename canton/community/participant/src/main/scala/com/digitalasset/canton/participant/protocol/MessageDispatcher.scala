@@ -87,11 +87,7 @@ trait MessageDispatcher { this: NamedLogging =>
 
   implicit protected val ec: ExecutionContext
 
-  def handleAll(
-      events: Traced[Seq[Either[Traced[
-        EventWithErrors[SequencedEvent[DefaultOpenEnvelope]]
-      ], PossiblyIgnoredProtocolEvent]]]
-  ): HandlerResult
+  def handleAll(events: Traced[Seq[WithOpeningErrors[PossiblyIgnoredProtocolEvent]]]): HandlerResult
 
   /** Returns a future that completes when all calls to [[handleAll]]
     * whose returned [[scala.concurrent.Future]] has completed prior to this call have completed processing.
@@ -182,30 +178,22 @@ trait MessageDispatcher { this: NamedLogging =>
     * </ul>
     */
   protected def processBatch(
-      eventE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ]
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
-    val content = eventE.fold(_.content, _.content)
-    val Deliver(sc, ts, _, _, batch) = content
+    val deliver = eventE.event.content
+    val Deliver(sc, ts, _, _, batch) = deliver
 
     val envelopesWithCorrectDomainId = filterBatchForDomainId(batch, sc, ts)
 
+    // Sanity check the batch
+    // we can receive an empty batch if it was for a deliver we sent but were not a recipient
+    // or if the event validation has failed on the sequencer for another member's submission
+    if (deliver.isReceipt) {
+      logger.debug(show"Received the receipt for a previously sent batch:\n$deliver")
+    } else if (batch.envelopes.isEmpty) {
+      logger.debug(show"Received an empty batch.")
+    }
     for {
-      // Sanity check the batch
-      // we can receive an empty batch if it was for a deliver we sent but were not a recipient
-      sanityCheck <-
-        if (content.isReceipt) {
-          logger.debug(show"Received the receipt for a previously sent batch:\n$content")
-          FutureUnlessShutdown.pure(processingResultMonoid.empty)
-        } else if (batch.envelopes.isEmpty) {
-          doProcess(
-            MalformedMessage,
-            FutureUnlessShutdown.pure(alarm(sc, ts, "Received an empty batch.")),
-          )
-        } else FutureUnlessShutdown.pure(processingResultMonoid.empty)
-
       identityResult <- processTopologyTransactions(
         sc,
         SequencedTime(ts),
@@ -228,7 +216,6 @@ trait MessageDispatcher { this: NamedLogging =>
       )
     } yield Foldable[List].fold(
       List(
-        sanityCheck,
         identityResult,
         acsCommitmentResult,
         repairProcessorResult,
@@ -248,10 +235,7 @@ trait MessageDispatcher { this: NamedLogging =>
     )
 
   private def processTransactionAndTransferMessages(
-      eventE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       sc: SequencerCounter,
       ts: CantonTimestamp,
       envelopes: List[DefaultOpenEnvelope],
@@ -311,7 +295,7 @@ trait MessageDispatcher { this: NamedLogging =>
 
         val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
 
-        val isReceipt = eventE.fold(_.content, _.content).messageIdO.isDefined
+        val isReceipt = eventE.event.content.messageIdO.isDefined
         processEncryptedViewsAndRootHashMessages(
           encryptedViews = encryptedViews,
           rootHashMessages = rootHashMessages,
@@ -702,11 +686,11 @@ trait MessageDispatcher { this: NamedLogging =>
       sc: SequencerCounter,
       ts: CantonTimestamp,
       msgId: Option[MessageId],
-      err: EventWithErrors[SequencedEvent[DefaultOpenEnvelope]],
+      err: WithOpeningErrors[SequencedEvent[DefaultOpenEnvelope]],
   )(implicit traceContext: TraceContext): Unit =
     logger.info(
       show"Skipping faulty event at sc=${sc}, ts=${ts}${withMsgId(msgId)}, with errors=${err.openingErrors
-          .map(_.message)} and contents=${err.content.envelopes
+          .map(_.message)} and contents=${err.event.envelopes
           .map(_.protocolMessage)}"
     )
 

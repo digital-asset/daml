@@ -679,9 +679,8 @@ object PekkoUtil extends HasLoggerName {
     * (Equality ignores the [[org.apache.pekko.stream.KillSwitch]]es because it is usually not very meaningful.
     * The [[org.apache.pekko.stream.KillSwitch]] is therefore in the second argument list.)
     */
-  final case class WithKillSwitch[+A](private val value: A)(val killSwitch: KillSwitch)
+  final case class WithKillSwitch[+A](override val value: A)(val killSwitch: KillSwitch)
       extends WithGeneric[A, KillSwitch, WithKillSwitch] {
-    override def unwrap: A = value
     override protected def added: KillSwitch = killSwitch
     override protected def update[AA](newValue: AA): WithKillSwitch[AA] = copy(newValue)(killSwitch)
   }
@@ -712,7 +711,7 @@ object PekkoUtil extends HasLoggerName {
       elem => {
         if (draining) Iterable.empty[WithKillSwitch[A]]
         else {
-          if (condition(elem.unwrap)) {
+          if (condition(elem.value)) {
             draining = true
             elem.killSwitch.shutdown()
           }

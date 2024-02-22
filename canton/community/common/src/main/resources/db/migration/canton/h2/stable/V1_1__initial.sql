@@ -944,9 +944,11 @@ create index top_up_events_idx ON top_up_events (member);
 -- Individual blocks/transactions exist in separate table
 create table completed_epochs (
     -- strictly-increasing, contiguous epoch number
-    epoch_number bigint not null primary key ,
+    epoch_number bigint not null primary key,
     -- first block sequence number (globally) of the epoch
     start_block_number bigint not null,
+    -- commit messages of the last block in the epoch
+    last_block_commits binary large object not null,
     -- number of total blocks in the epoch
     epoch_length integer not null
 );
@@ -956,7 +958,9 @@ create table active_epoch (
     -- epoch number that consensus is actively working on
     epoch_number bigint not null,
     -- global sequence number of the ordered block
-    block_number bigint not null primary key
+    block_number bigint not null primary key,
+    -- commit messages of the block
+    commit_messages binary large object not null
 );
 
 create table availability_batch(

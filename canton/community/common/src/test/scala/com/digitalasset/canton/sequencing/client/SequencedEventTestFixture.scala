@@ -135,7 +135,6 @@ class SequencedEventTestFixture(
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl = {
     new SequencedEventValidatorImpl(
       unauthenticated = false,
-      optimistic = false,
       defaultDomainId,
       testedProtocolVersion,
       syncCryptoApi,

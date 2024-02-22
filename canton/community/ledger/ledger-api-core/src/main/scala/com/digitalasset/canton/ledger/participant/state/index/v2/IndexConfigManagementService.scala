@@ -11,9 +11,6 @@ import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 
-/** Serves as a backend to implement
-  * [[com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc]]
-  */
 trait IndexConfigManagementService {
 
   /** Looks up the current configuration, if set, and the offset from which

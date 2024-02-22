@@ -17,7 +17,6 @@ import com.daml.ledger.api.v2.commands.Commands
 import com.daml.lf.command.*
 import com.daml.lf.data.*
 import com.daml.lf.value.Value as Lf
-import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   Submitters,
@@ -34,7 +33,6 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
 final class CommandsValidator(
-    ledgerId: LedgerId,
     validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions =
       ValidateUpgradingPackageResolutions.UpgradingDisabled,
     upgradingEnabled: Boolean = false,
@@ -276,12 +274,10 @@ final class CommandsValidator(
 
 object CommandsValidator {
   def apply(
-      ledgerId: LedgerId,
       validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
       upgradingEnabled: Boolean,
   ) =
     new CommandsValidator(
-      ledgerId = ledgerId,
       validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
       upgradingEnabled = upgradingEnabled,
     )

@@ -54,8 +54,6 @@ object IndexerConfig {
       connectionTimeout = connectionTimeout,
     )
 
-  val DefaultIndexerStartupMode: IndexerStartupMode =
-    IndexerStartupMode.MigrateAndStart
   val DefaultRestartDelay: FiniteDuration = 10.seconds
   val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16

@@ -481,10 +481,7 @@ private[transfer] class TransferInProcessingSteps(
     s"Transfer-in $requestId: $message"
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      messageE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      messageE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[MalformedConfirmationRequestResult, TransferInResult],
       pendingRequestData: PendingTransferIn,
       pendingSubmissionMap: PendingSubmissions,

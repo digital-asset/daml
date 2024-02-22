@@ -221,7 +221,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .restartSource("restart-upon-completion", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
-      retrievedElemsF.futureValue.map(_.unwrap) shouldBe (1 to 12)
+      retrievedElemsF.futureValue.map(_.value) shouldBe (1 to 12)
 
       doneF.futureValue
       lastStates.get() shouldBe Seq(1, 4, 7, 10)
@@ -247,7 +247,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
 
       val start = System.nanoTime()
       val ((_killSwitch, doneF), retrievedElemsF) = stream.run()
-      retrievedElemsF.futureValue.map(_.unwrap) shouldBe (1 to 12)
+      retrievedElemsF.futureValue.map(_.value) shouldBe (1 to 12)
       val stop = System.nanoTime()
       (stop - start) shouldBe >=(3 * delay.toNanos)
       doneF.futureValue
@@ -274,7 +274,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .restartSource("restart-with-delay", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
-      retrievedElemsF.futureValue.map(_.unwrap) shouldBe Seq(1, 2, 1, 2)
+      retrievedElemsF.futureValue.map(_.value) shouldBe Seq(1, 2, 1, 2)
       doneF.futureValue
       shouldRetryCalls.get().foreach {
         case RetryCallArgs(lastState, lastEmittedElement, lastFailure) =>
@@ -307,7 +307,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .restartSource("restart-propagate-error", 1, mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
-      retrievedElemsF.futureValue.map(_.unwrap) shouldBe Seq(11, 13, 15)
+      retrievedElemsF.futureValue.map(_.value) shouldBe Seq(11, 13, 15)
       doneF.futureValue
 
       shouldRetryCalls.get().foreach {
@@ -343,7 +343,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .toMat(Sink.seq)(Keep.both)
         .run()
       pullKillSwitch.putIfAbsent(killSwitch)
-      val retrievedElems = retrievedElemsF.futureValue.map(_.unwrap)
+      val retrievedElems = retrievedElemsF.futureValue.map(_.value)
       val lastRetry = pulledKillSwitchAt.get.value
       lastRetry shouldBe >(10)
       retrievedElems shouldBe (1 to lastRetry)
@@ -403,7 +403,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       doneF.futureValue
       val stop = System.nanoTime()
       (stop - start) shouldBe <(longBackoff.toNanos)
-      retrievedElemsF.futureValue.map(_.unwrap) shouldBe (1 to 11)
+      retrievedElemsF.futureValue.map(_.value) shouldBe (1 to 11)
     }
 
     "the completion future awaits the retry to finish" in assertAllStagesStopped {
@@ -453,7 +453,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       val policy = PekkoUtil.RetrySourcePolicy.never[Int, Int]
       val ((killSwitch, doneF), sink) = PekkoUtil
         .restartSource("close-inner-source", 1, mkSource, policy)
-        .map(_.unwrap)
+        .map(_.value)
         .toMat(TestSink.probe)(Keep.both)
         .run()
       sink.request(4)
@@ -487,7 +487,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
 
       val ((killSwitch, doneF), sink) = PekkoUtil
         .restartSource("await completion of inner sources", 1, mkSource, policy)
-        .map(_.unwrap)
+        .map(_.value)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -553,7 +553,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         // The log line from the flush
         _.errorMessage should include(s"RestartSource $name at state 4 failed"),
       )
-      retrievedElems.map(_.unwrap) shouldBe Seq(1, 2, 3, 4)
+      retrievedElems.map(_.value) shouldBe Seq(1, 2, 3, 4)
     }
 
     "can pull the kill switch after retries have stopped" in assertAllStagesStopped {
@@ -657,8 +657,8 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .probe[Int]
         .withUniqueKillSwitchMat()(Keep.left)
         .map { elem =>
-          if (elem.unwrap > 0) elem.killSwitch.shutdown()
-          elem.unwrap
+          if (elem.value > 0) elem.killSwitch.shutdown()
+          elem.value
         }
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -702,7 +702,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .withUniqueKillSwitchMat()(Keep.left)
         .map { elem =>
           elem.killSwitch.abort(ex)
-          elem.unwrap
+          elem.value
         }
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -727,7 +727,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .withUniqueKillSwitchMat()(Keep.left)
         .takeUntilThenDrain(_ >= 5)
         .runWith(Sink.seq)
-      elemsF.futureValue.map(_.unwrap) shouldBe (1 to 5)
+      elemsF.futureValue.map(_.value) shouldBe (1 to 5)
     }
 
     "pass all elements if the condition never fires" in assertAllStagesStopped {
@@ -735,7 +735,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .withUniqueKillSwitchMat()(Keep.left)
         .takeUntilThenDrain(_ => false)
         .runWith(Sink.seq)
-      elemsF.futureValue.map(_.unwrap) shouldBe (1 to 10)
+      elemsF.futureValue.map(_.value) shouldBe (1 to 10)
     }
 
     "drain the source" in assertAllStagesStopped {
@@ -747,7 +747,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         }
         .takeUntilThenDrain(_ >= 5)
         .runWith(Sink.seq)
-      elemsF.futureValue.map(_.unwrap) shouldBe (1 to 5)
+      elemsF.futureValue.map(_.value) shouldBe (1 to 5)
       observed.get() shouldBe (1 to 10)
     }
   }
@@ -829,7 +829,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         .mapAsyncAndDrainUS(1)(xs => FutureUnlessShutdown.pure(xs.size))
         .withUniqueKillSwitchMat()(Keep.right)
         .takeUntilThenDrain(_ > 0)
-        .map(_.unwrap)
+        .map(_.value)
         .via(flow)
 
       source.to(Sink.seq[WithKillSwitch[Int]])
@@ -938,7 +938,7 @@ object PekkoUtilTest {
     */
   implicit def eqWithKillSwitch[A: Eq]: Eq[WithKillSwitch[A]] =
     (x: WithKillSwitch[A], y: WithKillSwitch[A]) =>
-      Eq[A].eqv(x.unwrap, y.unwrap) && Eq[KillSwitch].eqv(x.killSwitch, y.killSwitch)
+      Eq[A].eqv(x.value, y.value) && Eq[KillSwitch].eqv(x.killSwitch, y.killSwitch)
 
   implicit def arbitraryChecked[A: Arbitrary]: Arbitrary[WithKillSwitch[A]] =
     Arbitrary(Arbitrary.arbitrary[A].map(withNoOpKillSwitch))

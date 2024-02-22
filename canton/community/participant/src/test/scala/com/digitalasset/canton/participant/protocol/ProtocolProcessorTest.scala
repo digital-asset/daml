@@ -934,10 +934,14 @@ class ProtocolProcessorTest
         .thenReturn(EitherT.rightT(()))
       sut
         .performResultProcessing(
-          mock[Either[
-            EventWithErrors[Deliver[DefaultOpenEnvelope]],
-            SignedContent[Deliver[DefaultOpenEnvelope]],
-          ]],
+          NoOpeningErrors(
+            SignedContent(
+              mock[Deliver[DefaultOpenEnvelope]],
+              Signature.noSignature,
+              None,
+              testedProtocolVersion,
+            )
+          ),
           Right(mockSignedProtocolMessage),
           requestId,
           timestamp,

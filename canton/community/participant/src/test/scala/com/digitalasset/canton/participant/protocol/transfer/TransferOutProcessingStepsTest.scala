@@ -842,7 +842,7 @@ final class TransferOutProcessingStepsTest
         _ <- valueOrFail(
           outProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
-              Right(signedContent),
+              NoOpeningErrors(signedContent),
               Right(transferResult),
               pendingOut,
               state.pendingTransferOutSubmissions,
