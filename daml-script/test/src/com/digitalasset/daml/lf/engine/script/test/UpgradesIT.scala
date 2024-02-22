@@ -12,7 +12,7 @@ import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
-import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
@@ -34,14 +34,15 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
   final override protected lazy val devMode = true
   final override protected lazy val enableContractUpgrading = true
 
-  override val majorLanguageVersion: LanguageMajorVersion = LanguageMajorVersion.V2
+  val languageVersion: LanguageVersion = LanguageVersion.v2_1
+  override val majorLanguageVersion: LanguageMajorVersion = languageVersion.major
 
   override protected lazy val darFiles = List()
 
-  lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.dev.dar")
+  lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.1.dar")
   lazy val upgradeTestLibDar: Path = rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar"))
 
-  lazy val tempDir: Path = Files.createTempDirectory("upgrades-it-dev")
+  lazy val tempDir: Path = Files.createTempDirectory("upgrades-it")
 
   val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
   val testCases: Seq[TestCase] = getTestCases(testFileDir)
@@ -153,6 +154,7 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     buildDar(
       name = name,
       version = version,
+      lfVersion = languageVersion,
       modules = modules,
       deps = deps,
       dataDeps = dataDeps,

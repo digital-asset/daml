@@ -347,10 +347,10 @@ daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml3:daml3-script-2.1.dar",
     ],
     project_name = "upgrade-test-lib",
-    target = "2.dev",
+    target = "2.1",
     version = "1.0.0",
 )
 
@@ -363,6 +363,10 @@ da_scala_test_suite(
     ),
     data = [
         ":script-test-no-ledger.dar",
+        ":upgrade-test-files",
+        ":upgrade-test-lib.dar",
+        "//compiler/damlc",
+        "//daml-script/daml3:daml3-script-2.1.dar",
         "//daml-script/runner:daml-script-binary",
     ] + [
         ":script{scriptVersion}-test-v{major}.dar".format(
@@ -377,9 +381,14 @@ da_scala_test_suite(
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml_common",
+        "@maven//:io_circe_circe_yaml",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
     ],
     tags = [
         "cpu:4",
@@ -397,7 +406,9 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
+        "//libs-scala/timer-utils",
         "//test-common/canton/it-lib",
     ],
 )
@@ -410,7 +421,6 @@ filegroup(
 
 da_scala_test_suite(
     name = "test-dev",
-    size = "large",
     srcs = glob(
         ["src/com/**/*Dev*.scala"],
     ),
@@ -425,13 +435,9 @@ da_scala_test_suite(
         ":script-test-{}.dar".format(lf),
     ] for lf in LF_DEV_VERSIONS] for dep in deps] + [
         ":script-test-no-ledger.dar",
-        ":upgrade-test-files",
-        ":upgrade-test-lib.dar",
-        "//compiler/damlc",
         "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",
         "//compiler/damlc/tests:try-submit-test.dar",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     resources = glob(["src/main/resources/**/*"]),
@@ -439,11 +445,6 @@ da_scala_test_suite(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:io_circe_circe_core",
-        "@maven//:io_circe_circe_yaml",
-        "@maven//:io_circe_circe_yaml_common",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_kernel",
     ],
     tags = [
         "cpu:4",
@@ -453,7 +454,6 @@ da_scala_test_suite(
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_ledger_ledger-common",
-        "//canton:ledger_api_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -466,13 +466,10 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
-        "//libs-scala/timer-utils",
         "//observability/metrics",
         "//test-common/canton/it-lib",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_grpc_grpc_netty",
     ],
 )

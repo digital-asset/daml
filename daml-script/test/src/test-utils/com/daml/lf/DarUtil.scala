@@ -7,6 +7,7 @@ package test
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.LanguageVersion
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.sys.process._
@@ -34,6 +35,7 @@ object DarUtil {
   def buildDar(
       name: String,
       version: Int = 1,
+      lfVersion: LanguageVersion,
       modules: Map[String, String],
       deps: Seq[Path] = Seq.empty,
       dataDeps: Seq[DataDep] = Seq.empty,
@@ -45,7 +47,7 @@ object DarUtil {
     def writeDamlYaml(pkgRoot: Path) = {
       val fileContent =
         s"""sdk-version: 0.0.0
-          |build-options: [--target=2.dev]
+          |build-options: [--target=${lfVersion.pretty}]
           |name: $name
           |source: .
           |version: $version.0.0
