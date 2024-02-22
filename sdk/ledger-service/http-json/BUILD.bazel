@@ -316,7 +316,7 @@ daml_compile(
     )
     for edition in [
         "ce",
-        #"ee",
+        "ee",
     ]
 ]
 
@@ -404,7 +404,7 @@ alias(
     )
     for edition in [
         "ce",
-        #"ee",
+        "ee",
     ]
 ]
 
@@ -466,7 +466,7 @@ alias(
     )
     for edition in [
         "ce",
-        #"ee",
+        "ee",
     ]
 ]
 
@@ -563,7 +563,7 @@ alias(
     )
     for edition in [
         "ce",
-        #"ee",
+        "ee",
     ]
 ]
 
