@@ -101,7 +101,7 @@ object ContractIdClass {
   ) = {
     val exercisesParent =
       if (hasStandardArchive(choices, typeDeclarations))
-        classOf[javaapi.data.codegen.Exercises.Archive[_]]
+        classOf[javaapi.data.codegen.Exercises.Archivable[_]]
       else classOf[javaapi.data.codegen.Exercises[_]]
     val exercisesClass = TypeSpec
       .interfaceBuilder(exercisesInterface(className))
