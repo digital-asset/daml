@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import scala.concurrent.Future
 
 /** Serves as a backend to implement
-  * [[com.daml.ledger.api.v1.event_query_service.EventQueryServiceGrpc.EventQueryService]]
+  * [[com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryService]]
   */
 trait IndexEventQueryService extends LedgerEndService {
 

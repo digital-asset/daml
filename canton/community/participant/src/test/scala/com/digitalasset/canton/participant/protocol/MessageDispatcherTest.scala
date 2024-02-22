@@ -153,10 +153,7 @@ trait MessageDispatcherTest {
           .thenReturn(processingRequestHandlerF)
         when(
           processor.processResult(
-            any[Either[
-              EventWithErrors[Deliver[DefaultOpenEnvelope]],
-              SignedContent[Deliver[DefaultOpenEnvelope]],
-            ]]
+            any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]]
           )(anyTraceContext)
         )
           .thenReturn(processingResultHandlerF)
@@ -164,10 +161,7 @@ trait MessageDispatcherTest {
           processor.processMalformedMediatorConfirmationRequestResult(
             any[CantonTimestamp],
             any[SequencerCounter],
-            any[Either[
-              EventWithErrors[Deliver[DefaultOpenEnvelope]],
-              SignedContent[Deliver[DefaultOpenEnvelope]],
-            ]],
+            any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]],
           )(anyTraceContext)
         )
           .thenReturn(processingResultHandlerF)
@@ -502,20 +496,15 @@ trait MessageDispatcherTest {
 
     def checkProcessResult(processor: AnyProcessor): Assertion = {
       verify(processor).processResult(
-        any[Either[
-          EventWithErrors[Deliver[DefaultOpenEnvelope]],
-          SignedContent[Deliver[DefaultOpenEnvelope]],
-        ]]
-      )(
-        anyTraceContext
-      )
+        any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]]
+      )(anyTraceContext)
       succeed
     }
 
-    def signAndTrace(event: RawProtocolEvent): Traced[Seq[Either[Traced[
-      EventWithErrors[SequencedEvent[OpenEnvelope[ProtocolMessage]]]
-    ], PossiblyIgnoredProtocolEvent]]] =
-      Traced(Seq(Right(OrdinarySequencedEvent(signEvent(event), None)(traceContext))))
+    def signAndTrace(
+        event: RawProtocolEvent
+    ): Traced[Seq[WithOpeningErrors[PossiblyIgnoredProtocolEvent]]] =
+      Traced(Seq(NoOpeningErrors(OrdinarySequencedEvent(signEvent(event), None)(traceContext))))
 
     def handle(sut: Fixture, event: RawProtocolEvent)(checks: => Assertion): Future[Assertion] = {
       for {
@@ -538,10 +527,7 @@ trait MessageDispatcherTest {
           sc.v,
           ts,
           domainId,
-          messageId = Some(
-            MessageId
-              .tryCreate(s"$prefix testing")
-          ),
+          messageId = Some(MessageId.tryCreate(s"$prefix testing")),
         )
         // Check that we're calling the topology manager before we're publishing the deliver event and ticking the
         // request tracker
@@ -1144,10 +1130,7 @@ trait MessageDispatcherTest {
               verify(processor(sut)).processMalformedMediatorConfirmationRequestResult(
                 isEq(CantonTimestamp.Epoch),
                 isEq(SequencerCounter(0)),
-                any[Either[
-                  EventWithErrors[Deliver[DefaultOpenEnvelope]],
-                  SignedContent[Deliver[DefaultOpenEnvelope]],
-                ]],
+                any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]],
               )(anyTraceContext)
               checkTickTopologyProcessor(sut)
               checkTickRequestTracker(sut)
@@ -1192,7 +1175,7 @@ trait MessageDispatcherTest {
         )
 
         val sequencedEvents = Seq(deliver1, deliver2, deliver3, deliverError4).map(event =>
-          Right(OrdinarySequencedEvent(signEvent(event), None)(traceContext))
+          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event), None)(traceContext))
         )
 
         sut.messageDispatcher
@@ -1246,7 +1229,7 @@ trait MessageDispatcherTest {
         )
 
         val sequencedEvents = Seq(deliver1, deliver2, deliver3).map(event =>
-          Right(OrdinarySequencedEvent(signEvent(event), None)(traceContext))
+          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event), None)(traceContext))
         )
 
         loggerFactory

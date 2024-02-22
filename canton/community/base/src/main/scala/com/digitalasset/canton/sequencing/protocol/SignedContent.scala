@@ -245,29 +245,17 @@ object SignedContent
     )
   }
 
-  def openEnvelopes(
-      event: SignedContent[SequencedEvent[ClosedEnvelope]]
-  )(
+  def openEnvelopes(event: SignedContent[SequencedEvent[ClosedEnvelope]])(
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,
-  ): Either[
-    EventWithErrors[SequencedEvent[DefaultOpenEnvelope]],
-    SignedContent[SequencedEvent[DefaultOpenEnvelope]],
-  ] = {
+  ): WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]] = {
     val (openSequencedEvent, openingErrors) =
       SequencedEvent.openEnvelopes(event.content)(protocolVersion, hashOps)
-
-    Either.cond(
-      openingErrors.isEmpty,
-      event.copy(content = openSequencedEvent), // The signature is still valid
-      EventWithErrors(openSequencedEvent, openingErrors, isIgnored = false),
+    WithOpeningErrors(
+      // The signature is still valid
+      event.copy(content = openSequencedEvent),
+      openingErrors,
     )
   }
 
 }
-
-final case class EventWithErrors[Event <: SequencedEvent[?]](
-    content: Event,
-    openingErrors: Seq[ProtoDeserializationError],
-    isIgnored: Boolean,
-)

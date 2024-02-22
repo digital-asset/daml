@@ -18,6 +18,8 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 object BlockOrderingSequencer {
 
+  val DefaultFirstBlockHeight: Long = 0
+
   class Factory[F <: BlockOrdererFactory](
       val blockOrdererFactory: F, // Must be a public field as we leak its type member
       driverName: String,
@@ -46,7 +48,7 @@ object BlockOrderingSequencer {
     )(implicit executionContext: ExecutionContext, materializer: Materializer): SequencerDriver =
       new Driver(
         blockOrdererFactory.create(config, domainTopologyManagerId, timeProvider, loggerFactory),
-        firstBlockHeight.getOrElse(0),
+        firstBlockHeight.getOrElse(DefaultFirstBlockHeight),
         loggerFactory,
       )
 

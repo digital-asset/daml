@@ -125,7 +125,7 @@ class SequencedEventMonotonicityCheckerTest
         .via(checker.flow)
         .toMat(Sink.seq)(Keep.right)
         .run()
-      eventsF.futureValue.map(_.unwrap) shouldBe bobEvents.map(Right(_))
+      eventsF.futureValue.map(_.value) shouldBe bobEvents.map(Right(_))
     }
 
     "kill the stream upon a gap in the counters" in { env =>
@@ -148,7 +148,7 @@ class SequencedEventMonotonicityCheckerTest
           "Sequencer counters and timestamps do not increase monotonically"
         ),
       )
-      eventsF.futureValue.map(_.unwrap) shouldBe batch1.map(Right(_))
+      eventsF.futureValue.map(_.value) shouldBe batch1.map(Right(_))
     }
 
     "detect non-monotonic timestamps" in { env =>
@@ -179,7 +179,7 @@ class SequencedEventMonotonicityCheckerTest
           "Sequencer counters and timestamps do not increase monotonically"
         ),
       )
-      eventsF.futureValue.map(_.unwrap) shouldBe Seq(Right(event1))
+      eventsF.futureValue.map(_.value) shouldBe Seq(Right(event1))
     }
   }
 }

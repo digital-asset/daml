@@ -252,7 +252,6 @@ class CommandServiceImplSpec
       deadlineTicker: Deadline.Ticker = Deadline.getSystemTicker,
   ): ResourceOwner[CommandServiceGrpc.CommandServiceStub] = {
     val commandsValidator = CommandsValidator(
-      ledgerId = ledgerId,
       validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
       upgradingEnabled = false,
     )

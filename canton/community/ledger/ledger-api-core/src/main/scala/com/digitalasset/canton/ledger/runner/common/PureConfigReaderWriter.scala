@@ -207,6 +207,8 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val validateAndWaitOnlyConvert: ConfigConvert[IndexerStartupMode.ValidateAndWaitOnly] =
     deriveConvert[IndexerStartupMode.ValidateAndWaitOnly]
+  implicit val justStartOnlyConvert: ConfigConvert[IndexerStartupMode.JustStart.type] =
+    deriveConvert[IndexerStartupMode.JustStart.type]
 
   implicit val indexerStartupModeConvert: ConfigConvert[IndexerStartupMode] =
     deriveConvert[IndexerStartupMode]

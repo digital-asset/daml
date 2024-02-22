@@ -68,7 +68,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.{PeriodicAcknowledgements, RichSequencerClient}
 import com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker
-import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, EventWithErrors}
+import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
@@ -634,17 +634,13 @@ class SyncDomain(
                   domainCrypto.crypto.pureCrypto,
                 )
 
-                openedEvent match {
-                  case Right(_) =>
-                  case Left(Traced(EventWithErrors(content, openingErrors, _isIgnored))) =>
-                    // Raise alarms
-                    // TODO(i11804): Send a rejection
-                    openingErrors.foreach { error =>
-                      val cause =
-                        s"Received an envelope at ${content.timestamp} that cannot be opened. " +
-                          s"Discarding envelope... Reason: $error"
-                      SyncServiceAlarm.Warn(cause).report()
-                    }
+                // Raise alarms
+                // TODO(i11804): Send a rejection
+                openedEvent.openingErrors.foreach { error =>
+                  val cause =
+                    s"Received an envelope at ${openedEvent.event.timestamp} that cannot be opened. " +
+                      s"Discarding envelope... Reason: $error"
+                  SyncServiceAlarm.Warn(cause).report()
                 }
 
                 openedEvent
