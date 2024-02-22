@@ -11,17 +11,21 @@ import DA.Text
 {- PACKAGE
 name: multi-participant
 versions: 2
-modules:
-  - name: MultiParticipant
-    contents: |
-      template SharedTemplate
-        with
-          party : Party
-          ob : Party
-          V2(additionalField : Optional Text)
-        where
-          signatory party
-          observer ob
+-}
+
+{- MODULE
+package: multi-participant
+contents: |
+  module MultiParticipant where
+
+  template SharedTemplate
+    with
+      party : Party
+      ob : Party
+      additionalField : Optional Text -- @V 2
+    where
+      signatory party
+      observer ob
 -}
 
 main : Script ()
@@ -57,7 +61,7 @@ submitV1OtherV2 = do
 
   withUnvettedDarOnParticipant "multi-participant-2.0.0" participant0 $
     a `trySubmit` createCmd V1.SharedTemplate with party = a, ob = b
-  
+
   pure ()
 
 submitV2OtherV1 : Script ()

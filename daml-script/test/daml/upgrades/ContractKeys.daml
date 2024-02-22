@@ -10,42 +10,47 @@ import qualified V2.ContractKeys as V2
 {- PACKAGE
 name: contract-key-upgrades
 versions: 2
-modules:
-  - name: ContractKeys
-    contents: |
-      data UnchangedKeyKey = UnchangedKeyKey with
-          p : Party
-          n : Int
-        deriving (Eq, Show)
+-}
 
-      template UnchangedKey
-        with
-          party : Party
-          n : Int
-          V2(newField : Optional Text)
-        where
-          signatory party
-          key (UnchangedKeyKey party n) : UnchangedKeyKey
-          maintainer key.p
+{- MODULE
+package: contract-key-upgrades
+contents: |
+  module ContractKeys where
 
-          choice UnchangedKeyCall : Text
-            controller party
-            do pure V1("V1")V2("V2")
+  data UnchangedKeyKey = UnchangedKeyKey with
+      p : Party
+      n : Int
+    deriving (Eq, Show)
 
-      template UnchangedKeyHelper
-        with
-          party : Party
-        where
-          signatory party
-          choice UnchangedKeyFetch : (ContractId UnchangedKey, UnchangedKey) with
-              k : UnchangedKeyKey
-            controller party
-            do fetchByKey k
-          
-          choice UnchangedKeyExercise : Text with
-              k : UnchangedKeyKey
-            controller party
-            do exerciseByKey @UnchangedKey k UnchangedKeyCall
+  template UnchangedKey
+    with
+      party : Party
+      n : Int
+      newField : Optional Text                        -- @V  2
+    where
+      signatory party
+      key (UnchangedKeyKey party n) : UnchangedKeyKey
+      maintainer key.p
+
+      choice UnchangedKeyCall : Text
+        controller party
+        do pure "V1"                                  -- @V 1
+        do pure "V2"                                  -- @V  2
+
+  template UnchangedKeyHelper
+    with
+      party : Party
+    where
+      signatory party
+      choice UnchangedKeyFetch : (ContractId UnchangedKey, UnchangedKey) with
+          k : UnchangedKeyKey
+        controller party
+        do fetchByKey k
+
+      choice UnchangedKeyExercise : Text with
+          k : UnchangedKeyKey
+        controller party
+        do exerciseByKey @UnchangedKey k UnchangedKeyCall
 -}
 
 main : Script ()

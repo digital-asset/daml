@@ -13,23 +13,27 @@ import DA.Text
 {- PACKAGE
 name: ledger-api-added-removed-choice-upgrades
 versions: 2
-modules:
-  - name: AddedRemovedChoice
-    contents: |
-      template AddedRemovedChoiceTemplate
-        with
-          party : Party
-          V2(newField : Optional Text)
-        where
-          signatory party
+-}
 
-          V1(choice OldRemovedChoice : Text)
-            V1(controller party)
-            V1(do pure "V1")
+{- MODULE
+package: ledger-api-added-removed-choice-upgrades
+contents: |
+  module AddedRemovedChoice where
 
-          V2(choice NewAddedChoice : Text)
-            V2(controller party)
-            V2(do pure "V2")
+  template AddedRemovedChoiceTemplate
+    with
+      party : Party
+      newField : Optional Text       -- @V  2
+    where
+      signatory party
+
+      choice OldRemovedChoice : Text -- @V 1
+        controller party             -- @V 1
+        do pure "V1"                 -- @V 1
+
+      choice NewAddedChoice : Text   -- @V  2
+        controller party             -- @V  2
+        do pure "V2"                 -- @V  2
 -}
 
 main : Script ()

@@ -10,29 +10,34 @@ import qualified V2.ChoiceBodyExercise as V2
 {- PACKAGE
 name: choice-body-exercise
 versions: 2
-modules:
-  - name: ChoiceBodyExercise
-    contents: |
-      template ChoiceBodyExerciseTemplate
-        with
-          party: Party
-          V2(newField : Optional Text)
-        where
-          signatory party
+-}
 
-          choice NonUpgradedChoice : Text
-            controller party
-            do pure V1("V1")V2("V2")
+{- MODULE
+package: choice-body-exercise
+contents: |
+  module ChoiceBodyExercise where
 
-      template ChoiceBodyExerciseHelper
-        with
-          party: Party
-        where
-          signatory party
-          choice DoNonUpgradedExercise : Text with
-              cid : ContractId ChoiceBodyExerciseTemplate
-            controller party
-            do exercise cid NonUpgradedChoice
+  template ChoiceBodyExerciseTemplate
+    with
+      party: Party
+      newField : Optional Text        -- @V  2
+    where
+      signatory party
+
+      choice NonUpgradedChoice : Text
+        controller party
+        do pure "V1"                  -- @V 1
+        do pure "V2"                  -- @V  2
+
+  template ChoiceBodyExerciseHelper
+    with
+      party: Party
+    where
+      signatory party
+      choice DoNonUpgradedExercise : Text with
+          cid : ContractId ChoiceBodyExerciseTemplate
+        controller party
+        do exercise cid NonUpgradedChoice
 -}
 
 -- Template payload upgrading/downgrading from exercises within choice bodies

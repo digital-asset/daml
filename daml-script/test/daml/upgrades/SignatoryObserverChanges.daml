@@ -11,22 +11,28 @@ import DA.Text
 {- PACKAGE
 name: signatory-observer-changes
 versions: 2
-modules:
-  - name: SignatoryObserverChanges
-    contents: |
-      template SignatoryObserverChangesTemplate
-        with
-          signatories : [Party]
-          observers : [Party]
-          replacementSignatories : [Party]
-          replacementObservers : [Party]
-        where
-          signatory V1(signatories)V2(replacementSignatories)
-          observer V1(observers)V2(replacementObservers)
+-}
 
-          V2(choice InvalidUpgradeStakeholdersCall : () with )
-            V2(controller signatory this)
-            V2(do pure ())
+{- MODULE
+package: signatory-observer-changes
+contents: |
+  module SignatoryObserverChanges where
+
+  template SignatoryObserverChangesTemplate
+    with
+      signatories : [Party]
+      observers : [Party]
+      replacementSignatories : [Party]
+      replacementObservers : [Party]
+    where
+      signatory signatories                           -- @V 1
+      signatory replacementSignatories                -- @V  2
+      observer observers                              -- @V 1
+      observer replacementObservers                   -- @V  2
+
+      choice InvalidUpgradeStakeholdersCall : () with -- @V  2
+        controller signatory this                     -- @V  2
+        do pure ()                                    -- @V  2
 -}
 
 main : Script ()

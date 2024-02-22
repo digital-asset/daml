@@ -10,14 +10,18 @@ import qualified V1.PackageSelection as V1
 {- PACKAGE
 name: package-selection
 versions: 2
-modules:
-  - name: PackageSelection
-    contents: |
-      template PackageSelectionTemplate
-        with
-          party: Party
-        where
-          signatory party
+-}
+
+{- MODULE
+package: package-selection
+contents: |
+  module PackageSelection where
+
+  template PackageSelectionTemplate
+    with
+      party: Party
+    where
+      signatory party
 -}
 
 main : Script ()

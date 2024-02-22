@@ -54,64 +54,68 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice = do
     _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
 
 {- PACKAGE
-name: data-changes-name
+name: data-changes
 versions: 2
-modules:
-  - name: NameChanges
-    contents: |
-      template V1(NameChanges)V2(NameChangesOops)
-        with 
-          party : Party
-        where
-          signatory party
-          choice NameChangesCall : Text
-            controller party
-            do pure V1("V1")V2("V2")
+-}
+
+{- MODULE
+package: data-changes
+contents: |
+  module NameChanges where
+
+  template NameChanges              -- @V 1
+  template NameChangesOops          -- @V  2
+    with
+      party : Party
+    where
+      signatory party
+      choice NameChangesCall : Text
+        controller party
+        do pure "V1"                -- @V 1
+        do pure "V2"                -- @V  2
 -}
 
 templateNameChanges : Script ()
 templateNameChanges = templateInvalidChange @V2.NameChangesOops False V1.NameChanges V2.NameChangesCall
 
-{- PACKAGE
-name: data-changes-fields-removed
-versions: 2
-modules:
-  - name: FieldsRemoved
-    contents: |
-      template FieldsRemoved
-        with
-          party : Party
-          V1(someData : Int)
-        where
-          signatory party
-          choice FieldsRemovedCall : Text
-            controller party
-            do pure V1("V1")V2("V2")
+{- MODULE
+package: data-changes
+contents: |
+  module FieldsRemoved where
+  template FieldsRemoved
+    with
+      party : Party
+      someData : Int                  -- @V 1
+    where
+      signatory party
+      choice FieldsRemovedCall : Text
+        controller party
+        do pure "V1"                  -- @V 1
+        do pure "V2"                  -- @V  2
 -}
 
 templateFieldsRemoved : Script ()
 templateFieldsRemoved = templateInvalidChange @V2.FieldsRemoved False (`V1.FieldsRemoved` 1) V2.FieldsRemovedCall
 
-{- PACKAGE
-name: data-changes-fields-removed-nested
-versions: 2
-modules:
-  - name: FieldsRemovedNested
-    contents: |
-      data FieldsRemovedNestedData = FieldsRemovedNestedData
-        with
-          party : Party
-          V1(someData : Int)
-        deriving (Eq, Show)
+{- MODULE
+package: data-changes
+contents: |
+  module FieldsRemovedNested where
+  data FieldsRemovedNestedData = FieldsRemovedNestedData
+    with
+      party : Party
+      someData : Int                        -- @V 1
+    deriving (Eq, Show)
 
-      template FieldsRemovedNested
-        with
-          nestedData : FieldsRemovedNestedData
-        where
-          signatory nestedData.party
-          choice FieldsRemovedNestedCall : Text
-            controller nestedData.party
-            do pure V1("V1")V2("V2")
+  template FieldsRemovedNested
+    with
+      nestedData : FieldsRemovedNestedData
+    where
+      signatory nestedData.party
+      choice FieldsRemovedNestedCall : Text
+        controller nestedData.party
+        do pure "V1"                        -- @V 1
+        do pure "V2"                        -- @V  2
 -}
 
 templateFieldsRemovedNested : Script ()
@@ -122,46 +126,46 @@ templateFieldsRemovedNested =
     (\p -> V1.FieldsRemovedNested $ V1.FieldsRemovedNestedData p 1)
     V2.FieldsRemovedNestedCall
 
-{- PACKAGE
-name: data-changes-non-optional-added
-versions: 2
-modules:
-  - name: NonOptionalFieldsAdded
-    contents: |
-      template NonOptionalFieldsAdded
-        with
-          party : Party
-          V2(newField : Int)
-        where
-          signatory party
-          choice NonOptionalFieldsAddedCall : Text
-            controller party
-            do pure V1("V1")V2("V2")
+{- MODULE
+package: data-changes
+contents: |
+  module NonOptionalFieldsAdded where
+
+  template NonOptionalFieldsAdded
+    with
+      party : Party
+      newField : Int                           -- @V  2
+    where
+      signatory party
+      choice NonOptionalFieldsAddedCall : Text
+        controller party
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
 -}
 
 templateNonOptionalFieldsAdded : Script ()
 templateNonOptionalFieldsAdded = templateInvalidChange @V2.NonOptionalFieldsAdded False V1.NonOptionalFieldsAdded V2.NonOptionalFieldsAddedCall
 
-{- PACKAGE
-name: data-changes-non-optional-added-nested
-versions: 2
-modules:
-  - name: NonOptionalFieldsAddedNested
-    contents: |
-      data NonOptionalFieldsAddedNestedData = NonOptionalFieldsAddedNestedData
-        with
-          party : Party
-          V2(newField : Int)
-        deriving (Eq, Show)
+{- MODULE
+package: data-changes
+contents: |
+  module NonOptionalFieldsAddedNested where
 
-      template NonOptionalFieldsAddedNested
-        with
-          nestedData : NonOptionalFieldsAddedNestedData
-        where
-          signatory nestedData.party
-          choice NonOptionalFieldsAddedNestedCall : Text
-            controller nestedData.party
-            do pure V1("V1")V2("V2")
+  data NonOptionalFieldsAddedNestedData = NonOptionalFieldsAddedNestedData
+    with
+      party : Party
+      newField : Int                                 -- @V  2
+    deriving (Eq, Show)
+
+  template NonOptionalFieldsAddedNested
+    with
+      nestedData : NonOptionalFieldsAddedNestedData
+    where
+      signatory nestedData.party
+      choice NonOptionalFieldsAddedNestedCall : Text
+        controller nestedData.party
+        do pure "V1"                                 -- @V 1
+        do pure "V2"                                 -- @V  2
 -}
 
 templateNonOptionalFieldsAddedNested : Script ()
@@ -172,25 +176,25 @@ templateNonOptionalFieldsAddedNested =
     (V1.NonOptionalFieldsAddedNested . V1.NonOptionalFieldsAddedNestedData)
     V2.NonOptionalFieldsAddedNestedCall
 
-{- PACKAGE
-name: data-changes-variant-unchanged
-versions: 2
-modules:
-  - name: VariantUnchanged
-    contents: |
-      data VariantUnchangedData
-        = VariantUnchangedData1
-        | VariantUnchangedData2
-        deriving (Eq, Show)
-      template VariantUnchanged
-        with
-          party : Party
-          nestedData : VariantUnchangedData
-        where
-          signatory party
-          choice VariantUnchangedCall : Text
-            controller party
-            do pure V1("V1")V2("V2")
+{- MODULE
+package: data-changes
+contents: |
+  module VariantUnchanged where
+
+  data VariantUnchangedData
+    = VariantUnchangedData1
+    | VariantUnchangedData2
+    deriving (Eq, Show)
+  template VariantUnchanged
+    with
+      party : Party
+      nestedData : VariantUnchangedData
+    where
+      signatory party
+      choice VariantUnchangedCall : Text
+        controller party
+        do pure "V1"                     -- @V 1
+        do pure "V2"                     -- @V  2
 -}
 
 templateVariantUnchanged : Script ()
@@ -201,25 +205,25 @@ templateVariantUnchanged =
     (`V1.VariantUnchanged` V1.VariantUnchangedData1)
     V2.VariantUnchangedCall
 
-{- PACKAGE
-name: data-changes-variant-removed
-versions: 2
-modules:
-  - name: VariantRemoved
-    contents: |
-      data VariantRemovedData
-        = VariantRemovedData1
-        V1(| VariantRemovedData2)
-        deriving (Eq, Show)
-      template VariantRemoved
-        with
-          party : Party
-          nestedData : VariantRemovedData
-        where
-          signatory party
-          choice VariantRemovedCall : Text
-            controller party
-            do pure V1("V1")V2("V2")
+{- MODULE
+package: data-changes
+contents: |
+  module VariantRemoved where
+
+  data VariantRemovedData
+    = VariantRemovedData1
+    | VariantRemovedData2              -- @V 1
+    deriving (Eq, Show)
+  template VariantRemoved
+    with
+      party : Party
+      nestedData : VariantRemovedData
+    where
+      signatory party
+      choice VariantRemovedCall : Text
+        controller party
+        do pure "V1"                   -- @V 1
+        do pure "V2"                   -- @V  2
 -}
 
 templateVariantUpgradeToRemoved : Script ()
@@ -230,26 +234,26 @@ templateVariantUpgradeToRemoved =
     (`V1.VariantRemoved` V1.VariantRemovedData2)
     V2.VariantRemovedCall
 
-{- PACKAGE
-name: data-changes-variant-additional
-versions: 2
-modules:
-  - name: VariantAdditional
-    contents: |
-      data VariantAdditionalData
-        = VariantAdditionalData1
-        | VariantAdditionalData2
-        V2(| VariantAdditionalData3)
-        deriving (Eq, Show)
-      template VariantAdditional
-        with
-          party : Party
-          nestedData : VariantAdditionalData
-        where
-          signatory party
-          choice VariantAdditionalCall : Text
-            controller party
-            do pure V1("V1")V2("V2")
+{- MODULE
+package: data-changes
+contents: |
+  module VariantAdditional where
+
+  data VariantAdditionalData
+    = VariantAdditionalData1
+    | VariantAdditionalData2
+    | VariantAdditionalData3              -- @V  2
+    deriving (Eq, Show)
+  template VariantAdditional
+    with
+      party : Party
+      nestedData : VariantAdditionalData
+    where
+      signatory party
+      choice VariantAdditionalCall : Text
+        controller party
+        do pure "V1"                      -- @V 1
+        do pure "V2"                      -- @V  2
 -}
 
 templateVariantDowngradeFromNew : Script ()

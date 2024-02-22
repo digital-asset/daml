@@ -11,25 +11,29 @@ import DA.Text
 {- PACKAGE
 name: fetch
 versions: 2
-modules:
-  - name: Fetch
-    contents: |
-      template FetchTemplate
-        with
-          party: Party
-          V2(newField : Optional Text)
-        where
-          signatory party
+-}
 
-      template FetchHelper
-        with
-          party: Party
-        where
-          signatory party
-          choice DoFetch : FetchTemplate with
-              cid : ContractId FetchTemplate
-            controller party
-            do fetch cid
+{- MODULE
+package: fetch
+contents: |
+  module Fetch where
+
+  template FetchTemplate
+    with
+      party: Party
+      newField : Optional Text -- @V 2
+    where
+      signatory party
+
+  template FetchHelper
+    with
+      party: Party
+    where
+      signatory party
+      choice DoFetch : FetchTemplate with
+          cid : ContractId FetchTemplate
+        controller party
+        do fetch cid
 -}
 
 main : Script ()

@@ -12,28 +12,34 @@ import qualified V2.UpgradedChoice as V2
 {- PACKAGE
 name: ledger-api-choice-upgrades
 versions: 2
-modules:
-  - name: UpgradedChoice
-    contents: |
-      data UpgradedChoiceReturn = UpgradedChoiceReturn with
-          someData : Text
-          V2(someOtherData : Optional Text)
-        deriving (Eq, Show)
+-}
 
-      template UpgradedChoiceTemplate
-        with
-          party : Party
-          V2(newField : Optional Text)
-        where
-          signatory party
+{- MODULE
+package: ledger-api-choice-upgrades
+contents: |
+  module UpgradedChoice where
 
-          choice UpgradedChoice : UpgradedChoiceReturn with
-              firstArg : Text
-              V2(secondArg : Optional Text)
-            controller party
-            do 
-              V1(pure $ UpgradedChoiceReturn $ firstArg <> ":V1")
-              V2(pure $ UpgradedChoiceReturn (firstArg <> ":V2:" <> show secondArg) secondArg)
+  data UpgradedChoiceReturn = UpgradedChoiceReturn with
+      someData : Text
+      someOtherData : Optional Text                     -- @V  2
+    deriving (Eq, Show)
+
+  template UpgradedChoiceTemplate
+    with
+      party : Party
+      newField : Optional Text                          -- @V  2
+    where
+      signatory party
+
+      choice UpgradedChoice : UpgradedChoiceReturn with
+          firstArg : Text
+          secondArg : Optional Text                     -- @V  2
+        controller party
+        do
+          pure $ UpgradedChoiceReturn
+            (firstArg <> ":V1")                         -- @V 1
+            (firstArg <> ":V2:" <> show secondArg)      -- @V  2
+            secondArg                                   -- @V  2
 -}
 
 main : Script ()

@@ -13,21 +13,27 @@ import DA.Exception
 {- PACKAGE
 name: ensure-changes
 versions: 2
-modules:
-  - name: EnsureChanges
-    contents: |
-      template EnsureChangesTemplate
-        with
-          v1Valid : Bool
-          v2Valid : Bool
-          party : Party
-        where
-          signatory party
-          ensure V1(v1Valid)V2(v2Valid)
+-}
 
-          choice EnsureChangesCall : Text 
-            controller party
-            do pure V1("V1")V2("V2")
+{- MODULE
+package: ensure-changes
+contents: |
+  module EnsureChanges where
+
+  template EnsureChangesTemplate
+    with
+      v1Valid : Bool
+      v2Valid : Bool
+      party : Party
+    where
+      signatory party
+      ensure v1Valid       -- @V 1
+      ensure v2Valid       -- @V  2
+
+      choice EnsureChangesCall : Text
+        controller party
+        do pure "V1"       -- @V 1
+        do pure "V2"       -- @V  2
 -}
 
 main : Script ()

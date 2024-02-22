@@ -12,36 +12,42 @@ import qualified V2.UpgradedChoiceNested as V2
 {- PACKAGE
 name: ledger-api-choice-nested-upgrades
 versions: 2
-modules:
-  - name: UpgradedChoiceNested
-    contents: |
-      data UpgradedChoiceReturn = UpgradedChoiceReturn with
-          someData : Text
-          V2(someOtherData : Optional Text)
-        deriving (Eq, Show)
+-}
 
-      data UpgradedChoiceReturnWrapper = UpgradedChoiceReturnWrapper with
-          unwrap : UpgradedChoiceReturn
-        deriving (Eq, Show)
+{- MODULE
+package: ledger-api-choice-nested-upgrades
+contents: |
+  module UpgradedChoiceNested where
 
-      data UpgradedChoiceData = UpgradedChoiceData with
-          firstArg : Text
-          V2(secondArg : Optional Text)
-        deriving (Eq, Show)
+  data UpgradedChoiceReturn = UpgradedChoiceReturn with
+      someData : Text
+      someOtherData : Optional Text                                      -- @V  2
+    deriving (Eq, Show)
 
-      template UpgradedChoiceNestedTemplate
-        with
-          party : Party
-          V2(newField : Optional Text)
-        where
-          signatory party
+  data UpgradedChoiceReturnWrapper = UpgradedChoiceReturnWrapper with
+      unwrap : UpgradedChoiceReturn
+    deriving (Eq, Show)
 
-          choice UpgradedChoiceNested : UpgradedChoiceReturnWrapper with
-              choiceData : UpgradedChoiceData
-            controller party
-            do 
-              V1(pure $ UpgradedChoiceReturnWrapper $ UpgradedChoiceReturn $ choiceData.firstArg <> ":V1")
-              V2(pure $ UpgradedChoiceReturnWrapper $ UpgradedChoiceReturn (choiceData.firstArg <> ":V2:" <> show choiceData.secondArg) choiceData.secondArg)
+  data UpgradedChoiceData = UpgradedChoiceData with
+      firstArg : Text
+      secondArg : Optional Text                                          -- @V  2
+    deriving (Eq, Show)
+
+  template UpgradedChoiceNestedTemplate
+    with
+      party : Party
+      newField : Optional Text                                           -- @V  2
+    where
+      signatory party
+
+      choice UpgradedChoiceNested : UpgradedChoiceReturnWrapper with
+          choiceData : UpgradedChoiceData
+        controller party
+        do
+          pure $ UpgradedChoiceReturnWrapper $ UpgradedChoiceReturn
+            (choiceData.firstArg <> ":V1")                               -- @V 1
+            (choiceData.firstArg <> ":V2:" <> show choiceData.secondArg) -- @V  2
+            choiceData.secondArg                                         -- @V  2
 -}
 
 main : Script ()
@@ -111,7 +117,7 @@ inferredV2ChoiceV1ContractNested =
 --   second it doesn't hit a NO_DOMAIN_FOR_SUBMISSION error before attempting to directly upgrade the data type <- this is also not correct behaviour
 --   lastly, it hits the same error as inferredV1ChoiceV1Contract, which is that choice argument upgrading isn't supported
 inferredV1ChoiceV1ContractWithoutV2Nested : Script ()
-inferredV1ChoiceV1ContractWithoutV2Nested = 
+inferredV1ChoiceV1ContractWithoutV2Nested =
   withUnvettedDar "ledger-api-choice-nested-upgrades-2.0.0" $
     choiceTest @V1.UpgradedChoiceNestedTemplate V1.UpgradedChoiceNestedTemplate (v1ChoiceNested "v1 to v1") False (v1ChoiceReturnNested "v1 to v1:V1")
 

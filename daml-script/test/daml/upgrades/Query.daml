@@ -10,15 +10,19 @@ import qualified V2.Query as V2
 {- PACKAGE
 name: query
 versions: 2
-modules:
-  - name: Query
-    contents: |
-      template QueryTemplate
-        with
-          party: Party
-          V2(newField : Optional Text)
-        where
-          signatory party
+-}
+
+{- MODULE
+package: query
+contents: |
+  module Query where
+
+  template QueryTemplate
+    with
+      party: Party
+      newField : Optional Text -- @V 2
+    where
+      signatory party
 -}
 
 main : Script ()

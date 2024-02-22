@@ -223,7 +223,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
         version = this.version,
         modules = this.modules,
         deps = Seq(damlScriptDar.toPath),
-        opts = Seq("--ghc-option", s"-DDU_VERSION=${this.version}"),
         tmpDir = Some(tmpDir),
       )
     }
@@ -234,7 +233,6 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
     case class PackageComment(
         name: String,
         versions: Int,
-        modules: Map[String, String],
     )
 
     // TODO[SW] Consider another attempt at using io.circe.generic.auto._
@@ -246,32 +244,34 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
           for {
             name <- c.downField("name").as[String]
             versions <- c.downField("versions").as[Int]
-            modules <- c
-              .downField("modules")
-              .as(
-                Decoder
-                  .decodeList(Decoder.forProduct2("name", "contents") { (x: String, y: String) =>
-                    (x, y)
-                  })
-                  .map(Map.from _)
-              )
           } yield {
-            new PackageComment(name, versions, modules)
+            new PackageComment(name, versions)
+          }
+      }
+
+    case class ModuleComment(
+        packageName: String,
+        contents: String,
+    )
+
+    implicit lazy val decodeModuleComment: Decoder[ModuleComment] =
+      new Decoder[ModuleComment] {
+        final def apply(c: HCursor): Decoder.Result[ModuleComment] =
+          for {
+            packageName <- c.downField("package").as[String]
+            contents <- c.downField("contents").as[String]
+          } yield {
+            new ModuleComment(packageName, contents)
           }
       }
 
     lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
-
-    def macroDef(n: Int) =
-      s"""#define V$n(code)
-        |#if DU_VERSION == $n
-        |  #define V$n(code) code
-        |#endif
-        |""".stripMargin
+    lazy val modulePattern: Regex = "\\{- MODULE *\n((?:.|[\r\n])+?)-\\}".r
 
     def readFromFile(path: Path): Seq[PackageDefinition] = {
+      val fileContents = Files.readString(path)
       val packageComments =
-        packagePattern.findAllMatchIn(Files.readString(path)).toSeq.map { m =>
+        packagePattern.findAllMatchIn(fileContents).toSeq.map { m =>
           yaml.parser
             .parse(m.group(1))
             .left
@@ -279,19 +279,84 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
             .flatMap(_.as[PackageComment])
             .fold(throw _, identity)
         }
+      val moduleMap: Map[String, Seq[Seq[VersionedLine]]] =
+        modulePattern
+          .findAllMatchIn(fileContents)
+          .toSeq
+          .map { m =>
+            yaml.parser
+              .parse(m.group(1))
+              .left
+              .map(err => err: Error)
+              .flatMap(_.as[ModuleComment])
+              .fold(throw _, identity)
+          }
+          .groupMap(_.packageName)(c => readVersionedLines(c.contents))
+
       packageComments.flatMap { c =>
         (1 to c.versions).toSeq.map { version =>
           PackageDefinition(
             name = c.name,
             version = version,
-            modules = c.modules.map { case (moduleName, content) =>
-              val fileContent = "{-# LANGUAGE CPP #-}\n" + (1 to c.versions)
-                .map(macroDef _)
-                .mkString + "\nmodule " + moduleName + " where\n\n" + content
-              (moduleName, fileContent)
-            },
+            modules = moduleMap
+              .getOrElse(c.name, Seq.empty)
+              .map(getVersionedModule(c.name, _, version))
+              .groupMap(_._1)(_._2)
+              .map { case (modName, modDefs) =>
+                assertUnique(c.name, modName, modDefs)
+              },
           )
         }
+      }
+    }
+
+    case class VersionedLine(
+        line: String,
+        versions: Option[Seq[Int]],
+    )
+
+    def readVersionedLines(contents: String): Seq[VersionedLine] = {
+      val versionedLinePat: Regex = "^.* -- @V(.*)$".r
+      val intPat: Regex = "\\d+".r
+      contents.split('\n').toSeq.map { line =>
+        VersionedLine(
+          line = line,
+          versions = versionedLinePat.findFirstMatchIn(line).map { m =>
+            intPat.findAllMatchIn(m.group(1)).toSeq.map(_.group(0).toInt)
+          },
+        )
+      }
+    }
+
+    def getVersionedModule(
+        packageName: String,
+        lines: Seq[VersionedLine],
+        version: Int,
+    ): (String, String) = {
+      val modNamePat: Regex = "module +(.*?) +where".r
+      val contents = lines
+        .collect { case vl if vl.versions.fold(true)(_.contains(version)) => vl.line }
+        .mkString("\n")
+      modNamePat.findFirstMatchIn(contents) match {
+        case Some(m) => (m.group(1), contents)
+        case None =>
+          fail(
+            s"Failed to extract module name for a MODULE with package = ${packageName}"
+          )
+      }
+    }
+
+    def assertUnique(
+        packageName: String,
+        modName: String,
+        modDefs: Seq[String],
+    ): (String, String) = {
+      modDefs match {
+        case Seq(modDef) => (modName, modDef)
+        case _ =>
+          fail(
+            s"Multiple conflicting definitions of module ${modName} in package ${packageName}"
+          )
       }
     }
   }

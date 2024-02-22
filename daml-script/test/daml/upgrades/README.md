@@ -8,30 +8,37 @@ Each test module can have one or more `PACKAGE` definitions in the following for
 {- PACKAGE
 name: <the-package-name>
 versions: <number of versions to create as an int, will generate 1.0.0, 2.0.0, ..., n.0.0>
-modules:
-  - name: <Name.Of.The.Module>
-    contents: |
-      <write daml code here>
-  - name: <Another.Module>
-    contents: |
-      <more daml code here>
 -}
 ```
-NOTE: The package-name must be unique across all upgrades tests, so choose something similar to your test file name.
 
+as well as one or more `MODULE` definitions in the following format:
+```
+{- MODULE
+package: <a-package-name>
+contents: |
+  module <Name.Of.The.Module> where
+  <write daml code here>
+-}
+```
 
-The contents of each module can use a versioned pragma syntax to include subsets of code in a specific version.  
-The syntax for this is `V1(some code)` .. `Vn(some code)`. For example
+NOTES:
+  * The `name` of a `PACKAGE` must be unique across all upgrades tests, so choose something similar to your test file name.
+  * If the `package` of a `MODULE` definition does not match any `PACKAGE` definition, it will be ignored.
+  * The module name is extracted from the `contents`, so it must contain the line `module <Name.Of.The.Module> where` somewhere.
+    * Version comments (see below) are processed before extracting the module name, allowing for module name changes across versions.
+  * If multiple `MODULE` definitions use the same module name, the test suite will crash.
+
+The contents of each module can use a version comment syntax to include subsets of code in a specific version.
+The syntax for this is `<some code> -- @V <space separated versions>`. For example
 ```
 template Upgraded with
     p: Party
-    V2(anotherField: Optional Int)
-    fieldThatChangesType: V1(Int)V2(Text)
+    anotherField: Optional Int -- @V  2
+    fieldThatChangesType: Int  -- @V 1
+    fieldThatChangesType: Text -- @V  2
   where
     signatory p
 ```
-NOTE: hpp will often struggle if your macro (`V1(<code>)`) body starts with whitespace, to avoid putting your indentation within the body.
-In most cases, lines containing only whitespace will be ignored. Similarly, multiline macros do not always work, so consider one macro per line.
 
 With these comments, the modules can be imported via modules prefixes. Each module path will be prefixed with `V1` .. `Vn` for importing.  
 i.e.
@@ -77,5 +84,5 @@ withUnvettedDarOnParticipant : Text -> ParticipantName -> Script a -> Script a
 participant0 : ParticipantName
 participant1 : ParticipantName
 ```
-These allow running a computation with a dar unvetted, and handle re-vetting the dar afterwards, even in the case of failure. The first `Text` field is the dar names discussed in the Generated packages section, i.e. `my-package-1.0.0`.  
+These allow running a computation with a dar unvetted, and handle re-vetting the dar afterwards, even in the case of failure. The first `Text` field is the dar names discussed in the Generated packages section, i.e. `my-package-1.0.0`.
 Avoid using the daml3-script internal vetting primitives, and use these functions instead.
