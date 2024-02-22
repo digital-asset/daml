@@ -20,12 +20,70 @@ import com.daml.lf.data.Ref.PackageId
 
 import com.daml.lf.archive.{DarReader}
 import scala.util.{Success, Failure}
+import com.daml.lf.validation.Upgrading
 
-class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
+class UpgradesSpecAdminAPI extends UpgradesSpec {
+  override def uploadPackagePair(
+      path: Upgrading[String]
+  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+    val client = AdminLedgerClient.singleHost(
+      ledgerPorts(0).adminPort,
+      config,
+    )
+    for {
+      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
+      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
+      uploadV1Result <- client
+        .uploadDar(testPackageV1BS, path.past)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+      uploadV2Result <- client
+        .uploadDar(testPackageV2BS, path.present)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+    } yield Upgrading(
+      (testPackageV1Id, uploadV1Result),
+      (testPackageV2Id, uploadV2Result),
+    )
+  }
+}
+
+class UpgradesSpecLedgerAPI extends UpgradesSpec {
+  override def uploadPackagePair(
+      path: Upgrading[String]
+  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+    for {
+      client <- defaultLedgerClient()
+      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
+      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
+      uploadV1Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV1BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+      uploadV2Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV2BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+    } yield Upgrading(
+      (testPackageV1Id, uploadV1Result),
+      (testPackageV2Id, uploadV2Result),
+    )
+  }
+}
+
+abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles;
 
-  private def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
+  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
     assert(dar != null, s"Unable to load test package resource '$path'")
 
@@ -39,11 +97,15 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
     bytes.map((dar.main.pkgId, _))
   }
 
-  private def testPackagePair(
+  def uploadPackagePair(
+      path: Upgrading[String]
+  ): Future[Upgrading[(PackageId, Option[Throwable])]]
+
+  def testPackagePair(
       upgraded: String,
       upgrading: String,
       failureMessage: Option[String],
-  ): Future[Assertion] = {
+  ): Future[Assertion] =
     if (sys.props("os.name").startsWith("Windows")) {
       Future {
         info("Tests are disabled on Windows")
@@ -51,21 +113,10 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
       }
     } else {
       for {
-        client <- defaultLedgerClient()
-        (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
-        (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
-        uploadV1Result <- client.packageManagementClient
-          .uploadDarFile(testPackageV1BS)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
-        uploadV2Result <- client.packageManagementClient
-          .uploadDarFile(testPackageV2BS)
-          .transform({
-            case Failure(err) => Success(Some(err));
-            case Success(_) => Success(None);
-          })
+        Upgrading(
+          (testPackageV1Id, uploadV1Result),
+          (testPackageV2Id, uploadV2Result),
+        ) <- uploadPackagePair(Upgrading(upgraded, upgrading))
       } yield {
         val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
         val cantonLogSrc = cantonLog.mkString
@@ -74,6 +125,7 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
         cantonLogSrc should include(
           s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
         )
+
         uploadV1Result match {
           case Some(err) =>
             fail(s"Uploading first package $testPackageV1Id failed with message: $err");
@@ -114,7 +166,6 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
         }
       }
     }
-  }
 
   "Upload-time Upgradeability Checks" should {
     "report no upgrade errors for valid upgrade" in {

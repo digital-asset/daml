@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
-import cats.implicits.toBifunctorOps
+import cats.implicits.{toBifunctorOps, toTraverseOps}
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
@@ -15,13 +15,14 @@ import com.daml.lf.archive.{DarParser, Decode, Error as LfArchiveError}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast.Package
-import com.digitalasset.canton.LedgerSubmissionId
+import com.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
+import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
@@ -41,6 +42,7 @@ import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, PathUtils}
+import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
@@ -323,14 +325,13 @@ class PackageService(
     val ret: EitherT[FutureUnlessShutdown, DamlError, Hash] = for {
       lengthValidatedName <- EitherT
         .fromEither[FutureUnlessShutdown](
-          String255
-            .create(darName, Some("DAR file name"))
+          String255.create(darName, Some("DAR file name"))
         )
         .leftMap(PackageServiceErrors.Reading.InvalidDarFileName.Error(_))
       dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))
         .mapK(FutureUnlessShutdown.outcomeK)
       // Validate the packages before storing them in the DAR store or the package store
-      _ <- validateArchives(dar.all).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- validateArchives(dar).mapK(FutureUnlessShutdown.outcomeK)
       _ <- storeValidatedPackagesAndSyncEvent(
         dar.all,
         lengthValidatedName.asString1GB,
@@ -368,21 +369,70 @@ class PackageService(
         .map(_.toRight(s"No such dar ${darId}").flatMap(PackageService.darToLf))
     )
 
-  private def validateArchives(archives: List[DamlLf.Archive])(implicit
+  private def validateArchives(archives: archive.Dar[DamlLf.Archive])(implicit
       traceContext: TraceContext
   ): EitherT[Future, DamlError, Unit] =
     for {
-      packages <- archives
+      mainPackage <- catchUpstreamErrors(Decode.decodeArchive(archives.main))
+      dependencies <- archives.dependencies
         .parTraverse(archive => catchUpstreamErrors(Decode.decodeArchive(archive)))
-        .map(_.toMap)
       _ <- EitherT.fromEither[Future](
         engine
-          .validatePackages(packages)
+          .validatePackages((mainPackage :: dependencies).toMap)
           .leftMap(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
+      _ <- validateUpgrade(mainPackage._1, mainPackage._2)
     } yield ()
+
+  private def validateUpgrade(upgradingPackageId: LfPackageId, upgradingPackage: Package)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, DamlError, Unit] =
+    upgradingPackage.metadata.upgradedPackageId match {
+      case Some(upgradedPackageId) =>
+        logger.info(s"Package $upgradingPackageId claims to upgrade package id $upgradedPackageId")
+        for {
+          upgradedArchiveMb <- EitherT.right(getLfArchive(upgradedPackageId))
+          upgradedPackageMb <-
+            upgradedArchiveMb
+              .traverse(Decode.decodeArchive(_))
+              .leftMap(Validation.handleLfArchiveError)
+              .toEitherT[Future]
+          upgradeCheckResult = TypecheckUpgrades.typecheckUpgrades(
+            upgradingPackageId -> upgradingPackage,
+            upgradedPackageId,
+            upgradedPackageMb.map(_._2),
+          )
+          _ <- upgradeCheckResult match {
+            case Success(()) =>
+              logger.info(s"Typechecking upgrades for $upgradingPackageId succeeded.")
+              EitherT.rightT[Future, DamlError](())
+            case Failure(err: UpgradeError) =>
+              EitherT
+                .leftT[Future, Unit](
+                  Validation.Upgradeability.Error(upgradingPackageId, upgradedPackageId, err)
+                )
+                .leftWiden[DamlError]
+
+            case Failure(err: Throwable) =>
+              EitherT
+                .leftT[Future, Unit](
+                  PackageServiceErrors.InternalError
+                    .Unhandled(
+                      err,
+                      Some(
+                        s"Typechecking upgrades for $upgradingPackageId failed with unknown error."
+                      ),
+                    )
+                )
+                .leftWiden[DamlError]
+          }
+        } yield ()
+      case None =>
+        logger.info(s"Package $upgradingPackageId does not upgrade anything.")
+        EitherT.rightT[Future, DamlError](())
+    }
 
   def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
       traceContext: TraceContext
