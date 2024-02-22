@@ -246,12 +246,18 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
 
   object PackageDefinition {
 
+    case class PackageComment(
+        name: String,
+        versions: Int,
+        modules: Map[String, String],
+    )
+
     // TODO[SW] Consider another attempt at using io.circe.generic.auto._
     // [MA] we make this lazy because we're calling it from the top level before
     // the entire class has finished loading
-    implicit lazy val decodePackageDefinition: Decoder[PackageDefinition] =
-      new Decoder[PackageDefinition] {
-        final def apply(c: HCursor): Decoder.Result[PackageDefinition] =
+    implicit lazy val decodePackageComment: Decoder[PackageComment] =
+      new Decoder[PackageComment] {
+        final def apply(c: HCursor): Decoder.Result[PackageComment] =
           for {
             name <- c.downField("name").as[String]
             versions <- c.downField("versions").as[Int]
@@ -265,20 +271,28 @@ class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside wi
                   .map(Map.from _)
               )
           } yield {
-            new PackageDefinition(name, versions, modules)
+            new PackageComment(name, versions, modules)
           }
       }
 
     lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
 
     def readFromFile(path: Path): Seq[PackageDefinition] = {
-      packagePattern.findAllMatchIn(Files.readString(path)).toSeq.map { m =>
-        yaml.parser
-          .parse(m.group(1))
-          .left
-          .map(err => err: Error)
-          .flatMap(_.as[PackageDefinition])
-          .fold(throw _, identity)
+      val packageComments =
+        packagePattern.findAllMatchIn(Files.readString(path)).toSeq.map { m =>
+          yaml.parser
+            .parse(m.group(1))
+            .left
+            .map(err => err: Error)
+            .flatMap(_.as[PackageComment])
+            .fold(throw _, identity)
+        }
+      packageComments.map { c =>
+        PackageDefinition(
+          name = c.name,
+          versions = c.versions,
+          modules = c.modules,
+        )
       }
     }
   }
