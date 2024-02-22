@@ -41,9 +41,17 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     - template: job-variables.yml
   timeoutInMinutes: 240
+  strategy:
+    matrix:
+      intel:
+        assignment: default
+        name: linux-intel
+      arm:
+        assignment: arm
+        name: linux-arm
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals $(assignment)
   steps:
     - template: report-start.yml
     - checkout: self
@@ -56,7 +64,7 @@ jobs:
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
-        name: 'linux'
+        name: $(name)
         is_release: variables.is_release
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
@@ -163,8 +171,12 @@ jobs:
       displayName: 'Build/Install the Developer Environment'
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: platform-independence-dar-linux
-        targetPath: $(Build.StagingDirectory)/platform-independence/linux/
+        artifactName: platform-independence-dar-linux-intel
+        targetPath: $(Build.StagingDirectory)/platform-independence/linux-intel/
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifactName: platform-independence-dar-linux-arm
+        targetPath: $(Build.StagingDirectory)/platform-independence/linux-arm/
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: platform-independence-dar-windows
@@ -180,15 +192,18 @@ jobs:
         DIR1=$(mktemp -d)
         DIR2=$(mktemp -d)
         DIR3=$(mktemp -d)
-        trap "rm -rf $DIR1; rm -rf $DIR2; rm -rf $DIR3" EXIT
+        DIR4=$(mktemp -d)
+        trap "rm -rf $DIR1 $DIR2 $DIR3 $DIR4" EXIT
 
-        unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux/platform-independence.dar
+        unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux-intel/platform-independence.dar
         unzip -d $DIR2 $(Build.StagingDirectory)/platform-independence/windows/platform-independence.dar
         unzip -d $DIR3 $(Build.StagingDirectory)/platform-independence/macos/platform-independence.dar
+        unzip -d $DIR4 $(Build.StagingDirectory)/platform-independence/linux-arm/platform-independence.dar
 
         # hie/hi files may differ.
         diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR2
         diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR3
+        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR4
       displayName: 'Compare platform-independence dars of different platforms.'
 
 - job: compatibility_ts_libs
