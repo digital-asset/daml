@@ -7,7 +7,6 @@ package daml_lf_dev;
 option java_package = "com.daml.daml_lf_dev";
 option csharp_namespace = "Com.Daml.Daml_Lf_Dev.DamlLf";
 
-import "com/daml/daml_lf_dev/daml_lf1.proto";
 import "com/daml/daml_lf_dev/daml_lf2.proto";
 
 message ArchivePayload {
@@ -15,13 +14,10 @@ message ArchivePayload {
   // Daml-LF v0 and v1 before we had minor versions.
   string minor = 3;
   reserved 9999; // for the removed "dev" major version
-
   reserved 1; // was daml_lf_0
 
   oneof Sum {
-    daml_lf_1.Package daml_lf_1 = 2;
     daml_lf_2.Package daml_lf_2 = 4;
-    // lf_3 = 5, lf_4 = 6, etc
   }
 }
 
