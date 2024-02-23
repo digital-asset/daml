@@ -3,6 +3,8 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'

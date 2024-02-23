@@ -1,7 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module LfStableNoContractIdsInKeys.Simple where
+module LfDevNoContractIdsInKeys.Simple where
 
 -- Test that values of contract keys may not contain contract IDs
 
