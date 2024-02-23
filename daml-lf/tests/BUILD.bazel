@@ -27,6 +27,16 @@ load("@os_info//:os_info.bzl", "is_intel")
 
 [
     daml_compile(
+        name = "Exceptions-{}".format(mangle_for_damlc(version)),
+        srcs = ["Exceptions.daml"],
+        target = version,
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for version in LF_DEV_VERSIONS
+]
+
+[
+    daml_compile(
         name = "Interfaces-v{}".format(major),
         srcs = ["Interfaces.daml"],
         target = lf_version_default_or_latest(major),

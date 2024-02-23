@@ -1978,7 +1978,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
   "exceptions" should {
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
-      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+      // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
+      //  to non-dev dar
+      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -2127,7 +2129,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
   "action node seeds" should {
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
-      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+      // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
+      //  to non-dev dar
+      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2204,7 +2208,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
   "global key lookups" should {
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
-      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+      // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
+      //  to non-dev dar
+      loadPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()
@@ -2401,7 +2407,9 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     Name.assertFromString(s)
 
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadPackage(
-    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
+    // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
+    //  non-dev dar
+    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
   )
 
   val basicTestsSignatures: PackageInterface =
