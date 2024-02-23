@@ -1,0 +1,61 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module AuthFailureByKey where
+
+import Daml.Script
+
+-- Tests for various(all) different forms of authorization failure detected during the execution of
+-- operations involving keys.
+
+template TheContract1
+  with
+    ss : [Party]
+    ms : [Party]
+    os : [Party]
+    id : Int
+  where
+    signatory ss
+    key (ms, id) : ([Party], Int)
+    maintainer key._1
+    observer os
+
+template Test1
+  with
+    bob : Party
+    contractKey : ([Party], Int)
+  where
+    signatory bob
+    choice Call1 : Optional (ContractId TheContract1)
+      controller bob
+      do lookupByKey @TheContract1 contractKey
+
+-- @ERROR range=37:1-37:35; failed due to a missing authorization from 'Alice'
+t1_LookupByKeyMissingAuthorization : Script ()
+t1_LookupByKeyMissingAuthorization = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  alice `submit`
+    createCmd (TheContract1 with ss = [alice]; ms = [alice]; os = [bob]; id = 100)
+  _ <- bob `submit` createAndExerciseCmd (Test1 bob ([alice],100)) Call1
+  abort "t1 finished"
+
+template TheContract2
+  with
+    s : Party
+    m : Party
+    id : Int
+  where
+    signatory s
+    key (m, id) : (Party, Int)
+    maintainer key._1
+
+-- @ERROR range=42:1-42:37; failed due to that some parties are maintainers but not signatories: 'Bob'
+t2_MaintainersNotSubsetOfSignatories : Script ()
+t2_MaintainersNotSubsetOfSignatories = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  alice `submit` createCmd (TheContract2 with s = alice; m = bob; id = 100)
+  abort "t2 finished"
