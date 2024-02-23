@@ -16,6 +16,7 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.sync.CantonSyncService
+import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownDomain
 import com.digitalasset.canton.topology.DomainId
@@ -82,7 +83,10 @@ class DomainConnectivityService(
           .create(domainAlias)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
       )
-      success <- mapErrNewETUS(sync.connectDomain(alias, keepRetrying)).valueOr(throw _)
+      success <- mapErrNewETUS(
+        sync.connectDomain(alias, keepRetrying, ConnectDomain.Connect)
+      )
+        .valueOr(throw _)
       _ <- waitUntilActiveIfSuccess(success, alias).valueOr(throw _)
     } yield v30.ConnectDomainResponse(connectedSuccessfully = success)
 
@@ -127,8 +131,11 @@ class DomainConnectivityService(
   }
 
   def registerDomain(
-      request: v30.DomainConnectionConfig
+      request: v30.DomainConnectionConfig,
+      handshakeOnly: Boolean,
   )(implicit traceContext: TraceContext): Future[v30.RegisterDomainResponse] = {
+
+    val connectDomain = if (handshakeOnly) ConnectDomain.HandshakeOnly else ConnectDomain.Register
 
     for {
       conf <- Future(
@@ -136,11 +143,19 @@ class DomainConnectivityService(
           .fromProtoV30(request)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
+
       _ = logger.info(show"Registering ${request.domainAlias} with ${conf}")
       _ <- mapErrNewET(sync.addDomain(conf)).valueOr(throw _)
+
       _ <-
         if (!conf.manualConnect) for {
-          success <- mapErrNewETUS(sync.connectDomain(conf.domain, keepRetrying = false))
+          success <- mapErrNewETUS(
+            sync.connectDomain(
+              conf.domain,
+              keepRetrying = false,
+              connectDomain = connectDomain,
+            )
+          )
             .valueOr(throw _)
           _ <- waitUntilActiveIfSuccess(success, conf.domain).valueOr(throw _)
         } yield ()

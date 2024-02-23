@@ -23,7 +23,6 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   ConfigurationEntry,
-  LedgerId,
   ParticipantOffset,
   TransactionId,
 }
@@ -42,8 +41,6 @@ import scala.concurrent.Future
 
 final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends IndexService {
 
-  override def ledgerId: LedgerId = delegate.ledgerId
-
   override def listLfPackages()(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
@@ -60,14 +57,6 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     Timed.source(
       metrics.services.index.packageEntries,
       delegate.packageEntries(startExclusive),
-    )
-
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[v2.LedgerConfiguration, NotUsed] =
-    Timed.source(
-      metrics.services.index.getLedgerConfiguration,
-      delegate.getLedgerConfiguration(),
     )
 
   override def currentLedgerEnd(): Future[ParticipantOffset.Absolute] =

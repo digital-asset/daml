@@ -17,6 +17,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{
   MediatorsOfDomain,
+  NoOpeningErrors,
   SequencedEvent,
   SignedContent,
 }
@@ -320,7 +321,7 @@ object TransferInView
             _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion))
           )
         transferOutResultEvent <- DeliveredTransferOutResult
-          .create(Right(transferOutResultEventMC))
+          .create(NoOpeningErrors(transferOutResultEventMC))
           .leftMap(err => OtherError(err.toString))
         creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
       } yield CommonData(

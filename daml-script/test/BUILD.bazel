@@ -229,7 +229,7 @@ da_scala_library(
         srcs = [":upgrades/coin-v2/Coin.daml"],
         project_name = "coin",
         target = lf_version,
-        upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
         version = "2.0.0",
     )
     for lf_version in LF_DEV_VERSIONS
@@ -241,7 +241,7 @@ da_scala_library(
         srcs = [":upgrades/coin-v2-new-field/Coin.daml"],
         project_name = "coin",
         target = lf_version,
-        upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
         version = "2.0.0",
     )
     for lf_version in LF_DEV_VERSIONS
@@ -253,7 +253,7 @@ da_scala_library(
         srcs = [":upgrades/coin-v3/Coin.daml"],
         project_name = "coin",
         target = lf_version,
-        upgrades = "//daml-script/test:coin-v2-{}.dar".format(lf_version),
+        # upgrades = "//daml-script/test:coin-v2-{}.dar".format(lf_version),
         version = "3.0.0",
     )
     for lf_version in LF_DEV_VERSIONS

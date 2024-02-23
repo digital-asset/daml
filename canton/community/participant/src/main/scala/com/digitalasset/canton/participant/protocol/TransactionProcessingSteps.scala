@@ -126,7 +126,7 @@ class TransactionProcessingSteps(
       SubmissionParam,
       TransactionSubmitted,
       TransactionViewType,
-      TransactionResultMessage,
+      ConfirmationResultMessage,
       TransactionSubmissionError,
     ]
     with NamedLogging {
@@ -1024,7 +1024,7 @@ class TransactionProcessingSteps(
           responses.map(_ -> mediatorRecipients),
           RejectionArgs(
             pendingTransaction,
-            LocalReject.TimeRejects.LocalTimeout.Reject(protocolVersion),
+            LocalRejectError.TimeRejects.LocalTimeout.Reject(protocolVersion),
           ),
         )
       }
@@ -1103,7 +1103,7 @@ class TransactionProcessingSteps(
       submitterMetaO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx))
 
     rejectionReason.logWithContext(Map("requestId" -> pendingTransaction.requestId.toString))
-    val rejectionReasonStatus = rejectionReason.rpcStatusWithoutLoggingContext()
+    val rejectionReasonStatus = rejectionReason.reason()
     val mappedRejectionReason =
       DecodedCantonError.fromGrpcStatus(rejectionReasonStatus) match {
         case Right(error) => rejectionReasonStatus
@@ -1349,18 +1349,15 @@ class TransactionProcessingSteps(
   }
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
-      resultE: Either[MalformedConfirmationRequestResult, TransactionResultMessage],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[MalformedConfirmationRequestResult, ConfirmationResultMessage],
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-    val content = eventE.fold(_.content, _.content)
+    val content = eventE.event.content
     val Deliver(_, ts, _, _, _) = content
     val submitterMetaO = pendingRequestData.transactionValidationResult.submitterMetadataO
     val completionInfoO = submitterMetaO.flatMap(
@@ -1419,7 +1416,7 @@ class TransactionProcessingSteps(
 
     def rejectedWithModelConformanceError(error: ErrorWithSubTransaction) =
       rejected(
-        LocalReject.MalformedRejects.ModelConformance.Reject(error.errors.head1.toString)(
+        LocalRejectError.MalformedRejects.ModelConformance.Reject(error.errors.head1.toString)(
           LocalVerdict.protocolVersionRepresentativeFor(protocolVersion)
         )
       )
@@ -1459,7 +1456,7 @@ class TransactionProcessingSteps(
           // Activeness of the mediator already gets checked in Phase 3,
           // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
           rejected(
-            LocalReject.MalformedRejects.MalformedRequest.Reject(
+            LocalRejectError.MalformedRejects.MalformedRequest.Reject(
               s"The mediator ${pendingRequestData.mediator} has been deactivated while processing the request. Rolling back.",
               protocolVersion,
             )

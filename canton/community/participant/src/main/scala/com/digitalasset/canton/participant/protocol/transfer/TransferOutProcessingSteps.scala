@@ -505,7 +505,7 @@ class TransferOutProcessingSteps(
       responseOpt.map(_ -> Recipients.cc(mediator)).toList,
       RejectionArgs(
         entry,
-        LocalReject.TimeRejects.LocalTimeout.Reject(sourceDomainProtocolVersion.v),
+        LocalRejectError.TimeRejects.LocalTimeout.Reject(sourceDomainProtocolVersion.v),
       ),
     )
   }
@@ -525,10 +525,7 @@ class TransferOutProcessingSteps(
     )
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[MalformedConfirmationRequestResult, TransferOutResult],
       pendingRequestData: PendingTransferOut,
       pendingSubmissionMap: PendingSubmissions,
@@ -730,7 +727,7 @@ class TransferOutProcessingSteps(
       val localVerdict =
         if (successful) LocalApprove(sourceDomainProtocolVersion.v)
         else
-          LocalReject.TransferOutRejects.ActivenessCheckFailed.Reject(s"$activenessResult")(
+          LocalRejectError.TransferOutRejects.ActivenessCheckFailed.Reject(s"$activenessResult")(
             LocalVerdict.protocolVersionRepresentativeFor(sourceDomainProtocolVersion.v)
           )
       val response = checked(

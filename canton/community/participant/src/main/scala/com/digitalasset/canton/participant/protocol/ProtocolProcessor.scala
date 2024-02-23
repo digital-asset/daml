@@ -518,7 +518,7 @@ abstract class ProtocolProcessor[
                 NonEmpty(
                   List,
                   Set.empty[LfPartyId] ->
-                    LocalReject.TimeRejects.LocalTimeout.Reject(protocolVersion),
+                    LocalRejectError.TimeRejects.LocalTimeout.Reject(protocolVersion),
                 ),
                 protocolVersion,
               ),
@@ -1188,11 +1188,9 @@ abstract class ProtocolProcessor[
   override def processMalformedMediatorConfirmationRequestResult(
       timestamp: CantonTimestamp,
       sequencerCounter: SequencerCounter,
-      signedResultBatch: Either[EventWithErrors[Deliver[DefaultOpenEnvelope]], SignedContent[
-        Deliver[DefaultOpenEnvelope]
-      ]],
+      signedResultBatch: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatch.fold(_.content, _.content)
+    val content = signedResultBatch.event.content
     val ts = content.timestamp
 
     val processedET = performUnlessClosingEitherU(functionFullName) {
@@ -1240,12 +1238,9 @@ abstract class ProtocolProcessor[
   }
 
   override def processResult(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ]
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatchE.fold(_.content, _.content)
+    val content = event.event.content
     val ts = content.timestamp
     val sc = content.counter
 
@@ -1267,7 +1262,7 @@ abstract class ProtocolProcessor[
         show"Got result for ${steps.requestKind.unquoted} request at $requestId: $resultEnvelopes"
       )
 
-      performResultProcessing(signedResultBatchE, Right(result), requestId, ts, sc)
+      performResultProcessing(event, Right(result), requestId, ts, sc)
     }
 
     toHandlerResult(ts, processedET)
@@ -1275,15 +1270,11 @@ abstract class ProtocolProcessor[
 
   @VisibleForTesting
   private[protocol] def performResultProcessing(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[
+        SignedProtocolMessage[MalformedConfirmationRequestResult],
+        SignedProtocolMessage[Result],
       ],
-      resultE: Either[SignedProtocolMessage[
-        MalformedConfirmationRequestResult
-      ], SignedProtocolMessage[
-        Result
-      ]],
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1348,7 +1339,7 @@ abstract class ProtocolProcessor[
       asyncResult <-
         if (!precedesCleanReplay(requestId))
           performResultProcessing2(
-            signedResultBatchE,
+            eventE,
             resultE,
             requestId,
             resultTs,
@@ -1367,10 +1358,7 @@ abstract class ProtocolProcessor[
     * The inner `EitherT` corresponds to the subsequent async stage.
     */
   private[this] def performResultProcessing2(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[
         SignedProtocolMessage[MalformedConfirmationRequestResult],
         SignedProtocolMessage[Result],
@@ -1411,7 +1399,7 @@ abstract class ProtocolProcessor[
         ]
     ): Future[Boolean] = Future.successful {
       val invalidO = for {
-        case TransactionResultMessage(
+        case ConfirmationResultMessage(
           requestId,
           _verdict,
           resultRootHash,
@@ -1481,7 +1469,7 @@ abstract class ProtocolProcessor[
           }
       ).flatMap { pendingRequestDataOrReplayData =>
         performResultProcessing3(
-          signedResultBatchE,
+          eventE,
           unsignedResultE,
           requestId,
           resultTs,
@@ -1498,10 +1486,7 @@ abstract class ProtocolProcessor[
 
   // The processing in this method is done in the asynchronous part of the processing
   private[this] def performResultProcessing3(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[MalformedConfirmationRequestResult, Result],
       requestId: RequestId,
       resultTs: CantonTimestamp,
@@ -1524,7 +1509,7 @@ abstract class ProtocolProcessor[
           for {
             commitSetAndContractsAndEvent <- steps
               .getCommitSetAndContractsToBeStoredAndEvent(
-                signedResultBatchE,
+                eventE,
                 resultE,
                 pendingRequestData,
                 steps.pendingSubmissions(ephemeral),

@@ -5,7 +5,6 @@ package com.digitalasset.canton.environment
 
 import cats.data.EitherT
 import cats.instances.future.*
-import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.{Applicative, Id}
 import com.digitalasset.canton.DiscardOps
@@ -26,8 +25,6 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.MigrateSchemaConfig
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
 import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
 import com.digitalasset.canton.tracing.TraceContext
@@ -392,35 +389,7 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
       parametersFor,
       startUpGroup = 2,
       loggerFactory,
-    ) {
-  private def migrateIndexerDatabase(name: InstanceName): Either[StartupError, Unit] = {
-    import TraceContext.Implicits.Empty.*
-
-    for {
-      config <- configs.get(name).toRight(ConfigurationNotFound(name))
-      parameters = parametersFor(name)
-      _ = parameters.processingTimeouts.unbounded.await("migrate indexer database") {
-        runIfUsingDatabase[Future](config.storage) { dbConfig =>
-          CantonLedgerApiServerWrapper
-            .migrateSchema(
-              MigrateSchemaConfig(
-                dbConfig,
-                config.ledgerApi.additionalMigrationPaths,
-              ),
-              loggerFactory,
-            )
-            .map(_.asRight)
-        }
-      }
-    } yield ()
-  }
-
-  override def migrateDatabase(name: InstanceName): Either[StartupError, Unit] =
-    for {
-      _ <- super.migrateDatabase(name)
-      _ <- migrateIndexerDatabase(name)
-    } yield ()
-}
+    ) {}
 
 object ParticipantNodes {
   type ParticipantNodesX[PC <: LocalParticipantConfig] =

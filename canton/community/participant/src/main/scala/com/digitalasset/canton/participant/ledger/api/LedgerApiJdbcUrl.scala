@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
+import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
 import com.digitalasset.canton.config.{DbConfig, H2DbConfig, PostgresDbConfig}
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.FailedToConfigureLedgerApiStorage
-import com.digitalasset.canton.participant.ledger.api.LedgerApiStorage.ledgerApiSchemaName
 import com.typesafe.config.{Config, ConfigObject, ConfigValueType}
 
 import java.net.URLEncoder
@@ -19,9 +19,6 @@ import scala.jdk.CollectionConverters.SetHasAsScala
   * a jdbc url for the targeted database (currently either H2 or Postgres).
   * It also adds a schema specification to point the ledger-api server at a distinct schema from canton allowing
   * it to be managed separately.
-  * Although it is expected a JDBC url will be generated for almost all circumstances, if this process fails or an
-  * advanced configuration is required the [[com.digitalasset.canton.config.DbParametersConfig.ledgerApiJdbcUrl]] configuration can be explicitly set
-  * and this will be used instead. This manually configured url **must** specify using the schema of `ledger_api`.
   */
 object LedgerApiJdbcUrl {
 
@@ -43,20 +40,11 @@ object LedgerApiJdbcUrl {
 
   def fromDbConfig(
       dbConfig: DbConfig
-  ): Either[FailedToConfigureLedgerApiStorage, LedgerApiJdbcUrl] = {
-
-    def generate =
-      (dbConfig match {
-        case h2: H2DbConfig => reuseH2(h2.config)
-        case postgres: PostgresDbConfig => reusePostgres(postgres.config)
-        case other: DbConfig =>
-          other.parameters.ledgerApiJdbcUrl.map(CustomLedgerApiUrl).toRight("No URL specified")
-      }).left.map(FailedToConfigureLedgerApiStorage)
-
-    // In the unlikely event we've explicitly specified the jdbc url for the ledger-api just use that.
-    // Otherwise generate an appropriate one for the datastore.
-    dbConfig.parameters.ledgerApiJdbcUrl.fold(generate)(url => Right(CustomLedgerApiUrl(url)))
-  }
+  ): Either[FailedToConfigureLedgerApiStorage, LedgerApiJdbcUrl] = (dbConfig match {
+    case h2: H2DbConfig => reuseH2(h2.config)
+    case postgres: PostgresDbConfig => reusePostgres(postgres.config)
+    case _: DbConfig => Left("Unknown db-config type")
+  }).leftMap(FailedToConfigureLedgerApiStorage)
 
   /** Extensions to [[com.typesafe.config.Config]] to make config extraction more concise for our purposes. */
   private implicit class ConfigExtensions(config: Config) {
@@ -108,14 +96,7 @@ object LedgerApiJdbcUrl {
         .addIfMissing(passwordKey, h2Config.getDbConfig(passwordKey))
         .build
 
-      val ledgerApiUrl = UrlBuilder
-        .forH2(cantonUrl)
-        .addIfMissing(userKey, h2Config.getDbConfig(userKey))
-        .addIfMissing(passwordKey, h2Config.getDbConfig(passwordKey))
-        .replace("schema", ledgerApiSchemaName)
-        .build
-
-      ReuseCantonDb(ledgerApiUrl, h2CantonUrl)
+      LedgerApiJdbcUrl(h2CantonUrl)
     }
 
   def reusePostgres(pgConfig: Config): Either[String, LedgerApiJdbcUrl] =
@@ -146,15 +127,7 @@ object LedgerApiJdbcUrl {
         .addAll(additionalProperties)
         .build
 
-      val ledgerApiUrl = UrlBuilder
-        .forPostgres(cantonUrl)
-        .addIfMissing(userKey, pgConfig.getDbConfig(userKey))
-        .addIfMissing(passwordKey, pgConfig.getDbConfig(passwordKey))
-        .addAll(additionalProperties)
-        .replace(currentSchema, ledgerApiSchemaName)
-        .build
-
-      ReuseCantonDb(ledgerApiUrl, pgCantonUrl)
+      LedgerApiJdbcUrl(pgCantonUrl)
     }
 
   /** Generate the simplest postgres url we can create */
@@ -283,18 +256,6 @@ object LedgerApiJdbcUrl {
     }
   }
 
-  private final case class CustomLedgerApiUrl(override val url: String) extends LedgerApiJdbcUrl {
-    override def createLedgerApiSchemaIfNotExists(): Unit = ()
-  }
-
-  private final case class ReuseCantonDb(override val url: String, private val cantonUrl: String)
-      extends LedgerApiJdbcUrl {
-    override def createLedgerApiSchemaIfNotExists(): Unit =
-      DbActions.createSchemaIfNotExists(cantonUrl)
-  }
 }
 
-sealed trait LedgerApiJdbcUrl {
-  def url: String
-  def createLedgerApiSchemaIfNotExists(): Unit
-}
+final case class LedgerApiJdbcUrl(url: String)

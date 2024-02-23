@@ -427,11 +427,13 @@ private[transfer] class TransferInProcessingSteps(
             else if (contractResult.notFree.nonEmpty) {
               contractResult.notFree.toSeq match {
                 case Seq((coid, Archived)) =>
-                  LocalReject.TransferInRejects.ContractAlreadyArchived.Reject(show"coid=$coid")(
+                  LocalRejectError.TransferInRejects.ContractAlreadyArchived.Reject(
+                    show"coid=$coid"
+                  )(
                     localVerdictProtocolVersion
                   )
                 case Seq((coid, _state)) =>
-                  LocalReject.TransferInRejects.ContractAlreadyActive.Reject(show"coid=$coid")(
+                  LocalRejectError.TransferInRejects.ContractAlreadyActive.Reject(show"coid=$coid")(
                     localVerdictProtocolVersion
                   )
                 case coids =>
@@ -440,9 +442,13 @@ private[transfer] class TransferInProcessingSteps(
                   )
               }
             } else if (contractResult.alreadyLocked.nonEmpty)
-              LocalReject.TransferInRejects.ContractIsLocked.Reject("")(localVerdictProtocolVersion)
+              LocalRejectError.TransferInRejects.ContractIsLocked.Reject("")(
+                localVerdictProtocolVersion
+              )
             else if (activenessResult.inactiveTransfers.nonEmpty)
-              LocalReject.TransferInRejects.AlreadyCompleted.Reject("")(localVerdictProtocolVersion)
+              LocalRejectError.TransferInRejects.AlreadyCompleted.Reject("")(
+                localVerdictProtocolVersion
+              )
             else
               throw new RuntimeException(
                 withRequestId(requestId, s"Unexpected activeness result $activenessResult")
@@ -471,7 +477,7 @@ private[transfer] class TransferInProcessingSteps(
         responses,
         RejectionArgs(
           entry,
-          LocalReject.TimeRejects.LocalTimeout.Reject(targetProtocolVersion.v),
+          LocalRejectError.TimeRejects.LocalTimeout.Reject(targetProtocolVersion.v),
         ),
       )
     }
@@ -481,10 +487,7 @@ private[transfer] class TransferInProcessingSteps(
     s"Transfer-in $requestId: $message"
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      messageE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      messageE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[MalformedConfirmationRequestResult, TransferInResult],
       pendingRequestData: PendingTransferIn,
       pendingSubmissionMap: PendingSubmissions,

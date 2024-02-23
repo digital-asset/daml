@@ -22,7 +22,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import scala.concurrent.Future
 
 /** Serves as a backend to implement
-  * [[com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService]]
+  * [[com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService]]
   */
 trait IndexTransactionsService extends LedgerEndService {
   def transactions(

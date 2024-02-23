@@ -17,7 +17,6 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, protocol}
 import com.google.protobuf.empty
-import com.google.rpc.status.Status
 import pprint.Tree
 
 trait TransactionRejection {
@@ -25,7 +24,7 @@ trait TransactionRejection {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Unit
 
-  def rpcStatusWithoutLoggingContext(): com.google.rpc.status.Status
+  def reason(): com.google.rpc.status.Status
 }
 
 /** Verdicts sent from the mediator to the participants inside the [[ConfirmationResult]] message */
@@ -72,34 +71,32 @@ object Verdict
     )
   }
 
-  final case class MediatorReject private (status: com.google.rpc.status.Status)(
+  final case class MediatorReject private (override val reason: com.google.rpc.status.Status)(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict
       with TransactionRejection {
-    require(status.code != com.google.rpc.Code.OK_VALUE, "Rejection must not use status code OK")
+    require(reason.code != com.google.rpc.Code.OK_VALUE, "Rejection must not use status code OK")
 
     private[messages] override def toProtoV30: v30.Verdict =
       v30.Verdict(v30.Verdict.SomeVerdict.MediatorReject(toProtoMediatorRejectV30))
 
-    def toProtoMediatorRejectV30: v30.MediatorReject = v30.MediatorReject(Some(status))
+    def toProtoMediatorRejectV30: v30.MediatorReject = v30.MediatorReject(Some(reason))
 
     override def pretty: Pretty[MediatorReject.this.type] = prettyOfClass(
-      unnamedParam(_.status)
+      unnamedParam(_.reason)
     )
 
     override def logWithContext(extra: Map[String, String])(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): Unit =
-      DecodedCantonError.fromGrpcStatus(status) match {
+      DecodedCantonError.fromGrpcStatus(reason) match {
         case Right(error) => error.logWithContext(extra)
         case Left(err) =>
           contextualizedErrorLogger.warn(s"Failed to parse mediator rejection: $err")
       }
 
-    override def rpcStatusWithoutLoggingContext(): Status = status
-
     override def isTimeoutDeterminedByMediator: Boolean =
-      DecodedCantonError.fromGrpcStatus(status).exists(_.code.id == MediatorError.Timeout.id)
+      DecodedCantonError.fromGrpcStatus(reason).exists(_.code.id == MediatorError.Timeout.id)
   }
 
   object MediatorReject {

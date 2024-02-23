@@ -171,7 +171,6 @@ class SubmitRequestValidatorTest
       .thenReturn(Right(internal.disclosedContracts))
 
     new CommandsValidator(
-      ledgerId = ledgerId,
       validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
       upgradingEnabled = false,
       validateDisclosedContracts = validateDisclosedContractsMock,
@@ -477,7 +476,6 @@ class SubmitRequestValidatorTest
           )
 
         val failingDisclosedContractsValidator = new CommandsValidator(
-          ledgerId = ledgerId,
           upgradingEnabled = false,
           validateDisclosedContracts = validateDisclosedContractsMock,
         )
@@ -553,7 +551,6 @@ class SubmitRequestValidatorTest
         }
 
         val commandsValidatorWithUpgradingEnabled = new CommandsValidator(
-          ledgerId = ledgerId,
           upgradingEnabled = true,
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           validateDisclosedContracts = validateDisclosedContractsMock,

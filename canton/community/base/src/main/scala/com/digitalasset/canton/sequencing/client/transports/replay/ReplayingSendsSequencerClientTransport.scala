@@ -501,7 +501,7 @@ class ReplayingSendsSequencerClientTransportPekko(
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable = {
     val ((killSwitch, _), doneF) = subscribe(request).source
-      .mapAsync(parallelism = 10)(_.unwrap.traverse { event =>
+      .mapAsync(parallelism = 10)(_.value.traverse { event =>
         handler(event)
       })
       .watchTermination()(Keep.both)
