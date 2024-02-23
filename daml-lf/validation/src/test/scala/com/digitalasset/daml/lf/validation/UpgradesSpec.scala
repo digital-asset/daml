@@ -25,6 +25,7 @@ import scala.util.{Success, Failure}
 import com.daml.lf.validation.Upgrading
 
 class UpgradesSpecAdminAPI extends UpgradesSpec {
+  override def suffix = "Admin API"
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -55,6 +56,7 @@ class UpgradesSpecAdminAPI extends UpgradesSpec {
 }
 
 class UpgradesSpecLedgerAPI extends UpgradesSpec {
+  override def suffix = "Ledger API"
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -220,15 +222,17 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
     }
   }
 
-  "Upload-time Upgradeability Checks" should {
-    "uploading the same package multiple times succeeds" in {
+  def suffix: String
+
+  s"Upload-time Upgradeability Checks ($suffix)" should {
+    s"uploading the same package multiple times succeeds ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v1.dar",
         assertDuplicatePackageUpload(),
       )
     }
-    "uploads against the same package name must be version unique" in {
+    s"uploads against the same package name must be version unique ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
@@ -238,14 +242,14 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "report no upgrade errors for valid upgrade" in {
+    s"report no upgrade errors for valid upgrade ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
-    "report error when module is missing in upgrading package" in {
+    s"report error when module is missing in upgrading package ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-MissingModule-v1.dar",
         "test-common/upgrades-MissingModule-v2.dar",
@@ -256,7 +260,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "report error when template is missing in upgrading package" in {
+    s"report error when template is missing in upgrading package ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-MissingTemplate-v1.dar",
         "test-common/upgrades-MissingTemplate-v2.dar",
@@ -267,7 +271,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "report error when datatype is missing in upgrading package" in {
+    s"report error when datatype is missing in upgrading package ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-MissingDataCon-v1.dar",
         "test-common/upgrades-MissingDataCon-v2.dar",
@@ -278,7 +282,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "report error when choice is missing in upgrading package" in {
+    s"report error when choice is missing in upgrading package ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-MissingChoice-v1.dar",
         "test-common/upgrades-MissingChoice-v2.dar",
@@ -289,14 +293,14 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "report error when key type changes" in {
+    s"report error when key type changes ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-TemplateChangedKeyType-v1.dar",
         "test-common/upgrades-TemplateChangedKeyType-v2.dar",
         assertPackageUpgradeCheck(Some("The upgraded template T cannot change its key type.")),
       )
     }
-    "report error when record fields change" in {
+    s"report error when record fields change ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
         "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
@@ -309,28 +313,28 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
     }
 
     // Ported from DamlcUpgrades.hs
-    "Fails when template changes key type" in {
+    s"Fails when template changes key type ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
         assertPackageUpgradeCheck(Some("The upgraded template A cannot change its key type.")),
       )
     }
-    "Fails when template removes key type" in {
+    s"Fails when template removes key type ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
         assertPackageUpgradeCheck(Some("The upgraded template A cannot remove its key.")),
       )
     }
-    "Fails when template adds key type" in {
+    s"Fails when template adds key type ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
         assertPackageUpgradeCheck(Some("The upgraded template A cannot add a key.")),
       )
     }
-    "Fails when new field is added to template without Optional type" in {
+    s"Fails when new field is added to template without Optional type ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
@@ -339,7 +343,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "Fails when old field is deleted from template" in {
+    s"Fails when old field is deleted from template ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
@@ -348,7 +352,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "Fails when existing field in template is changed" in {
+    s"Fails when existing field in template is changed ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
         "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
@@ -357,14 +361,14 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "Succeeds when new field with optional type is added to template" in {
+    s"Succeeds when new field with optional type is added to template ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
-    "Fails when new field is added to template choice without Optional type" in {
+    s"Fails when new field is added to template choice without Optional type ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
@@ -375,7 +379,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "Fails when old field is deleted from template choice" in {
+    s"Fails when old field is deleted from template choice ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
@@ -386,7 +390,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "Fails when existing field in template choice is changed" in {
+    s"Fails when existing field in template choice is changed ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
         "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
@@ -397,28 +401,28 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         ),
       )
     }
-    "Fails when template choice changes its return type" in {
+    s"Fails when template choice changes its return type ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
         assertPackageUpgradeCheck(Some("The upgraded choice C cannot change its return type.")),
       )
     }
-    "Succeeds when template choice returns a template which has changed" in {
+    s"Succeeds when template choice returns a template which has changed ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
         "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
-    "Succeeds when template choice input argument has changed" in {
+    s"Succeeds when template choice input argument has changed ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
         "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
-    "Succeeds when new field with optional type is added to template choice" in {
+    s"Succeeds when new field with optional type is added to template choice ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
@@ -426,7 +430,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       )
     }
 
-    "Succeeds when v1 upgrades to v2 and then v3" in {
+    s"Succeeds when v1 upgrades to v2 and then v3 ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
         "test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar",
@@ -439,7 +443,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       )
     }
 
-    "Succeeds when v1 upgrades to v3 and then v2" in {
+    s"Succeeds when v1 upgrades to v3 and then v2 ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
         "test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar",
@@ -452,7 +456,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       )
     }
 
-    "Fails when v1 upgrades to v2, but v3 does not upgrade v2" in {
+    s"Fails when v1 upgrades to v2, but v3 does not upgrade v2 ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
         "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar",
@@ -467,7 +471,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       )
     }
 
-    "Fails when v1 upgrades to v3, but v3 does not upgrade v2" in {
+    s"Fails when v1 upgrades to v3, but v3 does not upgrade v2 ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
         "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
