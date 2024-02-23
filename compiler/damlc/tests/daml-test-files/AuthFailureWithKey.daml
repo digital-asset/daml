@@ -3,7 +3,7 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
 
-module AuthFailureByKey where
+module AuthFailureWithKey where
 
 import Daml.Script
 
@@ -52,7 +52,7 @@ template TheContract2
     key (m, id) : (Party, Int)
     maintainer key._1
 
--- @ERROR range=42:1-42:37; failed due to that some parties are maintainers but not signatories: 'Bob'
+-- @ERROR range=57:1-57:37; failed due to that some parties are maintainers but not signatories: 'Bob'
 t2_MaintainersNotSubsetOfSignatories : Script ()
 t2_MaintainersNotSubsetOfSignatories = script do
   alice <- allocateParty "Alice"
