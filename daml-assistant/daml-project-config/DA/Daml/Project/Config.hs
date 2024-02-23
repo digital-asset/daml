@@ -28,6 +28,7 @@ import DA.Daml.Project.Types
 import DA.Daml.Project.Util
 import Data.Aeson (Result (..), fromJSON)
 import qualified Data.Aeson.Key as A
+import qualified Data.Array as Array
 import Data.Bifunctor (bimap)
 import Data.Generics.Uniplate.Data (transformM)
 import qualified Data.Text as T
@@ -74,20 +75,50 @@ readConfig name path = do
 textSub :: Int -> Int -> Text -> Text
 textSub start end = T.take (end - start) . T.drop start
 
--- Finds any ${a-zA-Z_0-9+} where the dollar isn't preceeded by \
+data SubMatch = SubMatch
+  { smText :: Text
+  , smStart :: Int
+  , smEnd :: Int
+  , smLength :: Int
+  }
+
+-- TDFA has you working with less than ideal data types
+-- transform them into something more friendly
+transformSubmatch :: Array.Array Int (MatchText Text) -> [[SubMatch]]
+transformSubmatch = fmap (fmap toSubMatch . Array.elems) . Array.elems
+  where
+    toSubMatch :: (Text, (Int, Int)) -> SubMatch
+    toSubMatch (smText, (smStart, smLength)) = let smEnd = smStart + smLength in SubMatch {..}
+
+-- Finds any ${...} where the dollar isn't preceeded by (an odd number of) '\'
 -- Replaces the inner name with the value provided by the below mapping
+-- Note that `.` in the name are replaced with `_`, to allow for future support for heirarchical names
 interpolateEnvVariables :: [(String, String)] -> T.Text -> Either String T.Text
 interpolateEnvVariables env str = do
-  let matchPositions :: [(Int, Int)] = getAllMatches (str =~ ("\\${[a-zA-Z0-9_]+}" :: String))
-      replaceWithPrefix (s, start) (matchStart, matchLength) =
-        if matchStart > 0 && T.index str (matchStart - 1) == '\\'
-          then pure (s <> textSub start (matchStart + matchLength) str, matchStart + matchLength)
+  let matchPositions :: [[SubMatch]] = transformSubmatch $ getAllTextMatches (str =~ ("(^|[^\\\\])(\\\\*)\\${([^}]+)}" :: String))
+      -- First 2 matches aren't needed (whole match + start of line check)
+      --   TDFA doesn't support non capturing groups, which is why that match exists in the first place
+      replaceWithPrefix (s, start) [_, _, escapeSlashes, name] = do
+        -- Divide by 2 and floor to get the number of `\` that should be in the final string
+        let finalSlashesText = T.replicate (smLength escapeSlashes `div` 2) "\\"
+            prefix = textSub start (smStart escapeSlashes) str
+        if smLength escapeSlashes `mod` 2 == 1 -- Odd number of backslashes, thiss expression is escaped
+          then pure 
+                ( s <> prefix
+                    <> finalSlashesText
+                    <> textSub (smEnd escapeSlashes) (smEnd name + 1) str
+                , smEnd name + 1
+                )
           else do
-            let envVarName = T.unpack $ textSub (matchStart + 2) (matchStart + matchLength - 1) str
-                prefix = textSub start matchStart str
+            let envVarName = T.unpack $ T.replace "." "_" $ smText name
                 mEnvVar = lookup envVarName env
             envVarValue <- maybeToEither ("Couldn't find environment variable " <> envVarName <> " in value " <> T.unpack str) mEnvVar
-            pure (s <> prefix <> T.pack envVarValue, matchStart + matchLength)
+            pure 
+              ( s <> prefix <> finalSlashesText <> T.pack envVarValue
+              , smEnd name + 1
+              )
+      -- Impossible case to appease the warnings
+      replaceWithPrefix _ _ = Left "Impossible incorrect regex submatches"
   (replacedPrefix, prefixEnd) <- foldlM replaceWithPrefix ("" :: Text, 0) matchPositions
   pure $ replacedPrefix <> textSub prefixEnd (T.length str) str
 
