@@ -1,0 +1,71 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module ExceptionSemanticsWithKeys where
+
+import Daml.Script
+import DA.Exception
+
+exception E
+  where
+    message "E"
+
+template K
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+    key (p, v) : (Party, Int)
+    maintainer key._1
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice TransientDuplicate : ()
+      with
+        i : Int
+      controller p
+      do try do
+           create (K p i)
+           create (K p i)
+           throw E
+         catch
+           E -> pure ()
+    nonconsuming choice NonTransientDuplicate : ()
+      with
+        i : Int
+      controller p
+      do try do
+           create (K p i)
+           throw E
+         catch
+           E -> pure ()
+    nonconsuming choice RollbackKey : ()
+      with
+        i : Int
+      controller p
+      do try do
+           create (K p i)
+           throw E
+         catch
+           E -> create (K p i) >> pure ()
+
+-- this test fails on canton
+-- the second `createAndExerciseCmd (T p) (NonTransientDuplicate 1)` does not fails
+duplicateKey = script do
+  p <- allocateParty "p"
+  -- transient duplicate key in rollback
+  submitMustFail p $ createAndExerciseCmd (T p) (TransientDuplicate 0)
+  submit p $ createCmd (K p 1)
+  -- duplicate key error with contract created outside of rollback
+  submitMustFail p $ createAndExerciseCmd (T p) (NonTransientDuplicate 1)
+  -- no duplicate key error if key creation got rolled back
+  submit p $ createAndExerciseCmd (T p) (RollbackKey 2)
+  pure ()
