@@ -11,8 +11,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
-import com.digitalasset.canton.data.PeanoQueue.NotInserted
-import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.{
   BlockSequencerStateManagerBase,
@@ -34,14 +33,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
-import com.digitalasset.canton.lifecycle.{
-  AsyncCloseable,
-  AsyncOrSyncCloseable,
-  CloseContext,
-  FlagCloseableAsync,
-  FutureUnlessShutdown,
-  SyncCloseable,
-}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
@@ -61,8 +53,6 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Keep, Merge, Sink, Source}
 
-import java.util.concurrent.atomic.AtomicReference
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 import scala.util.{Failure, Success}
@@ -124,7 +114,6 @@ class BlockSequencer(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
         val driverSource = blockSequencerOps
           .subscribe()(TraceContext.empty)
-          .statefulMapConcat(BlockSequencer.ensureBlocksAreOrdered(initialBlockHeight))
           .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
         val localSource = Source
           .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
@@ -581,44 +570,6 @@ class BlockSequencer(
 
 object BlockSequencer {
   private case object CounterDiscriminator
-
-  private type CounterDiscriminator = CounterDiscriminator.type
-  private type BlockCounter = Counter[CounterDiscriminator]
-  private val BlockCounter = Counter[CounterDiscriminator]
-
-  private def ensureBlocksAreOrdered(
-      initialBlockHeight: Option[Long]
-  ): () => RawLedgerBlock => List[RawLedgerBlock] = { () =>
-    // Using a peano queue to make sure that blocks are sourced in order even if they are added to the queue out of
-    // order once in a while. If receiving from multiple peers, repeated blocks are ignored.
-    val queue =
-      new AtomicReference[Option[PeanoTreeQueue[CounterDiscriminator, RawLedgerBlock]]](None)
-    (block: RawLedgerBlock) => {
-      queue.compareAndSet(
-        None,
-        Some(
-          PeanoTreeQueue[CounterDiscriminator, RawLedgerBlock](
-            BlockCounter(initialBlockHeight.getOrElse(block.blockHeight))
-          )
-        ),
-      )
-      queue.get().fold[List[RawLedgerBlock]](List()) { q =>
-        q.get(BlockCounter(block.blockHeight)) match {
-          case NotInserted(_, _) => q.insert(BlockCounter(block.blockHeight), block): Unit
-          case _ => ()
-        }
-
-        @tailrec
-        def go(blocks: List[RawLedgerBlock]): List[RawLedgerBlock] =
-          q.poll() match {
-            case None => blocks
-            case Some((_, block)) => go(blocks ++ List(block))
-          }
-
-        go(Nil)
-      }
-    }
-  }
 
   sealed trait LocalEvent
   final case class DisableMember(member: Member) extends LocalEvent

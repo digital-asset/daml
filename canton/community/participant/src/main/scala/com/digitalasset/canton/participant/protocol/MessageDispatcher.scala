@@ -32,7 +32,12 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.select
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestAndRootHashMessage, RequestProcessor, RootHash}
+import com.digitalasset.canton.protocol.{
+  LocalRejectError,
+  RequestAndRootHashMessage,
+  RequestProcessor,
+  RootHash,
+}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.processing.{
@@ -380,7 +385,7 @@ trait MessageDispatcher { this: NamedLogging =>
               ts,
               rootHash,
               mediator,
-              LocalReject.MalformedRejects.BadRootHashMessages.Reject(reason, protocolVersion),
+              LocalRejectError.MalformedRejects.BadRootHashMessages.Reject(reason, protocolVersion),
             ),
           )
       }

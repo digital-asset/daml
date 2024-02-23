@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.participant.admin.DomainConnectivityService
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -47,7 +48,11 @@ class GrpcDomainConnectivityService(service: DomainConnectivityService)(implicit
 
   override def registerDomain(request: RegisterDomainRequest): Future[RegisterDomainResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    nonEmptyProcess(request.add, service.registerDomain)
+    nonEmptyProcess(
+      request.add,
+      (config: v30.DomainConnectionConfig) =>
+        service.registerDomain(config, handshakeOnly = request.handshakeOnly),
+    )
   }
 
   /** reconfigure a domain connection

@@ -146,7 +146,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
     describe("under the Signatory policy") {
       def testReject() =
-        LocalReject.ConsistencyRejections.LockedContracts.Reject(Seq())(
+        LocalRejectError.ConsistencyRejections.LockedContracts.Reject(Seq())(
           localVerdictProtocolVersion
         )
 
@@ -429,7 +429,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
             val response4 =
               mkResponse(
                 view1Position,
-                LocalReject.MalformedRejects.Payloads
+                LocalRejectError.MalformedRejects.Payloads
                   .Reject("test4")(localVerdictProtocolVersion),
                 Set.empty,
                 rootHash,
@@ -438,7 +438,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
               step3
                 .validateAndProgress(requestId.unwrap.plusSeconds(2), response4, topologySnapshot)
                 .futureValue,
-              _.shouldBeCantonErrorCode(LocalReject.MalformedRejects.Payloads),
+              _.shouldBeCantonErrorCode(LocalRejectError.MalformedRejects.Payloads),
             )
             it("should not allow repeated rejection") {
               result shouldBe None
@@ -541,7 +541,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       lazy val changeTs = requestId.unwrap.plusSeconds(1)
 
       def testReject(reason: String) =
-        LocalReject.MalformedRejects.Payloads.Reject(reason)(localVerdictProtocolVersion)
+        LocalRejectError.MalformedRejects.Payloads.Reject(reason)(localVerdictProtocolVersion)
 
       describe("for a single view") {
         it("should update the pending confirming parties set for all hosted parties") {
@@ -562,7 +562,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
               "Malformed response for a view hash"
             ),
             _.shouldBeCantonError(
-              LocalReject.MalformedRejects.Payloads,
+              LocalRejectError.MalformedRejects.Payloads,
               _ shouldBe "Rejected transaction due to malformed payload within views malformed view",
             ),
           )
@@ -615,7 +615,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
               "Malformed response without view hash"
             ),
             _.shouldBeCantonError(
-              LocalReject.MalformedRejects.Payloads,
+              LocalRejectError.MalformedRejects.Payloads,
               _ shouldBe s"Rejected transaction due to malformed payload within views $rejectMsg",
               _ should (contain("reportedBy" -> s"$solo") and contain(
                 "requestId" -> requestId.toString
@@ -709,7 +709,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
     describe("consortium voting") {
       def testReject() =
-        LocalReject.ConsistencyRejections.LockedContracts.Reject(Seq())(
+        LocalRejectError.ConsistencyRejections.LockedContracts.Reject(Seq())(
           localVerdictProtocolVersion
         )
 
@@ -1254,7 +1254,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
             val response4 =
               mkResponse(
                 view1Position,
-                LocalReject.MalformedRejects.Payloads
+                LocalRejectError.MalformedRejects.Payloads
                   .Reject("test4")(localVerdictProtocolVersion),
                 Set.empty,
                 rootHash,
@@ -1263,7 +1263,7 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
               step3
                 .validateAndProgress(requestId.unwrap.plusSeconds(2), response4, topologySnapshot)
                 .futureValue,
-              _.shouldBeCantonErrorCode(LocalReject.MalformedRejects.Payloads),
+              _.shouldBeCantonErrorCode(LocalRejectError.MalformedRejects.Payloads),
             )
             it("should not allow repeated rejection") {
               result shouldBe None
