@@ -26,7 +26,7 @@ import scala.util.matching.Regex
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 
-class UpgradesITDev extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
+class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
