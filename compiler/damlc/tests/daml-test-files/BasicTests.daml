@@ -3,6 +3,7 @@
 
 {- DLINT ignore -}
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ApplicativeDo #-}
 
 module BasicTests where
@@ -348,6 +349,7 @@ template TwoParties
       controller p2
       do pure "world"
 
+#ifdef DAML_CONTRACT_KEYS
 template WithKey
   with p: Party
        k: Int
@@ -410,6 +412,7 @@ template ExerciseByKey
       controller p
       do
         exerciseByKey @WithKey (p, 42) SumToK with n = 0
+#endif
 
 test_failedAuths : Script ()
 test_failedAuths = script do
@@ -629,6 +632,7 @@ template TimeGetter with
       controller p
       do pure $ product [1, 2, 3]
 
+#ifdef DAML_CONTRACT_KEYS
 template ComputeContractKeyAfterEnsureClause with
     owner: Party
   where
@@ -660,3 +664,4 @@ template NoMaintainer
       controller sig
       do
         pure ()
+#endif
