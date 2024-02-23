@@ -330,7 +330,10 @@ proto_gen(
         "flat_package",
         "grpc",
     ],
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = [
+        "//daml-lf/validation:__subpackages__",
+        "//daml-script:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -346,6 +349,7 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    visibility = ["//daml-lf/validation:__subpackages__"],
 )
 
 ### community/base ###

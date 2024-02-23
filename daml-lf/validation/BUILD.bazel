@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
+    "default_scalacopts",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
@@ -49,6 +50,28 @@ da_scala_library(
         ":validation",
         "//daml-lf/language",
         "//daml-lf/parser",
+    ],
+)
+
+da_scala_library(
+    name = "upgrade-test-lib",
+    srcs =
+        glob(
+            ["src/test/**/UpgradesSpecUtil.scala"],
+        ) +
+        #  we depend on sources to avoid pushing a canton artifact to maven
+        [
+            "//canton:community_admin-api_proto_scala",
+        ],
+    scaladoc = False,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:community_admin-api",
+        "//canton:community_ledger_ledger-common",
+        "//canton:ledger_api_proto_scala",
+        "//libs-scala/ports",
+        "//test-common/canton/it-lib",
+        "@maven//:io_grpc_grpc_netty",
     ],
 )
 
@@ -151,6 +174,8 @@ da_scala_test_suite(
         ],
         scalacopts = lf_scalacopts,
         deps = [
+            ":upgrade-test-lib",
+            ":validation",
             "//bazel_tools/runfiles:scala_runfiles",
             "//canton:community_ledger_ledger-common",
             "//canton:ledger_api_proto_scala",
@@ -164,7 +189,7 @@ da_scala_test_suite(
             "//test-common/canton/it-lib",
         ],
     ),
-] if is_windows else []
+] if not is_windows else []
 
 da_scala_benchmark_jmh(
     name = "typechecking-benchmark",
