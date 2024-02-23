@@ -106,7 +106,14 @@ da_scala_test_suite(
         for name in ENGINE_TEST_FILES
         for major in LF_MAJOR_VERSIONS
     ] + [
-        ":BasicTests-{}.dar".format(mangle_for_damlc(version))
+        "{prefix}-{version}.dar".format(
+            prefix = prefix,
+            version = mangle_for_damlc(version),
+        )
+        for prefix in [
+            ":BasicTests",
+            "//daml-lf/tests:MultiKeys",
+        ]
         for version in LF_DEV_VERSIONS
     ],
     scala_deps = [
