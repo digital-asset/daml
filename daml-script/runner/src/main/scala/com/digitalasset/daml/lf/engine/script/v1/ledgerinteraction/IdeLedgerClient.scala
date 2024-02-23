@@ -233,11 +233,21 @@ class IdeLedgerClient(
             SError.SErrorDamlException(ContractIdInContractKey(keyValue))
         }
       )
+
+    val packageName = compiledPackages.pkgInterface
+      .lookupPackage(templateId.packageId)
+      .fold(
+        e => throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}, $e"),
+        s => s,
+      )
+      .metadata
+      .map(_.name)
+
     GlobalKey
       .build(
         templateId,
         keyValue,
-        compiledPackages.pkgInterface.hasSharedKeys(templateId.packageId),
+        packageName,
       )
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>

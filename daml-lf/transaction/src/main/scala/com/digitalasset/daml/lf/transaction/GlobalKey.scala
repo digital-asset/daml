@@ -6,7 +6,7 @@ package transaction
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.TypeConName
+import com.daml.lf.data.Ref.{PackageName, TypeConName}
 import com.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
@@ -33,14 +33,17 @@ final class GlobalKey private (
 
 object GlobalKey {
 
-  def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
+  def assertWithRenormalizedValue(
+      key: GlobalKey,
+      value: Value,
+      packageName: Option[PackageName],
+  ): GlobalKey = {
     if (
       key.key != value &&
-      Hash.assertHashContractKey(key.templateId, value, true) != key.hash &&
-      Hash.assertHashContractKey(key.templateId, value, false) != key.hash
+      Hash.assertHashContractKey(key.templateId, value, packageName) != key.hash
     ) {
       throw new IllegalArgumentException(
-        s"Hash must not change as a result of value renormalization key=$key, value=$value"
+        s"Hash must not change as a result of value renormalization key=$key, value=$value, packageName=$packageName"
       )
     }
 
@@ -52,6 +55,16 @@ object GlobalKey {
   def build(
       templateId: Ref.TypeConName,
       key: Value,
+      packageName: Option[Ref.PackageName],
+  ): Either[crypto.Hash.HashingError, GlobalKey] =
+    crypto.Hash
+      .hashContractKey(templateId, key, packageName)
+      .map(new GlobalKey(templateId, key, _))
+
+  @deprecated("Use package name variant", "LF 1.16")
+  def build(
+      templateId: Ref.TypeConName,
+      key: Value,
       shared: Boolean,
   ): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash
@@ -59,13 +72,21 @@ object GlobalKey {
       .map(new GlobalKey(templateId, key, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
-  @throws[IllegalArgumentException]
+  @deprecated("Use package name variant", "LF 1.16")
   def assertBuild(templateId: Ref.TypeConName, key: Value, shared: Boolean): GlobalKey =
     data.assertRight(build(templateId, key, shared).left.map(_.msg))
+
+  def assertBuild(
+      templateId: Ref.TypeConName,
+      key: Value,
+      packageName: Option[PackageName],
+  ): GlobalKey =
+    data.assertRight(build(templateId, key, packageName).left.map(_.msg))
 
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
     Some((globalKey.templateId, globalKey.key))
 
+  @deprecated("Use package name variant", "LF 1.16")
   def isShared(key: GlobalKey): Boolean =
     Hash.hashContractKey(key.templateId, key.key, true) == Right(key.hash)
 
@@ -80,6 +101,7 @@ final case class GlobalKeyWithMaintainers(
 
 object GlobalKeyWithMaintainers {
 
+  @deprecated("Use package name variant", "LF 1.16")
   def assertBuild(
       templateId: Ref.TypeConName,
       value: Value,
@@ -88,6 +110,15 @@ object GlobalKeyWithMaintainers {
   ): GlobalKeyWithMaintainers =
     data.assertRight(build(templateId, value, maintainers, shared).left.map(_.msg))
 
+  def assertBuild(
+      templateId: Ref.TypeConName,
+      value: Value,
+      maintainers: Set[Ref.Party],
+      packageName: Option[Ref.PackageName],
+  ): GlobalKeyWithMaintainers =
+    data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
+
+  @deprecated("Use package name variant", "LF 1.16")
   def build(
       templateId: Ref.TypeConName,
       value: Value,
@@ -95,6 +126,14 @@ object GlobalKeyWithMaintainers {
       shared: Boolean,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
     GlobalKey.build(templateId, value, shared).map(GlobalKeyWithMaintainers(_, maintainers))
+
+  def build(
+      templateId: Ref.TypeConName,
+      value: Value,
+      maintainers: Set[Ref.Party],
+      packageName: Option[PackageName],
+  ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
+    GlobalKey.build(templateId, value, packageName).map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.

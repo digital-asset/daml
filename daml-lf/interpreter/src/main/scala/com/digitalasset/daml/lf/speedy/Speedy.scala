@@ -114,15 +114,21 @@ private[lf] object Speedy {
       packageName: Option[PackageName],
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
-      shared: Boolean,
   ) {
     def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
     def templateId: TypeConName = globalKey.templateId
     def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
     val lfValue: V = globalKey.key
-    def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
+    def renormalizedGlobalKeyWithMaintainers(
+        version: TxVersion,
+        packageName: Option[Ref.PackageName],
+    ) = {
       globalKeyWithMaintainers.copy(
-        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue(version))
+        globalKey = GlobalKey.assertWithRenormalizedValue(
+          globalKey,
+          key.toNormalizedValue(version),
+          packageName,
+        )
       )
     }
   }

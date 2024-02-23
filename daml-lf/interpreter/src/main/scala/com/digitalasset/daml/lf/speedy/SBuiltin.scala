@@ -27,7 +27,6 @@ import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   TransactionVersion,
-  Util,
   TransactionErrors => TxErr,
 }
 import com.daml.lf.value.{Value => V}
@@ -1561,7 +1560,7 @@ private[lf] object SBuiltin {
           IE.FetchEmptyContractKeyMaintainers(
             cachedKey.templateId,
             cachedKey.lfValue,
-            cachedKey.shared,
+            cachedKey.packageName,
           )
         )
       } else {
@@ -2083,9 +2082,8 @@ private[lf] object SBuiltin {
       case SStruct(_, vals) =>
         val keyValue = vals.get(keyIdx)
         val lfValue = keyValue.toNormalizedValue(packageTxVersion)
-        val shared = Util.sharedKey(packageTxVersion)
         val gkey = GlobalKey
-          .build(templateId, lfValue, shared)
+          .build(templateId, lfValue, pkgName)
           .getOrElse(
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )
@@ -2096,7 +2094,6 @@ private[lf] object SBuiltin {
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
           ),
           key = keyValue,
-          shared = shared,
         )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }

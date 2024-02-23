@@ -19,9 +19,14 @@ import scala.language.implicitConversions
 class HashSpec extends AnyWordSpec with Matchers {
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
+  private val packageName0 = Ref.PackageName.assertFromString("package-x")
 
-  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash = {
-    Hash.assertHashContractKey(templateId, key, shared = false)
+  def assertHashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      packageName: Option[Ref.PackageName] = Some(packageName0),
+  ): Hash = {
+    Hash.assertHashContractKey(templateId, key, packageName = packageName)
   }
 
   private val complexRecordT =
@@ -89,8 +94,15 @@ class HashSpec extends AnyWordSpec with Matchers {
 
   "KeyHasher" should {
 
-    "be stable" in {
+    "be stable (pre package name)" in {
       val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
+      val value = complexRecordT.inj(complexRecordV)
+      val name = defRef("module", "name")
+      assertHashContractKey(name, value, packageName = None).toHexString shouldBe hash
+    }
+
+    "be stable (post package name)" in {
+      val hash = "89d6543a851e6a176af00d8ac4b211c5fea0cd01b4cc18531d1b7c3f9aa42f72"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
       assertHashContractKey(name, value).toHexString shouldBe hash
@@ -101,7 +113,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       // Note: intentionally does not reuse value instances
       val hashes = Vector
         .fill(1000)(defRef("module", "name") -> complexRecordT.inj(complexRecordV))
-        .map(Function.tupled(assertHashContractKey))
+        .map({ case (i, v) => assertHashContractKey(i, v) })
 
       hashes.toSet.size shouldBe 1
     }
@@ -662,35 +674,36 @@ class HashSpec extends AnyWordSpec with Matchers {
   "Hash.hashContractKey" should {
 
     val templateId = defRef(name = "upgradable")
-    val nonSharedTrueHash =
+    val unPackageNamedHash =
       Hash.assertFromString("efab35fcbc9e2336fcc63259ba65e6601903be0a373c0b0f4d761872ffb23ded")
 
-    "produce backwardly compatible non-shared contract keys" in {
-      assertHashContractKey(templateId, ValueTrue) shouldBe nonSharedTrueHash
-    }
-
-    "produce backwardly compatible keys when called with shared=false" in {
-      Hash.assertHashContractKey(templateId, ValueTrue, shared = false) shouldBe nonSharedTrueHash
-    }
-
-    "produce ignore the packageId when called with shared=true" in {
+    "produce backwardly compatible keys when called with without package name" in {
       Hash.assertHashContractKey(
         templateId,
         ValueTrue,
-        shared = true,
-      ) should not be nonSharedTrueHash
+        packageName = None,
+      ) shouldBe unPackageNamedHash
     }
 
-    "produce an identical hash to the same template in a different package if shared=true" in {
+    "produce ignore the packageId when called with package name" in {
+      Hash.assertHashContractKey(
+        templateId,
+        ValueTrue,
+        Some(packageName0),
+      ) should not be unPackageNamedHash
+    }
+
+    "produce an identical hash to the same template in a different package with a common package name" in {
+      val commonPkgName = Some(packageName0)
       val h1 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageA")),
         ValueTrue,
-        shared = true,
+        commonPkgName,
       )
       val h2 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageB")),
         ValueTrue,
-        shared = true,
+        commonPkgName,
       )
       h1 shouldBe h2
     }

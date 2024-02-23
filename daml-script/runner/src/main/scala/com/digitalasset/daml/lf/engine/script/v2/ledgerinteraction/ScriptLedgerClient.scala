@@ -186,6 +186,7 @@ trait ScriptLedgerClient {
       //     At that point though, the wrapper only needs to act as a tag to inform the scenario service to take the most recent transaction step as the partial tx
       //     again requires explicit mustFail succeeded error, which will likely break some tests
       // Suppressed exception tag is likely cleanest, though possibly a misuse of this feature.
+      packageNameLookup: PackageId => Either[String, Option[PackageName]],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,

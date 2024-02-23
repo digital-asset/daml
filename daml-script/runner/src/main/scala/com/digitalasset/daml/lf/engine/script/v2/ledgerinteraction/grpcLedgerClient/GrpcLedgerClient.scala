@@ -274,6 +274,7 @@ class GrpcLedgerClient(
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      packageNameLookup: PackageId => Either[String, Option[PackageName]],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,
@@ -322,7 +323,7 @@ class GrpcLedgerClient(
           Left(
             ScriptLedgerClient.SubmitFailure(
               s,
-              GrpcErrorParser.convertStatusRuntimeException(s, languageVersionLookup),
+              GrpcErrorParser.convertStatusRuntimeException(s, packageNameLookup),
             )
           )
         )

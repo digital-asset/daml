@@ -374,6 +374,7 @@ object TransactionCoder {
       version: TransactionVersion,
       templateId: Ref.TypeConName,
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
+      packageName: Option[Ref.PackageName],
   ): Either[DecodeError, GlobalKeyWithMaintainers] = {
     for {
       maintainers <- toPartySet(keyWithMaintainers.getMaintainersList)
@@ -383,7 +384,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
-        .build(templateId, value, Util.sharedKey(version))
+        .build(templateId, value, packageName)
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
@@ -393,6 +394,7 @@ object TransactionCoder {
       version: TransactionVersion,
       templateId: Ref.TypeConName,
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
+      packageName: Option[Ref.PackageName],
   ): Either[DecodeError, GlobalKeyWithMaintainers] =
     for {
       maintainers <- toPartyTreeSet(keyWithMaintainers.getMaintainersList)
@@ -403,7 +405,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
-        .build(templateId, value, Util.sharedKey(version))
+        .build(templateId, value, packageName)
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
@@ -414,11 +416,12 @@ object TransactionCoder {
       version: TransactionVersion,
       templateId: Ref.TypeConName,
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
+      packageName: Option[Ref.PackageName],
   ): Either[DecodeError, Option[GlobalKeyWithMaintainers]] =
     if (keyWithMaintainers == TransactionOuterClass.KeyWithMaintainers.getDefaultInstance)
       RightNone
     else
-      decodeKeyWithMaintainers(version, templateId, keyWithMaintainers).map(Some(_))
+      decodeKeyWithMaintainers(version, templateId, keyWithMaintainers, packageName).map(Some(_))
 
   // package private for test, do not use outside TransactionCoder
   private[lf] def decodeValue(
@@ -477,6 +480,7 @@ object TransactionCoder {
             nodeVersion,
             tmplId,
             protoCreate.getKeyWithMaintainers,
+            pkgName,
           )
         } yield ni -> Node.Create(
           coid = c,
@@ -503,6 +507,7 @@ object TransactionCoder {
             nodeVersion,
             templateId,
             protoFetch.getKeyWithMaintainers,
+            pkgName,
           )
           byKey = protoFetch.getByKey
         } yield ni -> Node.Fetch(
@@ -537,6 +542,7 @@ object TransactionCoder {
               nodeVersion,
               templateId,
               protoExe.getKeyWithMaintainers,
+              pkgName,
             )
           ni <- nodeId
           targetCoid <- decodeCid.decode(protoExe.getContractIdStruct)
@@ -594,6 +600,7 @@ object TransactionCoder {
               nodeVersion,
               templateId,
               protoLookupByKey.getKeyWithMaintainers,
+              pkgName,
             )
           cid <- decodeCid.decodeOptional(protoLookupByKey.getContractIdStruct)
         } yield ni -> Node.LookupByKey(pkgName, templateId, key, cid, nodeVersion)
@@ -801,52 +808,6 @@ object TransactionCoder {
     else
       decodeVersion(node.getVersion)
 
-  private[this] def keyHash(
-      nodeVersion: TransactionVersion,
-      rawTmplId: ValueOuterClass.Identifier,
-      rawKey: ByteString,
-  ): Either[DecodeError, GlobalKey] =
-    for {
-      tmplId <- ValueCoder.decodeIdentifier(rawTmplId)
-      value <- ValueCoder.decodeValue(ValueCoder.NoCidDecoder, nodeVersion, rawKey)
-      key <- GlobalKey
-        .build(tmplId, value, Util.sharedKey(nodeVersion))
-        .left
-        .map(hashErr => DecodeError(hashErr.msg))
-    } yield key
-
-  /*
-   * Fast decoder for contract key of Create node.
-   * Does not decode or validate the rest of the node.
-   */
-  def nodeKey(
-      nodeVersion: TransactionVersion,
-      protoCreate: TransactionOuterClass.NodeCreate,
-  ): Either[DecodeError, Option[GlobalKey]] = {
-    if (protoCreate.hasKeyWithMaintainers) {
-      val rawTmplId = protoCreate.getTemplateId
-      val rawKey = protoCreate.getKeyWithMaintainers.getKeyUnversioned
-      keyHash(nodeVersion, rawTmplId, rawKey).map(Some(_))
-    } else {
-      Right(None)
-    }
-  }
-
-  /*
-   * Fast decoder for contract key of Exercise node.
-   * Does not decode or validate the rest of the node.
-   */
-  def nodeKey(
-      nodeVersion: TransactionVersion,
-      protoExercise: TransactionOuterClass.NodeExercise,
-  ): Either[DecodeError, Option[GlobalKey]] =
-    if (protoExercise.hasKeyWithMaintainers) {
-      val rawKey = protoExercise.getKeyWithMaintainers.getKeyUnversioned
-      keyHash(nodeVersion, protoExercise.getTemplateId, rawKey).map(Some(_))
-    } else {
-      Right(None)
-    }
-
   private[this] def ensureNoUnknownFields(
       proto: com.google.protobuf.Message
   ): Either[DecodeError, Unit] = {
@@ -947,7 +908,12 @@ object TransactionCoder {
       createArg <- ValueCoder.decodeValue(ValueCoder.CidDecoder, version, proto.getCreateArg)
       keyWithMaintainers <-
         if (proto.hasContractKeyWithMaintainers)
-          strictDecodeKeyWithMaintainers(version, templateId, proto.getContractKeyWithMaintainers)
+          strictDecodeKeyWithMaintainers(
+            version,
+            templateId,
+            proto.getContractKeyWithMaintainers,
+            pkgName,
+          )
             .map(Some(_))
         else
           RightNone

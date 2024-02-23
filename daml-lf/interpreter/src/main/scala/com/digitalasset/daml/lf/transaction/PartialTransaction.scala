@@ -467,7 +467,7 @@ private[speedy] case class PartialTransaction(
           interfaceId = interfaceId,
           contractKey =
             // We need to renormalize the key
-            contract.keyOpt.map(_.renormalizedGlobalKeyWithMaintainers(version)),
+            contract.keyOpt.map(_.renormalizedGlobalKeyWithMaintainers(version, packageName)),
           choiceId = choiceId,
           consuming = consuming,
           actingParties = actingParties,

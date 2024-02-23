@@ -111,6 +111,13 @@ object ScriptF {
       }
     }
 
+    def lookupPackageName(packageId: PackageId): Either[String, Option[PackageName]] = {
+      compiledPackages.pkgInterface.lookupPackageName(packageId) match {
+        case Right(lv) => Right(lv)
+        case Left(err) => Left(err.pretty)
+      }
+    }
+
   }
 
   final case class Throw(exc: SAny) extends Cmd {
@@ -195,6 +202,7 @@ object ScriptF {
           submission.cmds,
           submission.optLocation,
           env.lookupLanguageVersion,
+          env.lookupPackageName,
           submission.errorBehaviour,
         )
         res <- (submitRes, submission.errorBehaviour) match {

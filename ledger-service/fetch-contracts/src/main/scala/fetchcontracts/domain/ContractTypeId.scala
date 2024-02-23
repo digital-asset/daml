@@ -5,7 +5,6 @@ package com.daml.fetchcontracts.domain
 
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
-import com.daml.lf.language.LanguageVersion
 import com.daml.nonempty.NonEmpty
 import scalaz.{-\/, Applicative, Traverse, \/, \/-}
 import scalaz.syntax.functor._
@@ -64,19 +63,20 @@ sealed abstract class ContractTypeId[+PkgId]
 }
 
 object ResolvedQuery {
-  def apply(resolved: ContractTypeId.Resolved, lv: LanguageVersion): ResolvedQuery = {
+
+  def apply(resolved: ContractTypeId.Resolved, pn: KeyPackageName): ResolvedQuery = {
     import ContractTypeId._
     resolved match {
-      case t @ Template(_, _, _) => ByTemplateId(t, lv)
-      case i @ Interface(_, _, _) => ByInterfaceId(i, lv)
+      case t @ Template(_, _, _) => ByTemplateId(t, pn)
+      case i @ Interface(_, _, _) => ByInterfaceId(i, pn)
     }
   }
 
   def apply(
-      resolved: Set[(ContractTypeId.Resolved, LanguageVersion)]
+      resolved: Set[(ContractTypeId.Resolved, KeyPackageName)]
   ): Unsupported \/ ResolvedQuery = {
     import com.daml.nonempty.{NonEmpty, Singleton}
-    val (templateIds, interfaceIds) = partitionLV(resolved)
+    val (templateIds, interfaceIds) = partitionKPN(resolved)
     templateIds match {
       case NonEmpty(templateIds) =>
         interfaceIds match {
@@ -85,7 +85,7 @@ object ResolvedQuery {
         }
       case _ =>
         interfaceIds match {
-          case NonEmpty(Singleton((interfaceId, lv))) => \/-(ByInterfaceId(interfaceId, lv))
+          case NonEmpty(Singleton((interfaceId, name))) => \/-(ByInterfaceId(interfaceId, name))
           case NonEmpty(_) => -\/(CannotQueryManyInterfaceIds)
           case _ => -\/(CannotBeEmpty)
         }
@@ -100,11 +100,11 @@ object ResolvedQuery {
       case i @ ContractTypeId.Interface(_, _, _) => Right(i)
     }
 
-  private def partitionLV[CC[_], C](
-      resolved: IterableOps[(ContractTypeId.Resolved, LanguageVersion), CC, C]
+  private def partitionKPN[CC[_], C](
+      resolved: IterableOps[(ContractTypeId.Resolved, KeyPackageName), CC, C]
   ): (
-      CC[(ContractTypeId.Template.Resolved, LanguageVersion)],
-      CC[(ContractTypeId.Interface.Resolved, LanguageVersion)],
+      CC[(ContractTypeId.Template.Resolved, KeyPackageName)],
+      CC[(ContractTypeId.Interface.Resolved, KeyPackageName)],
   ) =
     resolved.partitionMap {
       case (t @ ContractTypeId.Template(_, _, _), lv) => Left((t, lv))
@@ -119,26 +119,26 @@ object ResolvedQuery {
   final case object CannotBeEmpty extends Unsupported("Cannot resolve any template ID from request")
 
   final case class ByTemplateIds(
-      templateIds: NonEmpty[Set[(ContractTypeId.Template.Resolved, LanguageVersion)]]
+      templateIds: NonEmpty[Set[(ContractTypeId.Template.Resolved, KeyPackageName)]]
   ) extends ResolvedQuery {
-    def resolved: NonEmpty[Set[(ContractTypeId.Resolved, LanguageVersion)]] =
+    def resolved: NonEmpty[Set[(ContractTypeId.Resolved, KeyPackageName)]] =
       templateIds.map({ case (id, lv) => (id: ContractTypeId.Resolved, lv) })
   }
-  final case class ByTemplateId(templateId: (ContractTypeId.Template.Resolved, LanguageVersion))
+  final case class ByTemplateId(templateId: (ContractTypeId.Template.Resolved, KeyPackageName))
       extends ResolvedQuery {
-    def resolved: NonEmpty[Set[(ContractTypeId.Resolved, LanguageVersion)]] =
-      NonEmpty(Set, templateId: (ContractTypeId.Resolved, LanguageVersion))
+    def resolved: NonEmpty[Set[(ContractTypeId.Resolved, KeyPackageName)]] =
+      NonEmpty(Set, templateId: (ContractTypeId.Resolved, KeyPackageName))
   }
 
-  final case class ByInterfaceId(interfaceId: (ContractTypeId.Interface.Resolved, LanguageVersion))
+  final case class ByInterfaceId(interfaceId: (ContractTypeId.Interface.Resolved, KeyPackageName))
       extends ResolvedQuery {
-    def resolved: NonEmpty[Set[(ContractTypeId.Resolved, LanguageVersion)]] =
-      NonEmpty(Set, interfaceId: (ContractTypeId.Resolved, LanguageVersion))
+    def resolved: NonEmpty[Set[(ContractTypeId.Resolved, KeyPackageName)]] =
+      NonEmpty(Set, interfaceId: (ContractTypeId.Resolved, KeyPackageName))
   }
 }
 
 sealed abstract class ResolvedQuery extends Product with Serializable {
-  def resolved: NonEmpty[Set[(ContractTypeId.Resolved, LanguageVersion)]]
+  def resolved: NonEmpty[Set[(ContractTypeId.Resolved, KeyPackageName)]]
 }
 
 object ContractTypeId extends ContractTypeIdLike[ContractTypeId] {

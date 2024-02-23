@@ -13,7 +13,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Util, Versioned}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.ledger.FailedAuthorization.{
   ExerciseMissingAuthorization,
@@ -428,7 +428,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
       T,
       keyValue,
       Set(alice),
-      Util.sharedKey(languageVersion),
+      pkg.name,
     ) -> cId
   )
 

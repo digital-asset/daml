@@ -4,16 +4,16 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   IncompleteTransaction,
-  Transaction,
   Node,
   NodeId,
-  Versioned,
+  Transaction,
   VersionedTransaction,
 }
 import com.daml.lf.value.Value
@@ -123,33 +123,22 @@ final class ValueEnricher(
   private val ResultNone = ResultDone(None)
 
   def enrichContractKey(
-      key: GlobalKeyWithMaintainers
+      key: GlobalKeyWithMaintainers,
+      packageName: Option[Ref.PackageName],
   ): Result[GlobalKeyWithMaintainers] =
     enrichContractKey(key.globalKey.templateId, key.globalKey.key).map(normalizedKey =>
-      key.copy(globalKey = GlobalKey.assertWithRenormalizedValue(key.globalKey, normalizedKey))
+      key.copy(globalKey =
+        GlobalKey.assertWithRenormalizedValue(key.globalKey, normalizedKey, packageName)
+      )
     )
 
   def enrichContractKey(
-      key: Option[GlobalKeyWithMaintainers]
+      key: Option[GlobalKeyWithMaintainers],
+      packageName: Option[Ref.PackageName],
   ): Result[Option[GlobalKeyWithMaintainers]] =
     key match {
       case Some(k) =>
-        enrichContractKey(k).map(Some(_))
-      case None =>
-        ResultNone
-    }
-
-  def enrichVersionedContractKey(
-      key: Versioned[GlobalKeyWithMaintainers]
-  ): Result[Versioned[GlobalKeyWithMaintainers]] =
-    enrichContractKey(key.unversioned).map(normalizedValue => key.map(_ => normalizedValue))
-
-  def enrichVersionedContractKey(
-      key: Option[Versioned[GlobalKeyWithMaintainers]]
-  ): Result[Option[Versioned[GlobalKeyWithMaintainers]]] =
-    key match {
-      case Some(k) =>
-        enrichVersionedContractKey(k).map(Some(_))
+        enrichContractKey(k, packageName).map(Some(_))
       case None =>
         ResultNone
     }
@@ -161,15 +150,15 @@ final class ValueEnricher(
       case create: Node.Create =>
         for {
           arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
-          key <- enrichContractKey(create.keyOpt)
+          key <- enrichContractKey(create.keyOpt, create.packageName)
         } yield create.copy(arg = arg, keyOpt = key)
       case fetch: Node.Fetch =>
         for {
-          key <- enrichContractKey(fetch.keyOpt)
+          key <- enrichContractKey(fetch.keyOpt, fetch.packageName)
         } yield fetch.copy(keyOpt = key)
       case lookup: Node.LookupByKey =>
         for {
-          key <- enrichContractKey(lookup.key)
+          key <- enrichContractKey(lookup.key, lookup.packageName)
         } yield lookup.copy(key = key)
       case exe: Node.Exercise =>
         for {
@@ -187,7 +176,7 @@ final class ValueEnricher(
             case None =>
               ResultNone
           }
-          key <- enrichContractKey(exe.keyOpt)
+          key <- enrichContractKey(exe.keyOpt, exe.packageName)
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, keyOpt = key)
     }
 

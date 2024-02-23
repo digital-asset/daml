@@ -9,13 +9,14 @@ import com.google.rpc.status.Status
 import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.lf.data.Ref.PackageName
 import com.daml.nonempty.NonEmpty
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.string._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/, -\/}
+import scalaz.{-\/, @@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
 
 package object domain {
   type LfValue = lf.value.Value
@@ -37,6 +38,9 @@ package object domain {
     def required(label: String): Error \/ A =
       o toRightDisjunction Error(Symbol("ErrorOps_required"), s"Missing required field $label")
   }
+
+  type KeyPackageName = Option[PackageName]
+
 }
 
 package domain {

@@ -53,7 +53,7 @@ trait TestNodeBuilder {
             templateId,
             value,
             signatories,
-            Util.sharedKey(transactionVersion),
+            packageName,
           )
         )
       case CreateKey.KeyWithMaintainers(value, maintainers) =>
@@ -62,7 +62,7 @@ trait TestNodeBuilder {
             templateId,
             value,
             maintainers,
-            Util.sharedKey(transactionVersion),
+            packageName,
           )
         )
     }

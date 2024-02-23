@@ -278,11 +278,21 @@ class IdeLedgerClient(
             )
         }
       )
+
+    val packageName = compiledPackages.pkgInterface
+      .lookupPackage(templateId.packageId)
+      .fold(
+        e => throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}, $e"),
+        s => s,
+      )
+      .metadata
+      .map(_.name)
+
     GlobalKey
       .build(
         templateId,
         keyValue,
-        compiledPackages.pkgInterface.hasSharedKeys(templateId.packageId),
+        packageName,
       )
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
@@ -331,9 +341,9 @@ class IdeLedgerClient(
       case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
-      case FetchEmptyContractKeyMaintainers(tid, keyValue, sharedKey) =>
+      case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(tid, keyValue, sharedKey)
+          GlobalKey.assertBuild(tid, keyValue, packageName)
         )
       case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>
@@ -604,6 +614,7 @@ class IdeLedgerClient(
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      packageNameLookup: PackageId => Either[String, Option[PackageName]],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,

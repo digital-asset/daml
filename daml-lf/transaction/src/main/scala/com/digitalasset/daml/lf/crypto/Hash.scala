@@ -298,7 +298,7 @@ object Hash {
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
-  @throws[HashingError]
+  @deprecated("Use package name variant", "LF 1.16")
   def assertHashContractKey(templateId: Ref.Identifier, key: Value, shared: Boolean): Hash = {
     val hashBuilder = builder(Purpose.ContractKey, noCid2String)
     (if (shared) {
@@ -309,12 +309,32 @@ object Hash {
      }).addTypedValue(key).build
   }
 
+  def assertHashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      packageName: Option[Ref.PackageName],
+  ): Hash = {
+    val hashBuilder = builder(Purpose.ContractKey, noCid2String)
+    (packageName match {
+      case Some(name) => hashBuilder.add(s"#$name").addQualifiedName(templateId.qualifiedName)
+      case None => hashBuilder.addIdentifier(templateId)
+    }).addTypedValue(key).build
+  }
+
+  @deprecated("Use package name variant", "LF 1.16")
   def hashContractKey(
       templateId: Ref.Identifier,
       key: Value,
       shared: Boolean,
   ): Either[HashingError, Hash] =
     handleError(assertHashContractKey(templateId, key, shared))
+
+  def hashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      packageName: Option[Ref.PackageName],
+  ): Either[HashingError, Hash] =
+    handleError(assertHashContractKey(templateId, key, packageName))
 
   // This function assumes that `arg` is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a contract argument of type τ

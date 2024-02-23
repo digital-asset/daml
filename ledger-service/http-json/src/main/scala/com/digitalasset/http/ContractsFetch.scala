@@ -23,6 +23,7 @@ import com.daml.fetchcontracts.util.{
   InsertDeleteStep,
   LedgerBegin,
 }
+import com.daml.http.PackageService.KeyPackageName
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmpty
@@ -46,8 +47,6 @@ import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.Util
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 
 import scala.collection.immutable.List
@@ -72,7 +71,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateLvs: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
+      templateLvs: List[(domain.ContractTypeId.Resolved, KeyPackageName)],
       tickFetch: ConnectionIO ~> ConnectionIO = NaturalTransformation.refl,
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -87,8 +86,8 @@ private class ContractsFetch(
     val templateIds = templateLvs.map(_._1)
     def tlv(
         l: List[domain.ContractTypeId.Resolved]
-    ): List[(domain.ContractTypeId.Resolved, LanguageVersion)] = {
-      l.flatMap(t => templateLvMap.get(t).map(l => (t, l)))
+    ): List[(domain.ContractTypeId.Resolved, KeyPackageName)] = {
+      l.flatMap(t => templateLvMap.get(t).map(pn => (t, pn)))
     }
     def go(
         maxAttempts: Int,
@@ -136,7 +135,7 @@ private class ContractsFetch(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
-      templateIds: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
+      templateIds: List[(domain.ContractTypeId.Resolved, KeyPackageName)],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -152,7 +151,7 @@ private class ContractsFetch(
 
   private[this] def fetchToAbsEnd(
       fetchContext: FetchContext,
-      templateIds: List[(domain.ContractTypeId.Resolved, LanguageVersion)],
+      templateIds: List[(domain.ContractTypeId.Resolved, KeyPackageName)],
       absEnd: Terminates.AtAbsolute,
   )(implicit
       ec: ExecutionContext,
@@ -211,7 +210,7 @@ private class ContractsFetch(
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.ContractTypeId.Resolved,
-      languageVersion: LanguageVersion,
+      keyPackageName: KeyPackageName,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -230,7 +229,7 @@ private class ContractsFetch(
           disableAcs,
           absEnd,
           templateId,
-          languageVersion,
+          keyPackageName,
         ) <* fconn.commit),
         {
           case e: SQLException if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
@@ -263,7 +262,7 @@ private class ContractsFetch(
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.ContractTypeId.Resolved,
-      languageVersion: LanguageVersion,
+      keyPackageName: KeyPackageName,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -276,7 +275,7 @@ private class ContractsFetch(
       offset1 <- contractsFromOffsetIo(
         fetchContext,
         templateId,
-        languageVersion,
+        keyPackageName,
         offsets,
         disableAcs,
         absEnd,
@@ -294,6 +293,7 @@ private class ContractsFetch(
       ledgerId: LedgerApiDomain.LedgerId,
       ledgerEnd: Terminates.AtAbsolute,
       offsetLimitToRefresh: domain.Offset,
+      resolvePackageName: PackageService.ResolvePackageName,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -321,7 +321,9 @@ private class ContractsFetch(
             contractsFromOffsetIo(
               fetchContext,
               templateId,
-              LanguageVersion.default, // TODO Need to store with template info in DB
+              resolvePackageName(
+                templateId.packageId
+              ), // TODO change to use result from DB when package name is persisted
               partyOffsets,
               true,
               ledgerEnd,
@@ -336,14 +338,14 @@ private class ContractsFetch(
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent,
       d: ContractTypeId.Resolved,
-      lv: LanguageVersion,
+      pn: KeyPackageName,
   ): Exception \/ PreInsertContract = {
     import scalaz.syntax.traverse._
     import scalaz.std.option._
     import com.daml.lf.crypto.Hash
     for {
       ac <-
-        domain.ActiveContract fromLedgerApi (domain.ResolvedQuery(d, lv), ce) leftMap (de =>
+        domain.ActiveContract fromLedgerApi (domain.ResolvedQuery(d, pn), ce) leftMap (de =>
           new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
         )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
@@ -352,12 +354,12 @@ private class ContractsFetch(
       contractId = ac.contractId.unwrap,
       templateId = ac.templateId,
       key = lfKey.cata(lfValueToDbJsValue, JsNull),
-      keyHash = lfKey.map(
+      keyHash = lfKey.map(key =>
         Hash
           .assertHashContractKey(
-            ContractTypeId.toLedgerApiValue(ac.templateId),
-            _,
-            shared = Util.sharedKey(lv),
+            templateId = ContractTypeId.toLedgerApiValue(ac.templateId),
+            key = key,
+            packageName = pn,
           )
           .toHexString
       ),
@@ -371,15 +373,15 @@ private class ContractsFetch(
   private def jsonifyInsertDeleteStep[D <: ContractTypeId.Resolved](
       a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
       d: D,
-      lv: LanguageVersion,
+      pn: KeyPackageName,
   ): InsertDeleteStep[D, PreInsertContract] =
     a.leftMap(_ => d)
-      .mapPreservingIds(prepareCreatedEventStorage(_, d, lv) valueOr (e => throw e))
+      .mapPreservingIds(prepareCreatedEventStorage(_, d, pn) valueOr (e => throw e))
 
   private def contractsFromOffsetIo(
       fetchContext: FetchContext,
       templateId: domain.ContractTypeId.Resolved,
-      languageVersion: LanguageVersion,
+      keyPackageName: KeyPackageName,
       offsets: Map[domain.Party, domain.Offset],
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
@@ -448,7 +450,7 @@ private class ContractsFetch(
                 jsonifyInsertDeleteStep(
                   (_: InsertDeleteStep[Any, lav1.event.CreatedEvent]),
                   templateId,
-                  languageVersion,
+                  keyPackageName,
                 )
               )
               .via(if (sjd.q.queries.allowDamlTransactionBatching) conflation else Flow.apply)

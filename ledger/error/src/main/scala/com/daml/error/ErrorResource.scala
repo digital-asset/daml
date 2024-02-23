@@ -31,6 +31,7 @@ object ErrorResource {
     IdentityProviderConfig,
     InterfaceId,
     LedgerId,
+    PackageName,
     Parties,
     Party,
     TemplateId,
@@ -79,6 +80,9 @@ object ErrorResource {
   }
   object Party extends ErrorResource {
     def asString: String = "PARTY"
+  }
+  object PackageName extends ErrorResource {
+    def asString: String = "PACKAGE_NAME"
   }
   object Parties extends ErrorResource {
     def asString: String = "PARTIES"
