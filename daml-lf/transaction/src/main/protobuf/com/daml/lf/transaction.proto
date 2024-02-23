@@ -40,18 +40,17 @@ message ContractInstance {
 // architecture-handbook-entry-begin: Nodes
 
 message Node {
-    string version = 1;
-    string node_id = 2;
-    oneof node_type {
-      FatContractInstance create = 3;
-      NodeFetch fetch = 4;
-      NodeExercise exercise = 5;
-      NodeRollback rollback = 6;
-      NodeLookupByKey lookup_by_key = 1001; // *since dev*
-    }
-}
+  string version = 1;
+  string node_id = 2;
+  oneof node_type {
+    FatContractInstance create = 3;
+    Fetch fetch = 4;
+    Exercise exercise = 5;
+    Rollback rollback = 6;
+    LookupByKey lookup_by_key = 1001; // *since dev*
+  }
 
-message NodeFetch {
+  message Fetch {
     bytes contract_id = 1;
     string package_name = 2;
     com.daml.lf.value.Identifier template_id = 3; // require
@@ -60,10 +59,10 @@ message NodeFetch {
     repeated string actors = 6;
     KeyWithMaintainers key_with_maintainers = 1001; // optional *since dev*
     bool by_key = 1002;  //  *since dev*
-}
+  }
 
-message NodeExercise {
-    NodeFetch fetch = 1; // required
+  message Exercise {
+    Fetch fetch = 1; // required
     com.daml.lf.value.Identifier interface_id = 2; // optional
     string choice = 3;
     bytes arg = 4;
@@ -73,17 +72,19 @@ message NodeExercise {
     repeated string observers = 8;
     // No listed authorizers indicates default authorizers (signatories + actors)
     repeated string authorizers = 1001;  // *since version dev*
-}
+  }
 
-message NodeLookupByKey {
+  message Rollback {
+    repeated string children = 1; // node ids
+  }
+
+  // *since dev*
+  message LookupByKey {
     string package_name = 1;
     com.daml.lf.value.Identifier template_id = 2;
     KeyWithMaintainers key_with_maintainers = 3;
     bytes contract_id = 4;
-}
-
-message NodeRollback {
-    repeated string children = 1; // node ids
+  }
 }
 
 // architecture-handbook-entry-end: Nodes

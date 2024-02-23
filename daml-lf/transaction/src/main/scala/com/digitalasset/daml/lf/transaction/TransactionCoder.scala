@@ -145,7 +145,7 @@ object TransactionCoder {
 
     node match {
       case Node.Rollback(children) =>
-        val builder = TransactionOuterClass.NodeRollback.newBuilder()
+        val builder = TransactionOuterClass.Node.Rollback.newBuilder()
         children.foreach(id => discard(builder.addChildren(encodeNodeId(id))))
         Right(nodeBuilder.setRollback(builder).build())
 
@@ -193,7 +193,7 @@ object TransactionCoder {
 
   private[this] def encodeFetch(
       node: Node.Fetch
-  ): Either[EncodeError, TransactionOuterClass.NodeFetch] = {
+  ): Either[EncodeError, TransactionOuterClass.Node.Fetch] = {
     val version = node.version
     val maintainers = node.keyOpt.fold(Set.empty[Party])(_.maintainers)
     val signatories = node.signatories
@@ -203,7 +203,7 @@ object TransactionCoder {
     val non_maintainer_signatories = signatories -- maintainers
     val non_signatory_stakeholders = stakeholders -- signatories
 
-    val builder = TransactionOuterClass.NodeFetch.newBuilder()
+    val builder = TransactionOuterClass.Node.Fetch.newBuilder()
     discard(builder.setContractId(node.coid.toBytes.toByteString))
     discard(builder.setPackageName(node.packageName))
     discard(builder.setTemplateId(ValueCoder.encodeIdentifier(node.templateId)))
@@ -217,7 +217,7 @@ object TransactionCoder {
       _ <-
         if (node.byKey)
           Either.cond(
-            version >= TransactionVersion.minContractKey,
+            version >= TransactionVersion.minContractKeys,
             discard(builder.setByKey(true)),
             EncodeError(s"Node field byKey is not supported by ${version.protoValue}"),
           )
@@ -228,8 +228,8 @@ object TransactionCoder {
 
   private[this] def encodeExercise(
       node: Node.Exercise
-  ): Either[EncodeError, TransactionOuterClass.NodeExercise] = {
-    val builder = TransactionOuterClass.NodeExercise.newBuilder()
+  ): Either[EncodeError, TransactionOuterClass.Node.Exercise] = {
+    val builder = TransactionOuterClass.Node.Exercise.newBuilder()
     val fetch = Node.Fetch(
       coid = node.targetCoid,
       packageName = node.packageName,
@@ -268,14 +268,14 @@ object TransactionCoder {
 
   private[this] def encodeLookUp(
       node: Node.LookupByKey
-  ): Either[EncodeError, TransactionOuterClass.NodeLookupByKey] =
+  ): Either[EncodeError, TransactionOuterClass.Node.LookupByKey] =
     for {
       _ <- Either.cond(
-        node.version >= TransactionVersion.minContractKey,
+        node.version >= TransactionVersion.minContractKeys,
         (),
         EncodeError(s"Contract keys not supported by ${node.version.protoValue}"),
       )
-      builder = TransactionOuterClass.NodeLookupByKey.newBuilder()
+      builder = TransactionOuterClass.Node.LookupByKey.newBuilder()
       _ = discard(builder.setPackageName(node.packageName))
       _ = discard(builder.setTemplateId(ValueCoder.encodeIdentifier(node.templateId)))
       _ = node.result.foreach(cid => discard(builder.setContractId(cid.toBytes.toByteString)))
@@ -373,7 +373,7 @@ object TransactionCoder {
 
   private[this] def decodeRollback(
       nodeVersionStr: String,
-      msg: TransactionOuterClass.NodeRollback,
+      msg: TransactionOuterClass.Node.Rollback,
   ) =
     for {
       _ <- ensureNoUnknownFields(msg)
@@ -391,7 +391,7 @@ object TransactionCoder {
       msg: TransactionOuterClass.FatContractInstance,
   ): Either[DecodeError, Node.Create] =
     for {
-      // call to decodeFatContractInstance check for unknown fields
+      // call to decodeFatContractInstance checks for unknown fields
       nodeVersion <- decodeActionNodeVersion(txVersion, nodeVersionStr)
       contract <- decodeFatContractInstance(nodeVersion, msg)
       _ <- Either.cond(
@@ -409,7 +409,7 @@ object TransactionCoder {
   private[this] def decodeFetch(
       txVersion: TransactionVersion,
       nodeVersionStr: String,
-      msg: TransactionOuterClass.NodeFetch,
+      msg: TransactionOuterClass.Node.Fetch,
   ): Either[DecodeError, Node.Fetch] = {
     for {
       _ <- ensureNoUnknownFields(msg)
@@ -435,7 +435,7 @@ object TransactionCoder {
       byKey <-
         if (msg.getByKey)
           Either.cond(
-            nodeVersion >= TransactionVersion.minContractKey,
+            nodeVersion >= TransactionVersion.minContractKeys,
             true,
             DecodeError(s"transaction key is not supported by ${nodeVersion.protoValue}"),
           )
@@ -457,7 +457,7 @@ object TransactionCoder {
   private[this] def decodeExercise(
       txVersion: TransactionVersion,
       nodeVersionStr: String,
-      msg: TransactionOuterClass.NodeExercise,
+      msg: TransactionOuterClass.Node.Exercise,
   ): Either[DecodeError, Node.Exercise] = {
     for {
       _ <- ensureNoUnknownFields(msg)
@@ -507,13 +507,13 @@ object TransactionCoder {
   private[this] def decodeLookup(
       txVersion: TransactionVersion,
       nodeVersionStr: String,
-      msg: TransactionOuterClass.NodeLookupByKey,
+      msg: TransactionOuterClass.Node.LookupByKey,
   ) =
     for {
       _ <- ensureNoUnknownFields(msg)
       nodeVersion <- decodeActionNodeVersion(txVersion, nodeVersionStr)
       _ <- Either.cond(
-        txVersion >= TransactionVersion.minContractKey,
+        txVersion >= TransactionVersion.minContractKeys,
         (),
         DecodeError(s"Contract ket not supported by ${nodeVersion.protoValue}"),
       )
@@ -607,7 +607,7 @@ object TransactionCoder {
     *
     * Supported transaction versions configured in [[TransactionVersion]].
     *
-    * @param msg   protobuf encoded transaction
+    * @param protoTx protobuf encoded transaction
     * @tparam Nid node id type
     * @tparam Cid contract id type
     * @return decoded transaction

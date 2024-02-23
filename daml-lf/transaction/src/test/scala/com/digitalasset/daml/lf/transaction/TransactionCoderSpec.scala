@@ -605,7 +605,7 @@ class TransactionCoderSpec
       }
     }
 
-    s"preserve byKey on exercise in version >= ${TransactionVersion.minContractKey}" in {
+    s"preserve byKey on exercise in version >= ${TransactionVersion.minContractKeys}" in {
       forAll(
         Arbitrary.arbInt.arbitrary,
         danglingRefExerciseNodeGen,
@@ -626,14 +626,14 @@ class TransactionCoderSpec
           val result = TransactionCoder.decodeNode(node.version, encoded)
           result shouldBe Right(
             nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minContractKey) byKey else false
+              byKey = if (node.version >= TransactionVersion.minContractKeys) byKey else false
             )
           )
         }
       }
     }
 
-    s"preserve byKey on fetch in version >= ${TransactionVersion.minContractKey} and drop before" in {
+    s"preserve byKey on fetch in version >= ${TransactionVersion.minContractKeys} and drop before" in {
       forAll(
         Arbitrary.arbInt.arbitrary,
         fetchNodeGen,
@@ -654,7 +654,7 @@ class TransactionCoderSpec
           val result = TransactionCoder.decodeNode(node.version, encoded)
           result shouldBe Right(
             nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minContractKey) byKey else false
+              byKey = if (node.version >= TransactionVersion.minContractKeys) byKey else false
             )
           )
         }
@@ -817,7 +817,7 @@ class TransactionCoderSpec
       stakeholders = stakeholders,
       keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version)),
       byKey =
-        if (fetch.version >= TransactionVersion.minContractKey)
+        if (fetch.version >= TransactionVersion.minContractKeys)
           fetch.byKey
         else false,
     )
@@ -840,7 +840,7 @@ class TransactionCoderSpec
         else None,
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
       byKey =
-        if (exe.version >= TransactionVersion.minContractKey)
+        if (exe.version >= TransactionVersion.minContractKeys)
           exe.byKey
         else false,
     )

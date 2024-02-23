@@ -225,7 +225,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   private def versionSinceMinByKey(v: TransactionVersion): Boolean = {
     import scala.Ordering.Implicits.infixOrderingOps
-    v >= TransactionVersion.minContractKey
+    v >= TransactionVersion.minContractKeys
   }
 
   // --[shared sub tweaks]--

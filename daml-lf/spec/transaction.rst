@@ -203,6 +203,8 @@ in advance.
 
 ``roots`` is constrained as described under `field node_id`_.
 
+``nodes`` shall be consumed according to version ``version``.
+
 field version
 ~~~~~~~~~~~~~
 
@@ -240,8 +242,6 @@ As of version 2.1, these fields are included:
 * ``string`` version
 * ``string`` node_id
 
-
-
 ``node_id`` is constrained as described under `field node_id`_.
 
 Additionally, one of the following node types *must* be included:
@@ -251,17 +251,17 @@ Additionally, one of the following node types *must* be included:
 * `message NodeExercise`_ exercise
 * `message NodeRollBack`_ rollback
 
-
-Field ``version`` must be empty if the field ``rollback`` is include,
+Field ``version`` must be empty if the field ``rollback`` is included,
 or a valid version as described under `field version`_ otherwise.
+It should be older or equal to the enclosing version.
 
+Fields ``create``, ``fetch``, ``exercise`` and ``lookup`` shall be
 Fields ``create``, ``fetch``, ``exercise`` and ``lookup`` shall be
 consumed according to version `version`.
 
 Field ``rollback`` must be consumed according the enclosing version.
 
-Field ``create`` should be a proper `FatContractInstance`_ with the
-Field ``create`` should be a proper `FatContractInstance`_ with the
+Field ``create`` should be a proper `message FatContractInstance`_ with the
 additional constraints that its field `created_at` should be set to
 `0` and its field `canton_data` should be empty.
 
@@ -324,7 +324,7 @@ As of version dev, these fields are included:
 
 ``key`` must be empty or the serialization of the `message Value`_.
 
-``maintainers`` must be non-empty, whose elements must `party
+``maintainers`` must be non-empty, whose elements must be a `party
 identifier`_.
 
 message NodeFetch
@@ -346,8 +346,8 @@ As of version 2.1, these fields are included:
 ``contract_id`` must be a valid Contract Identifier as described in
 `the contract ID specification`_.
 
-``package_name`` must be constraint as described in un `field package
-name`_.
+``package_name`` must be constrained as described in
+`field package_name`_.
 
 Every element of ``non_maintainer_signatories``,
 ``non_signatory_stakeholders``, and ``actors`` must a `party
@@ -361,7 +361,7 @@ identifier`_.
 
 (*since dev*)
 
-As of version 2.1, these additional fields are included:
+As of version dev, these additional fields are included:
 
 * `message KeyWithMaintainers`_ key_with_maintainers (*optional*)
 * ``bool`` by_key
@@ -387,7 +387,7 @@ As of version 2.1, these fields are included:
 
 ``choice`` must be an LF `identifier`_.
 
-``arg`` must a must be the serialization of the `message Value`_.
+``arg`` must be the serialization of the `message Value`_.
 
 ``children`` is constrained as described under `field node_id`_.
 
@@ -397,7 +397,7 @@ Every element of ``observers`` must be a  `party identifier`_.
 
 (*since dev*)
 
-As of version 2.def, this additional field is included:
+As of version dev, this additional field is included:
 
 * repeated ``string`` authorizers
 
@@ -412,8 +412,8 @@ Every element of ``authorizers`` must be a `party identifier`_.
 
 .. note:: *This section is non-normative.*
 
-  The ``stakeholders`` and ``signatories`` field have the same meaning
-  they have for ``NodeCreate``.
+  The ``non_maintainer_signatories`` and ``non_signatory_stakeholders``
+  fields have the same meaning they have for ``NodeCreate``.
 
   The ``actors`` field contains the parties that exercised the choice.
 
@@ -444,7 +444,7 @@ As of version dev, these fields are included:
 * `message KeyWithMaintainers`_ key_with_maintainers (*required*)
 * ``bytes`` contract_id
 
-``package_name`` must be constraint as described in un `field package name`_.
+``package_name`` must be constrained as described in `field package_name`_.
 
 ``contract_id`` must be empty or be a valid Contract Identifier as
 described in `the contract ID specification`_.
@@ -468,9 +468,7 @@ As of version 2.1 the following  fields are included:
 * ``string`` version
 * ``bytes``  versioned
 
-
-``version`` is required, and must be a version of this
-specification newer than 14.
+``version`` is required.
 
 ``versioned`` is the serialization of the versioned object
 as of version ``version``.
@@ -495,7 +493,7 @@ dictates the version used for decoding the message.
 As of version 2.1 the following fields are included.
 
 * ``bytes`` contract_id
-* `message Identifier`_ template_id (*required)
+* `message Identifier`_ template_id (*required*)
 * ``bytes`` create_arg
 * repeated ``string`` non_maintainer_signatories
 * repetaed ``string`` non_signatory_stakeholders
@@ -505,8 +503,8 @@ As of version 2.1 the following fields are included.
 ``contract_id`` must be a valid Contract Identifier as described in
 `the contract ID specification`_
 
-``package_name`` must be constraint as described in un `field package
-name`_.
+``package_name`` must be constrained as described in
+`field package_name`_.
 
 ``create_arg`` must be the serialization of the `message Value`_
 
@@ -547,6 +545,7 @@ As of version dev, this field is required.
 .. _`message ContractId`: value.rst#message-contractid
 .. _`message Identifier`: value.rst#message-identifier
 .. _`message Value`: value.rst#message-value
+.. _`message VersionedValue`: value.rst#message-versioned-value
 .. _`party identifier`: daml-lf.rst#Identifiers
 .. _`the contract ID specification`: contract-id.rst#contract-identifiers
 .. _`the value specification`: value.rst
