@@ -3,6 +3,9 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+#ifdef DAML_SCENARIOS
+{-# OPTIONS -Wno-deprecations #-}
+#endif
 
 module DA.Time
   ( RelTime

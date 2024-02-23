@@ -58,6 +58,7 @@ daml_compile(
     name = "CollectAuthority",
     srcs = ["src/perf/resources/damls/CollectAuthority.daml"],
     enable_scenarios = True,
+    ghc_options = [],
     visibility = ["//visibility:public"],
 )
 

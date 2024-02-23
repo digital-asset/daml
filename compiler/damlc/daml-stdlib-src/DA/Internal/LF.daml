@@ -108,6 +108,7 @@ partyFromText = primitive @"BETextToParty"
 #ifdef DAML_SCENARIOS
 -- | Get the party with the given name. Party names must be non-empty and only
 -- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
+{-# DEPRECATED getParty "Scenarios are not supported by Daml 2.x and will be drop in Daml 3.x" #-}
 getParty : Text -> Scenario Party
 getParty = primitive @"SGetParty"
 #endif
@@ -217,6 +218,7 @@ instance CanAbort (Either Text) where
 -- | The `Scenario` type is for simulating ledger interactions.
 -- The type `Scenario a` describes a set of actions taken by various parties during
 -- the simulated scenario, before returning a value of type `a`.
+{-# DEPRECATED Scenario "Scenarios are not supported by Daml 2.x and will be drop in Daml 3.x" #-}
 data Scenario a =
   Scenario Opaque
 
@@ -254,6 +256,7 @@ infixr 0 `submit`
 infixr 0 `submitMustFail`
 
 -- | Declare you are building a scenario.
+{-# DEPRECATED scenario "Scenarios are not supported by Daml 2.x and will be drop in Daml 3.x" #-}
 scenario : Scenario a -> Scenario a
 scenario = identity
 

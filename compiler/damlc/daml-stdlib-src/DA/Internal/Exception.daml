@@ -3,6 +3,9 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+#ifdef DAML_SCENARIOS
+{-# OPTIONS -Wno-deprecations #-}
+#endif
 
 #ifndef DAML_EXCEPTIONS
 
