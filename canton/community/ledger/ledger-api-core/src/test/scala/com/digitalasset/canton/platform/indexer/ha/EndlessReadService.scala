@@ -15,11 +15,13 @@ import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerId}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   CompletionInfo,
+  InternalStateServiceProviderImpl,
   ReadService,
   TransactionMeta,
   Update,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext.wrapWithNewTraceContext
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.NotUsed
@@ -42,7 +44,8 @@ final case class EndlessReadService(
 )(implicit traceContext: TraceContext)
     extends ReadService
     with NamedLogging
-    with AutoCloseable {
+    with AutoCloseable
+    with InternalStateServiceProviderImpl {
   import EndlessReadService.*
 
   override def currentHealth(): HealthStatus = blocking(
@@ -99,10 +102,10 @@ final case class EndlessReadService(
               transaction = createTransaction(i),
               transactionId = transactionId(i),
               recordTime = recordTime(i),
-              divulgedContracts = List.empty,
               blindingInfoO = None,
               hostedWitnesses = Nil,
               contractMetadata = Map.empty,
+              domainId = DomainId.tryFromString("da::default"),
             )
           case i =>
             offset(i) -> Update.TransactionAccepted(
@@ -111,10 +114,10 @@ final case class EndlessReadService(
               transaction = exerciseTransaction(i),
               transactionId = transactionId(i),
               recordTime = recordTime(i),
-              divulgedContracts = List.empty,
               blindingInfoO = None,
               hostedWitnesses = Nil,
               contractMetadata = Map.empty,
+              domainId = DomainId.tryFromString("da::default"),
             )
         }
         .map(_.bimap(identity, wrapWithNewTraceContext))
@@ -188,7 +191,6 @@ object EndlessReadService {
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,
-    optDomainId = None,
   )
   // Creates contract #i
   private def createTransaction(i: Int): CommittedTransaction = {

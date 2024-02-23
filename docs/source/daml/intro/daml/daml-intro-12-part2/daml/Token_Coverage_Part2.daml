@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -16,6 +16,10 @@ template T with owner: Party where
   interface instance External.I for T where
     view = External.IView
     getController = owner
+    
+  interface instance I for T where
+    view = IView
+    getController = owner
 -- DEFINE_INTERNAL_TEMPLATE_END
 
 -- DEFINE_INTERNAL_INTERFACE_START
@@ -27,14 +31,6 @@ interface I where
   nonconsuming choice I_C : ()
     controller (getController this)
     do pure ()
-
-  interface instance I for T where
-    view = IView
-    getController = owner
-
-  interface instance I for External.T1 where
-    view = IView
-    getController = owner
 -- DEFINE_INTERNAL_INTERFACE_END
 
 -- TEST_T3_BEGIN

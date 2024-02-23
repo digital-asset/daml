@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import com.daml.lf.command.ApiCommands as LfCommands
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.{Identifier, PackageName}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
@@ -15,7 +15,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
+import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.digitalasset.canton.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
@@ -71,6 +71,7 @@ class LedgerTimeAwareCommandExecutorSpec
   private val processedDisclosedContracts = ImmArray(
     ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
+      packageName = PackageName.assertFromString("pkg-name"),
       contractId = cid,
       argument = Value.ValueNil,
       createdAt = Time.Timestamp.Epoch,
@@ -78,7 +79,6 @@ class LedgerTimeAwareCommandExecutorSpec
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,
-      agreementText = "",
       version = TransactionVersion.StableVersions.max,
     )
   )
@@ -99,7 +99,16 @@ class LedgerTimeAwareCommandExecutorSpec
         None,
         configuration,
       ),
-      TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None, None),
+      None,
+      TransactionMeta(
+        let,
+        None,
+        Time.Timestamp.Epoch,
+        submissionSeed,
+        None,
+        None,
+        None,
+      ),
       transaction,
       dependsOnLedgerTime,
       5L,
@@ -133,7 +142,6 @@ class LedgerTimeAwareCommandExecutorSpec
     }
 
     val commands = Commands(
-      ledgerId = Some(LedgerId("ledgerId")),
       workflowId = None,
       applicationId = Ref.ApplicationId.assertFromString("applicationId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
@@ -170,7 +178,16 @@ class LedgerTimeAwareCommandExecutorSpec
             None,
             configuration,
           ),
-          TransactionMeta(let, None, Time.Timestamp.Epoch, submissionSeed, None, None, None, None),
+          None,
+          TransactionMeta(
+            let,
+            None,
+            Time.Timestamp.Epoch,
+            submissionSeed,
+            None,
+            None,
+            None,
+          ),
           transaction,
           dependsOnLedgerTime,
           5L,

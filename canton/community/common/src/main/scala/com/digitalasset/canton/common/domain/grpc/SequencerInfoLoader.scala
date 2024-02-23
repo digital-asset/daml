@@ -119,6 +119,7 @@ class SequencerInfoLoader(
           .many(
             nonEmptyResult.map(_.connection),
             sequencerConnections.sequencerTrustThreshold,
+            sequencerConnections.submissionRequestAmplification,
           )
           .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers)
           .map(connections =>
@@ -156,7 +157,7 @@ class SequencerInfoLoader(
       _ <- performHandshake(client, domainAlias, sequencerAlias)
 
       domainParameters <- client
-        .getDomainParameters(domainAlias)
+        .getDomainParameters(domainAlias.unwrap)
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(domainAlias))
     } yield (bootstrapInfo, domainParameters)
   }

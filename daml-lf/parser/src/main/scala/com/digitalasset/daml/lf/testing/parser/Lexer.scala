@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -111,7 +111,7 @@ private[parser] object Lexer extends RegexParsers {
     (in: Input) =>
       data.Numeric.fromString(s) match {
         case Right(x) => Success(Numeric(x), in)
-        case Left(_) => Error(s"cannot interpret $s as a Decimal", in)
+        case Left(_) => Error(s"cannot interpret $s as a Numeric", in)
       }
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))

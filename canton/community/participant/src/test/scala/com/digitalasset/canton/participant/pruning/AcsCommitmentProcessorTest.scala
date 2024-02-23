@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.pruning
 
-import cats.data.EitherT
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
@@ -32,9 +31,14 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.
 import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
+  CachedCommitments,
   CommitmentSnapshot,
   CommitmentsPruningBound,
   RunningCommitments,
+  commitmentsFromStkhdCmts,
+  computeCommitmentsPerParticipant,
+  emptyCommitment,
+  initRunningCommitments,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
@@ -51,7 +55,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
@@ -61,7 +65,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
-import scala.collection.immutable.SortedSet
+import scala.collection.immutable.{Seq, SortedSet}
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -86,17 +90,23 @@ sealed trait AcsCommitmentProcessorBaseTest
     UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
   )
 
-  protected val List(alice, bob, carol) =
-    List("Alice::1", "Bob::2", "Carol::3").map(LfPartyId.assertFromString)
+  protected val List(alice, bob, carol, danna, ed) =
+    List("Alice::1", "Bob::2", "Carol::3", "Danna::4", "Ed::5").map(LfPartyId.assertFromString)
 
   protected val topology = Map(
     localId -> Set(alice),
     remoteId1 -> Set(bob),
-    remoteId2 -> Set(carol),
+    remoteId2 -> Set(carol, danna, ed),
   )
 
+  protected lazy val dummyCmt = {
+    val h = LtHash16()
+    h.add("123".getBytes())
+    h.getByteString()
+  }
+
   lazy val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   protected def ts(i: Int): CantonTimestampSecond = CantonTimestampSecond.ofEpochSecond(i.longValue)
 
@@ -160,7 +170,10 @@ sealed trait AcsCommitmentProcessorBaseTest
   ): SyncCryptoClient[DomainSnapshotSyncCryptoApi] = {
     val topologyWithPermissions =
       topology.fmap(_.map(p => (p, ParticipantPermission.Submission)).toMap)
-    TestingTopology().withReversedTopology(topologyWithPermissions).build().forOwnerAndDomain(owner)
+    TestingTopologyX()
+      .withReversedTopology(topologyWithPermissions)
+      .build()
+      .forOwnerAndDomain(owner)
   }
 
   protected def changesAtToc(
@@ -221,28 +234,16 @@ sealed trait AcsCommitmentProcessorBaseTest
       overrideDefaultSortedReconciliationIntervalsProvider: Option[
         SortedReconciliationIntervalsProvider
       ] = None,
-      catchUpModeEnabled: Boolean = false,
+      acsCommitmentsCatchUpModeEnabled: Boolean = false,
   )(implicit ec: ExecutionContext): (
       AcsCommitmentProcessor,
       AcsCommitmentStore,
-      SequencerClient,
+      TestSequencerClientSend,
       List[(CantonTimestamp, RequestCounter, AcsChange)],
   ) = {
     val domainCrypto = cryptoSetup(localId, topology)
 
-    val sequencerClient = mock[SequencerClient]
-    when(
-      sequencerClient.sendAsync(
-        any[Batch[DefaultOpenEnvelope]],
-        any[SendType],
-        any[Option[CantonTimestamp]],
-        any[CantonTimestamp],
-        any[MessageId],
-        any[Option[AggregationRule]],
-        any[SendCallback],
-      )(anyTraceContext)
-    )
-      .thenReturn(EitherT.rightT[Future, SendAsyncClientError](()))
+    val sequencerClient = new TestSequencerClientSend
 
     val changeTimes =
       (timeProofs.map(ts => TimeOfChange(RequestCounter(0), ts)) ++ contractSetup.values.toList
@@ -257,9 +258,9 @@ sealed trait AcsCommitmentProcessorBaseTest
         constantSortedReconciliationIntervalsProvider(interval)
       }
 
-    val catchUpConfig =
-      if (catchUpModeEnabled)
-        Some(CatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1)))
+    val acsCommitmentsCatchUpConfig =
+      if (acsCommitmentsCatchUpModeEnabled)
+        Some(AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1)))
       else None
 
     val acsCommitmentProcessor = new AcsCommitmentProcessor(
@@ -272,7 +273,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       _ => (),
       ParticipantTestMetrics.pruning,
       testedProtocolVersion,
-      catchUpConfig,
+      acsCommitmentsCatchUpConfig,
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
       futureSupervisor,
@@ -300,7 +301,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ] = None,
   )(implicit
       ec: ExecutionContext
-  ): (AcsCommitmentProcessor, AcsCommitmentStore, SequencerClient) = {
+  ): (AcsCommitmentProcessor, AcsCommitmentStore, TestSequencerClientSend) = {
 
     val (acsCommitmentProcessor, store, sequencerClient, changes) =
       testSetupDontPublish(
@@ -317,11 +318,361 @@ sealed trait AcsCommitmentProcessorBaseTest
     (acsCommitmentProcessor, store, sequencerClient)
   }
 
-  val testHash = ExampleTransactionFactory.lfHash(0)
+  protected def setupContractsAndAcsChanges(): (
+      Map[LfContractId, (Set[Ref.IdString.Party], NonEmpty[Seq[Lifespan]])],
+      Map[CantonTimestampSecond, AcsChange],
+  ) = {
+    val tc2 = initialTransferCounter.map(_ + 1)
+    val tc3 = initialTransferCounter.map(_ + 2)
+    val contracts = Map(
+      (
+        coid(0, 0),
+        (
+          Set(alice, bob),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+      (
+        coid(1, 0),
+        (
+          Set(alice, bob),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, tc2),
+            Lifespan(ts(7).forgetRefinement, ts(8).forgetRefinement, tc2, None),
+          ),
+        ),
+      ),
+      (
+        coid(2, 0),
+        (
+          Set(alice, bob, carol),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(7).forgetRefinement, ts(8).forgetRefinement, initialTransferCounter, tc2),
+            Lifespan(ts(10).forgetRefinement, ts(12).forgetRefinement, tc2, tc3),
+          ),
+        ),
+      ),
+      (
+        coid(3, 0),
+        (
+          Set(alice, bob, carol),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(9).forgetRefinement, ts(9).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+    )
 
-  protected def withTestHash[A] = WithContractHash[A](_, testHash)
+    val cs2 = CommitSet(
+      creations = Map[LfContractId, WithContractHash[CreationCommit]](
+        coid(0, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
+            initialTransferCounter,
+          )
+        ),
+        coid(1, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
+            initialTransferCounter,
+          )
+        ),
+      ),
+      archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
+      transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
+      transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
+    )
+    val acs2 = AcsChange.fromCommitSet(cs2, Map.empty[LfContractId, TransferCounterO])
 
-  protected def rt(timestamp: Int, tieBreaker: Int) =
+    val cs4 = CommitSet(
+      creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
+      archivals = Map[LfContractId, WithContractHash[ArchivalCommit]](
+        coid(0, 0) -> withTestHash(
+          ArchivalCommit(
+            Set(alice, bob)
+          )
+        )
+      ),
+      transferOuts = Map[LfContractId, WithContractHash[TransferOutCommit]](
+        coid(1, 0) -> withTestHash(
+          TransferOutCommit(
+            TargetDomainId(domainId),
+            Set(alice, bob),
+            tc2,
+          )
+        )
+      ),
+      transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
+    )
+    val acs4 = AcsChange.fromCommitSet(
+      cs4,
+      Map[LfContractId, TransferCounterO](coid(0, 0) -> initialTransferCounter),
+    )
+
+    val cs7 = CommitSet(
+      creations = Map[LfContractId, WithContractHash[CreationCommit]](
+        coid(2, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
+            initialTransferCounter,
+          )
+        )
+      ),
+      archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
+      transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
+      transferIns = Map[LfContractId, WithContractHash[TransferInCommit]](
+        coid(1, 0) -> withTestHash(
+          TransferInCommit(
+            TransferId(SourceDomainId(domainId), ts(4).forgetRefinement),
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
+            tc2,
+          )
+        )
+      ),
+    )
+    val acs7 = AcsChange.fromCommitSet(cs7, Map.empty[LfContractId, TransferCounterO])
+
+    val cs8 = CommitSet(
+      creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
+      archivals = Map[LfContractId, WithContractHash[ArchivalCommit]](
+        coid(1, 0) -> withTestHash(
+          ArchivalCommit(
+            Set(alice, bob)
+          )
+        )
+      ),
+      transferOuts = Map[LfContractId, WithContractHash[TransferOutCommit]](
+        coid(2, 0) -> withTestHash(
+          TransferOutCommit(
+            TargetDomainId(domainId),
+            Set(alice, bob, carol),
+            tc2,
+          )
+        )
+      ),
+      transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
+    )
+    val acs8 =
+      AcsChange.fromCommitSet(cs8, Map[LfContractId, TransferCounterO](coid(1, 0) -> tc2))
+
+    val cs9 = CommitSet(
+      creations = Map[LfContractId, WithContractHash[CreationCommit]](
+        coid(3, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
+            initialTransferCounter,
+          )
+        )
+      ),
+      archivals = Map[LfContractId, WithContractHash[ArchivalCommit]](
+        coid(3, 0) -> withTestHash(
+          ArchivalCommit(
+            Set(alice, bob, carol)
+          )
+        )
+      ),
+      transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
+      transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
+    )
+    val acs9 = AcsChange.fromCommitSet(
+      cs9,
+      Map[LfContractId, TransferCounterO](coid(3, 0) -> initialTransferCounter),
+    )
+
+    val cs10 = CommitSet(
+      creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
+      archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
+      transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
+      transferIns = Map[LfContractId, WithContractHash[TransferInCommit]](
+        coid(2, 0) -> withTestHash(
+          TransferInCommit(
+            TransferId(SourceDomainId(domainId), ts(8).forgetRefinement),
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
+            tc2,
+          )
+        )
+      ),
+    )
+    val acs10 = AcsChange.fromCommitSet(cs10, Map.empty[LfContractId, TransferCounterO])
+
+    val cs12 = CommitSet(
+      creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
+      archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
+      transferOuts = Map[LfContractId, WithContractHash[TransferOutCommit]](
+        coid(2, 0) -> withTestHash(
+          TransferOutCommit(
+            TargetDomainId(domainId),
+            Set(alice, bob, carol),
+            tc3,
+          )
+        )
+      ),
+      transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
+    )
+    val acs12 = AcsChange.fromCommitSet(cs12, Map.empty[LfContractId, TransferCounterO])
+
+    val acsChanges = Map(
+      ts(2) -> acs2,
+      ts(4) -> acs4,
+      ts(7) -> acs7,
+      ts(8) -> acs8,
+      ts(9) -> acs9,
+      ts(10) -> acs10,
+      ts(12) -> acs12,
+    )
+    (contracts, acsChanges)
+  }
+
+  // participant "local" and participant "remoteId1" have two stakeholder groups in common (alice, bob), (alice, bob, charlie)
+  // participant  "local" and participant "remoteId2" have three stakeholder groups in common (alice, bob, charlie), (alice, donna), (alice, ed)
+  // all contracts are created at time 2
+  // at time 4, a contract of (alice, bob), and a contract of (alice, bob, charlie) gets archived
+  protected def setupContractsAndAcsChanges2(): (
+      Map[LfContractId, (Set[Ref.IdString.Party], NonEmpty[Seq[Lifespan]])],
+      Map[CantonTimestampSecond, AcsChange],
+  ) = {
+    val contracts = Map(
+      (
+        coid(0, 0),
+        (
+          Set(alice, bob),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+      (
+        coid(1, 0),
+        (
+          Set(alice, bob),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(6).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+      (
+        coid(2, 0),
+        (
+          Set(alice, bob, carol),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(10).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+      (
+        coid(3, 0),
+        (
+          Set(alice, bob, carol),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+      (
+        coid(4, 0),
+        (
+          Set(alice, danna),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(14).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+      (
+        coid(5, 0),
+        (
+          Set(alice, ed),
+          NonEmpty.mk(
+            Seq,
+            Lifespan(ts(2).forgetRefinement, ts(18).forgetRefinement, initialTransferCounter, None),
+          ),
+        ),
+      ),
+    )
+
+    val cs2 = CommitSet(
+      creations = Map[LfContractId, WithContractHash[CreationCommit]](
+        coid(0, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
+            initialTransferCounter,
+          )
+        ),
+        coid(1, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
+            initialTransferCounter,
+          )
+        ),
+        coid(2, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
+            initialTransferCounter,
+          )
+        ),
+        coid(3, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
+            initialTransferCounter,
+          )
+        ),
+        coid(4, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, danna), None),
+            initialTransferCounter,
+          )
+        ),
+        coid(5, 0) -> withTestHash(
+          CreationCommit(
+            ContractMetadata.tryCreate(Set.empty, Set(alice, ed), None),
+            initialTransferCounter,
+          )
+        ),
+      ),
+      archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
+      transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
+      transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
+    )
+    val acs2 = AcsChange.fromCommitSet(cs2, Map.empty[LfContractId, TransferCounterO])
+
+    val cs4 = CommitSet(
+      creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
+      archivals = Map[LfContractId, WithContractHash[ArchivalCommit]](
+        coid(0, 0) -> withTestHash(
+          ArchivalCommit(
+            Set(alice, bob)
+          )
+        ),
+        coid(3, 0) -> withTestHash(
+          ArchivalCommit(
+            Set(alice, bob, carol)
+          )
+        ),
+      ),
+      transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
+      transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
+    )
+    val acs4 = AcsChange.fromCommitSet(cs4, Map.empty[LfContractId, TransferCounterO])
+
+    val acsChanges = Map(ts(2) -> acs2, ts(4) -> acs4)
+    (contracts, acsChanges)
+  }
+
+  val testHash: LfHash = ExampleTransactionFactory.lfHash(0)
+
+  protected def withTestHash[A]: A => WithContractHash[A] = WithContractHash[A](_, testHash)
+
+  protected def rt(timestamp: Int, tieBreaker: Int): RecordTime =
     RecordTime(ts(timestamp).forgetRefinement, tieBreaker.toLong)
 
   val coid = (txId, discriminator) => ExampleTransactionFactory.suffixedId(txId, discriminator)
@@ -376,17 +727,12 @@ class AcsCommitmentProcessorTest
       .map { case (participant, parties) =>
         (
           participant, {
-            stkhdCommitments
+            val x = stkhdCommitments
               .filter { case (stkhd, _) =>
                 isCommonStakeholder(stkhd, localParties, parties)
               }
-              .foldLeft(LtHash16()) { (accumulator, commitment) =>
-                {
-                  accumulator.add(commitment._2.toByteArray)
-                  accumulator
-                }
-              }
-          }.getByteString(),
+            commitmentsFromStkhdCmts(x.values.toSeq)
+          },
         )
       }
       .filter { case (p, comm) => comm != LtHash16().getByteString() }
@@ -403,9 +749,9 @@ class AcsCommitmentProcessorTest
     val (remote, contracts, fromExclusive, toInclusive) = params
 
     val crypto =
-      TestingTopology().withSimpleParticipants(remote).build().forOwnerAndDomain(remote)
+      TestingTopologyX().withSimpleParticipants(remote).build().forOwnerAndDomain(remote)
     // we assume that the participant has a single stakeholder group
-    val cmt = participantCommitment(List(stakeholderCommitment(contracts)))
+    val cmt = commitmentsFromStkhdCmts(Seq(stakeholderCommitment(contracts)))
     val snapshotF = crypto.snapshot(CantonTimestamp.Epoch)
     val period =
       CommitmentPeriod
@@ -443,9 +789,9 @@ class AcsCommitmentProcessorTest
         .map {
           case (stkhs, m) => {
             logger.debug(
-              s"adding to commitment for stakeholders $stkhs the parts cid and transfercounter in $m"
+              s"adding to commitment for stakeholders $stkhs the parts cid and transfer counter in $m"
             )
-            SortedSet(stkhs.toList: _*) -> stakeholderCommitment(m.map {
+            SortedSet(stkhs.toList*) -> stakeholderCommitment(m.map {
               case (cid, (_, transferCounter)) => (cid, transferCounter)
             })
           }
@@ -457,6 +803,7 @@ class AcsCommitmentProcessorTest
         at,
         None,
         parallelism,
+        new CachedCommitments(),
       )
     } yield res
   }
@@ -699,6 +1046,7 @@ class AcsCommitmentProcessorTest
           ts(0),
           None,
           parallelism,
+          new CachedCommitments(),
         )
         res2 <- AcsCommitmentProcessor.commitments(
           localId,
@@ -707,6 +1055,7 @@ class AcsCommitmentProcessorTest
           ts(0),
           None,
           parallelism,
+          new CachedCommitments(),
         )
         res3 <- AcsCommitmentProcessor.commitments(
           localId,
@@ -715,6 +1064,7 @@ class AcsCommitmentProcessorTest
           ts(0),
           None,
           parallelism,
+          new CachedCommitments(),
         )
       } yield {
         res1 shouldBe Map.empty
@@ -748,7 +1098,8 @@ class AcsCommitmentProcessorTest
         remoteId2 -> Set(carol),
       )
 
-      val (processor, store, _, changes) = testSetupDontPublish(timeProofs, contractSetup, topology)
+      val (processor, store, sequencerClient, changes) =
+        testSetupDontPublish(timeProofs, contractSetup, topology)
 
       val remoteCommitments = List(
         (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5)),
@@ -776,15 +1127,7 @@ class AcsCommitmentProcessorTest
         computed <- store.searchComputedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
         received <- store.searchReceivedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
       } yield {
-        verify(processor.sequencerClient, times(2)).sendAsync(
-          any[Batch[DefaultOpenEnvelope]],
-          any[SendType],
-          any[Option[CantonTimestamp]],
-          any[CantonTimestamp],
-          any[MessageId],
-          any[Option[AggregationRule]],
-          any[SendCallback],
-        )(anyTraceContext)
+        sequencerClient.requests.size shouldBe 2
         assert(computed.size === 2)
         assert(received.size === 2)
       }
@@ -799,7 +1142,7 @@ class AcsCommitmentProcessorTest
      in `commitmentMsg`, otherwise the test will fail.
      */
 
-    "work when commitment tick falls between two participants connection to the domain" onlyRunWithOrGreaterThan ProtocolVersion.v4 in {
+    "work when commitment tick falls between two participants connection to the domain" in {
       /*
         The goal here is to check that ACS commitment processing works even when
         a commitment tick falls between two participants' connection timepoints to the domain.
@@ -999,6 +1342,7 @@ class AcsCommitmentProcessorTest
       val sequencerCounterTrackerStore =
         new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
+
       val ts0 = CantonTimestamp.Epoch
       val ts1 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis)
       val ts2 = CantonTimestamp.ofEpochMilli(requestTsDelta.toMillis * 2)
@@ -1376,13 +1720,9 @@ class AcsCommitmentProcessorTest
       val (activeCommitment1, deltaAddedCommitment1) =
         addCommonContractId(rc1, hash, initialTransferCounter)
       val (activeCommitment2, deltaAddedCommitment2) = addCommonContractId(rc2, hash, tc2)
-      if (testedProtocolVersion < ProtocolVersion.CNTestNet) {
-        activeCommitment1 shouldBe activeCommitment2
-        deltaAddedCommitment1 shouldBe deltaAddedCommitment2
-      } else {
-        activeCommitment1 should not be activeCommitment2
-        deltaAddedCommitment1 should not be deltaAddedCommitment2
-      }
+
+      activeCommitment1 should not be activeCommitment2
+      deltaAddedCommitment1 should not be deltaAddedCommitment2
     }
 
     "transient contracts in a commit set obtain the correct transfer counter for archivals, hence do not appear in the ACS change" in {
@@ -1429,7 +1769,6 @@ class AcsCommitmentProcessorTest
             hash3,
           )
         ),
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
       )
 
       // Omitting "cid3 -> None" to test that the code considers the missing cid to have transfer counter None
@@ -1460,7 +1799,7 @@ class AcsCommitmentProcessorTest
       acs1.deactivations(cid4.leftSide).unwrap.transferCounter shouldBe tc3
     }
 
-    // Test timeline of contract creations, reassignments and archovals
+    // Test timeline of contract creations, reassignments and archivals
     // cid 0       c   a
     // cid 1       c   to   ti   a
     // cid 2                c    to        ti   to
@@ -1468,52 +1807,7 @@ class AcsCommitmentProcessorTest
     // timestamp   2   4    7    8    9    10   12
     "ensure that computed commitments are consistent with the ACS snapshot" in {
       // setup
-      val tc2 = initialTransferCounter.map(_ + 1)
-      val tc3 = initialTransferCounter.map(_ + 2)
-      val contractSetup = Map(
-        (
-          coid(0, 0),
-          (
-            Set(alice, bob),
-            NonEmpty.mk(
-              Seq,
-              Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
-            ),
-          ),
-        ),
-        (
-          coid(1, 0),
-          (
-            Set(alice, bob),
-            NonEmpty.mk(
-              Seq,
-              Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, tc2),
-              Lifespan(ts(7).forgetRefinement, ts(8).forgetRefinement, tc2, None),
-            ),
-          ),
-        ),
-        (
-          coid(2, 0),
-          (
-            Set(alice, bob, carol),
-            NonEmpty.mk(
-              Seq,
-              Lifespan(ts(7).forgetRefinement, ts(8).forgetRefinement, initialTransferCounter, tc2),
-              Lifespan(ts(10).forgetRefinement, ts(12).forgetRefinement, tc2, tc3),
-            ),
-          ),
-        ),
-        (
-          coid(3, 0),
-          (
-            Set(alice, bob, carol),
-            NonEmpty.mk(
-              Seq,
-              Lifespan(ts(9).forgetRefinement, ts(9).forgetRefinement, initialTransferCounter, None),
-            ),
-          ),
-        ),
-      )
+      val (contractSetup, acsChanges) = setupContractsAndAcsChanges()
       val crypto = cryptoSetup(localId, topology)
 
       // 1. compute stakeholder commitments by repeatedly applying acs changes (obtained from a commit set)
@@ -1522,185 +1816,37 @@ class AcsCommitmentProcessorTest
       val rc =
         new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
 
-      val cs2 = CommitSet(
-        creations = Map[LfContractId, WithContractHash[CreationCommit]](
-          coid(0, 0) -> withTestHash(
-            CreationCommit(
-              ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-              initialTransferCounter,
-            )
-          ),
-          coid(1, 0) -> withTestHash(
-            CreationCommit(
-              ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-              initialTransferCounter,
-            )
-          ),
-        ),
-        archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
-        transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
-        transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
-      )
-      val acs2 = AcsChange.fromCommitSet(cs2, Map.empty[LfContractId, TransferCounterO])
-      rc.update(rt(2, 0), acs2)
+      rc.update(rt(2, 0), acsChanges(ts(2)))
       rc.watermark shouldBe rt(2, 0)
       val rcBasedCommitments2 =
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
 
-      val cs4 = CommitSet(
-        creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
-        archivals = Map[LfContractId, WithContractHash[ArchivalCommit]](
-          coid(0, 0) -> withTestHash(
-            ArchivalCommit(
-              Set(alice, bob)
-            )
-          )
-        ),
-        transferOuts = Map[LfContractId, WithContractHash[TransferOutCommit]](
-          coid(1, 0) -> withTestHash(
-            TransferOutCommit(
-              TargetDomainId(domainId),
-              Set(alice, bob),
-              tc2,
-            )
-          )
-        ),
-        transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
-      )
-      val acs4 = AcsChange.fromCommitSet(
-        cs4,
-        Map[LfContractId, TransferCounterO](coid(0, 0) -> initialTransferCounter),
-      )
-      rc.update(rt(4, 0), acs4)
+      rc.update(rt(4, 0), acsChanges(ts(4)))
       rc.watermark shouldBe rt(4, 0)
       val rcBasedCommitments4 =
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
 
-      val cs7 = CommitSet(
-        creations = Map[LfContractId, WithContractHash[CreationCommit]](
-          coid(2, 0) -> withTestHash(
-            CreationCommit(
-              ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-              initialTransferCounter,
-            )
-          )
-        ),
-        archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
-        transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
-        transferIns = Map[LfContractId, WithContractHash[TransferInCommit]](
-          coid(1, 0) -> withTestHash(
-            TransferInCommit(
-              TransferId(SourceDomainId(domainId), ts(4).forgetRefinement),
-              ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-              tc2,
-            )
-          )
-        ),
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
-      )
-      val acs7 = AcsChange.fromCommitSet(cs7, Map.empty[LfContractId, TransferCounterO])
-      rc.update(rt(7, 0), acs7)
+      rc.update(rt(7, 0), acsChanges(ts(7)))
       rc.watermark shouldBe rt(7, 0)
       val rcBasedCommitments7 =
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
 
-      val cs8 = CommitSet(
-        creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
-        archivals = Map[LfContractId, WithContractHash[ArchivalCommit]](
-          coid(1, 0) -> withTestHash(
-            ArchivalCommit(
-              Set(alice, bob)
-            )
-          )
-        ),
-        transferOuts = Map[LfContractId, WithContractHash[TransferOutCommit]](
-          coid(2, 0) -> withTestHash(
-            TransferOutCommit(
-              TargetDomainId(domainId),
-              Set(alice, bob, carol),
-              tc2,
-            )
-          )
-        ),
-        transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
-      )
-      val acs8 =
-        AcsChange.fromCommitSet(cs8, Map[LfContractId, TransferCounterO](coid(1, 0) -> tc2))
-      rc.update(rt(8, 0), acs8)
+      rc.update(rt(8, 0), acsChanges(ts(8)))
       rc.watermark shouldBe rt(8, 0)
       val rcBasedCommitments8 =
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
 
-      val cs9 = CommitSet(
-        creations = Map[LfContractId, WithContractHash[CreationCommit]](
-          coid(3, 0) -> withTestHash(
-            CreationCommit(
-              ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-              initialTransferCounter,
-            )
-          )
-        ),
-        archivals = Map[LfContractId, WithContractHash[ArchivalCommit]](
-          coid(3, 0) -> withTestHash(
-            ArchivalCommit(
-              Set(alice, bob, carol)
-            )
-          )
-        ),
-        transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
-        transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
-      )
-      val acs9 = AcsChange.fromCommitSet(
-        cs9,
-        Map[LfContractId, TransferCounterO](coid(3, 0) -> initialTransferCounter),
-      )
-      rc.update(rt(9, 0), acs9)
+      rc.update(rt(9, 0), acsChanges(ts(9)))
       rc.watermark shouldBe rt(9, 0)
       val rcBasedCommitments9 =
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
 
-      val cs10 = CommitSet(
-        creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
-        archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
-        transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
-        transferIns = Map[LfContractId, WithContractHash[TransferInCommit]](
-          coid(2, 0) -> withTestHash(
-            TransferInCommit(
-              TransferId(SourceDomainId(domainId), ts(8).forgetRefinement),
-              ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-              tc2,
-            )
-          )
-        ),
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
-      )
-      val acs10 = AcsChange.fromCommitSet(cs10, Map.empty[LfContractId, TransferCounterO])
-      rc.update(rt(10, 0), acs10)
+      rc.update(rt(10, 0), acsChanges(ts(10)))
       rc.watermark shouldBe rt(10, 0)
       val rcBasedCommitments10 =
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
 
-      val cs12 = CommitSet(
-        creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
-        archivals = Map.empty[LfContractId, WithContractHash[ArchivalCommit]],
-        transferOuts = Map[LfContractId, WithContractHash[TransferOutCommit]](
-          coid(2, 0) -> withTestHash(
-            TransferOutCommit(
-              TargetDomainId(domainId),
-              Set(alice, bob, carol),
-              tc3,
-            )
-          )
-        ),
-        transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
-        keyUpdates = Map.empty[LfGlobalKey, ContractKeyJournal.Status],
-      )
-      val acs12 = AcsChange.fromCommitSet(cs12, Map.empty[LfContractId, TransferCounterO])
-      rc.update(rt(12, 0), acs12)
+      rc.update(rt(12, 0), acsChanges(ts(12)))
       rc.watermark shouldBe rt(12, 0)
       val rcBasedCommitments12 =
         commitmentsForCounterParticipants(rc.snapshot().active, localId, topology)
@@ -1734,7 +1880,7 @@ class AcsCommitmentProcessorTest
     "use catch-up logic correctly:" must {
 
       def checkCatchUpModeCfgCorrect(processor: pruning.AcsCommitmentProcessor): Assertion = {
-        processor.catchUpConfig match {
+        processor.acsCommitmentsCatchUpConfig match {
           case Some(cfg) =>
             assert(cfg.nrIntervalsToTriggerCatchUp == PositiveInt.tryCreate(1))
             assert(cfg.catchUpIntervalSkip == PositiveInt.tryCreate(2))
@@ -1742,7 +1888,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "enter catch up mode when processing falls behind" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "enter catch up mode when processing falls behind" in {
         val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
         val contractSetup = Map(
           // contract ID to stakeholders, creation and archival time
@@ -1766,8 +1912,13 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+        val (processor, store, sequencerClient, changes) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 
@@ -1816,15 +1967,7 @@ class AcsCommitmentProcessorTest
           // the participant catches up to ticks 10, 20, 30
           // the only ticks with non-empty commitments are at 20 and 30, and they match the remote ones,
           // therefore there are 2 sends of commitments
-          verify(processor.sequencerClient, times(2)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
+          sequencerClient.requests.size shouldBe 2
           assert(computed.size === 4)
           assert(received.size === 5)
           // all local commitments were matched and can be pruned
@@ -1832,7 +1975,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "pruning works correctly for a participant ahead of a counter-participant that catches up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "pruning works correctly for a participant ahead of a counter-participant that catches up" in {
         val timeProofs = List(5L, 10, 15, 20, 25, 30).map(CantonTimestamp.ofEpochSecond)
         val contractSetup = Map(
           // contract ID to stakeholders, creation and archival time
@@ -1856,8 +1999,13 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+        val (processor, store, sequencerClient, changes) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 
@@ -1904,15 +2052,7 @@ class AcsCommitmentProcessorTest
           )
         } yield {
           // regular sends (no catch-up) at ticks 5, 15, 20, 25, 30 (tick 10 has an empty commitment)
-          verify(processor.sequencerClient, times(5)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
+          sequencerClient.requests.size shouldBe 5
           assert(computed.size === 5)
           assert(received.size === 4)
           // all local commitments were matched and can be pruned
@@ -1920,7 +2060,7 @@ class AcsCommitmentProcessorTest
         }
       }
 
-      "send skipped commitments on mismatch during catch-up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      "send skipped commitments on mismatch during catch-up" in {
 
         val timeProofs = List(3L, 8, 20, 35, 59).map(CantonTimestamp.ofEpochSecond)
         val contractSetup = Map(
@@ -1945,8 +2085,13 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+        val (processor, store, sequencerClient, changes) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 
@@ -2019,15 +2164,7 @@ class AcsCommitmentProcessorTest
           // there should be one mismatch, with carol, for the interval 15-20
           // which means we send the fine-grained commitment 10-15
           // therefore, there should be 3 async sends in total
-          verify(processor.sequencerClient, times(3)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
+          sequencerClient.requests.size shouldBe 3
           assert(computed.size === 4)
           assert(received.size === 5)
           // cannot prune past the mismatch
@@ -2060,8 +2197,13 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, _, changes) =
-          testSetupDontPublish(timeProofs, contractSetup, topology, catchUpModeEnabled = true)
+        val (processor, store, sequencerClient, changes) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
 
         checkCatchUpModeCfgCorrect(processor)
 
@@ -2137,21 +2279,275 @@ class AcsCommitmentProcessorTest
           // however, there is no commitment to send for the interval 20-25, because we never observed this interval;
           // we only observed the interval 20-30, for which we already sent a commitment.
           // therefore, there should be 3 async sends in total
-          verify(processor.sequencerClient, times(3)).sendAsync(
-            any[Batch[DefaultOpenEnvelope]],
-            any[SendType],
-            any[Option[CantonTimestamp]],
-            any[CantonTimestamp],
-            any[MessageId],
-            any[Option[AggregationRule]],
-            any[SendCallback],
-          )(anyTraceContext)
+          sequencerClient.requests.size shouldBe 3
           assert(computed.size === 4)
           assert(received.size === 5)
           // cannot prune past the mismatch 25-30, because there are no commitments that match past this point
           assert(outstanding == Some(toc(25).timestamp))
         }
       }
+    }
+
+    "caching commitments" should {
+
+      "caches and computes correctly" in {
+        val (_, acsChanges) = setupContractsAndAcsChanges2()
+        val crypto = cryptoSetup(localId, topology)
+
+        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
+        val cachedCommitments = new CachedCommitments()
+
+        for {
+          // init phase
+          rc <- runningCommitments
+          _ = rc.update(rt(2, 0), acsChanges(ts(2)))
+          byParticipant2 <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
+            localId,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            parallelism,
+          )
+          normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
+          _ = cachedCommitments.setCachedCommitments(
+            normalCommitments2,
+            rc.snapshot().active,
+            byParticipant2.map { case (pid, set) =>
+              (pid, set.map { case (stkhd, _cmt) => stkhd }.toSet)
+            },
+          )
+
+          // update: at time 4, a contract of (alice, bob), and a contract of (alice, bob, charlie) gets archived
+          // these are all the stakeholder groups participant "localId" has in common with participant "remoteId1"
+          // in contrast, (alice, bob, charlie) is one of three stakeholder groups participant "localId" has in common
+          // with participant "remoteId2"
+          _ = rc.update(rt(4, 0), acsChanges(ts(4)))
+
+          byParticipant <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
+            localId,
+            rc.snapshot().active,
+            crypto,
+            ts(4),
+            parallelism,
+          )
+
+          computeFromCachedRemoteId1 = cachedCommitments.computeCmtFromCached(
+            remoteId1,
+            byParticipant(remoteId1).toMap,
+          )
+
+          computeFromCachedRemoteId2 = cachedCommitments.computeCmtFromCached(
+            remoteId2,
+            byParticipant(remoteId2).toMap,
+          )
+        } yield {
+          // because more than 1/2 of the stakeholder commitments for participant "remoteId1" change, we shouldn't
+          // use cached commitments for the computation of remoteId1's commitment
+          assert(computeFromCachedRemoteId1.isEmpty)
+          // because less than 1/2 of the stakeholder commitments for participant "remoteId2" change, we should
+          // use cached commitments for the computation of remoteId2's commitment
+          assert(computeFromCachedRemoteId2.isDefined)
+        }
+      }
+
+      "yields the same commitments as without caching" in {
+
+        // setup
+        // participant "local" and participant "remoteId1" have two stakeholder groups in common (alice, bob), (alice, bob, charlie)
+        // participant  "local" and participant "remoteId2" have three stakeholder groups in common (alice, bob, charlie), (alice, donna), (alice, ed)
+        // all contracts are created at time 2
+        // at time 4, a contract of (alice, bob), and a contract of (alice, bob, charlie) gets archived
+        // we cache commitments for participant "remoteId2"
+        // the commitments participant "local" computes for participant "remoteId1" should use the normal computation method
+        // the commitments participant "local" computes for participant "remoteId2" should use the caching computation method
+        val (_, acsChanges) = setupContractsAndAcsChanges2()
+        val crypto = cryptoSetup(localId, topology)
+
+        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
+        val cachedCommitments = new CachedCommitments()
+
+        for {
+          rc <- runningCommitments
+
+          _ = rc.update(rt(2, 0), acsChanges(ts(2)))
+          normalCommitments2 <- AcsCommitmentProcessor.commitments(
+            localId,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            None,
+            parallelism,
+            // behaves as if we don't use caching, because we don't reuse this object for further computation
+            new CachedCommitments(),
+          )
+          cachedCommitments2 <- AcsCommitmentProcessor.commitments(
+            localId,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            None,
+            parallelism,
+            cachedCommitments,
+          )
+
+          _ = rc.update(rt(4, 0), acsChanges(ts(4)))
+          normalCommitments4 <- AcsCommitmentProcessor.commitments(
+            localId,
+            rc.snapshot().active,
+            crypto,
+            ts(4),
+            None,
+            parallelism,
+            // behaves as if we don't use caching, because we don't reuse this object for further computation
+            new CachedCommitments(),
+          )
+          cachedCommitments4 <- AcsCommitmentProcessor.commitments(
+            localId,
+            rc.snapshot().active,
+            crypto,
+            ts(4),
+            None,
+            parallelism,
+            cachedCommitments,
+          )
+
+        } yield {
+          assert(normalCommitments2 equals cachedCommitments2)
+          assert(normalCommitments4 equals cachedCommitments4)
+        }
+      }
+
+      "handles stakeholder group removal correctly" in {
+        val (_, acsChanges) = setupContractsAndAcsChanges2()
+        val crypto = cryptoSetup(remoteId2, topology)
+
+        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
+        val cachedCommitments = new CachedCommitments()
+
+        for {
+          // init phase
+          // participant "remoteId2" has one stakeholder group in common with "remote1": (alice, bob, charlie) with one contract
+          // participant "remoteId2" has three stakeholder group in common with "local": (alice, bob, charlie) with one contract,
+          // (alice, danna) with one contract, and (alice, ed) with one contract
+          rc <- runningCommitments
+          _ = rc.update(rt(2, 0), acsChanges(ts(2)))
+          byParticipant2 <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
+            remoteId2,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            parallelism,
+          )
+          normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
+          _ = cachedCommitments.setCachedCommitments(
+            normalCommitments2,
+            rc.snapshot().active,
+            byParticipant2.map { case (pid, set) =>
+              (pid, set.map { case (stkhd, _cmt) => stkhd }.toSet)
+            },
+          )
+
+          byParticipant <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
+            remoteId2,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            parallelism,
+          )
+
+          // simulate offboarding party ed from remoteId2 by replacing the commitment for (alice,ed) with an empty commitment
+          byParticipantWithOffboard = byParticipant.updatedWith(localId) {
+            case Some(stakeholdersCmts) =>
+              Some(stakeholdersCmts.updated(SortedSet(alice, ed), emptyCommitment))
+            case None => None
+          }
+
+          computeFromCachedLocalId1 = cachedCommitments.computeCmtFromCached(
+            localId,
+            byParticipantWithOffboard(localId),
+          )
+
+          // the correct commitment for local should not include any commitment for (alice, ed)
+          correctCmts = commitmentsFromStkhdCmts(
+            byParticipantWithOffboard(localId)
+              .map { case (stakeholders, cmt) => cmt }
+              .filter(_ != AcsCommitmentProcessor.emptyCommitment)
+              .toSeq
+          )
+        } yield {
+          assert(computeFromCachedLocalId1.contains(correctCmts))
+        }
+      }
+
+      "handles stakeholder group addition correctly" in {
+        val (_, acsChanges) = setupContractsAndAcsChanges2()
+        val crypto = cryptoSetup(remoteId2, topology)
+
+        val inMemoryCommitmentStore = new InMemoryAcsCommitmentStore(loggerFactory)
+        val runningCommitments = initRunningCommitments(inMemoryCommitmentStore)
+        val cachedCommitments = new CachedCommitments()
+
+        for {
+          // init phase
+          // participant "remoteId2" has one stakeholder group in common with "remote1": (alice, bob, charlie) with one contract
+          // participant "remoteId2" has three stakeholder group in common with "local": (alice, bob, charlie) with one contract,
+          // (alice, danna) with one contract, and (alice, ed) with one contract
+          rc <- runningCommitments
+          _ = rc.update(rt(2, 0), acsChanges(ts(2)))
+          byParticipant2 <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
+            remoteId2,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            parallelism,
+          )
+          normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
+          _ = cachedCommitments.setCachedCommitments(
+            normalCommitments2,
+            rc.snapshot().active,
+            byParticipant2.map { case (pid, set) =>
+              (pid, set.map { case (stkhd, _cmt) => stkhd }.toSet)
+            },
+          )
+
+          byParticipant <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
+            remoteId2,
+            rc.snapshot().active,
+            crypto,
+            ts(2),
+            parallelism,
+          )
+
+          // simulate onboarding party ed to remoteId1 by adding remoteId1 as a participant for group (alice, ed)
+          // the commitment for (alice,ed) existed previously, but was not used for remoteId1's commitment
+          // also simulate creating a new, previously inexisting stakeholder group (danna, ed) with commitment dummyCmt,
+          // which the commitment for remoteId1 needs to use now that ed is onboarded on remoteId1
+          newCmts = byParticipant(localId).filter(x => x._1 == SortedSet(alice, ed)) ++ Map(
+            SortedSet(danna, ed) -> dummyCmt
+          )
+          byParticipantWithOnboard = byParticipant.updatedWith(remoteId1) {
+            case Some(stakeholdersCmts) => Some(stakeholdersCmts ++ newCmts)
+            case None => Some(newCmts)
+          }
+
+          computeFromCachedRemoteId1 = cachedCommitments.computeCmtFromCached(
+            remoteId1,
+            byParticipantWithOnboard(remoteId1).toMap,
+          )
+
+          // the correct commitment for local should include the commitments for (alice, bob, charlie), (alice, ed)
+          // and (dana, ed)
+          correctCmts = commitmentsFromStkhdCmts(
+            byParticipantWithOnboard(remoteId1).values.toSeq
+          )
+        } yield {
+          assert(computeFromCachedRemoteId1.contains(correctCmts))
+        }
+      }
+
     }
   }
 }

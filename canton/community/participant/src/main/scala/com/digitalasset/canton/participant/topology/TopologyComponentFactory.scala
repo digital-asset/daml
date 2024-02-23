@@ -16,25 +16,24 @@ import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingTickerX
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.{
   TrafficStateController,
   TrafficStateTopUpSubscription,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{
-  DomainTopologyTransactionMessageValidator,
   EffectiveTime,
-  TopologyTransactionProcessor,
   TopologyTransactionProcessorCommon,
   TopologyTransactionProcessorX,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreX}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.store.TopologyStoreX
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -83,128 +82,7 @@ trait TopologyComponentFactory {
 
 }
 
-class TopologyComponentFactoryOld(
-    participantId: ParticipantId,
-    domainId: DomainId,
-    clock: Clock,
-    skipTopologyManagerSignatureValidation: Boolean,
-    timeouts: ProcessingTimeout,
-    futureSupervisor: FutureSupervisor,
-    caching: CachingConfigs,
-    batching: BatchingConfig,
-    topologyStore: TopologyStore[DomainStore],
-    loggerFactory: NamedLoggerFactory,
-) extends TopologyComponentFactory {
-
-  override def createTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-  )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit = {
-    new StoreBasedDomainTopologyClient(
-      clock,
-      domainId = domainId,
-      protocolVersion = protocolVersion,
-      store = topologyStore,
-      initKeys = Map(),
-      packageDependencies = packageDependencies,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-      useStateTxs = false,
-    )
-  }
-
-  override def createCachingTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): Future[DomainTopologyClientWithInit] =
-    CachingDomainTopologyClient.create(
-      clock,
-      domainId,
-      protocolVersion,
-      topologyStore,
-      Map(),
-      packageDependencies,
-      caching,
-      batching,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-    )
-
-  override def createTopologySnapshot(
-      asOf: CantonTimestamp,
-      packageDependencies: PackageId => EitherT[Future, PackageId, Set[PackageId]],
-      preferCaching: Boolean,
-  )(implicit executionContext: ExecutionContext): TopologySnapshot = {
-    val snapshot = new StoreBasedTopologySnapshot(
-      asOf,
-      topologyStore,
-      Map(),
-      useStateTxs = true,
-      packageDependencies,
-      loggerFactory,
-      ProtocolVersionValidation.NoValidation,
-    )
-    if (preferCaching) {
-      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory)
-    } else
-      snapshot
-  }
-
-  override def createTopologyProcessorFactory(
-      partyNotifier: LedgerServerPartyNotifier,
-      missingKeysAlerter: MissingKeysAlerter,
-      topologyClient: DomainTopologyClientWithInit,
-      syncCrypto: DomainSyncCryptoClient,
-      trafficStateController: TrafficStateController,
-      recordOrderPublisher: RecordOrderPublisher,
-      protocolVersion: ProtocolVersion,
-  ): TopologyTransactionProcessorCommon.Factory =
-    new TopologyTransactionProcessorCommon.Factory {
-      override def create(
-          acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
-      )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
-
-        val processor = new TopologyTransactionProcessor(
-          domainId,
-          DomainTopologyTransactionMessageValidator
-            .create(
-              skipTopologyManagerSignatureValidation,
-              syncCrypto,
-              participantId,
-              protocolVersion,
-              timeouts,
-              futureSupervisor,
-              loggerFactory,
-            ),
-          syncCrypto.pureCrypto,
-          topologyStore,
-          acsCommitmentScheduleEffectiveTime,
-          futureSupervisor,
-          timeouts,
-          loggerFactory,
-        )
-        // subscribe party notifier to topology processor
-        processor.subscribe(partyNotifier.attachToTopologyProcessorOld())
-        processor.subscribe(missingKeysAlerter.attachToTopologyProcessorOld())
-        // TODO(#14048) this is an ugly hack, but I don't know where we could create the individual components
-        //              and have the types align :(
-        topologyClient match {
-          case old: DomainTopologyClientWithInitOld =>
-            processor.subscribe(old)
-          case _ =>
-            throw new IllegalStateException("passed wrong type. coding bug")
-        }
-        processor
-      }
-    }
-
-}
-
+// TODO(#15161) collapse with base trait
 class TopologyComponentFactoryX(
     domainId: DomainId,
     crypto: Crypto,
@@ -231,11 +109,17 @@ class TopologyComponentFactoryX(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
     )(implicit executionContext: ExecutionContext): TopologyTransactionProcessorCommon = {
 
+      val terminateTopologyProcessing = new ParticipantTopologyTerminateProcessingTickerX(
+        recordOrderPublisher,
+        loggerFactory,
+      )
+
       val processor = new TopologyTransactionProcessorX(
         domainId,
-        crypto,
+        crypto.pureCrypto,
         topologyStore,
         acsCommitmentScheduleEffectiveTime,
+        terminateTopologyProcessing,
         topologyXConfig.enableTopologyTransactionValidation,
         futureSupervisor,
         timeouts,

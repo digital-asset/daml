@@ -1,9 +1,0 @@
-sdk-version: 2.9.0-snapshot.20240108.12538.0.va483cabf
-sandbox-options: 
-- --wall-clock-time
-name: message
-source: daml
-version: 0.0.1
-dependencies: 
-- daml-prim
-- daml-stdlib

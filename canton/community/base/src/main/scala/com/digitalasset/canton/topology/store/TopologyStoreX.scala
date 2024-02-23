@@ -8,13 +8,14 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.v1 as topoV1
+import com.digitalasset.canton.topology.admin.v30 as topoV30
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionX.GenericStoredTopologyTransactionX
@@ -22,7 +23,6 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.{
   GenericStoredTopologyTransactionsX,
   PositiveStoredTopologyTransactionsX,
 }
-import com.digitalasset.canton.topology.store.TopologyStore.Change.{Other, TopologyDelay}
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Duplicate
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransactionX.GenericValidatedTopologyTransactionX
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreX
@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransactionX.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,13 +50,10 @@ final case class StoredTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
 ) extends PrettyPrinting {
   override def pretty: Pretty[StoredTopologyTransactionX.this.type] =
     prettyOfClass(
+      unnamedParam(_.transaction),
       param("sequenced", _.sequenced.value),
       param("validFrom", _.validFrom.value),
       paramIfDefined("validUntil", _.validUntil.map(_.value)),
-      param("op", _.transaction.transaction.op),
-      param("serial", _.transaction.transaction.serial),
-      param("mapping", _.transaction.transaction.mapping),
-      param("signatures", _.transaction.signatures),
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
@@ -80,7 +78,7 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
     transaction: SignedTopologyTransactionX[Op, M],
     rejectionReason: Option[TopologyTransactionRejection] = None,
     expireImmediately: Boolean = false,
-) {
+) extends PrettyPrinting {
   def nonDuplicateRejectionReason: Option[TopologyTransactionRejection] = rejectionReason match {
     case Some(Duplicate(_)) => None
     case otherwise => otherwise
@@ -93,6 +91,13 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
   def collectOf[TargetO <: TopologyChangeOpX: ClassTag, TargetM <: TopologyMappingX: ClassTag]
       : Option[ValidatedTopologyTransactionX[TargetO, TargetM]] =
     transaction.select[TargetO, TargetM].map(tx => copy[TargetO, TargetM](transaction = tx))
+
+  override def pretty: Pretty[ValidatedTopologyTransactionX.this.type] =
+    prettyOfClass(
+      unnamedParam(_.transaction),
+      paramIfDefined("rejectionReason", _.rejectionReason),
+      paramIfTrue("expireImmediately", _.expireImmediately),
+    )
 }
 
 object ValidatedTopologyTransactionX {
@@ -100,17 +105,42 @@ object ValidatedTopologyTransactionX {
     ValidatedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
 }
 abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
-    val ec: ExecutionContext
-) extends AutoCloseable
-    with TopologyStoreCommon[
-      StoreID,
-      GenericValidatedTopologyTransactionX,
-      GenericStoredTopologyTransactionX,
-      GenericSignedTopologyTransactionX,
-    ] {
+    protected val ec: ExecutionContext
+) extends FlagCloseable {
   this: NamedLogging =>
 
-  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
+  def storeId: StoreID
+
+  /** fetch the effective time updates greater than or equal to a certain timestamp
+    *
+    * this function is used to recover the future effective timestamp such that we can reschedule "pokes" of the
+    * topology client and updates of the acs commitment processor on startup
+    */
+  def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[TopologyStoreX.Change]]
+
+  def maxTimestamp()(implicit
+      traceContext: TraceContext
+  ): Future[Option[(SequencedTime, EffectiveTime)]]
+
+  /** returns the current dispatching watermark
+    *
+    * for topology transaction dispatching, we keep track up to which point in time
+    * we have mirrored the authorized store to the remote store
+    *
+    * the timestamp always refers to the timestamp of the authorized store!
+    */
+  def currentDispatchingWatermark(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]]
+
+  /** update the dispatching watermark for this target store */
+  def updateDispatchingWatermark(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
+
+  def findTransactionsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(implicit
       traceContext: TraceContext
   ): Future[Seq[GenericSignedTopologyTransactionX]]
 
@@ -152,8 +182,10 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): Future[Unit]
 
-  // TODO(#14048) only a temporary crutch to inspect the topology state
-  def dumpStoreContent()(implicit traceContext: TraceContext): Unit
+  @VisibleForTesting
+  protected[topology] def dumpStoreContent()(implicit
+      traceContext: TraceContext
+  ): Future[GenericStoredTopologyTransactionsX]
 
   /** store an initial set of topology transactions as given into the store */
   def bootstrap(snapshot: GenericStoredTopologyTransactionsX)(implicit
@@ -167,7 +199,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
     */
   def inspect(
       proposals: Boolean,
-      timeQuery: TimeQueryX,
+      timeQuery: TimeQuery,
       // TODO(#14048) - consider removing `recentTimestampO` and moving callers to TimeQueryX.Snapshot
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
@@ -206,10 +238,10 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       storedTx: GenericStoredTopologyTransactionX
   ): SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX] = storedTx.transaction
 
-  override def providesAdditionalSignatures(
+  def providesAdditionalSignatures(
       transaction: GenericSignedTopologyTransactionX
   )(implicit traceContext: TraceContext): Future[Boolean] = {
-    findStored(transaction).map(_.forall { inStore =>
+    findStored(CantonTimestamp.MaxValue, transaction).map(_.forall { inStore =>
       // check whether source still could provide an additional signature
       transaction.signatures.diff(inStore.transaction.signatures.forgetNE).nonEmpty &&
       // but only if the transaction in the target store is a valid proposal
@@ -231,23 +263,54 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
   ): Future[GenericStoredTopologyTransactionsX]
 
   def findStoredForVersion(
+      asOfExclusive: CantonTimestamp,
       transaction: GenericTopologyTransactionX,
       protocolVersion: ProtocolVersion,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[GenericStoredTopologyTransactionX]]
+
+  final def exists(transaction: GenericSignedTopologyTransactionX)(implicit
+      traceContext: TraceContext
+  ): Future[Boolean] = findStored(CantonTimestamp.MaxValue, transaction).map(
+    _.exists(signedTxFromStoredTx(_) == transaction)
+  )
+
+  def findStored(
+      asOfExclusive: CantonTimestamp,
+      transaction: GenericSignedTopologyTransactionX,
+      includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): Future[Option[GenericStoredTopologyTransactionX]]
 }
 
 object TopologyStoreX {
+
+  sealed trait Change extends Product with Serializable {
+    def sequenced: SequencedTime
+    def effective: EffectiveTime
+  }
+
+  object Change {
+    final case class TopologyDelay(
+        sequenced: SequencedTime,
+        effective: EffectiveTime,
+        epsilon: NonNegativeFiniteDuration,
+    ) extends Change
+
+    final case class Other(sequenced: SequencedTime, effective: EffectiveTime) extends Change
+  }
+
   def accumulateUpcomingEffectiveChanges(
       items: Seq[StoredTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
-  ): Seq[TopologyStore.Change] = {
+  ): Seq[Change] = {
     items
       .map(x => (x, x.transaction.transaction.mapping))
       .map {
         case (tx, x: DomainParametersStateX) =>
-          TopologyDelay(tx.sequenced, tx.validFrom, x.parameters.topologyChangeDelay)
-        case (tx, _) => Other(tx.sequenced, tx.validFrom)
+          Change.TopologyDelay(tx.sequenced, tx.validFrom, x.parameters.topologyChangeDelay)
+        case (tx, _) => Change.Other(tx.sequenced, tx.validFrom)
       }
       .sortBy(_.effective)
       .distinct
@@ -276,7 +339,7 @@ object TopologyStoreX {
     // TODO(#14060) - potentially revisit this once we implement TopologyStoreX.filterInitialParticipantDispatchingTransactions
     TopologyMappingX.Code.NamespaceDelegationX,
     TopologyMappingX.Code.IdentifierDelegationX,
-    TopologyMappingX.Code.UnionspaceDefinitionX,
+    TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
   )
 
   def filterInitialParticipantDispatchingTransactions(
@@ -312,7 +375,7 @@ object TopologyStoreX {
           ) if uid == participantId.uid =>
         tx
       case tx @ SignedTopologyTransactionX(
-            TopologyTransactionX(_, _, _: UnionspaceDefinitionX),
+            TopologyTransactionX(_, _, _: DecentralizedNamespaceDefinitionX),
             _,
             _,
           ) =>
@@ -333,45 +396,43 @@ object TopologyStoreX {
     client.await(
       // we know that the transaction is stored and effective once we find it in the target
       // domain store and once the effective time (valid from) is smaller than the client timestamp
-      sp =>
-        target
-          .findStored(transaction, includeRejected = true)
-          .map(_.exists(_.validFrom.value < sp.timestamp)),
+      sp => target.findStored(sp.timestamp, transaction, includeRejected = true).map(_.nonEmpty),
       timeout,
     )
   }
 }
 
-sealed trait TimeQueryX {
-  def toProtoV1: topoV1.BaseQuery.TimeQuery
+sealed trait TimeQuery {
+  def toProtoV30: topoV30.BaseQuery.TimeQuery
 }
-object TimeQueryX {
-  object HeadState extends TimeQueryX {
-    override def toProtoV1: topoV1.BaseQuery.TimeQuery =
-      topoV1.BaseQuery.TimeQuery.HeadState(com.google.protobuf.empty.Empty())
+
+object TimeQuery {
+  object HeadState extends TimeQuery {
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery =
+      topoV30.BaseQuery.TimeQuery.HeadState(com.google.protobuf.empty.Empty())
   }
-  final case class Snapshot(asOf: CantonTimestamp) extends TimeQueryX {
-    override def toProtoV1: topoV1.BaseQuery.TimeQuery =
-      topoV1.BaseQuery.TimeQuery.Snapshot(asOf.toProtoPrimitive)
+  final case class Snapshot(asOf: CantonTimestamp) extends TimeQuery {
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery =
+      topoV30.BaseQuery.TimeQuery.Snapshot(asOf.toProtoPrimitive)
   }
   final case class Range(from: Option[CantonTimestamp], until: Option[CantonTimestamp])
-      extends TimeQueryX {
-    override def toProtoV1: topoV1.BaseQuery.TimeQuery = topoV1.BaseQuery.TimeQuery.Range(
-      topoV1.BaseQuery.TimeRange(from.map(_.toProtoPrimitive), until.map(_.toProtoPrimitive))
+      extends TimeQuery {
+    override def toProtoV30: topoV30.BaseQuery.TimeQuery = topoV30.BaseQuery.TimeQuery.Range(
+      topoV30.BaseQuery.TimeRange(from.map(_.toProtoPrimitive), until.map(_.toProtoPrimitive))
     )
   }
 
   def fromProto(
-      proto: topoV1.BaseQuery.TimeQuery,
+      proto: topoV30.BaseQuery.TimeQuery,
       fieldName: String,
-  ): ParsingResult[TimeQueryX] =
+  ): ParsingResult[TimeQuery] =
     proto match {
-      case topoV1.BaseQuery.TimeQuery.Empty =>
+      case topoV30.BaseQuery.TimeQuery.Empty =>
         Left(ProtoDeserializationError.FieldNotSet(fieldName))
-      case topoV1.BaseQuery.TimeQuery.Snapshot(value) =>
+      case topoV30.BaseQuery.TimeQuery.Snapshot(value) =>
         CantonTimestamp.fromProtoPrimitive(value).map(Snapshot)
-      case topoV1.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
-      case topoV1.BaseQuery.TimeQuery.Range(value) =>
+      case topoV30.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
+      case topoV30.BaseQuery.TimeQuery.Range(value) =>
         for {
           fromO <- value.from.traverse(CantonTimestamp.fromProtoPrimitive)
           toO <- value.until.traverse(CantonTimestamp.fromProtoPrimitive)

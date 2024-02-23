@@ -38,8 +38,9 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithoutSuffixes,
 }
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
@@ -161,8 +162,8 @@ class ModelConformanceChecker(
       }
 
     val rootViewsWithInfo = rootViewTrees.map { viewTree =>
-      val submitterParticipantO = viewTree.submitterMetadataO.map(_.submitterParticipant)
-      (viewTree.view, viewTree.viewPosition, submitterParticipantO)
+      val submittingParticipantO = viewTree.submitterMetadataO.map(_.submittingParticipant)
+      (viewTree.view, viewTree.viewPosition, submittingParticipantO)
     }
 
     val resultFE = findValidSubtransactions(rootViewsWithInfo).map { case (errors, viewsTxs) =>
@@ -227,7 +228,7 @@ class ModelConformanceChecker(
   private def checkView(
       view: TransactionView,
       viewPosition: ViewPosition,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionUuid: UUID,
       resolverFromView: LfKeyResolver,
       requestCounter: RequestCounter,
@@ -378,8 +379,7 @@ object ModelConformanceChecker {
 
     new ModelConformanceChecker(
       reinterpret,
-      if (protocolVersion >= ProtocolVersion.v5) validateSerializedContract(damle)
-      else noSerializedContractValidation,
+      validateSerializedContract(damle),
       transactionTreeFactory,
       participantId,
       serializableContractAuthenticator,
@@ -396,13 +396,6 @@ object ModelConformanceChecker {
       expected: LfNodeCreate,
   ) extends ContractValidationFailure
 
-  private def noSerializedContractValidation(
-      contract: SerializableContract,
-      traceContext: TraceContext,
-  )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] = {
-    EitherT.pure[Future, ContractValidationFailure](())
-  }
-
   private def validateSerializedContract(damle: DAMLe)(
       contract: SerializableContract,
       traceContext: TraceContext,
@@ -418,9 +411,7 @@ object ModelConformanceChecker {
           metadata.signatories,
           LfCreateCommand(unversioned.template, unversioned.arg),
           contract.ledgerCreateTime,
-        )(
-          traceContext
-        )
+        )(traceContext)
         .leftMap(DAMLeFailure.apply)
       expected: LfNodeCreate = LfNodeCreate(
         // Do not validate the contract id. The validation would fail due to mismatching seed.
@@ -430,7 +421,6 @@ object ModelConformanceChecker {
         packageName = unversioned.packageName,
         templateId = unversioned.template,
         arg = unversioned.arg,
-        agreementText = instance.unvalidatedAgreementText.v,
         signatories = metadata.signatories,
         stakeholders = metadata.stakeholders,
         keyOpt = metadata.maybeKeyWithMaintainers,

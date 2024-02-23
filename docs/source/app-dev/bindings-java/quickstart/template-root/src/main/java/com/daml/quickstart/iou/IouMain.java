@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.quickstart.iou;
@@ -6,7 +6,6 @@ package com.daml.quickstart.iou;
 import static java.util.UUID.randomUUID;
 
 import com.daml.ledger.javaapi.data.*;
-import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
@@ -48,22 +47,19 @@ public class IouMain {
     // Connects to the ledger and runs initial validation.
     client.connect();
 
-    String ledgerId = client.getLedgerId();
-
-    logger.info("ledger-id: {}", ledgerId);
-
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
-    AtomicReference<LedgerOffset> acsOffset =
-        new AtomicReference<>(LedgerOffset.LedgerBegin.getInstance());
+    AtomicReference<ParticipantOffset> acsOffset =
+        new AtomicReference<>(ParticipantOffset.ParticipantBegin.getInstance());
 
     client
-        .getActiveContractSetClient()
+        .getStateClient()
         .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
         .blockingForEach(
             response -> {
-              response.offset.ifPresent(offset -> acsOffset.set(new LedgerOffset.Absolute(offset)));
+              response.offset.ifPresent(
+                  offset -> acsOffset.set(new ParticipantOffset.Absolute(offset)));
               response.activeContracts.forEach(
                   contract -> {
                     long id = idCounter.getAndIncrement();
@@ -134,10 +130,9 @@ public class IouMain {
   }
 
   private static <U> U submit(LedgerClient client, String party, Update<U> update) {
-    var params =
-        CommandsSubmission.create(APP_ID, randomUUID().toString(), update.commands())
-            .withActAs(party);
+    var updateSubmission =
+        UpdateSubmission.create(APP_ID, randomUUID().toString(), update).withActAs(party);
 
-    return client.getCommandClient().submitAndWaitForResult(params, update).blockingGet();
+    return client.getCommandClient().submitAndWaitForResult(updateSubmission).blockingGet();
   }
 }

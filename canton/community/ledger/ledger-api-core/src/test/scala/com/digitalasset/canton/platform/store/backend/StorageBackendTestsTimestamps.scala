@@ -25,7 +25,7 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       offset = offset(1),
       eventSequentialId = 1L,
       contractId = cid,
-      ledgerEffectiveTime = Some(let),
+      ledgerEffectiveTime = let,
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -33,7 +33,7 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
     executeSql(ingest(Vector(create), _))
     executeSql(updateLedgerEnd(offset(1), 1L))
 
-    val events = backend.event.activeContractCreateEventBatch(
+    val events = backend.event.activeContractCreateEventBatchV2(
       List(1L),
       Set(Ref.Party.assertFromString("signatory")),
       1L,
@@ -42,9 +42,9 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
     val events2 = executeSql(withDefaultTimeZone("GMT-1")(events))
     val events3 = executeSql(withDefaultTimeZone("GMT+1")(events))
 
-    withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe let }
-    withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe let }
-    withClue("GMT+1") { events3.head.ledgerEffectiveTime shouldBe let }
+    withClue("UTC") { events1.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let }
+    withClue("GMT-1") { events2.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let }
+    withClue("GMT+1") { events3.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let }
   }
 
   // Some JDBC operations depend on the JVM default time zone.

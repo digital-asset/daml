@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.format.TinkKeyFormat
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.crypto.tink.KeysetHandle

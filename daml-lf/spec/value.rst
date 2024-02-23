@@ -1,10 +1,10 @@
-.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml-LF Value Specification
 ===========================
 
-**version 15, 22 June 2021**
+**version 2.1, 16 Feb 2022**
 
 The Daml-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
@@ -146,23 +146,57 @@ Version history
 This table lists every version of this specification in ascending order
 (oldest first).
 
-Support for value versions 1 to 5 was dropped on 2020-12-10.
-This breaking change does not impact ledgers created with SDK 1.0.0 or
-later.
-
-Support for transaction 13 or older was dropped on 2023-10-13
-This breaking change does not impact ledgers created with Canton 2.0.0 or
+Support for transaction 16 or older was dropped on 2024-02-12
+This breaking change does not impact ledgers created with Canton 3.0.0 or
 later.
 
 +--------------------+-----------------+
 | Version identifier | Date introduced |
 +====================+=================+
-|                 14 |      2021-22-06 |
-+--------------------+-----------------+
-|                 15 |      2022-07-29 |
+|                2.1 |      2024-02-16 |
 +--------------------+-----------------+
 |                dev |                 |
 +--------------------+-----------------+
+
+unknown field
+^^^^^^^^^^^^^
+
+A consumers conforming to this specification must reject any message that
+contains field not specified in this document.
+
+
+message Identifier
+^^^^^^^^^^^^^^^^^^
+
+(*since version 2.1*)
+
+A reference to a Daml-LF record or variant type.
+
+As of version 2.1, these fields are included, all required to be
+non-empty:
+
+* ``string`` package_id
+* repeated ``string`` module_name
+* repeated ``string`` name
+
+
+``package_id`` is a Daml-LF package ID, indicating the LF package in
+which the type is defined. Package IDs are restricted to be a
+non-empty string of printable US-ASCII characters (characters ranging
+from '\32' to '\127').
+
+``module_name`` lists the components of the name of the module within
+that package.
+
+``name`` lists the components of the name of the type declaration within
+that module.
+
+Each component of ``module_name`` and ``name`` must be non empty. Moreover,
+we restrict each component as follows:
+
+* The first character must be ``$``, ``_``, or an ASCII letter;
+* Every other character must be ``$``, ``_``, an ASCII letter, or an
+  ASCII digit.
 
 message VersionedValue
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -176,18 +210,16 @@ In this version, these fields are included:
 
 ``version`` is required, and must be a version of this specification.
 For backward compatibility reasons:
-- string "6", "10", "11", "12", "13" are reserved and will be never used to encoded any future version;
-- versions 14 or latter will be encoded as string, for instance
-  version 14 of this specification, ``version`` must be ``"11"``.
+- string with 2 numeric digits are reserved and will be never used to encoded any future version;
+- versions 2.1 or latter will be encoded as string, for instance
+  version 2.2 of this specification, ``version`` must be ``"2.1"``.
   
 Consumers can expect this field to be present and to have the
 semantics defined here without knowing the version of this value in
 advance.
 
-Known versions are listed in ascending order in `Version history`_; any
-``version`` not in this list should be considered newer than any version
-in same list, and consumers must reject values with such unknown
-versions.
+Known versions are listed in ascending order in `Version history`_; a consumers
+must reject values with a version not in this list.
 
 ``value`` is required.
 
@@ -200,44 +232,71 @@ message Value
 
 An actual Daml-LF *serializable value*.
 
-(*since version 14*)
+(*since version 2.1*)
 
-As of version 14, may be any one of these:
+As of version 2.1, may be any one of these:
 
+* ``Empty`` `field unit`_
+* ``bool`` bool
+* ``sint64`` int64
+* ``int32`` `field date`_
+* ``sfixed64`` `field timestamp`_
+* ``string`` `field numeric`_
+* ``string`` `field party`_
+* ``string`` text
+* `message Optional`_ optional
+* `message List`_ list
+* `message Map`_ map
+* `message TextMap`_ text_map
 * `message Record`_ record
 * `message Variant`_ variant
 * `message ContractId`_ contract_id_struct
-* `message List`_ list
-* ``sint64`` int64
-* ``string`` `field numeric`_
-* ``string`` text
-* ``sfixed64`` `field timestamp`_
-* ``string`` `field party`_
-* ``bool`` bool
-* ``Empty`` `field unit`_
-* ``int32`` `field date`_
-* `message Optional`_ optional
-* `message Map`_ map
 * `message Enum`_ enum
-* `message Numeric`_ numeric
-* `message GenMap`_ gen_map
+
 
 ``Value`` is recursive by virtue of occurrences in some of the above
 cases, e.g. ``list`` contains any number of ``Value``. The maximum
 depth of a nested ``Value``, including the outermost, is 100; any more
 yields an invalid value.
 
-field contract_id
-~~~~~~~~~~~~~~~~~
+field unit
+~~~~~~~~~~
 
-(*since version 14*)
+(*since version 2.1*)
 
-Its text must be a valid contract ID.
+While ``Empty`` contains no information, conforming consumers are
+permitted to expect this member of `message Value`_ to be chosen
+correctly in appropriate contexts.  So if the ``Value``'s Daml-LF type
+is ``Unit``, a consumer *may* reject the message if the ``Value`` is not
+the ``unit`` member of the sum, so value producers must take care to
+select this member and not another value as a placeholder (e.g. 0,
+false, empty text) in such cases.
+
+field date
+~~~~~~~~~~
+
+(*since version 2.1*)
+
+The number of days since 1970-01-01, with that epoch being 0.  The
+allowed range is 0001-01-01 to 9999-12-31, inclusive; while ``int32``
+supports numbers outside that range, such dates are not allowed and must
+be rejected with error by conforming consumers.
+
+field timestamp
+~~~~~~~~~~~~~~~
+
+(*since version 2.1*)
+
+The number of microseconds since 1970-01-01T00:00:00Z, with that epoch
+being 0.  The allowed range is 0001-01-01T00:00:00Z to
+9999-12-31T23:59:59.999999Z, inclusive; while ``sfixed64`` supports
+numbers outside that range, such timestamps are not allowed and must be
+rejected with error by conforming consumers.
 
 field numeric
 ~~~~~~~~~~~~~
 
-(*since version 14*)
+(*since version 2.1*)
 
 Expresses a signed number that can be represented in base-10 without
 loss of precision with at most 38 digits and with a scale between 0
@@ -258,22 +317,10 @@ otherwise try to compensate for "bad" input when reading decimal
 fields.  As such, value producers should take care to properly format
 these decimals.
 
-
-field timestamp
-~~~~~~~~~~~~~~~
-
-(*since version 14*)
-
-The number of microseconds since 1970-01-01T00:00:00Z, with that epoch
-being 0.  The allowed range is 0001-01-01T00:00:00Z to
-9999-12-31T23:59:59.999999Z, inclusive; while ``sfixed64`` supports
-numbers outside that range, such timestamps are not allowed and must be
-rejected with error by conforming consumers.
-
 field party
 ~~~~~~~~~~~
 
-(*since version 14*)
+(*since version 2.1*)
 
 A party identifier; unlike arbitrary text, this will be interpreted
 with respect to the ledger under consideration by whatever command
@@ -281,106 +328,151 @@ contains this value. Party identifiers are restricted to be a
 non-empty string of printable US-ASCII characters (characters ranging
 from '\32' to '\127').
 
-field unit
-~~~~~~~~~~
+field contract_id
+~~~~~~~~~~~~~~~~~
 
-(*since version 14*)
+(*since version 2.1*)
 
-While ``Empty`` contains no information, conforming consumers are
-permitted to expect this member of `message Value`_ to be chosen
-correctly in appropriate contexts.  So if the ``Value``'s Daml-LF type
-is ``Unit``, a consumer *may* reject the message if the ``Value`` is not
-the ``unit`` member of the sum, so value producers must take care to
-select this member and not another value as a placeholder (e.g. 0,
-false, empty text) in such cases.
+Its bytes must be a valid contract ID according the `Contract ID Spec`_
 
-field date
-~~~~~~~~~~
+.. _`Contract ID spec`: contract-id.rst
 
-(*since version 14*)
+message Optional
+^^^^^^^^^^^^^^^^
 
-The number of days since 1970-01-01, with that epoch being 0.  The
-allowed range is 0001-01-01 to 9999-12-31, inclusive; while ``int32``
-supports numbers outside that range, such dates are not allowed and must
-be rejected with error by conforming consumers.
+(*since version 2.1*)
+
+An optional value (equivalent to Scala's ``Option`` or Haskell's
+``Maybe``).
+
+As of version 2.1, these fields are included:
+
+* `message Value`_ value
+
+The ``value`` field is optional, embodying the semantics of the
+``Optional`` type.
+
+
+message List
+^^^^^^^^^^^^
+
+(*since version 2.1*)
+
+A homogenous list of values.
+
+As of version 2.1, these fields are included:
+
+* repeated `message Value`_ elements
+
+.. note: *this section is non-normative*
+
+    Every member of ``elements`` must conform to the same type.
+
+message Map.Entry
+^^^^^^^^^^^^^^^^^
+
+(*since version 2.1*)
+
+A map entry (key-value pair) used to build `message Map`_.
+
+As of version 2.1, these fields are included:
+
+* `message Value`_  key
+* `message Value`_ value
+
+All the fields are required.
+
+message Map
+^^^^^^^^^^^
+
+(*since version 2.1*)
+
+A map where keys and values are homogeneous.
+
+As of version 2.1, these fields are included:
+
+* repeated `message Map.Entry`_ entries
+
+.. note: *this section is non-normative*
+
+   The ``value`` field of every member of ``entries`` must conform to
+   the same type.  The ``key`` field of every member of ``entries``
+   must conform to the same type. If two ore more entries have the
+   same keys, the last one overrides the former entry.  Entries with
+   different key may occur in arbitrary order.
+
+message TextMap.Entry
+^^^^^^^^^^^^^^^^^^^^^
+
+(*since version 2.1*)
+
+A map entry (key-value pair) used to build `message TextMap`_.
+
+As of version 2.1, these fields are included:
+
+* string key
+* `message Value`_ value
+
+All the fields are required.
+
+message TextMap
+^^^^^^^^^^^^^^^
+
+(*since version 2.1*)
+
+A homogeneous map where keys are strings.
+
+As of version 2.1, these fields are included:
+
+* repeated `message TextMap.Entry`_ entries
+
+.. note: *this section is non-normative*
+
+   The ``value`` field of every member of ``entries`` must conform to
+   the same type.  If two ore more entries have the same keys, the
+   last one overrides the former entry. Entries with different key may
+   occur in arbitrary order.
 
 message Record
 ^^^^^^^^^^^^^^
 
-(*since version 14*)
+(*since version 2.1*)
 
 The core primitive for combining `message Value`_ of different type into
 a single value.
 
-As of version 10, these fields are included:
+As of version 2.1, these fields are included:
 
 * `message Identifier`_ record_id
-* repeated `message RecordField`_ fields
+* repeated `message Record.Field`_ fields
 
 ``record_id`` must be the unused
 
-message RecordField
-^^^^^^^^^^^^^^^^^^^
+message Record.Field
+^^^^^^^^^^^^^^^^^^^^
 
-(*since version 14*)
+(*since version 2.1*)
 
 One of `field fields`_.
 
-As of version 14, these fields are included:
+As of version 2.1, these fields are included:
 
-* ``string`` label
 * `message Value`_ value
 
-``label`` may be unused and Value is required.
-
-message Identifier
-^^^^^^^^^^^^^^^^^^
-
-(*since version 14*)
-
-A reference to a Daml-LF record or variant type.
-
-As of version 10, these fields are included, all required to be
-non-empty:
-
-* ``string`` package_id
-* repeated ``string`` module_name
-* repeated ``string`` name
-
-
-``package_id`` is a Daml-LF package ID, indicating the LF package in
-which the type is defined. package ID are restricted to be a
-non-empty string of printable US-ASCII characters (characters ranging
-from '\32' to '\127').
-
-``module_name`` lists the components of the name of the module within
-that package.
-
-``name`` lists the components of the name of the type declaration within
-that module.
-
-Each component of ``module_name`` and ``name`` must be non empty. Moreover,
-we restrict each component as follows:
-
-* The first character must be ``$``, ``_``, or an ASCII letter;
-* Every other character must be ``$``, ``_``, an ASCII letter, or an
-  ASCII digit.
+All the fields are required.
 
 message Variant
 ^^^^^^^^^^^^^^^
 
-(*since version 14*)
+(*since version 2.1*)
 
 The core primitive for injecting `message Value`_ of different type into
 a single type at runtime.
 
-As of version 14, these fields are included:
+As of version 2.1, these fields are included:
 
-* `message Identifier`_ variant_id
 * ``string`` `field constructor`_
 * `message Value`_ value
-
-Both ``Constructor`` and ``value`` are required while ``variant_id`` must be unused
 
 All the fields are required.
 
@@ -388,15 +480,6 @@ All the fields are required.
 
    ``value`` must conform to the LF type selected by the `field
    constructor`_.
-
-
-field variant_id
-~~~~~~~~~~~~~~~~
-
-(*since version 14*)
-
-The fully-qualified `message Identifier`_ of the Daml-LF variant type.
-It may be omitted.
 
 field constructor
 ~~~~~~~~~~~~~~~~~
@@ -411,134 +494,20 @@ For example, given the LF variant::
 A `message Variant`_ conforming to ``E`` may have in this field ``"L"``
 or ``"R"``; any other ``constructor`` yields an invalid Value.
 
-message ContractId
-^^^^^^^^^^^^^^^^^^
-
-(*since version 14*)
-
-A reference to a contract, either absolute or relative.
-
-As of version 14, this field is included:
-
-* ``string`` contract_id
-
-``contract_id`` must conform to the regular expression::
-
-  [A-Za-z0-9._:-]+
-
-message List
-^^^^^^^^^^^^
-
-(*since version 14*)
-
-A homogenous list of values.
-
-As of version 10, these fields are included:
-
-* repeated `message Value`_ elements
-
-.. note: *this section is non-normative*
-
-    Every member of ``elements`` must conform to the same type.
-
-message Optional
-^^^^^^^^^^^^^^^^
-
-(*since version 14*)
-
-An optional value (equivalent to Scala's ``Option`` or Haskell's
-``Maybe``).
-
-In this version, these fields are included:
-
-* `message Value`_ value
-
-The ``value`` field is optional, embodying the semantics of the
-``Optional`` type.
-
-message Map.Entry
-^^^^^^^^^^^^^^^^^
-
-(*since version 14*)
-
-A map entry (key-value pair) used to build `message Map`_.
-
-As of version 14, these fields are included:
-
-* string key
-
-* `message Value`_ value
-
-Both ``key`` and ``value`` are required.
-
-message Map
-^^^^^^^^^^^
-
-(*since version 14*)
-
-A homogeneous map where keys are strings.
-
-In this version, these fields are included:
-
-* repeated `message Map.Entry`_ entries
-
-.. note: *this section is non-normative*
-
-   The ``value`` field of every member of ``entries`` must conform to
-   the same type.  If two ore more entries have the same keys, the
-   last one overrides the former entry. Entries with different key may
-   occur in arbitrary order.
-
 message Enum
 ^^^^^^^^^^^^
 
-(*since version 14*)
+(*since version 2.1*)
 
 An Enum value, a specialized form of variant without argument.
 
-In this version, these fields are included:
+As of version 2.1, these fields are included:
 
-* `message Identifier`_ enum_id
 * ``string`` value
 
-Field ``value`` is required while ``variant_id`` must be unused
+All the fields are required.
 
 .. note: *this section is non-normative*
 
    ``value`` must to be one of the values of the enum type to which
    this ``message Enum`` conforms.
-
-message GenMap.Entry
-^^^^^^^^^^^^^^^^^
-
-(*since version 14*)
-
-A map entry (key-value pair) used to build `message GenMap`_.
-
-As of version 14, these fields are included:
-
-* `message Value`_  key
-
-* `message Value`_ value
-
-Both ``key`` and ``value`` are required.
-
-message GenMap
-^^^^^^^^^^^
-
-(*since version 14*)
-
-A map where keys and values are homogeneous.
-
-In this version, these fields are included:
-
-* repeated `message GenMap.Entry`_ entries
-
-.. note: *this section is non-normative*
-
-   The ``value`` field of every member of ``entries`` must conform to
-   the same type.  The ``key`` field of every member of ``entries``
-   must conform to the same type. If two ore more entries have the
-   same keys, the last one overrides the former entry.  Entries with
-   different key may occur in arbitrary order.
-

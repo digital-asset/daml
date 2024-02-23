@@ -15,8 +15,8 @@ import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, ProtocolM
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.{Deliver, DeliverError}
 import com.digitalasset.canton.time.DomainTimeTracker
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreCommon}
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorX.subscriptionTimestamp
+import com.digitalasset.canton.topology.store.TopologyStoreX
 import com.digitalasset.canton.topology.{DomainId, TopologyManagerError}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
@@ -60,7 +60,7 @@ trait TopologyTransactionProcessorCommon extends NamedLogging with FlagCloseable
 abstract class TopologyTransactionProcessorCommonImpl[M](
     domainId: DomainId,
     futureSupervisor: FutureSupervisor,
-    store: TopologyStoreCommon[_, _, _, _],
+    store: TopologyStoreX[?],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     override protected val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
@@ -92,7 +92,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
       asOfExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[TopologyStore.Change.TopologyDelay]
+  ): FutureUnlessShutdown[TopologyStoreX.Change.TopologyDelay]
 
   protected def maxTimestampFromStore()(implicit
       traceContext: TraceContext
@@ -138,7 +138,7 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
       )
       val tail = upcoming.map(x => (x.effective, x.effective.toApproximate))
 
-      NonEmpty(Seq, head, tail *).sortBy { case (effectiveTime, _) => effectiveTime.value }
+      NonEmpty(Seq, head, tail*).sortBy { case (effectiveTime, _) => effectiveTime.value }
     }
 
     for {
@@ -327,7 +327,12 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
                   ),
                 )
                 internalProcessEnvelopes(sc, sequencedTime, transactionsF)
-              case _: DeliverError => HandlerResult.done
+              case err: DeliverError =>
+                internalProcessEnvelopes(
+                  err.counter,
+                  SequencedTime(err.timestamp),
+                  FutureUnlessShutdown.pure(Nil),
+                )
             }
           }
         }
@@ -343,7 +348,6 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
   override def onClosed(): Unit = {
     Lifecycle.close(
       timeAdjuster,
-      store,
       serializer,
     )(logger)
   }

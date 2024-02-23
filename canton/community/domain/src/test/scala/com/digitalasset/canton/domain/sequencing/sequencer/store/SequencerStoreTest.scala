@@ -7,9 +7,9 @@ import cats.data.EitherT
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, Counter}
+import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.DomainSequencingTestUtils.mockDeliverStoreEvent
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError.BoundLowerThanExisting
 import com.digitalasset.canton.domain.sequencing.sequencer.{
@@ -20,6 +20,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
+import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{
   Member,
@@ -28,7 +29,6 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
@@ -73,7 +73,6 @@ trait SequencerStoreTest
     val instanceDiscriminator2 = UUID.randomUUID()
 
     final case class Env(store: SequencerStore = mk()) {
-
       def deliverEventWithDefaults(
           ts: CantonTimestamp,
           sender: SequencerMemberId = SequencerMemberId(0),
@@ -106,7 +105,7 @@ trait SequencerStoreTest
           DeliverStoreEvent(
             senderId,
             messageId,
-            NonEmpty(SortedSet, senderId, recipientIds.toSeq: _*),
+            NonEmpty(SortedSet, senderId, recipientIds.toSeq*),
             payloadId,
             None,
             traceContext,
@@ -136,7 +135,7 @@ trait SequencerStoreTest
           expectedMessageId: MessageId,
           expectedRecipients: Set[Member],
           expectedPayload: Payload,
-          expectedSigningTimestamp: Option[CantonTimestamp] = None,
+          expectedTopologyTimestamp: Option[CantonTimestamp] = None,
       ): Future[Assertion] = {
         for {
           senderId <- lookupRegisteredMember(expectedSender)
@@ -149,14 +148,14 @@ trait SequencerStoreTest
                   messageId,
                   recipients,
                   payload,
-                  signingTimestampO,
+                  topologyTimestampO,
                   traceContext,
                 ) =>
               sender shouldBe senderId
               messageId shouldBe expectedMessageId
-              recipients.forgetNE should contain.only(recipientIds.toSeq: _*)
+              recipients.forgetNE should contain.only(recipientIds.toSeq*)
               payload shouldBe expectedPayload
-              signingTimestampO shouldBe expectedSigningTimestamp
+              topologyTimestampO shouldBe expectedTopologyTimestamp
             case other =>
               fail(s"Expected deliver event but got $other")
           }
@@ -179,13 +178,12 @@ trait SequencerStoreTest
       CounterCheckpoint(counter, ts, latestTopologyClientTs)
 
     "DeliverErrorStoreEvent" should {
-      "be able to serialize to and deserialize the error from protobuf" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
-        val error = SequencerErrors.SigningTimestampTooEarly("too early!")
+      "be able to serialize to and deserialize the error from protobuf" in {
+        val error = SequencerErrors.TopoologyTimestampTooEarly("too early!")
         val errorStatus = error.rpcStatusWithoutLoggingContext()
-        val (message, serialized) =
-          DeliverErrorStoreEvent.serializeError(error, testedProtocolVersion)
+        val serialized = DeliverErrorStoreEvent.serializeError(error, testedProtocolVersion)
         val deserialized =
-          DeliverErrorStoreEvent.deserializeError(message, serialized, testedProtocolVersion)
+          DeliverErrorStoreEvent.fromByteString(Some(serialized), testedProtocolVersion)
         deserialized shouldBe Right(errorStatus)
       }
     }
@@ -322,15 +320,12 @@ trait SequencerStoreTest
         for {
           aliceId <- env.store.registerMember(alice, ts1)
           _bobId <- env.store.registerMember(bob, ts1)
-          error: DeliverErrorStoreEvent = DeliverErrorStoreEvent
-            .create(
-              aliceId,
-              messageId1,
-              String256M.tryCreate("Something went wrong".repeat(22000)),
-              None,
-              traceContext,
-            )
-            .value
+          error = DeliverErrorStoreEvent(
+            aliceId,
+            messageId1,
+            None,
+            traceContext,
+          )
           timestampedError: Sequenced[Nothing] = Sequenced(ts1, error)
           _ <- env.store.saveEvents(instanceIndex, NonEmpty(Seq, timestampedError))
           _ <- env.saveWatermark(timestampedError.timestamp).valueOrFail("saveWatermark")
@@ -393,9 +388,13 @@ trait SequencerStoreTest
           // put a watermark only a bit into our events
           _ <- env.saveWatermark(ts2.plusSeconds(5)).valueOrFail("saveWatermark")
           firstPage <- env.readEvents(alice, None, 10)
+          state <- env.store.readStateAtTimestamp(ts2.plusSeconds(5))
         } yield {
+          val numberOfEvents = 6L
           // should only contain events up until and including the watermark timestamp
-          firstPage should have size 6
+          firstPage should have size numberOfEvents
+
+          state.heads shouldBe Map((alice, Counter(numberOfEvents - 1L)))
         }
       }
 
@@ -650,7 +649,10 @@ trait SequencerStoreTest
 
         for {
           aliceId <- store.registerMember(alice, ts1)
-          _ <- store.saveEvents(0, NonEmpty(Seq, deliverEventWithDefaults(ts2)()))
+          _ <- store.saveEvents(
+            instanceIndex,
+            NonEmpty(Seq, deliverEventWithDefaults(ts2)(recipients = NonEmpty(SortedSet, aliceId))),
+          )
           bobId <- store.registerMember(bob, ts3)
           _ <- env.savePayloads(NonEmpty(Seq, payload1))
           // store a deliver event at ts4, ts5, and ts6
@@ -674,6 +676,9 @@ trait SequencerStoreTest
               deliverEventWithDefaults(ts(6))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
             ),
           )
+          _ <- env.saveWatermark(ts(6)).valueOrFail("saveWatermark")
+          stateBeforeCheckpoints <- store.readStateAtTimestamp(ts(10))
+
           // save an earlier counter checkpoint that should be removed
           _ <- store
             .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(1), ts(2)))
@@ -693,6 +698,7 @@ trait SequencerStoreTest
           _ <- store.acknowledge(aliceId, ts(6))
           _ <- store.acknowledge(bobId, ts(6))
           statusBefore <- store.status(ts(10))
+          stateBeforePruning <- store.readStateAtTimestamp(ts(10))
           recordCountsBefore <- store.countRecords
           pruningTimestamp = statusBefore.safePruningTimestamp
           _tsAndReport <- {
@@ -702,6 +708,7 @@ trait SequencerStoreTest
               .valueOrFail("prune")
           }
           statusAfter <- store.status(ts(10))
+          stateAfterPruning <- store.readStateAtTimestamp(ts(10))
           recordCountsAfter <- store.countRecords
           lowerBound <- store.fetchLowerBound()
         } yield {
@@ -711,6 +718,16 @@ trait SequencerStoreTest
           removedCounts.payloads shouldBe 1 // for the deliver event
           statusBefore.lowerBound shouldBe <(statusAfter.lowerBound)
           lowerBound.value shouldBe ts(5) // to prevent reads from before this point
+
+          val memberCheckpoints = Map(
+            (alice, CounterCheckpoint(Counter(recordCountsBefore.events - 1L), ts(6), None)),
+            (bob, CounterCheckpoint(Counter(recordCountsBefore.events - 2L), ts(6), None)),
+          )
+          stateBeforeCheckpoints.checkpoints shouldBe memberCheckpoints
+          stateBeforePruning.checkpoints shouldBe memberCheckpoints
+          // after pruning we should still see the same counters since we can rely on checkpoints
+          stateAfterPruning.checkpoints shouldBe memberCheckpoints
+
         }
       }
 
@@ -798,7 +815,7 @@ trait SequencerStoreTest
               .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(3), ts(3)))
               .valueOrFail("saveCounterCheckpoint")
             _ <- store.acknowledge(aliceId, ts(5))
-            status <- store.status(CantonTimestamp.Epoch)
+            status <- store.status(ts(5))
             safeTimestamp = status.safePruningTimestamp
             _ = safeTimestamp shouldBe ts(5) // as alice has acknowledged the event
             adjustedTimestampO <- store.adjustPruningTimestampForCounterCheckpoints(
@@ -826,7 +843,7 @@ trait SequencerStoreTest
               .valueOrFail("saveCounterCheckpoint2")
             // clients have acknowledgements at different points
             _ <- store.acknowledge(aliceId, ts(4))
-            status <- store.status(CantonTimestamp.Epoch)
+            status <- store.status(ts(5))
             safeTimestamp = status.safePruningTimestamp
             _ = safeTimestamp shouldBe ts(4) // due to the earlier client ack
             adjustedTimestampO <- store.adjustPruningTimestampForCounterCheckpoints(
@@ -855,7 +872,7 @@ trait SequencerStoreTest
             _ <- store.acknowledge(aliceId, ts(4))
             _ <- store.acknowledge(bobId, ts(6))
             _ <- store.disableMember(aliceId)
-            status <- store.status(CantonTimestamp.Epoch)
+            status <- store.status(ts(6))
             safeTimestamp = status.safePruningTimestamp
             _ = safeTimestamp shouldBe ts(6) // as alice is ignored
             adjustedTimestampO <- store.adjustPruningTimestampForCounterCheckpoints(
@@ -954,6 +971,117 @@ trait SequencerStoreTest
         } yield succeed
       }
     }
-  }
 
+    "snapshotting" should {
+      "be able to initialize a separate store with a snapshot from the first one" in {
+        def createSnapshots() = {
+          val env = Env()
+          import env.*
+          for {
+            aliceId <- store.registerMember(alice, ts1)
+            _ <- store.saveEvents(
+              instanceIndex,
+              NonEmpty(
+                Seq,
+                deliverEventWithDefaults(ts2)(recipients = NonEmpty(SortedSet, aliceId)),
+              ),
+            )
+            bobId <- store.registerMember(bob, ts3)
+            _ <- savePayloads(NonEmpty(Seq, payload1))
+            _ <- store.saveEvents(
+              instanceIndex,
+              NonEmpty(
+                Seq,
+                Sequenced(
+                  ts(4),
+                  DeliverStoreEvent(
+                    aliceId,
+                    messageId1,
+                    NonEmpty(SortedSet, aliceId, bobId),
+                    payload1.id,
+                    None,
+                    traceContext,
+                  ),
+                ),
+              ),
+            )
+            _ <- saveWatermark(ts(4)).valueOrFail("saveWatermark")
+            state <- store.readStateAtTimestamp(ts(4))
+
+            _ <- store.saveEvents(
+              instanceIndex,
+              NonEmpty(
+                Seq,
+                deliverEventWithDefaults(ts(5))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
+                deliverEventWithDefaults(ts(6))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
+              ),
+            )
+            _ <- saveWatermark(ts(6)).valueOrFail("saveWatermark")
+
+            stateAfterNewEvents <- store.readStateAtTimestamp(ts(6))
+
+          } yield (state, stateAfterNewEvents)
+        }
+
+        def createFromSnapshot(snapshot: EphemeralState) = {
+          val env = Env()
+          import env.*
+          for {
+            _ <- store.initializeSeparateFromState(snapshot)
+
+            stateFromNewStore <- store.readStateAtTimestamp(ts(4))
+
+            newAliceId <- store.lookupMember(alice).map(_.getOrElse(fail()).memberId)
+            newBobId <- store.lookupMember(bob).map(_.getOrElse(fail()).memberId)
+
+            _ <- store.saveEvents(
+              instanceIndex,
+              NonEmpty(
+                Seq,
+                deliverEventWithDefaults(ts(5))(recipients =
+                  NonEmpty(SortedSet, newAliceId, newBobId)
+                ),
+                deliverEventWithDefaults(ts(6))(recipients =
+                  NonEmpty(SortedSet, newAliceId, newBobId)
+                ),
+              ),
+            )
+            _ <- saveWatermark(ts(6)).valueOrFail("saveWatermark")
+
+            stateFromNewStoreAfterNewEvents <- store.readStateAtTimestamp(ts(6))
+          } yield (stateFromNewStore, stateFromNewStoreAfterNewEvents)
+        }
+
+        for {
+          snapshots <- createSnapshots()
+          (state, stateAfterNewEvents) = snapshots
+
+          // resetting the db tables
+          _ = this match {
+            case dbTest: DbTest => dbTest.beforeEach()
+            case _ => ()
+          }
+
+          newSnapshots <- createFromSnapshot(state)
+        } yield {
+          val (stateFromNewStore, stateFromNewStoreAfterNewEvents) = newSnapshots
+
+          val memberCheckpoints = Map(
+            (alice, CounterCheckpoint(Counter(1L), ts(4), None)),
+            (bob, CounterCheckpoint(Counter(0L), ts(4), None)),
+          )
+          state.checkpoints shouldBe memberCheckpoints
+          stateFromNewStore.checkpoints shouldBe memberCheckpoints
+
+          val memberCheckpointsAfterNewEvents = Map(
+            (alice, CounterCheckpoint(Counter(3L), ts(6), None)),
+            (bob, CounterCheckpoint(Counter(2L), ts(6), None)),
+          )
+
+          stateAfterNewEvents.checkpoints shouldBe memberCheckpointsAfterNewEvents
+          stateFromNewStoreAfterNewEvents.checkpoints shouldBe memberCheckpointsAfterNewEvents
+        }
+      }
+    }
+  }
 }

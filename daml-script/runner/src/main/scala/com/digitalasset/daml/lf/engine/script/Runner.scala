@@ -1,22 +1,18 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package engine
 package script
 
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
+import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
+import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
 }
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref
@@ -25,7 +21,6 @@ import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   IdeLedgerClient,
-  JsonLedgerClient,
   ScriptLedgerClient,
 }
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
@@ -51,6 +46,7 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
 import com.daml.script.converter.ConverterException
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -250,6 +246,8 @@ object Runner {
     )
   }
 
+  val namedLoggerFactory: NamedLoggerFactory = NamedLoggerFactory("daml-script", "")
+
   val BLANK_APPLICATION_ID: Option[Ref.ApplicationId] = None
   val DEFAULT_APPLICATION_ID: Option[Ref.ApplicationId] = Some(
     Ref.ApplicationId.assertFromString("daml-script")
@@ -267,7 +265,6 @@ object Runner {
     )
     val clientConfig = LedgerClientConfiguration(
       applicationId = applicationId.getOrElse(""),
-      ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       token = params.access_token,
     )
@@ -276,7 +273,7 @@ object Runner {
       maxInboundMessageSize = maxInboundMessageSize,
     )
     LedgerClient
-      .singleHost(params.host, params.port, clientConfig, clientChannelConfig)
+      .singleHost(params.host, params.port, clientConfig, clientChannelConfig, namedLoggerFactory)
       .map(
         new GrpcLedgerClient(
           _,
@@ -304,40 +301,6 @@ object Runner {
         connectApiParameters(v, tlsConfig, maxInboundMessageSize)
       )
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
-  }
-
-  def jsonClients(
-      participantParams: Participants[ApiParameters],
-      envSig: EnvironmentSignature,
-  )(implicit ec: ExecutionContext, system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
-    def client(params: ApiParameters) = {
-      val uri = Uri(params.host).withPort(params.port)
-      params.access_token match {
-        case None =>
-          Future.failed(new RuntimeException(s"The JSON API always requires access tokens"))
-        case Some(token) =>
-          val client = new JsonLedgerClient(uri, Jwt(token), envSig, system)
-          if (
-            params.application_id.isDefined && params.application_id.map(
-              _.getOrElse("")
-            ) != client.applicationId
-          ) {
-            Future.failed(
-              new RuntimeException(
-                s"ApplicationId specified in token ${client.applicationId} must match ${params.application_id
-                    .map(_.getOrElse(""))}"
-              )
-            )
-          } else {
-            Future.successful(new JsonLedgerClient(uri, Jwt(token), envSig, system))
-          }
-      }
-
-    }
-    for {
-      defClient <- participantParams.default_participant.traverse(client(_))
-      otherClients <- participantParams.participants.traverse(client)
-    } yield Participants(defClient, otherClients, participantParams.party_participants)
   }
 
   def ideLedgerClient(
@@ -508,6 +471,13 @@ object Runner {
     val runner = new Runner(compiledPackages, scriptAction, timeMode, enableContractUpgrading)
     runner.runWithClients(initialClients, traceLog, warningLog, profile, canceled)
   }
+
+  def getPackageName(compiledPackages: CompiledPackages, pkgId: PackageId): Option[String] =
+    compiledPackages.pkgInterface
+      .lookupPackage(pkgId)
+      .toOption
+      .map(_.metadata)
+      .map(meta => meta.name.toString)
 }
 
 private[lf] class Runner(
@@ -528,7 +498,10 @@ private[lf] class Runner(
       // Generalised version of the various unsafe casts we need in daml scripts,
       // casting various types involving LedgerValue to/from their real types.
       case LfDefRef(id)
-          if id == script.scriptIds.damlScriptModule("Daml.Script.Internal", "dangerousCast") =>
+          if id == script.scriptIds.damlScriptModule(
+            "Daml.Script.Internal.LowLevel",
+            "dangerousCast",
+          ) =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
       // Daml script legacy
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
@@ -553,15 +526,8 @@ private[lf] class Runner(
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
-    md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
+    md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.map(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
-
-  def getPackageName(pkgId: PackageId): Option[String] =
-    compiledPackages.pkgInterface
-      .lookupPackage(pkgId)
-      .toOption
-      .flatMap(_.metadata)
-      .map(meta => meta.name.toString)
 
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],
@@ -574,7 +540,7 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[SValue], Option[Runner.IdeLedgerContext]) = {
-    val damlScriptName = getPackageName(script.scriptIds.scriptPackageId)
+    val damlScriptName = Runner.getPackageName(compiledPackages, script.scriptIds.scriptPackageId)
 
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")

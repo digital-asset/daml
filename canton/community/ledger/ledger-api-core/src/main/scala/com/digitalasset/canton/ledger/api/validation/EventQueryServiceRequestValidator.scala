@@ -4,13 +4,8 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.event_query_service.{
-  GetEventsByContractIdRequest,
-  GetEventsByContractKeyRequest,
-}
+import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
 import com.digitalasset.canton.ledger.api.messages.event
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import io.grpc.StatusRuntimeException
 
 object EventQueryServiceRequestValidator {
@@ -39,32 +34,35 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
     }
   }
 
-  def validateEventsByContractKey(
-      req: GetEventsByContractKeyRequest
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[event.GetEventsByContractKeyRequest] = {
-
-    for {
-      apiContractKey <- requirePresence(req.contractKey, "contract_key")
-      contractKey <- ValueValidator.validateValue(apiContractKey)
-      apiTemplateId <- requirePresence(req.templateId, "template_id")
-      templateId <- FieldValidator.validateIdentifier(apiTemplateId)
-      _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
-      requestingParties <- partyValidator.requireKnownParties(req.requestingParties)
-      token <- KeyContinuationToken.fromTokenString(req.continuationToken).left.map { err =>
-        invalidField("continuation_token", err)
-      }
-    } yield {
-
-      event.GetEventsByContractKeyRequest(
-        contractKey = contractKey,
-        templateId = templateId,
-        requestingParties = requestingParties,
-        keyContinuationToken = token,
-      )
-    }
-
-  }
+  // TODO(i16065): Re-enable getEventsByContractKey tests
+//  def validateEventsByContractKey(
+//      req: GetEventsByContractKeyRequest
+//  )(implicit
+//      contextualizedErrorLogger: ContextualizedErrorLogger
+//  ): Result[event.GetEventsByContractKeyRequest] = {
+//
+//    for {
+//      apiContractKey <- requirePresence(req.contractKey, "contract_key")
+//      contractKey <- ValueValidator.validateValue(apiContractKey)
+//      apiTemplateId <- requirePresence(req.templateId, "template_id")
+//      templateId <- validateIdentifier(apiTemplateId)
+//      _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
+//      requestingParties <- partyValidator.requireKnownParties(req.requestingParties)
+//      endExclusiveSeqId <- optionalEventSequentialId(
+//        req.continuationToken,
+//        "continuation_token",
+//        "Invalid token", // Don't mention event sequential id as opaque
+//      )
+//    } yield {
+//
+//      event.GetEventsByContractKeyRequest(
+//        contractKey = contractKey,
+//        templateId = templateId,
+//        requestingParties = requestingParties,
+//        endExclusiveSeqId = endExclusiveSeqId,
+//      )
+//    }
+//
+//  }
 
 }

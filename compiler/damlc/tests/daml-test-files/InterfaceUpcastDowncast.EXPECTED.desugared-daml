@@ -249,8 +249,9 @@ instance DA.Internal.Desugar.HasFromAnyView B EmptyInterfaceView where
 data GHC.Types.DamlTemplate => T1
   = T1 {p1 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p1" T1 Party where
+instance DA.Internal.Record.GetField "p1" T1 Party where
   getField = DA.Internal.Record.getFieldPrim @"p1" @T1 @Party
+instance DA.Internal.Record.SetField "p1" T1 Party where
   setField = DA.Internal.Record.setFieldPrim @"p1" @T1 @Party
 instance DA.Internal.Desugar.HasSignatory T1 where
   signatory this@T1 {..}
@@ -265,11 +266,6 @@ instance DA.Internal.Desugar.HasObserver T1 where
 instance DA.Internal.Desugar.HasEnsure T1 where
   ensure this@T1 {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement T1 where
-  agreement this@T1 {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive T1 where
@@ -370,8 +366,9 @@ instance DA.Internal.Desugar.HasFromInterface T1 B where
 data GHC.Types.DamlTemplate => T2
   = T2 {p2 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p2" T2 Party where
+instance DA.Internal.Record.GetField "p2" T2 Party where
   getField = DA.Internal.Record.getFieldPrim @"p2" @T2 @Party
+instance DA.Internal.Record.SetField "p2" T2 Party where
   setField = DA.Internal.Record.setFieldPrim @"p2" @T2 @Party
 instance DA.Internal.Desugar.HasSignatory T2 where
   signatory this@T2 {..}
@@ -386,11 +383,6 @@ instance DA.Internal.Desugar.HasObserver T2 where
 instance DA.Internal.Desugar.HasEnsure T2 where
   ensure this@T2 {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement T2 where
-  agreement this@T2 {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive T2 where
@@ -468,8 +460,9 @@ useAction p action
 data GHC.Types.DamlTemplate => Test
   = Test {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" Test Party where
+instance DA.Internal.Record.GetField "p" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
+instance DA.Internal.Record.SetField "p" Test Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
 data TemplateInterfaceMatching
   = TemplateInterfaceMatching {}
@@ -496,11 +489,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

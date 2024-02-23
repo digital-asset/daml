@@ -83,7 +83,6 @@ class ParticipantNodeBootstrapX(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
-    skipRecipientsCheck: Boolean,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -102,12 +101,12 @@ class ParticipantNodeBootstrapX(
 
   override protected def sequencedTopologyStores: Seq[TopologyStoreX[DomainStore]] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentStateX => s.topologyStore
+      case s: SyncDomainPersistentState => s.topologyStore
     }
 
   override protected def sequencedTopologyManagers: Seq[DomainTopologyManagerX] =
     cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentStateX => s.topologyManager
+      case s: SyncDomainPersistentState => s.topologyManager
     }
 
   override protected def customNodeStages(
@@ -173,6 +172,7 @@ class ParticipantNodeBootstrapX(
             clock,
             config,
             parameterConfig.processingTimeouts,
+            futureSupervisor,
             loggerFactory,
           )
 
@@ -225,7 +225,7 @@ class ParticipantNodeBootstrapX(
                 None,
                 threshold = PositiveInt.one,
                 participants =
-                  Seq(HostingParticipant(participantId, ParticipantPermissionX.Submission)),
+                  Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
                 groupAddressing = false,
               ),
               serial = None,
@@ -241,7 +241,7 @@ class ParticipantNodeBootstrapX(
 
     }
 
-    override def attempt()(implicit
+    override protected def attempt()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNodeX]]] = {
       val indexedStringStore =
@@ -294,8 +294,6 @@ class ParticipantNodeBootstrapX(
         participantOps,
         packageDependencyResolver,
         componentFactory,
-        skipRecipientsCheck,
-        overrideKeyUniqueness = Some(false),
       ).map {
         case (
               partyNotifier,
@@ -367,9 +365,8 @@ object ParticipantNodeBootstrapX {
   object CommunityParticipantFactory
       extends CommunityParticipantFactoryCommon[ParticipantNodeBootstrapX] {
 
-    override protected def createEngine(arguments: Arguments): Engine = super.createEngine(
-      arguments.copy(parameterConfig = arguments.parameterConfig.copy(uniqueContractKeys = false))
-    )
+    override protected def createEngine(arguments: Arguments): Engine =
+      super.createEngine(arguments)
 
     override protected def createNode(
         arguments: Arguments,
@@ -390,11 +387,8 @@ object ParticipantNodeBootstrapX {
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
         ledgerApiServerFactory = ledgerApiServerFactory,
-        skipRecipientsCheck = true,
       )
     }
-
-    override protected def multiDomainEnabledForLedgerApiServer: Boolean = true
   }
 }
 
@@ -405,7 +399,7 @@ class ParticipantNodeX(
     val nodeParameters: ParticipantNodeParameters,
     storage: Storage,
     override protected val clock: Clock,
-    val cryptoPureApi: CryptoPureApi,
+    override val cryptoPureApi: CryptoPureApi,
     identityPusher: ParticipantTopologyDispatcherCommon,
     private[canton] val ips: IdentityProvidingServiceClient,
     override private[canton] val sync: CantonSyncService,

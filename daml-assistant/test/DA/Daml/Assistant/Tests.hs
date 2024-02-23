@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Assistant.Tests
@@ -406,7 +406,6 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
                     , iSnapshots = False
                     , iAssistant = InstallAssistant Yes
-                    , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath No
@@ -444,7 +443,6 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                           { iTargetM = Just (RawInstallTarget "source.tar.gz")
                           , iSnapshots = False
                           , iAssistant = InstallAssistant Yes
-                          , iActivate = ActivateInstall False
                           , iQuiet = QuietInstall True
                           , iForce = ForceInstall False
                           , iSetPath = SetPath No
@@ -477,7 +475,6 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
                     , iSnapshots = False
                     , iAssistant = InstallAssistant No
-                    , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath No
@@ -510,7 +507,6 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
                     , iSnapshots = False
                     , iAssistant = InstallAssistant No
-                    , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath No
@@ -543,7 +539,6 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
                     , iSnapshots = False
                     , iAssistant = InstallAssistant Yes
-                    , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath No

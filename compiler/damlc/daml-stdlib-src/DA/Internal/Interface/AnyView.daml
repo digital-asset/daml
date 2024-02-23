@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -31,11 +31,14 @@ deriving instance Ord InterfaceTypeRep
 fromTemplateTypeRep : TemplateTypeRep -> InterfaceTypeRep
 fromTemplateTypeRep (TemplateTypeRep rep) = InterfaceTypeRep rep
 
-instance HasField "getAnyView" AnyView Any where
-  setField any anyView = anyView { getAnyView = any }
+instance GetField "getAnyView" AnyView Any where
   getField = getAnyView
 
-instance HasField "getAnyViewInterfaceTypeRep" AnyView InterfaceTypeRep where
-  setField any anyView = anyView { getAnyViewInterfaceTypeRep = any }
+instance SetField "getAnyView" AnyView Any where
+  setField any anyView = anyView { getAnyView = any }
+
+instance GetField "getAnyViewInterfaceTypeRep" AnyView InterfaceTypeRep where
   getField = getAnyViewInterfaceTypeRep
 
+instance SetField "getAnyViewInterfaceTypeRep" AnyView InterfaceTypeRep where
+  setField any anyView = anyView { getAnyViewInterfaceTypeRep = any }

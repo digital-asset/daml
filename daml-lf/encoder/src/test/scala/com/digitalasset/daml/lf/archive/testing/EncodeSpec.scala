@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -18,9 +18,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-// TODO (#17366): Once the LF2 syntax diverges from LF1, code sharing between these two tests is no
-//  longer possible.
-class EncodeV1Spec extends EncodeSpec(LanguageVersion.v1_dev)
 class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
 
 class EncodeSpec(languageVersion: LanguageVersion)
@@ -75,7 +72,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
               precondition True;
               signatories Cons @Party [Mod:Person {person} this] (Nil @Party);
               observers Cons @Party [Mod:Person {person} this] (Nil @Party);
-              agreement "Agreement";
               choice Sleep (self) (u: Unit) : Unit,
                   controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
                   observers Nil @Party
@@ -106,7 +102,7 @@ class EncodeSpec(languageVersion: LanguageVersion)
            val myFalse: Bool = False;
            val myTrue: Bool = True;
            val aInt: Int64 = 14;
-           val aDecimal: Numeric 10 = 2.2000000000;
+           val aNumeric10: Numeric 10 = 2.2000000000;
            val aDate: Date = 1879-03-14;
            val aTimestamp: Timestamp = 1970-01-01T00:00:00.000001Z;
            val aString: Text = "a string";
@@ -230,9 +226,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
 
            interface (this: Root) = {
              viewtype Mod:MyUnit;
-             coimplements Mod0:Parcel {
-               view = Mod:MyUnit {};
-             };
            };
 
            interface (this: Boxy) = {
@@ -243,10 +236,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
                , controllers Cons @Party [call_method @Mod:Boxy getParty this] (Nil @Party)
                , observers Nil @Party
                to upure @Int64 i;
-             coimplements Mod0:Parcel {
-               view = Mod:MyUnit {};
-               method getParty = Mod0:Parcel {party} this;
-             };
            };
          }
 
@@ -257,7 +246,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
              precondition True;
              signatories Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
              observers Cons @Party [Mod0:Parcel {party} this] (Nil @Party);
-             agreement "";
            };
          }
       """

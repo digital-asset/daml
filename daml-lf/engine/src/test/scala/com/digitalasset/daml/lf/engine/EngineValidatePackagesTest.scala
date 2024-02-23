@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -12,7 +12,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class EngineValidatePackagesTestV1 extends EngineValidatePackagesTest(LanguageMajorVersion.V1)
 class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
 
 class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
@@ -22,11 +21,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
-  // TODO(#17366): use something like LanguageVersion.default(major) once available
-  val langVersion = majorLanguageVersion match {
-    case LanguageMajorVersion.V1 => LanguageVersion.default
-    case LanguageMajorVersion.V2 => LanguageVersion.v2_1
-  }
+  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(pkgId, langVersion)
@@ -39,6 +34,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     val pkg =
       p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = "t";
         }
@@ -54,6 +50,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
       val illTypedPackage =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = 1;
         }
@@ -66,27 +63,13 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     }
 
-    "reject packages with disallowed language version" in {
-
-      val engine = new Engine(EngineConfig(LanguageVersion.LegacyVersions))
-
-      assert(!LanguageVersion.LegacyVersions.contains(langVersion))
-
-      inside(engine.validatePackages(Map(pkgId -> pkg))) {
-        case Left(err: Error.Package.AllowedLanguageVersion) =>
-          err.packageId shouldBe pkgId
-          err.languageVersion shouldBe langVersion
-          err.allowedLanguageVersions shouldBe LanguageVersion.LegacyVersions
-      }
-
-    }
-
     "reject non self-consistent sets of packages" in {
 
       val libraryId = Ref.PackageId.assertFromString("-library-")
 
       val dependentPackage =
         p"""
+        metadata ( 'pkg' : '1.0.0' )
         module Mod {
           val string: Text = '-library-':Mod:Text;
         }

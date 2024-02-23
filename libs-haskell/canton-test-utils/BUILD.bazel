@@ -1,0 +1,36 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "canton-test-utils",
+    srcs = glob(["DA/Test/**/*.hs"]),
+    data = [
+        "//canton:community_app_deploy.jar",
+    ],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "process",
+        "tasty",
+        "text",
+        "vector",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+        "@rules_haskell//tools/runfiles",
+    ],
+)

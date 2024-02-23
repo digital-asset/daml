@@ -4,20 +4,16 @@
 package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.CanSubmitTransfer
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  InvalidTransferCommonData,
-  TransferProcessorError,
-}
+import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.TimeProof
+import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, TimeProof}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, TransferCounterO}
@@ -41,7 +37,7 @@ final case class TransferOutRequest(
     contract: SerializableContract,
     sourceDomain: SourceDomainId,
     sourceProtocolVersion: SourceProtocolVersion,
-    sourceMediator: MediatorRef,
+    sourceMediator: MediatorsOfDomain,
     targetDomain: TargetDomainId,
     targetProtocolVersion: TargetProtocolVersion,
     targetTimeProof: TimeProof,
@@ -53,35 +49,35 @@ final case class TransferOutRequest(
       hmacOps: HmacOps,
       seed: SaltSeed,
       uuid: UUID,
-  ): Either[TransferProcessorError, FullTransferOutTree] = {
+  ): FullTransferOutTree = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, hmacOps)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, hmacOps)
-    for {
-      commonData <- TransferOutCommonData
-        .create(hashOps)(
-          commonDataSalt,
-          sourceDomain,
-          sourceMediator,
-          stakeholders,
-          adminParties,
-          uuid,
-          sourceProtocolVersion,
-        )
-        .leftMap(reason => InvalidTransferCommonData(reason))
-      view = TransferOutView
-        .create(hashOps)(
-          viewSalt,
-          submitterMetadata,
-          creatingTransactionId,
-          contract,
-          targetDomain,
-          targetTimeProof,
-          sourceProtocolVersion,
-          targetProtocolVersion,
-          transferCounter,
-        )
-      tree = TransferOutViewTree(commonData, view, sourceProtocolVersion.v, hashOps)
-    } yield FullTransferOutTree(tree)
+
+    val commonData = TransferOutCommonData
+      .create(hashOps)(
+        commonDataSalt,
+        sourceDomain,
+        sourceMediator,
+        stakeholders,
+        adminParties,
+        uuid,
+        submitterMetadata,
+        sourceProtocolVersion,
+      )
+
+    val view = TransferOutView
+      .create(hashOps)(
+        viewSalt,
+        creatingTransactionId,
+        contract,
+        targetDomain,
+        targetTimeProof,
+        sourceProtocolVersion,
+        targetProtocolVersion,
+        transferCounter,
+      )
+
+    FullTransferOutTree(TransferOutViewTree(commonData, view, sourceProtocolVersion.v, hashOps))
   }
 }
 
@@ -96,7 +92,7 @@ object TransferOutRequest {
       stakeholders: Set[LfPartyId],
       sourceDomain: SourceDomainId,
       sourceProtocolVersion: SourceProtocolVersion,
-      sourceMediator: MediatorRef,
+      sourceMediator: MediatorsOfDomain,
       targetDomain: TargetDomainId,
       targetProtocolVersion: TargetProtocolVersion,
       sourceTopology: TopologySnapshot,

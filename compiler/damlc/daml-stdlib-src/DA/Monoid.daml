@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Monoid
@@ -66,14 +66,20 @@ instance Multiplicative a => Semigroup (Product a) where
 instance Multiplicative a => Monoid (Product a) where
   mempty = munit
 
-instance DA.Internal.Record.HasField "getAll" All Bool where
+instance DA.Internal.Record.GetField "getAll" All Bool where
   getField (All x) = x
+
+instance DA.Internal.Record.SetField "getAll" All Bool where
   setField x _ = All x
 
-instance DA.Internal.Record.HasField "getAny" Any Bool where
+instance DA.Internal.Record.GetField "getAny" Any Bool where
   getField (Any x) = x
+
+instance DA.Internal.Record.SetField "getAny" Any Bool where
   setField x _ = Any x
 
-instance DA.Internal.Record.HasField "appEndo" (Endo a) (a -> a) where
+instance DA.Internal.Record.GetField "appEndo" (Endo a) (a -> a) where
   getField (Endo f) = f
+
+instance DA.Internal.Record.SetField "appEndo" (Endo a) (a -> a) where
   setField f _ = Endo f

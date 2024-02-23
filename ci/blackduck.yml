@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: bee7a8c6c04af059fa446efcd697cc097eded1cf
+    blackduck_script_sha: 745a1566cee2367270a8c27c05859b34c3ba447a
   steps:
   - checkout: self
     persistCredentials: true
@@ -180,7 +180,7 @@ jobs:
       latest=$(git ls-remote https://github.com/DACH-NY/security-blackduck.git master | awk '{print $1}')
       current=$(cat ci/blackduck.yml | grep blackduck_script_sha: | head -1 | cut -f2 -d: | cut -c2- )
 
-      branch="bump-blackduck-script-${latest:0:8}"
+      branch="bump-blackduck-script-${latest:0:8}-$(Build.SourceBranchName)"
 
       if git ls-remote --exit-code --heads https://github.com/digital-asset/daml.git refs/heads/$branch >/dev/null; then
         echo "$branch already exists, nothing to do."

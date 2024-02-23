@@ -19,10 +19,8 @@ object GeneratorsTopology {
   implicit val authenticatedMemberArb: Arbitrary[AuthenticatedMember] = genArbitrary
   implicit val uniqueIdentifierArb: Arbitrary[UniqueIdentifier] = genArbitrary
   implicit val identityArb: Arbitrary[Identity] = genArbitrary
-  implicit val keyOwnerArb: Arbitrary[KeyOwner] = genArbitrary
   implicit val domainIdArb: Arbitrary[DomainId] = genArbitrary
   implicit val mediatorIdArb: Arbitrary[MediatorId] = genArbitrary
   implicit val memberArb: Arbitrary[Member] = genArbitrary
-  implicit val mediatorRefArb: Arbitrary[MediatorRef] = genArbitrary
   implicit val partyIdArb: Arbitrary[PartyId] = genArbitrary
 }

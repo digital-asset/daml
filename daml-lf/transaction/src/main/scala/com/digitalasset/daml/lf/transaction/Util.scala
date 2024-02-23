@@ -1,12 +1,8 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package transaction
-
-import com.daml.lf.language.LanguageVersion
-
-import scala.math.Ordered.orderingToOrdered
 
 object Util {
 
@@ -80,9 +76,7 @@ object Util {
       version: TransactionVersion,
   ): Either[String, GlobalKeyWithMaintainers] =
     normalizeValue(key.globalKey.key, version).map(normalized =>
-      key.copy(globalKey =
-        GlobalKey.assertBuild(key.globalKey.templateId, normalized, Util.sharedKey(version))
-      )
+      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalized))
     )
 
   def normalizeOptKey(
@@ -93,13 +87,4 @@ object Util {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)
     }
-
-  def sharedKey(version: TransactionVersion): Boolean = {
-    version >= TransactionVersion.minSharedKeys
-  }
-
-  def sharedKey(version: LanguageVersion): Boolean = {
-    version >= LanguageVersion.Features.sharedKeys
-  }
-
 }

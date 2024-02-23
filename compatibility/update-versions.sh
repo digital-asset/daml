@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
-eval "$(../dev-env/bin/dade-assist)"
 
 # Note: not using Bazel run so we actually have access to local files to run
 # `git tag`

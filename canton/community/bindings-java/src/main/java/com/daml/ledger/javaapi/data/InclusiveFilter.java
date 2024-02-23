@@ -17,56 +17,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class InclusiveFilter extends Filter {
 
-  private Set<Identifier> templateIds;
   private Map<@NonNull Identifier, Filter.@NonNull Interface> interfaceFilters;
   private Map<@NonNull Identifier, Filter.@NonNull Template> templateFilters;
 
-  private InclusiveFilter(
-      @NonNull Set<@NonNull Identifier> templateIds,
+  public InclusiveFilter(
       @NonNull Map<@NonNull Identifier, Filter.@NonNull Interface> interfaceFilters,
       @NonNull Map<@NonNull Identifier, Filter.@NonNull Template> templateFilters) {
-    this.templateIds = templateIds;
     this.interfaceFilters = interfaceFilters;
     this.templateFilters = templateFilters;
-  }
-
-  public InclusiveFilter(
-      @NonNull Map<@NonNull Identifier, Filter.@NonNull Interface> interfaceFilters,
-      @NonNull Map<@NonNull Identifier, Filter.@NonNull Template> templateFilters) {
-    this(Collections.emptySet(), interfaceFilters, templateFilters);
-  }
-
-  /**
-   * @deprecated Use {@link #ofTemplateIds} instead; {@code templateIds} must not include interface
-   *     IDs. Since Daml 2.4.0
-   */
-  @Deprecated
-  public InclusiveFilter(@NonNull Set<@NonNull Identifier> templateIds) {
-    this(templateIds, Collections.emptyMap());
-  }
-
-  /**
-   * @deprecated Use the constructor with {@link #templateFilters} instead of IDs. Since Daml 2.8.0
-   */
-  @Deprecated
-  public InclusiveFilter(
-      @NonNull Set<@NonNull Identifier> templateIds,
-      @NonNull Map<@NonNull Identifier, Filter.@NonNull Interface> interfaceIds) {
-    this(templateIds, interfaceIds, Collections.emptyMap());
-  }
-
-  public static InclusiveFilter ofTemplateIds(@NonNull Set<@NonNull Identifier> templateIds) {
-    return new InclusiveFilter(
-        Collections.emptyMap(),
-        templateIds.stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(), tId -> Template.HIDE_CREATED_EVENT_BLOB)));
-  }
-
-  @NonNull
-  public Set<@NonNull Identifier> getTemplateIds() {
-    return templateIds;
   }
 
   @NonNull
@@ -82,13 +40,8 @@ public final class InclusiveFilter extends Filter {
   @SuppressWarnings("deprecation")
   @Override
   public TransactionFilterOuterClass.Filters toProto() {
-    ArrayList<ValueOuterClass.Identifier> templateIds = new ArrayList<>(this.templateIds.size());
-    for (Identifier identifier : this.templateIds) {
-      templateIds.add(identifier.toProto());
-    }
     TransactionFilterOuterClass.InclusiveFilters inclusiveFilter =
         TransactionFilterOuterClass.InclusiveFilters.newBuilder()
-            .addAllTemplateIds(templateIds)
             .addAllInterfaceFilters(
                 interfaceFilters.entrySet().stream()
                     .map(idFilt -> idFilt.getValue().toProto(idFilt.getKey()))
@@ -106,10 +59,6 @@ public final class InclusiveFilter extends Filter {
   @SuppressWarnings("deprecation")
   public static InclusiveFilter fromProto(
       TransactionFilterOuterClass.InclusiveFilters inclusiveFilters) {
-    HashSet<Identifier> templateIds = new HashSet<>(inclusiveFilters.getTemplateIdsCount());
-    for (ValueOuterClass.Identifier templateId : inclusiveFilters.getTemplateIdsList()) {
-      templateIds.add(Identifier.fromProto(templateId));
-    }
     var interfaceIds =
         inclusiveFilters.getInterfaceFiltersList().stream()
             .collect(
@@ -124,15 +73,13 @@ public final class InclusiveFilter extends Filter {
                     templateFilter -> Identifier.fromProto(templateFilter.getTemplateId()),
                     Filter.Template::fromProto,
                     Filter.Template::merge));
-    return new InclusiveFilter(templateIds, interfaceIds, templateFilters);
+    return new InclusiveFilter(interfaceIds, templateFilters);
   }
 
   @Override
   public String toString() {
     return "InclusiveFilter{"
-        + "templateIds="
-        + templateIds
-        + ", interfaceFilters="
+        + "interfaceFilters="
         + interfaceFilters
         + ", templateFilters="
         + templateFilters
@@ -144,13 +91,12 @@ public final class InclusiveFilter extends Filter {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     InclusiveFilter that = (InclusiveFilter) o;
-    return Objects.equals(templateIds, that.templateIds)
-        && Objects.equals(interfaceFilters, that.interfaceFilters)
+    return Objects.equals(interfaceFilters, that.interfaceFilters)
         && Objects.equals(templateFilters, that.templateFilters);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(templateIds, interfaceFilters, templateFilters);
+    return Objects.hash(interfaceFilters, templateFilters);
   }
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -50,7 +50,7 @@ envUseCache Env {..} =
 
 mkUseCache :: CachePath -> DamlPath -> UseCache
 mkUseCache cachePath damlPath =
-  UseCache { cachePath, damlPath, overrideTimeout = Nothing }
+  UseCache { cachePath, damlPathUnsafe = damlPath, overrideTimeout = Nothing }
 
 -- | (internal) Override function with environment variable
 -- if it is available.
@@ -108,7 +108,7 @@ getFreshStableSdkVersionForCheck useCache = do
       parsed <- requiredE
         ("Invalid value for environment variable " <> pack sdkVersionLatestEnvVar <> ".")
         (parseVersion (pack value))
-      pure (Just <$> resolveReleaseVersion useCache parsed)
+      pure (Just <$> resolveReleaseVersionUnsafe useCache parsed)
 
 -- | Determine the viability of running sdk commands in the environment.
 -- Returns the first failing test's error message.
@@ -152,7 +152,7 @@ getDamlAssistantPathDefault (DamlPath damlPath) =
 getDamlAssistantSdkVersion :: UseCache -> IO (Maybe DamlAssistantSdkVersion)
 getDamlAssistantSdkVersion useCache =
     overrideWithEnvVarMaybeIO damlAssistantVersionEnvVar pure
-        (fmap (fmap DamlAssistantSdkVersion) . traverse (resolveReleaseVersion useCache) . parseVersion . pack)
+        (fmap (fmap DamlAssistantSdkVersion) . traverse (resolveReleaseVersionUnsafe useCache) . parseVersion . pack)
         (fmap DamlAssistantSdkVersion <$> tryAssistantM (getAssistantSdkVersion useCache))
 
 -- | Determine absolute path of daml home directory.
@@ -223,14 +223,23 @@ getSdk :: UseCache
        -> IO (Maybe ReleaseVersion, Maybe SdkPath)
 getSdk useCache damlPath projectPathM =
     wrapErr "Determining SDK version and path." $ do
-
-        releaseVersion <- overrideWithEnvVarMaybeIO sdkVersionEnvVar pure (traverse (resolveReleaseVersion useCache) . parseVersion . pack) $ firstJustM id
-            [ maybeM (pure Nothing)
-                (tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
-                (getEnv sdkPathEnvVar)
-            , mapM (getSdkVersionFromProjectPath useCache) projectPathM
-            , tryAssistantM $ getDefaultSdkVersion damlPath
-            ]
+        releaseVersion <-
+            let parseAndResolve =
+                  traverse (resolveReleaseVersionUnsafe useCache) .
+                    parseVersion .
+                      pack
+            in
+            overrideWithEnvVarMaybeIO
+                sdkVersionEnvVar
+                pure
+                parseAndResolve $
+                firstJustM id
+                    [ maybeM (pure Nothing)
+                        (tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
+                        (getEnv sdkPathEnvVar)
+                    , mapM (getSdkVersionFromProjectPath useCache) projectPathM
+                    , tryAssistantM $ getDefaultSdkVersion damlPath
+                    ]
 
         sdkPath <- overrideWithEnvVarMaybe @SomeException sdkPathEnvVar makeAbsolute (Right . SdkPath) $
             useInstalledPath damlPath releaseVersion

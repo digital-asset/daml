@@ -8,7 +8,7 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.timer.Delayed
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
+import com.digitalasset.canton.ledger.api.domain.{ConfigurationEntry, ParticipantOffset}
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -303,37 +303,37 @@ final class LedgerConfigurationSubscriptionFromIndexSpec
 }
 
 object LedgerConfigurationSubscriptionFromIndexSpec {
-  private def offset(value: String): LedgerOffset.Absolute =
-    LedgerOffset.Absolute(Ref.LedgerString.assertFromString(value))
+  private def offset(value: String): ParticipantOffset.Absolute =
+    ParticipantOffset.Absolute(Ref.LedgerString.assertFromString(value))
 
   object EmptyIndexConfigManagementService extends IndexConfigManagementService {
     override def lookupConfiguration()(implicit
         loggingContext: LoggingContextWithTrace
-    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+    ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
       Future.successful(None)
 
     override def configurationEntries(
-        startExclusive: Option[LedgerOffset.Absolute]
+        startExclusive: Option[ParticipantOffset.Absolute]
     )(implicit
         loggingContext: LoggingContextWithTrace
-    ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
+    ): Source[(ParticipantOffset.Absolute, ConfigurationEntry), NotUsed] =
       Source.never
   }
 
   final class FakeIndexConfigManagementService(
-      currentConfiguration: Option[(LedgerOffset.Absolute, Configuration)],
-      streamingConfigurations: List[(LedgerOffset.Absolute, ConfigurationEntry)],
+      currentConfiguration: Option[(ParticipantOffset.Absolute, Configuration)],
+      streamingConfigurations: List[(ParticipantOffset.Absolute, ConfigurationEntry)],
   ) extends IndexConfigManagementService {
     override def lookupConfiguration()(implicit
         loggingContext: LoggingContextWithTrace
-    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+    ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
       Future.successful(currentConfiguration)
 
     override def configurationEntries(
-        startExclusive: Option[LedgerOffset.Absolute]
+        startExclusive: Option[ParticipantOffset.Absolute]
     )(implicit
         loggingContext: LoggingContextWithTrace
-    ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] = {
+    ): Source[(ParticipantOffset.Absolute, ConfigurationEntry), NotUsed] = {
       val futureConfigurations = startExclusive match {
         case None => streamingConfigurations
         case Some(offset) => streamingConfigurations.dropWhile(offset.value > _._1.value)
@@ -346,14 +346,14 @@ object LedgerConfigurationSubscriptionFromIndexSpec {
       extends IndexConfigManagementService {
     override def lookupConfiguration()(implicit
         loggingContext: LoggingContextWithTrace
-    ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+    ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
       Future.failed(lookupFailure)
 
     override def configurationEntries(
-        startExclusive: Option[LedgerOffset.Absolute]
+        startExclusive: Option[ParticipantOffset.Absolute]
     )(implicit
         loggingContext: LoggingContextWithTrace
-    ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
+    ): Source[(ParticipantOffset.Absolute, ConfigurationEntry), NotUsed] =
       Source.never
   }
 }

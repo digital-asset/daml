@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -7,17 +7,16 @@ package value
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.daml.lf.transaction.{Versioned, TransactionVersion}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
-import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf
 import com.google.protobuf.{ByteString, CodedInputStream}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Try, Success, Failure}
 
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances
@@ -45,57 +44,36 @@ object ValueCoder {
       EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
-  abstract class EncodeCid private[lf] {
-    private[lf] def encode(contractId: ContractId): proto.ContractId
+  private[lf] def ensureNoUnknownFields(
+      msg: com.google.protobuf.Message
+  ): Either[DecodeError, Unit] = {
+    val unknownFields = msg.getUnknownFields.asMap()
+    Either.cond(
+      unknownFields.isEmpty,
+      (),
+      DecodeError(
+        s"unexpected field(s) ${unknownFields.keySet().asScala.mkString(", ")}  in ${msg.getClass.getSimpleName} message"
+      ),
+    )
   }
 
-  object CidEncoder extends EncodeCid {
-    private[lf] def encode(cid: ContractId): proto.ContractId =
-      proto.ContractId.newBuilder.setContractId(cid.coid).build
+  private[lf] def decodeCoid(bytes: ByteString): Either[DecodeError, ContractId] = {
+    val cid = Bytes.fromByteString(bytes)
+    Value.ContractId
+      .fromBytes(cid)
+      .left
+      .map(_ => //
+        DecodeError(s"""cannot parse contractId "${cid.toHexString}"""")
+      )
   }
 
-  abstract class DecodeCid private[lf] {
-    def decodeOptional(
-        structForm: proto.ContractId
-    ): Either[DecodeError, Option[Value.ContractId]]
-
-    final def decode(
-        structForm: proto.ContractId
-    ): Either[DecodeError, Value.ContractId] =
-      decodeOptional(structForm).flatMap {
-        case Some(cid) => Right(cid)
-        case None => Left(DecodeError("Missing required field contract_id"))
-      }
-  }
-
-  val CidDecoder: DecodeCid = new DecodeCid {
-
-    private def stringToCidString(s: String): Either[DecodeError, Value.ContractId] =
-      Value.ContractId
-        .fromString(s)
-        .left
-        .map(_ => //
-          DecodeError(s"""cannot parse contractId "$s"""")
-        )
-
-    override def decodeOptional(
-        structForm: proto.ContractId
-    ): Either[DecodeError, Option[ContractId]] =
-      if (structForm.getContractId.isEmpty)
-        Right(None)
-      else
-        stringToCidString(structForm.getContractId).map(Some(_))
-  }
-
-  val NoCidDecoder: DecodeCid = new DecodeCid {
-    override def decodeOptional(structForm: ValueOuterClass.ContractId) = Right(None)
-  }
-
-  // To be use only when certain the value does not contain Contract Ids
-  val UnsafeNoCidEncoder: EncodeCid = new EncodeCid {
-    override private[lf] def encode(contractId: ContractId) =
-      InternalError.runtimeException(NameOf.qualifiedNameOfCurrentFunc, "unexpected contract ID")
-  }
+  private[lf] def decodeOptionalCoid(
+      cid: ByteString
+  ): Either[DecodeError, Option[ContractId]] =
+    if (cid.isEmpty)
+      Right(None)
+    else
+      decodeCoid(cid).map(Some(_))
 
   /** Simple encoding to wire of identifiers
     * @param id identifier value
@@ -116,6 +94,7 @@ object ValueCoder {
     */
   def decodeIdentifier(id: proto.Identifier): Either[DecodeError, Identifier] =
     for {
+      _ <- ensureNoUnknownFields(id)
       pkgId <- PackageId
         .fromString(id.getPackageId)
         .left
@@ -146,17 +125,14 @@ object ValueCoder {
     * converts the value to the type usable by engine/interpreter.
     *
     * @param protoValue0 the value to be read
-    * @param decodeCid a function to decode stringified contract ids
     * @tparam Cid ContractId type
     * @return either error or [VersionedValue]
     */
-  def decodeVersionedValue(
-      decodeCid: DecodeCid,
-      protoValue0: proto.VersionedValue,
-  ): Either[DecodeError, VersionedValue] =
+  def decodeVersionedValue(protoValue0: proto.VersionedValue): Either[DecodeError, VersionedValue] =
     for {
+      _ <- ensureNoUnknownFields(protoValue0)
       version <- decodeValueVersion(protoValue0.getVersion)
-      value <- decodeValue(decodeCid, version, protoValue0.getValue)
+      value <- decodeValue(version, protoValue0.getValue)
     } yield Versioned(version, value)
 
   // We need (3 * MAXIMUM_NESTING + 1) as record and maps use:
@@ -165,11 +141,8 @@ object ValueCoder {
   // Note the number of recursions is one less than the number of nested messages.
   private[this] val MAXIMUM_PROTO_RECURSION_LIMIT = 3 * MAXIMUM_NESTING + 1
 
-  def decodeValue(
-      decodeCid: DecodeCid,
-      protoValue0: proto.VersionedValue,
-  ): Either[DecodeError, Value] =
-    decodeVersionedValue(decodeCid, protoValue0) map (_.unversioned)
+  def decodeValue(protoValue0: proto.VersionedValue): Either[DecodeError, Value] =
+    decodeVersionedValue(protoValue0) map (_.unversioned)
 
   private[this] def parseValue(bytes: ByteString): Either[DecodeError, proto.Value] =
     Try {
@@ -185,23 +158,18 @@ object ValueCoder {
         Right(value)
     }
 
-  def decodeValue(
-      decodeCid: DecodeCid,
-      version: TransactionVersion,
-      bytes: ByteString,
-  ): Either[DecodeError, Value] =
-    parseValue(bytes).flatMap(decodeValue(decodeCid, version, _))
-
   /** Method to read a serialized protobuf value
     * to engine/interpreter usable Value type
     *
     * @param protoValue0 the value to be read
-    * @param decodeCid a function to decode stringified contract ids
     * @tparam Cid ContractId type
     * @return either error or Value
     */
+
+  def decodeValue(version: TransactionVersion, bytes: ByteString): Either[DecodeError, Value] =
+    parseValue(bytes).flatMap(decodeValue(version, _))
+
   private[this] def decodeValue(
-      decodeCid: DecodeCid,
       version: TransactionVersion,
       protoValue0: proto.Value,
   ): Either[DecodeError, Value] = {
@@ -225,6 +193,9 @@ object ValueCoder {
       if (version >= minVersion)
         throw Err(s"$description is not supported by transaction version $version")
 
+    def assertNoUnknownFields(msg: com.google.protobuf.Message) =
+      ensureNoUnknownFields(msg).left.foreach(e => throw Err(e.errorMessage))
+
     def go(nesting: Int, protoValue: proto.Value): Value = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
@@ -233,79 +204,68 @@ object ValueCoder {
       } else {
         val newNesting = nesting + 1
 
+        assertNoUnknownFields(protoValue)
+
         protoValue.getSumCase match {
-          case proto.Value.SumCase.BOOL =>
-            ValueBool(protoValue.getBool)
           case proto.Value.SumCase.UNIT =>
             ValueUnit
-          case proto.Value.SumCase.NUMERIC =>
-            Numeric
-              .fromString(protoValue.getNumeric)
-              .fold(e => throw Err("error decoding decimal: " + e), ValueNumeric)
+          case proto.Value.SumCase.BOOL =>
+            ValueBool(protoValue.getBool)
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
-          case proto.Value.SumCase.TEXT =>
-            ValueText(protoValue.getText)
           case proto.Value.SumCase.DATE =>
             val d = Time.Date.fromDaysSinceEpoch(protoValue.getDate)
             d.fold(e => throw Err("error decoding date: " + e), ValueDate)
           case proto.Value.SumCase.TIMESTAMP =>
             val t = Time.Timestamp.fromLong(protoValue.getTimestamp)
             t.fold(e => throw Err("error decoding timestamp: " + e), ValueTimestamp)
+          case proto.Value.SumCase.NUMERIC =>
+            Numeric
+              .fromString(protoValue.getNumeric)
+              .fold(e => throw Err("error decoding numeric: " + e), ValueNumeric)
           case proto.Value.SumCase.PARTY =>
             val party = Party.fromString(protoValue.getParty)
             party.fold(e => throw Err("error decoding party: " + e), ValueParty)
-          case proto.Value.SumCase.CONTRACT_ID_STRUCT =>
-            val cid = decodeCid.decode(protoValue.getContractIdStruct)
+          case proto.Value.SumCase.TEXT =>
+            ValueText(protoValue.getText)
+          case proto.Value.SumCase.CONTRACT_ID =>
+            val cid = decodeCoid(protoValue.getContractId)
             cid.fold(
               e => throw Err("error decoding contractId: " + e.errorMessage),
               ValueContractId(_),
             )
-          case proto.Value.SumCase.LIST =>
-            ValueList(
-              protoValue.getList.getElementsList.asScala.map(go(newNesting, _)).to(FrontStack)
-            )
-
-          case proto.Value.SumCase.VARIANT =>
-            val variant = protoValue.getVariant
-            if (variant.getVariantId != ValueOuterClass.Identifier.getDefaultInstance)
-              throw Err("variant_id field in message Variant")
-
-            ValueVariant(None, identifier(variant.getConstructor), go(newNesting, variant.getValue))
-
-          case proto.Value.SumCase.ENUM =>
-            val enumeration = protoValue.getEnum
-            if (enumeration.getEnumId != ValueOuterClass.Identifier.getDefaultInstance)
-              throw Err("enum_id field in message Enum")
-
-            ValueEnum(None, identifier(enumeration.getValue))
-
-          case proto.Value.SumCase.RECORD =>
-            val record = protoValue.getRecord
-            if (record.getRecordId != ValueOuterClass.Identifier.getDefaultInstance)
-              throw Err("record_id field in message Record")
-            ValueRecord(
-              None,
-              protoValue.getRecord.getFieldsList.asScala.view
-                .map { fld =>
-                  if (!fld.getLabel.isEmpty)
-                    throw Err("label field in message RecordField")
-                  (None, go(newNesting, fld.getValue))
-                }
-                .to(ImmArray),
-            )
-
           case proto.Value.SumCase.OPTIONAL =>
             val option = protoValue.getOptional
+            assertNoUnknownFields(option)
             val mbV =
               if (option.getValue == ValueOuterClass.Value.getDefaultInstance) None
               else Some(go(newNesting, option.getValue))
             ValueOptional(mbV)
-
+          case proto.Value.SumCase.LIST =>
+            val list = protoValue.getList
+            assertNoUnknownFields(list)
+            ValueList(
+              list.getElementsList.asScala.map(go(newNesting, _)).to(FrontStack)
+            )
           case proto.Value.SumCase.MAP =>
+            val genMap = protoValue.getMap
+            assertNoUnknownFields(genMap)
+            val entries = genMap.getEntriesList.asScala.view
+              .map { entry =>
+                assertNoUnknownFields(entry)
+                go(newNesting, entry.getKey) -> go(newNesting, entry.getValue)
+              }
+              .to(ImmArray)
+            ValueGenMap(entries)
+          case proto.Value.SumCase.TEXT_MAP =>
+            val textMap = protoValue.getTextMap
+            assertNoUnknownFields(textMap)
             val entries =
-              protoValue.getMap.getEntriesList.asScala.view
-                .map(entry => entry.getKey -> go(newNesting, entry.getValue))
+              textMap.getEntriesList.asScala.view
+                .map { entry =>
+                  assertNoUnknownFields(entry)
+                  entry.getKey -> go(newNesting, entry.getValue)
+                }
                 .to(ImmArray)
             val map = SortedLookupList
               .fromImmArray(entries)
@@ -314,13 +274,26 @@ object ValueCoder {
                 identity,
               )
             ValueTextMap(map)
-
-          case proto.Value.SumCase.GEN_MAP =>
-            val genMap = protoValue.getGenMap.getEntriesList.asScala.view
-              .map(entry => go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
-              .to(ImmArray)
-            ValueGenMap(genMap)
-
+          case proto.Value.SumCase.RECORD =>
+            val record = protoValue.getRecord
+            assertNoUnknownFields(record)
+            ValueRecord(
+              None,
+              record.getFieldsList.asScala.view
+                .map { fld =>
+                  assertNoUnknownFields(fld)
+                  (None, go(newNesting, fld.getValue))
+                }
+                .to(ImmArray),
+            )
+          case proto.Value.SumCase.VARIANT =>
+            val variant = protoValue.getVariant
+            assertNoUnknownFields(variant)
+            ValueVariant(None, identifier(variant.getConstructor), go(newNesting, variant.getValue))
+          case proto.Value.SumCase.ENUM =>
+            val enumeration = protoValue.getEnum
+            assertNoUnknownFields(enumeration)
+            ValueEnum(None, identifier(enumeration.getValue))
           case proto.Value.SumCase.SUM_NOT_SET =>
             throw Err(s"Value not set")
         }
@@ -337,23 +310,20 @@ object ValueCoder {
   /** Serializes [[VersionedValue]] to protobuf.
     *
     * @param versionedValue value to be written
-    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
   def encodeVersionedValue(
-      encodeCid: EncodeCid,
-      versionedValue: VersionedValue,
+      versionedValue: VersionedValue
   ): Either[EncodeError, proto.VersionedValue] =
-    encodeVersionedValue(encodeCid, versionedValue.version, versionedValue.unversioned)
+    encodeVersionedValue(versionedValue.version, versionedValue.unversioned)
 
   def encodeVersionedValue(
-      encodeCid: EncodeCid,
       version: TransactionVersion,
       value: Value,
   ): Either[EncodeError, proto.VersionedValue] =
     for {
-      bytes <- encodeValue(encodeCid, version, value)
+      bytes <- encodeValue(version, value)
     } yield {
       val builder = proto.VersionedValue.newBuilder()
       builder.setVersion(encodeValueVersion(version)).setValue(bytes).build()
@@ -362,16 +332,11 @@ object ValueCoder {
   /** Serialize a Value to protobuf
     *
     * @param v0 value to be written
-    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @param valueVersion version of value specification to encode to, or fail
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
-  def encodeValue(
-      encodeCid: EncodeCid,
-      valueVersion: TransactionVersion,
-      v0: Value,
-  ): Either[EncodeError, ByteString] = {
+  def encodeValue(valueVersion: TransactionVersion, v0: Value): Either[EncodeError, ByteString] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     @scala.annotation.nowarn("cat=unused")
@@ -406,68 +371,68 @@ object ValueCoder {
           case ValueTimestamp(t) =>
             builder.setTimestamp(t.micros).build()
           case ValueContractId(coid) =>
-            builder.setContractIdStruct(encodeCid.encode(coid)).build()
+            builder.setContractId(coid.toBytes.toByteString).build()
           case ValueList(elems) =>
-            val listBuilder = proto.List.newBuilder()
+            val listBuilder = proto.Value.List.newBuilder()
             elems.foreach(elem => {
               discard(listBuilder.addElements(go(newNesting, elem)))
             })
             builder.setList(listBuilder).build()
 
           case ValueRecord(_, fields) =>
-            val recordBuilder = proto.Record.newBuilder()
+            val recordBuilder = proto.Value.Record.newBuilder()
             fields.foreach { case (_, field) =>
-              val b = proto.RecordField.newBuilder()
+              val b = proto.Value.Record.Field.newBuilder()
               discard(b.setValue(go(newNesting, field)))
               discard(recordBuilder.addFields(b))
             }
             builder.setRecord(recordBuilder).build()
 
           case ValueVariant(_, con, arg) =>
-            val protoVar = proto.Variant
+            val protoVar = proto.Value.Variant
               .newBuilder()
               .setConstructor(con)
               .setValue(go(newNesting, arg))
             builder.setVariant(protoVar).build()
 
           case ValueEnum(_, value) =>
-            val protoEnum = proto.Enum
+            val protoEnum = proto.Value.Enum
               .newBuilder()
               .setValue(value)
             builder.setEnum(protoEnum).build()
 
           case ValueOptional(mbV) =>
-            val protoOption = proto.Optional.newBuilder()
+            val protoOption = proto.Value.Optional.newBuilder()
             mbV.foreach(v => protoOption.setValue(go(newNesting, v)))
             builder.setOptional(protoOption).build()
 
           case ValueTextMap(map) =>
-            val protoMap = proto.Map.newBuilder()
+            val protoMap = proto.Value.TextMap.newBuilder()
             map.toImmArray.foreach { case (key, value) =>
               discard(
                 protoMap.addEntries(
-                  proto.Map.Entry
+                  proto.Value.TextMap.Entry
                     .newBuilder()
                     .setKey(key)
                     .setValue(go(newNesting, value))
                 )
               )
             }
-            builder.setMap(protoMap).build()
+            builder.setTextMap(protoMap).build()
 
           case ValueGenMap(entries) =>
-            val protoMap = proto.GenMap.newBuilder()
+            val protoMap = proto.Value.Map.newBuilder()
             entries.foreach { case (key, value) =>
               discard(
                 protoMap.addEntries(
-                  proto.GenMap.Entry
+                  proto.Value.Map.Entry
                     .newBuilder()
                     .setKey(go(newNesting, key))
                     .setValue(go(newNesting, value))
                 )
               )
             }
-            builder.setGenMap(protoMap).build()
+            builder.setMap(protoMap).build()
 
         }
       }
@@ -480,11 +445,8 @@ object ValueCoder {
     }
   }
 
-  private[value] def valueFromBytes(
-      decodeCid: DecodeCid,
-      bytes: Array[Byte],
-  ): Either[DecodeError, Value] = {
-    decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
+  private[value] def valueFromBytes(bytes: Array[Byte]): Either[DecodeError, Value] = {
+    decodeValue(proto.VersionedValue.parseFrom(bytes))
   }
 
 }

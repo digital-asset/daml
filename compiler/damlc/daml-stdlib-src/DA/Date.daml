@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -19,9 +19,6 @@ module DA.Date
   , monthDayCount
   , datetime
   , toDateUTC
-#ifdef DAML_SCENARIOS
-  , passToDate
-#endif
   , daysSinceEpochToDate
   , dateToDaysSinceEpoch
   ) where
@@ -49,7 +46,7 @@ instance Enum Date where
     fromEnum d = dateToDaysSinceEpoch d - fromEnumOffset
     enumFrom     x   = enumFromTo     x maxBound
     enumFromThen x y = enumFromThenTo x y (if y >= x then maxBound else minBound)
-  
+
 instance Bounded Date where
     minBound = date 1 Jan 1
     maxBound = date 9999 Dec 31
@@ -157,13 +154,3 @@ datetime year month day h m s = time (date year month day) h m s
 toDateUTC : Time -> Date
 toDateUTC t =
   daysSinceEpochToDate $ (/ microsecondsPerDay) $ timeToMicrosecondsSinceEpoch t
-
-#ifdef DAML_SCENARIOS
--- | Within a `scenario`, pass the simulated scenario to given date.
-passToDate : Date -> Scenario Time
-passToDate d = do
-  now <- timeToMicrosecondsSinceEpoch <$> getTime
-  let t = microsecondsPerDay * dateToDaysSinceEpoch d
---  assert (now <= t) -- for now we are going to allow moving time backwards because of how tests are currently structured.
-  internal_pass $ t - now
-#endif

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Interfaces where
@@ -107,19 +107,3 @@ template NameOfTemplate
     interface instance YourInterface for NameOfTemplate where
       view = EmptyInterfaceView
 -- EMPTY_INTERFACE_INSTANCE_END
-
--- INTERFACE_INSTANCE_IN_INTERFACE_BEGIN
-interface MyNewInterface where
-  viewtype EmptyInterfaceView
-  myNewMethod1 : Party
-  myNewMethod2 : Int -> Int
-
-  choice MyNewChoice : Int
-    controller myNewMethod1 this
-    do pure $ myNewMethod2 this 0
-
-  interface instance MyNewInterface for NameOfTemplate where
-    view = EmptyInterfaceView
-    myNewMethod1 = field1
-    myNewMethod2 x = field2 `min` x
--- INTERFACE_INSTANCE_IN_INTERFACE_END

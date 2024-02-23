@@ -6,7 +6,9 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.domain.block.SequencerDriver
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -18,6 +20,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
+import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContext, Future}
 
 trait SequencerFactory extends AutoCloseable {
@@ -35,7 +38,6 @@ trait SequencerFactory extends AutoCloseable {
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -75,7 +77,6 @@ class CommunityDatabaseSequencerFactory(
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       rateLimitManager: Option[SequencerRateLimitManager],
-      implicitMemberRegistration: Boolean,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -99,4 +100,69 @@ class CommunityDatabaseSequencerFactory(
   }
 
   override def close(): Unit = ()
+}
+
+/** Artificial interface for dependency injection
+  */
+trait MkSequencerFactory {
+
+  def apply(
+      protocolVersion: ProtocolVersion,
+      health: Option[SequencerHealthConfig],
+      clock: Clock,
+      scheduler: ScheduledExecutorService,
+      metrics: SequencerMetrics,
+      storage: Storage,
+      topologyClientMember: Member,
+      nodeParameters: CantonNodeParameters,
+      loggerFactory: NamedLoggerFactory,
+  )(
+      sequencerConfig: SequencerConfig
+  )(implicit executionContext: ExecutionContext): SequencerFactory
+
+}
+
+object CommunitySequencerFactory extends MkSequencerFactory {
+  override def apply(
+      protocolVersion: ProtocolVersion,
+      health: Option[SequencerHealthConfig],
+      clock: Clock,
+      scheduler: ScheduledExecutorService,
+      metrics: SequencerMetrics,
+      storage: Storage,
+      topologyClientMember: Member,
+      nodeParameters: CantonNodeParameters,
+      loggerFactory: NamedLoggerFactory,
+  )(sequencerConfig: SequencerConfig)(implicit
+      executionContext: ExecutionContext
+  ): SequencerFactory = sequencerConfig match {
+    case communityDbConfig: CommunitySequencerConfig.Database =>
+      new CommunityDatabaseSequencerFactory(
+        communityDbConfig,
+        metrics,
+        storage,
+        protocolVersion,
+        topologyClientMember,
+        nodeParameters,
+        loggerFactory,
+      )
+
+    case CommunitySequencerConfig.External(sequencerType, config, testingInterceptor) =>
+      DriverBlockSequencerFactory(
+        sequencerType,
+        SequencerDriver.DriverApiVersion,
+        config,
+        health,
+        storage,
+        protocolVersion,
+        topologyClientMember,
+        nodeParameters,
+        metrics,
+        loggerFactory,
+        testingInterceptor,
+      )
+
+    case config: SequencerConfig =>
+      throw new UnsupportedOperationException(s"Invalid config type ${config.getClass}")
+  }
 }

@@ -6,8 +6,8 @@ package com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.DomainParameters
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
-import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.tracing.TraceContext
@@ -20,7 +20,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
 class SortedReconciliationIntervalsProvider(
-    reconciliationIntervalsProvider: DomainParametersLookup[PositiveSeconds],
+    topologyClient: DomainTopologyClient,
+    futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -36,16 +37,24 @@ class SortedReconciliationIntervalsProvider(
   def approximateReconciliationIntervals(implicit
       traceContext: TraceContext
   ): Future[SortedReconciliationIntervals] = reconciliationIntervals(
-    reconciliationIntervalsProvider.approximateTimestamp
+    topologyClient.approximateTimestamp
   )
+
+  private def getAll(validAt: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[DomainParameters.WithValidity[PositiveSeconds]]] = futureSupervisor
+    .supervised(s"Querying for list of domain parameters changes valid at $validAt") {
+      topologyClient.awaitSnapshot(validAt)
+    }
+    .flatMap(_.listDynamicDomainParametersChanges())
+    .map(_.map(_.map(_.reconciliationInterval)))
 
   def reconciliationIntervals(
       validAt: CantonTimestamp
   )(implicit
       traceContext: TraceContext
   ): Future[SortedReconciliationIntervals] =
-    reconciliationIntervalsProvider
-      .getAll(validAt)
+    getAll(validAt)
       .map { reconciliationIntervals =>
         SortedReconciliationIntervals
           .create(
@@ -127,22 +136,4 @@ class SortedReconciliationIntervalsProvider(
           }
     } yield res
   }
-}
-
-object SortedReconciliationIntervalsProvider {
-  def apply(
-      staticDomainParameters: StaticDomainParameters,
-      topologyClient: DomainTopologyClient,
-      futureSupervisor: FutureSupervisor,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): SortedReconciliationIntervalsProvider =
-    new SortedReconciliationIntervalsProvider(
-      DomainParametersLookup.forReconciliationInterval(
-        staticDomainParameters,
-        topologyClient,
-        futureSupervisor,
-        loggerFactory,
-      ),
-      loggerFactory,
-    )
 }

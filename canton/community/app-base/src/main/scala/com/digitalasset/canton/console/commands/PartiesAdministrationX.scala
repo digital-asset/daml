@@ -23,7 +23,8 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   BaseInspection,
-  CommandExecutionFailedException,
+  CantonInternalError,
+  CommandFailure,
   ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
@@ -31,8 +32,9 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  LocalParticipantReferenceX,
-  ParticipantReferenceX,
+  InstanceReference,
+  LocalParticipantReference,
+  ParticipantReference,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeX
@@ -43,6 +45,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 
 import java.time.Instant
+import scala.util.Try
 
 class PartiesAdministrationGroupX(
     runner: AdminCommandRunner,
@@ -94,7 +97,10 @@ class PartiesAdministrationGroupX(
 
 class ParticipantPartiesAdministrationGroupX(
     participantId: => ParticipantId,
-    runner: AdminCommandRunner with ParticipantAdministration with BaseLedgerApiAdministration,
+    runner: AdminCommandRunner
+      & ParticipantAdministration
+      & BaseLedgerApiAdministration
+      & InstanceReference,
     consoleEnvironment: ConsoleEnvironment,
 ) extends PartiesAdministrationGroupX(runner, consoleEnvironment) {
 
@@ -133,9 +139,9 @@ class ParticipantPartiesAdministrationGroupX(
   def find(filterParty: String): PartyId = {
     list(filterParty).map(_.party).distinct.toList match {
       case one :: Nil => one
-      case Nil => throw new IllegalArgumentException(s"No party matching ${filterParty}")
+      case Nil => throw new IllegalArgumentException(s"No party matching $filterParty")
       case more =>
-        throw new IllegalArgumentException(s"Multiple parties match ${filterParty}: ${more}")
+        throw new IllegalArgumentException(s"Multiple parties match $filterParty: $more")
     }
   }
 
@@ -159,7 +165,7 @@ class ParticipantPartiesAdministrationGroupX(
       displayName: Option[String] = None,
       // TODO(i10809) replace wait for domain for a clean topology synchronisation using the dispatcher info
       waitForDomain: DomainChoice = DomainChoice.Only(Seq()),
-      synchronizeParticipants: Seq[ParticipantReferenceX] = Seq(),
+      synchronizeParticipants: Seq[ParticipantReference] = Seq(),
       groupAddressing: Boolean = false,
       mustFullyAuthorize: Boolean = true,
   ): PartyId = {
@@ -213,7 +219,7 @@ class ParticipantPartiesAdministrationGroupX(
       if (domainIds.nonEmpty) {
         retryE(
           domainIds subsetOf registered,
-          show"Party ${partyId} did not appear for $queriedParticipant on domain ${domainIds.diff(registered)}",
+          show"Party $partyId did not appear for $queriedParticipant on domain ${domainIds.diff(registered)}",
         )
       } else Right(())
     }
@@ -238,9 +244,11 @@ class ParticipantPartiesAdministrationGroupX(
           additionalSync <- synchronizeParticipants.traverse { p =>
             findDomainIds(
               p.name,
-              Either
-                .catchOnly[CommandExecutionFailedException](p.domains.list_connected())
-                .leftMap(_.getMessage),
+              Try(p.domains.list_connected()).toEither.leftMap {
+                case exception @ (_: CommandFailure | _: CantonInternalError) =>
+                  exception.getMessage
+                case exception => throw exception
+              },
             )
               .map(domains => (p, domains intersect domainIds))
           }
@@ -267,7 +275,7 @@ class ParticipantPartiesAdministrationGroupX(
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
               retryE(
                 runner.ledger_api.parties.list().map(_.party).contains(partyId),
-                show"The party ${partyId} never appeared on the ledger API server",
+                show"The party $partyId never appeared on the ledger API server",
               )
             else Right(())
           _ <- additionalSync.traverse_ { case (p, domains) =>
@@ -295,7 +303,6 @@ class ParticipantPartiesAdministrationGroupX(
       threshold: PositiveInt,
       groupAddressing: Boolean,
       mustFullyAuthorize: Boolean,
-      force: Boolean = false,
   ): ConsoleCommandResult[SignedTopologyTransactionX[TopologyChangeOpX, PartyToParticipantX]] = {
 
     runner
@@ -310,8 +317,8 @@ class ParticipantPartiesAdministrationGroupX(
             participants.map(pid =>
               HostingParticipant(
                 pid,
-                if (threshold.value > 1) ParticipantPermissionX.Confirmation
-                else ParticipantPermissionX.Submission,
+                if (threshold.value > 1) ParticipantPermission.Confirmation
+                else ParticipantPermission.Submission,
               )
             ),
             groupAddressing,
@@ -325,9 +332,14 @@ class ParticipantPartiesAdministrationGroupX(
   }
 
   @Help.Summary("Disable party on participant")
-  def disable(name: Identifier, force: Boolean = false): Unit = {
-    // TODO(#14068) implement me
-    throw new UnsupportedOperationException("not yet implemented")
+  // TODO(#14067): reintroduce `force` once it is implemented on the server side and threaded through properly.
+  def disable(name: Identifier /*, force: Boolean = false*/ ): Unit = {
+    runner.topology.party_to_participant_mappings
+      .propose_delta(
+        PartyId(name, runner.id.member.uid.namespace),
+        removes = List(this.participantId),
+      )
+      .discard
   }
 
   @Help.Summary("Update participant-local party details")
@@ -357,15 +369,15 @@ class ParticipantPartiesAdministrationGroupX(
       ParticipantAdminCommands.PartyNameManagement.SetPartyDisplayName(party, displayName)
     )
   }
-
 }
 
 class LocalParticipantPartiesAdministrationGroupX(
-    reference: LocalParticipantReferenceX,
+    reference: LocalParticipantReference,
     runner: AdminCommandRunner
-      with BaseInspection[ParticipantNodeX]
-      with ParticipantAdministration
-      with BaseLedgerApiAdministration,
+      & BaseInspection[ParticipantNodeX]
+      & ParticipantAdministration
+      & BaseLedgerApiAdministration
+      & InstanceReference,
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends ParticipantPartiesAdministrationGroupX(reference.id, runner, consoleEnvironment)
@@ -377,7 +389,7 @@ class LocalParticipantPartiesAdministrationGroupX(
   @Help.Description(
     "Will throw an exception if the given topology has not been observed within the given timeout."
   )
-  def await_topology_observed[T <: ParticipantReferenceX](
+  def await_topology_observed[T <: ParticipantReference](
       partyAssignment: Set[(PartyId, T)],
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
   )(implicit env: ConsoleEnvironment): Unit =
@@ -391,8 +403,8 @@ class LocalParticipantPartiesAdministrationGroupX(
 
 object TopologySynchronisationX {
 
-  def awaitTopologyObserved[T <: ParticipantReferenceX](
-      reference: ParticipantReferenceX,
+  def awaitTopologyObserved[T <: ParticipantReference](
+      participant: ParticipantReference,
       partyAssignment: Set[(PartyId, T)],
       timeout: NonNegativeDuration,
   )(implicit env: ConsoleEnvironment): Unit =
@@ -401,12 +413,12 @@ object TopologySynchronisationX {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)
         }
-        env.domains.all.forall { domain =>
-          val domainId = domain.id
-          !reference.domains.active(domain) || {
-            val timestamp = reference.testing.fetch_domain_time(domainId)
+        env.sequencers.all.forall { sequencer =>
+          val domainId = sequencer.domain_id
+          !participant.domains.is_connected(domainId) || {
+            val timestamp = participant.testing.fetch_domain_time(domainId)
             partiesWithId.subsetOf(
-              reference.parties
+              participant.parties
                 .list(asOf = Some(timestamp.toInstant))
                 .flatMap(res => res.participants.map(par => (res.party, par.participant)))
                 .toSet

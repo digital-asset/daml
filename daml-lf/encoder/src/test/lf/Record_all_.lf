@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 module RecordMod {
@@ -13,17 +13,12 @@ module RecordMod {
     precondition True;
     signatories (PartyMod:one (RecordMod:Box {party} this));
     observers (Nil @Party);
-    agreement "Agreement for RecordMod:Box";
   };
 
   val createContract:
-    RecordMod:Pair Int64 (Numeric 10)->
-      Scenario (ContractId RecordMod:Box)
-    = \ (x: RecordMod:Pair Int64 (Numeric 10)) ->
-        sbind
-          bob : Party <- sget_party "Bob"
-        in
-          commit @(ContractId RecordMod:Box) bob (create @RecordMod:Box (RecordMod:Box { x = x, party = bob }));
+    Party -> RecordMod:Pair Int64 (Numeric 10) -> Update (ContractId RecordMod:Box) =
+    \ (bob: Party) (x: RecordMod:Pair Int64 (Numeric 10)) ->
+          create @RecordMod:Box (RecordMod:Box { x = x, party = bob });
 
   val pair1: RecordMod:Pair Int64 (Numeric 10) =
     RecordMod:Pair @Int64 @(Numeric 10) {
@@ -43,12 +38,12 @@ module RecordMod {
       snd = -3333333333333333333333333333.0000000000
   };
    
-  val createContracts: Scenario Unit =
-    sbind
-        c1 : ContractId RecordMod:Box <- RecordMod:createContract RecordMod:pair1 ;
-        c2 : ContractId RecordMod:Box <- RecordMod:createContract RecordMod:pair2 ;
-        c3 : ContractId RecordMod:Box <- RecordMod:createContract RecordMod:pair3
+  val createContracts: Party -> Update Unit =  \(p: Party) ->
+    ubind
+        c1 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair1 ;
+        c2 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair2 ;
+        c3 : ContractId RecordMod:Box <- RecordMod:createContract p RecordMod:pair3
       in
-        spure @Unit () ;
+        upure @Unit () ;
 
 }

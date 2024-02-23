@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeL
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.{MetricsHelper, TimedLoadGauge}
+import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.{
   PendingEventPublish,
   PendingPublish,
@@ -31,9 +31,9 @@ import com.digitalasset.canton.participant.store.db.DbMultiDomainEventLog.*
 import com.digitalasset.canton.participant.store.{EventLogId, MultiDomainEventLog, TransferStore}
 import com.digitalasset.canton.participant.sync.TimestampedEvent.TransactionEventId
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
-import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset}
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.participant.{GlobalOffset, LocalOffset, RequestOffset}
+import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
+import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.resource.DbStorage.Implicits.{
@@ -107,9 +107,6 @@ class DbMultiDomainEventLog private[db] (
   import TimestampedEvent.getResultTimestampedEvent
   import storage.api.*
   import storage.converters.*
-
-  private val processingTime: TimedLoadGauge =
-    storage.metrics.loadGaugeM("multi-domain-event-log")
 
   /*
     Ideally, we would like the Index of the dispatcher to be a GlobalOffset.
@@ -367,35 +364,34 @@ class DbMultiDomainEventLog private[db] (
 
   private def insert(events: Seq[PublicationData], publicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    processingTime.event {
-      val insertStatement = storage.profile match {
-        case _: DbStorage.Profile.Oracle =>
-          """merge /*+ INDEX ( linearized_event_log ( local_offset, log_id ) ) */
+  ): Future[Unit] = {
+    val insertStatement = storage.profile match {
+      case _: DbStorage.Profile.Oracle =>
+        """merge /*+ INDEX ( linearized_event_log ( local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, log_id ) ) */
             |into linearized_event_log lel
-            |using (select ? log_id, ? local_offset from dual) input
-            |on (lel.local_offset = input.local_offset and lel.log_id = input.log_id)
+            |using (select ? log_id, ? local_offset_effective_time, ? local_offset_discriminator, ? local_offset_tie_breaker from dual) input
+            |on (lel.local_offset_effective_time = input.local_offset_effective_time and lel.local_offset_discriminator = input.local_offset_discriminator and lel.local_offset_tie_breaker = input.local_offset_tie_breaker and lel.log_id = input.log_id)
             |when not matched then
-            |  insert (log_id, local_offset, publication_time)
-            |  values (input.log_id, input.local_offset, ?)""".stripMargin
-        case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-          """insert into linearized_event_log (log_id, local_offset, publication_time)
-            |values (?, ?, ?)
+            |  insert (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, publication_time)
+            |  values (input.log_id, input.local_offset_effective_time, input.local_offset_discriminator, input.local_offset_tie_breaker, ?)""".stripMargin
+      case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
+        """insert into linearized_event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, publication_time)
+            |values (?, ?, ?, ?, ?)
             |on conflict do nothing""".stripMargin
-      }
-      val bulkInsert = DbStorage.bulkOperation_(
-        insertStatement,
-        events,
-        storage.profile,
-      ) { pp => tracedEvent =>
-        val PublicationData(id, event, _inFlightReference) = tracedEvent
-        pp >> id.index
-        pp >> event.localOffset
-        pp >> publicationTime
-      }
-      val query = storage.withSyncCommitOnPostgres(bulkInsert)
-      storage.queryAndUpdate(query, functionFullName)
     }
+    val bulkInsert = DbStorage.bulkOperation_(
+      insertStatement,
+      events,
+      storage.profile,
+    ) { pp => tracedEvent =>
+      val PublicationData(id, event, _inFlightReference) = tracedEvent
+      pp >> id.index
+      pp >> event.localOffset
+      pp >> publicationTime
+    }
+    val query = storage.withSyncCommitOnPostgres(bulkInsert)
+    storage.queryAndUpdate(query, functionFullName)
+  }
 
   override def fetchUnpublished(id: EventLogId, upToInclusiveO: Option[LocalOffset])(implicit
       traceContext: TraceContext
@@ -405,7 +401,7 @@ class DbMultiDomainEventLog private[db] (
       s"Fetch unpublished in log $id, from $fromExclusive (exclusive) up to $upToInclusiveO (inclusive)"
     )
 
-    processingTime.event {
+    {
       for {
         unpublishedLocalOffsets <- DbSingleDimensionEventLog.lookupEventRange(
           storage = storage,
@@ -429,7 +425,7 @@ class DbMultiDomainEventLog private[db] (
   override def prune(
       upToInclusive: GlobalOffset
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    processingTime.event {
+    {
       storage
         .update_(
           sqlu"delete from linearized_event_log where global_offset <= $upToInclusive",
@@ -454,7 +450,7 @@ class DbMultiDomainEventLog private[db] (
               storage.query(
                 sql"""select /*+ INDEX (linearized_event_log pk_linearized_event_log, event_log pk_event_log) */ global_offset, content, trace_context
                   from linearized_event_log lel
-                  join event_log el on lel.log_id = el.log_id and lel.local_offset = el.local_offset
+                  join event_log el on lel.log_id = el.log_id and lel.local_offset_effective_time = el.local_offset_effective_time and lel.local_offset_tie_breaker = el.local_offset_tie_breaker
                   where global_offset > $batchFromExcl and global_offset <= $batchToIncl
                   order by global_offset asc"""
                   .as[
@@ -474,19 +470,18 @@ class DbMultiDomainEventLog private[db] (
 
   override def lookupEventRange(upToInclusive: Option[GlobalOffset], limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): Future[Seq[(GlobalOffset, TimestampedEvent)]] =
-    processingTime.event {
-      storage
-        .query(
-          sql"""select global_offset, el.local_offset, request_sequencer_counter, el.event_id, content, trace_context
+  ): Future[Seq[(GlobalOffset, TimestampedEvent)]] = {
+    storage
+      .query(
+        sql"""select global_offset, el.local_offset_effective_time, el.local_offset_discriminator, el.local_offset_tie_breaker, request_sequencer_counter, el.event_id, content, trace_context
                 from linearized_event_log lel join event_log el on lel.log_id = el.log_id
-                and lel.local_offset = el.local_offset
+                and lel.local_offset_effective_time = el.local_offset_effective_time and lel.local_offset_discriminator = el.local_offset_discriminator and lel.local_offset_tie_breaker = el.local_offset_tie_breaker
                 where global_offset <= ${upToInclusive.fold(Long.MaxValue)(_.toLong)}
                 order by global_offset asc #${storage.limit(limit.getOrElse(Int.MaxValue))}"""
-            .as[(GlobalOffset, TimestampedEvent)],
-          functionFullName,
-        )
-    }
+          .as[(GlobalOffset, TimestampedEvent)],
+        functionFullName,
+      )
+  }
 
   override def lookupByEventIds(
       eventIds: Seq[TimestampedEvent.EventId]
@@ -502,9 +497,9 @@ class DbMultiDomainEventLog private[db] (
       val queries = inClauses.map { inClause =>
         import DbStorage.Implicits.BuilderChain.*
         (sql"""
-            select global_offset, el.local_offset, request_sequencer_counter, el.event_id, content, trace_context, publication_time
+            select global_offset, el.local_offset_effective_time, el.local_offset_discriminator, el.local_offset_tie_breaker, request_sequencer_counter, el.event_id, content, trace_context, publication_time
             from linearized_event_log lel
-            join event_log el on lel.log_id = el.log_id and lel.local_offset = el.local_offset
+            join event_log el on lel.log_id = el.log_id and lel.local_offset_effective_time = el.local_offset_effective_time and lel.local_offset_discriminator = el.local_offset_discriminator and lel.local_offset_tie_breaker = el.local_offset_tie_breaker
             where
             """ ++ inClause).as[(GlobalOffset, TimestampedEvent, CantonTimestamp)]
       }
@@ -525,7 +520,7 @@ class DbMultiDomainEventLog private[db] (
 
   override def lookupTransactionDomain(transactionId: LedgerTransactionId)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, DomainId] = processingTime.optionTEvent {
+  ): OptionT[Future, DomainId] = {
     storage
       .querySingle(
         sql"""select log_id from event_log where event_id = ${TransactionEventId(transactionId)}"""
@@ -540,15 +535,17 @@ class DbMultiDomainEventLog private[db] (
   private def lastLocalOffsetBeforeOrAt[T <: LocalOffset](
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset],
-      timestampInclusive: Option[CantonTimestamp],
+      timestampInclusive: CantonTimestamp,
       localOffsetDiscriminator: Option[Int],
   )(implicit traceContext: TraceContext, getResult: GetResult[T]): Future[Option[T]] = {
     import DbStorage.Implicits.BuilderChain.*
 
-    processingTime.event {
-      val tsFilter = timestampInclusive.map(ts => sql" and el.ts <= $ts").getOrElse(sql" ")
+    {
+      val tsFilter = sql" and el.ts <= $timestampInclusive"
       val localOffsetDiscriminatorFilter =
-        localOffsetDiscriminator.fold(sql" ")(disc => sql" and el.local_offset_discriminator=$disc")
+        localOffsetDiscriminator.fold(sql" ")(disc =>
+          sql" and lel.local_offset_discriminator=$disc"
+        )
       val globalOffsetFilter = upToInclusive
         .map(upToInclusive => sql" and global_offset <= $upToInclusive")
         .getOrElse(sql" ")
@@ -557,9 +554,9 @@ class DbMultiDomainEventLog private[db] (
 
       // Note for idempotent retries, we don't require that the global offset has an actual ledger entry reference
       val base =
-        sql"""select lel.local_offset
+        sql"""select lel.local_offset_effective_time, lel.local_offset_discriminator, lel.local_offset_tie_breaker
               from linearized_event_log lel
-              join event_log el on lel.log_id = el.log_id and lel.local_offset = el.local_offset
+              join event_log el on lel.log_id = el.log_id and lel.local_offset_effective_time = el.local_offset_effective_time and lel.local_offset_discriminator = el.local_offset_discriminator and lel.local_offset_tie_breaker = el.local_offset_tie_breaker
               where lel.log_id = ${eventLogId.index}
               """
 
@@ -572,13 +569,35 @@ class DbMultiDomainEventLog private[db] (
     }
   }
 
-  override def lastLocalOffset(
+  override def lastLocalOffsetBeforeOrAt(
       eventLogId: EventLogId,
       upToInclusive: Option[GlobalOffset] = None,
-  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] = {
+      timestampInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
+    lastLocalOffsetBeforeOrAt(eventLogId, upToInclusive, timestampInclusive, None)
+
+  override def lastRequestOffsetBeforeOrAt(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+      timestampInclusive: CantonTimestamp,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
+    lastLocalOffsetBeforeOrAt[RequestOffset](
+      eventLogId,
+      upToInclusive,
+      timestampInclusive,
+      Some(LocalOffset.RequestOffsetDiscriminator),
+    )
+
+  private def lastLocalOffset[T <: LocalOffset](
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset],
+      localOffsetDiscriminator: Option[Int],
+  )(implicit traceContext: TraceContext, getResult: GetResult[T]): Future[Option[T]] = {
     import DbStorage.Implicits.BuilderChain.*
 
-    processingTime.event {
+    {
+      val localOffsetDiscriminatorFilter =
+        localOffsetDiscriminator.fold(sql" ")(disc => sql" and local_offset_discriminator=$disc")
       val globalOffsetFilter = upToInclusive
         .map(upToInclusive => sql" and global_offset <= $upToInclusive")
         .getOrElse(sql" ")
@@ -587,141 +606,132 @@ class DbMultiDomainEventLog private[db] (
 
       // Note for idempotent retries, we don't require that the global offset has an actual ledger entry reference
       val base =
-        sql"""select local_offset from linearized_event_log where log_id = ${eventLogId.index}"""
-      val query = (base ++ globalOffsetFilter ++ ordering).as[LocalOffset].headOption
-
-      storage.query(query, functionFullName)
-    }
-  }
-
-  override def lastLocalOffsetBeforeOrAt(
-      eventLogId: EventLogId,
-      upToInclusive: GlobalOffset,
-      timestampInclusive: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] = {
-    import DbStorage.Implicits.BuilderChain.*
-
-    processingTime.event {
-      val tsFilter = sql" and el.ts <= $timestampInclusive"
-
-      val ordering = sql" order by global_offset desc #${storage.limit(1)}"
-
-      // Note for idempotent retries, we don't require that the global offset has an actual ledger entry reference
-      val base =
-        sql"""select lel.local_offset
-              from linearized_event_log lel join event_log el on lel.log_id = el.log_id and lel.local_offset = el.local_offset
-              where lel.log_id = ${eventLogId.index} and global_offset <= $upToInclusive
+        sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker
+              from linearized_event_log
+              where log_id = ${eventLogId.index}
               """
 
-      val query = (base ++ tsFilter ++ ordering).as[LocalOffset].headOption
+      val query =
+        (base ++ globalOffsetFilter ++ localOffsetDiscriminatorFilter ++ ordering).as[T].headOption
 
       storage.query(query, functionFullName)
     }
   }
+
+  override def lastLocalOffset(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+  )(implicit traceContext: TraceContext): Future[Option[LocalOffset]] =
+    lastLocalOffset(eventLogId, upToInclusive, None)
+
+  override def lastRequestOffset(
+      eventLogId: EventLogId,
+      upToInclusive: Option[GlobalOffset] = None,
+  )(implicit traceContext: TraceContext): Future[Option[RequestOffset]] =
+    lastLocalOffset[RequestOffset](
+      eventLogId,
+      upToInclusive,
+      Some(LocalOffset.RequestOffsetDiscriminator),
+    )
 
   override def locateOffset(
       deltaFromBeginning: Long
-  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] =
-    processingTime.optionTEvent {
-      // The following query performs a table scan which can in theory become a problem if deltaFromBeginning is large.
-      // We cannot simply perform a lookup as big/serial columns can have gaps.
-      // However as we are planning to prune in batches, deltaFromBeginning will be limited by the batch size and be
-      // reasonable.
-      storage.querySingle(
-        sql"select global_offset from linearized_event_log order by global_offset #${storage
-            .limit(1, deltaFromBeginning)}"
-          .as[GlobalOffset]
-          .headOption,
-        functionFullName,
-      )
-    }
+  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] = {
+    // The following query performs a table scan which can in theory become a problem if deltaFromBeginning is large.
+    // We cannot simply perform a lookup as big/serial columns can have gaps.
+    // However as we are planning to prune in batches, deltaFromBeginning will be limited by the batch size and be
+    // reasonable.
+    storage.querySingle(
+      sql"select global_offset from linearized_event_log order by global_offset #${storage
+          .limit(1, deltaFromBeginning)}"
+        .as[GlobalOffset]
+        .headOption,
+      functionFullName,
+    )
+  }
 
   override def locatePruningTimestamp(
       skip: NonNegativeInt
-  )(implicit traceContext: TraceContext): OptionT[Future, CantonTimestamp] =
-    processingTime
-      .optionTEvent {
-        storage.querySingle(
-          sql"select publication_time from linearized_event_log order by global_offset #${storage
-              .limit(1, skip.value.toLong)}"
-            .as[CantonTimestamp]
-            .headOption,
-          functionFullName,
-        )
-      }
+  )(implicit traceContext: TraceContext): OptionT[Future, CantonTimestamp] = {
+    storage.querySingle(
+      sql"select publication_time from linearized_event_log order by global_offset #${storage
+          .limit(1, skip.value.toLong)}"
+        .as[CantonTimestamp]
+        .headOption,
+      functionFullName,
+    )
+  }
 
   override def lookupOffset(globalOffset: GlobalOffset)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, (EventLogId, LocalOffset, CantonTimestamp)] =
-    processingTime.optionTEvent {
-      storage
-        .querySingle(
-          sql"select log_id, local_offset, publication_time from linearized_event_log where global_offset = $globalOffset"
-            .as[(Int, LocalOffset, CantonTimestamp)]
-            .headOption,
-          functionFullName,
-        )
-        .flatMap { case (logIndex, offset, ts) =>
-          EventLogId.fromDbLogIdOT("linearized_event_log", indexedStringStore)(logIndex).map { x =>
-            (x, offset, ts)
-          }
+  ): OptionT[Future, (EventLogId, LocalOffset, CantonTimestamp)] = {
+    storage
+      .querySingle(
+        sql"select log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, publication_time from linearized_event_log where global_offset = $globalOffset"
+          .as[(Int, LocalOffset, CantonTimestamp)]
+          .headOption,
+        functionFullName,
+      )
+      .flatMap { case (logIndex, offset, ts) =>
+        EventLogId.fromDbLogIdOT("linearized_event_log", indexedStringStore)(logIndex).map { x =>
+          (x, offset, ts)
         }
-    }
+      }
+  }
 
   override def globalOffsetFor(eventLogId: EventLogId, localOffset: LocalOffset)(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, CantonTimestamp)]] =
-    processingTime.event {
-      storage.query(
-        sql"""
+  ): Future[Option[(GlobalOffset, CantonTimestamp)]] = {
+    storage.query(
+      sql"""
       select lel.global_offset, lel.publication_time
       from linearized_event_log lel
-      where lel.log_id = ${eventLogId.index} and lel.local_offset = ${localOffset.toLong}
+      where lel.log_id = ${eventLogId.index} and lel.local_offset_effective_time = ${localOffset.effectiveTime} and lel.local_offset_tie_breaker = ${localOffset.tieBreaker}
       #${storage.limit(1)}
       """.as[(GlobalOffset, CantonTimestamp)].headOption,
-        functionFullName,
-      )
-    }
+      functionFullName,
+    )
+  }
 
   override def getOffsetByTimeUpTo(
       upToInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] =
-    processingTime.optionTEvent {
-      // The publication time increases with the global offset,
-      // so we order first by the publication time so that the same index `idx_linearized_event_log_publication_time`
-      // can be used for the where clause and the ordering
-      val query =
-        sql"""
+  )(implicit traceContext: TraceContext): OptionT[Future, GlobalOffset] = {
+    // The publication time increases with the global offset,
+    // so we order first by the publication time so that the same index `idx_linearized_event_log_publication_time`
+    // can be used for the where clause and the ordering
+    val query =
+      sql"""
           select global_offset
           from linearized_event_log
           where publication_time <= $upToInclusive
           order by publication_time desc, global_offset desc
           #${storage.limit(1)}
           """.as[GlobalOffset].headOption
-      storage.querySingle(query, functionFullName)
-    }
+    storage.querySingle(query, functionFullName)
+  }
 
   override def getOffsetByTimeAtOrAfter(
       fromInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): OptionT[Future, (GlobalOffset, EventLogId, LocalOffset)] =
-    processingTime.optionTEvent {
-      // The publication time increases with the global offset,
-      // so we order first by the publication time so that the same index `idx_linearized_event_log_publication_time`
-      // can be used for the where clause and the ordering
-      val query =
-        sql"""
-          select global_offset, log_id, local_offset
+  )(implicit
+      traceContext: TraceContext
+  ): OptionT[Future, (GlobalOffset, EventLogId, LocalOffset)] = {
+    // The publication time increases with the global offset,
+    // so we order first by the publication time so that the same index `idx_linearized_event_log_publication_time`
+    // can be used for the where clause and the ordering
+    val query =
+      sql"""
+          select global_offset, log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker
           from linearized_event_log
           where publication_time >= $fromInclusive
           order by publication_time asc, global_offset asc
           #${storage.limit(1)}
           """.as[(GlobalOffset, Int, LocalOffset)].headOption
-      storage.querySingle(query, functionFullName).flatMap { case (offset, logIndex, localOffset) =>
-        EventLogId.fromDbLogIdOT("linearized_event_log", indexedStringStore)(logIndex).map { x =>
-          (offset, x, localOffset)
-        }
+    storage.querySingle(query, functionFullName).flatMap { case (offset, logIndex, localOffset) =>
+      EventLogId.fromDbLogIdOT("linearized_event_log", indexedStringStore)(logIndex).map { x =>
+        (offset, x, localOffset)
       }
     }
+  }
 
   override def lastGlobalOffset(upToInclusive: Option[GlobalOffset] = None)(implicit
       traceContext: TraceContext
@@ -750,10 +760,10 @@ class DbMultiDomainEventLog private[db] (
   ): Future[Seq[(GlobalOffset, EventLogId, LocalOffset, CantonTimestamp)]] = {
     val query = storage.profile match {
       case Profile.Oracle(_jdbc) =>
-        sql"select * from ((select global_offset, log_id, local_offset, publication_time from linearized_event_log order by global_offset desc)) where rownum < ${count + 1}"
+        sql"select * from ((select global_offset, log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, publication_time from linearized_event_log order by global_offset desc)) where rownum < ${count + 1}"
           .as[(GlobalOffset, Int, LocalOffset, CantonTimestamp)]
       case _ =>
-        sql"select global_offset, log_id, local_offset, publication_time from linearized_event_log order by global_offset desc #${storage
+        sql"select global_offset, log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, publication_time from linearized_event_log order by global_offset desc #${storage
             .limit(count)}"
           .as[(GlobalOffset, Int, LocalOffset, CantonTimestamp)]
     }
@@ -793,13 +803,12 @@ class DbMultiDomainEventLog private[db] (
           case NonFatal(e) =>
             logger.debug(s"Ignored exception in Pekko stream done future during shutdown", e)
         },
-        timeouts.shutdownShort.unwrap,
+        timeouts.shutdownShort,
       ),
     )
   }
 }
 
-// TODO Raf: check queries here
 object DbMultiDomainEventLog {
 
   def apply(
@@ -869,8 +878,14 @@ object DbMultiDomainEventLog {
     storage.query(
       {
         for {
+          /*
+           We want the maximum local offset.
+           Since global offset increases monotonically with the local offset on a given log, we sort by global offset.
+           */
           rows <-
-            sql"""select log_id, max(local_offset) from linearized_event_log group by log_id"""
+            sql"""select log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker
+                 from linearized_event_log
+                 where global_offset in (select max(global_offset) from linearized_event_log group by log_id)"""
               .as[(Int, LocalOffset)]
         } yield {
           val result = new TrieMap[Int, LocalOffset]()

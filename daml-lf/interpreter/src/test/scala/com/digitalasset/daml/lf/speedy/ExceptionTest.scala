@@ -1,15 +1,13 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
-import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
@@ -24,7 +22,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
-class ExceptionTestV1 extends ExceptionTest(LanguageMajorVersion.V1)
 class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
 
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
@@ -61,7 +58,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // 3. User Exception thrown; no handler in scope
     // 4. User Exception thrown; no handler in scope; secondary throw from the message function of the 1st exception
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -127,7 +125,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
     // Basic throw/catch example a user defined exception
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -162,7 +161,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
     // Throw/catch example of a user defined exception, passing an integer payload.
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -204,7 +204,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // -- The inner handler does not catch (none); allowing the outer handler to catch
     // -- The inner handler throws while deciding whether to catch
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+  metadata ( 'pkg' : '1.0.0' )
 
   module M {
     record @serializable MyException = { message: Text } ;
@@ -297,7 +298,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // 200 -- normal controlflow following inner catch
     // 100 -- normal controlflow following outer catch
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
     record @serializable MyException = { payload: Int64 } ;
@@ -357,7 +359,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // - variations 1..4 selected by an integer arg
     // - final result contains elements which demonstrate the control flow taken
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -434,7 +437,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     // - example4 -- throw handled exception on left & right of a binary op
     // - example5 -- throw handled exception which computing the payload of an outer throw
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+    val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -492,13 +496,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       ("M:example1", "RESULT: Happy Path"),
       ("M:example2", "HANDLED: oops1"),
       ("M:example3", "UNHANDLED"),
-      (
-        "M:example4",
-        majorLanguageVersion.evaluationOrder match {
-          case LeftToRight => "HANDLED: left"
-          case RightToLeft => "HANDLED: right"
-        },
-      ),
+      ("M:example4", "HANDLED: right"),
       ("M:example5", "HANDLED: throw-in-throw"),
     )
 
@@ -516,7 +514,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   "uncatchable exceptions" - {
     "not be caught" in {
 
-      val pkgs: PureCompiledPackages = typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+      val pkgs: PureCompiledPackages = typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -552,7 +551,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
        precondition True;
        signatories Cons @Party [M:T {party} this] Nil @Party;
        observers Nil @Party;
-       agreement "Agreement";
        choice BodyCrash (self) (u: Unit) : Unit,
          controllers Cons @Party [M:T {party} this] Nil @Party,
          observers Nil @Party
@@ -679,7 +677,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       val parserParameters: parser.ParserParameters[this.type] =
         parser.ParserParameters(defaultPackageId, languageVersion)
 
-      typeAndCompile(p""" metadata ( 'pkg' : '1.0.0' )
+      typeAndCompile(p"""
+   metadata ( 'pkg' : '1.0.0' )
 
    module M {
 
@@ -691,7 +690,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       precondition True;
       signatories Cons @Party [M:T1 {party} record] (Nil @Party);
       observers Nil @Party;
-      agreement "Agreement";
       choice MyChoice (self) (i : Unit) : Unit,
         controllers Cons @Party [M:T1 {party} record] (Nil @Party)
         to
@@ -718,148 +716,5 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   } """ (parserParameters))
     }
 
-  }
-
-  // These tests only make sense for V1 as all V2 versions support exceptions.
-  if (majorLanguageVersion == LanguageMajorVersion.V1) {
-    "rollback of creates (mixed versions)" - {
-
-      val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
-      val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
-
-      val oldPackage = {
-        val parserParameters: parser.ParserParameters[this.type] = {
-          parser.ParserParameters(
-            defaultPackageId = oldPid,
-            languageVersion = LanguageVersion.v1_11, // version pre-dating exceptions
-          )
-        }
-        p""" metadata ( 'oldPackage' : '1.0.0' )
-module OldM {
-record @serializable OldT = { party: Party } ;
-template (record : OldT) = {
-  precondition True;
-  signatories Cons @Party [OldM:OldT {party} record] (Nil @Party);
-  observers Nil @Party;
-  agreement "Agreement";
-};
-} """ (parserParameters)
-      }
-      val newPackage = {
-        val parserParameters: parser.ParserParameters[this.type] = {
-          parser.ParserParameters(
-            defaultPackageId = newPid,
-            languageVersion = majorLanguageVersion.dev,
-          )
-        }
-        p""" metadata ( 'newPackage' : '1.0.0' )
-module NewM {
-record @serializable AnException = { } ;
-exception AnException = { message \(e: NewM:AnException) -> "AnException" };
-
-record @serializable NewT = { party: Party } ;
-template (record : NewT) = {
-  precondition True;
-  signatories Cons @Party [NewM:NewT {party} record] (Nil @Party);
-  observers Nil @Party;
-  agreement "Agreement";
-  choice MyChoiceCreateJustNew (self) (i : Unit) : Unit,
-    controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
-    to
-      ubind
-        new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-        new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-      in upure @Unit ();
-  choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit,
-    controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
-    to
-      ubind
-        new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-        old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
-        new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-      in upure @Unit ();
-  choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit,
-    controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
-    to
-      ubind
-        new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-        old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
-        new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
-        u: Unit <- throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-      in upure @Unit ();
-};
-
-val causeRollback : Party -> Update Unit = \(party: Party) ->
-    ubind
-      // OK TO CREATE AN OLD VERSION CREATE OUT SIDE THE SCOPE OF THE ROLLBACK
-      x1: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = party };
-      u1: Unit <-
-        try @Unit
-          ubind
-            x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
-            u: Unit <- exercise @NewM:NewT MyChoiceCreateJustNew x2 ()
-          in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-        catch e -> Some @(Update Unit) (upure @Unit ())
-      ;
-      x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
-    in upure @Unit ();
-
-val causeUncatchable : Party -> Update Unit = \(party: Party) ->
-    ubind
-      u1: Unit <-
-        try @Unit
-          ubind
-            x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
-            // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, AND SO CANNOT BE NESTED IN A ROLLBACK
-            u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNew x2 ()
-          in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-        catch e -> Some @(Update Unit) (upure @Unit ())
-      ;
-      x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
-    in upure @Unit ();
-
-val causeUncatchable2 : Party -> Update Unit = \(party: Party) ->
-    ubind
-      u1: Unit <-
-        try @Unit
-          ubind
-            x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
-            // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, THEN THROWS, AND SO CANNOT BE NESTED IN A ROLLBACK
-            u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNewThenThrow x2 ()
-          in upure @Unit ()
-        catch e -> Some @(Update Unit) (upure @Unit ())
-      ;
-      x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
-    in upure @Unit ();
-
-} """ (parserParameters)
-      }
-      val pkgs =
-        SpeedyTestLib.typeAndCompile(
-          majorLanguageVersion,
-          Map(oldPid -> oldPackage, newPid -> newPackage),
-        )
-
-      val parserParameters: parser.ParserParameters[this.type] = {
-        parser.ParserParameters(
-          defaultPackageId = newPid,
-          languageVersion = majorLanguageVersion.dev,
-        )
-      }
-
-      def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
-
-      val causeRollback: SExpr =
-        applyToParty(pkgs, e"NewM:causeRollback" (parserParameters), party)
-
-      "create rollback when old contacts are not within try-catch context" in {
-        val res =
-          Speedy.Machine
-            .fromUpdateSExpr(pkgs, transactionSeed, causeRollback, Set(party))
-            .run()
-        inside(res) { case SResultFinal(SUnit) =>
-        }
-      }
-    }
   }
 }

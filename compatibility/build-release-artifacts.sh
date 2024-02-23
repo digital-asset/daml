@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -28,4 +28,3 @@ bazel build \
 
 cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
 cp -f bazel-bin/daml-assistant/daml "$HEAD_TARGET_DIR"
-cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"

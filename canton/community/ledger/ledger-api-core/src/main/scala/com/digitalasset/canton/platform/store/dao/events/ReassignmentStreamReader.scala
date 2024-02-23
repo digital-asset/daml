@@ -7,11 +7,11 @@ import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.metrics.{DatabaseMetrics, Timed}
+import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.indexer.parallel.BatchN
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
@@ -33,7 +33,7 @@ import com.digitalasset.canton.platform.store.utils.{
   QueueBasedConcurrencyLimiter,
 }
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
@@ -47,7 +47,7 @@ class ReassignmentStreamReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dbDispatcher: DbDispatcher,
-    queryNonPruned: QueryNonPruned,
+    queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     metrics: Metrics,
@@ -58,7 +58,7 @@ class ReassignmentStreamReader(
 
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
-  private val dbMetrics = metrics.daml.index.db
+  private val dbMetrics = metrics.index.db
 
   def streamReassignments(reassignmentStreamQueryParams: ReassignmentStreamQueryParams)(implicit
       loggingContext: LoggingContextWithTrace
@@ -104,11 +104,9 @@ class ReassignmentStreamReader(
           )
         }
         .pipe(EventIdsUtils.sortAndDeduplicateIds)
-        .via(
-          BatchN(
-            maxBatchSize = maxPayloadsPerPayloadsPage,
-            maxBatchCount = maxOutputBatchCount,
-          )
+        .batchN(
+          maxBatchSize = maxPayloadsPerPayloadsPage,
+          maxBatchCount = maxOutputBatchCount,
         )
     }
 
@@ -127,16 +125,20 @@ class ReassignmentStreamReader(
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(dbMetric) { implicit connection =>
-                queryNonPruned.executeSql(
-                  query = payloadDbQuery.fetchPayloads(
+                queryValidRange.withRangeNotPruned(
+                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  maxOffsetInclusive = queryRange.endInclusiveOffset,
+                  errorPruning = (prunedOffset: Offset) =>
+                    s"Reassignment request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
+                    s"Reassignment request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+                ) {
+                  payloadDbQuery.fetchPayloads(
                     eventSequentialIds = ids,
                     allFilterParties = filteringConstraints.allFilterParties,
-                  )(connection),
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
-                  error = (prunedOffset: Offset) =>
-                    s"Reassignment request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
-                )
-              }(LoggingContextWithTrace(TraceContext.empty))
+                  )(connection)
+                }
+              }
             }
           }
         )
@@ -195,6 +197,7 @@ class ReassignmentStreamReader(
           event = Reassignment.Event.UnassignedEvent(
             TransactionsReader.toUnassignedEvent(rawUnassignEvent)
           ),
+          recordTime = Some(TimestampConversion.fromLf(rawUnassignEvent.recordTime)),
         )
       },
       timer = dbMetrics.reassignmentStream.translationTimer,
@@ -222,6 +225,7 @@ class ReassignmentStreamReader(
                   createdEvent,
                 )
               ),
+              recordTime = Some(TimestampConversion.fromLf(rawAssignEvent.recordTime)),
             )
           )
       ),

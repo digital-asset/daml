@@ -6,7 +6,7 @@
 module Records where
 
 import Daml.Script
-import DA.Record -- for type annotations using HasField
+import DA.Record -- for type annotations using GetField/SetField
 import DA.Assert
 import Prelude hiding (view)
 
@@ -14,7 +14,7 @@ data Record a = Record {field : a}
 data Company = Company {name : Text, owner : Person}
 data Person = Person {name : Text, age : Int}
 
--- a simple example of a third-party library needing HasField
+-- a simple example of a third-party library needing GetField/SetField
 type Lens s a = (s -> a, a -> s -> s)
 view (g, _) = g
 update (_, s) = s
@@ -29,7 +29,7 @@ sumAges : [Record Company] -> Int
 sumAges = sum . map (.field.owner.age)
 
 -- this variant of sumAges is polymorphic in the outer record
-sumAges' : forall r. (HasField "field" r Company) => [r] -> Int
+sumAges' : forall r. (GetField "field" r Company) => [r] -> Int
 sumAges' = sum . map (.field.owner.age)
 
 -- TODO: once we stop autogenerating selector functions, the

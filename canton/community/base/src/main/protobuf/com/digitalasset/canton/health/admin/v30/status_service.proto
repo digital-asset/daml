@@ -1,0 +1,107 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.health.admin.v30;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
+
+service StatusService {
+  rpc Status(StatusRequest) returns (StatusResponse);
+  // Streams back a zip file as byte chunks, containing a health dump of the full canton process (including other nodes)
+  rpc HealthDump(HealthDumpRequest) returns (stream HealthDumpResponse);
+}
+
+message TopologyQueueStatus {
+  // how many topology changes are currently queued at the manager
+  uint32 manager = 1;
+  // how many topology changes are currently queued at the dispatcher
+  uint32 dispatcher = 2;
+  // how many topology changes are currently waiting to become effective (across all connected domains in the case of participants)
+  uint32 clients = 3;
+}
+
+message StatusRequest {}
+
+message StatusResponse {
+  message Status {
+    string id = 1;
+    google.protobuf.Duration uptime = 2;
+    map<string, int32> ports = 3;
+    bytes extra = 4; // contains extra information depending on the node type
+    bool active = 5; // Indicate if the node is active, usually true unless it's a replicated node that is passive
+    TopologyQueueStatus topology_queues = 6; // indicates the state of the topology queues (manager / dispatcher only where they exist)
+    repeated ComponentStatus components = 7; // Health state of component dependencies of the node
+  }
+
+  message ComponentStatus {
+    string name = 1;
+    oneof status {
+      StatusData ok = 2;
+      StatusData degraded = 3;
+      StatusData failed = 4;
+    }
+    message StatusData {
+      google.protobuf.StringValue description = 1;
+    }
+  }
+
+  message NotInitialized {
+    bool active = 1; // Indicate if the node is active, usually true unless it's a replicated node that is passive
+  }
+
+  oneof response {
+    NotInitialized not_initialized = 1; // node is running but has not been initialized yet
+    Status success = 2; // successful response from a running and initialized node
+  }
+}
+
+message HealthDumpRequest {
+  // Size of the byte chunks to stream back.
+  // Defaults to 2MB (half of the default gRPC max message size)
+  google.protobuf.UInt32Value chunk_size = 1;
+}
+
+message HealthDumpResponse {
+  bytes chunk = 1; // A chunk of of the health dump file
+}
+
+// domain node specific extra status info
+message DomainStatusInfo {
+  repeated string connected_participants = 1;
+  // optional - only set if a sequencer is being run by the domain
+  SequencerHealthStatus sequencer = 2;
+}
+
+// participant node specific extra status info
+message ParticipantStatusInfo {
+  message ConnectedDomain {
+    string domain = 1;
+    bool healthy = 2;
+  }
+  repeated ConnectedDomain connected_domains = 1;
+  // Indicate if the participant node is active
+  // True if the participant node is replicated and is the active replica, or true if not replicated
+  bool active = 2;
+}
+
+message SequencerNodeStatus {
+  repeated string connected_participants = 1;
+  // required - status of the sequencer component it is running
+  SequencerHealthStatus sequencer = 2;
+  string domain_id = 3;
+}
+
+// status of the sequencer component
+message SequencerHealthStatus {
+  // is the sequencer component active - can vary by implementation for what this means
+  bool active = 1;
+  // optionally set details on how sequencer is healthy/unhealthy
+  google.protobuf.StringValue details = 2;
+}
+
+message MediatorNodeStatus {
+  string domain_id = 1;
+}

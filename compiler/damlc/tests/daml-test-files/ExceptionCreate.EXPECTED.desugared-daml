@@ -9,8 +9,9 @@ import DA.Exception
 data GHC.Types.DamlTemplate => MyTemplate
   = MyTemplate {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" MyTemplate Party where
+instance DA.Internal.Record.GetField "p" MyTemplate Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @MyTemplate @Party
+instance DA.Internal.Record.SetField "p" MyTemplate Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @MyTemplate @Party
 instance DA.Internal.Desugar.HasSignatory MyTemplate where
   signatory this@MyTemplate {..}
@@ -25,11 +26,6 @@ instance DA.Internal.Desugar.HasObserver MyTemplate where
 instance DA.Internal.Desugar.HasEnsure MyTemplate where
   ensure this@MyTemplate {..}
     = False
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement MyTemplate where
-  agreement this@MyTemplate {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive MyTemplate where
@@ -78,8 +74,9 @@ _choice$_MyTemplate$Archive
 data GHC.Types.DamlTemplate => Test
   = Test {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" Test Party where
+instance DA.Internal.Record.GetField "p" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
+instance DA.Internal.Record.SetField "p" Test Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
 data Call
   = Call {}
@@ -97,11 +94,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

@@ -9,14 +9,11 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransaction}
-import com.digitalasset.canton.topology.transaction.{
-  DomainParametersChange,
-  SignedTopologyTransaction,
-  TopologyChangeOp,
-}
-import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingOwnerWithKeys}
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
+import com.digitalasset.canton.topology.store.{TopologyStoreId, ValidatedTopologyTransactionX}
+import com.digitalasset.canton.topology.transaction.DomainParametersStateX
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingOwnerWithKeysX}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
@@ -31,16 +28,15 @@ class TopologyTimestampPlusEpsilonTrackerTest
   import com.digitalasset.canton.topology.client.EffectiveTimeTestHelpers.*
 
   protected class Fixture {
-    val crypto = new TestingOwnerWithKeys(
+    val crypto = new TestingOwnerWithKeysX(
       DefaultTestIdentities.domainManager,
       loggerFactory,
       parallelExecutionContext,
     )
-    val store = new InMemoryTopologyStore(
+    val store = new InMemoryTopologyStoreX(
       TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
       loggerFactory,
       timeouts,
-      futureSupervisor,
     )
     val tracker =
       new TopologyTimestampPlusEpsilonTracker(
@@ -54,8 +50,8 @@ class TopologyTimestampPlusEpsilonTrackerTest
         effective: EffectiveTime,
         topologyChangeDelay: NonNegativeFiniteDuration,
     ): Unit = {
-      val tx = crypto.mkDmGov(
-        DomainParametersChange(
+      val tx = crypto.mkAdd(
+        DomainParametersStateX(
           DefaultTestIdentities.domainId,
           DynamicDomainParameters.initialValues(
             topologyChangeDelay,
@@ -70,20 +66,22 @@ class TopologyTimestampPlusEpsilonTrackerTest
     def append(
         sequenced: SequencedTime,
         effective: EffectiveTime,
-        txs: SignedTopologyTransaction[TopologyChangeOp]*
+        txs: GenericSignedTopologyTransactionX*
     ): Unit = {
       logger.debug(s"Storing $sequenced $effective $txs")
       store
-        .append(
+        .update(
           sequenced,
           effective,
-          txs.map(ValidatedTopologyTransaction(_, None)).toList,
+          removeMapping = Set.empty,
+          removeTxs = Set.empty,
+          txs.map(ValidatedTopologyTransactionX(_, None)).toList,
         )
         .futureValue
     }
 
     def initTracker(ts: CantonTimestamp): Unit = {
-      unwrap(TopologyTimestampPlusEpsilonTracker.initialize(tracker, store, ts)).futureValue
+      unwrap(TopologyTimestampPlusEpsilonTracker.initializeX(tracker, store, ts)).futureValue
     }
 
     def init(): Unit = {
@@ -194,7 +192,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
         SequencedTime(ts),
         EffectiveTime(tsM75.plusMillis(100)),
         f.crypto.TestingTransactions.ns1k2,
-        f.crypto.TestingTransactions.p2p1,
+        f.crypto.TestingTransactions.p1p1,
       )
 
       val eM50 = NonNegativeFiniteDuration.tryOfMillis(200)

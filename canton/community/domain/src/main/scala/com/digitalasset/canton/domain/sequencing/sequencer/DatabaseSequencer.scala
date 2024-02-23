@@ -10,7 +10,7 @@ import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -19,11 +19,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   MemberRecipient,
@@ -42,6 +43,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
+import com.digitalasset.canton.traffic.TrafficControlErrors
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
 import com.digitalasset.canton.util.ShowUtil.*
@@ -383,21 +385,24 @@ class DatabaseSequencer(
     )(logger)
   }
 
-  override def isLedgerIdentityRegistered(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean] =
-    // unimplemented. We don't plan to implement ledger identity authorization for database sequencers, so this
-    // function will never be implemented.
-    Future.successful(false)
-
-  override def authorizeLedgerIdentity(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    // see [[isLedgerIdentityRegistered]]
-    EitherT.leftT("authorizeLedgerIdentity is not implemented for database sequencers")
-
   override def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext
   ): Future[SequencerTrafficStatus] =
     Future.successful(SequencerTrafficStatus(Seq.empty))
+  override def setTrafficBalance(
+      member: Member,
+      serial: NonNegativeLong,
+      totalTrafficBalance: NonNegativeLong,
+      sequencerClient: SequencerClient,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    TrafficControlErrors.TrafficControlError,
+    CantonTimestamp,
+  ] = EitherT.liftF(
+    FutureUnlessShutdown.failed(
+      new NotImplementedError("Traffic control is not supported by the database sequencer")
+    )
+  )
 }

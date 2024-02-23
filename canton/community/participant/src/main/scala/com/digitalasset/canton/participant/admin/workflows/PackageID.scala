@@ -4,7 +4,5 @@
 package com.digitalasset.canton.participant.admin.workflows.java
 
 object PackageID {
-  val PingPong: String = pingpong.Ping.TEMPLATE_ID.getPackageId
-  val PingPongVacuum: String = pingpongvacuum.PingCleanup.TEMPLATE_ID.getPackageId
-  val DarDistribution: String = dardistribution.AcceptedDar.TEMPLATE_ID.getPackageId
+  val PingPong: String = canton.internal.ping.Ping.TEMPLATE_ID.getPackageId
 }

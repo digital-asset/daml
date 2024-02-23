@@ -3,24 +3,30 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.event.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{LEDGER_BEGIN, LEDGER_END}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_END
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.ledger.api.v1.value.Value.Sum.Text
 import com.daml.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.util.Random
 
 object MockMessages {
 
-  val ledgerBegin: LedgerOffset = LedgerOffset(Boundary(LEDGER_BEGIN))
+  val participantBegin: ParticipantOffset = ParticipantOffset(
+    ParticipantOffset.Value.Boundary(PARTICIPANT_BEGIN)
+  )
   val ledgerEnd: LedgerOffset = LedgerOffset(Boundary(LEDGER_END))
 
   val ledgerId = "ledgerId"
@@ -31,7 +37,8 @@ object MockMessages {
   val party2 = "party2"
   val ledgerEffectiveTime: Timestamp = Timestamp(0L, 0)
 
-  val commands: Commands = Commands(ledgerId, workflowId, applicationId, commandId, party, Nil)
+  val commands: Commands =
+    Commands(workflowId, applicationId, commandId, Nil, actAs = Seq(party))
 
   val submitRequest: SubmitRequest = SubmitRequest(Some(commands))
 

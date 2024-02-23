@@ -89,9 +89,10 @@ instance DA.Internal.Desugar.HasChoiceObserver Token GetRich where
 data GetRich
   = GetRich {byHowMuch : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
+instance DA.Internal.Record.GetField "byHowMuch" GetRich Int where
   getField
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
+instance DA.Internal.Record.SetField "byHowMuch" GetRich Int where
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
 _choice$_Token$Archive :

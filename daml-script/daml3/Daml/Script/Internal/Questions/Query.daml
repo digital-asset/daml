@@ -1,0 +1,138 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script.Internal.Questions.Query where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Commands (Disclosure(..))
+import DA.Optional
+import DA.Stack
+
+data QueryACS = QueryACS with
+  parties : [Party]
+  tplId : TemplateTypeRep
+instance IsQuestion QueryACS [(ContractId (), AnyTemplate)] where command = "QueryACS"
+
+-- | Query the set of active contracts of the template
+-- that are visible to the given party.
+query : forall t p. (Template t, HasEnsure t, IsParties p) => p -> Script [(ContractId t, t)]
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+query p = fmap convert $ lift $ QueryACS with
+    parties = toParties p
+    tplId = templateTypeRep @t
+  where
+    convert : [(ContractId (), AnyTemplate)] -> [(ContractId t, t)]
+    convert = map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))
+
+-- | Query the set of active contracts of the template
+-- that are visible to the given party and match the given predicate.
+queryFilter : (Template c, HasEnsure c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, c)]
+-- The 'HasEnsure c' constraint prevents this function from being used on interface types.
+queryFilter p f = filter (\(_, c) -> f c) <$> query p
+
+data QueryContractId = QueryContractId with
+  parties : [Party]
+  tplId : TemplateTypeRep
+  cid : ContractId ()
+instance IsQuestion QueryContractId (Optional (AnyTemplate, Text)) where command = "QueryContractId"
+
+-- | Query for the contract with the given contract id.
+--
+-- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractId_ : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional (AnyTemplate, Text))
+queryContractId_ p c = lift $ QueryContractId with
+    parties = toParties p
+    tplId = templateTypeRep @t
+    cid = coerceContractId c
+--  where
+--    convert : Optional AnyTemplate -> Optional t
+--    convert = fmap $ fromSome . fromAnyTemplate
+
+queryContractId: forall t p. (Template t, HasEnsure t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
+queryContractId p c = fmap (fmap $ fromSome . fromAnyTemplate . fst) $ queryContractId_ p c
+
+-- TODO https://github.com/digital-asset/daml/issues/17755
+--  clean the API for different query function
+queryDisclosure: forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional Disclosure)
+queryDisclosure p c = fmap (fmap  $ \(_, blob) -> Disclosure tplId cid blob) $ queryContractId_ p c
+ where
+    tplId = templateTypeRep @t
+    cid = coerceContractId c
+
+data QueryInterface = QueryInterface with
+  parties : [Party]
+  interfaceId : TemplateTypeRep
+instance IsQuestion QueryInterface [LedgerValue] where command = "QueryInterface"
+
+-- | Query the set of active contract views for an interface
+-- that are visible to the given party.
+-- If the view function fails for a given contract id, The `Optional v` will be `None`.
+--
+-- WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
+queryInterface : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
+queryInterface p = fmap convert $ lift $ QueryInterface with
+    parties = toParties p
+    interfaceId = templateTypeRep @i
+  where
+    convert : [LedgerValue] -> [(ContractId i, Optional v)]
+    convert = map $ fromLedgerValue @(ContractId i, Optional v)
+
+data QueryInterfaceContractId = QueryInterfaceContractId with
+  parties : [Party]
+  interfaceId : TemplateTypeRep
+  cid : ContractId ()
+instance IsQuestion QueryInterfaceContractId (Optional LedgerValue) where command = "QueryInterfaceContractId"
+
+-- | Query for the contract view with the given contract id.
+--
+-- Returns `None` if there is no active contract the party is a stakeholder on.
+--
+-- Returns `None` if the view function fails for the given contract id.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `queryInterface`
+-- and filtering on the client side.
+queryInterfaceContractId : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => HasCallStack => p -> ContractId i -> Script (Optional v)
+queryInterfaceContractId p c = fmap convert $ lift $ QueryInterfaceContractId with
+    parties = toParties p
+    interfaceId = templateTypeRep @i
+    cid = coerceContractId c
+  where
+    convert : Optional LedgerValue -> Optional v
+    convert = fmap $ fromLedgerValue @v
+
+data QueryContractKey = QueryContractKey with
+  parties : [Party]
+  tplId : TemplateTypeRep
+  key : AnyContractKey -- TODO rename this, key goes blue
+instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where command = "QueryContractKey"
+
+-- | Returns `None` if there is no active contract with the given key that
+-- the party is a stakeholder on.
+--
+-- WARNING: Over the gRPC and with the JSON API
+-- in-memory backend this performs a linear search so only use this if the number of
+-- active contracts is small.
+--
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+queryContractKey p k = fmap convert $ lift $ QueryContractKey with
+    parties = toParties p
+    tplId = templateTypeRep @t
+    key = toAnyContractKey @t k
+  where
+    convert : Optional (ContractId (), AnyTemplate) -> Optional (ContractId t, t)
+    convert = fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -6,10 +6,11 @@
 module DA.Ledger.Services.PackageService (
     listPackages,
     getPackage, Package(..),
-    getPackageStatus, PackageStatus(..),
+    getPackageStatus, V1.PackageStatus(..),
     ) where
 
-import Com.Daml.Ledger.Api.V1.PackageService
+import qualified Com.Daml.Ledger.Api.V1.PackageService as V1
+import Com.Daml.Ledger.Api.V2.PackageService
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
@@ -18,45 +19,44 @@ import Proto3.Suite.Types(Enumerated(..))
 import qualified Data.Vector as Vector
 import Data.ByteString(ByteString)
 
-listPackages :: LedgerId -> LedgerService [PackageId]
-listPackages lid =
+listPackages :: LedgerService [PackageId]
+listPackages =
     makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceListPackages=rpc} = service
-        let request = ListPackagesRequest (unLedgerId lid)
-        response <- rpc (ClientNormalRequest request timeout mdm)
-        ListPackagesResponse xs <- unwrap response
+        response <- rpc (ClientNormalRequest ListPackagesRequest timeout mdm)
+        V1.ListPackagesResponse xs <- unwrap response
         return $ map PackageId $ Vector.toList xs
 
 newtype Package = Package ByteString deriving (Eq,Ord,Show)
 
-getPackage :: LedgerId -> PackageId -> LedgerService (Maybe Package)
-getPackage lid pid =
+getPackage :: PackageId -> LedgerService (Maybe Package)
+getPackage pid =
     makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackage=rpc} = service
-        let request = GetPackageRequest (unLedgerId lid) (unPackageId pid)
+        let request = GetPackageRequest (unPackageId pid)
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithNotFound
             >>= \case
             Nothing ->
                 return Nothing
-            Just (GetPackageResponse _ bs _) ->
+            Just (V1.GetPackageResponse _ bs _) ->
                 return $ Just $ Package bs
 
-getPackageStatus :: LedgerId -> PackageId -> LedgerService PackageStatus
-getPackageStatus lid pid =
+getPackageStatus :: PackageId -> LedgerService V1.PackageStatus
+getPackageStatus pid =
     makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackageStatus=rpc} = service
-        let request = GetPackageStatusRequest (unLedgerId lid) (unPackageId pid)
+        let request = GetPackageStatusRequest (unPackageId pid)
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \case
-            GetPackageStatusResponse (Enumerated (Left n)) ->
+            V1.GetPackageStatusResponse (Enumerated (Left n)) ->
                 fail $ "unexpected PackageStatus enum = " <> show n
-            GetPackageStatusResponse (Enumerated (Right status)) ->
+            V1.GetPackageStatusResponse (Enumerated (Right status)) ->
                 return status

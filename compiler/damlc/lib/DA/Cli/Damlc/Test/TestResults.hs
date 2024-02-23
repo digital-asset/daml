@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FunctionalDependencies #-}
@@ -340,16 +340,6 @@ scenarioResultsToTestResults allPackages results =
         , (templateIdentifier, (pkgId, module_, templateInfo)) <- M.toList $ templatesDefinedIn [loe]
         , LF.TemplateImplements { tpiInterface }
             <- NM.toList $ LF.tplImplements templateInfo
-        ] ++
-        [ InterfaceInstanceIdentifier
-            { instanceTemplate = lfMkNameIdentifier pkgId module_ (LF.qualObject iciTemplate)
-            , instanceInterface = interfaceIdentifier
-            , instancePackage = package (unInterfaceIdentifier interfaceIdentifier)
-            }
-        | loe <- localOrExternals
-        , (interfaceIdentifier, (pkgId, module_, interfaceInfo)) <- M.toList $ interfacesDefinedIn [loe]
-        , LF.InterfaceCoImplements { iciTemplate }
-            <- NM.toList $ LF.intCoImplements interfaceInfo
         ]
 
     allCreatedTemplates :: M.Map TemplateIdentifier (S.Set PackageId)
@@ -395,7 +385,7 @@ scenarioResultsToTestResults allPackages results =
     pkgIdToPkgName targetPid =
         case mapMaybe isTargetPackage allPackages of
           [] -> targetPid
-          [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
+          [matchingPkg] -> LF.unPackageName $ LF.packageName $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
           _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
         where
             isTargetPackage loe

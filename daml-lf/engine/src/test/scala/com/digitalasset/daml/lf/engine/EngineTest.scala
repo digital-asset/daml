@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -18,7 +18,6 @@ import com.daml.lf.transaction.{
   Normalization,
   ReplayMismatch,
   SubmittedTransaction,
-  Util,
   Validation,
   VersionedTransaction,
   Transaction => Tx,
@@ -58,7 +57,6 @@ import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 
-class EngineTestV1 extends EngineTest(LanguageMajorVersion.V1)
 class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
 
 @SuppressWarnings(
@@ -402,7 +400,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                   (Some[Ref.Name]("k"), ValueInt64(43)),
                 ),
               ),
-              basicUseSharedKeys,
             )
           )
         )
@@ -662,7 +659,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicUseSharedKeys,
               )
             )
           )
@@ -710,7 +706,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicUseSharedKeys,
               )
             )
           )
@@ -724,7 +719,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
         values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
       )
-      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minExplicitDisclosure)
+      val usedContractKey = usedContractSKey.toNormalizedValue(TxVersions.minVersion)
       val unusedContractKey = Value.ValueRecord(
         None,
         ImmArray(
@@ -740,7 +735,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -750,7 +745,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
@@ -767,14 +762,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(
-              usedDisclosedContract.templateId,
-              usedContractKey,
-              Set(alice),
-              basicUseSharedKeys,
-            )
+            .assertBuild(usedDisclosedContract.templateId, usedContractKey, Set(alice))
         ),
-        agreementText = "",
         version = transactionVersion,
       )
 
@@ -1227,7 +1216,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         actors union actFetchActors(n)
       }
 
-    def runExample(cid: ContractId, exerciseActor: Party) = {
+    def runExample(cid: ContractId, exerciseActor: Party, readAs: Party) = {
       val command = ApiCommand.Exercise(
         fetcherTid.toRef,
         cid,
@@ -1247,7 +1236,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
             .interpretCommands(
               validating = false,
               submitters = submitters,
-              readAs = Set.empty,
+              readAs = Set(readAs),
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
@@ -1274,7 +1263,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       // bob: parent observer
       // clara: parent actor
 
-      val Right((tx, _)) = runExample(fetcher1Cid, clara)
+      val Right((tx, _)) = runExample(fetcher1Cid, clara, alice)
       txFetchActors(tx.transaction) shouldBe Set(alice, clara)
     }
 
@@ -1293,18 +1282,18 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       // party: parent signatory
       // alice: parent observer
       // clara: parent actor
-      val Right((tx1, _)) = runExample(fetcher2Cid, clara)
+      val Right((tx1, _)) = runExample(fetcher2Cid, clara, alice)
       txFetchActors(tx1.transaction) shouldBe Set(clara)
 
       // clara: parent signatory
       // alice: parent observer
       // party: parent actor
-      val Right((tx2, _)) = runExample(fetcher3Cid, party)
+      val Right((tx2, _)) = runExample(fetcher3Cid, party, alice)
       txFetchActors(tx2.transaction) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
-      val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
+      val Right((tx, txMeta)) = runExample(fetcher1Cid, clara, alice)
       val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
         nid -> fetch
       }
@@ -1327,7 +1316,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "not mark any node as byKey" in {
-      runExample(fetcher2Cid, clara).map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      runExample(fetcher2Cid, clara, alice).map { case (tx, _) =>
+        byKeyNodes(tx).size
+      } shouldBe Right(0)
     }
   }
 
@@ -1581,7 +1572,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1591,7 +1582,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
         templateId = templateId,
@@ -1608,9 +1599,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, usedContractKey, Set(alice), basicUseSharedKeys)
+            .assertBuild(templateId, usedContractKey, Set(alice))
         ),
-        agreementText = "",
         version = transactionVersion,
       )
 
@@ -1661,7 +1651,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,
-        agreementText = s"'$alice'", // agreement show party
         version = transactionVersion,
       )
 
@@ -2322,7 +2311,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadPackage(
       s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
     )
-    val compatibleLanguageVersions = LanguageVersion.All.filter(_.major == majorLanguageVersion)
+    val compatibleLanguageVersions = LanguageVersion.All
     val stablePackages = StablePackages(majorLanguageVersion).allPackages
 
     s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
@@ -2367,36 +2356,26 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
     val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
     def pkg(version: LV) =
-      language.Ast.Package(Map.empty, Set.empty, version, None)
+      language.Ast.Package(
+        Map.empty,
+        Set.empty,
+        version,
+        PackageMetadata(
+          PackageName.assertFromString("foo"),
+          PackageVersion.assertFromString("0.0.0"),
+          None,
+        ),
+      )
 
     "reject disallowed packages" in {
       val negativeTestCases = Table(
         ("pkg version", "minVersion", "maxversion"),
-        (LV.v1_6, LV.v1_6, LV.v1_8),
-        (LV.v1_7, LV.v1_6, LV.v1_8),
-        (LV.v1_8, LV.v1_6, LV.v1_8),
-        (LV.v1_dev, LV.v1_6, LV.v1_dev),
         (LV.v2_1, LV.v2_1, LV.v2_dev),
         (LV.v2_dev, LV.v2_1, LV.v2_dev),
-      )
-      val positiveTestCases = Table(
-        ("pkg version", "minVersion", "maxversion"),
-        (LV.v1_6, LV.v1_7, LV.v1_dev),
-        (LV.v1_7, LV.v1_8, LV.v1_8),
-        (LV.v1_8, LV.v1_6, LV.v1_7),
-        (LV.v1_dev, LV.v1_6, LV.v1_8),
-        (LV.v2_dev, LV.v1_6, LV.v1_8),
-        (LV.v2_dev, LV.v1_6, LV.v1_dev),
-        (LV.v1_6, LV.v2_1, LV.v2_dev),
-        (LV.v1_dev, LV.v2_1, LV.v2_dev),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>
         engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultDone[_]]
-      )
-
-      forEvery(positiveTestCases)((v, min, max) =>
-        engine(min, max).preloadPackage(pkgId, pkg(v)) shouldBe a[ResultError]
       )
     }
   }
@@ -2428,7 +2407,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
-  val basicUseSharedKeys: Boolean = Util.sharedKey(basicTestsPkg.languageVersion)
+  val basicUseSharedKeys: Boolean = true
 
   val party: Ref.IdString.Party = Party.assertFromString("Party")
   val alice: Ref.IdString.Party = Party.assertFromString("Alice")
@@ -2490,7 +2469,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       GlobalKey.assertBuild(
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-        basicUseSharedKeys,
       ),
       Set(alice),
     )
@@ -2531,12 +2509,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def byKeyNodes(tx: VersionedTransaction): Set[NodeId] =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
-  def getPackageName(basicTestsPkg: Package): Option[PackageName] = {
-    if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
-      None
-    else
-      Some(basicTestsPkg.metadata.get.name)
-  }
+  def getPackageName(basicTestsPkg: Package): PackageName =
+    basicTestsPkg.metadata.name
 
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(

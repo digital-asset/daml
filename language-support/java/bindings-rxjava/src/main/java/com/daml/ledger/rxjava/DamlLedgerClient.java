@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava;
@@ -26,7 +26,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *   <li>Call the method {@link DamlLedgerClient#connect()} to initialize the clients for that
  *       particular ledger
  *   <li>Retrieve one of the clients by using a getter, e.g. {@link
- *       DamlLedgerClient#getActiveContractSetClient()}
+ *       DamlLedgerClient#getStateClient()}
  * </ol>
  *
  * <p>Alternatively to {@link DamlLedgerClient#newBuilder(String, int)}, you can use {@link
@@ -42,7 +42,6 @@ public final class DamlLedgerClient implements LedgerClient {
   public static final class Builder {
 
     private final NettyChannelBuilder builder;
-    private Optional<String> expectedLedgerId = Optional.empty();
     private Optional<String> accessToken = Optional.empty();
     private Optional<Duration> timeout = Optional.empty();
 
@@ -57,18 +56,6 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
-    /**
-     * @deprecated since 2.0 the ledger identifier has been deprecated as a fail-safe against
-     *     contacting an unexpected participant. You are recommended to use the participant
-     *     identifier in the access token as a way to validate that you are accessing the ledger
-     *     through the expected participant node (as well as authorize your calls).
-     */
-    @Deprecated
-    public Builder withExpectedLedgerId(@NonNull String expectedLedgerId) {
-      this.expectedLedgerId = Optional.of(expectedLedgerId);
-      return this;
-    }
-
     public Builder withAccessToken(@NonNull String accessToken) {
       this.accessToken = Optional.of(accessToken);
       return this;
@@ -80,8 +67,7 @@ public final class DamlLedgerClient implements LedgerClient {
     }
 
     public DamlLedgerClient build() {
-      return new DamlLedgerClient(
-          this.builder, this.expectedLedgerId, this.accessToken, this.timeout);
+      return new DamlLedgerClient(this.builder, this.accessToken, this.timeout);
     }
   }
 
@@ -111,79 +97,49 @@ public final class DamlLedgerClient implements LedgerClient {
     return new Builder(channelBuilder);
   }
 
-  private ActiveContractsClient activeContractsClient;
-  private TransactionsClient transactionsClient;
+  private StateClient stateServiceClient;
+  private UpdateClient transactionsClient;
   private CommandCompletionClient commandCompletionClient;
   private CommandClient commandClient;
   private CommandSubmissionClient commandSubmissionClient;
-  @Deprecated private LedgerIdentityClient ledgerIdentityClient;
   private EventQueryClient eventQueryClient;
   private PackageClient packageClient;
-  private LedgerConfigurationClient ledgerConfigurationClient;
   private TimeClient timeClient;
   private UserManagementClient userManagementClient;
-  private String expectedLedgerId;
   private Optional<String> accessToken;
   private final Optional<Duration> timeout;
   private final ManagedChannel channel;
 
   private DamlLedgerClient(
       @NonNull NettyChannelBuilder channelBuilder,
-      @NonNull Optional<String> expectedLedgerId,
       @NonNull Optional<String> accessToken,
       @NonNull Optional<Duration> timeout) {
     this.channel = channelBuilder.build();
-    this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = accessToken;
     this.timeout = timeout;
   }
 
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
   public void connect() {
-    @SuppressWarnings("deprecation")
-    var lic = new LedgerIdentityClientImpl(channel, this.accessToken, this.timeout);
-    ledgerIdentityClient = lic;
-
-    String reportedLedgerId = ledgerIdentityClient.getLedgerIdentity().blockingGet();
-
-    if (this.expectedLedgerId != null && !this.expectedLedgerId.equals(reportedLedgerId)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Configured ledger id [%s] is not the same as reported by the ledger [%s]",
-              this.expectedLedgerId, reportedLedgerId));
-    } else {
-      this.expectedLedgerId = reportedLedgerId;
-    }
-
-    activeContractsClient =
-        new ActiveContractClientImpl(reportedLedgerId, channel, pool, this.accessToken);
-    transactionsClient =
-        new TransactionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
-    commandCompletionClient =
-        new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+    stateServiceClient = new StateClientImpl(channel, pool, this.accessToken);
+    transactionsClient = new UpdateClientImpl(channel, pool, this.accessToken);
+    commandCompletionClient = new CommandCompletionClientImpl(channel, pool, this.accessToken);
     commandSubmissionClient =
-        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.timeout);
-    commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
+        new CommandSubmissionClientImpl(channel, this.accessToken, this.timeout);
+    commandClient = new CommandClientImpl(channel, this.accessToken);
     eventQueryClient = new EventQueryClientImpl(channel, this.accessToken);
-    packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
-    ledgerConfigurationClient =
-        new LedgerConfigurationClientImpl(reportedLedgerId, channel, pool, this.accessToken);
-    timeClient = new TimeClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+    packageClient = new PackageClientImpl(channel, this.accessToken);
+    timeClient = new TimeClientImpl(channel, pool, this.accessToken);
     userManagementClient = new UserManagementClientImpl(channel, this.accessToken);
   }
 
   @Override
-  public String getLedgerId() {
-    return expectedLedgerId;
+  public StateClient getStateClient() {
+    return stateServiceClient;
   }
 
   @Override
-  public ActiveContractsClient getActiveContractSetClient() {
-    return activeContractsClient;
-  }
-
-  @Override
-  public TransactionsClient getTransactionsClient() {
+  public UpdateClient getTransactionsClient() {
     return transactionsClient;
   }
 
@@ -202,12 +158,6 @@ public final class DamlLedgerClient implements LedgerClient {
     return commandSubmissionClient;
   }
 
-  @Deprecated
-  @Override
-  public LedgerIdentityClient getLedgerIdentityClient() {
-    return ledgerIdentityClient;
-  }
-
   @Override
   public EventQueryClient getEventQueryClient() {
     return eventQueryClient;
@@ -216,11 +166,6 @@ public final class DamlLedgerClient implements LedgerClient {
   @Override
   public PackageClient getPackageClient() {
     return packageClient;
-  }
-
-  @Override
-  public LedgerConfigurationClient getLedgerConfigurationClient() {
-    return ledgerConfigurationClient;
   }
 
   @Override

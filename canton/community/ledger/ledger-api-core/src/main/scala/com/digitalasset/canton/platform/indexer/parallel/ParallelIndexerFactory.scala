@@ -8,6 +8,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.platform.ResourceOwnerOps
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.platform.indexer.Indexer
 import com.digitalasset.canton.platform.indexer.ha.{
@@ -50,27 +51,22 @@ object ParallelIndexerFactory {
       readService: ReadService,
       initializeInMemoryState: DbDispatcher => LedgerEnd => Future[Unit],
       loggerFactory: NamedLoggerFactory,
+      indexerDbDispatcherOverride: Option[DbDispatcher],
   )(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {
     val logger = TracedLogger(loggerFactory.getLogger(getClass))
     for {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
         "input-mapping-pool",
-        (
-          metrics.daml.parallelIndexer.inputMapping.executor,
-          metrics.executorServiceMetrics,
-        ),
+        metrics.parallelIndexer.inputMapping.executor,
         loggerFactory,
-      )
+      ).afterReleased(logger.debug("Input Mapping Threadpool released"))
       batcherExecutor <- asyncPool(
         batchingParallelism,
         "batching-pool",
-        (
-          metrics.daml.parallelIndexer.batching.executor,
-          metrics.executorServiceMetrics,
-        ),
+        metrics.parallelIndexer.batching.executor,
         loggerFactory,
-      )
+      ).afterReleased(logger.debug("Batching Threadpool released"))
       haCoordinator <-
         if (dbLockStorageBackend.dbLockSupported) {
           for {
@@ -81,7 +77,6 @@ object ParallelIndexerFactory {
                     "ha-coordinator",
                     1,
                     new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,
-                    metrics.executorServiceMetrics,
                     throwable =>
                       logger
                         .error(
@@ -91,7 +86,11 @@ object ParallelIndexerFactory {
                   )
                 )
               )
-            timer <- ResourceOwner.forTimer(() => new Timer)
+              .afterReleased(logger.debug("HaCoordinator single-threadpool released"))
+            timer <- ResourceOwner
+              .forTimer(() => new Timer)
+              .afterReleased(logger.debug("HaCoordinator Timer released"))
+
             // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
             dataSource = dataSourceStorageBackend.createDataSource(
@@ -127,25 +126,31 @@ object ParallelIndexerFactory {
           ResourceOwner.successful(NoopHaCoordinator)
     } yield toIndexer { implicit resourceContext =>
       implicit val ec: ExecutionContext = resourceContext.executionContext
-      haCoordinator.protectedExecution(connectionInitializer =>
-        initializeHandle(
+      haCoordinator.protectedExecution { connectionInitializer =>
+        val indexingHandleF = initializeHandle(
           for {
-            dbDispatcher <- DbDispatcher
-              .owner(
-                // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
-                // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-                dataSource = dataSourceStorageBackend.createDataSource(
-                  dataSourceConfig = dbConfig.dataSourceConfig,
-                  connectionInitHook = Some(connectionInitializer.initialize),
-                  loggerFactory = loggerFactory,
-                ),
-                serverRole = ServerRole.Indexer,
-                connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
-                connectionTimeout = dbConfig.connectionPool.connectionTimeout,
-                metrics = metrics,
-                loggerFactory = loggerFactory,
+            dbDispatcher <- indexerDbDispatcherOverride
+              .map(ResourceOwner.successful)
+              .getOrElse(
+                DbDispatcher
+                  .owner(
+                    // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+                    // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
+                    dataSource = dataSourceStorageBackend.createDataSource(
+                      dataSourceConfig = dbConfig.dataSourceConfig,
+                      connectionInitHook = Some(connectionInitializer.initialize),
+                      loggerFactory = loggerFactory,
+                    ),
+                    serverRole = ServerRole.Indexer,
+                    connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
+                    connectionTimeout = dbConfig.connectionPool.connectionTimeout,
+                    metrics = metrics,
+                    loggerFactory = loggerFactory,
+                  )
+                  .afterReleased(logger.debug("Indexing DbDispatcher released"))
               )
             _ <- meteringAggregator(dbDispatcher)
+              .afterReleased(logger.debug("Metering Aggregator released"))
           } yield dbDispatcher
         ) { dbDispatcher =>
           initializeParallelIngestion(
@@ -163,7 +168,22 @@ object ParallelIndexerFactory {
             )
           )
         }
-      )
+        indexingHandleF.onComplete {
+          case Success(indexingHandle) =>
+            logger.info("Indexer initialized, indexing started.")
+            indexingHandle.completed.onComplete {
+              case Success(_) =>
+                logger.info("Indexing finished.")
+
+              case Failure(failure) =>
+                logger.info(s"Indexing finished with failure: ${failure.getMessage}")
+            }
+
+          case Failure(failure) =>
+            logger.info(s"Indexer initialization failed: ${failure.getMessage}")
+        }
+        indexingHandleF
+      }
     }
   }
 

@@ -16,8 +16,7 @@ import com.digitalasset.canton.participant.store.memory.TransferCacheTest.HookTr
 import com.digitalasset.canton.participant.store.{TransferStore, TransferStoreTest}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
-import com.digitalasset.canton.protocol.{SourceDomainId, TransferId}
-import com.digitalasset.canton.topology.MediatorRef
+import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId, TransferId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{BaseTest, HasExecutorService, LfPartyId, RequestCounter}
@@ -34,7 +33,7 @@ class TransferCacheTest extends AsyncWordSpec with BaseTest with HasExecutorServ
   val transferDataF =
     mkTransferDataForDomain(
       transfer10,
-      MediatorRef(mediator1),
+      mediator1,
       targetDomainId = TransferStoreTest.targetDomain,
     )
   val toc = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
@@ -312,6 +311,11 @@ object TransferCacheTest {
         limit: NonNegativeInt,
     )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]] =
       baseStore.findIncomplete(sourceDomain, validAt, stakeholders, limit)
+
+    override def findEarliestIncomplete()(implicit
+        traceContext: TraceContext
+    ): Future[Option[(GlobalOffset, TransferId, TargetDomainId)]] =
+      baseStore.findEarliestIncomplete()
 
     override def lookup(transferId: TransferId)(implicit
         traceContext: TraceContext

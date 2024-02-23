@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -15,23 +15,6 @@ TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main}"
 echo "The target branch is '${TARGET}'."
 
 readonly BREAKING_PROTOBUF_CHANGE_TRAILER_KEY="Breaks-protobuf"
-# LF protobufs are checked against local snapshots.
-function check_lf_protos() {
-
-    readonly stable_snapshot_dir="daml-lf/transaction/src/stable/protobuf"
-
-    declare -a checkSums=(
-      "73572a9d1a8985a611a5d8c94c983bd3d03617ddf7782161fdba5f90c3b20672  ${stable_snapshot_dir}/com/daml/lf/value.proto"
-      "e29470fb6077a5872cf4ffb5bc12a4b307aed81879f3b93bac1646c08dcdb8e2  ${stable_snapshot_dir}/com/daml/lf/transaction.proto"
-    )
-
-    for checkSum in "${checkSums[@]}"; do
-      echo ${checkSum} | sha256sum -c
-    done
-
-    buf breaking --config "buf-lf-transaction.yaml" --against ${stable_snapshot_dir}
-
-}
 
 # Other protobufs are checked against the chosen git target
 function check_non_lf_protos() {
@@ -58,7 +41,6 @@ is_check_skipped() {
 }
 
 check_protos() {
-  check_lf_protos
   check_non_lf_protos
 }
 

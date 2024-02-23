@@ -14,12 +14,10 @@ import com.digitalasset.canton.ledger.api.domain.{
   Commands,
   EventId,
   LedgerId,
-  LedgerOffset,
+  ParticipantOffset,
   TransactionFilter,
   TransactionId,
 }
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken.toTokenString
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {
@@ -52,14 +50,13 @@ package object logging {
   private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
     readAs(partyNames.asInstanceOf[Iterable[Party]])
 
-  private[services] def startExclusive(offset: LedgerOffset): LoggingEntry =
+  private[services] def startExclusive(offset: ParticipantOffset): LoggingEntry =
     "startExclusive" -> offset
 
-  private[services] def endInclusive(offset: Option[LedgerOffset]): LoggingEntry =
+  private[services] def endInclusive(
+      offset: Option[ParticipantOffset]
+  ): LoggingEntry =
     "endInclusive" -> offset
-
-  private[services] def offset(offset: Option[LedgerOffset]): LoggingEntry =
-    "offset" -> offset
 
   private[services] def offset(offset: String): LoggingEntry =
     "offset" -> offset
@@ -73,9 +70,6 @@ package object logging {
   private[services] def eventSequentialId(seqId: Option[Long]): LoggingEntry =
     "eventSequentialId" -> OfString(seqId.map(_.toString).getOrElse("<empty-sequential-id>"))
 
-  private[services] def keyContinuationToken(token: KeyContinuationToken): LoggingEntry =
-    "keyContinuationToken" -> OfString(toTokenString(token))
-
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> OfString(id.unwrap)
 
@@ -88,7 +82,7 @@ package object logging {
           party.toLoggingKey -> (partyFilters.inclusive match {
             case None => LoggingValue.from("all-templates")
             case Some(inclusiveFilters) =>
-              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateId))
+              LoggingValue.from(inclusiveFilters.templateFilters.map(_.templateTypeRef))
           })
         }.toMap
       )
@@ -123,5 +117,4 @@ package object logging {
 
   private[services] def templateId(id: Identifier): LoggingEntry =
     "templateId" -> id.toString
-
 }

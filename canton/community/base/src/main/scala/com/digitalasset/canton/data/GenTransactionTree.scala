@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.*
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndexFromRoot
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.{v0, *}
+import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.{EitherUtil, MonadUtil}
@@ -126,7 +126,7 @@ final case class GenTransactionTree private (
   def tryFullInformeeTree(protocolVersion: ProtocolVersion): FullInformeeTree = {
     val tree = blind({
       case _: GenTransactionTree => RevealIfNeedBe
-      case _: SubmitterMetadata => BlindSubtree
+      case _: SubmitterMetadata => RevealSubtree
       case _: CommonMetadata => RevealSubtree
       case _: ParticipantMetadata => BlindSubtree
       case _: TransactionView => RevealIfNeedBe
@@ -170,11 +170,8 @@ final case class GenTransactionTree private (
   } yield FullTransactionViewTree.tryCreate(genTransactionTree)
 
   def allLightTransactionViewTrees(
-      protocolVersion: ProtocolVersion
   ): Seq[LightTransactionViewTree] =
-    allTransactionViewTrees.map(
-      LightTransactionViewTree.fromTransactionViewTree(_, protocolVersion)
-    )
+    allTransactionViewTrees.map(LightTransactionViewTree.fromTransactionViewTree)
 
   /** All lightweight transaction trees in this [[GenTransactionTree]], accompanied by their witnesses and randomness
     * suitable for deriving encryption keys for encrypted view messages.
@@ -191,7 +188,6 @@ final case class GenTransactionTree private (
   def allLightTransactionViewTreesWithWitnessesAndSeeds(
       initSeed: SecureRandomness,
       hkdfOps: HkdfOps,
-      protocolVersion: ProtocolVersion,
   ): Either[HkdfError, Seq[(LightTransactionViewTree, Witnesses, SecureRandomness)]] = {
     val randomnessLength = initSeed.unwrap.size
     val witnessAndSeedMapE =
@@ -223,25 +219,17 @@ final case class GenTransactionTree private (
     witnessAndSeedMapE.map { witnessAndSeedMap =>
       allTransactionViewTrees.map { tvt =>
         val (witnesses, seed) = witnessAndSeedMap(tvt.viewPosition)
-        (LightTransactionViewTree.fromTransactionViewTree(tvt, protocolVersion), witnesses, seed)
+        (LightTransactionViewTree.fromTransactionViewTree(tvt), witnesses, seed)
       }
     }
   }
 
-  def toProtoV0: v0.GenTransactionTree =
-    v0.GenTransactionTree(
-      submitterMetadata = Some(MerkleTree.toBlindableNodeV0(submitterMetadata)),
-      commonMetadata = Some(MerkleTree.toBlindableNodeV0(commonMetadata)),
-      participantMetadata = Some(MerkleTree.toBlindableNodeV0(participantMetadata)),
-      rootViews = Some(rootViews.toProtoV0),
-    )
-
-  def toProtoV1: v1.GenTransactionTree =
-    v1.GenTransactionTree(
-      submitterMetadata = Some(MerkleTree.toBlindableNodeV1(submitterMetadata)),
-      commonMetadata = Some(MerkleTree.toBlindableNodeV1(commonMetadata)),
-      participantMetadata = Some(MerkleTree.toBlindableNodeV1(participantMetadata)),
-      rootViews = Some(rootViews.toProtoV1),
+  def toProtoV30: v30.GenTransactionTree =
+    v30.GenTransactionTree(
+      submitterMetadata = Some(MerkleTree.toBlindableNodeV30(submitterMetadata)),
+      commonMetadata = Some(MerkleTree.toBlindableNodeV30(commonMetadata)),
+      participantMetadata = Some(MerkleTree.toBlindableNodeV30(participantMetadata)),
+      rootViews = Some(rootViews.toProtoV30),
     )
 
   def mapUnblindedRootViews(f: TransactionView => TransactionView): GenTransactionTree =
@@ -290,30 +278,22 @@ object GenTransactionTree {
     GenLens[GenTransactionTree](_.submitterMetadata)
 
   @VisibleForTesting
-  val commonMetadataUnsafe: Lens[GenTransactionTree, MerkleTree[CommonMetadata]] =
-    GenLens[GenTransactionTree](_.commonMetadata)
-
-  @VisibleForTesting
-  val participantMetadataUnsafe: Lens[GenTransactionTree, MerkleTree[ParticipantMetadata]] =
-    GenLens[GenTransactionTree](_.participantMetadata)
-
-  @VisibleForTesting
   val rootViewsUnsafe: Lens[GenTransactionTree, MerkleSeq[TransactionView]] =
     GenLens[GenTransactionTree](_.rootViews)
 
-  def fromProtoV0(
+  def fromProtoV30(
       context: (HashOps, ProtocolVersion),
-      protoTransactionTree: v0.GenTransactionTree,
+      protoTransactionTree: v30.GenTransactionTree,
   ): ParsingResult[GenTransactionTree] = {
     val (hashOps, expectedProtocolVersion) = context
     for {
       submitterMetadata <- MerkleTree
-        .fromProtoOptionV0(
+        .fromProtoOptionV30(
           protoTransactionTree.submitterMetadata,
           SubmitterMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
       commonMetadata <- MerkleTree
-        .fromProtoOptionV0(
+        .fromProtoOptionV30(
           protoTransactionTree.commonMetadata,
           CommonMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
@@ -321,22 +301,22 @@ object GenTransactionTree {
         InvariantViolation("GenTransactionTree.commonMetadata is blinded")
       )
       participantMetadata <- MerkleTree
-        .fromProtoOptionV0(
+        .fromProtoOptionV30(
           protoTransactionTree.participantMetadata,
           ParticipantMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
       rootViewsP <- ProtoConverter
         .required("GenTransactionTree.rootViews", protoTransactionTree.rootViews)
-      rootViews <- MerkleSeq.fromProtoV0(
+      rootViews <- MerkleSeq.fromProtoV30(
         (
           hashOps,
-          TransactionView.fromByteStringLegacy(ProtoVersion(0))(
+          TransactionView.fromByteStringLegacy(ProtoVersion(30))(
             (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
           ),
         ),
         rootViewsP,
       )
-      genTransactionTree <- createGenTransactionTreeV0V1(
+      genTransactionTree <- createGenTransactionTreeV30(
         hashOps,
         submitterMetadata,
         commonMetadata,
@@ -346,52 +326,7 @@ object GenTransactionTree {
     } yield genTransactionTree
   }
 
-  def fromProtoV1(
-      context: (HashOps, ProtocolVersion),
-      protoTransactionTree: v1.GenTransactionTree,
-  ): ParsingResult[GenTransactionTree] = {
-    val (hashOps, expectedProtocolVersion) = context
-    for {
-      submitterMetadata <- MerkleTree
-        .fromProtoOptionV1(
-          protoTransactionTree.submitterMetadata,
-          SubmitterMetadata.fromByteString(expectedProtocolVersion)(hashOps),
-        )
-      commonMetadata <- MerkleTree
-        .fromProtoOptionV1(
-          protoTransactionTree.commonMetadata,
-          CommonMetadata.fromByteString(expectedProtocolVersion)(hashOps),
-        )
-      commonMetadataUnblinded <- commonMetadata.unwrap.leftMap(_ =>
-        InvariantViolation("GenTransactionTree.commonMetadata is blinded")
-      )
-      participantMetadata <- MerkleTree
-        .fromProtoOptionV1(
-          protoTransactionTree.participantMetadata,
-          ParticipantMetadata.fromByteString(expectedProtocolVersion)(hashOps),
-        )
-      rootViewsP <- ProtoConverter
-        .required("GenTransactionTree.rootViews", protoTransactionTree.rootViews)
-      rootViews <- MerkleSeq.fromProtoV1(
-        (
-          hashOps,
-          TransactionView.fromByteStringLegacy(ProtoVersion(1))(
-            (hashOps, commonMetadataUnblinded.confirmationPolicy, expectedProtocolVersion)
-          ),
-        ),
-        rootViewsP,
-      )
-      genTransactionTree <- createGenTransactionTreeV0V1(
-        hashOps,
-        submitterMetadata,
-        commonMetadata,
-        participantMetadata,
-        rootViews,
-      )
-    } yield genTransactionTree
-  }
-
-  def createGenTransactionTreeV0V1(
+  def createGenTransactionTreeV30(
       hashOps: HashOps,
       submitterMetadata: MerkleTree[SubmitterMetadata],
       commonMetadata: MerkleTree[CommonMetadata],

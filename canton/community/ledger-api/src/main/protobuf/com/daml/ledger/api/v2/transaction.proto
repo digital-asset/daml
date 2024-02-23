@@ -68,6 +68,11 @@ message TransactionTree {
   // instead.
   com.daml.ledger.api.v1.TraceContext trace_context = 9;
 
+  // The time at which the transaction was recorded. The record time refers to the domain
+  // which synchronized the transaction.
+  // Required
+  google.protobuf.Timestamp record_time = 10;
+
 }
 
 // Filtered view of an on-ledger transaction's create and archive events.
@@ -117,4 +122,10 @@ message Transaction {
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
   com.daml.ledger.api.v1.TraceContext trace_context = 8;
+
+  // The time at which the transaction was recorded. The record time refers to the domain
+  // which synchronized the transaction.
+  // Required
+  google.protobuf.Timestamp record_time = 9;
+
 }

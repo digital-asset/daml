@@ -5,6 +5,10 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.canton.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.ParticipantId
 
 /** Information about the submitters of the transaction in the case of a Transfer.
   * This data structure is quite similar to [[com.digitalasset.canton.data.SubmitterMetadata]]
@@ -12,18 +16,61 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
   */
 final case class TransferSubmitterMetadata(
     submitter: LfPartyId,
-    applicationId: LedgerApplicationId,
-    submittingParticipant: LedgerParticipantId,
+    submittingParticipant: ParticipantId,
     commandId: LedgerCommandId,
     submissionId: Option[LedgerSubmissionId],
+    applicationId: LedgerApplicationId,
     workflowId: Option[LfWorkflowId],
 ) extends PrettyPrinting {
 
+  def toProtoV30: v30.TransferSubmitterMetadata =
+    v30.TransferSubmitterMetadata(
+      submitter = submitter,
+      submittingParticipant = submittingParticipant.toProtoPrimitive,
+      commandId = commandId,
+      submissionId = submissionId.getOrElse(""),
+      applicationId = applicationId,
+      workflowId = workflowId.getOrElse(""),
+    )
+
   override def pretty: Pretty[TransferSubmitterMetadata] = prettyOfClass(
     param("submitter", _.submitter),
-    param("application id", _.applicationId),
-    param("submitter participant", _.submittingParticipant),
+    param("submitting participant", _.submittingParticipant),
     param("command id", _.commandId),
     paramIfDefined("submission id", _.submissionId),
+    param("application id", _.applicationId),
+    param("workflow id", _.workflowId),
   )
+}
+
+object TransferSubmitterMetadata {
+  def fromProtoV30(
+      transferSubmitterMetadataP: v30.TransferSubmitterMetadata
+  ): ParsingResult[TransferSubmitterMetadata] = {
+    val v30.TransferSubmitterMetadata(
+      submitterP,
+      submittingParticipantP,
+      commandIdP,
+      submissionIdP,
+      applicationIdP,
+      workflowIdP,
+    ) = transferSubmitterMetadataP
+
+    for {
+      submitter <- ProtoConverter.parseLfPartyId(submitterP)
+      submittingParticipant <-
+        ParticipantId.fromProtoPrimitive(submittingParticipantP, "submittingParticipant")
+      commandId <- ProtoConverter.parseCommandId(commandIdP)
+      submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
+      applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
+      workflowId <- ProtoConverter.parseLFWorkflowIdO(workflowIdP)
+    } yield TransferSubmitterMetadata(
+      submitter,
+      submittingParticipant,
+      commandId,
+      submissionId,
+      applicationId,
+      workflowId,
+    )
+  }
 }

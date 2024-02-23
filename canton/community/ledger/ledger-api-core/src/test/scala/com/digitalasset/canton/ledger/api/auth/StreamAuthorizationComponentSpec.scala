@@ -5,52 +5,29 @@ package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
-  TransactionService,
-  TransactionServiceStub,
-}
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetLatestPrunedOffsetsRequest,
-  GetLatestPrunedOffsetsResponse,
-  GetLedgerEndRequest,
-  GetLedgerEndResponse,
-  GetTransactionByEventIdRequest,
-  GetTransactionByIdRequest,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsRequest,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.{UpdateService, UpdateServiceStub}
+import com.daml.ledger.api.v2.update_service.*
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.digitalasset.canton.ledger.api.auth.services.TransactionServiceAuthorization
+import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
 import com.digitalasset.canton.ledger.api.domain.UserRight.CanReadAs
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule.{FullSuppression, LoggerNameContains}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServer}
-import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
-import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
+import io.grpc.*
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.StreamObserver
-import io.grpc.{
-  BindableService,
-  Channel,
-  Context,
-  Contexts,
-  Metadata,
-  ServerCall,
-  ServerCallHandler,
-  ServerInterceptor,
-}
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
 import org.scalatest.Assertion
@@ -168,14 +145,14 @@ class StreamAuthorizationComponentSpec
       .failed
       .map { t =>
         // the client stream should be cancelled with error
-        t.getMessage should include("PERMISSION_DENIED")
+        t.getMessage should include("UNAUTHENTICATED")
         // the server stream should be completed
         fixture.waitForServerPekkoStream shouldBe None
       }
   }
 
   case class Fixture(
-      clientStream: Source[GetTransactionsResponse, NotUsed],
+      clientStream: Source[GetUpdatesResponse, NotUsed],
       serverStreamFinished: Future[Done],
       userManagementStore: UserManagementStore,
       nowRef: AtomicReference[Instant],
@@ -260,14 +237,13 @@ class StreamAuthorizationComponentSpec
     )
     val outerLoggerFactory = loggerFactory
     val transactionStreamTerminationPromise = Promise[Done]()
-    val apiTransactionServiceFixture = new TransactionService
-      with StreamingServiceLifecycleManagement {
-      override def getTransactions(
-          request: GetTransactionsRequest,
-          responseObserver: StreamObserver[GetTransactionsResponse],
+    val apiTransactionServiceFixture = new UpdateService with StreamingServiceLifecycleManagement {
+      override def getUpdates(
+          request: GetUpdatesRequest,
+          responseObserver: StreamObserver[GetUpdatesResponse],
       ): Unit = registerStream(responseObserver) {
         Source
-          .fromIterator(() => Iterator.continually(GetTransactionsResponse()))
+          .fromIterator(() => Iterator.continually(GetUpdatesResponse()))
           .map { elem =>
             Threading.sleep(200)
             logger.debug("sent")
@@ -283,10 +259,18 @@ class StreamAuthorizationComponentSpec
 
       def notSupported = throw new UnsupportedOperationException()
 
-      override def getTransactionTrees(
-          request: GetTransactionsRequest,
-          responseObserver: StreamObserver[GetTransactionTreesResponse],
+      override def getUpdateTrees(
+          request: GetUpdatesRequest,
+          responseObserver: StreamObserver[GetUpdateTreesResponse],
       ): Unit = notSupported
+
+      override def getTransactionTreeByEventId(
+          request: GetTransactionByEventIdRequest
+      ): Future[GetTransactionTreeResponse] = notSupported
+
+      override def getTransactionTreeById(
+          request: GetTransactionByIdRequest
+      ): Future[GetTransactionTreeResponse] = notSupported
 
       override def getTransactionByEventId(
           request: GetTransactionByEventIdRequest
@@ -296,25 +280,11 @@ class StreamAuthorizationComponentSpec
           request: GetTransactionByIdRequest
       ): Future[GetTransactionResponse] = notSupported
 
-      override def getFlatTransactionByEventId(
-          request: GetTransactionByEventIdRequest
-      ): Future[GetFlatTransactionResponse] = notSupported
-
-      override def getFlatTransactionById(
-          request: GetTransactionByIdRequest
-      ): Future[GetFlatTransactionResponse] = notSupported
-
-      override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =
-        notSupported
-
-      override def getLatestPrunedOffsets(
-          request: GetLatestPrunedOffsetsRequest
-      ): Future[GetLatestPrunedOffsetsResponse] = notSupported
     }
     val grpcServerPort = UniquePortGenerator.next
     val authorizedTransactionServiceOwner =
       ResourceOwner.forCloseable(() =>
-        new TransactionServiceAuthorization(apiTransactionServiceFixture, authorizer)
+        new UpdateServiceAuthorization(apiTransactionServiceFixture, authorizer)
       )
 
     def grpcServerOwnerFor(bindableService: BindableService) = GrpcServer.owner(
@@ -338,11 +308,11 @@ class StreamAuthorizationComponentSpec
 
     def getTransactions(
         channel: Channel,
-        request: GetTransactionsRequest,
-    ): Source[GetTransactionsResponse, NotUsed] =
+        request: GetUpdatesRequest,
+    ): Source[GetUpdatesResponse, NotUsed] =
       ClientAdapter.serverStreaming(
         request,
-        new TransactionServiceStub(channel).getTransactions,
+        new UpdateServiceStub(channel).getUpdates,
       )
 
     val transactionStreamOwner = for {
@@ -352,8 +322,7 @@ class StreamAuthorizationComponentSpec
     } yield {
       getTransactions(
         grpcChannel,
-        GetTransactionsRequest(
-          ledgerId = ledgerId,
+        GetUpdatesRequest(
           filter = Some(
             TransactionFilter(
               Map(
@@ -361,7 +330,7 @@ class StreamAuthorizationComponentSpec
                 partyId2 -> Filters(),
               )
             )
-          ),
+          )
         ),
       )
     }

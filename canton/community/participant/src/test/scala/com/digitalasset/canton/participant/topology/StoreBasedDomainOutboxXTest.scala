@@ -4,7 +4,8 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.implicits.*
-import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandleCommon
+import com.digitalasset.canton.common.domain.RegisterTopologyTransactionHandle
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -27,13 +28,13 @@ import com.digitalasset.canton.topology.transaction.TopologyChangeOpX.{Remove, R
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.GenericTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
   DomainAlias,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
+  config,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -51,10 +52,11 @@ class StoreBasedDomainOutboxXTest
   import DefaultTestIdentities.*
 
   private val clock = new WallClock(timeouts, loggerFactory)
-  private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant1)
+  private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(participant1)
   private val publicKey =
-    FutureUtil
-      .noisyAwaitResult(crypto.cryptoPublicStore.signingKeys.value, "get public key", 10.seconds)
+    config
+      .NonNegativeFiniteDuration(10.seconds)
+      .await("get public key")(crypto.cryptoPublicStore.signingKeys.value)
       .valueOrFail("signing keys")
       .headOption
       .value
@@ -62,14 +64,14 @@ class StoreBasedDomainOutboxXTest
   private val domain = DomainAlias.tryCreate("target")
   private val transactions =
     Seq[TopologyMappingX](
-      valueOrFail(NamespaceDelegationX.create(namespace, publicKey, isRootDelegation = true))("NS"),
+      NamespaceDelegationX.tryCreate(namespace, publicKey, isRootDelegation = true),
       IdentifierDelegationX(UniqueIdentifier(Identifier.tryCreate("alpha"), namespace), publicKey),
       IdentifierDelegationX(UniqueIdentifier(Identifier.tryCreate("beta"), namespace), publicKey),
       IdentifierDelegationX(UniqueIdentifier(Identifier.tryCreate("gamma"), namespace), publicKey),
       IdentifierDelegationX(UniqueIdentifier(Identifier.tryCreate("delta"), namespace), publicKey),
     ).map(txAddFromMapping)
-  val slice1 = transactions.slice(0, 2)
-  val slice2 = transactions.slice(slice1.length, transactions.length)
+  private val slice1 = transactions.slice(0, 2)
+  private val slice2 = transactions.slice(slice1.length, transactions.length)
 
   private def mk(
       expect: Int,
@@ -125,13 +127,12 @@ class StoreBasedDomainOutboxXTest
       store: TopologyStoreX[TopologyStoreId],
       targetClient: StoreBasedDomainTopologyClientX,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
-  ) extends RegisterTopologyTransactionHandleCommon[
-        GenericSignedTopologyTransactionX,
-        TopologyTransactionsBroadcastX.State,
-      ] {
-    val buffer = ListBuffer[GenericSignedTopologyTransactionX]()
-    val promise = new AtomicReference[Promise[Unit]](Promise[Unit]())
-    val expect = new AtomicInteger(expectI)
+  ) extends RegisterTopologyTransactionHandle {
+
+    val buffer: ListBuffer[GenericSignedTopologyTransactionX] = ListBuffer()
+    private val promise = new AtomicReference[Promise[Unit]](Promise[Unit]())
+    private val expect = new AtomicInteger(expectI)
+
     override def submit(
         transactions: Seq[GenericSignedTopologyTransactionX]
     )(implicit
@@ -217,10 +218,7 @@ class StoreBasedDomainOutboxXTest
 
   private def outboxConnected(
       manager: AuthorizedTopologyManagerX,
-      handle: RegisterTopologyTransactionHandleCommon[
-        GenericSignedTopologyTransactionX,
-        TopologyTransactionsBroadcastX.State,
-      ],
+      handle: RegisterTopologyTransactionHandle,
       client: DomainTopologyClientWithInit,
       source: TopologyStoreX[TopologyStoreId.AuthorizedStore],
       target: TopologyStoreX[TopologyStoreId.DomainStore],
@@ -237,11 +235,12 @@ class StoreBasedDomainOutboxXTest
       timeouts,
       loggerFactory,
       crypto,
+      futureSupervisor = FutureSupervisor.Noop,
     )
     domainOutbox
       .startup()
       .fold[StoreBasedDomainOutboxX](
-        s => fail(s"Failed to start domain outbox ${s}"),
+        s => fail(s"Failed to start domain outbox $s"),
         _ =>
           domainOutbox.tap(outbox =>
             // add the outbox as an observer since these unit tests avoid instantiating the ParticipantTopologyDispatcher
@@ -270,7 +269,7 @@ class StoreBasedDomainOutboxXTest
       testedProtocolVersion,
     )
 
-  private def headTransactions(store: TopologyStoreX[_]) = store
+  private def headTransactions(store: TopologyStoreX[?]) = store
     .findPositiveTransactions(
       asOf = CantonTimestamp.MaxValue,
       asOfInclusive = false,
@@ -282,7 +281,7 @@ class StoreBasedDomainOutboxXTest
     .map(x => StoredTopologyTransactionsX(x.result.filter(_.validUntil.isEmpty)))
 
   "dispatcher" should {
-    "dispatch transaction on new connect" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "dispatch transaction on new connect" in {
       val (source, target, manager, handle, client) =
         mk(transactions.length)
       for {
@@ -290,12 +289,12 @@ class StoreBasedDomainOutboxXTest
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
       } yield {
-        res.value shouldBe a[Seq[_]]
-        handle.buffer should have length (transactions.length.toLong)
+        res.value shouldBe a[Seq[?]]
+        handle.buffer should have length transactions.length.toLong
       }
     }
 
-    "dispatch transaction on existing connections" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "dispatch transaction on existing connections" in {
       val (source, target, manager, handle, client) =
         mk(transactions.length)
       for {
@@ -303,12 +302,12 @@ class StoreBasedDomainOutboxXTest
         res <- push(manager, transactions)
         _ <- handle.allObserved()
       } yield {
-        res.value shouldBe a[Seq[_]]
-        handle.buffer should have length (transactions.length.toLong)
+        res.value shouldBe a[Seq[?]]
+        handle.buffer should have length transactions.length.toLong
       }
     }
 
-    "dispatch transactions continuously" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "dispatch transactions continuously" in {
       val (source, target, manager, handle, client) = mk(slice1.length)
       for {
         _res <- push(manager, slice1)
@@ -323,7 +322,7 @@ class StoreBasedDomainOutboxXTest
       }
     }
 
-    "not dispatch old data when reconnected" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "not dispatch old data when reconnected" in {
       val (source, target, manager, handle, client) = mk(slice1.length)
       for {
         _ <- outboxConnected(manager, handle, client, source, target)
@@ -335,12 +334,12 @@ class StoreBasedDomainOutboxXTest
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
       } yield {
-        res2.value shouldBe a[Seq[_]]
+        res2.value shouldBe a[Seq[?]]
         handle.buffer.map(_.transaction) shouldBe slice2
       }
     }
 
-    "correctly find a remove in source store" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "correctly find a remove in source store" in {
 
       val (source, target, manager, handle, client) =
         mk(transactions.length)
@@ -363,24 +362,24 @@ class StoreBasedDomainOutboxXTest
         _ <- push(manager, Seq(midRevert, another))
         // ensure that topology manager properly processed this state
         ais <- headTransactions(source).map(_.toTopologyState)
-        _ = ais should not contain (midRevert.mapping)
+        _ = ais should not contain midRevert.mapping
         _ = ais should contain(another.mapping)
         // and ensure both are not in the new store
         tis <- headTransactions(target).map(_.toTopologyState)
         _ = tis should contain(midRevert.mapping)
-        _ = tis should not contain (another.mapping)
+        _ = tis should not contain another.mapping
         // re-connect
         _ = handle.clear(2)
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
         tis <- headTransactions(target).map(_.toTopologyState)
       } yield {
-        tis should not contain (midRevert.mapping)
+        tis should not contain midRevert.mapping
         tis should contain(another.mapping)
       }
     }
 
-    "also push deprecated transactions" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "also push deprecated transactions" in {
       val (source, target, manager, handle, client) =
         mk(transactions.length - 1)
       val midRevertSerialBumped = transactions(2).reverse
@@ -389,7 +388,7 @@ class StoreBasedDomainOutboxXTest
         _ <- outboxConnected(manager, handle, client, source, target)
         _ <- handle.allObserved()
       } yield {
-        res.value shouldBe a[Seq[_]]
+        res.value shouldBe a[Seq[?]]
         handle.buffer.map(x =>
           (
             x.transaction.op,
@@ -403,11 +402,11 @@ class StoreBasedDomainOutboxXTest
           (Replace, Some("delta")),
           (Remove, Some("beta")),
         )
-        handle.buffer should have length (6)
+        handle.buffer should have length 6
       }
     }
 
-    "handle rejected transactions" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "handle rejected transactions" in {
       val (source, target, manager, handle, client) =
         mk(
           transactions.size,
@@ -418,12 +417,12 @@ class StoreBasedDomainOutboxXTest
         res <- push(manager, transactions)
         _ <- handle.allObserved()
       } yield {
-        res.value shouldBe a[Seq[_]]
-        handle.buffer should have length (transactions.length.toLong)
+        res.value shouldBe a[Seq[?]]
+        handle.buffer should have length transactions.length.toLong
       }
     }
 
-    "handle failed transactions" onlyRunWithOrGreaterThan ProtocolVersion.CNTestNet in {
+    "handle failed transactions" in {
       val (source, target, manager, handle, client) =
         mk(
           2,
@@ -446,8 +445,8 @@ class StoreBasedDomainOutboxXTest
         _ <- handle.allObserved()
 
       } yield {
-        res1.value shouldBe a[Seq[_]]
-        res2.value shouldBe a[Seq[_]]
+        res1.value shouldBe a[Seq[?]]
+        res2.value shouldBe a[Seq[?]]
         handle.buffer should have length 3
       }
       loggerFactory.assertLogs(

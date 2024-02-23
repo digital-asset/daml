@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.error.ErrorsAssertions
 import com.daml.lf.data.Ref
-import com.daml.platform.apiserver.page_tokens.ListUsersPageTokenPayload
+import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import org.scalatest.EitherValues

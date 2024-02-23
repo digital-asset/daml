@@ -9,27 +9,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.error.{BaseCantonError, TransactionError, TransactionErrorImpl}
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.rpc.status.Status
 
 import java.time.Instant
 import scala.collection.immutable.Seq
 
-sealed trait SequencerDeliverError extends TransactionError {
-
-  /** This method is here to provide a simpler compatibility with older protocol versions
-    * by turning specific error codes into a BatchRefused (generic one), which existed before.
-    */
-  def forProtocolVersion(protocolVersion: ProtocolVersion): SequencerDeliverError = {
-    if (
-      protocolVersion < ProtocolVersion.CNTestNet && this.code != SequencerErrors.SubmissionRequestRefused
-    ) {
-      SequencerErrors.SubmissionRequestRefused(this.cause)
-    } else {
-      this
-    }
-  }
-}
+sealed trait SequencerDeliverError extends TransactionError
 
 sealed abstract class SequencerDeliverErrorCode(id: String, category: ErrorCategory)(implicit
     parent: ErrorClass
@@ -74,57 +59,57 @@ object SequencerErrors extends SequencerErrorGroup {
       )
 
   @Explanation(
-    """Timestamp of the signing key on the submission request is earlier than allowed by the dynamic domain parameters."""
+    """Topology timestamp on the submission request is earlier than allowed by the dynamic domain parameters."""
   )
   @Resolution(
     """This indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
   )
-  object SigningTimestampTooEarly
+  object TopoologyTimestampTooEarly
       extends SequencerDeliverErrorCode(
-        id = "SEQUENCER_SIGNING_TIMESTAMP_TOO_EARLY",
+        id = "SEQUENCER_TOPOLOGY_TIMESTAMP_TOO_EARLY",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     def apply(
-        signingTimestamp: CantonTimestamp,
+        topologyTimestamp: CantonTimestamp,
         sequencingTimestamp: CantonTimestamp,
     ): SequencerDeliverError =
       // We can't easily compute a valid signing timestamp because we'd have to scan through
       // the domain parameter updates to compute a bound, as the signing tolerance is taken
       // from the domain parameters valid at the signing timestamp, not the sequencing timestamp.
       apply(
-        s"Signing timestamp $signingTimestamp is too early for sequencing time $sequencingTimestamp."
+        s"Topology timstamp $topologyTimestamp is too early for sequencing time $sequencingTimestamp."
       )
   }
 
   @Explanation(
-    """Timestamp of the signing key on the submission request is later than the sequencing time."""
+    """Topology timestamp on the submission request is later than the sequencing time."""
   )
   @Resolution(
     """This indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
   )
-  object SigningTimestampAfterSequencingTimestamp
+  object TopologyTimestampAfterSequencingTimestamp
       extends SequencerDeliverErrorCode(
-        id = "SEQUENCER_SIGNING_TIMESTAMP_AFTER_SEQUENCING_TIMESTAMP",
+        id = "SEQUENCER_TOPOLOGY_TIMESTAMP_AFTER_SEQUENCING_TIMESTAMP",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     def apply(
-        signingTimestamp: CantonTimestamp,
+        topologyTimestamp: CantonTimestamp,
         sequencingTimestamp: CantonTimestamp,
     ): SequencerDeliverError =
       apply(
-        s"Invalid signing timestamp $signingTimestamp. The signing timestamp must be before or at $sequencingTimestamp."
+        s"Invalid topology timestamp $topologyTimestamp. The topology timestamp must be before or at $sequencingTimestamp."
       )
   }
 
   @Explanation(
-    """Timestamp of the signing key is missing on the submission request."""
+    """Topology timestamp is missing on the submission request."""
   )
   @Resolution(
     """This indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
   )
-  object SigningTimestampMissing
+  object TopologyTimestampMissing
       extends SequencerDeliverErrorCode(
-        id = "SEQUENCER_SIGNING_TIMESTAMP_MISSING",
+        id = "SEQUENCER_TOPOLOGY_TIMESTAMP_MISSING",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       )
 
@@ -202,7 +187,7 @@ object SequencerErrors extends SequencerErrorGroup {
       )
 
   @Explanation(
-    """An onboarded sequencer has put a tombstone in place of an event with a timestamp older than the sequencer signing key."""
+    """An onboarded sequencer has put a tombstone in place of an event with a topology timestamp older than the sequencer signing key."""
   )
   @Resolution(
     """Clients should connect to another sequencer with older event history to consume the tombstoned events

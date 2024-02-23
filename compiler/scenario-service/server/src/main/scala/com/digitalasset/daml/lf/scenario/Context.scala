@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -146,13 +146,12 @@ class Context(
 
   // TODO: https://github.com/digital-asset/daml/issues/17995
   //  Get the package name and package version from the daml.yaml
-  private[this] val dummyMetadata = Some(
+  private[this] val dummyMetadata =
     Ast.PackageMetadata(
       name = PackageName.assertFromString("-dummy-package-name-"),
       version = PackageVersion.assertFromString("0.0.0"),
       upgradedPackageId = None,
     )
-  )
 
   def allSignatures: Map[PackageId, Ast.PackageSignature] = {
     val extSignatures = this.extSignatures

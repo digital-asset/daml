@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -86,6 +86,9 @@ sdkVersionToText = V.toText . unwrapSdkVersion
 
 unresolvedReleaseVersionToString :: UnresolvedReleaseVersion -> String
 unresolvedReleaseVersionToString = V.toString . unwrapUnresolvedReleaseVersion
+
+unresolvedReleaseVersionToText :: UnresolvedReleaseVersion -> Text
+unresolvedReleaseVersionToText = V.toText . unwrapUnresolvedReleaseVersion
 
 class IsVersion a where
     isHeadVersion :: a -> Bool

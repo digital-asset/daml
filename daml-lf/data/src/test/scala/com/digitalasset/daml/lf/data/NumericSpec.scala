@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -554,7 +554,7 @@ class NumericSpec
     }
   }
 
-  "Numeric.fromString" should {
+  "Numeric.fromString/1" should {
 
     import Numeric.fromString
 
@@ -602,6 +602,59 @@ class NumericSpec
       }
     }
 
+  }
+
+  "Numeric.fromString/2" should {
+
+    import Numeric.fromString
+
+    "reject improperly formatted string" in {
+
+      val testCases = Table[String](
+        "string",
+        "999999999999999999999999999999999999999.",
+        "82845904523536028.7471352662497757247012",
+        "0.31415926535897932384626433832795028842",
+        "1E10",
+        "00.0",
+        "+0.1",
+        "1..0",
+        ".4",
+        "--1.1",
+        "2.1.0",
+      )
+
+      fromString(Numeric.Scale.values(1), "1.0") shouldBe a[Right[_, _]]
+      forEvery(testCases) { x =>
+        Numeric.Scale.values.foreach(s => fromString(s, x) shouldBe a[Left[_, _]])
+      }
+    }
+
+    "parse proper strings accoring the scale" in {
+
+      val testCases = Table[Numeric.Scale, String](
+        "scale" -> "string",
+        Numeric.Scale.values(0) -> "99999999999999999999999999999999999999.",
+        Numeric.Scale.values(21) -> "82845904523536028.747135266249775724701",
+        Numeric.Scale.values(37) -> "0.3141592653589793238462643383279502884",
+        Numeric.Scale.values(1) -> "0.0",
+        Numeric.Scale.values(1) -> "-0.1",
+        Numeric.Scale.values(10) -> "9876543210.0123456789",
+        Numeric.Scale.values(37) -> "-9.9999999999999999999999999999999999999",
+        Numeric.Scale.values(37) -> "-0.0000000000000000000000000000000000001",
+      )
+
+      forAll(testCases) { (s, x) =>
+        Numeric.Scale.values.foreach {
+          case `s` =>
+            val n = assertRight(fromString(s, x))
+            n shouldBe new BigDecimal(x)
+            n.scale shouldBe s
+          case s =>
+            fromString(s, x) shouldBe a[Left[_, _]]
+        }
+      }
+    }
   }
 
 }

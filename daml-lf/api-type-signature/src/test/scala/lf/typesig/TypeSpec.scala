@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.typesig
@@ -14,7 +14,6 @@ import com.daml.lf.testing.parser.ParserParameters
 
 import scala.language.implicitConversions
 
-class TypeSpecV1 extends TypeSpec(LanguageMajorVersion.V1)
 class TypeSpecV2 extends TypeSpec(LanguageMajorVersion.V2)
 
 class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers {

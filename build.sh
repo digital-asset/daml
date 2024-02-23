@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
+
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
 
@@ -15,7 +17,7 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
 has_run_all_tests_trailer() {
-  if [ "${BUILD_REASON:-}" = "PullRequest" ]; then
+  if (( 2 == $(git show -s --format=%p HEAD | wc -w) )); then
     ref="HEAD^2"
   else
     ref="HEAD"
@@ -25,22 +27,19 @@ has_run_all_tests_trailer() {
   [[ $run_all_tests == "true" ]]
 }
 
-ALL_TESTS_FILTER="-pr-only"
-FEWER_TESTS_FILTER="-main-only"
-
+tag_filter=""
 case $test_mode in
-  # When running against main, exclude "pr-only" tests
   main)
-    tag_filter=$FEWER_TESTS_FILTER
+    echo "running all tests because test mode is 'main'"
     ;;
   # When running against a PR, exclude "main-only" tests, unless the commit message features a
   # 'run-all-tests: true' trailer
   pr)
     if has_run_all_tests_trailer; then
       echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
-      tag_filter=$ALL_TESTS_FILTER
     else
-      tag_filter=$FEWER_TESTS_FILTER
+      echo "running fewer tests because test mode is 'pr'"
+      tag_filter="-main-only"
     fi
     ;;
   *)
@@ -57,6 +56,9 @@ SKIP_DEV_CANTON_TESTS=false
 if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
   tag_filter="$tag_filter,-dev-canton-test"
 fi
+
+# remove possible leading comma
+tag_filter="${tag_filter#,}"
 
 # Occasionally we end up with a stale sandbox process for a hardcoded
 # port number. Not quite sure how we end up with a stale process
@@ -84,7 +86,7 @@ $bazel build //... \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
 
 # Set up a shared PostgreSQL instance.
-export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
+export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
 export POSTGRESQL_DATA_DIR="${POSTGRESQL_ROOT_DIR}/data"
 export POSTGRESQL_LOG_FILE="${POSTGRESQL_ROOT_DIR}/postgresql.log"
 export POSTGRESQL_HOST='localhost'

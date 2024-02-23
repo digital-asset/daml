@@ -6,52 +6,51 @@ package com.digitalasset.canton.metrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
-
-import scala.annotation.nowarn
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 
 class SequencerClientMetrics(
     basePrefix: MetricName,
-    @nowarn("cat=deprecation") val metricsFactory: MetricsFactory,
-) {
+    val metricsFactory: CantonLabeledMetricsFactory,
+)(implicit context: MetricsContext) {
   val prefix: MetricName = basePrefix :+ "sequencer-client"
-
-  @MetricDoc.Tag(
-    summary = "Timer monitoring time and rate of sequentially handling the event application logic",
-    description = """All events are received sequentially. This handler records the
-        |the rate and time it takes the application (participant or domain) to handle the events.""",
-    qualification = Debug,
-  )
-  val applicationHandle: Timer = metricsFactory.timer(prefix :+ "application-handle")
-
-  @MetricDoc.Tag(
-    summary = "Timer monitoring time and rate of entire event handling",
-    description =
-      """Most event handling cost should come from the application-handle. This timer measures
-        |the full time (which should just be marginally more than the application handle.""",
-    qualification = Debug,
-  )
-  val processingTime: Timer = metricsFactory.timer(prefix :+ "event-handle")
-
-  @MetricDoc.Tag(
-    summary = "The delay on the event processing",
-    description = """Every message received from the sequencer carries a timestamp that was assigned
-        |by the sequencer when it sequenced the message. This timestamp is called the sequencing timestamp.
-        |The component receiving the message on the participant, mediator or topology manager side, is the sequencer client.
-        |Upon receiving the message, the sequencer client compares the time difference between the
-        |sequencing time and the computers local clock and exposes this difference as the given metric.
-        |The difference will include the clock-skew and the processing latency between assigning the timestamp on the
-        |sequencer and receiving the message by the recipient.
-        |If the difference is large compared to the usual latencies and if clock skew can be ruled out, then
-        |it means that the node is still trying to catch up with events that were sequenced by the
-        |sequencer a while ago. This can happen after having been offline for a while or if the node is
-        |too slow to keep up with the messaging load.""",
-    qualification = Debug,
-  )
-  val delay: Gauge[Long] = metricsFactory.gauge(prefix :+ "delay", 0L)(MetricsContext.Empty)
 
   object handler {
     val prefix: MetricName = SequencerClientMetrics.this.prefix :+ "handler"
+
+    @MetricDoc.Tag(
+      summary = "Number of received events from the sequencer",
+      description =
+        """A participant reads events from the sequencer. This metric captures the count and rate of events.""",
+      qualification = Debug,
+    )
+    val numEvents: Counter = metricsFactory.counter(prefix :+ "sequencer-events")
+
+    @MetricDoc.Tag(
+      summary =
+        "Timer monitoring time and rate of sequentially handling the event application logic",
+      description = """All events are received sequentially. This handler records the
+                      |the rate and time it takes the application (participant or domain) to handle the events.""",
+      qualification = Debug,
+    )
+    val applicationHandle: Timer = metricsFactory.timer(prefix :+ "application-handle")
+
+    @MetricDoc.Tag(
+      summary = "The delay on the event processing",
+      description = """Every message received from the sequencer carries a timestamp that was assigned
+                      |by the sequencer when it sequenced the message. This timestamp is called the sequencing timestamp.
+                      |The component receiving the message on the participant, mediator or topology manager side, is the sequencer client,
+                      |while on the block sequencer itself, it's the block update generator.
+                      |Upon receiving the message, the sequencer client compares the time difference between the
+                      |sequencing time and the computers local clock and exposes this difference as the given metric.
+                      |The difference will include the clock-skew and the processing latency between assigning the timestamp on the
+                      |sequencer and receiving the message by the recipient.
+                      |If the difference is large compared to the usual latencies and if clock skew can be ruled out, then
+                      |it means that the node is still trying to catch up with events that were sequenced by the
+                      |sequencer a while ago. This can happen after having been offline for a while or if the node is
+                      |too slow to keep up with the messaging load.""",
+      qualification = Debug,
+    )
+    val delay: Gauge[Long] = metricsFactory.gauge(prefix :+ "delay", 0L)(MetricsContext.Empty)
 
     @MetricDoc.Tag(
       summary =

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -31,8 +31,6 @@ template Wolpertinger
 
         key WolpertingerKey owner age : WolpertingerKey
         maintainer key.owner
-
-        agreement name <> " has " <> show wings <> " wings and is " <> show age <> " years old."
 
         choice Reproduce : ContractId Wolpertinger
             with mateId : ContractId Wolpertinger

@@ -46,7 +46,6 @@ import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationR
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{
-  AgreementText,
   ContractMetadata,
   DriverContractMetadata,
   SerializableContract,
@@ -107,7 +106,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
         .value
         .map(_.toOption)
-      _ <- Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
+      _ <- Future.sequence(coids.map(contractStore.lookupContractState))
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
@@ -154,6 +153,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.submissionId.map(_.unwrap),
         ledgerConfiguration,
       ),
+      optDomainId = commands.domainId,
       transactionMeta = state.TransactionMeta(
         commands.commands.ledgerEffectiveTime,
         commands.workflowId.map(_.unwrap),
@@ -166,7 +166,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
             .collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }
             .to(ImmArray)
         ),
-        commands.domainId,
       ),
       transaction = updateTx,
       dependsOnLedgerTime = meta.dependsOnTime,
@@ -191,7 +190,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContextWithTrace
   ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
     Tracked.future(
-      metrics.daml.execution.engineRunning,
+      metrics.execution.engineRunning,
       Future(trackSyncExecution(interpretationTimeNanos) {
         // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
         // When looking up contracts during command interpretation, the engine should only see contracts
@@ -201,6 +200,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
         // authorize the resulting transaction.
         val commitAuthorizers = commands.actAs
         engine.submit(
+          packageMap = commands.packageMap,
+          packagePreference = commands.packagePreferenceSet,
           submitters = commitAuthorizers,
           readAs = commands.readAs,
           cmds = commands.commands,
@@ -240,7 +241,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           val start = System.nanoTime
           Timed
             .future(
-              metrics.daml.execution.lookupActiveContract,
+              metrics.execution.lookupActiveContract,
               contractStore.lookupActiveContract(readers, acoid),
             )
             .flatMap { instance =>
@@ -248,7 +249,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupActiveContractCount.incrementAndGet()
               resolveStep(
                 Tracked.value(
-                  metrics.daml.execution.engineRunning,
+                  metrics.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(instance)),
                 )
               )
@@ -258,7 +259,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           val start = System.nanoTime
           Timed
             .future(
-              metrics.daml.execution.lookupContractKey,
+              metrics.execution.lookupContractKey,
               contractStore.lookupContractKey(readers, key.globalKey),
             )
             .flatMap { contractId =>
@@ -266,7 +267,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupContractKeyCount.incrementAndGet()
               resolveStep(
                 Tracked.value(
-                  metrics.daml.execution.engineRunning,
+                  metrics.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(contractId)),
                 )
               )
@@ -277,12 +278,12 @@ private[apiserver] final class StoreBackedCommandExecutor(
             .loadPackage(
               packageId = packageId,
               delegate = packageId => packagesService.getLfArchive(packageId)(loggingContext),
-              metric = metrics.daml.execution.getLfPackage,
+              metric = metrics.execution.getLfPackage,
             )
             .flatMap { maybePackage =>
               resolveStep(
                 Tracked.value(
-                  metrics.daml.execution.engineRunning,
+                  metrics.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(maybePackage)),
                 )
               )
@@ -303,7 +304,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           def resume(): Future[Either[ErrorCause, A]] =
             resolveStep(
               Tracked.value(
-                metrics.daml.execution.engineRunning,
+                metrics.execution.engineRunning,
                 trackSyncExecution(interpretationTimeNanos)(continue()),
               )
             )
@@ -347,7 +348,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               }
               resolveStep(
                 Tracked.value(
-                  metrics.daml.execution.engineRunning,
+                  metrics.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(resumed)),
                 )
               )
@@ -358,7 +359,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             result => {
               resolveStep(
                 Tracked.value(
-                  metrics.daml.execution.engineRunning,
+                  metrics.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(result)),
                 )
               )
@@ -367,15 +368,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
       }
 
     resolveStep(result).andThen { case _ =>
-      metrics.daml.execution.lookupActiveContractPerExecution
+      metrics.execution.lookupActiveContractPerExecution
         .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
-      metrics.daml.execution.lookupActiveContractCountPerExecution
+      metrics.execution.lookupActiveContractCountPerExecution
         .update(lookupActiveContractCount.get)
-      metrics.daml.execution.lookupContractKeyPerExecution
+      metrics.execution.lookupContractKeyPerExecution
         .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
-      metrics.daml.execution.lookupContractKeyCountPerExecution
+      metrics.execution.lookupContractKeyCountPerExecution
         .update(lookupContractKeyCount.get())
-      metrics.daml.execution.engine
+      metrics.execution.engine
         .update(interpretationTimeNanos.get(), TimeUnit.NANOSECONDS)
     }
   }
@@ -462,8 +463,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           metadata = recomputedMetadata,
           ledgerTime = ledgerTime,
           contractSalt = Some(salt),
-          // The agreement text is unused on contract authentication
-          unvalidatedAgreementText = AgreementText.empty,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
         _ <- authenticateContract(contract).leftMap { contractAuthenticationError =>
           val firstParticle =
@@ -480,15 +479,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
       EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
     }
 
+    // TODO(#14884): Guard contract activeness check with readers permission check
     def lookupActiveContractVerificationData(): Result =
       EitherT(
         contractStore
-          .lookupContractStateWithoutDivulgence(coid)
+          .lookupContractState(coid)
           .map {
             case active: ContractState.Active =>
               UpgradeVerificationContractData
                 .fromActiveContract(coid, active, recomputedContractMetadata)
-            case ContractState.Archived | ContractState.NotFound => Left(ContractNotFound)
+            case ContractState.Archived => Left(UpgradeFailure("Contract archived"))
+            case ContractState.NotFound => Left(ContractNotFound)
           }
       )
 
@@ -505,26 +506,22 @@ private[apiserver] final class StoreBackedCommandExecutor(
         EitherT.leftT(DeprecatedDisclosedContractFormat: UpgradeVerificationResult)
     }
 
-    val handleVerificationResult: UpgradeVerificationResult => Option[String] = { result =>
-      val response: Option[String] = result match {
-        case Valid => None
-        case UpgradeFailure(message) => Some(message)
-        case ContractNotFound =>
-          // During submission the ResultNeedUpgradeVerification should only be called
-          // for contracts that are being upgraded. We do not support the upgrading of
-          // divulged contracts.
-          Some(s"Contract with $coid was not found or it refers to a divulged contract.")
-        case MissingDriverMetadata =>
-          Some(
-            s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
-          )
-        case DeprecatedDisclosedContractFormat =>
-          Some(
-            s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
-          )
-      }
-      response.foreach(message => logger.info(message))
-      response
+    val handleVerificationResult: UpgradeVerificationResult => Option[String] = {
+      case Valid => None
+      case UpgradeFailure(message) => Some(message)
+      case ContractNotFound =>
+        // During submission the ResultNeedUpgradeVerification should only be called
+        // for contracts that are being upgraded. We do not support the upgrading of
+        // divulged contracts.
+        Some(s"Contract with $coid was not found.")
+      case MissingDriverMetadata =>
+        Some(
+          s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
+        )
+      case DeprecatedDisclosedContractFormat =>
+        Some(
+          s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
+        )
     }
 
     disclosedContracts
@@ -556,6 +553,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         contractInstance = Versioned(
           unusedTxVersion,
           ContractInstance(
+            packageName = disclosedContract.packageName,
             template = disclosedContract.templateId,
             arg = disclosedContract.argument,
           ),
@@ -566,11 +564,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
           maybeKeyWithMaintainers =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
-                val sharedKey = recomputedMetadata.maybeKey.forall(GlobalKey.isShared)
                 Versioned(
                   unusedTxVersion,
                   GlobalKeyWithMaintainers
-                    .assertBuild(disclosedContract.templateId, value, maintainers, sharedKey),
+                    .assertBuild(disclosedContract.templateId, value, maintainers),
                 )
             },
         ),

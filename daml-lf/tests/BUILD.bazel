@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -33,18 +33,6 @@ load(
 ]
 
 [
-    daml_build_test(
-        name = "InterfaceRetro-v{}".format(major),
-        dar_dict = {
-            "//daml-lf/tests:Interfaces-v{}.dar".format(major): "interfaces.dar",
-        },
-        project_dir = "interface-retro-v{}".format(major),
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for major in LF_MAJOR_VERSIONS
-]
-
-[
     daml_compile(
         name = "InterfaceViews-v{}".format(major),
         srcs = ["InterfaceViews.daml"],
@@ -53,16 +41,6 @@ load(
     )
     for major in LF_MAJOR_VERSIONS
 ]
-
-daml_build_test(
-    name = "ReinterpretTests-v1",
-    dar_dict = {
-        "//daml-lf/tests:AtVersion13.dar": "at-version-13.dar",
-        "//daml-lf/tests:AtVersion14.dar": "at-version-14.dar",
-    },
-    project_dir = "reinterpret-v1",
-    visibility = ["//daml-lf:__subpackages__"],
-)
 
 daml_build_test(
     name = "ReinterpretTests-v2",

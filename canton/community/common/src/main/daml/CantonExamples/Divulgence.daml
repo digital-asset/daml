@@ -24,7 +24,7 @@ template DivulgeIouByExercise
     nonconsuming choice NotDivulge : ()
       with ref : ContractId Iou
       controller payer
-        do
+        do 
           return ()
 
 
@@ -35,7 +35,7 @@ aliceDivulgesHerIouToBob =
     alice <- allocateParty "Alice"
     iou <- submit bank do
         createCmd $ Iou { payer = bank; owner = alice; amount = Amount {value = 1.0; currency = "USD"}; viewers = [] }
-    req <- submit bob do
+    req <- submit bob do 
         createCmd $ DivulgeIouByExercise with payer = bank; divulgee = bob
     submit bank do exerciseCmd req NotDivulge with ref = iou
     submit bank do exerciseCmd req Divulge with ref = iou

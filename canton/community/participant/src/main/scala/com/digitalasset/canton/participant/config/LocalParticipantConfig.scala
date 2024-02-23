@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.config
 
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
-import com.digitalasset.canton.config.LocalNodeConfig.LocalNodeConfigDeprecationImplicits
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.http.HttpApiConfig
@@ -19,11 +17,11 @@ import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
+  IdentityProviderManagementConfig,
   IndexServiceConfig as LedgerIndexServiceConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.indexer.IndexerConfig
-import com.digitalasset.canton.platform.localstore.IdentityProviderManagementConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
@@ -36,42 +34,6 @@ import monocle.macros.syntax.lens.*
 /** Base for all participant configs - both local and remote */
 trait BaseParticipantConfig extends NodeConfig {
   def clientLedgerApi: ClientConfig
-}
-
-object LocalParticipantConfig {
-
-  // TODO(i10108): remove when backwards compatibility can be discarded
-  /** Adds deprecations specific to LocalParticipantConfig
-    * We need to manually combine it with the upstream deprecations from LocalNodeConfig
-    * in order to not lose them.
-    */
-  trait LocalParticipantDeprecationsImplicits extends LocalNodeConfigDeprecationImplicits {
-    implicit def deprecatedLocalParticipantConfig[X <: LocalParticipantConfig]
-        : DeprecatedFieldsFor[X] =
-      new DeprecatedFieldsFor[LocalParticipantConfig] {
-        override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-          DeprecatedConfigUtils.MovedConfigPath(
-            "ledger-api.max-deduplication-duration",
-            "init.ledger-api.max-deduplication-duration",
-          ),
-          DeprecatedConfigUtils.MovedConfigPath(
-            "parameters.unique-contract-keys",
-            "init.parameters.unique-contract-keys",
-          ),
-          DeprecatedConfigUtils.MovedConfigPath(
-            "parameters.stores.max-items-in-sql-clause",
-            "init.parameters.unique-contract-keys",
-          ),
-        ) ++ deprecatedLocalNodeConfig.movedFields
-
-        override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[Boolean]("parameters.unique-contract-keys", "2.7.0"),
-          DeprecatedConfigUtils
-            .DeprecatedConfigPath[Boolean]("init.parameters.unique-contract-keys", "2.7.0"),
-        )
-      }
-  }
 }
 
 /** Base for local participant configurations */
@@ -153,7 +115,6 @@ final case class CommunityParticipantConfig(
     override val testingTime: Option[TestingTimeServiceConfig] = None,
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val caching: CachingConfigs = CachingConfigs(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topologyX: TopologyXConfig = TopologyXConfig(),
 ) extends LocalParticipantConfig
@@ -208,7 +169,6 @@ final case class RemoteParticipantConfig(
   * @param databaseConnectionTimeout database connection timeout
   * @param additionalMigrationPaths  optional extra paths for the database migrations
   * @param rateLimit                 limit the ledger api server request rates based on system metrics
-  * @param enableExplicitDisclosure  enable usage of explicitly disclosed contracts in command submission and transaction validation.
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
@@ -230,14 +190,10 @@ final case class LedgerApiServerConfig(
     // TODO(#14529): use a common value for ApiServerConfig's and LedgerIndexServiceConfig's apiStreamShutdownTimeout
     apiStreamShutdownTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultApiStreamShutdownTimeout,
-    additionalMigrationPaths: Seq[String] = Seq.empty,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
-    enableExplicitDisclosure: Boolean = true,
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
-    unsafeEnableEventsByContractKeyCache: EnableEventsByContractKeyCache =
-      EnableEventsByContractKeyCache.Disabled,
 ) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
@@ -271,105 +227,6 @@ object LedgerApiServerConfig {
       maxUsedHeapSpacePercentage = 100,
       minFreeHeapSpaceBytes = 0,
     )
-
-  trait LedgerApiServerConfigDeprecationsImplicits {
-    implicit def deprecatedLedgerApiServerConfig[X <: LedgerApiServerConfig]
-        : DeprecatedFieldsFor[X] = new DeprecatedFieldsFor[LedgerApiServerConfig] {
-      override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service.acs-global-parallelism",
-          "index-service.active-contracts-service-streams.global-max-event-payload-queries",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "events-page-size",
-          "index-service.active-contracts-service-streams.max-payloads-per-payloads-page",
-          "index-service.transaction-flat-streams.max-payloads-per-payloads-page",
-          "index-service.transaction-tree-streams.max-payloads-per-payloads-page",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "events-processing-parallelism",
-          "index-service.buffered-events-processing-parallelism",
-          "index-service.active-contracts-service-streams.contract-processing-parallelism",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "buffered-events-processing-parallelism",
-          "index-service.buffered-events-processing-parallelism",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "buffered-streams-page-size",
-          "index-service.buffered-streams-page-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "max-contract-state-cache-size",
-          "index-service.max-contract-state-cache-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "max-contract-key-state-cache-size",
-          "index-service.max-contract-key-state-cache-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "max-transactions-in-memory-fan-out-buffer-size",
-          "index-service.max-transactions-in-memory-fan-out-buffer-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "in-memory-state-updater-parallelism",
-          "index-service.in-memory-state-updater-parallelism",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "in-memory-fan-out-thread-pool-size",
-          "index-service.in-memory-fan-out-thread-pool-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "prepare-package-metadata-time-out-warning",
-          "index-service.prepare-package-metadata-time-out-warning",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "completions-page-size",
-          "index-service.completions-page-size",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service",
-          "index-service.active-contracts-service-streams",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service.acs-id-page-size",
-          "index-service.active-contracts-service-streams.max-ids-per-id-page",
-        ),
-        DeprecatedConfigUtils
-          .MovedConfigPath(
-            "active-contracts-service.acs-id-page-buffer-size",
-            "index-service.active-contracts-service-streams.max-pages-per-id-pages-buffer",
-          ),
-        DeprecatedConfigUtils
-          .MovedConfigPath(
-            "active-contracts-service.acs-id-fetching-parallelism",
-            "index-service.active-contracts-service-streams.max-parallel-id-create-queries",
-          ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "active-contracts-service.acs-contract-fetching-parallelism",
-          "index-service.active-contracts-service-streams.max-parallel-payload-create-queries",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "transaction-flat-streams",
-          "index-service.transaction-flat-streams",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "transaction-tree-streams",
-          "index-service.transaction-tree-streams",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "global-max-event-id-queries",
-          "index-service.global-max-event-id-queries",
-        ),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "global-max-event-payload-queries",
-          "index-service.global-max-event-payload-queries",
-        ),
-      )
-    }
-  }
-
-  object DeprecatedImplicits extends LedgerApiServerConfigDeprecationsImplicits
 
   /** the following case class match will help us detect any additional configuration options added.
     * If the below match fails because there are more config options, add them to our "LedgerApiServerConfig".
@@ -465,7 +322,7 @@ object TestingTimeServiceConfig {
   *                                available through at least one domain.
   * @param maxUnzippedDarSize maximum allowed size of unzipped DAR files (in bytes) the participant can accept for uploading. Defaults to 1GB.
   * @param batching Various parameters that control batching related behavior
-  * @param ledgerApiServerParameters ledger api server parameters
+  * @param ledgerApiServer ledger api server parameters
   *
   * The following specialized participant node performance tuning parameters may be grouped once a more final set of configs emerges.
   * @param transferTimeProofFreshnessProportion Proportion of the target domain exclusivity timeout that is used as a freshness bound when
@@ -482,59 +339,47 @@ object TestingTimeServiceConfig {
   * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
   * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
+  * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
     partyChangeNotification: PartyNotificationConfig = PartyNotificationConfig.ViaDomain,
     maxUnzippedDarSize: Int = 1024 * 1024 * 1024,
     batching: BatchingConfig = BatchingConfig(),
+    caching: CachingConfigs = CachingConfigs(),
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
     transferTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
-      ParticipantProtocolVersion(
-        ProtocolVersion.v3
-      )
+      ParticipantProtocolVersion(ProtocolVersion.v30)
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    devVersionSupport: Boolean = false,
+    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+    devVersionSupport: Boolean = true,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
       config.NonNegativeFiniteDuration.ofSeconds(20)
     ),
-    // TODO(#15221) rename this to ledger-api-server
-    ledgerApiServerParameters: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
+    ledgerApiServer: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
     enableContractUpgrading: Boolean = false,
     iterationsBetweenInterruptions: Long =
       10000, // 10000 is the default value in the engine configuration
+    journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
+      config.NonNegativeFiniteDuration.ofSeconds(0),
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores
   *
-  * @param maxPruningBatchSize    maximum number of events to prune from a participant at a time, used to break up canton participant-internal batches
-  * @param ledgerApiPruningBatchSize  Number of events to prune from the ledger api server index-database at a time during automatic background pruning.
-  *                                   Canton-internal store pruning happens at the smaller batch size of "maxPruningBatchSize" to minimize memory usage
-  *                                   whereas ledger-api-server index-db pruning needs sufficiently large batches to amortize the database overhead of
-  *                                   "skipping over" active contracts.
   * @param pruningMetricUpdateInterval  How frequently to update the `max-event-age` pruning progress metric in the background.
   *                                     A setting of None disables background metric updating.
-  * @param dbBatchAggregationConfig Batching configuration for Db queries
   */
 final case class ParticipantStoreConfig(
-    // TODO(#15221) move all batching related parameters into `BatchingConfig`
-    maxPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000),
-    ledgerApiPruningBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(50000),
     pruningMetricUpdateInterval: Option[config.PositiveDurationSeconds] =
       config.PositiveDurationSeconds.ofHours(1L).some,
-    // TODO(#15221) remove unused config parameter
-    acsPruningInterval: config.NonNegativeFiniteDuration =
-      config.NonNegativeFiniteDuration.ofSeconds(60),
     journalPruning: JournalPruningConfig = JournalPruningConfig(),
-    // TODO(#15221) move to BatchingConfig and rename to `aggregator`
-    dbBatchAggregationConfig: BatchAggregatorConfig = BatchAggregatorConfig.Batching(),
 )
 
 /** Control background journal pruning
@@ -576,11 +421,13 @@ object JournalPruningConfig {
   *                           Only configurable to reduce the amount of secure random numbers consumed by tests and to avoid flaky timeouts during continuous integration.
   * @param indexer            parameters how the participant populates the index db used to serve the ledger api
   * @param jwtTimestampLeeway leeway parameters for JWTs
+  * @param tokenExpiryGracePeriodForStreams grace periods for streams that postpone termination beyond the JWT expiry
   */
 final case class LedgerApiServerParametersConfig(
     contractIdSeeding: Seeding = Seeding.Strong,
     indexer: IndexerConfig = IndexerConfig(),
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration] = None,
     contractLoader: ContractLoaderConfig = ContractLoaderConfig(),
 )
 
@@ -600,19 +447,4 @@ object ContractLoaderConfig {
   private val defaultMaxQueueSize: PositiveInt = PositiveInt.tryCreate(10000)
   private val defaultMaxBatchSize: PositiveInt = PositiveInt.tryCreate(50)
   private val defaultMaxParallelism: PositiveInt = PositiveInt.tryCreate(5)
-}
-
-/** Parameters to enable and configure the cache in the event_query_service.GetEventsByContractKey
-  *
-  * `Note` This feature is an early-stage (Alpha) performance optimization.
-  * Use it in production only if you know what you're doing.
-  */
-final case class EnableEventsByContractKeyCache(
-    enabled: Boolean = false,
-    cacheSize: PositiveInt = EnableEventsByContractKeyCache.defaultCacheSize,
-)
-
-object EnableEventsByContractKeyCache {
-  val defaultCacheSize: PositiveInt = PositiveInt.tryCreate(10000)
-  val Disabled: EnableEventsByContractKeyCache = EnableEventsByContractKeyCache()
 }

@@ -157,7 +157,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
     stageResult.getAndSet(None).foreach { res =>
       Lifecycle.close(res)(logger)
     }
-    Lifecycle.close(closeables.getAndSet(Seq.empty).reverse *)(logger)
+    Lifecycle.close(closeables.getAndSet(Seq.empty).reverse*)(logger)
   }
 
 }
@@ -244,6 +244,35 @@ abstract class BootstrapStageWithStorage[
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     completeWithExternalUS(storeAndPassResult.mapK(FutureUnlessShutdown.outcomeK))
 
+  protected def resumeIfCompleteStage()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    val synchronousCheck = bootstrap.queue.executeUS(
+      if (stageResult.get().nonEmpty) {
+        logger.debug(s"Stage $description is already initialized. Skipping check.")
+        FutureUnlessShutdown.pure(None)
+      } else {
+        performUnlessClosingF("check-already-init")(stageCompleted).map {
+          case Some(result) =>
+            logger.info(
+              s"Stage ${description} completed in the background. Continuing with the initialization"
+            )
+            val nextStage = Some(buildNextStage(result))
+            stageResult.set(nextStage)
+            nextStage
+          case None =>
+            logger.debug(s"Continue awaiting external trigger for start-up stage $description")
+            None
+        }
+      },
+      s"resume-if-complete-stage-$description",
+    )
+    EitherT.right[String](synchronousCheck).flatMap {
+      case Some(nextStage) => nextStage.start()
+      case None => EitherT.rightT(())
+    }
+  }
+
   protected def completeWithExternalUS(
       storeAndPassResult: => EitherT[FutureUnlessShutdown, String, M]
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
@@ -286,7 +315,7 @@ abstract class BootstrapStageWithStorage[
         }
       }
 
-  final override def attempt()(implicit
+  final protected override def attempt()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[StageResult]] =
     performUnlessClosingEitherUSF(description) {

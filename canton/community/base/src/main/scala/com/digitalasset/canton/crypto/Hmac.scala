@@ -20,7 +20,7 @@ import javax.crypto.spec.SecretKeySpec
 sealed abstract class HmacAlgorithm(val name: String, val hashAlgorithm: HashAlgorithm)
     extends PrettyPrinting {
 
-  def toProtoEnum: v0.HmacAlgorithm
+  def toProtoEnum: v30.HmacAlgorithm
 
   override def pretty: Pretty[HmacAlgorithm] = prettyOfString(_.name)
 }
@@ -30,18 +30,18 @@ object HmacAlgorithm {
   val algorithms: Seq[HmacAlgorithm] = Seq(HmacSha256)
 
   case object HmacSha256 extends HmacAlgorithm("HMACSHA256", HashAlgorithm.Sha256) {
-    override def toProtoEnum: v0.HmacAlgorithm = v0.HmacAlgorithm.HmacSha256
+    override def toProtoEnum: v30.HmacAlgorithm = v30.HmacAlgorithm.HMAC_ALGORITHM_HMAC_SHA256
   }
 
   def fromProtoEnum(
       field: String,
-      hmacAlgorithmP: v0.HmacAlgorithm,
+      hmacAlgorithmP: v30.HmacAlgorithm,
   ): ParsingResult[HmacAlgorithm] =
     hmacAlgorithmP match {
-      case v0.HmacAlgorithm.MissingHmacAlgorithm =>
+      case v30.HmacAlgorithm.HMAC_ALGORITHM_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
-      case v0.HmacAlgorithm.HmacSha256 => Right(HmacSha256)
-      case v0.HmacAlgorithm.Unrecognized(value) =>
+      case v30.HmacAlgorithm.HMAC_ALGORITHM_HMAC_SHA256 => Right(HmacSha256)
+      case v30.HmacAlgorithm.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
     }
 
@@ -56,11 +56,11 @@ final case class Hmac private (private val hmac: ByteString, private val algorit
     s"HMAC size ${hmac.size()} must match HMAC's hash algorithm length ${algorithm.hashAlgorithm.length}",
   )
 
-  def toProtoV0: v0.Hmac =
-    v0.Hmac(algorithm = algorithm.toProtoEnum, hmac = hmac)
+  def toProtoV30: v30.Hmac =
+    v30.Hmac(algorithm = algorithm.toProtoEnum, hmac = hmac)
 
   override def pretty: Pretty[Hmac] = {
-    implicit val ps = PrettyInstances.prettyString
+    implicit val ps: Pretty[String] = PrettyInstances.prettyString
     PrettyUtil.prettyInfix[Hmac](_.algorithm.name, ":", _.hmac)
   }
 
@@ -83,7 +83,7 @@ object Hmac {
     )
   }
 
-  def fromProtoV0(hmacP: v0.Hmac): ParsingResult[Hmac] =
+  def fromProtoV30(hmacP: v30.Hmac): ParsingResult[Hmac] =
     for {
       hmacAlgorithm <- HmacAlgorithm.fromProtoEnum("algorithm", hmacP.algorithm)
       hmac <- Hmac
@@ -157,7 +157,7 @@ object HmacSecret {
     * e.g., 512 bits for SHA256.
     */
   def generate(randomOps: RandomOps, length: Int = defaultLength): HmacSecret = {
-    require(length >= defaultLength, s"Specified HMAC secret key length ${length} too small.")
+    require(length >= defaultLength, s"Specified HMAC secret key length $length too small.")
     new HmacSecret(randomOps.generateRandomByteString(length))
   }
 }

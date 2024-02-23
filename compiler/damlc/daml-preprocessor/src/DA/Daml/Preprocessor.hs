@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -77,6 +77,7 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Exception.ArithmeticError"
     , "DA.Exception.AssertionFailed"
     , "DA.Exception.PreconditionFailed"
+    , "DA.Scenario"
 
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"

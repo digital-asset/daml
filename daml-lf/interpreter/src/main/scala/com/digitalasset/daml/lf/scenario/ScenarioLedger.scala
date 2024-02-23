@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -176,12 +176,6 @@ object ScenarioLedger {
       consumedBy: Option[EventId],
   ) {
 
-    /** 'True' if the given 'View' contains the given 'Node'. */
-    def visibleIn(view: View): Boolean = view match {
-      case OperatorView => true
-      case pview: ParticipantView => !pview.readers.intersect(disclosures.keySet).isEmpty
-    }
-
     def addDisclosures(newDisclosures: Map[Party, Disclosure]): LedgerNodeInfo = {
       // NOTE(MH): Earlier disclosures take precedence (`++` is right biased).
       copy(disclosures = newDisclosures ++ disclosures)
@@ -279,21 +273,6 @@ object ScenarioLedger {
       scenarioSteps = immutable.IntMap.empty,
       ledgerData = LedgerData.empty,
     )
-
-  /** Views onto the ledger */
-  sealed abstract class View extends Product with Serializable
-
-  /** The view of the ledger at the operator, i.e., the view containing
-    * all transaction nodes.
-    */
-  case object OperatorView extends View
-
-  /** The view of the ledger at the given party. */
-  // Note that we only separate actAs and readAs to get better error
-  // messages. The visibility check only needs the union.
-  final case class ParticipantView(actAs: Set[Party], readAs: Set[Party]) extends View {
-    val readers: Set[Party] = actAs union readAs
-  }
 
   /** Result of committing a transaction is the new ledger,
     * and the enriched transaction.
@@ -616,21 +595,21 @@ final case class ScenarioLedger(
   }
 
   def query(
-      view: View,
+      actAs: Set[Party],
+      readAs: Set[Party],
       effectiveAt: Time.Timestamp,
   ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
-      .map(cid => lookupGlobalContract(view, effectiveAt, cid))
-      .collect { case l @ LookupOk(_) =>
-        l
-      }
+      .map(cid => lookupGlobalContract(actAs, readAs, effectiveAt, cid))
+      .collect { case l @ LookupOk(_) => l }
   }
 
   /** Focusing on a specific view of the ledger, lookup the
     * contract-instance associated to a specific contract-id.
     */
   def lookupGlobalContract(
-      view: View,
+      actAs: Set[Party],
+      readAs: Set[Party],
       effectiveAt: Time.Timestamp,
       coid: ContractId,
   ): LookupResult = {
@@ -647,7 +626,7 @@ final case class ScenarioLedger(
                 contract.templateId,
                 info.consumedBy,
               )
-            else if (!info.visibleIn(view))
+            else if (((actAs union readAs) intersect contract.stakeholders).isEmpty)
               LookupContractNotVisible(
                 coid,
                 contract.templateId,

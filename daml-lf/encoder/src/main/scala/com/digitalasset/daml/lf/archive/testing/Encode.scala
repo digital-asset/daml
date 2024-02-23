@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -29,12 +29,6 @@ object Encode {
     val LanguageVersion(major, minor) = version
 
     major match {
-      case LanguageMajorVersion.V1 =>
-        PLF.ArchivePayload
-          .newBuilder()
-          .setMinor(minor.toProtoIdentifier)
-          .setDamlLf1(new EncodeV1(minor).encodePackage(pkgId, pkg))
-          .build()
       case LanguageMajorVersion.V2 =>
         PLF.ArchivePayload
           .newBuilder()

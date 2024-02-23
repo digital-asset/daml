@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.console
 
-import com.digitalasset.canton.topology.*
-
 /** Utilities for accessing the console environment
   */
 trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
@@ -18,12 +16,11 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
       )
   }
 
-  // helpers for creating participant and domain references by name
+  // helpers for creating participant, sequencer, and mediator references by name
   // unknown names will throw
-  def lp(name: String): LocalParticipantReference =
-    participants.local
-      .find(_.name == name)
-      .getOrElse(sys.error(s"participant [$name] not configured"))
+  def lp(name: String): LocalParticipantReference = participants.local
+    .find(_.name == name)
+    .getOrElse(sys.error(s"participant [$name] not configured"))
 
   def rp(name: String): RemoteParticipantReference =
     participants.remote
@@ -34,19 +31,33 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
     .find(_.name == name)
     .getOrElse(sys.error(s"neither local nor remote participant [$name] is configured"))
 
-  def px(name: String): LocalParticipantReferenceX = participantsX.local
-    .find(_.name == name)
-    .getOrElse(sys.error(s"neither local nor remote participant x [$name] is configured"))
-
-  def d(name: String): CE#DomainLocalRef =
-    domains.local
+  def s(name: String): SequencerNodeReference =
+    sequencers.all
       .find(_.name == name)
-      .getOrElse(sys.error(s"domain [$name] not configured"))
+      .getOrElse(sys.error(s"sequencer [$name] not configured"))
 
-  def rd(name: String): CE#DomainRemoteRef =
-    domains.remote
+  def ls(name: String): LocalSequencerNodeReference =
+    sequencers.local
       .find(_.name == name)
-      .getOrElse(sys.error(s"remote domain [$name] not configured"))
+      .getOrElse(sys.error(s"local sequencer [$name] not configured"))
 
-  def mediatorIdForDomain(domain: String): MediatorId = MediatorId(d(domain).id)
+  def rs(name: String): RemoteSequencerNodeReference =
+    sequencers.remote
+      .find(_.name == name)
+      .getOrElse(sys.error(s"remote sequencer [$name] not configured"))
+
+  def m(name: String): LocalMediatorReference =
+    mediators.local
+      .find(_.name == name)
+      .getOrElse(sys.error(s"mediator [$name] not configured"))
+
+  def lm(name: String): LocalMediatorReference =
+    mediators.local
+      .find(_.name == name)
+      .getOrElse(sys.error(s"local mediator [$name] not configured"))
+
+  def rm(name: String): RemoteMediatorReference =
+    mediators.remote
+      .find(_.name == name)
+      .getOrElse(sys.error(s"remote mediator [$name] not configured"))
 }

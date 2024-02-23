@@ -4,12 +4,9 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.command_completion_service.{
-  CompletionEndRequest,
-  CompletionStreamRequest as GrpcCompletionStreamRequest,
-}
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
@@ -23,32 +20,28 @@ class CompletionServiceRequestValidatorTest
     with MockitoSugar {
   private implicit val noLogging: ContextualizedErrorLogger = NoLogging
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
-    expectedLedgerId,
     expectedApplicationId,
     List(party),
-    Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
+    Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
   )
   private val completionReq = CompletionStreamRequest(
-    Some(domain.LedgerId(expectedLedgerId)),
+    None,
     Ref.ApplicationId.assertFromString(expectedApplicationId),
     List(party).toSet,
-    Some(domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
+    Some(domain.ParticipantOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
   )
 
-  private val endReq = CompletionEndRequest(expectedLedgerId)
-
   private val validator = new CompletionServiceRequestValidator(
-    domain.LedgerId(expectedLedgerId),
-    PartyNameChecker.AllowAllParties,
+    PartyNameChecker.AllowAllParties
   )
 
   "CompletionRequestValidation" when {
 
     "validating gRPC completion requests" should {
 
-      "accept requests with empty ledger ID" in {
+      "accept plain requests" in {
         inside(
-          validator.validateGrpcCompletionStreamRequest(grpcCompletionReq.withLedgerId(""))
+          validator.validateGrpcCompletionStreamRequest(grpcCompletionReq)
         ) { case Right(req) =>
           req shouldBe completionReq.copy(ledgerId = None)
         }
@@ -69,8 +62,10 @@ class CompletionServiceRequestValidatorTest
       "return the correct error on unknown begin boundary" in {
         requestMustFailWith(
           request = validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withOffset(
-              LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
+            grpcCompletionReq.withBeginExclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Boundary(ParticipantBoundary.Unrecognized(7))
+              )
             )
           ),
           code = INVALID_ARGUMENT,
@@ -91,9 +86,9 @@ class CompletionServiceRequestValidatorTest
 
     "validate domain completion requests" should {
 
-      "accept requests with empty ledger ID" in {
+      "accept simple requests" in {
         inside(
-          validator.validateCompletionStreamRequest(completionReq.copy(ledgerId = None), ledgerEnd)
+          validator.validateCompletionStreamRequest(completionReq, ledgerEnd)
         ) { case Right(req) =>
           req shouldBe completionReq.copy(ledgerId = None)
         }
@@ -118,7 +113,7 @@ class CompletionServiceRequestValidatorTest
           request = validator.validateCompletionStreamRequest(
             completionReq.copy(offset =
               Some(
-                domain.LedgerOffset.Absolute(
+                domain.ParticipantOffset.Absolute(
                   Ref.LedgerString.assertFromString((ledgerEnd.value.toInt + 1).toString)
                 )
               )
@@ -139,7 +134,6 @@ class CompletionServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.ledgerId shouldEqual Some(expectedLedgerId)
           req.applicationId shouldEqual expectedApplicationId
           req.parties shouldEqual Set(party)
           req.offset shouldEqual None
@@ -147,32 +141,9 @@ class CompletionServiceRequestValidatorTest
       }
     }
 
-    "validating completions end requests" should {
-
-      "fail on ledger ID mismatch" in {
-        requestMustFailWith(
-          request =
-            validator.validateCompletionEndRequest(endReq.withLedgerId("mismatchedLedgerId")),
-          code = NOT_FOUND,
-          description =
-            "LEDGER_ID_MISMATCH(11,0): Ledger ID 'mismatchedLedgerId' not found. Actual Ledger ID is 'expectedLedgerId'.",
-          metadata = Map.empty,
-        )
-      }
-
-      "return passed ledger ID" in {
-        inside(
-          validator.validateCompletionEndRequest(endReq)
-        ) { case Right(_) =>
-          succeed
-        }
-      }
-    }
-
     "applying party name checks" should {
       val partyRestrictiveValidator = new CompletionServiceRequestValidator(
-        domain.LedgerId(expectedLedgerId),
-        PartyNameChecker.AllowPartySet(Set(party)),
+        PartyNameChecker.AllowPartySet(Set(party))
       )
 
       val unknownParties = List("party", "Alice", "Bob").map(Ref.Party.assertFromString).toSet

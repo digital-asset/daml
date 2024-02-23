@@ -4,10 +4,29 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.InitConfigBase.Identity
+import com.typesafe.config.ConfigValueFactory
+import pureconfig.ConfigWriter
 
 import java.util.UUID
+import scala.jdk.CollectionConverters.MapHasAsJava
 
 object InitConfigBase {
+  def writerForSubtype[A <: InitConfigBase](configWriter: ConfigWriter[A]): ConfigWriter[A] =
+    ConfigWriter.fromFunction[A]({ initConfig =>
+      configWriter
+        .mapConfig {
+          // Write auto-init explicitly, as it's not an attribute of the InitConfigBase class anymore
+          case configValue if !initConfig.autoInit =>
+            configValue.withFallback(
+              ConfigValueFactory.fromMap(
+                Map("auto-init" -> ConfigValueFactory.fromAnyRef(false)).asJava
+              )
+            )
+          case configValue => configValue
+        }
+        .to(initConfig)
+    })
+
   sealed trait NodeIdentifierConfig {
     def identifierName: Option[String]
   }
@@ -55,5 +74,5 @@ trait InitConfigBase {
   * @param identity Controls how the node identity (prefix of the unique identifier) is determined
   */
 final case class InitConfig(
-    identity: Option[Identity] = None
+    identity: Option[Identity] = Some(Identity())
 ) extends InitConfigBase

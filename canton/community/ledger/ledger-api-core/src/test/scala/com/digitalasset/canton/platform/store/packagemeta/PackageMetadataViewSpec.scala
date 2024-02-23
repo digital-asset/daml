@@ -4,20 +4,14 @@
 package com.digitalasset.canton.platform.store.packagemeta
 
 import cats.implicits.catsSyntaxSemigroup
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref
 import com.daml.lf.value.test.ValueGenerators.idGen
-import com.daml.nonempty.NonEmptyUtil
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
-  TemplateIdWithPriority,
-  TemplatesForQualifiedName,
-}
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadataViewSpec.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-
-import PackageMetadata.Implicits.packageMetadataSemigroup
 
 class PackageMetadataViewSpec
     extends AnyFlatSpec
@@ -49,20 +43,11 @@ object PackageMetadataViewSpec {
       entries <- Gen.listOf(entryGen)
     } yield entries.toMap
 
-  private def priorityGen: Gen[Time.Timestamp] =
-    Gen.choose(1L, 1L << 20).map(Time.Timestamp.assertFromLong)
-
   private val packageMetadataGen = for {
     map <- interfacesImplementedByMap
-    priority <- priorityGen
   } yield PackageMetadata(
-    templates = map.keySet.groupBy(_.qualifiedName).map { case (qn, templateIds) =>
-      qn -> TemplatesForQualifiedName(
-        NonEmptyUtil.fromUnsafe(templateIds),
-        TemplateIdWithPriority(templateIds.head, priority),
-      )
-    },
-    interfaces = map.values.flatten.toSet,
+    templates = map.values.flatten.toSet,
+    interfaces = map.keySet,
     interfacesImplementedBy = map,
   )
 }

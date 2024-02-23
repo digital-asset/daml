@@ -32,24 +32,24 @@ object CantonGrpcUtil {
   ): EitherT[Future, CantonError, T] = {
     wrapErr(EitherT.fromEither[Future](value))
   }
+  def wrapErrUS[T](value: ParsingResult[T])(implicit
+      loggingContext: ErrorLoggingContext,
+      ec: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, CantonError, T] = {
+    wrapErrUS(EitherT.fromEither[FutureUnlessShutdown](value))
+  }
   def wrapErr[T](value: EitherT[Future, ProtoDeserializationError, T])(implicit
       loggingContext: ErrorLoggingContext,
       ec: ExecutionContext,
   ): EitherT[Future, CantonError, T] = {
     value.leftMap(x => ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): CantonError)
   }
-
-  @Deprecated
-  def mapErr[T, C](value: Either[T, C])(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, StatusRuntimeException, C] =
-    mapErr(EitherT.fromEither[Future](value))
-
-  @Deprecated
-  def mapErr[T, C](value: EitherT[Future, T, C])(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, StatusRuntimeException, C] =
-    value.leftMap(x => invalidArgument(x.toString))
+  def wrapErrUS[T](value: EitherT[FutureUnlessShutdown, ProtoDeserializationError, T])(implicit
+      loggingContext: ErrorLoggingContext,
+      ec: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, CantonError, T] = {
+    value.leftMap(x => ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): CantonError)
+  }
 
   def mapErrNew[T <: CantonError, C](value: Either[T, C])(implicit
       ec: ExecutionContext
@@ -83,10 +83,6 @@ object CantonGrpcUtil {
       errorLoggingContext: ErrorLoggingContext,
   ): Future[C] =
     EitherTUtil.toFuture(mapErrNewETUS(value))
-
-  @Deprecated
-  def invalidArgument(err: String): StatusRuntimeException =
-    Status.INVALID_ARGUMENT.withDescription(err).asRuntimeException()
 
   /** Wrapper method for sending a Grpc request.
     * Takes care of appropriate logging and retrying.

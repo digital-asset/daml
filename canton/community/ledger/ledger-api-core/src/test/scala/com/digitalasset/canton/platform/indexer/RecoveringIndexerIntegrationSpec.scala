@@ -3,18 +3,20 @@
 
 package com.digitalasset.canton.platform.indexer
 
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
+  InternalStateServiceProviderImpl,
   ReadService,
   SubmissionResult,
   Update,
   WritePartyService,
 }
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLogging,
@@ -105,7 +107,7 @@ class RecoveringIndexerIntegrationSpec
     "index the participant state" in withNewTraceContext { implicit traceContext =>
       loggerFactory.suppress(RecoveringIndexerSuppressionRule) {
         participantServer(InMemoryPartyParticipantState)
-          .use { participantState =>
+          .use { case (participantState, dbSupport) =>
             for {
               _ <- participantState
                 .allocateParty(
@@ -114,7 +116,7 @@ class RecoveringIndexerIntegrationSpec
                   submissionId = randomSubmissionId(),
                 )
                 .asScala
-              _ <- eventuallyPartiesShouldBe("Alice")
+              _ <- eventuallyPartiesShouldBe(dbSupport, "Alice")
             } yield ()
           }
           .map { _ =>
@@ -135,7 +137,7 @@ class RecoveringIndexerIntegrationSpec
       implicit traceContext =>
         loggerFactory.suppress(RecoveringIndexerSuppressionRule) {
           participantServer(ParticipantStateThatFailsOften)
-            .use { participantState =>
+            .use { case (participantState, dbSupport) =>
               for {
                 _ <- participantState
                   .allocateParty(
@@ -158,7 +160,7 @@ class RecoveringIndexerIntegrationSpec
                     submissionId = randomSubmissionId(),
                   )
                   .asScala
-                _ <- eventuallyPartiesShouldBe("Alice", "Bob", "Carol")
+                _ <- eventuallyPartiesShouldBe(dbSupport, "Alice", "Bob", "Carol")
               } yield ()
             }
             .map { _ =>
@@ -191,7 +193,7 @@ class RecoveringIndexerIntegrationSpec
             ParticipantStateThatFailsOften,
             restartDelay = config.NonNegativeFiniteDuration.ofSeconds(10),
           )
-            .use { participantState =>
+            .use { case (participantState, _) =>
               for {
                 _ <- participantState
                   .allocateParty(
@@ -236,7 +238,7 @@ class RecoveringIndexerIntegrationSpec
       newParticipantState: ParticipantStateFactory,
       restartDelay: config.NonNegativeFiniteDuration =
         config.NonNegativeFiniteDuration.ofMillis(100),
-  )(implicit traceContext: TraceContext): ResourceOwner[WritePartyService] = {
+  )(implicit traceContext: TraceContext): ResourceOwner[(WritePartyService, DbSupport)] = {
     val ledgerId = Ref.LedgerString.assertFromString(s"ledger-$testId")
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
@@ -260,9 +262,20 @@ class RecoveringIndexerIntegrationSpec
             parallelExecutionContext,
             tracer,
             loggerFactory,
-            multiDomainEnabled = false,
-            maxEventsByContractKeyCacheSize = None,
           )
+      dbSupport <- DbSupport
+        .owner(
+          serverRole = ServerRole.Testing(getClass),
+          metrics = metrics,
+          dbConfig = DbConfig(
+            jdbcUrl,
+            connectionPool = ConnectionPoolConfig(
+              connectionPoolSize = 16,
+              connectionTimeout = 250.millis,
+            ),
+          ),
+          loggerFactory = loggerFactory,
+        )
       _ <- new IndexerServiceOwner(
         readService = participantState._1,
         participantId = participantId,
@@ -274,55 +287,38 @@ class RecoveringIndexerIntegrationSpec
         executionContext = servicesExecutionContext,
         tracer = tracer,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = false,
         startupMode = MigrateAndStart,
         dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(
           indexerConfig.ingestionParallelism.unwrap
         ),
         highAvailability = HaConfig(),
+        indexerDbDispatcherOverride = Some(dbSupport.dbDispatcher),
       )(materializer, traceContext)
-    } yield participantState._2
+    } yield (participantState._2, dbSupport)
   }
 
-  private def eventuallyPartiesShouldBe(partyNames: String*)(implicit
+  private def eventuallyPartiesShouldBe(dbSupport: DbSupport, partyNames: String*)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
-    val jdbcUrl =
-      s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     val metrics = Metrics.ForTesting
-    DbSupport
-      .owner(
-        serverRole = ServerRole.Testing(getClass),
-        metrics = metrics,
-        dbConfig = DbConfig(
-          jdbcUrl,
-          connectionPool = ConnectionPoolConfig(
-            connectionPoolSize = 16,
-            connectionTimeout = 250.millis,
-          ),
-        ),
-        loggerFactory = loggerFactory,
-      )
-      .use { dbSupport =>
-        val ledgerEndCache = MutableLedgerEndCache()
-        val storageBackendFactory = dbSupport.storageBackendFactory
-        val partyStorageBacked = storageBackendFactory.createPartyStorageBackend(ledgerEndCache)
-        val parameterStorageBackend = storageBackendFactory.createParameterStorageBackend
-        val dbDispatcher = dbSupport.dbDispatcher
+    val ledgerEndCache = MutableLedgerEndCache()
+    val storageBackendFactory = dbSupport.storageBackendFactory
+    val partyStorageBacked = storageBackendFactory.createPartyStorageBackend(ledgerEndCache)
+    val parameterStorageBackend = storageBackendFactory.createParameterStorageBackend
+    val dbDispatcher = dbSupport.dbDispatcher
 
-        eventually {
-          for {
-            ledgerEnd <- dbDispatcher
-              .executeSql(metrics.daml.index.db.getLedgerEnd)(parameterStorageBackend.ledgerEnd)
-            _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
-            knownParties <- dbDispatcher
-              .executeSql(metrics.daml.index.db.loadAllParties)(partyStorageBacked.knownParties)
-          } yield {
-            knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
-            ()
-          }
-        }
+    eventually {
+      for {
+        ledgerEnd <- dbDispatcher
+          .executeSql(metrics.index.db.getLedgerEnd)(parameterStorageBackend.ledgerEnd)
+        _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        knownParties <- dbDispatcher
+          .executeSql(metrics.index.db.loadAllParties)(partyStorageBacked.knownParties)
+      } yield {
+        knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
+        ()
       }
+    }
   }
 }
 
@@ -403,7 +399,8 @@ object RecoveringIndexerIntegrationSpec {
       queue: BoundedSourceQueue[(Offset, Traced[Update])],
       source: Source[(Offset, Traced[Update]), NotUsed],
   ) extends WritePartyService
-      with ReadService {
+      with ReadService
+      with InternalStateServiceProviderImpl {
 
     private val offset = new AtomicLong(0)
     private val writtenUpdates = mutable.Buffer.empty[(Offset, Traced[Update])]

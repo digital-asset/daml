@@ -130,11 +130,15 @@
 
 <a name="type-exportlist-data1-71597"></a>**data** [Data1](#type-exportlist-data1-71597)
 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field1" [Data1](#type-exportlist-data1-71597) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "field1" [Data1](#type-exportlist-data1-71597) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "field1" [Data1](#type-exportlist-data1-71597) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 <a name="type-exportlist-data2-35142"></a>**data** [Data2](#type-exportlist-data2-35142)
 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field2" [Data2](#type-exportlist-data2-35142) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "field2" [Data2](#type-exportlist-data2-35142) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "field2" [Data2](#type-exportlist-data2-35142) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 <a name="type-exportlist-data3-37219"></a>**data** [Data3](#type-exportlist-data3-37219)
 
@@ -142,11 +146,15 @@
 >
 > > (no fields)
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field3" [Data3](#type-exportlist-data3-37219) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "field3" [Data3](#type-exportlist-data3-37219) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "field3" [Data3](#type-exportlist-data3-37219) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 <a name="type-exportlist-data4-52140"></a>**data** [Data4](#type-exportlist-data4-52140)
 
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field4" [Data4](#type-exportlist-data4-52140) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "field4" [Data4](#type-exportlist-data4-52140) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "field4" [Data4](#type-exportlist-data4-52140) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 <a name="type-exportlist-data5-28529"></a>**data** [Data5](#type-exportlist-data5-28529)
 
@@ -156,7 +164,9 @@
 > > | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 > > | field5                                                                         | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field5" [Data5](#type-exportlist-data5-28529) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "field5" [Data5](#type-exportlist-data5-28529) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "field5" [Data5](#type-exportlist-data5-28529) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 <a name="type-exportlist-data6-43450"></a>**data** [Data6](#type-exportlist-data6-43450)
 
@@ -169,7 +179,9 @@
 > <a name="constr-exportlist-constr6tick-99942"></a>[Constr6'](#constr-exportlist-constr6tick-99942)
 >
 >
-> **instance** [HasField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-hasfield-52839) "field6" [Data6](#type-exportlist-data6-43450) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [GetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979) "field6" [Data6](#type-exportlist-data6-43450) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>
+> **instance** [SetField](https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311) "field6" [Data6](#type-exportlist-data6-43450) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 ## Functions
 

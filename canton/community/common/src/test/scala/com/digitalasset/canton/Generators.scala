@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
   AbstractLengthLimitedString,
   LengthLimitedStringCompanion,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -32,10 +31,8 @@ object Generators {
     Gen.stringOfN(32, Gen.alphaNumChar).map(WorkflowId.assertFromString)
   )
 
-  def transferCounterOGen(pv: ProtocolVersion): Gen[TransferCounterO] = if (
-    pv < ProtocolVersion.CNTestNet
-  ) Gen.const(None)
-  else Gen.choose(0, Long.MaxValue).map(i => Some(TransferCounter(i)))
+  def transferCounterOGen: Gen[TransferCounterO] =
+    Gen.choose(0, Long.MaxValue).map(i => Some(TransferCounter(i)))
 
   def lengthLimitedStringGen[A <: AbstractLengthLimitedString](
       companion: LengthLimitedStringCompanion[A]
@@ -48,7 +45,7 @@ object Generators {
     size <- Gen.choose(1, nonEmptyMaxSize - 1)
     element <- arb.arbitrary
     elements <- Gen.containerOfN[List, T](size, arb.arbitrary)
-  } yield NonEmpty(List, element, elements: _*)
+  } yield NonEmpty(List, element, elements*)
 
   def nonEmptySetGen[T](implicit arb: Arbitrary[T]): Gen[NonEmpty[Set[T]]] =
     nonEmptyListGen[T].map(_.toSet)

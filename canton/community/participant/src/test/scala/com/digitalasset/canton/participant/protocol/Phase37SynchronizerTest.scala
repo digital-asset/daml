@@ -13,7 +13,8 @@ import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
   TestPendingRequestDataType,
 }
 import com.digitalasset.canton.protocol.RequestId
-import com.digitalasset.canton.topology.{MediatorId, MediatorRef, UniqueIdentifier}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, RequestCounter, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -21,8 +22,8 @@ import scala.concurrent.Future
 
 class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  private def mk(initRc: RequestCounter = RequestCounter(0)): Phase37Synchronizer =
-    new Phase37Synchronizer(initRc, loggerFactory, FutureSupervisor.Noop, timeouts)
+  private def mk(): Phase37Synchronizer =
+    new Phase37Synchronizer(loggerFactory, FutureSupervisor.Noop, timeouts)
 
   private val requestId1 = RequestId(CantonTimestamp.ofEpochSecond(1))
   private val requestId2 = RequestId(CantonTimestamp.ofEpochSecond(2))
@@ -36,7 +37,7 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
       TestPendingRequestData(
         RequestCounter(i),
         SequencerCounter(i),
-        MediatorRef(MediatorId(UniqueIdentifier.tryCreate("another", "mediator"))),
+        MediatorsOfDomain(MediatorGroupIndex.one),
       )
     )
 

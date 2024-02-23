@@ -23,17 +23,17 @@ final case class StoredParties(parties: SortedSet[LfPartyId])
 
   override protected def companionObj = StoredParties
 
-  protected def toProtoV0: v0.StoredParties = v0.StoredParties(parties.toList)
+  protected def toProtoV30: v30.StoredParties = v30.StoredParties(parties.toList)
 }
 
 object StoredParties
     extends HasVersionedMessageCompanion[StoredParties]
     with HasVersionedMessageCompanionDbHelpers[StoredParties] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.StoredParties)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v30,
+      supportedProtoVersion(v30.StoredParties)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -43,8 +43,8 @@ object StoredParties
 
   override def name: String = "stored parties"
 
-  def fromProtoV0(proto0: v0.StoredParties): ParsingResult[StoredParties] = {
-    val v0.StoredParties(partiesP) = proto0
+  def fromProtoV30(proto0: v30.StoredParties): ParsingResult[StoredParties] = {
+    val v30.StoredParties(partiesP) = proto0
     for {
       parties <- partiesP.traverse(ProtoConverter.parseLfPartyId)
     } yield StoredParties.fromIterable(parties)

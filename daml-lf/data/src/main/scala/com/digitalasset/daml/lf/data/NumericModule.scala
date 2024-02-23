@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -224,6 +224,21 @@ abstract class NumericModule {
   @throws[IllegalArgumentException]
   def assertFromString(s: String): Numeric =
     assertRight(fromString(s))
+
+  /** Given a string representation of a decimal and a scale s returns the corresponding `Numeric s`.
+    * If the input does not match (where i = 38-s)
+    *   `-?([1-9]\d{1,i}|0).([1-9]{s})`
+    * or if the result of the conversion cannot be mapped into a numeric of scale `s` without loss of precision
+    * returns an error message instead.
+    */
+  def fromString(s: Scale, str: String): Either[String, Numeric] = for {
+    n <- fromString(str)
+    _ <- Either.cond(n.scale() == s, (), s"""Could not read Numeric $s string "$str"""")
+  } yield n
+
+  @throws[IllegalArgumentException]
+  def assertFromString(scale: Scale, s: String) =
+    assertRight(fromString(scale, s))
 
   /** Convert a BigDecimal to the Numeric with the smallest possible scale able to represent the
     * former without loss of precision. Returns an error if such Numeric does not exists.

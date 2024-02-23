@@ -8,14 +8,14 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
-import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.platform.api.v1.event.EventOps.EventOps
-import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.platform.store.dao.*
-import com.digitalasset.canton.platform.store.entries.LedgerEntry
+import com.digitalasset.canton.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
+import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -24,6 +24,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
 
+import java.util.UUID
 import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Inside with LoneElement {
@@ -71,7 +72,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
           inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
             created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-            created.witnessParties should contain only (tx.actAs: _*)
+            created.witnessParties should contain only (tx.actAs*)
             created.agreementText.getOrElse("") shouldBe createNode.agreementText
             created.contractKey shouldBe None
             created.createArguments shouldNot be(None)
@@ -106,7 +107,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           inside(exercise.transaction.nodes.headOption) {
             case Some((nodeId, exerciseNode: Node.Exercise)) =>
               archived.eventId shouldBe EventId(transaction.updateId, nodeId).toLedgerString
-              archived.witnessParties should contain only (exercise.actAs: _*)
+              archived.witnessParties should contain only (exercise.actAs*)
               archived.contractId shouldBe exerciseNode.targetCoid.coid
               archived.templateId shouldNot be(None)
           }
@@ -186,7 +187,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(alice, bob, charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -220,7 +220,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(alice),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultForBob <- transactionsOf(
@@ -233,7 +232,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(bob),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultForCharlie <- transactionsOf(
@@ -246,7 +244,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -277,7 +274,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to.lastOffset,
             filter = TemplatePartiesFilter(Map(otherTemplateId -> Set(alice)), Set.empty),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -314,7 +310,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               Set.empty,
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -358,7 +353,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               Set.empty,
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -401,7 +395,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               Set(bob),
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -430,7 +423,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset,
           TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-          multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
     } yield {
@@ -463,7 +455,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset2,
           TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-          multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
 
@@ -480,7 +471,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  it should "return empty source when offset range is from the future" in {
+  it should "return error when offset range is from the future" in {
     val commands: Vector[(Offset, LedgerEntry.Transaction)] = Vector.fill(3)(singleCreate)
     val beginOffsetFromTheFuture = nextOffset()
     val endOffsetFromTheFuture = nextOffset()
@@ -494,12 +485,12 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           endOffsetFromTheFuture,
           TemplatePartiesFilter(Map.empty, Set(alice)),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-          multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
+        .failed
 
     } yield {
-      extractAllTransactions(result) shouldBe empty
+      result.getMessage should include("is beyond ledger end offset")
     }
   }
 
@@ -527,6 +518,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
     for {
       _ <- storeSync(commandsWithOffsetGaps)
+      // just for having the ledger end bumped
+      _ <- ledgerDao.storePartyEntry(
+        endOffset,
+        PartyLedgerEntry.AllocationRejected(UUID.randomUUID().toString, Timestamp.now(), "reason"),
+      )
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
@@ -543,7 +539,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endOffset,
             TemplatePartiesFilter(Map.empty, Set(alice)),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
           .runWith(Sink.seq)
       )(ResourceContext(executionContext))
@@ -594,7 +589,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               to.lastOffset,
               cp.filter,
               EventProjectionProperties(verbose = true, Set.empty),
-              multiDomainEnabled = false,
             )
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => Seq(gtr.getTransaction.offset) }

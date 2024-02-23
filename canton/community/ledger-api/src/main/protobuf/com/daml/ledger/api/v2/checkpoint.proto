@@ -1,0 +1,31 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/participant_offset.proto";
+import "google/protobuf/timestamp.proto";
+
+
+option java_outer_classname = "CheckpointOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// Checkpoints may be used to:
+//
+// * detect time out of commands.
+// * provide an offset which can be used to restart consumption.
+message Checkpoint {
+
+    // All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
+    // Required
+    google.protobuf.Timestamp record_time = 1;
+
+    // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
+    // Required
+    ParticipantOffset offset = 2;
+}
+
+

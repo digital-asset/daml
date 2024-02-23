@@ -6,9 +6,12 @@ package com.digitalasset.canton.util.retry
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.resource.DatabaseStorageError.DatabaseStorageDegradation.DatabaseTaskRejected
+import com.digitalasset.canton.resource.DbStorage.NoConnectionAvailable
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import org.postgresql.util.PSQLException
+import org.slf4j.event.Level
 
 import java.sql.*
 import scala.annotation.tailrec
@@ -32,15 +35,32 @@ object RetryUtil {
 
     protected def logThrowable(e: Throwable, logger: TracedLogger)(implicit
         traceContext: TraceContext
-    ): Unit = e match {
-      case sqlE: SQLException =>
-        // Unfortunately, the sql state and error code won't get logged automatically.
-        logger.info(
-          s"Detected an SQLException. SQL state: ${sqlE.getSQLState}, error code: ${sqlE.getErrorCode}",
-          e,
-        )
-      case _: Throwable =>
-        logger.info(s"Detected an error.", e)
+    ): Unit = {
+      val level = retryLogLevel(e).getOrElse(Level.INFO)
+      implicit val errorLoggingContext: ErrorLoggingContext =
+        ErrorLoggingContext.fromTracedLogger(logger)
+      e match {
+        case sqlE: SQLException =>
+          // Unfortunately, the sql state and error code won't get logged automatically.
+          LoggerUtil.logThrowableAtLevel(
+            level,
+            s"Detected an SQLException. SQL state: ${sqlE.getSQLState}, error code: ${sqlE.getErrorCode}",
+            e,
+          )
+        case _: Throwable =>
+          LoggerUtil.logThrowableAtLevel(level, s"Detected an error.", e)
+      }
+    }
+
+    /** Return an optional log level to log an exception with.
+      *
+      * This allows to override the log level for particular exceptions on retry globally.
+      */
+    def retryLogLevel(e: Throwable): Option[Level] = None
+
+    def retryLogLevel(outcome: Try[Any]): Option[Level] = outcome match {
+      case Failure(exception) => retryLogLevel(exception)
+      case util.Success(_value) => None
     }
   }
 
@@ -245,6 +265,13 @@ object RetryUtil {
         }
 
       case _ => FatalErrorKind
+    }
+
+    override def retryLogLevel(e: Throwable): Option[Level] = e match {
+      case _: NoConnectionAvailable =>
+        // Avoid log noise if no connection is available either due to contention or a temporary network problem
+        Some(Level.DEBUG)
+      case _ => None
     }
   }
 

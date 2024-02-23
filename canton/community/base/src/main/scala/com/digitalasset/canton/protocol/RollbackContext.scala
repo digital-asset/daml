@@ -8,7 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling, firstChild}
-import com.digitalasset.canton.protocol.v0.ViewParticipantData
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 import scala.Ordering.Implicits.*
@@ -47,10 +47,11 @@ final case class RollbackContext private (
 
   def isEmpty: Boolean = equals(RollbackContext.empty)
 
-  def toProtoV0: ViewParticipantData.RollbackContext = ViewParticipantData.RollbackContext(
-    rollbackScope = rollbackScope.map(_.unwrap),
-    nextChild = nextChild.unwrap,
-  )
+  def toProtoV30: v30.ViewParticipantData.RollbackContext =
+    v30.ViewParticipantData.RollbackContext(
+      rollbackScope = rollbackScope.map(_.unwrap),
+      nextChild = nextChild.unwrap,
+    )
 
   override def pretty: Pretty[RollbackContext] = prettyOfClass(
     param("rollback scope", _.rollbackScope),
@@ -87,14 +88,11 @@ object RollbackContext {
 
   def apply(scope: RollbackScope): RollbackContext = new RollbackContext(scope.toVector)
 
-  def fromProtoV0(
-      maybeRbContext: Option[
-        com.digitalasset.canton.protocol.v0.ViewParticipantData.RollbackContext
-      ]
+  def fromProtoV30(
+      maybeRbContext: Option[v30.ViewParticipantData.RollbackContext]
   ): ParsingResult[RollbackContext] =
     maybeRbContext.fold(Either.right[ProtoDeserializationError, RollbackContext](empty)) {
-      case com.digitalasset.canton.protocol.v0.ViewParticipantData
-            .RollbackContext(rbScope, nextChildP) =>
+      case v30.ViewParticipantData.RollbackContext(rbScope, nextChildP) =>
         import cats.syntax.traverse.*
 
         for {

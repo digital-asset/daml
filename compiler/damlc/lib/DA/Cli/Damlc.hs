@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -93,7 +93,8 @@ import DA.Daml.Project.Types
       ProjectPath(..),
       ProjectConfig,
       unsafeResolveReleaseVersion)
-import DA.Daml.Assistant.Version (resolveReleaseVersion)
+import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
+import DA.Daml.Assistant.Util (wrapErr)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
@@ -921,7 +922,8 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
                   then do
                     damlPath <- getDamlPath
                     damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-                    resolveReleaseVersion (envUseCache damlEnv) pSdkVersion
+                    wrapErr "installing dependencies and initializing package database" $
+                      resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
                   else pure (unsafeResolveReleaseVersion pSdkVersion)
               installDependencies
                   (toNormalizedFilePath' projRoot)
@@ -1032,7 +1034,7 @@ withMaybeConfig withConfig handler = do
     handle (\case
       ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "Yaml file not found: " `isPrefixOf` exc ->
         pure Nothing
-      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "contains only sdk-version" `isInfixOf` exc -> do
+      ConfigFileInvalid _ (Y.InvalidYaml (Just (Y.YamlException exc))) | "packageless daml.yaml" `isInfixOf` exc -> do
         putStrLn "Found daml.yaml with only sdk-version, ignoring this file."
         pure Nothing
       e -> throwIO e
@@ -1613,7 +1615,8 @@ execDocTest opts scriptDar (ImportSource importSource) files =
           then do
             damlPath <- getDamlPath
             damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-            resolveReleaseVersion (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
+            wrapErr "running doc test" $
+              resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
       installDependencies "." opts releaseVersion [scriptDar] []
       createProjectPackageDb "." opts mempty

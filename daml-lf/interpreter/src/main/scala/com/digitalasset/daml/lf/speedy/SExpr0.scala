@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -38,7 +38,7 @@ package speedy
   * - In SExpr{1,}: SELocA, SELocF, SELocS, SEMakeClo, SELet1General,
   *
   * - In SExpr: SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin, SECaseAtomic,
-  *   SELet1Builtin, SELet1BuiltinArithmetic, SEAppOnlyFunIsAtomic
+  *   SELet1Builtin, SELet1BuiltinArithmetic
   *
   * - In SExpr (runtime only, i.e. rejected by validate): SEDamlException, SEImportValue
   */

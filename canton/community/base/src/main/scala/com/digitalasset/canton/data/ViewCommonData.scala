@@ -9,7 +9,7 @@ import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.protocol.{ConfirmationPolicy, v0, v1}
+import com.digitalasset.canton.protocol.{ConfirmationPolicy, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.version.*
@@ -55,18 +55,11 @@ final case class ViewCommonData private (
 
   // We use named parameters, because then the code remains correct even when the ProtoBuf code generator
   // changes the order of parameters.
-  protected def toProtoV0: v0.ViewCommonData =
-    v0.ViewCommonData(
-      informees = informees.map(_.toProtoV0).toSeq,
+  def toProtoV30: v30.ViewCommonData =
+    v30.ViewCommonData(
+      informees = informees.map(_.toProtoV30).toSeq,
       threshold = threshold.unwrap,
-      salt = Some(salt.toProtoV0),
-    )
-
-  protected def toProtoV1: v1.ViewCommonData =
-    v1.ViewCommonData(
-      informees = informees.map(_.toProtoV1).toSeq,
-      threshold = threshold.unwrap,
-      salt = Some(salt.toProtoV0),
+      salt = Some(salt.toProtoV30),
     )
 
   // When serializing the class to an anonymous binary format, we serialize it to an UntypedVersionedMessage version of the
@@ -98,14 +91,10 @@ object ViewCommonData
   override val name: String = "ViewCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.ViewCommonData)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v5)(v1.ViewCommonData)(
-      supportedProtoVersionMemoized(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.ViewCommonData)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   /** Creates a fresh [[ViewCommonData]]. */
@@ -129,48 +118,27 @@ object ViewCommonData
       None,
     )
 
-  private def fromProtoV0(
+  private def fromProtoV30(
       context: (HashOps, ConfirmationPolicy),
-      viewCommonDataP: v0.ViewCommonData,
-  )(bytes: ByteString): ParsingResult[ViewCommonData] = {
-    val (hashOps, confirmationPolicy) = context
-    for {
-      informees <- viewCommonDataP.informees.traverse(Informee.fromProtoV0(confirmationPolicy))
-
-      salt <- ProtoConverter
-        .parseRequired(Salt.fromProtoV0, "salt", viewCommonDataP.salt)
-        .leftMap(_.inField("salt"))
-
-      threshold <- (NonNegativeInt
-        .create(viewCommonDataP.threshold)
-        .leftMap(InvariantViolation.toProtoDeserializationError))
-        .leftMap(_.inField("threshold"))
-    } yield new ViewCommonData(informees.toSet, threshold, salt)(
-      hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
-      Some(bytes),
-    )
-  }
-
-  private def fromProtoV1(
-      context: (HashOps, ConfirmationPolicy),
-      viewCommonDataP: v1.ViewCommonData,
+      viewCommonDataP: v30.ViewCommonData,
   )(bytes: ByteString): ParsingResult[ViewCommonData] = {
     val (hashOps, _confirmationPolicy) = context
     for {
-      informees <- viewCommonDataP.informees.traverse(Informee.fromProtoV1)
+      informees <- viewCommonDataP.informees.traverse(Informee.fromProtoV30)
 
       salt <- ProtoConverter
-        .parseRequired(Salt.fromProtoV0, "salt", viewCommonDataP.salt)
+        .parseRequired(Salt.fromProtoV30, "salt", viewCommonDataP.salt)
         .leftMap(_.inField("salt"))
 
-      threshold <- (NonNegativeInt
+      threshold <- NonNegativeInt
         .create(viewCommonDataP.threshold)
-        .leftMap(InvariantViolation.toProtoDeserializationError))
+        .leftMap(InvariantViolation.toProtoDeserializationError)
         .leftMap(_.inField("threshold"))
+
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new ViewCommonData(informees.toSet, threshold, salt)(
       hashOps,
-      protocolVersionRepresentativeFor(ProtoVersion(1)),
+      rpv,
       Some(bytes),
     )
   }

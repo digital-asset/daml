@@ -14,7 +14,13 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{
+  CryptoConfig,
+  InitConfigBase,
+  LocalNodeConfig,
+  ProcessingTimeout,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
@@ -22,17 +28,17 @@ import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPubl
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.health.admin.grpc.GrpcStatusService
-import com.digitalasset.canton.health.admin.v0.StatusServiceGrpc
+import com.digitalasset.canton.health.admin.v30.StatusServiceGrpc
 import com.digitalasset.canton.health.{
   GrpcHealthReporter,
   GrpcHealthServer,
   HealthService,
+  HttpHealthServer,
   ServiceHealthStatusManager,
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.DbStorageMetrics
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
+import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, DbStorageMetrics}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
@@ -46,7 +52,6 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.{Executors, ScheduledExecutorService}
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 /** When a canton node is created it first has to obtain an identity before most of its services can be started.
@@ -76,8 +81,9 @@ object CantonNodeBootstrap {
 
 trait BaseMetrics {
   def prefix: MetricName
-  @nowarn("cat=deprecation")
-  def metricsFactory: MetricsFactory
+
+  def openTelemetryMetricsFactory: CantonLabeledMetricsFactory
+
   def grpcMetrics: GrpcServerMetrics
   def healthMetrics: HealthMetrics
   def storageMetrics: DbStorageMetrics
@@ -105,6 +111,7 @@ final case class CantonNodeBootstrapCommonArguments[
     tracerProvider: TracerProvider,
 )
 
+// TODO(#15161) collapse with base trait and CantonNodeBootstrapX
 abstract class CantonNodeBootstrapCommon[
     T <: CantonNode,
     NodeConfig <: LocalNodeConfig,
@@ -134,10 +141,9 @@ abstract class CantonNodeBootstrapCommon[
   override def loggerFactory: NamedLoggerFactory = arguments.loggerFactory
   protected def futureSupervisor: FutureSupervisor = arguments.futureSupervisor
 
-  protected val cryptoConfig = config.crypto
-  protected val adminApiConfig = config.adminApi
-  protected val initConfig = config.init
-  protected val tracerProvider = arguments.tracerProvider
+  protected val cryptoConfig: CryptoConfig = config.crypto
+  protected val initConfig: InitConfigBase = config.init
+  protected val tracerProvider: TracerProvider = arguments.tracerProvider
   protected implicit val tracer: Tracer = tracerProvider.tracer
   protected val initQueue: SimpleExecutionQueue = new SimpleExecutionQueue(
     s"init-queue-${arguments.name}",
@@ -150,6 +156,8 @@ abstract class CantonNodeBootstrapCommon[
   protected def connectionPoolForParticipant: Boolean = false
 
   protected val ips = new IdentityProvidingServiceClient()
+
+  private val adminApiConfig = config.adminApi
 
   private def status: Future[NodeStatus[NodeStatus.Status]] = {
     getNode
@@ -167,13 +175,13 @@ abstract class CantonNodeBootstrapCommon[
   }
 
   // The admin-API services
-  logger.info(s"Starting admin-api services on ${adminApiConfig}")
+  logger.info(s"Starting admin-api services on $adminApiConfig")
   protected val (adminServer, adminServerRegistry) = {
     val builder = CantonServerBuilder
       .forConfig(
         adminApiConfig,
         arguments.metrics.prefix,
-        arguments.metrics.metricsFactory,
+        arguments.metrics.openTelemetryMetricsFactory,
         executionContext,
         loggerFactory,
         parameterConfig.loggingConfig.api,
@@ -194,7 +202,7 @@ abstract class CantonNodeBootstrapCommon[
           executionContext,
         )
       )
-      .addService(ProtoReflectionService.newInstance(), false)
+      .addService(ProtoReflectionService.newInstance(), withLogging = false)
       .build
       .start()
     (Lifecycle.toCloseableServer(server, logger, "AdminServer"), registry)
@@ -203,7 +211,7 @@ abstract class CantonNodeBootstrapCommon[
   protected def mkNodeHealthService(storage: Storage): HealthService
   protected def mkHealthComponents(
       nodeHealthService: HealthService
-  ): (GrpcHealthReporter, Option[GrpcHealthServer], HealthService) = {
+  ): (GrpcHealthReporter, Option[GrpcHealthServer], Option[HttpHealthServer], HealthService) = {
     // Service that will always return `SERVING`. Useful to be targeted by k8s liveness probes.
     val livenessService = HealthService("liveness", logger, timeouts)
     val healthReporter: GrpcHealthReporter = new GrpcHealthReporter(loggerFactory)
@@ -220,7 +228,7 @@ abstract class CantonNodeBootstrapCommon[
 
       new GrpcHealthServer(
         healthConfig,
-        arguments.metrics.metricsFactory,
+        arguments.metrics.openTelemetryMetricsFactory,
         executor,
         loggerFactory,
         parameterConfig.loggingConfig.api,
@@ -230,7 +238,16 @@ abstract class CantonNodeBootstrapCommon[
         grpcNodeHealthManager.manager,
       )
     }
-    (healthReporter, grpcHealthServer, livenessService)
+    val httpHealthServer = config.monitoring.httpHealthServer.map { healthConfig =>
+      new HttpHealthServer(
+        nodeHealthService,
+        healthConfig.address,
+        healthConfig.port,
+        timeouts,
+        loggerFactory,
+      )
+    }
+    (healthReporter, grpcHealthServer, httpHealthServer, livenessService)
   }
 
 }
@@ -286,7 +303,7 @@ object CantonNodeBootstrapCommon {
   )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
     keyIdO <- findPubKeyIdByFingerprint(fingerprint)
       .leftMap(err =>
-        s"Failure while looking for $typ fingerprint $fingerprint in public store: ${err}"
+        s"Failure while looking for $typ fingerprint $fingerprint in public store: $err"
       )
     pubKey <- keyIdO.fold(
       EitherT.leftT[Future, P](s"$typ key with fingerprint $fingerprint does not exist")
@@ -314,7 +331,7 @@ object CantonNodeBootstrapCommon {
   )(implicit ec: ExecutionContext): EitherT[Future, String, P] = for {
     keyName <- EitherT.fromEither[Future](KeyName.create(name))
     keyIdO <- findPubKeyIdByName(keyName)
-      .leftMap(err => s"Failure while looking for $typ key $name in public store: ${err}")
+      .leftMap(err => s"Failure while looking for $typ key $name in public store: $err")
     pubKey <- keyIdO.fold(
       generateKey(Some(keyName))
         .leftMap(err => s"Failure while generating $typ key for $name: $err")

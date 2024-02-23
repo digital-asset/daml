@@ -29,25 +29,24 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderId,
-  LedgerOffset,
   ObjectMeta,
+  ParticipantOffset,
   PartyDetails,
 }
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
-import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
-  optionalIdentityProviderId,
-  optionalString,
-  requireEmptyString,
-  requireParty,
-  requirePresence,
-  requireResourceVersion,
-  verifyMetadataAnnotations,
-}
+import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
+import com.digitalasset.canton.ledger.api.validation.ValueValidator.requirePresence
 import com.digitalasset.canton.ledger.error.groups.{
   AuthorizationChecksErrors,
   PartyManagementServiceErrors,
   RequestValidationErrors,
+}
+import com.digitalasset.canton.ledger.localstore.api.{
+  PartyDetailsUpdate,
+  PartyRecord,
+  PartyRecordStore,
+  PartyRecordUpdate,
 }
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -61,12 +60,6 @@ import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagem
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.platform.apiserver.update
 import com.digitalasset.canton.platform.apiserver.update.PartyRecordUpdateMapper
-import com.digitalasset.canton.platform.localstore.api.{
-  PartyDetailsUpdate,
-  PartyRecord,
-  PartyRecordStore,
-  PartyRecordUpdate,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer
@@ -648,7 +641,7 @@ private[apiserver] object ApiPartyManagementService {
       writeService.allocateParty(party, displayName, submissionId).asScala
     }
 
-    override def entries(offset: Option[LedgerOffset.Absolute])(implicit
+    override def entries(offset: Option[ParticipantOffset.Absolute])(implicit
         loggingContext: LoggingContextWithTrace
     ): Source[PartyEntry, ?] =
       partyManagementService.partyEntries(offset)

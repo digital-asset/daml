@@ -5,8 +5,7 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.Functor
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.crypto.HashOps
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.version.*
@@ -32,8 +31,8 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  private def toProtoV0: v0.TypedSignedProtocolMessageContent =
-    v0.TypedSignedProtocolMessageContent(
+  private def toProtoV30: v30.TypedSignedProtocolMessageContent =
+    v30.TypedSignedProtocolMessageContent(
       someSignedProtocolMessage = content.toProtoTypedSomeSignedProtocolMessage
     )
 
@@ -59,20 +58,18 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends HasMemoizedProtocolVersionedWithContextAndValidationCompanion[
-      TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
-      HashOps,
+    extends HasMemoizedProtocolVersionedWithValidationCompanion[
+      TypedSignedProtocolMessageContent[SignedProtocolMessageContent]
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.v3),
-    ProtoVersion(0) -> VersionedProtoConverter(
-      ProtocolVersion.CNTestNet
-    )(v0.TypedSignedProtocolMessageContent)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
+    ProtoVersion(30) -> VersionedProtoConverter(
+      ProtocolVersion.v30
+    )(v30.TypedSignedProtocolMessageContent)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   def apply[M <: SignedProtocolMessageContent](
@@ -87,40 +84,42 @@ object TypedSignedProtocolMessageContent
   def apply[M <: SignedProtocolMessageContent](
       content: M,
       protoVersion: ProtoVersion,
-  ): TypedSignedProtocolMessageContent[M] =
-    TypedSignedProtocolMessageContent(content)(protocolVersionRepresentativeFor(protoVersion), None)
+  ): ParsingResult[TypedSignedProtocolMessageContent[M]] = protocolVersionRepresentativeFor(
+    protoVersion
+  ).map(TypedSignedProtocolMessageContent(content)(_, None))
 
-  private def fromProtoV0(
-      context: (HashOps, ProtocolVersion),
-      proto: v0.TypedSignedProtocolMessageContent,
+  private def fromProtoV30(
+      expectedProtocolVersion: ProtocolVersion,
+      proto: v30.TypedSignedProtocolMessageContent,
   )(
       bytes: ByteString
   ): ParsingResult[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = {
-    val (_, expectedProtocolVersion) = context
-    import v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
-    val v0.TypedSignedProtocolMessageContent(messageBytes) = proto
+    import v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
+    val v30.TypedSignedProtocolMessageContent(messageBytes) = proto
     for {
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       message <- (messageBytes match {
-        case Sm.MediatorResponse(mediatorResponseBytes) =>
-          MediatorResponse.fromByteString(expectedProtocolVersion)(mediatorResponseBytes)
+        case Sm.ConfirmationResponse(confirmationResponseBytes) =>
+          ConfirmationResponse.fromByteString(expectedProtocolVersion)(confirmationResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteString(expectedProtocolVersion)(context)(
+          ConfirmationResultMessage.fromByteString(expectedProtocolVersion)(
             transactionResultMessageBytes
           )
         case Sm.TransferResult(transferResultBytes) =>
           TransferResult.fromByteString(expectedProtocolVersion)(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
           AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
-        case Sm.MalformedMediatorRequestResult(malformedMediatorRequestResultBytes) =>
-          MalformedMediatorRequestResult.fromByteString(expectedProtocolVersion)(
-            malformedMediatorRequestResultBytes
+        case Sm.SetTrafficBalance(setTrafficBalanceBytes) =>
+          SetTrafficBalanceMessage.fromByteString(expectedProtocolVersion)(setTrafficBalanceBytes)
+        case Sm.MalformedMediatorConfirmationRequestResult(
+              malformedMediatorConfirmationRequestResultBytes
+            ) =>
+          MalformedConfirmationRequestResult.fromByteString(expectedProtocolVersion)(
+            malformedMediatorConfirmationRequestResultBytes
           )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]
-    } yield TypedSignedProtocolMessageContent(message)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
-      Some(bytes),
-    )
+    } yield TypedSignedProtocolMessageContent(message)(rpv, Some(bytes))
   }
 }

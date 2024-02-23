@@ -4,11 +4,11 @@ source: src
 version: 0.0.1
 # script-build-options-begin
 build-options:
-  - --target=1.15
+  - --target=2.1
 # script-build-options-end
 # script-dependencies-begin
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script
+  - daml3-script
 # script-dependencies-end

@@ -4,8 +4,6 @@
 package com.digitalasset.canton.platform.apiserver
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -25,12 +23,10 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   ConfigurationEntry,
-  LedgerId,
-  LedgerOffset,
+  ParticipantOffset,
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
@@ -38,8 +34,6 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.R
 import com.digitalasset.canton.ledger.participant.state.index.v2.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -47,69 +41,57 @@ import scala.concurrent.Future
 
 final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends IndexService {
 
-  override def ledgerId: LedgerId = delegate.ledgerId
-
   override def listLfPackages()(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
-    Timed.future(metrics.daml.services.index.listLfPackages, delegate.listLfPackages())
+    Timed.future(metrics.services.index.listLfPackages, delegate.listLfPackages())
 
   override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[DamlLf.Archive]] =
-    Timed.future(metrics.daml.services.index.getLfArchive, delegate.getLfArchive(packageId))
+    Timed.future(metrics.services.index.getLfArchive, delegate.getLfArchive(packageId))
 
   override def packageEntries(
-      startExclusive: Option[LedgerOffset.Absolute]
+      startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[domain.PackageEntry, NotUsed] =
     Timed.source(
-      metrics.daml.services.index.packageEntries,
+      metrics.services.index.packageEntries,
       delegate.packageEntries(startExclusive),
     )
 
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[v2.LedgerConfiguration, NotUsed] =
-    Timed.source(
-      metrics.daml.services.index.getLedgerConfiguration,
-      delegate.getLedgerConfiguration(),
-    )
-
-  override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
-    Timed.future(metrics.daml.services.index.currentLedgerEnd, delegate.currentLedgerEnd())
+  override def currentLedgerEnd(): Future[ParticipantOffset.Absolute] =
+    Timed.future(metrics.services.index.currentLedgerEnd, delegate.currentLedgerEnd())
 
   override def getCompletions(
-      begin: domain.LedgerOffset,
+      begin: domain.ParticipantOffset,
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.index.getCompletions,
+      metrics.services.index.getCompletions,
       delegate.getCompletions(begin, applicationId, parties),
     )
 
   override def transactions(
-      begin: domain.LedgerOffset,
-      endAt: Option[domain.LedgerOffset],
+      begin: domain.ParticipantOffset,
+      endAt: Option[domain.ParticipantOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.index.transactions,
-      delegate.transactions(begin, endAt, filter, verbose, multiDomainEnabled),
+      metrics.services.index.transactions,
+      delegate.transactions(begin, endAt, filter, verbose),
     )
 
   override def transactionTrees(
-      begin: domain.LedgerOffset,
-      endAt: Option[domain.LedgerOffset],
+      begin: domain.ParticipantOffset,
+      endAt: Option[domain.ParticipantOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.index.transactionTrees,
-      delegate.transactionTrees(begin, endAt, filter, verbose, multiDomainEnabled),
+      metrics.services.index.transactionTrees,
+      delegate.transactionTrees(begin, endAt, filter, verbose),
     )
 
   override def getTransactionById(
@@ -117,7 +99,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
     Timed.future(
-      metrics.daml.services.index.getTransactionById,
+      metrics.services.index.getTransactionById,
       delegate.getTransactionById(transactionId, requestingParties),
     )
 
@@ -126,7 +108,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
     Timed.future(
-      metrics.daml.services.index.getTransactionTreeById,
+      metrics.services.index.getTransactionTreeById,
       delegate.getTransactionTreeById(transactionId, requestingParties),
     )
 
@@ -134,11 +116,10 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       filter: domain.TransactionFilter,
       verbose: Boolean,
       activeAtO: Option[Offset],
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose, activeAtO, multiDomainEnabled),
+      metrics.services.index.getActiveContracts,
+      delegate.getActiveContracts(filter, verbose, activeAtO),
     )
 
   override def lookupActiveContract(
@@ -148,7 +129,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       loggingContext: LoggingContextWithTrace
   ): Future[Option[Value.VersionedContractInstance]] =
     Timed.future(
-      metrics.daml.services.index.lookupActiveContract,
+      metrics.services.index.lookupActiveContract,
       delegate.lookupActiveContract(readers, contractId),
     )
 
@@ -157,7 +138,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       key: GlobalKey,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Value.ContractId]] =
     Timed.future(
-      metrics.daml.services.index.lookupContractKey,
+      metrics.services.index.lookupContractKey,
       delegate.lookupContractKey(readers, key),
     )
 
@@ -165,60 +146,61 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       ids: Set[Value.ContractId]
   )(implicit loggingContext: LoggingContextWithTrace): Future[MaximumLedgerTime] =
     Timed.future(
-      metrics.daml.services.index.lookupMaximumLedgerTime,
+      metrics.services.index.lookupMaximumLedgerTime,
       delegate.lookupMaximumLedgerTimeAfterInterpretation(ids),
     )
 
   override def getParticipantId(): Future[Ref.ParticipantId] =
-    Timed.future(metrics.daml.services.index.getParticipantId, delegate.getParticipantId())
+    Timed.future(metrics.services.index.getParticipantId, delegate.getParticipantId())
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    Timed.future(metrics.daml.services.index.getParties, delegate.getParties(parties))
+    Timed.future(metrics.services.index.getParties, delegate.getParties(parties))
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    Timed.future(metrics.daml.services.index.listKnownParties, delegate.listKnownParties())
+    Timed.future(metrics.services.index.listKnownParties, delegate.listKnownParties())
 
   override def partyEntries(
-      startExclusive: Option[LedgerOffset.Absolute]
+      startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
-    Timed.source(metrics.daml.services.index.partyEntries, delegate.partyEntries(startExclusive))
+    Timed.source(metrics.services.index.partyEntries, delegate.partyEntries(startExclusive))
 
   override def lookupConfiguration()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
-    Timed.future(metrics.daml.services.index.lookupConfiguration, delegate.lookupConfiguration())
+  ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
+    Timed.future(metrics.services.index.lookupConfiguration, delegate.lookupConfiguration())
 
   override def configurationEntries(
-      startExclusive: Option[LedgerOffset.Absolute]
+      startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
+  ): Source[(ParticipantOffset.Absolute, ConfigurationEntry), NotUsed] =
     Timed.source(
-      metrics.daml.services.index.configurationEntries,
+      metrics.services.index.configurationEntries,
       delegate.configurationEntries(startExclusive),
     )
 
   override def prune(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     Timed.future(
-      metrics.daml.services.index.prune,
-      delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
+      metrics.services.index.prune,
+      delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets),
     )
 
   override def getCompletions(
-      startExclusive: LedgerOffset,
-      endInclusive: LedgerOffset,
+      startExclusive: ParticipantOffset,
+      endInclusive: ParticipantOffset,
       applicationId: Ref.ApplicationId,
       parties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
-      metrics.daml.services.index.getCompletionsLimited,
+      metrics.services.index.getCompletionsLimited,
       delegate.getCompletions(startExclusive, endInclusive, applicationId, parties),
     )
 
@@ -231,51 +213,47 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] = {
     Timed.future(
-      metrics.daml.services.index.getTransactionMetering,
+      metrics.services.index.getTransactionMetering,
       delegate.getMeteringReportData(from, to, applicationId),
     )
   }
 
-  override def lookupContractStateWithoutDivulgence(contractId: Value.ContractId)(implicit
+  override def lookupContractState(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[ContractState] =
     Timed.future(
-      metrics.daml.services.index.lookupContractStateWithoutDivulgence,
-      delegate.lookupContractStateWithoutDivulgence(contractId),
+      metrics.services.index.lookupContractState,
+      delegate.lookupContractState(contractId),
     )
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)] =
-    Timed.future(metrics.daml.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
+  ): Future[(ParticipantOffset.Absolute, ParticipantOffset.Absolute)] =
+    Timed.future(metrics.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
 
   override def getEventsByContractId(
       contractId: ContractId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] =
     Timed.future(
-      metrics.daml.services.index.getEventsByContractId,
+      metrics.services.index.getEventsByContractId,
       delegate.getEventsByContractId(contractId, requestingParties),
     )
 
-  override def getEventsByContractKey(
-      contractKey: Value,
-      templateId: Ref.Identifier,
-      requestingParties: Set[Ref.Party],
-      keyContinuationToken: KeyContinuationToken,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
-    Timed.future(
-      metrics.daml.services.index.getEventsByContractKey,
-      delegate.getEventsByContractKey(
-        contractKey,
-        templateId,
-        requestingParties,
-        keyContinuationToken,
-      ),
-    )
-
-  override def resolveToTemplateIds(templateQualifiedName: Ref.QualifiedName)(implicit
-      loggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, PackageMetadata.TemplatesForQualifiedName] =
-    delegate.resolveToTemplateIds(templateQualifiedName)
+  // TODO(i16065): Re-enable getEventsByContractKey tests
+//  override def getEventsByContractKey(
+//      contractKey: Value,
+//      templateId: Ref.Identifier,
+//      requestingParties: Set[Ref.Party],
+//      endExclusiveSeqId: Option[Long],
+//  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
+//    Timed.future(
+//      metrics.services.index.getEventsByContractKey,
+//      delegate.getEventsByContractKey(
+//        contractKey,
+//        templateId,
+//        requestingParties,
+//        endExclusiveSeqId,
+//      ),
+//    )
 }

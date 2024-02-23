@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -10,7 +10,7 @@ import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization._
 import com.daml.lf.speedy.DefaultAuthorizationChecker
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, Util}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueRecord
@@ -45,12 +45,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside with TestI
     init.copy(
       // By default maintainers are added to signatories so do this to allow error case testing
       keyOpt = Some(
-        GlobalKeyWithMaintainers.assertBuild(
-          templateId,
-          Value.ValueUnit,
-          maintainers,
-          Util.sharedKey(init.version),
-        )
+        GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueUnit, maintainers)
       )
     )
   }

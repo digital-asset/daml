@@ -77,7 +77,7 @@ object OptConfigValue {
           keyCur.failureFor(UnknownKey(k))
       }
       unknownKeys match {
-        case h :: t => Some(ConfigReaderFailures(h, t: _*))
+        case h :: t => Some(ConfigReaderFailures(h, t*))
         case Nil => None
       }
     }

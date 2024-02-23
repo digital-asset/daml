@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -170,25 +170,18 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     actual.typeDecls shouldBe expectedResult
   }
 
-  "Package metadata should be extracted if present" in {
-    def pkg(metadata: Option[Ast.PackageMetadata]) =
+  "Package metadata should be extracted" in {
+    val name = Ref.PackageName.assertFromString("my-package")
+    val version = Ref.PackageVersion.assertFromString("1.2.3")
+    val pkg =
       Ast.Package(
         modules = Map.empty,
         directDeps = Set.empty,
         languageVersion = LanguageVersion.default,
-        metadata = metadata,
+        metadata = Ast.PackageMetadata(name, version, None),
       )
-    val notPresent = pkg(None)
-    val name = Ref.PackageName.assertFromString("my-package")
-    val version = Ref.PackageVersion.assertFromString("1.2.3")
-    val present = pkg(Some(Ast.PackageMetadata(name, version, None)))
-    SignatureReader
-      .readPackageSignature(() => \/-((packageId, notPresent)))
-      ._2
-      .metadata shouldBe None
-    SignatureReader.readPackageSignature(() => \/-((packageId, present)))._2.metadata shouldBe Some(
+    SignatureReader.readPackageSignature(() => \/-((packageId, pkg)))._2.metadata shouldBe
       PackageMetadata(name, version)
-    )
   }
 
   "a real dar" should {
@@ -208,14 +201,6 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
     lazy val itpES = EnvironmentSignature.fromPackageSignatures(itp).resolveChoices
 
-    lazy val itpWithoutRetroImplements = itp.copy(
-      main = itp.main.copy(
-        interfaces = itp.main.interfaces - qn("RetroInterface:RetroIf")
-      )
-    )
-    lazy val itpESWithoutRetroImplements =
-      EnvironmentSignature.fromPackageSignatures(itpWithoutRetroImplements).resolveChoices
-
     "load without errors" in {
       itp shouldBe itp
     }
@@ -225,7 +210,6 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     val Archive = cn("Archive")
     val TIf = qn("InterfaceTestPackage:TIf")
     val LibTIf = qn("InterfaceTestLib:TIf")
-    val RetroIf = qn("RetroInterface:RetroIf")
     val LibTIfView = qn("InterfaceTestLib:TIfView")
     val Useless = cn("Useless")
     val UselessTy = qn("InterfaceTestPackage:Useless")
@@ -265,17 +249,10 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     }
 
     "have interfaces with choices" in {
-      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
+      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf))
       inside(itp.main.interfaces(TIf).choices get Useless) {
         case Some(TheUselessChoice(UselessTy, TIf)) =>
       }
-    }
-
-    "have interfaces with retroImplements" in {
-      itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
-      itp.main.interfaces(RetroIf).retroImplements should ===(
-        Set(Ref.TypeConName(itp.main.packageId, Foo))
-      )
     }
 
     "identify a record interface view" in {
@@ -343,44 +320,6 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
         Useless -> Set(Some(Ref.Identifier(itpPid, TIf)), Some(Ref.Identifier(itpPid, LibTIf))),
         Bar -> Set(None),
       )
-    }
-
-    "resolve retro implements harmlessly when there are none" in {
-      PackageSignature.resolveRetroImplements((), itpWithoutRetroImplements.all)((_, _) =>
-        None
-      ) should ===((), itpWithoutRetroImplements.all)
-      itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
-    }
-
-    "resolve retro implements" in {
-      val (_, itpResolvedRetro) =
-        PackageSignature.resolveRetroImplements((), itp.all)((_, _) => None)
-      itpResolvedRetro should !==(itp.all)
-      inside(
-        itpResolvedRetro.find(_.packageId == itp.main.packageId)
-      ) { case Some(packageSignature) =>
-        inside(packageSignature.interfaces.get(RetroIf)) {
-          case Some(DefInterface(_, retroImplements, _)) =>
-            retroImplements shouldBe empty
-        }
-        inside(packageSignature.typeDecls.get(Foo)) {
-          case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
-            implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
-        }
-      }
-
-      val itsESResolvedRetro = itpES.resolveRetroImplements
-      itsESResolvedRetro should !==(itpES)
-      inside(
-        itsESResolvedRetro.interfaces.get(Ref.TypeConName(itp.main.packageId, RetroIf))
-      ) { case Some(DefInterface(_, retroImplements, _)) =>
-        retroImplements shouldBe empty
-      }
-
-      inside(itsESResolvedRetro.typeDecls.get(Ref.TypeConName(itp.main.packageId, Foo))) {
-        case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
-          implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
-      }
     }
   }
 

@@ -1,0 +1,260 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE InstanceSigs #-}
+
+module Daml.Script.Internal.Questions.Submit
+  ( module Daml.Script.Internal.Questions.Submit
+  , module Daml.Script.Internal.Questions.Submit.Error
+  ) where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Commands
+import Daml.Script.Internal.Questions.Submit.Error
+import Daml.Script.Internal.Questions.TransactionTree
+import DA.NonEmpty
+import DA.List.Total (head)
+import DA.Stack
+import DA.Set
+import DA.Functor (void)
+import DA.Bifunctor (first)
+
+data Submit = Submit with
+  submissions : [Submission]
+instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree)] where command = "Submit"
+
+data Submission = Submission with
+  sActAs : NonEmpty Party
+  sReadAs : [Party]
+  sDisclosures : [Disclosure]
+  sErrorBehaviour : ErrorBehaviour
+  sCommands : [CommandWithMeta]
+  sLocation : Optional (Text, SrcLoc)
+
+data ErrorBehaviour = MustSucceed | MustFail | Try
+
+-- | Options to detemine the stakeholders of a transaction, as well as disclosures.
+-- Intended to be specified using the `actAs`, `readAs` and `disclose` builders, combined using the Semigroup concat `(<>)` operator.
+-- ```
+-- actAs alice <> readAs [alice, bob] <> disclose myContract
+-- ```
+-- Note that actAs and readAs follows the same party derivation rules as `signatory`, see their docs for examples.
+-- All submissions must specify at least one `actAs` party, else a runtime error will be thrown.
+-- A minimum submission may look like
+-- ```
+-- submit (actAs alice) $ createCmd MyContract with party = alice
+-- ```
+data SubmitOptions = SubmitOptions with
+  soActAs : [Party]
+  soReadAs : [Party]
+  soDisclosures : [Disclosure]
+
+-- | Semigroup instance allowing for combination via (<>)
+instance Semigroup SubmitOptions where
+  SubmitOptions a b c <> SubmitOptions a' b' c' = SubmitOptions (a <> a') (b <> b') (c <> c')
+
+-- | Builds a SubmitOptions with given actAs parties.
+-- Any given submission must include at least one actAs party.
+-- Note that the parties type is constrainted by `IsParties`, allowing for specifying parties as any of the following:
+-- ```
+-- Party
+-- [Party]
+-- NonEmpty Party
+-- Set Party
+-- Optional Party
+-- ```
+actAs : IsParties p => p -> SubmitOptions
+actAs p = SubmitOptions (toParties p) [] []
+
+-- | Builds a SubmitOptions with given readAs parties.
+-- A given submission may omit any readAs parties and still be valid.
+-- Note that the parties type is constrainted by `IsParties`, allowing for specifying parties as any of the following:
+-- ```
+-- Party
+-- [Party]
+-- NonEmpty Party
+-- Set Party
+-- Optional Party
+-- ```
+readAs : IsParties p => p -> SubmitOptions
+readAs p = SubmitOptions [] (toParties p) []
+
+-- | Provides many Explicit Disclosures to the transaction.
+discloseMany : [Disclosure] -> SubmitOptions
+discloseMany ds = SubmitOptions [] [] ds
+
+-- | Provides an Explicit Disclosure to the transaction.
+disclose : Disclosure -> SubmitOptions
+disclose d = discloseMany [d]
+
+-- | Defines a type that can be transformed into a SubmitOptions
+class IsSubmitOptions a where
+  toSubmitOptions : a -> SubmitOptions
+
+instance IsSubmitOptions SubmitOptions where
+  toSubmitOptions = identity
+
+instance IsSubmitOptions Party where
+  toSubmitOptions = actAs
+
+instance IsSubmitOptions [Party] where
+  toSubmitOptions = actAs
+
+instance IsSubmitOptions (NonEmpty Party) where
+  toSubmitOptions = actAs
+
+instance IsSubmitOptions (Set Party) where
+  toSubmitOptions = actAs
+
+-- | Applicative that allows for multiple concurrent transaction submissions
+-- See `concurrently` for usage of this type.
+data ConcurrentSubmits a = ConcurrentSubmits with
+    submits : [Submission]
+    continue : [Either SubmitError ([CommandResult], TransactionTree)] -> a
+  deriving Functor
+
+instance Applicative ConcurrentSubmits where
+  pure : a -> ConcurrentSubmits a
+  pure x = ConcurrentSubmits [] (const x)
+
+  liftA2 : (a -> b -> c) -> ConcurrentSubmits a -> ConcurrentSubmits b -> ConcurrentSubmits c
+  liftA2 f a b = ConcurrentSubmits
+    { submits = a.submits <> b.submits
+    , continue = \results -> 
+        let (aResults, bResults) = splitAt (length a.submits) results
+        in f (a.continue aResults) (b.continue bResults)
+    }
+
+actAsNonEmpty : [Party] -> NonEmpty Party
+actAsNonEmpty ps = case ps of
+  [] -> error "actAs must be non-empty"
+  p :: ps -> NonEmpty p ps
+
+-- | Allows for concurrent submission of transactions, using an applicative, similar to Commands.
+-- Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions
+-- that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
+concurrently : HasCallStack => ConcurrentSubmits a -> Script a
+concurrently submissions = fmap submissions.continue $ lift $ Submit with
+  submissions = submissions.submits
+
+-- | Defines an applicative that can run transaction submissions. Usually this is simply `Script`.
+class Applicative m => ScriptSubmit m where
+  liftSubmission : HasCallStack => ConcurrentSubmits a -> m a
+
+instance ScriptSubmit ConcurrentSubmits where
+  liftSubmission : HasCallStack => ConcurrentSubmits a -> ConcurrentSubmits a
+  liftSubmission = identity
+
+instance ScriptSubmit Script where
+  liftSubmission : HasCallStack => ConcurrentSubmits a -> Script a
+  liftSubmission = concurrently
+
+submitInternal : (HasCallStack, ScriptSubmit m) => SubmitOptions -> ErrorBehaviour -> Commands a -> m (Either SubmitError (a, TransactionTree))
+submitInternal opts errorBehaviour cmds = liftSubmission $ ConcurrentSubmits with
+  submits =
+    [ Submission with
+        sActAs = actAsNonEmpty opts.soActAs
+        sReadAs = opts.soReadAs
+        sDisclosures = opts.soDisclosures
+        sErrorBehaviour = errorBehaviour
+        sCommands = cmds.commands
+        sLocation = head getExposedCallStack
+    ]
+  continue = \case
+    [res] -> fmap (first cmds.continue) res
+    _ -> error "CRASH! Incorrect number of submission results returned from ConcurrentSubmit!"
+
+-- assertFromRight for mustsucceed. Error path should never be called, as scala handles it.
+mustSucceed : Either a b -> b
+mustSucceed = \case
+  Left _ -> error "MustSucceed Failed"
+  Right r -> r
+
+-- assertFromLeft for mustfail. Error path should never be called, as scala handles it.
+mustFail : Either a b -> a
+mustFail = \case
+  Left e -> e
+  Right _ -> error "MustFail Succeeded"
+
+-- ##### Main API #####
+-- | Equivalent to `submit` but returns the result and the full transaction tree.
+submitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (a, TransactionTree)
+submitResultAndTree opts cmds = mustSucceed <$> submitInternal (toSubmitOptions opts) MustSucceed cmds
+
+-- | Equivalent to `trySubmit` but returns the result and the full transaction tree.
+trySubmitResultAndTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError (a, TransactionTree))
+trySubmitResultAndTree opts cmds = submitInternal (toSubmitOptions opts) Try cmds
+
+-- | Equivalent to `submitMustFail` but returns the error thrown.
+submitWithError : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m SubmitError
+submitWithError opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) MustFail cmds
+
+-- | `submit p cmds` submits the commands `cmds` as a single transaction
+-- from party `p` and returns the value returned by `cmds`.
+--
+-- If the transaction fails, `submit` also fails.
+submit : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m a
+submit opts cmds = fst <$> submitResultAndTree opts cmds
+
+-- | Equivalent to `submit` but returns the full transaction tree.
+submitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m TransactionTree
+submitTree opts cmds = snd <$> submitResultAndTree opts cmds
+
+-- | Submit a transaction and recieve back either the result, or a `SubmitError`.
+-- In the majority of failures, this will not crash at runtime.
+trySubmit : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError a)
+trySubmit opts cmds = fmap fst <$> trySubmitResultAndTree opts cmds
+
+-- | Equivalent to `trySubmit` but returns the full transaction tree.
+trySubmitTree : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m (Either SubmitError TransactionTree)
+trySubmitTree opts cmds = fmap snd <$> trySubmitResultAndTree opts cmds
+
+-- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
+-- from party `p`.
+--
+-- It only succeeds if the submitting the transaction fails.
+submitMustFail : (HasCallStack, ScriptSubmit m, IsSubmitOptions o) => o -> Commands a -> m ()
+submitMustFail opts cmds = void $ submitWithError opts cmds
+
+-- ##### Old compatibility conveniences #####
+
+-- | `submitMulti actAs readAs cmds` submits `cmds` as a single transaction
+-- authorized by `actAs`. Fetched contracts must be visible to at least
+-- one party in the union of actAs and readAs.
+-- 
+-- Note: This behaviour can be achieved using `submit (actAs actors <> readAs readers) cmds`
+-- and is only provided for backwards compatibility.
+submitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m a
+submitMulti actors readers cmds = submit (actAs actors <> readAs readers) cmds
+
+-- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
+-- but fails when `submitMulti` succeeds and the other way around.
+--
+-- Note: This behaviour can be achieved using `submitMustFail (actAs actors <> readAs readers) cmds`
+-- and is only provided for backwards compatibility.
+submitMultiMustFail : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m ()
+submitMultiMustFail actors readers cmds = submitMustFail (actAs actors <> readAs readers) cmds
+
+-- | Equivalent to `submitMulti` but returns the full transaction tree.
+-- 
+-- Note: This behaviour can be achieved using `submitTree (actAs actors <> readAs readers) cmds`
+-- and is only provided for backwards compatibility.
+submitTreeMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m TransactionTree
+submitTreeMulti actors readers cmds = submitTree (actAs actors <> readAs readers) cmds
+
+-- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
+-- 
+-- Note: This behaviour can be achieved using `trySubmit (actAs actors <> readAs readers) cmds`
+-- and is only provided for backwards compatibility.
+trySubmitMulti : (HasCallStack, ScriptSubmit m) => [Party] -> [Party] -> Commands a -> m (Either SubmitError a)
+trySubmitMulti actors readers cmds = trySubmit (actAs actors <> readAs readers) cmds
+
+-- #### Provided for testing for now, likely to be removed #####
+
+trySubmitConcurrently : HasCallStack => Party -> [Commands a] -> Script [Either SubmitError a]
+trySubmitConcurrently p cmdss = concurrently $ forA cmdss $ trySubmit p
+
+submitWithDisclosures : HasCallStack => Party -> [Disclosure] -> Commands a -> Script a
+submitWithDisclosures p disclosures cmds = submit (actAs p <> discloseMany disclosures) cmds
+
+submitWithDisclosuresMustFail : HasCallStack => Party -> [Disclosure] -> Commands a -> Script ()
+submitWithDisclosuresMustFail p disclosures cmds = submitMustFail (actAs p <> discloseMany disclosures) cmds

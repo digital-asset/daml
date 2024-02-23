@@ -53,14 +53,7 @@
             <maxLevel>INFO</maxLevel>
             <contains>Failure in pending cache update for key</contains>
         </rewrite>
-        <!-- ledger-api-indexer's append-only schema runs "vacuum analyze" which raises warnings on postgres system tables
-        in a couple of tests where migration is not run by a superuser, database or table owner, e.g.:
-        DB: skipping "pg_statistic" - only superuser or database owner can vacuum it -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>can vacuum it</contains>
-        </rewrite>
+
         <!-- Warnings emitted by caffeine when trying to load an entry for the async cache -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>
@@ -89,20 +82,20 @@
             <maxLevel>INFO</maxLevel>
         </rewrite>
 
-        <!-- Index-db postgres migration script 114 renames identifiers by appending _old making them exceed the 63 character limit
-        -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor</logger>
-            <contains>will be truncated to "participant_events_non_consuming_exercise_</contains>
-            <maxLevel>INFO</maxLevel>
-        </rewrite>
-
         <!-- Compatibility warning emitted by flyway -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>org.flywaydb.core.internal.database.base.Database</logger>
             <contains>Flyway upgrade recommended: H2 2.1.210 is newer than this version of Flyway and support has not been tested.</contains>
             <maxLevel>INFO</maxLevel>
         </rewrite>
+
+        <!-- At shutdown of DbDispatcher we do not wait for the health-check process to finish, which can emit warnings, as the Hikari pool is shut down in the wrong moment. -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.zaxxer.hikari.pool.PoolBase</logger>
+            <contains>Failed to validate connection</contains>
+            <maxLevel>INFO</maxLevel>
+        </rewrite>
+
         <!--
             TESTING REWRITE RULES
         -->
@@ -219,17 +212,7 @@
         </rewrite>
 
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.integration.tests.LoggingIntegrationTestDefault</logger>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.integration.tests.LoggingIntegrationTestOracle</logger>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.integration.tests.LoggingIntegrationTestPostgres</logger>
+            <logger>com.digitalasset.canton.integration.tests.LoggingXIntegrationTestDefault</logger>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
@@ -355,6 +338,12 @@
         <!-- Suppress delay logger during tests -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.participant.sync.SyncDomain</logger>
+            <contains>Late processing (or clock skew) of batch with counter</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.domain.mediator.Mediator</logger>
             <contains>Late processing (or clock skew) of batch with counter</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>

@@ -11,7 +11,7 @@
 # create root certificate such that we can issue self-signed certs
 create_key "root-ca"
 create_certificate "root-ca" "/O=TESTING/OU=ROOT CA/emailAddress=canton@digitalasset.com"
-#print_certificate "root-ca"
+print_certificate "root-ca"
 
 # create public api certificate
 create_key "public-api"

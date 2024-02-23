@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -99,6 +99,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addMethod(companion.generateGetter())
         .addFields(RecordFields(fields).asJava)
         .addMethods(templateMethods.asJava)
+        .addType(FromJsonGenerator.decoderAccessorClass(className, Vector()))
       generateByKeyMethod(className, template.key) foreach { byKeyMethod =>
         templateType
           .addMethod(byKeyMethod)

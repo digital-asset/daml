@@ -295,9 +295,8 @@ class SendEventGenerator(
     def validateAndGenerateEvent(senderId: SequencerMemberId): Future[StoreEvent[Payload]] = {
       def deliverError(unknownRecipients: NonEmpty[Seq[Member]]): DeliverErrorStoreEvent = {
         val error = SequencerErrors.UnknownRecipients(unknownRecipients)
-        val (message, serializedError) =
-          DeliverErrorStoreEvent.serializeError(error, protocolVersion)
-        DeliverErrorStoreEvent.create(
+
+        DeliverErrorStoreEvent(
           senderId,
           submission.messageId,
           error,
@@ -317,7 +316,7 @@ class SendEventGenerator(
           submission.messageId,
           recipientIds,
           payload,
-          submission.timestampOfSigningKey,
+          submission.topologyTimestamp,
         )
       }
 
@@ -396,12 +395,12 @@ object SequenceWritesFlow {
             )
           }
 
-      def checkSigningTimestamp(
+      def checkTopologyTimestamp(
           event: Presequenced[StoreEvent[PayloadId]]
       ): Presequenced[StoreEvent[PayloadId]] =
         event.map {
           // we only do this validation for deliver events that specify a signing timestamp
-          case deliver @ DeliverStoreEvent(sender, messageId, _, _, Some(signingTimestamp), _) =>
+          case deliver @ DeliverStoreEvent(sender, messageId, _, _, Some(topologyTimestamp), _) =>
             // We only check that the signing timestamp is at most the assigned timestamp.
             // The lower bound will be checked only when reading the event
             // because only then we know the topology state at the signing timestamp,
@@ -410,14 +409,14 @@ object SequenceWritesFlow {
             // Sequencer clients should set the signing timestamp only to timestamps that they have read from the
             // domain. In a setting with multiple sequencers, the SequencerReader delivers only events up to
             // the lowest watermark of all sequencers. So even if the sequencer client sends a follow-up submission request
-            // to a different sequencer, this sequencer will assign a higher timestamp than the requested signing timestamp.
+            // to a different sequencer, this sequencer will assign a higher timestamp than the requested topology timestamp.
             // So this check should only fail if the sequencer client violates this policy.
-            if (signingTimestamp <= timestamp) deliver
+            if (topologyTimestamp <= timestamp) deliver
             else {
               val reason = SequencerErrors
-                .SigningTimestampAfterSequencingTimestamp(signingTimestamp, timestamp)
-                .forProtocolVersion(protocolVersion)
-              DeliverErrorStoreEvent.create(
+                .TopologyTimestampAfterSequencingTimestamp(topologyTimestamp, timestamp)
+
+              DeliverErrorStoreEvent(
                 sender,
                 messageId,
                 reason,
@@ -466,7 +465,7 @@ object SequenceWritesFlow {
           error.log()
           None
         case Right(event) =>
-          val checkedEvent = checkSigningTimestamp(event)
+          val checkedEvent = checkTopologyTimestamp(event)
           Some(Sequenced(timestamp, checkedEvent.event))
       }
     }

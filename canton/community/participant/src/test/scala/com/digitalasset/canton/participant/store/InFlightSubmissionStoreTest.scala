@@ -45,7 +45,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
     TransactionSubmissionTrackingData(
       completionInfo,
       TransactionSubmissionTrackingData.TimeoutCause,
-      None,
+      DomainId.tryFromString("da::default"),
       testedProtocolVersion,
     )
   lazy val trackingData3 = TransactionSubmissionTrackingData(
@@ -55,7 +55,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
         .SubmissionRequestMalformed("Some invalid batch")
         .rpcStatusWithoutLoggingContext()
     ),
-    None,
+    DomainId.tryFromString("da::default"),
     testedProtocolVersion,
   )
   lazy val submission1 = InFlightSubmission(

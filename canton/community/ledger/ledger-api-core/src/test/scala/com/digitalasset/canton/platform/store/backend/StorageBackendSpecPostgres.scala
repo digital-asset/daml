@@ -11,7 +11,6 @@ final class StorageBackendSpecPostgres
     extends AnyFlatSpec
     with StorageBackendProviderPostgres
     with StorageBackendSuite
-    with StorageBackendTestsMigrationPruning
     with Inside {
 
   behavior of "StorageBackend (Postgres)"

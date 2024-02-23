@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -27,105 +27,94 @@ object LanguageVersion {
 
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
-  // TODO(#17366): As soon as LF2 introduces breaking changes w.r.t. LF1, this order will no longer
-  //    be total and should be replaced by ad-hoc methods wherever it is used.
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
-    case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
-      Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
     case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
-    case (LanguageVersion(Major.V2, _), LanguageVersion(Major.V1, _)) =>
-      1
-    case (_, _) =>
-      -1
   }
 
-  val All = {
-    val v1Versions = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
-    val v2Versions = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
-    v1Versions ++ v2Versions
-  }
+  val All = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_1, v2_dev) =
+  val List(v2_1, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")
 
-  // TODO(#17366): Once LF2 deprecates some features, it will no longer be possible to represent
-  //    them as a just a version number. Instead we'll need a richer specification of which versions
-  //    support which feature. See PR #17334.
   object Features {
-    val default = v1_6
-    val internedPackageId = v1_6
-    val internedStrings = v1_7
-    val internedDottedNames = v1_7
-    val numeric = v1_7
-    val anyType = v1_7
-    val typeRep = v1_7
-    val typeSynonyms = v1_8
-    val packageMetadata = v1_8
-    val genComparison = v1_11
-    val genMap = v1_11
-    val scenarioMustFailAtMsg = v1_11
-    val contractIdTextConversions = v1_11
-    val exerciseByKey = v1_11
-    val internedTypes = v1_11
-    val choiceObservers = v1_11
-    val bigNumeric = v1_13
-    val exceptions = v1_14
-    val basicInterfaces = v1_15
-    val choiceFuncs = v1_dev
-    val choiceAuthority = v1_dev
-    val natTypeErasure = v1_dev
-    val packageUpgrades = v1_dev
-    val dynamicExercise = v1_dev
-    val sharedKeys = v1_dev
+    val default = v2_1
+    val exceptions = v2_1
+    val packageUpgrades = v2_1
+    val choiceFuncs = v2_dev
+    val choiceAuthority = v2_dev
+    val dynamicExercise = v2_dev
 
     /** TYPE_REP_TYCON_NAME builtin */
-    val templateTypeRepToText = v1_dev
+    val templateTypeRepToText = v2_dev
 
     /** Guards in interfaces */
-    val extendedInterfaces = v1_dev
+    val extendedInterfaces = v2_dev
+
+    /** BigNumeric */
+    val bigNumeric = v2_dev
+
+    val scenarios = v2_dev
+    val contractKeys = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
       * feature flag once the decision to add them permanently has been made.
       */
-    val unstable = v1_dev
+    val unstable = v2_dev
 
   }
 
-  // All the stable versions.
-  val StableVersions: VersionRange[LanguageVersion] =
-    VersionRange(min = v1_6, max = v1_15)
+  /** All the stable versions for a given major language version.
+    * Version ranges don't make sense across major language versions because major language versions
+    * break backwards compatibility. Clients of [[VersionRange]] in the codebase assume that all LF
+    * versions in a range are backwards compatible with the older versions within that range. Hence
+    * the majorLanguageVersion parameter.
+    */
+  def StableVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] =
+    majorLanguageVersion match {
+      case Major.V2 => VersionRange(v2_1, v2_1)
+    }
 
-  // All versions compatible with legacy contract ID scheme.
-  val LegacyVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_8)
+  /** All the stable and preview versions for a given major language version.
+    * Equals [[StableVersions(majorLanguageVersion)]] if no preview version is available.
+    */
+  def EarlyAccessVersions(
+      majorLanguageVersion: LanguageMajorVersion
+  ): VersionRange[LanguageVersion] =
+    StableVersions(majorLanguageVersion)
 
-  // All the stable and preview versions
-  // Equals `Stable` if no preview version is available
-  val EarlyAccessVersions: VersionRange[LanguageVersion] =
-    StableVersions
-
-  // All the versions
+  /** All the supported versions for a given major language version: stable, early access and dev.
+    */
   def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
     majorLanguageVersion match {
-      case Major.V1 => EarlyAccessVersions.copy(max = v1_dev)
       case Major.V2 => VersionRange(v2_1, v2_dev)
     }
   }
 
+  /** The Daml-LF version used by default by the compiler if it matches the
+    * provided major version, the latest non-dev version with that major version
+    * otherwise. This function is meant to be used in tests who want to test the
+    * closest thing to the default user experience given a major version.
+    */
+  def defaultOrLatestStable(majorLanguageVersion: LanguageMajorVersion): LanguageVersion = {
+    majorLanguageVersion match {
+      case Major.V2 => v2_1
+    }
+  }
+
   // This refers to the default output LF version in the compiler
-  val default: LanguageVersion = v1_14
+  val default: LanguageVersion = defaultOrLatestStable(Major.V2)
 }
 
 /** Operations on [[VersionRange]] that only make sense for ranges of [[LanguageVersion]]. */
 object LanguageVersionRangeOps {
   implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
     def majorVersion: LanguageMajorVersion = {
-      // TODO(#17366): uncomment once Canton stops using (1.14, 2.dev) as the version range for dev.
-      // require(
-      //  range.min.major == range.max.major,
-      //  s"version range ${range} spans over multiple version LF versions")
+      require(
+        range.min.major == range.max.major,
+        s"version range ${range} spans over multiple version LF versions",
+      )
       range.max.major
     }
   }

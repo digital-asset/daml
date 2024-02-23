@@ -3,32 +3,33 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TransactionServiceOuterClass;
-import java.util.Objects;
+import com.daml.ledger.api.v2.StateServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
+
+import java.util.Objects;
 
 public final class GetLedgerEndResponse {
 
-  private final LedgerOffset offset;
+  @NonNull private final ParticipantOffset offset;
 
-  public GetLedgerEndResponse(@NonNull LedgerOffset offset) {
+  public GetLedgerEndResponse(@NonNull ParticipantOffset offset) {
     this.offset = offset;
   }
 
-  public static GetLedgerEndResponse fromProto(
-      TransactionServiceOuterClass.GetLedgerEndResponse response) {
-    return new GetLedgerEndResponse(LedgerOffset.fromProto(response.getOffset()));
+  @NonNull
+  public ParticipantOffset getOffset() {
+    return offset;
   }
 
-  public TransactionServiceOuterClass.GetLedgerEndResponse toProto() {
-    return TransactionServiceOuterClass.GetLedgerEndResponse.newBuilder()
+  public static GetLedgerEndResponse fromProto(
+      StateServiceOuterClass.GetLedgerEndResponse response) {
+    return new GetLedgerEndResponse(ParticipantOffset.fromProto(response.getOffset()));
+  }
+
+  public StateServiceOuterClass.GetLedgerEndResponse toProto() {
+    return StateServiceOuterClass.GetLedgerEndResponse.newBuilder()
         .setOffset(this.offset.toProto())
         .build();
-  }
-
-  @NonNull
-  public LedgerOffset getOffset() {
-    return offset;
   }
 
   @Override

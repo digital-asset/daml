@@ -8,8 +8,9 @@ import qualified InterfaceChoiceCollision2
 data GHC.Types.DamlTemplate => T
   = T {owner : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "owner" T Party where
+instance DA.Internal.Record.GetField "owner" T Party where
   getField = DA.Internal.Record.getFieldPrim @"owner" @T @Party
+instance DA.Internal.Record.SetField "owner" T Party where
   setField = DA.Internal.Record.setFieldPrim @"owner" @T @Party
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
@@ -24,11 +25,6 @@ instance DA.Internal.Desugar.HasObserver T where
 instance DA.Internal.Desugar.HasEnsure T where
   ensure this@T {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement T where
-  agreement this@T {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive T where

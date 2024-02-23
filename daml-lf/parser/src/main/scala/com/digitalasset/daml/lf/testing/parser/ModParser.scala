@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -38,7 +38,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   }
 
   lazy val pkg: Parser[Package] =
-    opt(metadata) ~ rep(mod) ^^ { case metadata ~ modules =>
+    metadata ~ rep(mod) ^^ { case metadata ~ modules =>
       Package.build(modules, List.empty, parameters.languageVersion, metadata)
     }
 
@@ -153,7 +153,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (Id("precondition") ~> expr <~ `;`) ~
       (Id("signatories") ~> expr <~ `;`) ~
       (Id("observers") ~> expr <~ `;`) ~
-      (Id("agreement") ~> expr <~ `;`) ~
       rep(templateChoice <~ `;`) ~
       rep(implements <~ `;`) ~
       opt(Id("key") ~> templateKey <~ `;`) <~
@@ -162,7 +161,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           precon ~
           signatories ~
           observers ~
-          agreement ~
           choices ~
           implements ~
           key =>
@@ -172,7 +170,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             param = x,
             precond = precon,
             signatories = signatories,
-            agreementText = agreement,
             choices = choices,
             observers = observers,
             key = key,
@@ -218,18 +215,16 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (interfaceView <~ `;`) ~
       rep(interfaceRequires <~ `;`) ~
       rep(interfaceMethod <~ `;`) ~
-      rep(templateChoice <~ `;`) ~
-      rep(coImplements <~ `;`) <~
+      rep(templateChoice <~ `;`) <~
       `}` ^^ {
         case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
             view ~
             requires ~
             methods ~
-            choices ~
-            coImplements =>
+            choices =>
           IfaceDef(
             tycon,
-            DefInterface.build(Set.from(requires), x, choices, methods, coImplements, view),
+            DefInterface.build(Set.from(requires), x, choices, methods, view),
           )
       }
   private val interfaceView: Parser[Type] =
@@ -241,14 +236,6 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private val interfaceMethod: Parser[InterfaceMethod] =
     Id("method") ~>! id ~ `:` ~ typ ^^ { case name ~ _ ~ typ =>
       InterfaceMethod(name, typ)
-    }
-
-  private lazy val coImplements: Parser[InterfaceCoImplements] =
-    Id("coimplements") ~>! fullIdentifier ~ interfaceInstanceBody ^^ { case tplId ~ body =>
-      InterfaceCoImplements.build(
-        tplId,
-        body,
-      )
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")

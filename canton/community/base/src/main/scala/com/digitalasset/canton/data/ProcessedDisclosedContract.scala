@@ -27,6 +27,7 @@ object ProcessedDisclosedContract {
   // Helper builder for test
   def apply(
       templateId: Ref.Identifier,
+      packageName: Ref.PackageName,
       contractId: Value.ContractId,
       argument: Value,
       createdAt: Time.Timestamp,
@@ -34,18 +35,17 @@ object ProcessedDisclosedContract {
       signatories: Set[Ref.Party],
       stakeholders: Set[Ref.Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
-      agreementText: String,
       version: TransactionVersion,
   ): ProcessedDisclosedContract =
     ProcessedDisclosedContract(
       create = Node.Create(
         templateId = templateId,
+        packageName = packageName,
         coid = contractId,
         arg = argument,
         signatories = signatories,
         stakeholders = stakeholders,
         keyOpt = keyOpt,
-        agreementText = agreementText,
         version = version,
       ),
       createdAt = createdAt,

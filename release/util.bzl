@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
@@ -10,7 +10,6 @@ inputs = {
     "install_bat": ":install.bat",
     "java_codegen_logback": "//language-support/java/codegen:src/main/resources/logback.xml",
     "daml_script_logback": "//daml-script/runner:src/main/resources/logback.xml",
-    "export_logback": "//daml-script/export:src/main/resources/logback.xml",
     "NOTICES": "//:NOTICES",
     "daml_dist": "//daml-assistant:daml-dist",
     "daml_helper_dist": "//daml-assistant/daml-helper:daml-helper-dist",
@@ -93,7 +92,6 @@ def sdk_tarball(name, version, config):
           cp $(location {sdk_deploy_jar}) $$OUT/daml-sdk/daml-sdk.jar
           cp -L $(location {java_codegen_logback}) $$OUT/daml-sdk/codegen-logback.xml
           cp -L $(location {daml_script_logback}) $$OUT/daml-sdk/script-logback.xml
-          cp -L $(location {export_logback}) $$OUT/daml-sdk/export-logback.xml
 
           MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
           OUT_PATH=$$PWD/$@

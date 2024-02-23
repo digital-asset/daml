@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -35,7 +35,6 @@ final case class CreateEvent(
     templateId: Identifier,
     contractKey: Option[GlobalKeyWithMaintainers],
     argument: Value,
-    agreementText: String,
     signatories: Set[Party],
     observers: Set[Party],
     witnesses: Set[Party],

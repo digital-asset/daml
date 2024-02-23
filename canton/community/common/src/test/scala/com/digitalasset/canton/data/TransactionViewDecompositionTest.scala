@@ -12,7 +12,6 @@ import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, Rollback
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.TrustLevel
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionUtil
 import com.digitalasset.canton.{
@@ -32,9 +31,7 @@ class TransactionViewDecompositionTest
     with ComparesLfTransactions
     with NeedsNewLfContractIds {
 
-  lazy val factory: TransactionViewDecompositionFactory = TransactionViewDecompositionFactory(
-    testedProtocolVersion
-  )
+  lazy val factory: TransactionViewDecompositionFactory = TransactionViewDecompositionFactory.V2
   s"With factory ${factory.getClass.getSimpleName}" when {
 
     ConfirmationPolicy.values foreach { confirmationPolicy =>
@@ -70,7 +67,7 @@ class TransactionViewDecompositionTest
 
         val node = createNode(unsuffixedId(0))
         val informees =
-          Set[Informee](ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary))
+          Set[Informee](ConfirmingParty(signatory, PositiveInt.one))
         val rootSeed = ExampleTransactionFactory.lfHash(-1)
         val child =
           NewView(
@@ -236,7 +233,7 @@ class TransactionViewDecompositionTest
             observers = Set(bob),
             key = CreateKey.NoKey,
           )
-        } *
+        }*
     )
 
     toWellFormedUnsuffixedTransaction(tx)

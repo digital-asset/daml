@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -11,11 +11,9 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResource,
   SuiteResourceManagementAroundAll,
 }
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
+import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import org.scalatest.Suite
 
@@ -50,6 +48,7 @@ trait CantonFixtureWithResource[A]
     with PekkoBeforeAndAfterAll
     with SuiteResourceManagementAroundAll {
   self: Suite =>
+  import CantonConfig.TimeProviderType
 
   protected lazy val authSecret: Option[String] = Option.empty
   protected lazy val darFiles: List[Path] = List.empty
@@ -65,18 +64,35 @@ trait CantonFixtureWithResource[A]
   protected lazy val targetScope: Option[String] = Option.empty
 
   // This flag setup some behavior to ease debugging tests.
-  //  If `true`
-  //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
+  //  If `CantonFixtureDebugKeepTmpFiles` or `CantonFixtureDebugRemoveTmpFiles`
   //   - some debug info are logged.
   //   - output from the canton process is sent to stdout
-  protected val cantonFixtureDebugMode = false
+  //   - canton.log is generated
+  //  Further, if `CantonFixtureDebugKeepTmpFiles`
+  //   - temporary files are not deleted once testing is done
+  //     (this requires "--test_tmpdir=/tmp/" or "--sandbox_debug" or similar for bazel builds)
+  sealed class CantonFixtureDebugMode
+  final case object CantonFixtureDebugKeepTmpFiles extends CantonFixtureDebugMode
+  final case object CantonFixtureDebugRemoveTmpFiles extends CantonFixtureDebugMode
+  final case object CantonFixtureDontDebug extends CantonFixtureDebugMode
+
+  protected val cantonFixtureDebugMode: CantonFixtureDebugMode = CantonFixtureDontDebug
+  def cantonFixtureDebugModeIsDebug: Boolean = cantonFixtureDebugMode match {
+    case CantonFixtureDebugKeepTmpFiles | CantonFixtureDebugRemoveTmpFiles => true
+    case _ => false
+  }
+
+  // If we need to enable debugging (logs, etc.), but still want to clean up the
+  // temporary files after a test is done running
+  protected val cantonFixtureDebugModeRemoveTmpFilesRegardless = false
 
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
-  if (cantonFixtureDebugMode)
+  if (cantonFixtureDebugModeIsDebug) {
     logger
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(ch.qos.logback.classic.Level.INFO)
+  }
 
   override protected def afterAll(): Unit = {
     cantonCleanUp()
@@ -105,22 +121,24 @@ trait CantonFixtureWithResource[A]
     nParticipants = nParticipants,
     timeProviderType = timeProviderType,
     tlsEnable = tlsEnable,
-    debug = cantonFixtureDebugMode,
+    debug = cantonFixtureDebugModeIsDebug,
     bootstrapScript = bootstrapScript,
     enableUpgrade = enableContractUpgrading,
     targetScope = targetScope,
   )
 
   protected def info(msg: String): Unit =
-    if (cantonFixtureDebugMode) logger.info(msg)
+    if (cantonFixtureDebugModeIsDebug) logger.info(msg)
 
   protected val cantonTmpDir = Files.createTempDirectory("CantonFixture")
 
   protected def cantonCleanUp(): Unit =
-    if (cantonFixtureDebugMode)
-      info(s"The temporary files are located in ${cantonTmpDir}")
-    else
-      com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
+    cantonFixtureDebugMode match {
+      case CantonFixtureDebugKeepTmpFiles =>
+        info(s"The temporary files are located in ${cantonTmpDir}")
+      case _ =>
+        com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
+    }
 
   final protected def ports: Vector[Port] = suiteResource.value._1.map(_.ledgerPort)
   final protected def ledgerPorts: Vector[CantonFixture.LedgerPorts] = suiteResource.value._1
@@ -131,12 +149,6 @@ trait CantonFixtureWithResource[A]
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[LedgerClient] =
     config.ledgerClient(ports.head, token, applicationId, maxInboundMessageSize)
-
-  final protected def defaultLedgerClientWithoutId(
-      token: Option[String] = None,
-      maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext): LedgerClientWithoutId =
-    config.ledgerClientWithoutId(ports.head, token, applicationId, maxInboundMessageSize)
 
   final protected def ledgerClients(
       token: Option[String] = None,

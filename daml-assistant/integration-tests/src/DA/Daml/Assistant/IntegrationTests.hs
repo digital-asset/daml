@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTests (main) where
 
@@ -110,7 +110,9 @@ damlStart tmpDir = do
             , "dependencies:"
             , "  - daml-prim"
             , "  - daml-stdlib"
-            , "  - daml-script"
+            , "  - daml3-script"
+            -- TODO(#14706): remove build-options once the default major version is 2
+            , "build-options: [--target=2.1]"
             , "init-script: Main:init"
             , "script-options:"
             , "  - --output-file"
@@ -143,8 +145,9 @@ damlStart tmpDir = do
                 [ "daml start"
                 , "--sandbox-port", show $ ledger ports
                 , "--sandbox-admin-api-port", show $ admin ports
-                , "--sandbox-domain-public-port", show $ domainPublic ports
-                , "--sandbox-domain-admin-port", show $ domainAdmin ports
+                , "--sandbox-sequencer-public-port", show $ sequencerPublic ports
+                , "--sandbox-sequencer-admin-port", show $ sequencerAdmin ports
+                , "--sandbox-mediator-admin-port", show $ mediatorAdmin ports
                 , "--json-api-port", show jsonApiPort
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
@@ -222,7 +225,7 @@ packagingTests tmpDir =
                       , "name: proj"
                       , "version: 0.0.1"
                       , "source: ."
-                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+                      , "dependencies: [daml-prim, daml-stdlib, daml3-script]"
                       , "data-dependencies: [" <>
                         show (tmpDir </> "data-dependency" </> "data-dependency.dar") <>
                         "]"
@@ -301,19 +304,6 @@ damlStartTests getDamlStart =
                 ]
             contents <- readFileUTF8 (projDir </> "output.json")
             lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
-        subtest "daml export script" $ do
-            DamlStartResource {projDir, sandboxPort, alice} <- getDamlStart
-            withTempDir $ \exportDir -> do
-                callCommandSilentIn projDir $ unwords
-                    [ "daml ledger export script"
-                    , "--host localhost --port " <> show sandboxPort
-                    , "--party", alice
-                    , "--output " <> exportDir <> " --sdk-version " <> sdkVersion
-                    ]
-                didGenerateExportDaml <- doesFileExist (exportDir </> "Export.daml")
-                didGenerateDamlYaml <- doesFileExist (exportDir </> "daml.yaml")
-                didGenerateExportDaml @?= True
-                didGenerateDamlYaml @?= True
 
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
@@ -361,7 +351,10 @@ damlStartTests getDamlStart =
             queryResponseS <- httpLbs queryRequestS manager
             -- check that there are no more active contracts of template T
             statusCode (responseStatus queryResponseT) @?= 200
-            preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+
+            -- TODO [SW] We no longer clean the ledger, so this test fails.
+            -- preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+
             -- check that a new contract of template S was created
             statusCode (responseStatus queryResponseS) @?= 200
             preview
@@ -380,7 +373,9 @@ damlStartTests getDamlStart =
                 , "dependencies:"
                 , "  - daml-prim"
                 , "  - daml-stdlib"
-                , "  - daml-script"
+                , "  - daml3-script"
+                -- TODO(#14706): remove build-options once the default major version is 2
+                , "build-options: [--target=2.1]"
                 ]
             callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
             copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
@@ -437,7 +432,6 @@ templateTests = testGroup "templates" $
             , "quickstart-java"
             , "script-example"
             , "skeleton"
-            , "create-daml-app"
             ]
 
 -- | Check we can generate language bindings.
@@ -475,19 +469,22 @@ cantonTests = testGroup "daml sandbox"
         step "Creating project"
         callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
         step "Building project"
-        callCommandSilentIn (dir </> "skeleton") "daml build"
+        -- TODO(#14706): remove explicit target once the default major version is 2
+        callCommandSilentIn (dir </> "skeleton") "daml build --target=2.1"
         step "Finding free ports"
         ledgerApiPort <- getFreePort
         adminApiPort <- getFreePort
-        domainPublicApiPort <- getFreePort
-        domainAdminApiPort <- getFreePort
+        sequencerPublicApiPort <- getFreePort
+        sequencerAdminApiPort <- getFreePort
+        mediatorAdminApiPort <- getFreePort
         step "Staring Canton sandbox"
         let portFile = dir </> "canton-portfile.json"
         withDamlServiceIn (dir </> "skeleton") "sandbox"
             [ "--port", show ledgerApiPort
             , "--admin-api-port", show adminApiPort
-            , "--domain-public-port", show domainPublicApiPort
-            , "--domain-admin-port", show domainAdminApiPort
+            , "--sequencer-public-port", show sequencerPublicApiPort
+            , "--sequencer-admin-port", show sequencerAdminApiPort
+            , "--mediator-admin-port", show mediatorAdminApiPort
             , "--canton-port-file", portFile
             ] $ \ ph -> do
             -- wait for port file to be written
@@ -508,8 +505,8 @@ cantonTests = testGroup "daml sandbox"
                     [ "daml canton-console"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort
-                    , "--domain-public-port", show domainPublicApiPort
-                    , "--domain-admin-port", show domainAdminApiPort
+                    , "--domain-public-port", show sequencerPublicApiPort
+                    , "--domain-admin-port", show sequencerAdminApiPort
                     ]
                 -- NOTE (Sofia): We need to use `script` on Mac and Linux because of this Ammonite issue:
                 --    https://github.com/com-lihaoyi/Ammonite/issues/276

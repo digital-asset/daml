@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -eu
@@ -33,10 +33,6 @@ SORT=$3
 export LANG=C
 
 $DIFF -u <(unzip -Z1 $PROTOS | $SORT | sed 's|^[^/]*/||g') <((cat <<EOF
-com/daml/daml_lf_1_14/daml_lf.proto
-com/daml/daml_lf_1_14/daml_lf_1.proto
-com/daml/daml_lf_1_15/daml_lf.proto
-com/daml/daml_lf_1_15/daml_lf_1.proto
 com/daml/daml_lf_dev/daml_lf.proto
 com/daml/daml_lf_dev/daml_lf1.proto
 com/daml/daml_lf_dev/daml_lf2.proto
@@ -54,7 +50,6 @@ com/daml/ledger/api/v1/command_service.proto
 com/daml/ledger/api/v1/command_submission_service.proto
 com/daml/ledger/api/v1/commands.proto
 com/daml/ledger/api/v1/completion.proto
-com/daml/ledger/api/v1/contract_metadata.proto
 com/daml/ledger/api/v1/event.proto
 com/daml/ledger/api/v1/event_query_service.proto
 com/daml/ledger/api/v1/experimental_features.proto
@@ -69,12 +64,14 @@ com/daml/ledger/api/v1/transaction_filter.proto
 com/daml/ledger/api/v1/transaction_service.proto
 com/daml/ledger/api/v1/value.proto
 com/daml/ledger/api/v1/version_service.proto
+com/daml/ledger/api/v2/checkpoint.proto
 com/daml/ledger/api/v2/command_completion_service.proto
 com/daml/ledger/api/v2/command_service.proto
 com/daml/ledger/api/v2/command_submission_service.proto
 com/daml/ledger/api/v2/commands.proto
 com/daml/ledger/api/v2/completion.proto
 com/daml/ledger/api/v2/event_query_service.proto
+com/daml/ledger/api/v2/experimental_features.proto
 com/daml/ledger/api/v2/package_service.proto
 com/daml/ledger/api/v2/participant_offset.proto
 com/daml/ledger/api/v2/reassignment.proto

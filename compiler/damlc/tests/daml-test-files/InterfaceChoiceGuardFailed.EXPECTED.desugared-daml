@@ -122,8 +122,9 @@ instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where
 data GHC.Types.DamlTemplate => T
   = T {party : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "party" T Party where
+instance DA.Internal.Record.GetField "party" T Party where
   getField = DA.Internal.Record.getFieldPrim @"party" @T @Party
+instance DA.Internal.Record.SetField "party" T Party where
   setField = DA.Internal.Record.setFieldPrim @"party" @T @Party
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
@@ -138,11 +139,6 @@ instance DA.Internal.Desugar.HasObserver T where
 instance DA.Internal.Desugar.HasEnsure T where
   ensure this@T {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement T where
-  agreement this@T {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive T where
@@ -217,12 +213,14 @@ instance DA.Internal.Desugar.HasFromInterface T I where
 data GHC.Types.DamlTemplate => Test
   = Test {party : Party, cidI : ContractId I}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "party" Test Party where
+instance DA.Internal.Record.GetField "party" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"party" @Test @Party
+instance DA.Internal.Record.SetField "party" Test Party where
   setField = DA.Internal.Record.setFieldPrim @"party" @Test @Party
-instance DA.Internal.Record.HasField "cidI" Test (ContractId I) where
+instance DA.Internal.Record.GetField "cidI" Test (ContractId I) where
   getField
     = DA.Internal.Record.getFieldPrim @"cidI" @Test @ContractId I
+instance DA.Internal.Record.SetField "cidI" Test (ContractId I) where
   setField
     = DA.Internal.Record.setFieldPrim @"cidI" @Test @ContractId I
 data Call
@@ -241,11 +239,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

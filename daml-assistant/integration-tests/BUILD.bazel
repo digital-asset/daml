@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -14,8 +14,6 @@ genrule(
         "//canton:bindings-java_pom.xml",
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
         "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
-        "//ledger/ledger-api-auth-client:libledger-api-auth-client.jar",
-        "//ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml",
         "//language-support/java/codegen:shaded_binary.jar",
         "//language-support/java/codegen:shaded_binary_pom.xml",
         "//libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar",
@@ -60,10 +58,6 @@ genrule(
         "com.daml" "rs-grpc-bridge" \\
         $(location //libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar) \\
         $(location //libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
-      install_mvn \\
-        "com.daml" "ledger-api-auth-client" \\
-        $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \\
-        $(location //ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml)
       "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
       $(execpath //bazel_tools/sh:mktar) $@ -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """.format(mvn = mvn_version),
@@ -74,12 +68,6 @@ ts_libraries = [
     "//language-support/ts/daml-types:npm_package",
     "//language-support/ts/daml-ledger:npm_package",
     "//language-support/ts/daml-react:npm_package",
-]
-
-create_daml_app_resources = [
-    "//templates:create-daml-app-test-resources/messaging.patch",
-    "//templates:create-daml-app-test-resources/testDeps.json",
-    "//templates:create-daml-app-test-resources/index.test.ts",
 ]
 
 da_haskell_library(
@@ -195,97 +183,3 @@ da_haskell_test(
         "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
-
-genrule(
-    name = "create_daml_app_deps",
-    srcs = [
-        "//templates:create-daml-app/ui/package.json.template",
-        "//templates:create-daml-app-test-resources/testDeps.json",
-    ],
-    outs = ["create_daml_app_deps.tar"],
-    cmd = """
-      set -eou pipefail
-      export PATH=$$PWD/$$(dirname $(location @nodejs//:node_bin)):$$PATH
-      DIR=$$(mktemp -d)
-      trap "rm -rf $$DIR" EXIT
-      mkdir -p $$DIR/cache
-      mkdir -p $$DIR/deps
-      # Generate a package.json based on the template with SDK deps dropped
-      # and merge in the test dependencies.
-      $(location @jq_dev_env//:bin/jq) -s \
-        '(.[0] | .name |= "create-daml-app" | .dependencies |= del(."@daml/ledger", ."@daml/react", ."@daml/types", ."@daml.js/__PROJECT_NAME__")) * .[1]'  \
-        $(location //templates:create-daml-app/ui/package.json.template) \
-        $(location //templates:create-daml-app-test-resources/testDeps.json) > $$DIR/deps/package.json
-      NPM=$$PWD/$(location @nodejs//:npm_bin)
-      export NPM_CONFIG_CACHE=$$DIR/cache
-      (cd $$DIR/deps; $$NPM install --silent --no-update-notifier)
-      rm -rf $$DIR/deps/package.json
-      tar cf $(location create_daml_app_deps.tar) -C $$DIR deps
-    """,
-    tools = [
-        "@jq_dev_env//:bin/jq",
-        "@nodejs//:node_bin",
-        "@nodejs//:npm_bin",
-    ],
-    # Broken on M1 due to puppeteer failing to install Chromium.
-    # See https://github.com/digital-asset/daml/pull/13250.
-) if not is_windows else None
-
-da_haskell_library(
-    name = "create-daml-app-tests-lib",
-    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTests.hs"],
-    data = [
-        ":create_daml_app_deps.tar",
-        "//:yarn",
-        "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java",
-        "@patch_dev_env//:patch",
-    ] + ts_libraries + create_daml_app_resources,
-    hackage_deps = [
-        "aeson",
-        "aeson-extra",
-        "base",
-        "bytestring",
-        "conduit",
-        "directory",
-        "extra",
-        "filepath",
-        "process",
-        "tagged",
-        "tasty",
-        "tasty-hunit",
-        "unordered-containers",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":integration-test-utils",
-        "//language-support/ts/codegen/tests:daml2js-test-helpers",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
-    ],
-) if not is_windows else None
-
-da_haskell_test(
-    name = "create-daml-app-tests-proj-name",
-    timeout = "long",
-    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
-    args = [
-        "$(location @nodejs//:npm_bin)",
-        "$(location @nodejs//:node_bin)",
-        "$(location @grpcurl_nix//:bin)",
-        "--project-name",
-        "not-create-daml-app",
-    ],
-    data = [
-        "@grpcurl_nix//:bin",
-        "@nodejs//:node_bin",
-        "@nodejs//:npm_bin",
-    ],
-    hackage_deps = ["base"],
-    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
-    tags =
-        # Exclusive until we stop hardcoding port numbers in index.test.ts
-        ["exclusive"],
-    deps = [":create-daml-app-tests-lib"],
-) if not is_windows else None

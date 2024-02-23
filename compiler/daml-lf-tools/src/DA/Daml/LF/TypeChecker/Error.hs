@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.Error(
@@ -42,7 +42,6 @@ data TemplatePart
   | TPPrecondition
   | TPSignatories
   | TPObservers
-  | TPAgreement
   | TPKey
   -- ^ Specifically the `key` keyword, not maintainers
   | TPChoice TemplateChoice
@@ -52,7 +51,6 @@ data InterfacePart
   = IPWhole
   | IPMethod InterfaceMethod
   | IPChoice TemplateChoice
-  | IPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -212,8 +210,7 @@ templateLocation t = \case
   TPWhole -> tplLocation t
   TPPrecondition -> extractExprSourceLoc $ tplPrecondition t
   TPSignatories -> extractExprSourceLoc $ tplSignatories t
-  TPObservers -> extractExprSourceLoc $ tplObservers t 
-  TPAgreement -> extractExprSourceLoc $ tplAgreement t
+  TPObservers -> extractExprSourceLoc $ tplObservers t
   TPKey -> tplKey t >>= extractExprSourceLoc . tplKeyBody
   TPChoice tc -> chcLocation tc
   TPInterfaceInstance _ loc -> loc
@@ -232,7 +229,6 @@ interfaceLocation i = \case
   IPWhole -> intLocation i
   IPMethod im -> ifmLocation im
   IPChoice tc -> chcLocation tc
-  IPInterfaceInstance _ loc -> loc
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -261,7 +257,6 @@ instance Show TemplatePart where
     TPPrecondition -> "precondition"
     TPSignatories -> "signatories"
     TPObservers -> "observers"
-    TPAgreement -> "agreement"
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
     TPInterfaceInstance iiHead _ -> renderPretty iiHead
@@ -271,7 +266,6 @@ instance Show InterfacePart where
     IPWhole -> ""
     IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
     IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    IPInterfaceInstance iiHead _ -> renderPretty iiHead
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case
@@ -632,7 +626,6 @@ data Warning
   | WTemplateChangedPrecondition !TypeConName
   | WTemplateChangedSignatories !TypeConName
   | WTemplateChangedObservers !TypeConName
-  | WTemplateChangedAgreement !TypeConName
   | WChoiceChangedControllers !ChoiceName
   | WChoiceChangedObservers !ChoiceName
   | WChoiceChangedAuthorizers !ChoiceName
@@ -659,7 +652,6 @@ instance Pretty Warning where
     WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
     WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
-    WTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
     WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
     WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
     WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."

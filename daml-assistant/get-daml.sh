@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -88,7 +88,8 @@ if [ -z "${1:-}" ] ; then
   fi
   echo "Latest SDK version is $VERSION"
 else
-  readonly VERSION="$1"
+  # ignore first v character, so that `v2.0.0` works as well as `2.0.0`
+  readonly VERSION="${1#v}"
 fi
 
 #

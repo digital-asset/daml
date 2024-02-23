@@ -21,7 +21,7 @@ object SequencerBaseError {
   def asGrpcError(error: BaseError)(implicit
       logger: ContextualizedErrorLogger
   ): StatusRuntimeException =
-    error.code.asGrpcError(error)
+    ErrorCode.asGrpcError(error)
 
   def stringFromContext(
       error: BaseError

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -50,7 +50,7 @@ object Reader {
   ): Either[Error, LanguageMajorVersion] =
     lf.getSumCase match {
       case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
-        Right(LanguageMajorVersion.V1)
+        Left(Error.Parsing("Unsupported LF version"))
       case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
         Right(LanguageMajorVersion.V2)
       case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -6,27 +6,13 @@ package com.daml.lf.validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.daml.lf.language.PackageInterface
 
 private[validation] object Serializability {
 
   import Util.handleLookup
 
-  case class Flags(
-      checkContractId: Boolean
-  )
-
-  object Flags {
-    import Ordering.Implicits._
-
-    def fromVersion(version: LanguageVersion) =
-      Flags(
-        checkContractId = version < LanguageVersion.Features.basicInterfaces
-      )
-  }
-
   case class Env(
-      flags: Flags,
       pkgInterface: PackageInterface,
       ctx: Context,
       requirement: SerializabilityRequirement,
@@ -45,24 +31,9 @@ private[validation] object Serializability {
 
     def checkType(): Unit = checkType(typeToSerialize)
 
-    def isInterface(typ: Type): Boolean = {
-      typ match {
-        case TTyCon(tycon) =>
-          pkgInterface.lookupDataType(tycon) match {
-            case Right(DDataType(_, _, cons)) =>
-              cons match {
-                case DataInterface => true
-                case _ => false
-              }
-            case Left(_) => false
-          }
-        case _ => false
-      }
-    }
-
     def checkType(typ0: Type): Unit = typ0 match {
-      case TApp(TBuiltin(BTContractId), tArg) =>
-        if (flags.checkContractId) checkType(tArg)
+      case TApp(TBuiltin(BTContractId), _) =>
+      /* Nothing to check. */
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TNat(_) =>
@@ -126,7 +97,6 @@ private[validation] object Serializability {
   }
 
   def checkDataType(
-      flags: Flags,
       pkgInterface: PackageInterface,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
@@ -134,7 +104,7 @@ private[validation] object Serializability {
   ): Unit = {
     val context = Context.DefDataType(tyCon.tycon)
     val env =
-      (params.iterator foldLeft Env(flags, pkgInterface, context, SRDataType, tyCon))(
+      (params.iterator foldLeft Env(pkgInterface, context, SRDataType, tyCon))(
         _.introVar(_)
       )
     val typs = dataCons match {
@@ -155,31 +125,28 @@ private[validation] object Serializability {
   // Assumes template are well typed,
   // in particular choice argument types and choice return types are of kind KStar
   def checkTemplate(
-      flags: Flags,
       pkgInterface: PackageInterface,
       tyCon: TTyCon,
       template: Template,
   ): Unit = {
     val context = Context.Template(tyCon.tycon)
-    Env(flags, pkgInterface, context, SRTemplateArg, tyCon).checkType()
+    Env(pkgInterface, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>
-      Env(flags, pkgInterface, context, SRChoiceArg, choice.argBinder._2).checkType()
-      Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
+      Env(pkgInterface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
     }
-    template.key.foreach(k => Env(flags, pkgInterface, context, SRKey, k.typ).checkType())
+    template.key.foreach(k => Env(pkgInterface, context, SRKey, k.typ).checkType())
   }
 
   def checkException(
-      flags: Flags,
       pkgInterface: PackageInterface,
       tyCon: TTyCon,
   ): Unit = {
     val context = Context.DefException(tyCon.tycon)
-    Env(flags, pkgInterface, context, SRExceptionArg, tyCon).checkType()
+    Env(pkgInterface, context, SRExceptionArg, tyCon).checkType()
   }
 
   def checkInterface(
-      flags: Flags,
       pkgInterface: PackageInterface,
       tyCon: TTyCon,
       defInterface: DefInterface,
@@ -187,33 +154,31 @@ private[validation] object Serializability {
     val context = Context.DefInterface(tyCon.tycon)
 
     defInterface.choices.values.foreach { choice =>
-      Env(flags, pkgInterface, context, SRChoiceArg, choice.argBinder._2).checkType()
-      Env(flags, pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
+      Env(pkgInterface, context, SRChoiceArg, choice.argBinder._2).checkType()
+      Env(pkgInterface, context, SRChoiceRes, choice.returnType).checkType()
     }
 
-    Env(flags, pkgInterface, context, SRView, defInterface.view).checkType()
+    Env(pkgInterface, context, SRView, defInterface.view).checkType()
   }
 
   def checkModule(pkgInterface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
-    val version = handleLookup(Context.None, pkgInterface.lookupPackage(pkgId)).languageVersion
-    val flags = Flags.fromVersion(version)
     module.definitions.foreach {
       case (defName, DDataType(serializable, params, dataCons)) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-        if (serializable) checkDataType(flags, pkgInterface, tyCon, params, dataCons)
+        if (serializable) checkDataType(pkgInterface, tyCon, params, dataCons)
       case _ =>
     }
     module.templates.foreach { case (defName, template) =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkTemplate(flags, pkgInterface, tyCon, template)
+      checkTemplate(pkgInterface, tyCon, template)
     }
     module.exceptions.keys.foreach { defName =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkException(flags, pkgInterface, tyCon)
+      checkException(pkgInterface, tyCon)
     }
     module.interfaces.foreach { case (defName, defInterface) =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-      checkInterface(flags, pkgInterface, tyCon, defInterface)
+      checkInterface(pkgInterface, tyCon, defInterface)
     }
   }
 }

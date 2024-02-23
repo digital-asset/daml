@@ -21,7 +21,8 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 }
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
@@ -32,37 +33,30 @@ import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Generate transaction trees as used from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v3]] on
+/** Generate transaction trees as used from protocol version [[com.digitalasset.canton.version.ProtocolVersion.v30]] on
   */
 class TransactionTreeFactoryImplV3(
-    submitterParticipant: ParticipantId,
+    submittingParticipant: ParticipantId,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
-    contractSerializer: (LfContractInst, AgreementText) => SerializableRawContractInstance,
+    contractSerializer: LfContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
-    uniqueContractKeys: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TransactionTreeFactoryImpl(
-      submitterParticipant,
+      submittingParticipant,
       domainId,
       protocolVersion,
       contractSerializer,
       cryptoOps,
       loggerFactory,
     ) {
-  require(
-    protocolVersion >= ProtocolVersion.v3,
-    s"${this.getClass.getSimpleName} can only be used with protocol version ${ProtocolVersion.v3} or higher, but not for $protocolVersion",
-  )
 
   private val initialCsmState: ContractStateMachine.State[Unit] =
-    ContractStateMachine.initial[Unit](
-      if (uniqueContractKeys) ContractKeyUniquenessMode.Strict else ContractKeyUniquenessMode.Off
-    )
+    ContractStateMachine.initial[Unit](ContractKeyUniquenessMode.Off)
 
   protected[submission] class State private (
-      override val mediator: MediatorRef,
+      override val mediator: MediatorsOfDomain,
       override val transactionUUID: UUID,
       override val ledgerTime: CantonTimestamp,
       override protected val salts: Iterator[Salt],
@@ -89,8 +83,7 @@ class TransactionTreeFactoryImplV3(
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var csmState: ContractStateMachine.State[Unit] = initialCsmState
 
-    /** This resolver is used to feed [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]]
-      * if `uniqueContractKeys` is false.
+    /** This resolver is used to feed [[com.daml.lf.transaction.ContractStateMachine.State.handleLookupWith]].
       */
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var currentResolver: LfKeyResolver = initialResolver
@@ -109,7 +102,7 @@ class TransactionTreeFactoryImplV3(
   private[submission] object State {
     private[submission] def submission(
         transactionSeed: SaltSeed,
-        mediator: MediatorRef,
+        mediator: MediatorsOfDomain,
         transactionUUID: UUID,
         ledgerTime: CantonTimestamp,
         nextSaltIndex: Int,
@@ -122,7 +115,7 @@ class TransactionTreeFactoryImplV3(
     }
 
     private[submission] def validation(
-        mediator: MediatorRef,
+        mediator: MediatorsOfDomain,
         transactionUUID: UUID,
         ledgerTime: CantonTimestamp,
         salts: Iterable[Salt],
@@ -132,7 +125,7 @@ class TransactionTreeFactoryImplV3(
 
   override protected def stateForSubmission(
       transactionSeed: SaltSeed,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       keyResolver: LfKeyResolver,
@@ -148,7 +141,7 @@ class TransactionTreeFactoryImplV3(
     )
 
   override protected def stateForValidation(
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       transactionUUID: UUID,
       ledgerTime: CantonTimestamp,
       salts: Iterable[Salt],
@@ -186,7 +179,7 @@ class TransactionTreeFactoryImplV3(
       case _: TransactionViewDecomposition.NewView => true
       case _ => false
     }
-    val subviewIndex = TransactionSubviews.indices(protocolVersion, nbSubViews).iterator
+    val subviewIndex = TransactionSubviews.indices(nbSubViews).iterator
     val createdInView = mutable.Set.empty[LfContractId]
 
     def fromEither[A <: TransactionTreeConversionError, B](
@@ -362,16 +355,6 @@ class TransactionTreeFactoryImplV3(
       viewInputContractIds == stateInputContractIds,
       s"Failed to reconstruct input contracts for the view at position $viewPosition.\n  Reconstructed: $viewInputContractIds\n  Expected: $stateInputContractIds",
     )
-    // Reconstruction of the active ledger state works currently only in UCK mode
-    if (uniqueContractKeys) {
-      // The locally created contracts should also be computable in non-UCK mode from the view data.
-      // However, `activeLedgerState` as a whole can be reconstructed only in UCK mode,
-      // and therefore we check this only in UCK mode.
-      ErrorUtil.requireState(
-        transactionView.activeLedgerState.isEquivalent(csmState.activeState),
-        show"Failed to reconstruct ActiveLedgerState $viewPosition.\n  Reconstructed: ${transactionView.activeLedgerState}\n  Expected: ${csmState.activeState}",
-      )
-    }
   }
 
   /** The difference between `viewKeyInputs: Map[LfGlobalKey, KeyInput]` and

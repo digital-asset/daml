@@ -5,11 +5,10 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoError}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
@@ -22,10 +21,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.EitherUtil.condUnitE
-import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.{LfPartyId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, TransferCounterO}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,7 +31,6 @@ private[transfer] class TransferInValidation(
     participantId: ParticipantId,
     engine: DAMLe,
     transferCoordination: TransferCoordination,
-    targetProtocolVersion: TargetProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -180,38 +175,19 @@ private[transfer] class TransferInValidation(
             ),
           )
           sourceIps = sourceCrypto.ipsSnapshot
-          confirmingParties <- EitherT.right(
-            transferInRequest.stakeholders.toList.parTraverseFilter { stakeholder =>
-              for {
-                source <- sourceIps.canConfirm(participantId, stakeholder)
-                target <- targetIps.canConfirm(participantId, stakeholder)
-              } yield if (source && target) Some(stakeholder) else None
-            }
-          )
 
-          // Disallow reassignments from a source domains that support transfer counters to a
-          // destination domain that does not support them
-          _ <- condUnitET[Future](
-            !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-              transferData.sourceProtocolVersion,
-              targetProtocolVersion,
-            ),
-            IncompatibleProtocolVersions(
-              transferData.contract.contractId,
-              transferData.sourceProtocolVersion,
-              targetProtocolVersion,
-            ): TransferProcessorError,
+          stakeholders = transferInRequest.stakeholders
+          sourceConfirmingParties <- EitherT.right(
+            sourceIps.canConfirm(participantId, stakeholders)
           )
+          targetConfirmingParties <- EitherT.right(
+            targetIps.canConfirm(participantId, stakeholders)
+          )
+          confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
           _ <- EitherT.cond[Future](
             // transfer counter is the same in transfer-out and transfer-in requests
-            transferInRequest.transferCounter == transferData.transferCounter || (
-              // Be lenient if the transfer-out happened on a domain without transfer counters
-              // and the transfer-in happens on a domain with transfer counters
-              transferInRequest.transferCounter.contains(TransferCounter.Genesis) &&
-                transferData.transferCounter.isEmpty &&
-                allowTransferCounterReset(transferData.sourceProtocolVersion, targetProtocolVersion)
-            ),
+            transferInRequest.transferCounter == transferData.transferCounter,
             (),
             InconsistentTransferCounter(
               transferId,
@@ -227,13 +203,11 @@ private[transfer] class TransferInValidation(
           res <-
             if (transferringParticipant) {
               val targetIps = targetCrypto.ipsSnapshot
-              val confirmingPartiesF = transferInRequest.stakeholders.toList
-                .parTraverseFilter { stakeholder =>
-                  targetIps
-                    .canConfirm(participantId, stakeholder)
-                    .map(if (_) Some(stakeholder) else None)
-                }
-                .map(_.toSet)
+              val confirmingPartiesF = targetIps
+                .canConfirm(
+                  participantId,
+                  transferInRequest.stakeholders,
+                )
               EitherT(confirmingPartiesF.map { confirmingParties =>
                 Right(Some(TransferInValidationResult(confirmingParties))): Either[
                   TransferProcessorError,
@@ -247,17 +221,6 @@ private[transfer] class TransferInValidation(
 }
 
 object TransferInValidation {
-
-  /** Should we allow a transfer counter to be reset to [[com.digitalasset.canton.data.CounterCompanion.Genesis]]
-    * when transferring from source to target protocol version?
-    */
-  def allowTransferCounterReset(
-      sourceProtocolVersion: SourceProtocolVersion,
-      targetProtocolVersion: TargetProtocolVersion,
-  ): Boolean =
-    // TODO(#15179) Review the question above when releasing BFT
-    sourceProtocolVersion.v < ProtocolVersion.CNTestNet && targetProtocolVersion.v >= ProtocolVersion.CNTestNet
-
   final case class TransferInValidationResult(confirmingParties: Set[LfPartyId])
 
   private[transfer] sealed trait TransferInValidationError extends TransferProcessorError
@@ -331,4 +294,9 @@ object TransferInValidation {
       s"Cannot transfer-in $transferId: Transfer counter $declaredTransferCounter in transfer-in does not match $expectedTransferCounter from the transfer-out"
   }
 
+  final case class TransferSigningError(
+      cause: SyncCryptoError
+  ) extends TransferProcessorError {
+    override def message: String = show"Unable to sign transfer request. $cause"
+  }
 }

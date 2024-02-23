@@ -1,0 +1,44 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module NumericMod {
+
+  record @serializable Box = {
+    x0: Numeric 0,
+    x10: Numeric 10,
+    x17: Numeric 17,
+    x37: Numeric 37,
+    party: Party
+  };
+
+  template (this : Box) =  {
+    precondition True;
+    signatories (PartyMod:one (NumericMod:Box {party} this));
+    observers (Nil @Party);
+  };
+
+  val build0: Party -> NumericMod:Box = \(p : Party) -> NumericMod:Box {
+    x0  =                                      0. ,
+    x10 =                            0.0000000000 ,
+    x17 =                     0.00000000000000000 ,
+    x37 = 0.0000000000000000000000000000000000000 ,
+    party = p
+  };
+  
+  val buildMax: Party -> NumericMod:Box = \(p : Party) -> NumericMod:Box {
+    x0  = 99999999999999999999999999999999999999. ,
+    x10 = 9999999999999999999999999999.9999999999 ,
+    x17 = 999999999999999999999.99999999999999999 ,
+    x37 = 9.9999999999999999999999999999999999999 ,
+    party = p
+  };
+
+  val buildMin: Party -> NumericMod:Box = \(p : Party) -> NumericMod:Box {
+    x0  = -99999999999999999999999999999999999999. ,
+    x10 = -9999999999999999999999999999.9999999999 ,
+    x17 = -999999999999999999999.99999999999999999 ,
+    x37 = -9.9999999999999999999999999999999999999 ,
+    party = p
+  };
+
+}

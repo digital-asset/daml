@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -13,10 +13,8 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
   "LanguageVersion.ordering order as expected" in {
 
     val versionInOrder = List(
-      LV(LV.Major.V1, LV.Minor("6")),
-      LV(LV.Major.V1, LV.Minor("7")),
-      LV(LV.Major.V1, LV.Minor("8")),
-      LV(LV.Major.V1, LV.Minor("dev")),
+      LV(LV.Major.V2, LV.Minor("1")),
+      LV(LV.Major.V2, LV.Minor("dev")),
     )
 
     val versionRank = versionInOrder.zipWithIndex.toMap
@@ -41,7 +39,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
     }
 
     "reject invalid versions" in {
-      val testCases = Table("invalid version", "1", "14", "version", "1.11.11")
+      val testCases = Table("invalid version", "1.14", "2", "14", "version", "2.1.11")
 
       forEvery(testCases)(s => LV.fromString(s) shouldBe a[Left[_, _]])
     }

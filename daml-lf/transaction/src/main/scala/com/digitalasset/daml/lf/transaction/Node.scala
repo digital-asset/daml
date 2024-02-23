@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -36,9 +36,7 @@ object Node {
 
     private[lf] def updateVersion(version: TransactionVersion): Node
 
-    // TODO: https://github.com/digital-asset/daml/issues/17965
-    //  make it mandatory in daml 3
-    def packageName: Option[PackageName]
+    def packageName: PackageName
 
     def templateId: TypeConName
 
@@ -85,12 +83,10 @@ object Node {
   /** Denotes the creation of a contract instance. */
   final case class Create(
       coid: ContractId,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       arg: Value,
-      agreementText: String,
+      agreementText: String = "", // to be removed
       signatories: Set[Party],
       stakeholders: Set[Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
@@ -104,7 +100,7 @@ object Node {
     override def byKey: Boolean = false
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
-      copy(version = version, keyOpt = keyOpt.map(rehash(version)))
+      copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Create =
       copy(coid = f(coid), arg = arg.mapCid(f))
@@ -127,9 +123,7 @@ object Node {
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
   final case class Fetch(
       coid: ContractId,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       actingParties: Set[Party],
       signatories: Set[Party],
@@ -143,7 +137,7 @@ object Node {
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
-      copy(version = version, keyOpt = keyOpt.map(rehash(version)))
+      copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid))
@@ -161,9 +155,7 @@ object Node {
     */
   final case class Exercise(
       targetCoid: ContractId,
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
@@ -188,7 +180,7 @@ object Node {
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Exercise =
-      copy(version = version, keyOpt = keyOpt.map(rehash(version)))
+      copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Exercise = copy(
       targetCoid = f(targetCoid),
@@ -217,9 +209,7 @@ object Node {
   }
 
   final case class LookupByKey(
-      // TODO: https://github.com/digital-asset/daml/issues/17995
-      //  remove default value once canton handle it.
-      override val packageName: Option[PackageName] = None,
+      override val packageName: PackageName,
       override val templateId: TypeConName,
       key: GlobalKeyWithMaintainers,
       result: Option[ContractId],
@@ -239,7 +229,7 @@ object Node {
     override def byKey: Boolean = true
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
-      copy(version = version, key = rehash(version)(key))
+      copy(version = version, key = rehash(key))
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
@@ -271,15 +261,8 @@ object Node {
     override protected def self: Node = this
   }
 
-  private def rehash(
-      version: TransactionVersion
-  )(gk: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(
-      gk.globalKey.templateId,
-      gk.value,
-      gk.maintainers,
-      Util.sharedKey(version),
-    )
+  private def rehash(gk: GlobalKeyWithMaintainers) =
+    GlobalKeyWithMaintainers.assertBuild(gk.globalKey.templateId, gk.value, gk.maintainers)
 
 }
 

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -568,11 +568,7 @@ truncate = primitive @"BENumericToInt64"
 
 -- | Convert an `Int` to a `Numeric`.
 intToNumeric : forall n. NumericScale n => Int -> Numeric n
-#ifndef DAML_NAT_TYPE_ERASURE
-intToNumeric = primitive @"BEInt64ToNumericLegacy"
-#else
 intToNumeric = primitive @"BEInt64ToNumeric" (numericOne @n)
-#endif
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
@@ -599,17 +595,15 @@ roundCommercial d x =
       then x - diff
       else t
 
-zero: NumericScale n => Numeric n
-zero = intToNumeric 0
-
-half: NumericScale n => Numeric n
-half = fromNumeric (0.5: Numeric 1)
-
--- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
-round : NumericScale n => Numeric n -> Int
-round x = if x > zero
+-- | Round a `Numeric` to the nearest integer, where a `.5` is rounded away from zero.
+round : forall n. NumericScale n => Numeric n -> Int
+round x = if x > intToNumeric 0
     then truncate $ x + half
     else truncate $ x - half
+  where
+    -- Note that for `n = 0`, `half = 0.`, so the result of round is still correct.
+    half = primitive @"BEDivNumeric" (numericOne @n) (intToNumeric @0 1) (intToNumeric @0 2)
+
 
 -- | Round a `Decimal` down to the nearest integer.
 floor : NumericScale n => Numeric n -> Int

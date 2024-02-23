@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -8,7 +8,6 @@ import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.LookupError
 import com.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
@@ -89,14 +88,6 @@ private[validation] object Typing {
     val beta = TVar(Name.assertFromString("$beta$"))
     val gamma = TVar(Name.assertFromString("$gamma$"))
     val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
-    val tMultiNumBinopLegacy =
-      TForall(
-        alpha.name -> KNat,
-        TForall(
-          beta.name -> KNat,
-          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma)),
-        ),
-      )
     val tMultiNumBinop =
       TForall(
         alpha.name -> KNat,
@@ -108,8 +99,6 @@ private[validation] object Typing {
           ),
         ),
       )
-    val tNumConversionLegacy =
-      TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
     val tNumConversion =
       TForall(
         alpha.name -> KNat,
@@ -123,14 +112,10 @@ private[validation] object Typing {
       // Numeric arithmetic
       BAddNumeric -> tNumBinop,
       BSubNumeric -> tNumBinop,
-      BMulNumericLegacy -> tMultiNumBinopLegacy,
       BMulNumeric -> tMultiNumBinop,
-      BDivNumericLegacy -> tMultiNumBinopLegacy,
       BDivNumeric -> tMultiNumBinop,
       BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
-      BCastNumericLegacy -> tNumConversionLegacy,
       BCastNumeric -> tNumConversion,
-      BShiftNumericLegacy -> tNumConversionLegacy,
       BShiftNumeric -> tNumConversion,
       // Int64 arithmetic
       BAddInt64 -> tBinop(TInt64),
@@ -140,7 +125,6 @@ private[validation] object Typing {
       BModInt64 -> tBinop(TInt64),
       BExpInt64 -> tBinop(TInt64),
       // Conversions
-      BInt64ToNumericLegacy -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
       BInt64ToNumeric -> TForall(
         alpha.name -> KNat,
         TNumeric(alpha) ->: TInt64 ->: TNumeric(alpha),
@@ -299,7 +283,6 @@ private[validation] object Typing {
       BMulBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BDivBigNumeric -> (TInt64 ->: TRoundingMode ->: TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BShiftRightBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
-      BBigNumericToNumericLegacy -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
       BBigNumericToNumeric -> TForall(
         alpha.name -> KNat,
         TNumeric(alpha) ->: TBigNumeric ->: TNumeric(alpha),
@@ -534,7 +517,6 @@ private[validation] object Typing {
         param,
         precond,
         signatories,
-        agreementText,
         choices,
         observers,
         mbKey,
@@ -545,7 +527,6 @@ private[validation] object Typing {
       env.checkTopExpr(precond, TBool)
       env.checkTopExpr(signatories, TParties)
       env.checkTopExpr(observers, TParties)
-      env.checkTopExpr(agreementText, TText)
       choices.values.foreach(env.checkChoice(tplName, _))
       implementations.values.foreach { impl =>
         checkInterfaceInstance(
@@ -565,7 +546,7 @@ private[validation] object Typing {
 
     private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(requires, param, choices, methods, coImplements, view) =>
+        case DefInterface(requires, param, choices, methods, view) =>
           val env = introExprVar(param, TTyCon(ifaceName))
           if (requires(ifaceName))
             throw ECircularInterfaceRequires(ctx, ifaceName)
@@ -576,14 +557,6 @@ private[validation] object Typing {
           } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
           methods.values.foreach(checkIfaceMethod)
           choices.values.foreach(env.checkChoice(ifaceName, _))
-          coImplements.values.foreach(coImpl =>
-            checkInterfaceInstance(
-              tmplParam = param,
-              interfaceId = ifaceName,
-              templateId = coImpl.templateId,
-              iiBody = coImpl.body,
-            )
-          )
           view match {
             case TTyCon(tycon) => {
               val DDataType(_, args, dataCon) =
@@ -611,35 +584,13 @@ private[validation] object Typing {
       AlphaEquiv.alphaEquiv(t1, t2) ||
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
-    private def checkUniqueInterfaceInstance(
+    private def checkInterfaceInstance(
         interfaceId: TypeConName,
         templateId: TypeConName,
-    ): PackageInterface.InterfaceInstanceInfo = {
-      pkgInterface.lookupInterfaceInstance(interfaceId, templateId) match {
-        case Right(iiInfo) => iiInfo
-        case Left(err) =>
-          err match {
-            case lookupErr: LookupError.NotFound =>
-              lookupErr.notFound match {
-                case _: Reference.InterfaceInstance =>
-                  throw EMissingInterfaceInstance(ctx, interfaceId, templateId)
-                case _ =>
-                  throw EUnknownDefinition(ctx, lookupErr)
-              }
-            case ambiIfaceErr: LookupError.AmbiguousInterfaceInstance =>
-              throw EAmbiguousInterfaceInstance(
-                ctx,
-                ambiIfaceErr.instance.interfaceName,
-                ambiIfaceErr.instance.templateName,
-              )
-          }
-      }
+    ): Unit = {
+      discard(handleLookup(ctx, pkgInterface.lookupInterface(interfaceId)))
+      discard(handleLookup(ctx, pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
     }
-
-    private def checkUniqueInterfaceInstanceExists(
-        interfaceId: TypeConName,
-        templateId: TypeConName,
-    ): Unit = discard(checkUniqueInterfaceInstance(interfaceId, templateId))
 
     private def checkInterfaceInstance(
         tmplParam: ExprVarName,
@@ -647,24 +598,22 @@ private[validation] object Typing {
         templateId: TypeConName,
         iiBody: InterfaceInstanceBody,
     ): Unit = {
-      val iiInfo = checkUniqueInterfaceInstance(interfaceId, templateId)
-      val ctx = Context.Reference(iiInfo.ref)
+      val ctx = Context.Reference(Reference.InterfaceInstance(interfaceId, templateId))
+      val DefInterfaceSignature(requires, _, _, methods, view) =
+        handleLookup(ctx, pkgInterface.lookupInterface(interfaceId))
 
       // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`
       val env = Env(languageVersion, pkgInterface, ctx)
         .introExprVar(tmplParam, TTyCon(templateId))
 
-      val DefInterfaceSignature(requires, _, _, methods, _, view) =
-        iiInfo.interfaceSignature
-
       requires
-        .filterNot(required => pkgInterface.lookupInterfaceInstance(required, templateId).isRight)
         .foreach(required =>
-          throw EMissingRequiredInterfaceInstance(
-            ctx,
-            interfaceId,
-            Reference.InterfaceInstance(required, templateId),
-          )
+          if (pkgInterface.lookupInterfaceInstance(required, templateId).isLeft)
+            throw EMissingRequiredInterfaceInstance(
+              ctx,
+              interfaceId,
+              Reference.InterfaceInstance(required, templateId),
+            )
         )
 
       methods.values.foreach { (method: InterfaceMethod) =>
@@ -678,7 +627,7 @@ private[validation] object Typing {
           case Some(method) =>
             try env.checkTopExpr(value, method.returnType)
             catch {
-              case e: ETypeMismatch => {
+              case e: ETypeMismatch =>
                 throw EMethodTypeMismatch(
                   e.context,
                   interfaceId,
@@ -688,14 +637,13 @@ private[validation] object Typing {
                   e.expectedType,
                   e.expr,
                 )
-              }
             }
         }
       }
 
       try env.checkTopExpr(iiBody.view, view)
       catch {
-        case e: ETypeMismatch => {
+        case e: ETypeMismatch =>
           throw EViewTypeMismatch(
             e.context,
             interfaceId,
@@ -704,7 +652,6 @@ private[validation] object Typing {
             e.expectedType,
             e.expr,
           )
-        }
       }
     }
 
@@ -1126,17 +1073,17 @@ private[validation] object Typing {
 
     private[this] def typOfExprInterface(expr: ExprInterface): Work[Type] = expr match {
       case EToInterface(iface, tpl, value) =>
-        checkUniqueInterfaceInstanceExists(iface, tpl)
+        checkInterfaceInstance(iface, tpl)
         checkExpr(value, TTyCon(tpl)) {
           Ret(TTyCon(iface))
         }
       case EFromInterface(iface, tpl, value) =>
-        checkUniqueInterfaceInstanceExists(iface, tpl)
+        checkInterfaceInstance(iface, tpl)
         checkExpr(value, TTyCon(iface)) {
           Ret(TOptional(TTyCon(tpl)))
         }
       case EUnsafeFromInterface(iface, tpl, cid, value) =>
-        checkUniqueInterfaceInstanceExists(iface, tpl)
+        checkInterfaceInstance(iface, tpl)
         checkExpr(cid, TContractId(TTyCon(iface))) {
           checkExpr(value, TTyCon(iface)) {
             Ret(TTyCon(tpl))

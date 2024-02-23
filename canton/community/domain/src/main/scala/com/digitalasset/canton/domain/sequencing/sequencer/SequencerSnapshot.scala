@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.{v0, v1}
+import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
 import com.digitalasset.canton.sequencing.protocol.{AggregationId, AggregationRule}
@@ -32,50 +32,42 @@ final case class SequencerSnapshot(
 
   @transient override protected lazy val companionObj: SequencerSnapshot.type = SequencerSnapshot
 
-  def toProtoV0: v0.SequencerSnapshot = v0.SequencerSnapshot(
-    Some(lastTs.toProtoPrimitive),
-    heads.map { case (member, counter) =>
-      member.toProtoPrimitive -> counter.toProtoPrimitive
-    },
-    Some(status.toProtoV0),
-    additional.map(a => v0.ImplementationSpecificInfo(a.implementationName, a.info)),
-  )
-
-  def toProtoV1: v1.SequencerSnapshot = {
+  def toProtoV30: v30.SequencerSnapshot = {
     def serializeInFlightAggregation(
         args: (AggregationId, InFlightAggregation)
-    ): v1.SequencerSnapshot.InFlightAggregationWithId = {
+    ): v30.SequencerSnapshot.InFlightAggregationWithId = {
       val (aggregationId, InFlightAggregation(aggregatedSenders, maxSequencingTime, rule)) = args
-      v1.SequencerSnapshot.InFlightAggregationWithId(
+      v30.SequencerSnapshot.InFlightAggregationWithId(
         aggregationId.toProtoPrimitive,
-        Some(rule.toProtoV0),
+        Some(rule.toProtoV30),
         Some(maxSequencingTime.toProtoPrimitive),
         aggregatedSenders.toSeq.map {
           case (sender, AggregationBySender(sequencingTimestamp, signatures)) =>
-            v1.SequencerSnapshot.AggregationBySender(
+            v30.SequencerSnapshot.AggregationBySender(
               sender.toProtoPrimitive,
               Some(sequencingTimestamp.toProtoPrimitive),
               signatures.map(sigsOnEnv =>
-                v1.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv.map(_.toProtoV0))
+                v30.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv.map(_.toProtoV30))
               ),
             )
         },
       )
     }
 
-    v1.SequencerSnapshot(
+    v30.SequencerSnapshot(
       latestTimestamp = Some(lastTs.toProtoPrimitive),
       headMemberCounters =
         // TODO(#12075) sortBy is a poor man's approach to achieving deterministic serialization here
         //  Figure out whether we need this for sequencer snapshots
         heads.toSeq.sortBy { case (member, _counter) => member }.map { case (member, counter) =>
-          v1.SequencerSnapshot.MemberCounter(member.toProtoPrimitive, counter.toProtoPrimitive)
+          v30.SequencerSnapshot.MemberCounter(member.toProtoPrimitive, counter.toProtoPrimitive)
         },
-      status = Some(status.toProtoV0),
+      status = Some(status.toProtoV30),
       inFlightAggregations = inFlightAggregations.toSeq.map(serializeInFlightAggregation),
-      additional = additional.map(a => v0.ImplementationSpecificInfo(a.implementationName, a.info)),
+      additional =
+        additional.map(a => v30.ImplementationSpecificInfo(a.implementationName, a.info)),
       trafficSnapshots = trafficSnapshots.toList.map { case (member, snapshot) =>
-        snapshot.toProtoV1
+        snapshot.toProtoV30
       },
     )
   }
@@ -83,14 +75,10 @@ final case class SequencerSnapshot(
 
 object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot] {
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.SequencerSnapshot)(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(v1.SequencerSnapshot)(
-      supportedProtoVersion(_)(fromProtoV1),
-      _.toProtoV1.toByteString,
-    ),
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.SequencerSnapshot)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   override def name: String = "sequencer snapshot"
@@ -108,7 +96,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  def unimplemented(protocolVersion: ProtocolVersion) = SequencerSnapshot(
+  def unimplemented(protocolVersion: ProtocolVersion): SequencerSnapshot = SequencerSnapshot(
     CantonTimestamp.MinValue,
     Map.empty,
     SequencerPruningStatus.Unimplemented,
@@ -119,43 +107,13 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
 
   final case class ImplementationSpecificInfo(implementationName: String, info: ByteString)
 
-  def fromProtoV0(
-      request: v0.SequencerSnapshot
-  ): ParsingResult[SequencerSnapshot] =
-    for {
-      lastTs <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "latestTimestamp",
-        request.latestTimestamp,
-      )
-      heads <- request.headMemberCounters.toList
-        .traverse { case (member, counter) =>
-          Member
-            .fromProtoPrimitive(member, "registeredMembers")
-            .map(m => m -> SequencerCounter(counter))
-        }
-        .map(_.toMap)
-      status <- ProtoConverter.parseRequired(
-        SequencerPruningStatus.fromProtoV0,
-        "status",
-        request.status,
-      )
-    } yield SequencerSnapshot(
-      lastTs,
-      heads,
-      status,
-      Map.empty,
-      request.additional.map(a => ImplementationSpecificInfo(a.implementationName, a.info)),
-      Map.empty,
-    )(protocolVersionRepresentativeFor(ProtoVersion(0)))
-
-  def fromProtoV1(
-      request: v1.SequencerSnapshot
+  def fromProtoV30(
+      request: v30.SequencerSnapshot
   ): ParsingResult[SequencerSnapshot] = {
     def parseInFlightAggregationWithId(
-        proto: v1.SequencerSnapshot.InFlightAggregationWithId
+        proto: v30.SequencerSnapshot.InFlightAggregationWithId
     ): ParsingResult[(AggregationId, InFlightAggregation)] = {
-      val v1.SequencerSnapshot.InFlightAggregationWithId(
+      val v30.SequencerSnapshot.InFlightAggregationWithId(
         aggregationIdP,
         aggregationRuleP,
         maxSequencingTimeP,
@@ -164,18 +122,18 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       for {
         aggregationId <- AggregationId.fromProtoPrimitive(aggregationIdP)
         aggregationRule <- ProtoConverter.parseRequired(
-          AggregationRule.fromProtoV0,
-          "v1.SequencerSnapshot.InFlightAggregationWithId.aggregation_rule",
+          AggregationRule.fromProtoV30,
+          "v30.SequencerSnapshot.InFlightAggregationWithId.aggregation_rule",
           aggregationRuleP,
         )
         maxSequencingTime <- ProtoConverter.parseRequired(
           CantonTimestamp.fromProtoPrimitive,
-          "v1.SequencerSnapshot.InFlightAggregationWithId.max_sequencing_time",
+          "v30.SequencerSnapshot.InFlightAggregationWithId.max_sequencing_time",
           maxSequencingTimeP,
         )
         aggregatedSenders <- aggregatedSendersP
           .traverse {
-            case v1.SequencerSnapshot.AggregationBySender(
+            case v30.SequencerSnapshot.AggregationBySender(
                   senderP,
                   sequencingTimestampP,
                   signaturesByEnvelopeP,
@@ -183,16 +141,16 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
               for {
                 sender <- Member.fromProtoPrimitive(
                   senderP,
-                  "v1.SequencerSnapshot.AggregationBySender.sender",
+                  "v30.SequencerSnapshot.AggregationBySender.sender",
                 )
                 sequencingTimestamp <- ProtoConverter.parseRequired(
                   CantonTimestamp.fromProtoPrimitive,
-                  "v1.SequencerSnapshot.AggregationBySender.sequencing_timestamp",
+                  "v30.SequencerSnapshot.AggregationBySender.sequencing_timestamp",
                   sequencingTimestampP,
                 )
                 signatures <- signaturesByEnvelopeP.traverse {
-                  case v1.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv) =>
-                    sigsOnEnv.traverse(Signature.fromProtoV0)
+                  case v30.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv) =>
+                    sigsOnEnv.traverse(Signature.fromProtoV30)
                 }
               } yield sender -> AggregationBySender(sequencingTimestamp, signatures)
           }
@@ -214,21 +172,22 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
         request.latestTimestamp,
       )
       heads <- request.headMemberCounters
-        .traverse { case v1.SequencerSnapshot.MemberCounter(member, counter) =>
+        .traverse { case v30.SequencerSnapshot.MemberCounter(member, counter) =>
           Member
             .fromProtoPrimitive(member, "registeredMembers")
             .map(m => m -> SequencerCounter(counter))
         }
         .map(_.toMap)
       status <- ProtoConverter.parseRequired(
-        SequencerPruningStatus.fromProtoV0,
+        SequencerPruningStatus.fromProtoV30,
         "status",
         request.status,
       )
       inFlightAggregations <- request.inFlightAggregations
         .traverse(parseInFlightAggregationWithId)
         .map(_.toMap)
-      trafficSnapshots <- request.trafficSnapshots.traverse(MemberTrafficSnapshot.fromProtoV1)
+      trafficSnapshots <- request.trafficSnapshots.traverse(MemberTrafficSnapshot.fromProtoV30)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SequencerSnapshot(
       lastTs,
       heads,
@@ -236,7 +195,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       inFlightAggregations,
       request.additional.map(a => ImplementationSpecificInfo(a.implementationName, a.info)),
       trafficSnapshots = trafficSnapshots.map(s => s.member -> s).toMap,
-    )(protocolVersionRepresentativeFor(ProtoVersion(1)))
+    )(rpv)
   }
 }
 

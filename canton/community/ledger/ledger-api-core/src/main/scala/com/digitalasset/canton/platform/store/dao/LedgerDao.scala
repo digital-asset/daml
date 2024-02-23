@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -16,10 +15,9 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, GlobalKey}
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
@@ -31,7 +29,6 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.platform.store.entries.{
   ConfigurationEntry,
   PackageLedgerEntry,
@@ -49,7 +46,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, GetUpdatesResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -62,7 +58,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
@@ -76,7 +71,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       activeAt: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed]
 }
 
@@ -98,17 +92,17 @@ private[platform] trait LedgerDaoEventsReader {
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse]
 
-  def getEventsByContractKey(
-      contractKey: GlobalKey,
-      requestingParties: Set[Party],
-      keyContinuationToken: KeyContinuationToken,
-      maxIterations: Int,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse]
+  // TODO(i16065): Re-enable getEventsByContractKey tests
+//  def getEventsByContractKey(
+//      contractKey: com.daml.lf.value.Value,
+//      templateId: Ref.Identifier,
+//      requestingParties: Set[Party],
+//      endExclusiveSeqId: Option[Long],
+//      maxIterations: Int,
+//  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse]
 
 }
 private[platform] trait LedgerReadDao extends ReportsHealth {
-
-  def translation: LfValueTranslation
 
   def lookupParticipantId()(implicit
       loggingContext: LoggingContextWithTrace
@@ -175,7 +169,11 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @param pruneUpToInclusive offset up to which to prune archived history inclusively
     * @return
     */
-  def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+  def prune(
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
+      incompletReassignmentOffsets: Vector[Offset],
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
 
@@ -201,7 +199,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   /** Initializes the database with the given ledger identity.
     * If the database was already intialized, instead compares the given identity parameters
-    * to the existing ones, and returns a Future failed with [[com.digitalasset.canton.platform.common.MismatchException]]
+    * to the existing ones, and returns a Future failed with [[MismatchException]]
     * if they don't match.
     *
     * This method is idempotent.
@@ -268,7 +266,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
       hostedWitnesses: List[Party],
       recordTime: Timestamp,

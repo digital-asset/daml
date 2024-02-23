@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Dar.Reader
@@ -50,8 +50,8 @@ instance ToJSON InspectInfo where
 
 data DalfInfo = DalfInfo
   { dalfFilePath :: FilePath
-  , dalfPackageName :: Maybe LF.PackageName
-  , dalfPackageVersion :: Maybe LF.PackageVersion
+  , dalfPackageName :: LF.PackageName
+  , dalfPackageVersion :: LF.PackageVersion
   , dalfPackage :: LF.Package
   }
 
@@ -78,8 +78,8 @@ collectInfo archive = do
         ( pkgId
         , DalfInfo
               path
-              (LF.packageName <$> LF.packageMetadata pkg)
-              (LF.packageVersion <$> LF.packageMetadata pkg)
+              (LF.packageName (LF.packageMetadata pkg))
+              (LF.packageVersion (LF.packageMetadata pkg))
               pkg
         )
     decodeEntry :: FilePath -> Either String (LF.PackageId, LF.Package)

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -278,7 +278,6 @@ private[daml] class AstRewriter(
             param,
             precond,
             signatories,
-            agreementText,
             choices,
             observers,
             key,
@@ -288,7 +287,6 @@ private[daml] class AstRewriter(
           param,
           apply(precond),
           apply(signatories),
-          apply(agreementText),
           choices.transform { (_, x) =>
             apply(x)
           },
@@ -375,27 +373,14 @@ private[daml] class AstRewriter(
         InterfaceMethod(name, apply(returnType))
     }
 
-  def apply(x: InterfaceCoImplements): InterfaceCoImplements =
-    x match {
-      case InterfaceCoImplements(
-            templateId,
-            body,
-          ) =>
-        InterfaceCoImplements(
-          apply(templateId),
-          apply(body),
-        )
-    }
-
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(requires, param, choices, methods, coImplements, view) =>
+      case DefInterface(requires, param, choices, methods, view) =>
         DefInterface(
           requires.map(apply(_)),
           param,
           choices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),
-          coImplements.map { case (t, x) => (apply(t), apply(x)) },
           apply(view),
         )
     }

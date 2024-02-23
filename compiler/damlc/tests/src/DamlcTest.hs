@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DamlcTest
    ( main
@@ -30,20 +30,13 @@ main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-
-    -- TODO https://github.com/digital-asset/daml/issues/12051
-    --   Remove once Daml-LF 1.15 is the default compiler output
-    script1DevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
-
-    defaultMain (tests damlc scriptDar script1DevDar)
+    defaultMain (tests damlc scriptDar)
 
 
--- TODO https://github.com/digital-asset/daml/issues/12051
---   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
-tests :: SdkVersioned => FilePath -> FilePath -> FilePath -> TestTree
-tests damlc scriptDar script1DevDar = testGroup "damlc"
+tests :: SdkVersioned => FilePath -> FilePath -> TestTree
+tests damlc scriptDar = testGroup "damlc"
   [ testsForDamlcValidate damlc
-  , testsForDamlcTest damlc scriptDar script1DevDar
+  , testsForDamlcTest damlc scriptDar
   ]
 
 testsForDamlcValidate :: SdkVersioned => FilePath -> TestTree
@@ -106,7 +99,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
         [ "sdk-version: " <> sdkVersion
-        , "build-options: [ --target=1.15 ]"
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -132,7 +124,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
         [ "sdk-version: " <> sdkVersion
-        , "build-options: [ --target=1.15 ]"
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -156,44 +147,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "    interface instance MyI for MyT where"
         , "      view = MyIView"
         , "      iMethod = ()"
-        ]
-      step "build"
-      callProcessSilent damlc ["build", "--project-root", projDir]
-      let dar = projDir </> ".daml/dist/good-0.0.1.dar"
-      step "validate"
-      (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
-      stderr @?= ""
-      exitCode @?= ExitSuccess
-      assertInfixOf "DAR is valid" stdout
-
-  , testCaseSteps "Good (retroactive interface instance)" $ \step -> withTempDir $ \projDir -> do
-      step "prepare"
-      writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-        [ "sdk-version: " <> sdkVersion
-        , "build-options: [ --target=1.15 ]"
-        , "name: good"
-        , "version: 0.0.1"
-        , "source: ."
-        , "dependencies: [daml-prim, daml-stdlib]"
-        ]
-      writeFileUTF8 (projDir </> "Template.daml") $ unlines
-        [ "module Template where"
-        , "template MyT"
-        , "  with"
-        , "    myParty : Party"
-        , "  where"
-        , "    signatory [myParty]"
-        ]
-      writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "module Good where"
-        , "import Template"
-        , "data MyIView = MyIView {}"
-        , "interface MyI where"
-        , "  viewtype MyIView"
-        , "  iMethod : ()"
-        , "  interface instance MyI for MyT where"
-        , "    view = MyIView"
-        , "    iMethod = ()"
         ]
       step "build"
       callProcessSilent damlc ["build", "--project-root", projDir]
@@ -265,10 +218,8 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
 
   ]
 
--- TODO https://github.com/digital-asset/daml/issues/12051
---   Remove script1DevDar arg once Daml-LF 1.15 is the default compiler output
-testsForDamlcTest :: SdkVersioned => FilePath -> FilePath -> FilePath -> TestTree
-testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
+testsForDamlcTest :: SdkVersioned => FilePath -> FilePath -> TestTree
+testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     [ testCase "Non-existent file" $ do
           (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", "foobar"] ""
           stdout @?= ""

@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscrip
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.{DbDto, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -65,22 +66,23 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
   private val metrics = Metrics.ForTesting
 
   private val someEventCreated = DbDto.EventCreate(
-    event_offset = None,
-    transaction_id = None,
-    ledger_effective_time = None,
+    event_offset = "",
+    transaction_id = "",
+    ledger_effective_time = 15,
     command_id = None,
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = None,
-    event_id = None,
+    node_index = 3,
+    event_id = "",
     contract_id = "1",
-    template_id = None,
+    template_id = "",
+    package_name = "",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
-    create_argument = None,
-    create_signatories = None,
-    create_observers = None,
+    create_argument = Array.empty,
+    create_signatories = Set.empty,
+    create_observers = Set.empty,
     create_agreement_text = None,
     create_key_value = None,
     create_key_maintainers = None,
@@ -89,49 +91,39 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     create_key_value_compression = None,
     event_sequential_id = 0,
     driver_metadata = None,
+    domain_id = "x::sourcedomain",
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
-    event_offset = None,
-    transaction_id = None,
-    ledger_effective_time = None,
+    event_offset = "",
+    transaction_id = "",
+    ledger_effective_time = 15,
     command_id = None,
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = None,
-    event_id = None,
+    node_index = 3,
+    event_id = "",
     contract_id = "1",
-    template_id = None,
+    template_id = "",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_key_value = None,
-    exercise_choice = None,
-    exercise_argument = None,
+    exercise_choice = "",
+    exercise_argument = Array.empty,
     exercise_result = None,
-    exercise_actors = None,
-    exercise_child_event_ids = None,
+    exercise_actors = Set.empty,
+    exercise_child_event_ids = Vector.empty,
     create_key_value_compression = None,
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
+    domain_id = "",
     trace_context = serializableTraceContext,
-  )
-
-  private val someEventDivulgence = DbDto.EventDivulgence(
-    event_offset = None,
-    command_id = None,
-    workflow_id = None,
-    application_id = None,
-    submitters = None,
-    contract_id = "1",
-    template_id = None,
-    tree_event_witnesses = Set.empty,
-    create_argument = None,
-    create_argument_compression = None,
-    event_sequential_id = 0,
+    record_time = 0,
   )
 
   private val someEventAssign = DbDto.EventAssign(
@@ -142,6 +134,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     submitter = None,
     contract_id = "",
     template_id = "",
+    package_name = "",
     flat_event_witnesses = Set.empty,
     create_argument = Array.empty,
     create_signatories = Set.empty,
@@ -160,6 +153,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     unassign_id = "",
     reassignment_counter = 0,
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   private val someEventUnassign = DbDto.EventUnassign(
@@ -178,6 +172,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     reassignment_counter = 0,
     assignment_exclusivity = None,
     trace_context = serializableTraceContext,
+    record_time = 0,
   )
 
   private val offsetsAndUpdates =
@@ -261,7 +256,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       optUsedPackages = None,
       optNodeSeeds = None,
       optByKeyNodes = None,
-      optDomainId = None,
     )
 
     val someTransactionAccepted = state.Update.TransactionAccepted(
@@ -272,10 +266,10 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       ),
       transactionId = Ref.TransactionId.assertFromString("TransactionId"),
       recordTime = someRecordTime,
-      divulgedContracts = List.empty,
       blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
+      domainId = DomainId.tryFromString("da::default"),
     )
 
     val expected: Vector[DbDto.TransactionMetering] = Vector(
@@ -336,7 +330,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
         lastTraceContext = TraceContext.empty,
         batch = Vector(
           someParty,
-          someEventDivulgence,
           someParty,
           someEventCreated,
           DbDto.IdFilterCreateStakeholder(0L, "", ""),
@@ -368,54 +361,53 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     )
     import scala.util.chaining.*
 
-    result.lastSeqEventId shouldBe 22
+    result.lastSeqEventId shouldBe 21
     result.lastStringInterningId shouldBe 1
-    result.batch(1).asInstanceOf[DbDto.EventDivulgence].event_sequential_id shouldBe 16
-    result.batch(3).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 17
-    result.batch(4).asInstanceOf[DbDto.IdFilterCreateStakeholder].event_sequential_id shouldBe 17
+    result.batch(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 16
+    result.batch(3).asInstanceOf[DbDto.IdFilterCreateStakeholder].event_sequential_id shouldBe 16
     result
-      .batch(5)
+      .batch(4)
       .asInstanceOf[DbDto.IdFilterCreateNonStakeholderInformee]
-      .event_sequential_id shouldBe 17
-    result.batch(6).asInstanceOf[DbDto.IdFilterConsumingStakeholder].event_sequential_id shouldBe 17
+      .event_sequential_id shouldBe 16
+    result.batch(5).asInstanceOf[DbDto.IdFilterConsumingStakeholder].event_sequential_id shouldBe 16
     result
-      .batch(7)
+      .batch(6)
       .asInstanceOf[DbDto.IdFilterConsumingNonStakeholderInformee]
-      .event_sequential_id shouldBe 17
-    result.batch(8).asInstanceOf[DbDto.IdFilterNonConsumingInformee].event_sequential_id shouldBe 17
-    result.batch(11).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
+      .event_sequential_id shouldBe 16
+    result.batch(7).asInstanceOf[DbDto.IdFilterNonConsumingInformee].event_sequential_id shouldBe 16
+    result.batch(10).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
       transactionMeta.event_sequential_id_first shouldBe 16L
+      transactionMeta.event_sequential_id_last shouldBe 18L
+    }
+    result.batch(12).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 19
+    result.batch(13).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
+      transactionMeta.event_sequential_id_first shouldBe 19L
       transactionMeta.event_sequential_id_last shouldBe 19L
     }
-    result.batch(13).asInstanceOf[DbDto.EventExercise].event_sequential_id shouldBe 20
-    result.batch(14).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
+    result.batch(15).asInstanceOf[DbDto.EventAssign].event_sequential_id shouldBe 20L
+    result.batch(16).asInstanceOf[DbDto.IdFilterAssignStakeholder].event_sequential_id shouldBe 20L
+    result.batch(17).asInstanceOf[DbDto.IdFilterAssignStakeholder].event_sequential_id shouldBe 20L
+    result.batch(18).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
       transactionMeta.event_sequential_id_first shouldBe 20L
       transactionMeta.event_sequential_id_last shouldBe 20L
     }
-    result.batch(16).asInstanceOf[DbDto.EventAssign].event_sequential_id shouldBe 21L
-    result.batch(17).asInstanceOf[DbDto.IdFilterAssignStakeholder].event_sequential_id shouldBe 21L
-    result.batch(18).asInstanceOf[DbDto.IdFilterAssignStakeholder].event_sequential_id shouldBe 21L
-    result.batch(19).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
-      transactionMeta.event_sequential_id_first shouldBe 21L
-      transactionMeta.event_sequential_id_last shouldBe 21L
-    }
-    result.batch(21).asInstanceOf[DbDto.EventUnassign].event_sequential_id shouldBe 22L
+    result.batch(20).asInstanceOf[DbDto.EventUnassign].event_sequential_id shouldBe 21L
+    result
+      .batch(21)
+      .asInstanceOf[DbDto.IdFilterUnassignStakeholder]
+      .event_sequential_id shouldBe 21L
     result
       .batch(22)
       .asInstanceOf[DbDto.IdFilterUnassignStakeholder]
-      .event_sequential_id shouldBe 22L
-    result
-      .batch(23)
-      .asInstanceOf[DbDto.IdFilterUnassignStakeholder]
-      .event_sequential_id shouldBe 22L
-    result.batch(24).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
-      transactionMeta.event_sequential_id_first shouldBe 22L
-      transactionMeta.event_sequential_id_last shouldBe 22L
+      .event_sequential_id shouldBe 21L
+    result.batch(23).asInstanceOf[DbDto.TransactionMeta].tap { transactionMeta =>
+      transactionMeta.event_sequential_id_first shouldBe 21L
+      transactionMeta.event_sequential_id_last shouldBe 21L
     }
-    result.batch(26).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
-    result.batch(26).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"
-    result.batch(27).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
-    result.batch(27).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "1"
+    result.batch(25).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 0
+    result.batch(25).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "0"
+    result.batch(26).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
+    result.batch(26).asInstanceOf[DbDto.StringInterningDto].externalString shouldBe "1"
   }
 
   it should "preserve sequence id if nothing to assign" in {

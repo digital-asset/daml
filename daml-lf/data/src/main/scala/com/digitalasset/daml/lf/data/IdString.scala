@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.lf.data
 
@@ -74,7 +74,6 @@ sealed abstract class IdString {
 
   // Human-readable package names and versions.
   type PackageName <: String
-  type PackageVersion <: String
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
     *      underscore. We use them to represent [Party] literals. In this way, we avoid
@@ -110,7 +109,6 @@ sealed abstract class IdString {
   val HexString: HexStringModule[HexString]
   val Name: StringModule[Name]
   val PackageName: ConcatenableStringModule[PackageName, HexString]
-  val PackageVersion: StringModule[PackageVersion]
   val Party: ConcatenableStringModule[Party, HexString]
   val PackageId: ConcatenableStringModule[PackageId, HexString]
   val ParticipantId: StringModule[ParticipantId]
@@ -304,13 +302,6 @@ private[data] final class IdStringImpl extends IdString {
   override type PackageName = String
   override val PackageName: ConcatenableStringModule[PackageName, HexString] =
     new ConcatenableMatchingStringModule("Daml-LF Package Name", "-_", 255)
-
-  /** Package versions are non-empty strings consisting of segments of digits (without leading zeros)
-    *      separated by dots.
-    */
-  override type PackageVersion = String
-  override val PackageVersion: StringModule[PackageVersion] =
-    new MatchingStringModule("Daml-LF Package Version", """(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*""")
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
     * underscore limited to 255 chars. We use them to represent [Party] literals. In this way, we avoid

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import cats.data.{EitherT, Validated, ValidatedNec}
 import cats.syntax.bifunctor.*
+import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
@@ -27,37 +28,33 @@ private[transfer] sealed abstract case class TransferOutValidationNonTransferrin
     sourceTopology: TopologySnapshot,
 ) {
 
-  private[this] def checkStakeholderHasTransferringParticipant(
-      stakeholder: LfPartyId
-  )(implicit
-      ec: ExecutionContext
-  ): FutureUnlessShutdown[ValidatedNec[String, Unit]] =
-    FutureUnlessShutdown.outcomeF(
-      for (participants <- sourceTopology.activeParticipantsOf(stakeholder)) yield {
-        val hasTransferringParticipant =
-          participants.exists { case (participant, attributes) =>
-            attributes.permission.canConfirm && request.adminParties.contains(
-              participant.adminParty.toLf
-            )
-          }
-        Validated.condNec(
-          hasTransferringParticipant,
-          (),
-          s"Stakeholder $stakeholder has no transferring participant.",
-        )
-      }
-    )
-
   private def stakeholdersHaveTransferringParticipant(implicit
-      ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, List[Unit]] =
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     EitherT(
-      request.stakeholders.toList
-        .parTraverse(checkStakeholderHasTransferringParticipant)
-        .map(
-          _.sequence.toEither
-            .leftMap(fromChain(StakeholderHostingErrors))
-        )
+      FutureUnlessShutdown.outcomeF(
+        sourceTopology.activeParticipantsOfPartiesWithAttributes(request.stakeholders.toList).map {
+          partyWithParticipants =>
+            partyWithParticipants.toList
+              .traverse_ { case (stakeholder, participants) =>
+                val hasTransferringParticipant =
+                  participants.exists { case (participant, attributes) =>
+                    attributes.permission.canConfirm && request.adminParties.contains(
+                      participant.adminParty.toLf
+                    )
+                  }
+                Validated.condNec(
+                  hasTransferringParticipant,
+                  (),
+                  s"Stakeholder $stakeholder has no transferring participant.",
+                )
+
+              }
+              .toEither
+              .leftMap(fromChain(StakeholderHostingErrors))
+        }
+      )
     )
 
   private def adminPartiesCanConfirm(logger: TracedLogger)(implicit

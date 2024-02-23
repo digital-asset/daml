@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,9 +19,10 @@ import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{ArrayList, SError, SValue, Speedy, Profile, TraceLog, WarningLog}
+import com.daml.lf.speedy.{ArrayList, Profile, SError, SValue, Speedy, TraceLog, WarningLog}
 import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
+import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -68,6 +69,9 @@ private[lf] class Runner(
           }
       }
     }
+
+    implicit val namedLoggerFactory: NamedLoggerFactory =
+      NamedLoggerFactory("daml-script", profile.name)
 
     val initialClientsV1 = initialClients.map(ScriptLedgerClient.realiseScriptLedgerClient)
 

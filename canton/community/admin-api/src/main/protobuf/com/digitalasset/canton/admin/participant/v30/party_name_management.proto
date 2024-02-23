@@ -1,0 +1,26 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v30;
+
+/**
+ * Local participant service allowing to set the display name for a party
+ *
+ * The display name is a local property to the participant. The participant is encouraged to perform
+ * a Daml based KYC process and add some automation which will update the display names based
+ * on the desired update rules.
+ *
+ * As such, this function here just offers the bare functionality to perform this.
+ */
+service PartyNameManagementService {
+  rpc setPartyDisplayName(SetPartyDisplayNameRequest) returns (SetPartyDisplayNameResponse);
+}
+
+message SetPartyDisplayNameRequest {
+  string party_id = 1;
+  string display_name = 2;
+}
+
+message SetPartyDisplayNameResponse {}

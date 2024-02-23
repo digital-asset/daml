@@ -12,6 +12,7 @@ import com.daml.lf.value.Value
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.configuration.Configuration
+import com.digitalasset.canton.logging.pretty.PrettyInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import com.google.rpc.status.Status as RpcStatus
@@ -60,45 +61,6 @@ object Update {
           Logging.participantId(participantId),
           Logging.configGeneration(newConfiguration.generation),
           Logging.maxDeduplicationDuration(newConfiguration.maxDeduplicationDuration),
-        )
-    }
-  }
-
-  /** Signal that a configuration change submitted by this participant was rejected. */
-  final case class ConfigurationChangeRejected(
-      recordTime: Timestamp,
-      submissionId: Ref.SubmissionId,
-      participantId: Ref.ParticipantId,
-      proposedConfiguration: Configuration,
-      rejectionReason: String,
-  ) extends Update {
-
-    override def pretty: Pretty[ConfigurationChangeRejected] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("configuration", _.proposedConfiguration),
-        param("rejectionReason", _.rejectionReason.singleQuoted),
-        indicateOmittedFields,
-      )
-  }
-
-  object ConfigurationChangeRejected {
-    implicit val `ConfigurationChangeRejected to LoggingValue`
-        : ToLoggingValue[ConfigurationChangeRejected] = {
-      case ConfigurationChangeRejected(
-            recordTime,
-            submissionId,
-            participantId,
-            proposedConfiguration,
-            rejectionReason,
-          ) =>
-        LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.configGeneration(proposedConfiguration.generation),
-          Logging.maxDeduplicationDuration(proposedConfiguration.maxDeduplicationDuration),
-          Logging.rejectionReason(rejectionReason),
         )
     }
   }
@@ -273,7 +235,6 @@ object Update {
     *                          The last [[com.digitalasset.canton.ledger.configuration.Configuration]] set before this [[TransactionAccepted]]
     *                          determines how this transaction's recordTime relates to its
     *                          [[TransactionMeta.ledgerEffectiveTime]].
-    * @param divulgedContracts List of divulged contracts. See [[DivulgedContract]] for details.
     * @param contractMetadata  For each contract created in this transaction, this map may contain
     *                          contract metadata assigned by the ledger implementation.
     *                          This data is opaque and can only be used in [[com.daml.lf.command.DisclosedContract]]s
@@ -287,10 +248,10 @@ object Update {
       transaction: CommittedTransaction,
       transactionId: Ref.TransactionId,
       recordTime: Timestamp,
-      divulgedContracts: List[DivulgedContract],
       blindingInfoO: Option[BlindingInfo],
       hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
+      domainId: DomainId,
   ) extends Update {
 
     override def pretty: Pretty[TransactionAccepted] =
@@ -316,7 +277,7 @@ object Update {
             _,
             _,
             _,
-            _,
+            domainId,
           ) =>
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(recordTime),
@@ -325,6 +286,7 @@ object Update {
           Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
           Logging.workflowIdOpt(transactionMeta.workflowId),
           Logging.submissionTime(transactionMeta.submissionTime),
+          Logging.domainId(domainId),
         )
     }
   }
@@ -356,6 +318,7 @@ object Update {
         paramIfDefined("completion", _.optCompletionInfo),
         param("source", _.reassignmentInfo.sourceDomain),
         param("target", _.reassignmentInfo.targetDomain),
+        unnamedParam(_.reassignment.kind.unquoted),
         indicateOmittedFields,
       )
 
@@ -391,9 +354,7 @@ object Update {
       recordTime: Timestamp,
       completionInfo: CompletionInfo,
       reasonTemplate: CommandRejected.RejectionReasonTemplate,
-      domainId: Option[
-        DomainId
-      ], // TODO(#13173) None for backwards compatibility, expected to be set for X nodes
+      domainId: DomainId,
   ) extends Update {
     override def pretty: Pretty[CommandRejected] =
       prettyOfClass(
@@ -401,7 +362,7 @@ object Update {
         param("completion", _.completionInfo),
         paramIfTrue("definiteAnswer", _.definiteAnswer),
         param("reason", _.reasonTemplate.message.singleQuoted),
-        paramIfDefined("domainId", _.domainId),
+        param("domainId", _.domainId.uid),
       )
 
     /** If true, the [[ReadService]]'s deduplication guarantees apply to this rejection.
@@ -414,16 +375,15 @@ object Update {
   object CommandRejected {
 
     implicit val `CommandRejected to LoggingValue`: ToLoggingValue[CommandRejected] = {
-      case CommandRejected(recordTime, submitterInfo, reason, optDomainId) =>
+      case CommandRejected(recordTime, submitterInfo, reason, domainId) =>
         LoggingValue.Nested.fromEntries(
-          List(
-            Logging.recordTime(recordTime),
-            Logging.submitter(submitterInfo.actAs),
-            Logging.applicationId(submitterInfo.applicationId),
-            Logging.commandId(submitterInfo.commandId),
-            Logging.deduplicationPeriod(submitterInfo.optDeduplicationPeriod),
-            Logging.rejectionReason(reason),
-          ) ::: optDomainId.map(Logging.domainId).toList: _*
+          Logging.recordTime(recordTime),
+          Logging.submitter(submitterInfo.actAs),
+          Logging.applicationId(submitterInfo.applicationId),
+          Logging.commandId(submitterInfo.commandId),
+          Logging.deduplicationPeriod(submitterInfo.optDeduplicationPeriod),
+          Logging.rejectionReason(reason),
+          Logging.domainId(domainId),
         )
     }
 
@@ -470,10 +430,6 @@ object Update {
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
     case update: ConfigurationChanged =>
       ConfigurationChanged.`ConfigurationChanged to LoggingValue`.toLoggingValue(update)
-    case update: ConfigurationChangeRejected =>
-      ConfigurationChangeRejected.`ConfigurationChangeRejected to LoggingValue`.toLoggingValue(
-        update
-      )
     case update: PartyAddedToParticipant =>
       PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
     case update: PartyAllocationRejected =>

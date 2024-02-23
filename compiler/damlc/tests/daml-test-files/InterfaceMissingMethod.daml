@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+
 -- @ERROR range=20:5-21:32;error type checking template InterfaceMissingMethod.T interface instance InterfaceMissingMethod:I for InterfaceMissingMethod:T: Interface instance lacks an implementation for method 'm'
 
 module InterfaceMissingMethod where

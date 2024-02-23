@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows", "os_name")
@@ -59,17 +59,6 @@ def _daml_sdk_impl(ctx):
         stripPrefix = "test-common"
     else:
         stripPrefix = "ledger/test-common"
-
-    if ctx.attr.create_daml_app_patch:
-        ctx.symlink(ctx.attr.create_daml_app_patch, "create_daml_app.patch")
-    elif ctx.attr.create_daml_app_patch_sha256:
-        ctx.download(
-            output = "create_daml_app.patch",
-            url = "https://raw.githubusercontent.com/digital-asset/daml/v{}/templates/create-daml-app-test-resources/messaging.patch".format(ctx.attr.version),
-            sha256 = ctx.attr.create_daml_app_patch_sha256,
-        )
-    else:
-        fail("Must specify either create_daml_app_patch or create_daml_app_patch_sha256")
 
     for lib in ["types", "ledger", "react"]:
         tarball_name = "daml_{}_tarball".format(lib)
@@ -134,7 +123,7 @@ cc_binary(
   data = [":sdk/bin/daml", ":sdk/sdk/{version}/checksums"],
   deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
-exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
+exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz"])
 """.format(version = ctx.attr.version),
     )
     return None
@@ -152,8 +141,6 @@ _daml_sdk = repository_rule(
         "daml_types_sha256": attr.string(mandatory = False),
         "daml_ledger_sha256": attr.string(mandatory = False),
         "daml_react_sha256": attr.string(mandatory = False),
-        "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
-        "create_daml_app_patch_sha256": attr.string(mandatory = False),
     },
 )
 
@@ -164,7 +151,7 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
+def daml_sdk_head(sdk_tarball, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
@@ -173,6 +160,5 @@ def daml_sdk_head(sdk_tarball, daml_types_tarball, daml_ledger_tarball, daml_rea
         daml_types_tarball = daml_types_tarball,
         daml_ledger_tarball = daml_ledger_tarball,
         daml_react_tarball = daml_react_tarball,
-        create_daml_app_patch = create_daml_app_patch,
         **kwargs
     )

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -281,11 +281,7 @@ parseInt = primitive @"BETextToInt64"
 --   parseNumeric "+12.0" == Some 12
 -- ```
 parseNumeric: forall n. NumericScale n => Text -> Optional (Numeric n)
-#ifndef DAML_NAT_TYPE_ERASURE
-parseNumeric = primitive @"BETextToNumericLegacy"
-#else
 parseNumeric = primitive @"BETextToNumeric" (numericOne @n)
-#endif
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex

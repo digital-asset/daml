@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -53,10 +53,8 @@ private[lf] class CollectAuthorityState {
     // TODO(#17366): port the benchmark to LF v2 if that makes sense
     val compilerConfig =
       Compiler.Config
-        .Default(LanguageMajorVersion.V1)
-        .copy(
-          stacktracing = Compiler.NoStackTrace
-        )
+        .Dev(LanguageMajorVersion.V2)
+        .copy(stacktracing = Compiler.NoStackTrace)
 
     val compiledPackages = PureCompiledPackages.assertBuild(packages.all.toMap, compilerConfig)
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))

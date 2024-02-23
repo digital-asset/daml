@@ -4,6 +4,7 @@
 package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -11,7 +12,7 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceX,
+  InstanceReference,
 }
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -24,8 +25,8 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.traffic.MemberTrafficStatus
 
 class TrafficControlAdministrationGroup(
-    instance: InstanceReferenceX,
-    topology: TopologyAdministrationGroupX,
+    instance: InstanceReference,
+    topology: TopologyAdministrationGroup,
     runner: AdminCommandRunner,
     override val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,
@@ -57,6 +58,9 @@ class TrafficControlAdministrationGroup(
       member: Member = instance.id.member,
       serial: Option[PositiveInt] = None,
       signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+      synchronize: Option[config.NonNegativeDuration] = Some(
+        consoleEnvironment.commandTimeouts.bounded
+      ),
   ): SignedTopologyTransactionX[TopologyChangeOpX, TrafficControlStateX] = {
     topology.traffic_control.top_up(
       domainId,
@@ -64,6 +68,7 @@ class TrafficControlAdministrationGroup(
       member,
       serial,
       signedBy,
+      synchronize,
     )
   }
 

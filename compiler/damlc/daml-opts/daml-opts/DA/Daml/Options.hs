@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -428,7 +428,9 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defau
                 -- sometimes this is required by CPP?
             }
 
-    cppFlags = mapMaybe LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
+    cppFlags =
+        mapMaybe LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
+            ++ LF.foreverCppFlags
 
     -- We need to add platform info in order to run CPP. To prevent
     -- .hi file incompatibilities, we set the platform the same way

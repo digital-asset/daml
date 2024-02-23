@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -7,6 +7,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+@scala.annotation.nowarn("cat=deprecation")
 class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   private def d(s: String) = BigDecimal(s).setScale(Decimal.scale).bigDecimal

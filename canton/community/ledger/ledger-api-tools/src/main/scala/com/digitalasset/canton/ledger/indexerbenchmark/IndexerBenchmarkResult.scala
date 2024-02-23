@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.ledger.indexerbenchmark
 
-import com.codahale.metrics.Snapshot
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
-import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardHistogram, DropwizardTimer}
 import com.daml.metrics.api.noop.{NoOpCounter, NoOpTimer}
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryCounter,
@@ -28,7 +26,7 @@ class IndexerBenchmarkResult(
 
   private val duration: Double =
     (stopTimeInNano - startTimeInNano).toDouble.nanos.toUnit(TimeUnit.SECONDS)
-  private val updates: Long = counterState(metrics.daml.parallelIndexer.updates)
+  private val updates: Long = counterState(metrics.parallelIndexer.updates)
   private val updateRate: Double = updates / duration
 
   val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
@@ -68,25 +66,25 @@ class IndexerBenchmarkResult(
        |
        |Other metrics:
        |  inputMapping.batchSize:     ${histogramToString(
-        metrics.daml.parallelIndexer.inputMapping.batchSize
+        metrics.parallelIndexer.inputMapping.batchSize
       )}
        |  seqMapping.duration: ${timerToString(
-        metrics.daml.parallelIndexer.seqMapping.duration
+        metrics.parallelIndexer.seqMapping.duration
       )}|
        |  seqMapping.duration.rate: ${timerMeanRate(
-        metrics.daml.parallelIndexer.seqMapping.duration
+        metrics.parallelIndexer.seqMapping.duration
       )}|
        |  ingestion.duration:         ${timerToString(
-        metrics.daml.parallelIndexer.ingestion.executionTimer
+        metrics.parallelIndexer.ingestion.executionTimer
       )}
        |  ingestion.duration.rate:    ${timerMeanRate(
-        metrics.daml.parallelIndexer.ingestion.executionTimer
+        metrics.parallelIndexer.ingestion.executionTimer
       )}
        |  tailIngestion.duration:         ${timerToString(
-        metrics.daml.parallelIndexer.tailIngestion.executionTimer
+        metrics.parallelIndexer.tailIngestion.executionTimer
       )}
        |  tailIngestion.duration.rate:    ${timerMeanRate(
-        metrics.daml.parallelIndexer.tailIngestion.executionTimer
+        metrics.parallelIndexer.tailIngestion.executionTimer
       )}
        |
        |Notes:
@@ -99,9 +97,7 @@ class IndexerBenchmarkResult(
 
   private[this] def histogramToString(histogram: Histogram): String = {
     histogram match {
-      case DropwizardHistogram(_, metric) =>
-        val data = metric.getSnapshot
-        dropwizardSnapshotToString(data)
+
       case _: InMemoryHistogram =>
         recordedHistogramValuesToString(histogram.values)
       case ProxyHistogram(_, targets) =>
@@ -118,9 +114,6 @@ class IndexerBenchmarkResult(
 
   private[this] def timerToString(timer: Timer): String = {
     timer match {
-      case DropwizardTimer(_, metric) =>
-        val data = metric.getSnapshot
-        dropwizardSnapshotToString(data)
       case NoOpTimer(_) => ""
       case _: InMemoryTimer =>
         recordedHistogramValuesToString(timer.values)
@@ -138,8 +131,6 @@ class IndexerBenchmarkResult(
 
   private[this] def timerMeanRate(timer: Timer): Double = {
     timer match {
-      case DropwizardTimer(_, metric) =>
-        metric.getMeanRate
       case NoOpTimer(_) => 0
       case timer: InMemoryTimer =>
         timer.data.values.size.toDouble / duration
@@ -157,8 +148,6 @@ class IndexerBenchmarkResult(
 
   private[this] def counterState(counter: Counter): Long = {
     counter match {
-      case DropwizardCounter(_, metric) =>
-        metric.getCount
       case NoOpCounter(_) => 0
       case InMemoryCounter(_, _) => counter.value
       case ProxyCounter(_, targets) =>
@@ -171,10 +160,6 @@ class IndexerBenchmarkResult(
           )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
-  }
-
-  private def dropwizardSnapshotToString(data: Snapshot) = {
-    s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}"
   }
 
   private def recordedHistogramValuesToString(data: Seq[Long]) = {

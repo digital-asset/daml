@@ -18,7 +18,7 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestId, v0}
+import com.digitalasset.canton.protocol.{RequestId, v30}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -77,9 +77,10 @@ class MediatorEventDeduplicatorTest
     "b9f66e2a-4867-465e-b51f-c727f2d0a18f",
   ).map(UUID.fromString)
 
-  private lazy val request: Seq[OpenEnvelope[MediatorRequest]] = uuids.map(mkMediatorRequest)
+  private lazy val request: Seq[OpenEnvelope[MediatorConfirmationRequest]] =
+    uuids.map(mkMediatorRequest)
 
-  private def requests(is: Int*): Seq[OpenEnvelope[MediatorRequest]] = is.map(request)
+  private def requests(is: Int*): Seq[OpenEnvelope[MediatorConfirmationRequest]] = is.map(request)
 
   private def deduplicationData(iAndTime: (Int, CantonTimestamp)*): Set[DeduplicationData] =
     iAndTime.map { case (i, requestTime) =>
@@ -87,15 +88,15 @@ class MediatorEventDeduplicatorTest
     }.toSet
 
   private def deduplicationData(requestTime: CantonTimestamp, is: Int*): Set[DeduplicationData] =
-    deduplicationData(is.map(_ -> requestTime): _*)
+    deduplicationData(is.map(_ -> requestTime)*)
 
-  private def mkMediatorRequest(uuid: UUID): OpenEnvelope[MediatorRequest] = {
+  private def mkMediatorRequest(uuid: UUID): OpenEnvelope[MediatorConfirmationRequest] = {
     import Pretty.*
 
-    val mediatorRequest = mock[MediatorRequest]
+    val mediatorRequest = mock[MediatorConfirmationRequest]
     when(mediatorRequest.requestUuid).thenReturn(uuid)
     when(mediatorRequest.pretty).thenReturn(
-      prettyOfClass[MediatorRequest](param("uuid", _.requestUuid))
+      prettyOfClass[MediatorConfirmationRequest](param("uuid", _.requestUuid))
     )
 
     mkDefaultOpenEnvelope(mediatorRequest)
@@ -105,18 +106,17 @@ class MediatorEventDeduplicatorTest
     OpenEnvelope(protocolMessage, Recipients.cc(mediator))(testedProtocolVersion)
 
   private lazy val response: DefaultOpenEnvelope = {
-    val message =
-      SignedProtocolMessage.tryCreate(
-        mock[TypedSignedProtocolMessageContent[MediatorResponse]],
-        NonEmpty(Seq, SymbolicCrypto.emptySignature),
-        testedProtocolVersion,
-      )
+    val message = SignedProtocolMessage(
+      mock[TypedSignedProtocolMessageContent[ConfirmationResponse]],
+      NonEmpty(Seq, SymbolicCrypto.emptySignature),
+      testedProtocolVersion,
+    )
     mkDefaultOpenEnvelope(message)
   }
 
   private def assertNextSentVerdict(
       verdictSender: TestVerdictSender,
-      envelope: OpenEnvelope[MediatorRequest],
+      envelope: OpenEnvelope[MediatorConfirmationRequest],
       requestTime: CantonTimestamp = this.requestTime,
       expireAfter: CantonTimestamp = this.requestTime.plus(deduplicationTimeout),
   ): Assertion = {
@@ -124,7 +124,7 @@ class MediatorEventDeduplicatorTest
     val reject = MediatorVerdict.MediatorReject(
       MediatorError.MalformedMessage.Reject(
         s"The request uuid (${request.requestUuid}) must not be used until $expireAfter.",
-        v0.MediatorRejection.Code.NonUniqueRequestUuid,
+        v30.MediatorRejection.Code.CODE_NON_UNIQUE_REQUEST_UUID,
       )
     )
 
@@ -366,7 +366,7 @@ class MediatorEventDeduplicatorTest
     val verdictSender = new VerdictSender {
       override def sendResult(
           requestId: RequestId,
-          request: MediatorRequest,
+          request: MediatorConfirmationRequest,
           verdict: Verdict,
           decisionTime: CantonTimestamp,
       )(implicit traceContext: TraceContext): Future[Unit] =
@@ -383,7 +383,7 @@ class MediatorEventDeduplicatorTest
 
       override def sendReject(
           requestId: RequestId,
-          requestO: Option[MediatorRequest],
+          requestO: Option[MediatorConfirmationRequest],
           rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
           rejectionReason: Verdict.MediatorReject,
           decisionTime: CantonTimestamp,

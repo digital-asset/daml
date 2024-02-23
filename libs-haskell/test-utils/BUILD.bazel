@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -9,40 +9,28 @@ load(
 da_haskell_library(
     name = "test-utils",
     srcs = glob(["DA/Test/**/*.hs"]),
-    data = [
-        "//canton:community_app_deploy.jar",
-    ],
     hackage_deps = [
-        "aeson",
         "base",
-        "bytestring",
         "containers",
         "directory",
         "extra",
         "filelock",
         "filepath",
-        "jwt",
         "lens",
         "network",
         "process",
         "QuickCheck",
         "regex-tdfa",
         "safe",
-        "safe-exceptions",
         "tasty",
         "tasty-hunit",
         "text",
         "unliftio",
         "unliftio-core",
-        "unordered-containers",
-        "vector",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-assistant/daml-helper:daml-helper-lib",
-        "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
         "@rules_haskell//tools/runfiles",
     ],
 )

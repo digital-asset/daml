@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
@@ -15,55 +14,45 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.metrics.MetricHandle.{LabeledMetricsFactory, MetricsFactory}
-import com.digitalasset.canton.metrics.{Metrics as LedgerApiServerMetrics, *}
+import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, *}
+import com.digitalasset.canton.metrics.{Metrics as LedgerApiServerMetrics}
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 
-import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 
 class ParticipantMetrics(
-    name: String,
-    val prefix: MetricName,
-    @deprecated(
-      "Use LabeledMetricsFactory",
-      since = "2.7.0",
-    ) val metricsFactory: MetricsFactory,
-    val labeledMetricsFactory: LabeledMetricsFactory,
-    registry: MetricRegistry,
-    reportExecutionContextMetrics: Boolean,
+    parent: MetricName,
+    override val openTelemetryMetricsFactory: CantonLabeledMetricsFactory,
 ) extends BaseMetrics {
 
-  override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.daml.grpc
-  override def healthMetrics: HealthMetrics = ledgerApiServer.daml.health
+  override val prefix: MetricName = parent
+
+  override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.grpc
+  override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  private implicit val mc: MetricsContext = MetricsContext("participant_name" -> name)
+  private implicit val mc: MetricsContext =
+    MetricsContext.Empty // participant -> participant1 is already set in MetricsFactory
 
-  @nowarn("cat=deprecation")
-  object dbStorage extends DbStorageMetrics(prefix, metricsFactory)
+  object dbStorage extends DbStorageMetrics(prefix, openTelemetryMetricsFactory)
 
-  @nowarn("cat=deprecation")
   val ledgerApiServer: LedgerApiServerMetrics =
-    new LedgerApiServerMetrics(
-      metricsFactory,
-      labeledMetricsFactory,
-      registry,
-      reportExecutionContextMetrics,
-    )
+    new LedgerApiServerMetrics(prefix, openTelemetryMetricsFactory)
 
-  @nowarn("cat=deprecation")
   val httpApiServer: HttpApiMetrics =
-    new HttpApiMetrics(metricsFactory, labeledMetricsFactory)
+    new HttpApiMetrics(openTelemetryMetricsFactory, openTelemetryMetricsFactory)
 
   private val clients = TrieMap[DomainAlias, SyncDomainMetrics]()
 
-  @nowarn("cat=deprecation")
-  object pruning extends ParticipantPruningMetrics(prefix, metricsFactory)
+  object pruning extends ParticipantPruningMetrics(prefix, openTelemetryMetricsFactory)
 
-  @nowarn("cat=deprecation")
   def domainMetrics(alias: DomainAlias): SyncDomainMetrics = {
-    clients.getOrElseUpdate(alias, new SyncDomainMetrics(prefix :+ alias.unwrap, metricsFactory))
+    clients.getOrElseUpdate(
+      alias,
+      new SyncDomainMetrics(prefix, openTelemetryMetricsFactory)(
+        mc.withExtraLabels("domain" -> alias.unwrap)
+      ),
+    )
   }
 
   @MetricDoc.Tag(
@@ -73,8 +62,7 @@ class ParticipantMetrics(
         |The indexer will subsequently store the update in a form that allows for querying the ledger efficiently.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
-  val updatesPublished: Meter = metricsFactory.meter(prefix :+ "updates-published")
+  val updatesPublished: Meter = openTelemetryMetricsFactory.meter(prefix :+ "updates-published")
 
   @MetricDoc.Tag(
     summary = "Number of requests being validated.",
@@ -87,7 +75,7 @@ class ParticipantMetrics(
     ),
   )
   val dirtyRequests: Gauge[Int] =
-    labeledMetricsFactory.gauge(
+    openTelemetryMetricsFactory.gauge(
       prefix :+ "dirty_requests",
       0,
       "Number of requests being validated.",
@@ -110,7 +98,7 @@ class ParticipantMetrics(
     NoOpGauge(prefix :+ "max_dirty_requests", 0)
 
   def registerMaxDirtyRequest(value: () => Option[Int]): Gauge.CloseableGauge =
-    labeledMetricsFactory.gaugeWithSupplier(
+    openTelemetryMetricsFactory.gaugeWithSupplier(
       prefix :+ "max_dirty_requests",
       () => value().getOrElse(-1),
       """
@@ -122,10 +110,9 @@ class ParticipantMetrics(
 
 class SyncDomainMetrics(
     prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") factory: MetricsFactory,
-) {
+    factory: CantonLabeledMetricsFactory,
+)(implicit context: MetricsContext) {
 
-  @nowarn("cat=deprecation")
   object sequencerClient extends SequencerClientMetrics(prefix, factory)
 
   object conflictDetection extends TaskSchedulerMetrics {
@@ -140,7 +127,6 @@ class SyncDomainMetrics(
           |un-processed sequencer messages that will trigger a timestamp advancement.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val sequencerCounterQueue: Counter =
       factory.counter(prefix :+ "sequencer-counter-queue")
 
@@ -153,13 +139,11 @@ class SyncDomainMetrics(
       qualification = Debug,
     )
     val taskQueueForDoc: Gauge[Int] = NoOpGauge(prefix :+ "task-queue", 0)
-    @nowarn("cat=deprecation")
     def taskQueue(size: () => Int): CloseableGauge =
-      factory.gauge(prefix :+ "task-queue", 0)(MetricsContext.Empty)
+      factory.gauge(prefix :+ "task-queue", 0)
 
   }
 
-  @nowarn("cat=deprecation")
   object transactionProcessing extends TransactionProcessingMetrics(prefix, factory)
 
   @MetricDoc.Tag(
@@ -170,7 +154,6 @@ class SyncDomainMetrics(
                     |it could also mean that a huge number of tasks have not yet arrived at their execution time.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val numDirtyRequests: Counter = factory.counter(prefix :+ "dirty-requests")
 
   object recordOrderPublisher extends TaskSchedulerMetrics {
@@ -180,10 +163,9 @@ class SyncDomainMetrics(
     @MetricDoc.Tag(
       summary = "Size of record order publisher sequencer counter queue",
       description = """Same as for conflict-detection, but measuring the sequencer counter
-          |queues for the publishing to the ledger api server according to record time.""",
+                      |queues for the publishing to the ledger api server according to record time.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
     val sequencerCounterQueue: Counter =
       factory.counter(prefix :+ "sequencer-counter-queue")
 
@@ -194,7 +176,6 @@ class SyncDomainMetrics(
       qualification = Debug,
     )
     val taskQueueForDoc: Gauge[Int] = NoOpGauge(prefix :+ "task-queue", 0)
-    @nowarn("cat=deprecation")
     def taskQueue(size: () => Int): CloseableGauge =
       factory.gauge(prefix :+ "task-queue", 0)(MetricsContext.Empty)
   }
@@ -209,7 +190,6 @@ class SyncDomainMetrics(
       description = """Gets updated with every event received.""",
       qualification = Traffic,
     )
-    @nowarn("cat=deprecation")
     val extraTrafficAvailable: Gauge[Long] =
       factory.gauge(prefix :+ "extra-traffic-credit-available", 0L)(MetricsContext.Empty)
 
@@ -218,7 +198,6 @@ class SyncDomainMetrics(
       description = """Records top up events and the new extra traffic limit associated.""",
       qualification = Traffic,
     )
-    @nowarn("cat=deprecation")
     val topologyTransaction: Gauge[Long] =
       factory.gauge(prefix :+ "traffic-state-topology-transaction", 0L)(MetricsContext.Empty)
 
@@ -227,7 +206,6 @@ class SyncDomainMetrics(
       description = """An event was not delivered because of insufficient traffic credit.""",
       qualification = Traffic,
     )
-    @nowarn("cat=deprecation")
     val eventAboveTrafficLimit: Meter = factory.meter(prefix :+ "event-above-traffic-limit")
 
     @MetricDoc.Tag(
@@ -235,7 +213,6 @@ class SyncDomainMetrics(
       description = """An event was not delivered.""",
       qualification = Traffic,
     )
-    @nowarn("cat=deprecation")
     val eventDelivered: Meter = factory.meter(prefix :+ "event-delivered")
   }
 

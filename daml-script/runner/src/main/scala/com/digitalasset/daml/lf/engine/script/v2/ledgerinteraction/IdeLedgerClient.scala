@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,7 +9,13 @@ package ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.domain.{
+  IdentityProviderId,
+  ObjectMeta,
+  PartyDetails,
+  User,
+  UserRight,
+}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
@@ -32,8 +38,9 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.InMemoryUserManagementStore
+
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -49,6 +56,7 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
+    namedLoggerFactory: NamedLoggerFactory,
 ) extends ScriptLedgerClient {
   override def transport = "script service"
 
@@ -108,7 +116,8 @@ class IdeLedgerClient(
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
-  private val userManagementStore = new InMemoryUserManagementStore(createAdmin = false)
+  private val userManagementStore =
+    new InMemoryUserManagementStore(createAdmin = false, namedLoggerFactory)
 
   private[this] def blob(contract: FatContractInstance): Bytes =
     Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
@@ -124,7 +133,8 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
     val acs = ledger.query(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
@@ -146,9 +156,10 @@ class IdeLedgerClient(
   ): Option[FatContractInstance] = {
 
     ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
-      cid,
+      coid = cid,
     ) match {
       case ScenarioLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
         Some(contract)
@@ -220,7 +231,8 @@ class IdeLedgerClient(
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
     val acs: Seq[ScenarioLedger.LookupOk] = ledger.query(
-      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
+      actAs = Set.empty,
+      readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered: Seq[FatContractInstance] = acs.collect {
@@ -280,11 +292,7 @@ class IdeLedgerClient(
         }
       )
     GlobalKey
-      .build(
-        templateId,
-        keyValue,
-        compiledPackages.pkgInterface.hasSharedKeys(templateId.packageId),
-      )
+      .build(templateId, keyValue)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -320,9 +328,6 @@ class IdeLedgerClient(
         )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
-      // Hide not visible as not found
-      case ContractKeyNotVisible(_, key, _, _, _) =>
-        SubmitError.ContractKeyNotFound(key)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
       case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
       // Only pass on the error if the type is a TTyCon
@@ -332,9 +337,9 @@ class IdeLedgerClient(
       case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
-      case FetchEmptyContractKeyMaintainers(tid, keyValue, sharedKey) =>
+      case FetchEmptyContractKeyMaintainers(tid, keyValue) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(tid, keyValue, sharedKey)
+          GlobalKey.assertBuild(tid, keyValue)
         )
       case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>
@@ -384,9 +389,6 @@ class IdeLedgerClient(
           SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
         ),
       )
-
-    case scenario.Error.ContractKeyNotVisible(_, key, _, _, _) =>
-      SubmitError.ContractKeyNotFound(key)
 
     case scenario.Error.CommitError(
           ScenarioLedger.CommitError.UniqueKeyViolation(ScenarioLedger.UniqueKeyViolation(gk))
@@ -443,7 +445,6 @@ class IdeLedgerClient(
       case Reference.Interface(name) => name.packageId
       case Reference.TemplateKey(name) => name.packageId
       case Reference.InterfaceInstance(_, name) => name.packageId
-      case Reference.ConcreteInterfaceInstance(_, ref) => getReferencePackageId(ref)
       case Reference.TemplateChoice(name, _) => name.packageId
       case Reference.InterfaceChoice(name, _) => name.packageId
       case Reference.InheritedChoice(name, _, _) => name.packageId
@@ -456,7 +457,6 @@ class IdeLedgerClient(
   private def getLookupErrorPackageId(err: LookupError): PackageId =
     err match {
       case LookupError.NotFound(notFound, _) => getReferencePackageId(notFound)
-      case LookupError.AmbiguousInterfaceInstance(instance, _) => getReferencePackageId(instance)
     }
 
   private def makeLookupError(
@@ -611,7 +611,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
-    (Seq[ScriptLedgerClient.CommandResult], Option[ScriptLedgerClient.TransactionTree]),
+    (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = Future {
     synchronized {
       unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
@@ -651,7 +651,7 @@ class IdeLedgerClient(
             _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
           else
             _currentSubmission = None
-          Right((results, Some(tree)))
+          Right((results, tree))
         case Left(ScenarioRunner.SubmissionError(err, tx)) =>
           import ScriptLedgerClient.SubmissionErrorBehaviour._
           // Some compatibility logic to keep the "steps" the same.
@@ -666,7 +666,7 @@ class IdeLedgerClient(
               _currentSubmission = None
               _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
           }
-          Left(ScriptLedgerClient.SubmitFailure(err, Some(fromScenarioError(err))))
+          Left(ScriptLedgerClient.SubmitFailure(err, fromScenarioError(err)))
       }
     }
   }
@@ -742,7 +742,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .createUser(user, rights.toSet)(LoggingContext.empty)
+      .createUser(user, rights.toSet)(LoggingContextWithTrace.empty)
       .map(_.toOption.map(_ => ()))
 
   override def getUser(id: UserId)(implicit
@@ -751,7 +751,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[User]] =
     userManagementStore
-      .getUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .getUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
@@ -760,7 +760,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .deleteUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .deleteUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
       .map(_.toOption)
 
   override def listAllUsers()(implicit
@@ -779,7 +779,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .grantRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContext.empty)
+      .grantRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
       .map(_.toOption.map(_.toList))
 
   override def revokeUserRights(
@@ -791,7 +791,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContext.empty)
+      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
       .map(_.toOption.map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
@@ -800,7 +800,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption.map(_.toList))
 
   def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
@@ -814,7 +814,7 @@ class IdeLedgerClient(
         Function.unlift(pkgId =>
           for {
             pkgSig <- originalCompiledPackages.pkgInterface.lookupPackage(pkgId).toOption
-            meta <- pkgSig.metadata
+            meta = pkgSig.metadata
             readablePackageId = meta match {
               case PackageMetadata(name, version, _) =>
                 ScriptLedgerClient.ReadablePackageId(name, version)

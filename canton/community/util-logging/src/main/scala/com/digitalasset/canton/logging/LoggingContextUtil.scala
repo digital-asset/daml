@@ -21,7 +21,7 @@ object LoggingContextUtil {
         LoggingContext
           .newLoggingContextWith[A](
             damlLogEntryFromCantonKeyValue(h),
-            t.map(damlLogEntryFromCantonKeyValue): _*
+            t.map(damlLogEntryFromCantonKeyValue)*
           )(code)
       case Nil => LoggingContext.newLoggingContext[A](code)
     }

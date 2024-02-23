@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncServiceError.DomainRegistryErrorGroup
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
@@ -173,23 +173,6 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
     }
 
     @Explanation(
-      """This error indicates that the domain this participant is trying to connect to is a domain where unique
-        contract keys are supported, while this participant is already connected to other domains. Multiple domains and
-        unique contract keys are mutually exclusive features."""
-    )
-    @Resolution("Use isolated participants for domains that require unique keys.")
-    object IncompatibleUniqueContractKeysMode
-        extends ErrorCode(
-          id = "INCOMPATIBLE_UNIQUE_CONTRACT_KEYS_MODE",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Error(override val cause: String)(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends CantonError.Impl(cause)
-          with DomainRegistryError {}
-    }
-
-    @Explanation(
       """This error indicates that the participant can not issue a domain trust certificate. Such a certificate is
         |necessary to become active on a domain. Therefore, it must be present in the authorized store of the
         |participant topology manager."""
@@ -259,23 +242,6 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
         ) {
       final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
           extends CantonError.Impl(cause = "Crypto method handshake with domain failed")
-          with DomainRegistryError
-    }
-
-    @Explanation(
-      """This error indicates that the domain requires the participant to accept a
-                                service agreement before connecting to it."""
-    )
-    @Resolution(
-      "Use the commands $participant.domains.get_agreement and $participant.domains.accept_agreement to accept the agreement."
-    )
-    object ServiceAgreementAcceptanceFailed
-        extends ErrorCode(
-          id = "SERVICE_AGREEMENT_ACCEPTANCE_FAILED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl(cause = "Service agreement failed")
           with DomainRegistryError
     }
 
@@ -395,7 +361,7 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
 trait DomainHandle extends AutoCloseable {
 
   /** Client to the domain's sequencer. */
-  def sequencerClient: SequencerClient
+  def sequencerClient: RichSequencerClient
 
   def staticParameters: StaticDomainParameters
 

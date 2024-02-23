@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -8,18 +8,13 @@ module DA.Ledger.GrpcWrapUtils (
     unwrap, unwrapWithNotFound, unwrapWithInvalidArgument,
     unwrapWithCommandSubmissionFailure,
     unwrapWithTransactionFailures,
-    sendToStream,
     ) where
 
 import Prelude hiding (fail)
 
 import Control.Exception (throwIO)
 import Control.Monad.Fail (fail)
-import Control.Monad.Fix (fix)
-import DA.Ledger.Stream
-import DA.Ledger.Convert (Perhaps,runRaise)
 import Data.Either.Extra (eitherToMaybe)
-import Network.GRPC.HighLevel (clientCallCancel)
 import Network.GRPC.HighLevel.Generated
 
 unwrap :: ClientResult 'Normal a -> IO a
@@ -50,30 +45,3 @@ unwrapWithCommandSubmissionFailure =
 unwrapWithTransactionFailures :: ClientResult 'Normal a -> IO (Either String a)
 unwrapWithTransactionFailures =
     unwrapWithExpectedFailures [StatusInvalidArgument, StatusNotFound]
-
-sendToStream :: Show b => Int -> MetadataMap -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
-sendToStream timeout mdm request convertResponse stream rpc = do
-    res <- rpc $
-        ClientReaderRequest request timeout mdm
-        $ \clientCall _mdm recv -> do
-          onClose stream $ \_ -> clientCallCancel clientCall
-          fix $ \again -> do
-            recv >>= \case
-                Left e ->  failToStream (show e)
-                Right Nothing -> return ()
-                Right (Just b) -> runRaise convertResponse b >>= \case
-                    Left reason ->
-                        failToStream $ show reason
-                    Right c -> do
-                        writeStream stream $ Right c
-                        again
-    case res of
-        ClientReaderResponse _meta StatusOk _details ->
-            writeStream stream (Left EOS)
-        ClientReaderResponse _meta code details ->
-            failToStream $ show (code,details)
-        ClientErrorResponse e ->
-            failToStream $ show e
-  where
-      failToStream :: String -> IO ()
-      failToStream msg = writeStream stream (Left (Abnormal msg))

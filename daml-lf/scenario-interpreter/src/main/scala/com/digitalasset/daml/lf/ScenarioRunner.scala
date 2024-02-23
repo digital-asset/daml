@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -259,7 +259,8 @@ private[lf] object ScenarioRunner {
       val effectiveAt = ledger.currentTime
 
       ledger.lookupGlobalContract(
-        view = ScenarioLedger.ParticipantView(actAs, readAs),
+        actAs,
+        readAs,
         effectiveAt = effectiveAt,
         acoid,
       ) match {
@@ -314,7 +315,8 @@ private[lf] object ScenarioRunner {
           )
         case Some(acoid) =>
           ledger.lookupGlobalContract(
-            view = ScenarioLedger.ParticipantView(actAs, readAs),
+            actAs,
+            readAs,
             effectiveAt = effectiveAt,
             acoid,
           ) match {
@@ -389,7 +391,7 @@ private[lf] object ScenarioRunner {
   }
 
   private[this] class EnricherImpl(compiledPackages: CompiledPackages) extends Enricher {
-    val config = Engine.DevEngine(LanguageMajorVersion.V1).config
+    val config = Engine.DevEngine(LanguageMajorVersion.V2).config
     val valueTranslator =
       new ValueTranslator(
         pkgInterface = compiledPackages.pkgInterface,

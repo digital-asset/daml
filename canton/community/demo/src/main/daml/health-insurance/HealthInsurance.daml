@@ -108,12 +108,6 @@ template Claim
     signatory insurer
     observer doctor
 
-    agreement "This is a honest and genuine claim by the "
-      <> (show client)
-      <> " for a treamtment of " <> treatment
-      <> " according to the insurance plan"
-
-
     choice AcceptAndSettleClaim : Bank.CashId
       with
         cashId : Bank.CashId

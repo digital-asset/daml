@@ -3,17 +3,20 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.codahale.metrics.MetricRegistry
-import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
-import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.error.{DamlError, ErrorGenerator}
+import com.daml.ledger.resources.ResourceOwner
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
-import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v0.Hello
+import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.HelloService
+import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -27,36 +30,40 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   LimitResult,
   RateLimitingInterceptor,
 }
-import com.google.protobuf.ByteString
-import io.grpc.{ManagedChannel, ServerInterceptor, StatusRuntimeException}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import io.grpc.{BindableService, ManagedChannel, ServerInterceptor, StatusRuntimeException}
+import org.scalacheck.Gen
+import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.Executors
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final class GrpcServerSpec
     extends AsyncWordSpec
     with BaseTest
     with TestResourceContext
+    with HasExecutionContext
     with MetricValues {
+
   "a GRPC server" should {
     "handle a request to a valid service" in {
       resources(loggerFactory).use { channel =>
-        val helloService = HelloServiceGrpc.stub(channel)
+        val helloService = v0.HelloServiceGrpc.stub(channel)
         for {
-          response <- helloService.single(HelloRequest(7))
+          response <- helloService.hello(v0.Hello.Request("foo"))
         } yield {
-          response.respInt shouldBe 14
+          response.msg shouldBe "foofoo"
         }
       }
     }
 
     "fail with a nice exception" in {
-      resources(loggerFactory).use { channel =>
-        val helloService = HelloServiceGrpc.stub(channel)
+      resources(loggerFactory, helloService = new FailingHelloService()(_)).use { channel =>
+        val helloService = v0.HelloServiceGrpc.stub(channel)
         for {
           exception <- helloService
-            .fails(HelloRequest(7, ByteString.copyFromUtf8("This is some text.")))
+            .hello(v0.Hello.Request("This is some text."))
             .failed
         } yield {
           exception.getMessage shouldBe "INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: This is some text."
@@ -67,11 +74,11 @@ final class GrpcServerSpec
     "fail with a nice exception, even when the text is quite long" in {
       val errorMessage = "There was an error. " + "x" * 2048
       val returnedMessage = "There was an error. " + "x" * 447 + "..."
-      resources(loggerFactory).use { channel =>
-        val helloService = HelloServiceGrpc.stub(channel)
+      resources(loggerFactory, helloService = new FailingHelloService()(_)).use { channel =>
+        val helloService = v0.HelloServiceGrpc.stub(channel)
         for {
           exception <- helloService
-            .fails(HelloRequest(7, ByteString.copyFromUtf8(errorMessage)))
+            .hello(v0.Hello.Request(errorMessage))
             .failed
         } yield {
           exception.getMessage shouldBe s"INVALID_ARGUMENT: INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: $returnedMessage"
@@ -86,11 +93,11 @@ final class GrpcServerSpec
           LazyList.continually("x").take(length).mkString +
           " And then some extra text that won't be sent."
 
-      resources(loggerFactory).use { channel =>
-        val helloService = HelloServiceGrpc.stub(channel)
+      resources(loggerFactory, helloService = new FailingHelloService()(_)).use { channel =>
+        val helloService = v0.HelloServiceGrpc.stub(channel)
         for {
           exception <- helloService
-            .fails(HelloRequest(7, ByteString.copyFromUtf8(exceptionMessage)))
+            .hello(v0.Hello.Request(exceptionMessage))
             .failed
         } yield {
           // We don't want to test the exact message content, just that it does indeed contain a
@@ -100,9 +107,36 @@ final class GrpcServerSpec
       }
     }
 
+    "fuzzy ensure non-security sensitive errors are forwarded gracefully" in {
+      val checkerValue = "Sentinel error"
+      val nonSecuritySensitiveErrorGen =
+        ErrorGenerator
+          .errorGenerator(
+            securitySensitive = Some(false),
+            // Only generate errors that have a grpc code / meant to be sent over the wire
+            additionalErrorCategoryFilter = _.grpcCode.isDefined,
+          )
+          .map(err => err.copy(cause = s"$checkerValue - ${err.cause}"))
+
+      fuzzTestErrorCodePropagation(
+        errorCodeGen = nonSecuritySensitiveErrorGen,
+        expectedIncludedMessage = checkerValue,
+      )
+    }
+
+    "fuzzy ensure security sensitive errors are forwarded gracefully" in {
+      val securitySensitiveErrorGen = ErrorGenerator.errorGenerator(securitySensitive = Some(true))
+
+      fuzzTestErrorCodePropagation(
+        errorCodeGen = securitySensitiveErrorGen,
+        expectedIncludedMessage =
+          "An error occurred. Please contact the operator and inquire about the request",
+      )
+    }
+
     "install rate limit interceptor" in {
       val metricsFactory = new InMemoryMetricsFactory
-      val metrics = new Metrics(metricsFactory, metricsFactory, new MetricRegistry, true)
+      val metrics = new Metrics(MetricName("test"), metricsFactory)
       val overLimitRejection = LedgerApiErrors.ThreadpoolOverloaded.Rejection(
         "test",
         "test",
@@ -121,8 +155,8 @@ final class GrpcServerSpec
         }),
       )
       resources(loggerFactory, metrics, List(rateLimitingInterceptor)).use { channel =>
-        val helloService = HelloServiceGrpc.stub(channel)
-        helloService.single(HelloRequest(7)).failed.map {
+        val helloService = v0.HelloServiceGrpc.stub(channel)
+        helloService.hello(v0.Hello.Request("foo")).failed.map {
           case s: StatusRuntimeException =>
             s.getStatus.getDescription shouldBe overLimitRejection.asGrpcStatus.getMessage
           case o => fail(s"Expected StatusRuntimeException, not $o")
@@ -130,6 +164,31 @@ final class GrpcServerSpec
       }
     }
 
+  }
+
+  private def fuzzTestErrorCodePropagation(
+      errorCodeGen: Gen[DamlError],
+      expectedIncludedMessage: String,
+  ): Future[Assertion] = {
+    val numberOfIterations = 100
+
+    val randomExceptionGeneratingService = new HelloServiceReferenceImplementation {
+      override def hello(request: Hello.Request): Future[Hello.Response] =
+        Future.failed(errorCodeGen.sample.value.asGrpcError)
+    }
+
+    resources(loggerFactory, helloService = _ => randomExceptionGeneratingService).use { channel =>
+      val helloService = v0.HelloServiceGrpc.stub(channel)
+      for (_ <- 1 to numberOfIterations) {
+        val f = for {
+          exception <- helloService.hello(Hello.Request("not relevant")).failed
+        } yield {
+          exception.getMessage should include(expectedIncludedMessage)
+        }
+        f.futureValue
+      }
+      succeed
+    }
   }
 }
 
@@ -139,15 +198,16 @@ object GrpcServerSpec {
 
   private val rateLimitingConfig = RateLimitingConfig.Default
 
-  class TestedHelloService extends HelloServiceReferenceImplementation {
-    override def fails(request: HelloRequest): Future[HelloResponse] = {
+  class FailingHelloService(implicit ec: ExecutionContext)
+      extends HelloServiceReferenceImplementation {
+    override def hello(request: v0.Hello.Request): Future[v0.Hello.Response] = {
       val loggerFactory = SuppressingLogger(getClass)
       val logger = loggerFactory.getTracedLogger(getClass)
       val errorLogger = ErrorLoggingContext(logger, LoggingContextWithTrace.ForTesting)
 
       Future.failed(
         RequestValidationErrors.InvalidArgument
-          .Reject(request.payload.toStringUtf8)(errorLogger)
+          .Reject(request.msg)(errorLogger)
           .asGrpcError
       )
     }
@@ -157,7 +217,9 @@ object GrpcServerSpec {
       loggerFactory: NamedLoggerFactory,
       metrics: Metrics = Metrics.ForTesting,
       interceptors: List[ServerInterceptor] = List.empty,
-  ): ResourceOwner[ManagedChannel] =
+      helloService: ExecutionContext => BindableService with HelloService =
+        new HelloServiceReferenceImplementation()(_),
+  )(implicit ec: ExecutionContext): ResourceOwner[ManagedChannel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
       server <- GrpcServer.owner(
@@ -166,12 +228,12 @@ object GrpcServerSpec {
         maxInboundMessageSize = maxInboundMessageSize,
         metrics = metrics,
         servicesExecutor = executor,
-        services = Seq(new TestedHelloService),
+        services = Seq(helloService(ec)),
         interceptors = interceptors,
         loggerFactory = loggerFactory,
       )
       channel <- new GrpcChannel.Owner(
-        Port.tryCreate(server.getPort),
+        Port.tryCreate(server.getPort).unwrap,
         LedgerClientChannelConfiguration.InsecureDefaults,
       )
     } yield channel

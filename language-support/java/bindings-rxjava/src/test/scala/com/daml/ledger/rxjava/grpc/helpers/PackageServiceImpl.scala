@@ -1,12 +1,22 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.PackageServiceAuthorization
-import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.daml.ledger.api.v1.package_service._
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageResponse,
+  GetPackageStatusResponse,
+  ListPackagesResponse,
+}
+import com.daml.ledger.api.v2.package_service.{
+  GetPackageRequest,
+  GetPackageStatusRequest,
+  ListPackagesRequest,
+  PackageServiceGrpc,
+}
+import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.ledger.api.auth.services.PackageServiceAuthorization
+import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}

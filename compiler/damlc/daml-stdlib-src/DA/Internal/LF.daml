@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -8,10 +8,6 @@
 -- | MOVE Prelude Daml-LF types and primitives, apart from templates/contracts.
 module DA.Internal.LF
   ( Party
-
-  #ifdef DAML_SCENARIOS
-  , getParty
-  #endif
 
   , partyToText
   , partyFromText
@@ -29,13 +25,6 @@ module DA.Internal.LF
 
   , Update
 
-  #ifdef DAML_SCENARIOS
-  , Scenario
-  , scenario
-
-  , HasSubmit(..)
-  #endif
-
   , HasTime
   , getTime
 
@@ -52,6 +41,10 @@ module DA.Internal.LF
 
   #ifdef DAML_EXCEPTIONS
   , AnyException
+  #endif
+
+  #ifdef DAML_SCENARIOS
+  , Scenario
   #endif
 
   ) where
@@ -106,10 +99,11 @@ partyFromText : Text -> Optional Party
 partyFromText = primitive @"BETextToParty"
 
 #ifdef DAML_SCENARIOS
--- | Get the party with the given name. Party names must be non-empty and only
--- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
-getParty : Text -> Scenario Party
-getParty = primitive @"SGetParty"
+-- | The `Scenario` type is for simulating ledger interactions.
+-- The type `Scenario a` describes a set of actions taken by various parties during
+-- the simulated scenario, before returning a value of type `a`.
+data Scenario a =
+  Scenario Opaque
 #endif
 
 -- | The `Date` type represents a date, for example `date 2007 Apr 5`.
@@ -191,11 +185,6 @@ class HasTime m where
 instance HasTime Update where
     getTime = primitive @"UGetTime"
 
-#ifdef DAML_SCENARIOS
-instance HasTime Scenario where
-    getTime = primitive @"SGetTime"
-#endif
-
 -- | The `CanAbort` class is for `Action` s that can be aborted.
 class (Action m) => CanAbort m where
     -- | Abort the current action with a message.
@@ -204,60 +193,8 @@ class (Action m) => CanAbort m where
 instance CanAbort Update where
     abort = fail
 
-#ifdef DAML_SCENARIOS
-instance CanAbort Scenario where
-    abort = fail
-#endif
-
 instance CanAbort (Either Text) where
     abort = fail
-
-#ifdef DAML_SCENARIOS
-
--- | The `Scenario` type is for simulating ledger interactions.
--- The type `Scenario a` describes a set of actions taken by various parties during
--- the simulated scenario, before returning a value of type `a`.
-data Scenario a =
-  Scenario Opaque
-
-instance Functor Scenario where
-    fmap f x = x >>= \v -> pure (f v)
-
-instance Applicative Scenario where
-    pure = primitive @"SPure"
-    f <*> x = f >>= \f -> x >>= \x -> pure (f x)
-
-instance Action Scenario where
-    (>>=) = primitive @"SBind"
-
-instance ActionFail Scenario where
-    fail = primitive @"SAbort"
-
-class HasSubmit m cmds | m -> cmds, cmds -> m where
-  -- | `submit p cmds` submits the commands `cmds` as a single transaction
-  -- from party `p` and returns the value returned by `cmds`.
-  --
-  -- If the transaction fails, `submit` also fails.
-  submit : HasCallStack => Party -> cmds a -> m a
-
-  -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
-  -- from party `p`.
-  --
-  -- It only succeeds if the submitting the transaction fails.
-  submitMustFail : HasCallStack => Party -> cmds a -> m ()
-
-instance HasSubmit Scenario Update where
-  submit = primitive @"SCommit"
-  submitMustFail = primitive @"SMustFailAt"
-
-infixr 0 `submit`
-infixr 0 `submitMustFail`
-
--- | Declare you are building a scenario.
-scenario : Scenario a -> Scenario a
-scenario = identity
-
-#endif -- DAML_SCENARIOS
 
 -- | HIDE A dummy type for the Daml-LF structural record type
 -- `<f1: a1, f2: a2>`.

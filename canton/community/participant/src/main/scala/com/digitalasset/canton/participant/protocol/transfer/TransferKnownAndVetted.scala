@@ -13,6 +13,7 @@ import com.digitalasset.canton.participant.protocol.submission.UsableDomain
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
@@ -24,7 +25,10 @@ private[transfer] object TransferKnownAndVetted {
       contractId: ContractId,
       packageId: PackageId,
       targetDomain: TargetDomainId,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
     // `checkPackagesVetted` is slightly too generic to check individual contracts but it will
     // become useful when we allow to reassign more than one contract at once
     UsableDomain

@@ -150,13 +150,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         event_sequential_id_last = 1L,
       ),
       dtoCompletion(offset(41)),
-      // 2: transaction with exercise node and retroactive divulgence
+      // 2: transaction with exercise node
       dtoExercise(offset(2), 2L, false, hashCid("#101")),
       DbDto.IdFilterNonConsumingInformee(2L, someParty),
       dtoExercise(offset(2), 3L, true, hashCid("#102")),
       DbDto.IdFilterConsumingStakeholder(3L, someTemplateId.toString, someParty),
       DbDto.IdFilterConsumingNonStakeholderInformee(3L, someParty),
-      dtoDivulgence(Some(offset(2)), 4L, hashCid("#101")),
       dtoTransactionMeta(
         offset(2),
         event_sequential_id_first = 2L,
@@ -177,13 +176,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           event_sequential_id_last = 5L,
         ),
         dtoCompletion(offset(3)),
-        // 4: transaction with exercise node and retroactive divulgence
+        // 4: transaction with exercise node
         dtoExercise(offset(4), 6L, false, hashCid("#201")),
         DbDto.IdFilterNonConsumingInformee(6L, someParty),
         dtoExercise(offset(4), 7L, true, hashCid("#202")),
         DbDto.IdFilterConsumingStakeholder(7L, someTemplateId.toString, someParty),
         DbDto.IdFilterConsumingNonStakeholderInformee(7L, someParty),
-        dtoDivulgence(Some(offset(4)), 8L, hashCid("#201")),
         dtoTransactionMeta(
           offset(4),
           event_sequential_id_first = 6L,
@@ -200,12 +198,20 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         lastOffset2 = 10L,
         lastEventSeqId2 = 6L,
         checkContentsBefore = () => {
-          val contract101 =
-            executeSql(backend.contract.activeContractWithoutArgument(readers, hashCid("#101")))
-          val contract202 =
-            executeSql(backend.contract.activeContractWithoutArgument(readers, hashCid("#201")))
-          contract101 should not be empty
-          contract202 shouldBe None
+          val contractsCreated =
+            executeSql(
+              backend.contract
+                .createdContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+            )
+          val contractsArchived =
+            executeSql(
+              backend.contract
+                .archivedContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+            )
+          contractsCreated.get(hashCid("#101")) should not be empty
+          contractsCreated.get(hashCid("#201")) should not be empty
+          contractsArchived.get(hashCid("#101")) shouldBe empty
+          contractsArchived.get(hashCid("#201")) shouldBe empty
           fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.transaction_id
           }) shouldBe Set((1, 1), (2, 4))
@@ -219,14 +225,20 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           fetchIdsNonConsuming() shouldBe List(2L, 6L)
         },
         checkContentsAfter = () => {
-          val contract101 = executeSql(
-            backend.contract.activeContractWithoutArgument(readers, hashCid("#101"))
-          )
-          val contract202 = executeSql(
-            backend.contract.activeContractWithoutArgument(readers, hashCid("#201"))
-          )
-          contract101 should not be empty
-          contract202 shouldBe None
+          val contractsCreated =
+            executeSql(
+              backend.contract
+                .createdContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+            )
+          val contractsArchived =
+            executeSql(
+              backend.contract
+                .archivedContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+            )
+          contractsCreated.get(hashCid("#101")) should not be empty
+          contractsCreated.get(hashCid("#201")) shouldBe empty
+          contractsArchived.get(hashCid("#101")) shouldBe empty
+          contractsArchived.get(hashCid("#201")) shouldBe empty
           fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.transaction_id
           }) shouldBe Set((1, 1), (2, 4))
@@ -245,10 +257,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         lastOffset = 2,
         lastEventSeqId = 3L,
         checkContentsAfter = () => {
-          val contract101 = executeSql(
-            backend.contract.activeContractWithoutArgument(readers, hashCid("#101"))
-          )
-          contract101 shouldBe None
+          val contractsCreated =
+            executeSql(
+              backend.contract
+                .createdContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+            )
+          contractsCreated.get(hashCid("#101")) shouldBe None
           fetchIdsFromTransactionMeta(dtos.collect { case meta: DbDto.TransactionMeta =>
             meta.transaction_id
           }) shouldBe empty

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE BlockArguments #-}
@@ -459,7 +459,7 @@ natSynTCon = LF.Qualified
     , qualObject = LF.TypeConName [tconName]
     }
     where
-        packageId = "38e6274601b21d7202bb995bc5ec147decda5a01b68d57dda422425038772af7"
+        packageId = "eb6926e50bb83fbc8f3e154c7c88b1219b31a3c0b812f26b276d46e212c2dd71"
         moduleName = ["DA", "Internal", "NatSyn"]
         tconName = "NatSyn"
 

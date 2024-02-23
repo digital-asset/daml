@@ -7,11 +7,10 @@ import cats.Monad
 import cats.data.OptionT
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.api.MetricName
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.metrics.MetricHandle.CantonDropwizardMetricsFactory
+import com.digitalasset.canton.metrics.InMemoryMetricsFactory
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
 import com.digitalasset.canton.participant.protocol.RequestJournal.{
@@ -47,8 +46,8 @@ class RequestJournalTest extends AsyncWordSpec with BaseTest with HasTestCloseCo
   private def mkSyncDomainMetrics = {
     new SyncDomainMetrics(
       MetricName(getClass.getSimpleName),
-      new CantonDropwizardMetricsFactory(new MetricRegistry),
-    )
+      new InMemoryMetricsFactory,
+    )(MetricsContext.Empty)
   }
 
   def insertWithCursor(

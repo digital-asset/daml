@@ -24,7 +24,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
     testedProtocolVersion,
   )
 
-  private lazy val defaultTimestampOfSigningKey = Some(
+  private lazy val defaultTopologyTimestamp = Some(
     CantonTimestamp.Epoch.add(Duration.ofSeconds(1))
   )
 
@@ -35,22 +35,22 @@ class SubmissionRequestTest extends BaseTestWordSpec {
       isRequest = false,
       Batch.empty(testedProtocolVersion),
       maxSequencingTime = CantonTimestamp.MaxValue,
-      timestampOfSigningKey = defaultTimestampOfSigningKey,
+      topologyTimestamp = defaultTopologyTimestamp,
       Some(defaultAggregationRule),
       testedProtocolVersion,
     )
 
   "aggregation id" should {
     "authenticate the relevant fields" in {
-      if (testedProtocolVersion >= ProtocolVersion.CNTestNet) {
+      if (testedProtocolVersion >= ProtocolVersion.v30) {
 
-        val envelope1 = ClosedEnvelope.tryCreate(
+        val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("Content1"),
           Recipients.cc(DefaultTestIdentities.participant1),
           Seq.empty,
           testedProtocolVersion,
         )
-        val envelope2 = ClosedEnvelope.tryCreate(
+        val envelope2 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("Content2"),
           Recipients.cc(DefaultTestIdentities.participant1),
           Seq.empty,
@@ -77,9 +77,9 @@ class SubmissionRequestTest extends BaseTestWordSpec {
             )
           ),
           defaultSubmissionRequest.copy(maxSequencingTime = CantonTimestamp.Epoch),
-          defaultSubmissionRequest.copy(timestampOfSigningKey = Some(CantonTimestamp.MinValue)),
-          defaultSubmissionRequest.copy(timestampOfSigningKey = Some(CantonTimestamp.MaxValue)),
-          defaultSubmissionRequest.copy(timestampOfSigningKey = Some(CantonTimestamp.Epoch)),
+          defaultSubmissionRequest.copy(topologyTimestamp = Some(CantonTimestamp.MinValue)),
+          defaultSubmissionRequest.copy(topologyTimestamp = Some(CantonTimestamp.MaxValue)),
+          defaultSubmissionRequest.copy(topologyTimestamp = Some(CantonTimestamp.Epoch)),
           defaultSubmissionRequest.copy(aggregationRule =
             Some(
               defaultAggregationRule.copy(eligibleMembers =
@@ -102,8 +102,8 @@ class SubmissionRequestTest extends BaseTestWordSpec {
     }
 
     "ignore sender-specific fields" in {
-      if (testedProtocolVersion >= ProtocolVersion.CNTestNet) {
-        val envelope1 = ClosedEnvelope.tryCreate(
+      if (testedProtocolVersion >= ProtocolVersion.v30) {
+        val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("some-content"),
           Recipients.cc(DefaultTestIdentities.participant1, DefaultTestIdentities.participant3),
           Seq.empty,
@@ -131,7 +131,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
 
         assertEquivalentRequests(requestsWithoutSignatures)
 
-        val envelope2 = ClosedEnvelope.tryCreate(
+        val envelope2 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("some-content"),
           Recipients.cc(DefaultTestIdentities.participant1, DefaultTestIdentities.participant2),
           Seq(Signature.noSignature),

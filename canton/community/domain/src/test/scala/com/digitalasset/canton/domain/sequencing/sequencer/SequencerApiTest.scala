@@ -21,7 +21,6 @@ import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.apache.pekko.actor.ActorSystem
@@ -42,7 +41,7 @@ abstract class SequencerApiTest
 
   import RecipientsTest.*
 
-  trait Env extends AutoCloseable with NamedLogging {
+  protected trait Env extends AutoCloseable with NamedLogging {
 
     private[SequencerApiTest] implicit lazy val actorSystem: ActorSystem =
       PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
@@ -79,7 +78,7 @@ abstract class SequencerApiTest
   def createClock(): Clock = new SimClock(loggerFactory = loggerFactory)
 
   def domainId: DomainId = DefaultTestIdentities.domainId
-  def mediatorId: MediatorId = DefaultTestIdentities.mediator
+  def mediatorId: MediatorId = DefaultTestIdentities.mediatorIdX
   def topologyClientMember: Member = DefaultTestIdentities.sequencerId
 
   def createSequencer(crypto: DomainSyncCryptoClient)(implicit
@@ -99,10 +98,6 @@ abstract class SequencerApiTest
         val request: SubmissionRequest = createSendRequest(sender, messageContent, recipients)
 
         for {
-          _ <- valueOrFail(sequencer.registerMember(topologyClientMember))(
-            "Register topology client"
-          )
-          _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
           _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
           messages <- readForMembers(List(sender), sequencer)
         } yield {
@@ -136,10 +131,6 @@ abstract class SequencerApiTest
         )
 
         for {
-          _ <- valueOrFail(sequencer.registerMember(topologyClientMember))(
-            "Register topology client"
-          )
-          _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
           messages <- loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
             valueOrFail(sequencer.sendAsync(request))("Sent async")
               .flatMap(_ =>
@@ -150,12 +141,11 @@ abstract class SequencerApiTest
                 )
               ),
             forAll(_) { entry =>
-              entry.message should include(
-                suppressedMessageContent
-              ) // block update generator will log every send
-              entry.message should (include(ExceededMaxSequencingTime.id) or include(
-                "Observed Send"
-              ))
+              entry.message should ((include(suppressedMessageContent) and {
+                include(ExceededMaxSequencingTime.id) or include("Observed Send")
+              }) or include("Detected new members without sequencer counter") or
+                include regex "Creating .* at block height None" or
+                include("Subscribing to block source from"))
             },
           )
         } yield {
@@ -183,21 +173,18 @@ abstract class SequencerApiTest
         )
 
         for {
-          _ <- valueOrFail(sequencer.registerMember(topologyClientMember))(
-            "Register topology client"
-          )
-          _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
           _ <- valueOrFail(sequencer.sendAsync(request1))("Sent async #1")
           messages <- loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
             valueOrFail(sequencer.sendAsync(request2))("Sent async #2")
               .flatMap(_ => readForMembers(List(sender), sequencer)),
             forAll(_) { entry =>
               // block update generator will log every send
-              entry.message should ((include(ExceededMaxSequencingTime.id) or include(
-                "Observed Send"
-              ) and include(
-                suppressedMessageContent
-              )) or (include("Observed Send") and include(normalMessageContent)))
+              entry.message should (include("Detected new members without sequencer counter") or
+                (include(ExceededMaxSequencingTime.id) or include(
+                  "Observed Send"
+                ) and include(
+                  suppressedMessageContent
+                )) or (include("Observed Send") and include(normalMessageContent)))
             },
           )
         } yield {
@@ -234,12 +221,6 @@ abstract class SequencerApiTest
         }
 
         for {
-          _ <- registerMembers(
-            recipients.allRecipients.collect { case MemberRecipient(member) =>
-              member
-            } + sender + topologyClientMember,
-            sequencer,
-          )
           _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
           reads <- readForMembers(readFor, sequencer)
         } yield {
@@ -247,8 +228,7 @@ abstract class SequencerApiTest
         }
       }
 
-      def testAggregation: Boolean =
-        testedProtocolVersion >= ProtocolVersion.CNTestNet && supportAggregation
+      def testAggregation: Boolean = supportAggregation
 
       "aggregate submission requests" onlyRunWhen testAggregation in { env =>
         import env.*
@@ -263,12 +243,11 @@ abstract class SequencerApiTest
           Recipients.cc(p10),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
           aggregationRule = Some(aggregationRule),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          topologyTimestamp = Some(CantonTimestamp.Epoch),
         )
         val request2 = request1.copy(sender = p9, messageId = MessageId.fromUuid(new UUID(1, 2)))
 
         for {
-          _ <- registerMembers(Set(p6, p9, p10, topologyClientMember), sequencer)
           _ <- valueOrFail(sequencer.sendAsync(request1))("Sent async for participant1")
           reads1 <- readForMembers(Seq(p6), sequencer)
           _ <- valueOrFail(sequencer.sendAsync(request2))("Sent async for participant2")
@@ -314,7 +293,7 @@ abstract class SequencerApiTest
             Recipients.cc(p10),
             maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofMinutes(10)),
             aggregationRule = Some(aggregationRule),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch.add(Duration.ofSeconds(1))),
+            topologyTimestamp = Some(CantonTimestamp.Epoch.add(Duration.ofSeconds(1))),
           )
           val request2 = request1.copy(
             sender = p9,
@@ -323,7 +302,6 @@ abstract class SequencerApiTest
           )
 
           for {
-            _ <- registerMembers(Set(p6, p9, p10, topologyClientMember), sequencer)
             tooFarInTheFuture <- leftOrFail(sequencer.sendAsync(request1))(
               "A sendAsync of submission with maxSequencingTime too far in the future"
             )
@@ -377,11 +355,10 @@ abstract class SequencerApiTest
             //        read side clock is at 0s, which should produce an error due to the MST bound at 5m(=300s)
             maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(350)),
             aggregationRule = Some(aggregationRule),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+            topologyTimestamp = Some(CantonTimestamp.Epoch),
           )
 
           for {
-            _ <- registerMembers(Set(p6, p9, p10, topologyClientMember), sequencer)
             _ <- valueOrFail(sequencer.sendAsync(request1))("Sent async for participant1")
             _ = {
               simClockOrFail(clock).reset()
@@ -412,14 +389,14 @@ abstract class SequencerApiTest
         val content1 = "message1-to-sign"
         val content2 = "message2-to-sign"
         val recipients1 = Recipients.cc(p11, p13)
-        val envelope1 = ClosedEnvelope.tryCreate(
+        val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8(content1),
           recipients1,
           Seq.empty,
           testedProtocolVersion,
         )
         val recipients2 = Recipients.cc(p12, p13)
-        val envelope2 = ClosedEnvelope.tryCreate(
+        val envelope2 = ClosedEnvelope.create(
           ByteString.copyFromUtf8(content2),
           recipients2,
           Seq.empty,
@@ -444,13 +421,12 @@ abstract class SequencerApiTest
             isRequest = false,
             Batch(envelopes, testedProtocolVersion),
             CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+            topologyTimestamp = Some(CantonTimestamp.Epoch),
             Some(aggregationRule),
             testedProtocolVersion,
           )
 
         for {
-          _ <- registerMembers(Set(p11, p12, p13, topologyClientMember), sequencer)
           envs1 <- envelopes.parTraverse(signEnvelope(p11Crypto, _))
           request1 = mkRequest(p11, messageId1, envs1)
           envs2 <- envelopes.parTraverse(signEnvelope(p12Crypto, _))
@@ -527,7 +503,7 @@ abstract class SequencerApiTest
         val aggregationRule =
           AggregationRule(NonEmpty(Seq, p14, p15), PositiveInt.tryCreate(2), testedProtocolVersion)
         val recipients = Recipients.cc(p14, p15)
-        val envelope = ClosedEnvelope.tryCreate(
+        val envelope = ClosedEnvelope.create(
           ByteString.copyFromUtf8(messageContent),
           recipients,
           Seq.empty,
@@ -550,13 +526,12 @@ abstract class SequencerApiTest
             isRequest = false,
             Batch(List(envelope), testedProtocolVersion),
             CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-            timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+            topologyTimestamp = Some(CantonTimestamp.Epoch),
             Some(aggregationRule),
             testedProtocolVersion,
           )
 
         for {
-          _ <- registerMembers(Set(p14, p15, topologyClientMember), sequencer)
           env1 <- signEnvelope(p14Crypto, envelope)
           request1 = mkRequest(p14, messageId1, env1)
           env2 <- signEnvelope(p14Crypto, envelope)
@@ -630,11 +605,11 @@ abstract class SequencerApiTest
           Recipients.cc(p1),
           aggregationRule = Some(aggregationRule),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          // Since the envelope does not contain a signature, we don't need to specify a topology timestamp
+          topologyTimestamp = None,
         )
 
         for {
-          _ <- registerMembers(Set(p1, topologyClientMember), sequencer)
           error <- leftOrFail(sequencer.sendAsync(request))("Sent async")
         } yield {
           error shouldBe a[SendAsyncError.SenderUnknown]
@@ -650,26 +625,25 @@ abstract class SequencerApiTest
 
         // TODO(i10412): See above
         val aggregationRule =
-          AggregationRule(NonEmpty(Seq, p16, p16), PositiveInt.tryCreate(2), testedProtocolVersion)
+          AggregationRule(NonEmpty(Seq, p17, p17), PositiveInt.tryCreate(2), testedProtocolVersion)
 
         val messageId = MessageId.tryCreate("unreachable-threshold")
         val request = SubmissionRequest.tryCreate(
-          p16,
+          p17,
           messageId,
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          topologyTimestamp = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
 
         for {
-          _ <- registerMembers(Set(p16, topologyClientMember), sequencer)
           _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
-          reads <- readForMembers(Seq(p16), sequencer)
+          reads <- readForMembers(Seq(p17), sequencer)
         } yield {
-          checkRejection(reads, p16, messageId) {
+          checkRejection(reads, p17, messageId) {
             case SequencerErrors.SubmissionRequestMalformed(reason) =>
               reason should include("Threshold 2 cannot be reached")
           }
@@ -681,26 +655,25 @@ abstract class SequencerApiTest
 
         // TODO(i10412): See above
         val aggregationRule =
-          AggregationRule(NonEmpty(Seq, p16), PositiveInt.tryCreate(1), testedProtocolVersion)
+          AggregationRule(NonEmpty(Seq, p17), PositiveInt.tryCreate(1), testedProtocolVersion)
 
         val messageId = MessageId.tryCreate("unreachable-threshold")
         val request = SubmissionRequest.tryCreate(
-          p17,
+          p18,
           messageId,
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          topologyTimestamp = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
 
         for {
-          _ <- registerMembers(Set(p16, p17, topologyClientMember), sequencer)
           _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
-          reads <- readForMembers(Seq(p17), sequencer)
+          reads <- readForMembers(Seq(p18), sequencer)
         } yield {
-          checkRejection(reads, p17, messageId) {
+          checkRejection(reads, p18, messageId) {
             case SequencerErrors.SubmissionRequestMalformed(reason) =>
               reason should include("Sender is not eligible according to the aggregation rule")
           }
@@ -714,29 +687,28 @@ abstract class SequencerApiTest
           UnauthenticatedMemberId(UniqueIdentifier.tryCreate("unauthenticated", "member"))
         // TODO(i10412): See above
         val aggregationRule = AggregationRule(
-          NonEmpty(Seq, p18, unauthenticatedMember),
+          NonEmpty(Seq, p19, unauthenticatedMember),
           PositiveInt.tryCreate(1),
           testedProtocolVersion,
         )
 
         val messageId = MessageId.tryCreate("unreachable-threshold")
         val request = SubmissionRequest.tryCreate(
-          p18,
+          p19,
           messageId,
           isRequest = false,
           Batch.empty(testedProtocolVersion),
           maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(60)),
-          timestampOfSigningKey = Some(CantonTimestamp.Epoch),
+          topologyTimestamp = None,
           aggregationRule = Some(aggregationRule),
           testedProtocolVersion,
         )
 
         for {
-          _ <- registerMembers(Set(p18, unauthenticatedMember, topologyClientMember), sequencer)
           _ <- valueOrFail(sequencer.sendAsync(request))("Sent async")
-          reads <- readForMembers(Seq(p18), sequencer)
+          reads <- readForMembers(Seq(p19), sequencer)
         } yield {
-          checkRejection(reads, p18, messageId) {
+          checkRejection(reads, p19, messageId) {
             case SequencerErrors.SubmissionRequestMalformed(reason) =>
               reason should include(
                 "Eligible senders in aggregation rule must be authenticated, but found unauthenticated members"
@@ -795,19 +767,13 @@ trait SequencerApiTestUtils
       envs: EnvelopeDetails*
   )
 
-  protected def registerMembers(members: Set[Member], sequencer: CantonSequencer): Future[Unit] =
-    members.toList.parTraverse_ { member =>
-      val registerE = sequencer.registerMember(member)
-      valueOrFail(registerE)(s"Register member $member")
-    }
-
   protected def createSendRequest(
       sender: Member,
       messageContent: String,
       recipients: Recipients,
       maxSequencingTime: CantonTimestamp = CantonTimestamp.MaxValue,
       aggregationRule: Option[AggregationRule] = None,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
   ): SubmissionRequest = {
     val envelope1 = TestingEnvelope(messageContent, recipients)
     val batch = Batch(List(envelope1.closeEnvelope), testedProtocolVersion)
@@ -818,7 +784,7 @@ trait SequencerApiTestUtils
       isRequest = false,
       batch,
       maxSequencingTime,
-      timestampOfSigningKey,
+      topologyTimestamp,
       aggregationRule,
       testedProtocolVersion,
     )
@@ -894,7 +860,7 @@ trait SequencerApiTestUtils
 
     /** Closes the envelope by serializing the contents */
     def closeEnvelope: ClosedEnvelope =
-      ClosedEnvelope.tryCreate(
+      ClosedEnvelope.create(
         ByteString.copyFromUtf8(content),
         recipients,
         Seq.empty,

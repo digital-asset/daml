@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -93,7 +93,6 @@ da_scala_test_suite(
         for name in [
             "//daml-lf/tests:Exceptions",
             "//daml-lf/tests:Interfaces",
-            "//daml-lf/tests:InterfaceRetro",
             "//daml-lf/tests:InterfaceViews",
             "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:ReinterpretTests",
@@ -111,7 +110,6 @@ da_scala_test_suite(
         for version in LF_DEV_VERSIONS
     ],
     scala_deps = [
-        "@maven//:com_storm_enroute_scalameter_core",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
@@ -124,7 +122,6 @@ da_scala_test_suite(
         ":engine",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -132,7 +129,6 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/logging-entries",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:com_google_protobuf_protobuf_java",

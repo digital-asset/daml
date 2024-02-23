@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -150,7 +150,6 @@ autoInstall env@Env{..} = do
                 , iSnapshots = False
                 , iQuiet = QuietInstall False
                 , iAssistant = InstallAssistant Auto
-                , iActivate = ActivateInstall False
                 , iForce = ForceInstall False
                 , iSetPath = SetPath Auto
                 , iBashCompletions = BashCompletions Auto
@@ -200,7 +199,7 @@ runCommand env@Env{..} = \case
         let useCache =
               UseCache
                 { cachePath = envCachePath
-                , damlPath = envDamlPath
+                , damlPathUnsafe = envDamlPath
                 , overrideTimeout = if vForceRefresh then Just (CacheTimeout 1) else Nothing
                 }
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
@@ -279,8 +278,8 @@ runCommand env@Env{..} = \case
         install options envDamlPath (envUseCache env) envProjectPath envDamlAssistantSdkVersion
 
     Builtin (Uninstall unresolvedVersion) -> do
-        version <- resolveReleaseVersion (envUseCache env) unresolvedVersion
-        uninstallVersion env version
+        versionOrErr <- resolveReleaseVersion (envUseCache env) unresolvedVersion
+        uninstallVersion env versionOrErr
 
     Builtin (Exec cmd args) -> do
         wrapErr "Running executable in daml environment." $ do

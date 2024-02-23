@@ -5,8 +5,9 @@ package com.digitalasset.canton.http.util
 
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.{domain}
-import lav1.commands.Commands.DeduplicationPeriod
+import lav2.commands.Commands.DeduplicationPeriod
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable.*
 import scalaz.syntax.tag.*
@@ -67,7 +68,6 @@ object Commands {
     )
 
   def submitAndWaitRequest(
-      ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
       commandId: lar.CommandId,
       actAs: NonEmptyList[lar.Party],
@@ -77,19 +77,10 @@ object Commands {
       submissionId: Option[domain.SubmissionId],
       workflowId: Option[domain.WorkflowId],
       disclosedContracts: Seq[domain.DisclosedContract.LAV],
-  ): lav1.command_service.SubmitAndWaitRequest = {
-    val commands = lav1.commands.Commands(
-      ledgerId = ledgerId.unwrap,
+  ): lav2.command_service.SubmitAndWaitRequest = {
+    val commands = lav2.commands.Commands(
       applicationId = applicationId.unwrap,
       commandId = commandId.unwrap,
-      // We set party for backwards compatibility. The
-      // ledger takes the union of party and actAs so
-      // talking to a ledger that supports multi-party submissions does exactly what we want.
-      // When talking to an older ledger, single-party submissions
-      // will succeed just fine. Multi-party submissions will set party
-      // but you will get an authorization error if you try to use authorization
-      // from the parties in the tail.
-      party = actAs.head.unwrap,
       actAs = lar.Party.unsubst(actAs.toList),
       readAs = lar.Party.unsubst(readAs),
       deduplicationPeriod = deduplicationPeriod,
@@ -99,7 +90,10 @@ object Commands {
     val commandsWithSubmissionId =
       domain.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
     val commandsWithWorkflowId =
-      domain.WorkflowId.unsubst(workflowId).map(commandsWithSubmissionId.withWorkflowId).getOrElse(commandsWithSubmissionId)
-    lav1.command_service.SubmitAndWaitRequest(Some(commandsWithWorkflowId))
+      domain.WorkflowId
+        .unsubst(workflowId)
+        .map(commandsWithSubmissionId.withWorkflowId)
+        .getOrElse(commandsWithSubmissionId)
+    lav2.command_service.SubmitAndWaitRequest(Some(commandsWithWorkflowId))
   }
 }

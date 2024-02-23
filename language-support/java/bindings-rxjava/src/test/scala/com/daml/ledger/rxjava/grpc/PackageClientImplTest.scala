@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -34,22 +34,6 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
     }
   }
 
-  behavior of "[7.2] PackageClientImpl.listPackages"
-
-  it should "request the list of packages with the correct ledger ID" in {
-    ledgerServices.withPackageClient(
-      listPackageResponseFuture("first"),
-      defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture,
-    ) { (client, service) =>
-      client
-        .listPackages()
-        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        .blockingFirst()
-      service.getLastListPackageRequest.value.ledgerId shouldBe ledgerServices.ledgerId
-    }
-  }
-
   behavior of "[7.3] PackageClientImpl.getPackage"
 
   it should "return the package from the Ledger" in {
@@ -69,7 +53,7 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
 
   behavior of "[7.4] PackageClientImpl.getPackage"
 
-  it should "request the package with the correct ledger ID and package ID" in {
+  it should "request the package with the correct package ID" in {
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
@@ -79,7 +63,6 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
         .getPackage("packageId")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-      service.getLastGetPackagesRequest.value.ledgerId shouldEqual ledgerServices.ledgerId
       service.getLastGetPackagesRequest.value.packageId shouldEqual "packageId"
     }
   }
@@ -102,7 +85,7 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
 
   behavior of "[7.6] PackageClientImpl.getPackageStatus"
 
-  it should "send a request with the correct ledger ID and packageID" in {
+  it should "send a request with the correct packageID" in {
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
@@ -112,7 +95,6 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
         .getPackageStatus("packageId")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-      service.getLastGetPackageStatusRequest.value.ledgerId shouldBe ledgerServices.ledgerId
       service.getLastGetPackageStatusRequest.value.packageId shouldBe "packageId"
     }
   }

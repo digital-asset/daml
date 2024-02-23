@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology
 import cats.kernel.Order
 import cats.syntax.either.*
 import com.daml.ledger.javaapi.data.Party
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -33,11 +34,10 @@ sealed trait Identity extends Product with Serializable with PrettyPrinting {
 }
 
 sealed trait NodeIdentity extends Identity {
-  def keyOwner: KeyOwner
   def member: Member
 }
 
-sealed trait KeyOwnerCode {
+sealed trait MemberCode {
 
   def threeLetterId: String3
 
@@ -45,9 +45,9 @@ sealed trait KeyOwnerCode {
 
 }
 
-object KeyOwnerCode {
+object MemberCode {
 
-  def fromProtoPrimitive_(code: String): Either[String, KeyOwnerCode] =
+  def fromProtoPrimitive_(code: String): Either[String, MemberCode] =
     String3.create(code).flatMap {
       case MediatorId.Code.threeLetterId => Right(MediatorId.Code)
       case DomainTopologyManagerId.Code.threeLetterId => Right(DomainTopologyManagerId.Code)
@@ -60,39 +60,44 @@ object KeyOwnerCode {
   def fromProtoPrimitive(
       code: String,
       field: String,
-  ): ParsingResult[KeyOwnerCode] =
+  ): ParsingResult[MemberCode] =
     fromProtoPrimitive_(code).leftMap(ValueConversionError(field, _))
 
 }
 
-/** An identity within the system that owns a key */
-@Deprecated(
-  since =
-    "2.6, use Member instead (as Member == KeyOwner) and we stopped to actually use KeyOwner separately"
-)
-sealed trait KeyOwner extends Identity {
+/** A member in a domain such as a participant and or domain entities
+  *
+  * A member can be addressed and talked to on the transaction level
+  * through the sequencer.
+  */
+sealed trait Member extends Identity with Product with Serializable {
 
-  def code: KeyOwnerCode
+  def code: MemberCode
+
+  def description: String
+
+  def isAuthenticated: Boolean
 
   override def toProtoPrimitive: String = toLengthLimitedString.unwrap
+
   def toLengthLimitedString: String300 =
     String300.tryCreate(
       s"${code.threeLetterId.unwrap}${SafeSimpleString.delimiter}${uid.toProtoPrimitive}"
     )
 
-  override def pretty: Pretty[KeyOwner] =
+  override def pretty: Pretty[Member] =
     prettyOfString(inst =>
       inst.code.threeLetterId.unwrap + SafeSimpleString.delimiter + inst.uid.show
     )
 }
 
-object KeyOwner {
+object Member {
 
-  def fromProtoPrimitive_(keyOwner: String): Either[String, KeyOwner] = {
+  def fromProtoPrimitive_(member: String): Either[String, Member] = {
     // The first three letters of the string identify the type of member
-    val (typ, uidS) = keyOwner.splitAt(3)
+    val (typ, uidS) = member.splitAt(3)
 
-    def mapToType(code: KeyOwnerCode, uid: UniqueIdentifier): Either[String, KeyOwner] = {
+    def mapToType(code: MemberCode, uid: UniqueIdentifier): Either[String, Member] = {
       code match {
         case MediatorId.Code => Right(MediatorId(uid))
         case DomainTopologyManagerId.Code => Right(DomainTopologyManagerId(uid))
@@ -107,55 +112,26 @@ object KeyOwner {
 
     for {
       _ <- Either.cond(
-        keyOwner.length > 3 + (2 * dlen),
+        member.length > 3 + (2 * dlen),
         (),
-        s"Invalid keyOwner `$keyOwner`, expecting <three-letter-code>::id::fingerprint.",
+        s"Invalid member `$member`, expecting <three-letter-code>::id::fingerprint.",
       )
       _ <- Either.cond(
-        keyOwner.substring(3, 3 + dlen) == SafeSimpleString.delimiter,
+        member.substring(3, 3 + dlen) == SafeSimpleString.delimiter,
         (),
-        s"Expected delimiter ${SafeSimpleString.delimiter} after three letter code of `$keyOwner`",
+        s"Expected delimiter ${SafeSimpleString.delimiter} after three letter code of `$member`",
       )
-      code <- KeyOwnerCode.fromProtoPrimitive_(typ)
+      code <- MemberCode.fromProtoPrimitive_(typ)
       uid <- UniqueIdentifier.fromProtoPrimitive_(uidS.substring(dlen))
-      keyOwner <- mapToType(code, uid)
-    } yield keyOwner
+      member <- mapToType(code, uid)
+    } yield member
   }
-
-  def fromProtoPrimitive(
-      keyOwner: String,
-      fieldName: String,
-  ): ParsingResult[KeyOwner] =
-    fromProtoPrimitive_(keyOwner).leftMap(ValueConversionError(fieldName, _))
-
-}
-
-/** A member in a domain such as a participant and or domain entities
-  *
-  * A member can be addressed and talked to on the transaction level
-  * through the sequencer. Therefore every member is a KeyOwner. And the
-  * sequencer is not a member, as he is one level below, dealing with
-  * messages.
-  */
-// TODO(#15231) The sequencer is now also a member, so Member and KeyOwner are actually the same.
-sealed trait Member extends KeyOwner with Product with Serializable {
-  def isAuthenticated: Boolean
-}
-
-object Member {
 
   def fromProtoPrimitive(
       member: String,
       fieldName: String,
   ): ParsingResult[Member] =
-    KeyOwner.fromProtoPrimitive(member, fieldName).flatMap {
-      case x: Member => Right(x)
-      case _ =>
-        Left(
-          ProtoDeserializationError
-            .ValueDeserializationError(fieldName, s"Value `$member` is not of type Member")
-        )
-    }
+    fromProtoPrimitive_(member).leftMap(ValueConversionError(fieldName, _))
 
   // Use the same ordering as for what we use in the database
   implicit val memberOrdering: Ordering[Member] = Ordering.by(_.toLengthLimitedString.unwrap)
@@ -168,17 +144,12 @@ object Member {
       pp >> v.toLengthLimitedString
 
     implicit val getResultMember: GetResult[Member] = GetResult(r => {
-      KeyOwner
+      Member
         .fromProtoPrimitive_(r.nextString())
-        .fold(
-          err => throw new DbDeserializationException(err),
-          {
-            case member: Member => member
-            case _ => throw new DbDeserializationException("Unknown type of member")
-          },
-        )
+        .valueOr(err => throw new DbDeserializationException(err))
     })
   }
+
 }
 
 sealed trait AuthenticatedMember extends Member {
@@ -186,15 +157,16 @@ sealed trait AuthenticatedMember extends Member {
   override def isAuthenticated: Boolean = true
 }
 
-sealed trait AuthenticatedMemberCode extends KeyOwnerCode
+sealed trait AuthenticatedMemberCode extends MemberCode
 
 final case class UnauthenticatedMemberId(uid: UniqueIdentifier) extends Member {
-  override def code: KeyOwnerCode = UnauthenticatedMemberId.Code
+  override def code: MemberCode = UnauthenticatedMemberId.Code
+  override val description: String = "unauthenticated member"
   override def isAuthenticated: Boolean = false
 }
 
 object UnauthenticatedMemberId {
-  object Code extends KeyOwnerCode {
+  object Code extends MemberCode {
     val threeLetterId: String3 = String3.tryCreate("UNM")
   }
 
@@ -213,9 +185,7 @@ final case class DomainId(uid: UniqueIdentifier) extends NodeIdentity {
   def unwrap: UniqueIdentifier = uid
   def toLengthLimitedString: String255 = uid.toLengthLimitedString
 
-  // The key owner of a domain identity is the domain topology manager
-  override def keyOwner: KeyOwner = DomainTopologyManagerId(uid)
-
+  // The member and member of a domain identity is the domain topology manager
   override def member: Member = DomainTopologyManagerId(uid)
 }
 
@@ -257,10 +227,10 @@ final case class ParticipantId(uid: UniqueIdentifier)
 
   override def code: AuthenticatedMemberCode = ParticipantId.Code
 
+  override val description: String = "participant"
+
   def adminParty: PartyId = PartyId(uid)
   def toLf: LedgerParticipantId = LedgerParticipantId.assertFromString(uid.toProtoPrimitive)
-
-  override def keyOwner: KeyOwner = this
 
   override def member: Member = this
 }
@@ -287,7 +257,7 @@ object ParticipantId {
       proto: String,
       fieldName: String,
   ): ParsingResult[ParticipantId] =
-    KeyOwner.fromProtoPrimitive(proto, fieldName).flatMap {
+    Member.fromProtoPrimitive(proto, fieldName).flatMap {
       case x: ParticipantId => Right(x)
       case y =>
         Left(
@@ -382,7 +352,7 @@ object DomainMember {
   */
 final case class MediatorGroup(
     index: MediatorGroupIndex,
-    active: Seq[MediatorId],
+    active: NonEmpty[Seq[MediatorId]],
     passive: Seq[MediatorId],
     threshold: PositiveInt,
 ) {
@@ -393,13 +363,12 @@ final case class MediatorGroup(
 
 object MediatorGroup {
   type MediatorGroupIndex = NonNegativeInt
+  val MediatorGroupIndex = NonNegativeInt
 }
 
 final case class MediatorId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {
   override def code: AuthenticatedMemberCode = MediatorId.Code
-
-  override def keyOwner: KeyOwner = this
-
+  override val description: String = "mediator"
   override def member: Member = this
 }
 
@@ -434,6 +403,7 @@ object MediatorId {
   */
 final case class DomainTopologyManagerId(uid: UniqueIdentifier) extends DomainMember {
   override def code: AuthenticatedMemberCode = DomainTopologyManagerId.Code
+  override val description: String = "domain topology manager"
   lazy val domainId: DomainId = DomainId(uid)
 }
 
@@ -450,16 +420,14 @@ object DomainTopologyManagerId {
 }
 
 final case class SequencerGroup(
-    active: Seq[SequencerId],
+    active: NonEmpty[Seq[SequencerId]],
     passive: Seq[SequencerId],
     threshold: PositiveInt,
 )
 
 final case class SequencerId(uid: UniqueIdentifier) extends DomainMember with NodeIdentity {
   override def code: AuthenticatedMemberCode = SequencerId.Code
-
-  override def keyOwner: KeyOwner = this
-
+  override val description: String = "sequencer"
   override def member: Member = this
 }
 
@@ -478,7 +446,7 @@ object SequencerId {
       proto: String,
       fieldName: String,
   ): ParsingResult[SequencerId] =
-    KeyOwner.fromProtoPrimitive(proto, fieldName).flatMap {
+    Member.fromProtoPrimitive(proto, fieldName).flatMap {
       case x: SequencerId => Right(x)
       case y =>
         Left(

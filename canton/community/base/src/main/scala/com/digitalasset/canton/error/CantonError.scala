@@ -80,41 +80,11 @@ trait BaseCantonError extends BaseError {
   def log()(implicit loggingContext: ErrorLoggingContext): Unit = logWithContext()(loggingContext)
 
   def asGrpcError(implicit loggingContext: ErrorLoggingContext): StatusRuntimeException =
-    code.asGrpcError(this)(loggingContext)
+    ErrorCode.asGrpcError(this)(loggingContext)
 
   def asGoogleGrpcStatus(implicit loggingContext: ErrorLoggingContext): com.google.rpc.Status =
-    code.asGrpcStatus(this)(loggingContext)
+    ErrorCode.asGrpcStatus(this)(loggingContext)
 
-}
-
-object CantonErrorResource {
-
-  private lazy val all =
-    Seq(ContractId, ContractKey, DalfPackage, LedgerId, DomainId, DomainAlias, CommandId)
-
-  def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)
-
-  object ContractId extends ErrorResource {
-    def asString: String = "CONTRACT_ID"
-  }
-  object ContractKey extends ErrorResource {
-    def asString: String = "CONTRACT_KEY"
-  }
-  object DalfPackage extends ErrorResource {
-    def asString: String = "PACKAGE"
-  }
-  object LedgerId extends ErrorResource {
-    def asString: String = "LEDGER_ID"
-  }
-  object DomainId extends ErrorResource {
-    def asString: String = "DOMAIN_ID"
-  }
-  object DomainAlias extends ErrorResource {
-    def asString: String = "DOMAIN_ALIAS"
-  }
-  object CommandId extends ErrorResource {
-    def asString: String = "COMMAND_ID"
-  }
 }
 
 /** [[CantonError]]s are logged immediately when they are created. Therefore, they usually expect
@@ -140,7 +110,7 @@ trait CantonError extends BaseCantonError {
   def log(): Unit = logWithContext()(loggingContext)
 
   def asGrpcError: StatusRuntimeException =
-    code.asGrpcError(this)(loggingContext)
+    ErrorCode.asGrpcError(this)(loggingContext)
 
   // automatically log the error on generation
   if (logOnCreation) {

@@ -106,7 +106,7 @@ class WellFormedTransactionMergeTest
       "two single-root transactions" in {
         val actual = merge(
           inputTransaction(Seq(1), subTxTree1),
-          inputTransaction(Seq(1), subTxTree2: _*),
+          inputTransaction(Seq(1), subTxTree2*),
         )
         val expected = expectedTransaction(TxTree(tb.rollback(), Seq(subTxTree1) ++ subTxTree2: _*))
 
@@ -118,7 +118,7 @@ class WellFormedTransactionMergeTest
 
         val actual = merge(
           inputTransaction((1 to levels).map(PositiveInt.tryCreate), subTxTree1),
-          inputTransaction((1 to levels).map(PositiveInt.tryCreate), subTxTree2: _*),
+          inputTransaction((1 to levels).map(PositiveInt.tryCreate), subTxTree2*),
         )
         val expected = expectedTransaction(
           (2 to levels).foldLeft(TxTree(tb.rollback(), Seq(subTxTree1) ++ subTxTree2: _*)) {
@@ -135,7 +135,7 @@ class WellFormedTransactionMergeTest
       "rollback followed by non-rollback" in {
         val actual = merge(
           inputTransaction(Seq(1), subTxTree1),
-          inputTransaction(Seq.empty, subTxTree2: _*),
+          inputTransaction(Seq.empty, subTxTree2*),
         )
         val expected = expectedTransaction(Seq(TxTree(tb.rollback(), subTxTree1)) ++ subTxTree2: _*)
 
@@ -145,9 +145,9 @@ class WellFormedTransactionMergeTest
       "non-rollback followed by rollback" in {
         val actual = merge(
           inputTransaction(Seq.empty, subTxTree1),
-          inputTransaction(Seq(1), subTxTree2: _*),
+          inputTransaction(Seq(1), subTxTree2*),
         )
-        val expected = expectedTransaction(subTxTree1, TxTree(tb.rollback(), subTxTree2: _*))
+        val expected = expectedTransaction(subTxTree1, TxTree(tb.rollback(), subTxTree2*))
 
         assertTransactionsMatch(expected, actual)
       }
@@ -155,7 +155,7 @@ class WellFormedTransactionMergeTest
       "rollbacks separated by non-rollback" in {
         val actual = merge(
           inputTransaction(Seq(1), subTxTree1),
-          inputTransaction(Seq.empty, subTxTree2: _*),
+          inputTransaction(Seq.empty, subTxTree2*),
           inputTransaction(Seq(1), subTxTree3),
         )
         val expected = expectedTransaction(
@@ -170,12 +170,12 @@ class WellFormedTransactionMergeTest
       "rollback have no common scope prefix" in {
         val actual = merge(
           inputTransaction(Seq(1), subTxTree1),
-          inputTransaction(Seq(2), subTxTree2: _*),
+          inputTransaction(Seq(2), subTxTree2*),
           inputTransaction(Seq(3), subTxTree3),
         )
         val expected = expectedTransaction(
           TxTree(tb.rollback(), subTxTree1),
-          TxTree(tb.rollback(), subTxTree2: _*),
+          TxTree(tb.rollback(), subTxTree2*),
           TxTree(tb.rollback(), subTxTree3),
         )
 
@@ -188,7 +188,7 @@ class WellFormedTransactionMergeTest
         val actual = merge(
           inputTransaction(Seq.empty, subTxTree0),
           inputTransaction(Seq(1), subTxTree1),
-          inputTransaction(Seq(1, 2), subTxTree2: _*),
+          inputTransaction(Seq(1, 2), subTxTree2*),
           inputTransaction(Seq(1, 2, 3, 4), subTxTree3),
           inputTransaction(Seq.empty, subTxTree4),
         )
@@ -212,7 +212,7 @@ class WellFormedTransactionMergeTest
         val actual = merge(
           inputTransaction(Seq.empty, subTxTree0),
           inputTransaction(Seq(1, 2, 3, 4), subTxTree1),
-          inputTransaction(Seq(1, 2, 3), subTxTree2: _*),
+          inputTransaction(Seq(1, 2, 3), subTxTree2*),
           inputTransaction(Seq(1), subTxTree3),
           inputTransaction(Seq.empty, subTxTree4),
         )
@@ -240,7 +240,7 @@ class WellFormedTransactionMergeTest
           // this test documents how the current implementation would "reset" the tracking of rollback scopes.
           inputTransaction(
             Seq.empty,
-            subTxTree2: _*
+            subTxTree2*
           ),
           inputTransaction(Seq(1, 2, 3), subTxTree3),
           inputTransaction(Seq.empty, subTxTree4),
@@ -259,14 +259,14 @@ class WellFormedTransactionMergeTest
   }
 
   private def transactionHelper[T](txTrees: TxTree*)(f: LfVersionedTransaction => T): T = f(
-    buildLfTransaction(txTrees *)
+    buildLfTransaction(txTrees*)
   )
 
   private def inputTransaction(
       rbScope: RollbackScope,
       txTrees: TxTree*
   ): WithRollbackScope[WellFormedTransaction[WithSuffixes]] =
-    transactionHelper(txTrees: _*)(lfTx =>
+    transactionHelper(txTrees*)(lfTx =>
       WithRollbackScope(
         rbScope,
         WellFormedTransaction.normalizeAndAssert(
@@ -284,7 +284,7 @@ class WellFormedTransactionMergeTest
     )
 
   private def expectedTransaction(txTrees: TxTree*): LfVersionedTransaction = buildLfTransaction(
-    txTrees *
+    txTrees*
   )
 
   private def merge(

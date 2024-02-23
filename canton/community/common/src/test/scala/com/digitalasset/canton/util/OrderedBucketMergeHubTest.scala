@@ -9,10 +9,13 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPr
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   ActiveSourceTerminated,
+  DeadlockDetected,
+  DeadlockTrigger,
   NewConfiguration,
   Output,
   OutputElement,
 }
+import com.digitalasset.canton.util.PekkoUtil.noOpKillSwitch
 import com.digitalasset.canton.{BaseTest, DiscardOps}
 import org.apache.pekko.Done
 import org.apache.pekko.stream.QueueOfferResult.Enqueued
@@ -21,6 +24,8 @@ import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesSto
 import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
 import org.apache.pekko.stream.testkit.{StreamSpec, TestPublisher}
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
+import org.apache.pekko.testkit.EventFilter
+import org.apache.pekko.testkit.TestEvent.{Mute, UnMute}
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.collection.concurrent.TrieMap
@@ -28,8 +33,6 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
-  import PekkoUtilTest.*
-
   // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
   override val patience: PatienceConfig = defaultPatience
 
@@ -75,7 +78,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   ): OrderedBucketMergeConfig[Name, (Config, Option[M])] =
     config.map((name, c) => c -> Option.when(mats.contains(name))(matFor(name)))
 
-  "with a single config and threshould 1" should {
+  "with a single config and threshold 1" should {
     "be the identity" in assertAllStagesStopped {
       def mkElem(i: Int): Elem = Elem(Bucket(2 * i + 200, 0), s"$i")
 
@@ -98,7 +101,8 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       emittedF.futureValue shouldBe
         NewConfiguration(addMaterialized(config, "primary"), 100) +:
         (1 to 10).map(i => OutputElement(NonEmpty(Map, "primary" -> mkElem(i)))) :+
-        ActiveSourceTerminated("primary", None)
+        ActiveSourceTerminated("primary", None) :+
+        DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
       doneF.futureValue
     }
   }
@@ -295,16 +299,17 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     val ((configQueue, doneF), sink) =
       Source.queue(1).viaMat(mkHub(ops))(Keep.both).toMat(TestSink.probe)(Keep.both).run()
     val sources = 100
+    val threshold = PositiveInt.tryCreate(4)
 
     val config = OrderedBucketMergeConfig(
-      PositiveInt.tryCreate(4),
+      threshold,
       NonEmptyUtil.fromUnsafe((1 to sources).map(i => s"subsource-$i" -> i).toMap),
     )
     configQueue.offer(config) shouldBe Enqueued
 
     sink.request(10)
     sink.expectNext() shouldBe NewConfiguration(
-      addMaterialized(config, (1 to sources).map(i => s"subsource-$i") *),
+      addMaterialized(config, (1 to sources).map(i => s"subsource-$i")*),
       0,
     )
 
@@ -317,7 +322,10 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
         i shouldBe 1
       }
     }
-    // Nothing is emitted because each bucket contains at most three elements
+    // Nothing is emitted because each bucket contains at most one element. This is a deadlock.
+    inside(sink.expectNext()) { case DeadlockDetected(elems, DeadlockTrigger.ElementBucketing) =>
+      elems.size shouldBe sources - threshold.value + 2
+    }
 
     clue("Stop the stream") {
       configQueue.complete()
@@ -387,6 +395,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       0,
     )
     sink.expectNext() shouldBe ActiveSourceTerminated("source-with-custom-completion-future", None)
+    sink.expectNext() shouldBe DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
 
     configQueue.complete()
     sink.expectComplete()
@@ -444,6 +453,9 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     probes("probe3-0").sendNext(mkElem(3, 0, "p3"))
     probes("probe4-0").sendNext(mkElem(3, 1, "p4"))
     probes("probe5-0").sendNext(mkElem(5, 1, "p5"))
+    inside(sink.expectNext()) { case DeadlockDetected(elems, DeadlockTrigger.ElementBucketing) =>
+      elems.size shouldBe 5
+    }
     probes("probe5-0").sendComplete()
     sink.expectNoMessage(20.milliseconds)
 
@@ -518,7 +530,10 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       probes("probe5-0").sendNext(mkElem(12, 0, "p5-12"))
       probes("probe6-0").sendNext(mkElem(12, 0, "p6-12")).sendComplete()
       probes("probe7-0").sendNext(mkElem(12, 2, "p7-12"))
-      probes("probe8-0").sendNext(mkElem(11, 1, "p8-10")).sendComplete()
+      probes("probe8-0").sendNext(mkElem(11, 1, "p8-11")).sendComplete()
+      inside(sink.expectNext()) { case DeadlockDetected(elems, DeadlockTrigger.ElementBucketing) =>
+        elems.size shouldBe 8
+      }
       sink.expectNoMessage(20.milliseconds)
 
       config3
@@ -589,6 +604,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       0,
     )
     sink.expectNext() shouldBe ActiveSourceTerminated("another-source", None)
+    sink.expectNext() shouldBe DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
 
     val config2 = OrderedBucketMergeConfig(
       PositiveInt.one,
@@ -597,6 +613,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     configQueue.offer(config2) shouldBe Enqueued
     sink.expectNext() shouldBe NewConfiguration(addMaterialized(config2, "yet-another-source"), 0)
     sink.expectNext() shouldBe ActiveSourceTerminated("yet-another-source", None)
+    sink.expectNext() shouldBe DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
 
     configQueue.complete()
     sink.expectComplete()
@@ -625,6 +642,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     sink.request(5)
     sink.expectNext() shouldBe NewConfiguration(addMaterialized(config, "one"), 0)
     sink.expectNext() shouldBe ActiveSourceTerminated("one", Some(sourceEx))
+    sink.expectNext() shouldBe DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
 
     val configEx = new Exception("Config stream failed")
     configQueue.fail(configEx)
@@ -775,5 +793,196 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     doneF.futureValue
 
     priors.get shouldBe Seq("one" -> Some(mkElem("prior", 10)))
+  }
+
+  "logs an error when Ops throws" in assertAllStagesStopped {
+    class SourceCreationException(msg: String) extends Exception(msg)
+
+    val ops = mkOps(10) { (name, _config, offset, _prior) =>
+      throw new SourceCreationException(s"Source creation failed for $name at $offset")
+    }
+    val ((configQueue, doneF), sink) =
+      Source.queue(1).viaMat(mkHub(ops))(Keep.both).toMat(TestSink.probe)(Keep.both).run()
+
+    // The test will log the exception because of the TestEventListener having been registered,
+    // but this logger is not used in a normal deployment.
+    val filter = EventFilter[SourceCreationException]()
+    system.eventStream.publish(Mute(filter))
+
+    val config1 = OrderedBucketMergeConfig(PositiveInt.one, NonEmpty(Map, "one" -> 1))
+    loggerFactory.assertLogs(
+      {
+        configQueue.offer(config1) shouldBe Enqueued
+        sink.request(1)
+        sink.expectError()
+      },
+      logEntry => {
+        logEntry.errorMessage should include("OrderedBucketMergeHub.in onPush failed")
+        logEntry.throwable.value.getMessage should include("Source creation failed for one at 10")
+      },
+    )
+    doneF.futureValue
+    system.eventStream.publish(UnMute(filter))
+  }
+
+  "detect deadlocks correctly" in assertAllStagesStopped {
+    def mkElem(i: Int, d: Int, s: String): Elem = Elem(Bucket(i, d), s)
+
+    val probes = TrieMap.empty[String, TestPublisher.Probe[Elem]]
+
+    val ops = mkOps(0) { (name, config, _offset, _prior) =>
+      TestSource.probe[Elem].viaMat(KillSwitches.single)(Keep.both).watchTermination() {
+        case ((probe, killSwitch), doneF) =>
+          probes.put(s"$name-$config", probe)
+          (killSwitch, doneF, matFor(name))
+      }
+    }
+    val sinkProbe = TestSink.probe[Output[Name, (Config, Option[M]), Elem, Offset]]
+
+    val ((configQueue, doneF), sink) =
+      Source.queue(1).viaMat(mkHub(ops))(Keep.both).toMat(sinkProbe)(Keep.both).run()
+    val config1 = OrderedBucketMergeConfig(
+      PositiveInt.tryCreate(4),
+      NonEmpty(
+        Map,
+        "probe1" -> 0,
+        "probe2" -> 0,
+        "probe3" -> 0,
+        "probe4" -> 0,
+        "probe5" -> 0,
+      ),
+    )
+    configQueue.offer(config1) shouldBe Enqueued
+
+    // Wait until all five sources have been created
+    clue("Process NewConfiguration signal") {
+      sink.request(1)
+      sink.expectNext() shouldBe NewConfiguration(
+        addMaterialized(config1, "probe1", "probe2", "probe3", "probe4", "probe5"),
+        0,
+      )
+    }
+    sink.request(20)
+
+    clue("Active source completions can trigger a deadlock notification") {
+      probes("probe1-0").sendNext(mkElem(1, 0, "p1-0"))
+      probes("probe3-0").sendNext(mkElem(1, 1, "p3-0"))
+      probes("probe4-0").sendComplete()
+      sink.expectNext() shouldBe ActiveSourceTerminated("probe4", None)
+      inside(sink.expectNext()) {
+        case DeadlockDetected(elems, DeadlockTrigger.ActiveSourceTermination) =>
+          elems.toSet shouldBe Set(
+            "probe1" -> mkElem(1, 0, "p1-0"),
+            "probe3" -> mkElem(1, 1, "p3-0"),
+          )
+      }
+    }
+
+    clue("Further elements do not trigger yet another deadlock notification") {
+      probes("probe2-0").sendNext(mkElem(1, 0, "p2-0"))
+      sink.expectNoMessage(20.milliseconds)
+
+      probes("probe5-0").sendNext(mkElem(1, 1, "p5-0"))
+      sink.expectNoMessage(20.milliseconds)
+    }
+
+    clue("Reconfiguration can trigger a deadlock notification") {
+      val config2 = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(4),
+        NonEmpty(
+          Map,
+          "probe1" -> 0,
+          "probe2" -> 0,
+          "probe3" -> 0,
+          "probe5" -> 1,
+        ),
+      )
+      configQueue.offer(config2) shouldBe Enqueued
+      sink.expectNext() shouldBe NewConfiguration(addMaterialized(config2, "probe5"), 0)
+      // Here, we're just missing one unbucketed source to reach the threshold
+      inside(sink.expectNext()) { case DeadlockDetected(elems, DeadlockTrigger.Reconfiguration) =>
+        elems.toSet shouldBe Set(
+          "probe1" -> mkElem(1, 0, "p1-0"),
+          "probe2" -> mkElem(1, 0, "p2-0"),
+          "probe3" -> mkElem(1, 1, "p3-0"),
+        )
+      }
+      probes("probe5-1").sendNext(mkElem(1, 2, "p5-1"))
+
+      val config3 = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(4),
+        NonEmpty(
+          Map,
+          "probe1" -> 0,
+          "probe2" -> 1,
+          "probe3" -> 0,
+          "probe5" -> 1,
+        ),
+      )
+      configQueue.offer(config3) shouldBe Enqueued
+      sink.expectNext() shouldBe NewConfiguration(addMaterialized(config3, "probe2"), 0)
+      // Now we're missing two unbucketed sources to reach the threshold
+      inside(sink.expectNext()) { case DeadlockDetected(elems, DeadlockTrigger.Reconfiguration) =>
+        elems.toSet shouldBe Set(
+          "probe1" -> mkElem(1, 0, "p1-0"),
+          "probe3" -> mkElem(1, 1, "p3-0"),
+          "probe5" -> mkElem(1, 2, "p5-1"),
+        )
+      }
+    }
+
+    clue("Termination of a bucketed source can trigger a deadlock notification upon emission") {
+      val config4 = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(2),
+        NonEmpty(
+          Map,
+          "probe1" -> 1,
+          "probe3" -> 0,
+        ),
+      )
+      configQueue.offer(config4) shouldBe Enqueued
+      sink.expectNext() shouldBe NewConfiguration(addMaterialized(config4, "probe1"), 0)
+      probes("probe3-0").sendComplete()
+      sink.expectNoMessage(20.milliseconds)
+      probes("probe1-1").sendNext(mkElem(1, 1, "p1-1"))
+      sink.expectNext() shouldBe OutputElement(
+        NonEmpty(Map, "probe1" -> mkElem(1, 1, "p1-1"), "probe3" -> mkElem(1, 1, "p3-0"))
+      )
+      sink.expectNext() shouldBe ActiveSourceTerminated("probe3", None)
+      sink.expectNext() shouldBe DeadlockDetected(
+        Seq.empty,
+        DeadlockTrigger.ActiveSourceTermination,
+      )
+    }
+
+    clue("Abortion of a bucketed source can trigger a deadlock notification upon emission") {
+      val config5 = OrderedBucketMergeConfig(
+        PositiveInt.tryCreate(2),
+        NonEmpty(
+          Map,
+          "probe1" -> 1,
+          "probe3" -> 1,
+        ),
+      )
+      configQueue.offer(config5) shouldBe Enqueued
+      sink.expectNext() shouldBe NewConfiguration(addMaterialized(config5, "probe3"), 1)
+      probes("probe1-1").sendNext(mkElem(2, 0, "p1-1"))
+      val sourceEx = new Exception("Source 1 failed")
+      probes("probe1-1").sendError(sourceEx)
+      sink.expectNoMessage(20.milliseconds)
+      probes("probe3-1").sendNext(mkElem(2, 0, "p3-1"))
+      sink.expectNext() shouldBe OutputElement(
+        NonEmpty(Map, "probe1" -> mkElem(2, 0, "p1-1"), "probe3" -> mkElem(2, 0, "p3-1"))
+      )
+      sink.expectNext() shouldBe ActiveSourceTerminated("probe1", Some(sourceEx))
+      sink.expectNext() shouldBe DeadlockDetected(
+        Seq.empty,
+        DeadlockTrigger.ActiveSourceTermination,
+      )
+    }
+
+    configQueue.complete()
+    sink.expectComplete()
+    doneF.futureValue
   }
 }

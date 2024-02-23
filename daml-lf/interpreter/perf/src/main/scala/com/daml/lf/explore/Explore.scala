@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -74,7 +74,7 @@ object PlaySpeedy {
 
   private def parseArgs(args: Seq[String]): Option[Config] = argsParser.parse(
     args,
-    Config(majorLfVersion = LanguageMajorVersion.V1, names = List()),
+    Config(majorLfVersion = LanguageMajorVersion.V2, names = List()),
   )
 
   private def parseArgsOrDie(args: Seq[String]): Config = {

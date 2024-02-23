@@ -1,8 +1,9 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
 
+import com.daml.lf.typesig.Type
 import com.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
 import com.typesafe.scalalogging.StrictLogging
@@ -14,12 +15,14 @@ import com.squareup.javapoet.{
   ParameterSpec,
   ParameterizedTypeName,
   TypeName,
+  TypeSpec,
   TypeVariableName,
 }
 import scala.jdk.CollectionConverters._
 
 private[inner] object FromJsonGenerator extends StrictLogging {
-  private def decodeClass = ClassName.get(classOf[JsonLfDecoders])
+  private val decodeClass = ClassName.get(classOf[JsonLfDecoders])
+  private val decoderAccessorClassName = "JsonDecoder$"
 
   // JsonLfDecoder<T>
   private def decoderTypeName(t: TypeName) =
@@ -36,6 +39,10 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         .builder(decoderTypeName(TypeVariableName.get(t)), decodeTypeParamName(t))
         .build()
     }.asJava
+
+  private def decodeTypeParamArgList(typeParams: IndexedSeq[String]): CodeBlock =
+    CodeBlock
+      .join(typeParams.map(t => CodeBlock.of("$L", decodeTypeParamName(t))).asJava, ", ")
 
   def forRecordLike(fields: Fields, className: ClassName, typeParams: IndexedSeq[String])(implicit
       packagePrefixes: PackagePrefixes
@@ -62,7 +69,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
     val typeName = className.parameterized(typeParams)
 
     val argNames = {
-      val names = fields.map(f => CodeBlock.of("$S", f.javaName))
+      val names = fields.map(f => CodeBlock.of("$S", f.damlName))
       CodeBlock.of("$T.asList($L)", classOf[java.util.Arrays], CodeBlock.join(names.asJava, ", "))
     }
 
@@ -74,7 +81,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       fields.zipWithIndex.foreach { case (f, i) =>
         block.addStatement(
           "case $S: return $T.at($L, $L)",
-          f.javaName,
+          f.damlName,
           decodeClass.nestedClass("JavaArg"),
           i,
           jsonDecoderForType(f.damlType),
@@ -123,8 +130,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addException(classOf[JsonLfDecoder.Error])
       .addStatement(
         "return jsonDecoder($L).decode(new $T(json))",
-        CodeBlock
-          .join(typeParams.map(t => CodeBlock.of("$L", decodeTypeParamName(t))).asJava, ", "),
+        decodeTypeParamArgList(typeParams),
         classOf[JsonLfReader],
       )
       .build()
@@ -151,10 +157,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
           "case $S: return $L($L)",
           f.damlName,
           decoderForTagName(f.damlName),
-          CodeBlock.join(
-            typeParams.map(t => CodeBlock.of("$L", decodeTypeParamName(t))).asJava,
-            ", ",
-          ),
+          decodeTypeParamArgList(typeParams),
         )
       }
       block
@@ -208,6 +211,28 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       )
       .build()
 
+  def forKey(damlType: Type)(implicit packagePrefixes: PackagePrefixes) = {
+    val className = toJavaTypeName(damlType)
+
+    val decoder = MethodSpec
+      .methodBuilder("keyJsonDecoder")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(decoderTypeName(className))
+      .addStatement("return $L", jsonDecoderForType(damlType))
+      .build()
+
+    val fromString = MethodSpec
+      .methodBuilder("keyFromJson")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addParameter(classOf[String], "json")
+      .returns(className)
+      .addException(classOf[JsonLfDecoder.Error])
+      .addStatement("return keyJsonDecoder().decode(new $T(json))", classOf[JsonLfReader])
+      .build()
+
+    Seq(decoder, fromString)
+  }
+
   def forEnum(className: ClassName, damlNameToEnumMap: String): Seq[MethodSpec] = {
     val jsonDecoder = MethodSpec
       .methodBuilder("jsonDecoder")
@@ -219,7 +244,38 @@ private[inner] object FromJsonGenerator extends StrictLogging {
     Seq(jsonDecoder, fromJsonString(className, IndexedSeq.empty[String]))
   }
 
-  import com.daml.lf.typesig.Type
+  // Generates a class a la
+  //
+  //     public class JsonDecoder$ { public JsonLfDecoder<Baz> get() { return jsonDecoder(); } }
+  //
+  // This is a workaround to avoid specific cases where the java compliler gets confused.
+  // See https://github.com/digital-asset/daml/pull/18418/files for more details.
+  def decoderAccessorClass(
+      className: ClassName,
+      typeParams: IndexedSeq[String],
+  ) = {
+    val typeVars = typeParams.map(TypeVariableName.get)
+    val typeName =
+      if (typeParams.isEmpty) className else ParameterizedTypeName.get(className, typeVars: _*)
+    TypeSpec
+      .classBuilder(decoderAccessorClassName)
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addJavadoc(
+        "Proxies the jsonDecoder(...) static method, to provide an alternative calling synatx, which avoids some cases in generated code where javac gets confused"
+      )
+      .addMethod(
+        MethodSpec
+          .methodBuilder("get")
+          .addModifiers(Modifier.PUBLIC)
+          .addTypeVariables(typeVars.asJava)
+          .returns(decoderTypeName(typeName))
+          .addParameters(jsonDecoderParamsForTypeParams(typeParams))
+          .addStatement("return jsonDecoder($L)", decodeTypeParamArgList(typeParams))
+          .build()
+      )
+      .build()
+  }
+
   private def jsonDecoderForType(
       damlType: Type
   )(implicit packagePrefixes: PackagePrefixes): CodeBlock = {
@@ -232,7 +288,8 @@ private[inner] object FromJsonGenerator extends StrictLogging {
 
     damlType match {
       case TypeCon(TypeConName(ident), typeParams) =>
-        CodeBlock.of("$L.jsonDecoder($L)", guessClass(ident).simpleName, typeReaders(typeParams))
+        val decoderAccessorClass = guessClass(ident).nestedClass(decoderAccessorClassName)
+        CodeBlock.of("new $T().get($L)", decoderAccessorClass, typeReaders(typeParams))
       case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T.bool", decodeClass)
       case TypePrim(PrimTypeInt64, _) => CodeBlock.of("$T.int64", decodeClass)
       case TypeNumeric(scale) => CodeBlock.of("$T.numeric($L)", decodeClass, scale)

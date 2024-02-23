@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -158,8 +158,10 @@ instance Ord k => Semigroup (Set k) where
 instance Ord k => Monoid (Set k) where
   mempty = empty
 
-instance DA.Internal.Record.HasField "map" (Set k) (Map k ()) where
+instance DA.Internal.Record.GetField "map" (Set k) (Map k ()) where
   getField (Set m) = m
+
+instance DA.Internal.Record.SetField "map" (Set k) (Map k ()) where
   setField m _ = Set m
 
 instance Foldable.Foldable Set where

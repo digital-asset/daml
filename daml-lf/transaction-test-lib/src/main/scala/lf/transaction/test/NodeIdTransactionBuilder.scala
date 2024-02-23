@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -56,7 +56,7 @@ class NodeIdTransactionBuilder extends TestIdFactory {
     val txVersion = finalNodes.values.foldLeft(TransactionVersion.minVersion)((acc, node) =>
       node.optVersion match {
         case Some(version) => acc max version
-        case None => acc max TransactionVersion.minExceptions
+        case None => acc
       }
     )
     val finalRoots = roots.toImmArray

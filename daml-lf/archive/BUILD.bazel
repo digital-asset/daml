@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -69,7 +69,10 @@ genrule(
     name = "daml_lf_dev_archive_haskell_proto_src",
     srcs = ["daml_lf_dev_archive_proto_srcs"],
     outs = ["Com/Daml/DamlLfDev/DamlLf.hs"] +
-           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in LF_MAJOR_VERSIONS],
+           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in [
+               "1",
+               "2",
+           ]],
     cmd =
         "\n".join(
             [
@@ -79,7 +82,10 @@ genrule(
                      --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx
-                for vx in [""] + ["%s" % v for v in LF_MAJOR_VERSIONS]
+                for vx in [""] + ["%s" % v for v in [
+                    "1",
+                    "2",
+                ]]
             ],
         ),
     tools = [
@@ -121,9 +127,9 @@ da_scala_library(
         "//daml-lf/language",
         "//libs-scala/crypto",
         "//libs-scala/nameof",
-        "//libs-scala/safe-proto",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -155,7 +161,6 @@ da_scala_test_suite(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",

@@ -3,23 +3,13 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.api.MetricHandle.{
-  Counter,
-  Gauge,
-  LabeledMetricsFactory,
-  MetricsFactory,
-  Timer,
-}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-
-import scala.annotation.nowarn
 
 class IndexMetrics(
     prefix: MetricName,
-    @deprecated("Use LabeledMetricsFactory", since = "2.7.0") factory: MetricsFactory,
-    labeledMetricsFactory: LabeledMetricsFactory,
+    openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
 
   @MetricDoc.Tag(
@@ -30,9 +20,8 @@ class IndexMetrics(
                     |size of the buffer for queries requesting transaction trees.""",
     qualification = Saturation,
   )
-  @nowarn("cat=deprecation")
   val transactionTreesBufferSize: Counter =
-    factory.counter(prefix :+ "transaction_trees_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "transaction_trees_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for flat transactions requests.",
@@ -43,9 +32,8 @@ class IndexMetrics(
                     |period of time that satisfy a given predicate.""",
     qualification = Saturation,
   )
-  @nowarn("cat=deprecation")
   val flatTransactionsBufferSize: Counter =
-    factory.counter(prefix :+ "flat_transactions_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "flat_transactions_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for active contracts requests.",
@@ -56,9 +44,8 @@ class IndexMetrics(
                     |satisfying a given predicate.""",
     qualification = Saturation,
   )
-  @nowarn("cat=deprecation")
   val activeContractsBufferSize: Counter =
-    factory.counter(prefix :+ "active_contracts_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "active_contracts_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for completions requests.",
@@ -69,15 +56,14 @@ class IndexMetrics(
                     |period of time.""",
     qualification = Saturation,
   )
-  @nowarn("cat=deprecation")
   val completionsBufferSize: Counter =
-    factory.counter(prefix :+ "completions_buffer_size")
+    openTelemetryMetricsFactory.counter(prefix :+ "completions_buffer_size")
 
-  val packageLanguageVersionCache =
-    new CacheMetrics(prefix :+ "package_language_version_cache", labeledMetricsFactory)
-
-  @nowarn("cat=deprecation")
-  object db extends IndexDBMetrics(prefix :+ "db", factory, labeledMetricsFactory)
+  object db
+      extends IndexDBMetrics(
+        prefix :+ "db",
+        openTelemetryMetricsFactory,
+      )
 
   @MetricDoc.Tag(
     summary = "The sequential id of the current ledger end kept in memory.",
@@ -91,9 +77,10 @@ class IndexMetrics(
                     |in-memory data set.""",
     qualification = Debug,
   )
-  @nowarn("cat=deprecation")
   val ledgerEndSequentialId: Gauge[Long] =
-    factory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(MetricsContext.Empty)
+    openTelemetryMetricsFactory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(
+      MetricsContext.Empty
+    )
 
   object lfValue {
     private val prefix = IndexMetrics.this.prefix :+ "lf_value"
@@ -105,8 +92,8 @@ class IndexMetrics(
                       |the latency. This metric represents the time for each such computation.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val computeInterfaceView: Timer = factory.timer(prefix :+ "compute_interface_view")
+    val computeInterfaceView: Timer =
+      openTelemetryMetricsFactory.timer(prefix :+ "compute_interface_view")
   }
 
   object packageMetadata {
@@ -118,8 +105,7 @@ class IndexMetrics(
                       |interfaces and corresponding templates.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val decodeArchive: Timer = factory.timer(prefix :+ "decode_archive")
+    val decodeArchive: Timer = openTelemetryMetricsFactory.timer(prefix :+ "decode_archive")
 
     @MetricDoc.Tag(
       summary = "The time to initialize package metadata view.",
@@ -128,7 +114,6 @@ class IndexMetrics(
                       |uploaded and scanning them to extract metadata information.""",
       qualification = Debug,
     )
-    @nowarn("cat=deprecation")
-    val viewInitialisation: Timer = factory.timer(prefix :+ "view_init")
+    val viewInitialisation: Timer = openTelemetryMetricsFactory.timer(prefix :+ "view_init")
   }
 }

@@ -5,11 +5,10 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
-import com.digitalasset.canton.protocol.v0
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -124,10 +123,10 @@ abstract sealed case class AcsCommitment private (
 
   @transient override protected lazy val companionObj: AcsCommitment.type = AcsCommitment
 
-  override def signingTimestamp: CantonTimestamp = period.toInclusive.forgetRefinement
+  override def signingTimestamp: Option[CantonTimestamp] = Some(period.toInclusive.forgetRefinement)
 
-  protected def toProtoV0: v0.AcsCommitment = {
-    v0.AcsCommitment(
+  protected def toProtoV30: v30.AcsCommitment = {
+    v30.AcsCommitment(
       domainId = domainId.toProtoPrimitive,
       sendingParticipant = sender.toProtoPrimitive,
       counterParticipant = counterParticipant.toProtoPrimitive,
@@ -140,17 +139,11 @@ abstract sealed case class AcsCommitment private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  protected[messages] def toProtoSomeSignedProtocolMessage
-      : v0.SignedProtocolMessage.SomeSignedProtocolMessage =
-    v0.SignedProtocolMessage.SomeSignedProtocolMessage.AcsCommitment(getCryptographicEvidence)
-
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
-      : v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
-    v0.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.AcsCommitment(
+      : v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage =
+    v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.AcsCommitment(
       getCryptographicEvidence
     )
-
-  override def hashPurpose: HashPurpose = HashPurpose.AcsCommitment
 
   override lazy val pretty: Pretty[AcsCommitment] = {
     prettyOfClass(
@@ -167,9 +160,9 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
   override val name: String = "AcsCommitment"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.v3)(v0.AcsCommitment)(
-      supportedProtoVersionMemoized(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(v30.AcsCommitment)(
+      supportedProtoVersionMemoized(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
 
@@ -195,7 +188,7 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       None,
     ) {}
 
-  private def fromProtoV0(protoMsg: v0.AcsCommitment)(
+  private def fromProtoV30(protoMsg: v30.AcsCommitment)(
       bytes: ByteString
   ): ParsingResult[AcsCommitment] = {
     for {
@@ -226,8 +219,9 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
       period = CommitmentPeriod(fromExclusive, periodLength)
       cmt = protoMsg.commitment
       commitment = commitmentTypeFromByteString(cmt)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new AcsCommitment(domainId, sender, counterParticipant, period, commitment)(
-      protocolVersionRepresentativeFor(ProtoVersion(0)),
+      rpv,
       Some(bytes),
     ) {}
   }

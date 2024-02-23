@@ -6,11 +6,12 @@ package com.digitalasset.canton.participant.protocol
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.error.utils.DeserializedCantonError
+import com.daml.error.utils.DecodedCantonError
 import com.daml.lf.data.ImmArray
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
@@ -21,12 +22,11 @@ import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.metrics.*
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -41,12 +41,12 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Submiss
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
-import com.digitalasset.canton.participant.protocol.submission.ConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.{
   SubmissionAlreadyInFlight,
   TimeoutTooLow,
   UnknownDomain,
 }
+import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
   ContractLookupError,
   SerializableContractOfId,
@@ -68,20 +68,19 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixesAndMerged,
   WithoutSuffixes,
 }
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{LfTransactionErrors, *}
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   DiscardOps,
   LedgerSubmissionId,
@@ -109,8 +108,8 @@ import scala.util.{Failure, Success}
 class TransactionProcessingSteps(
     domainId: DomainId,
     participantId: ParticipantId,
-    confirmationRequestFactory: ConfirmationRequestFactory,
-    confirmationResponseFactory: ConfirmationResponseFactory,
+    confirmationRequestFactory: TransactionConfirmationRequestFactory,
+    confirmationResponseFactory: TransactionConfirmationResponseFactory,
     modelConformanceChecker: ModelConformanceChecker,
     staticDomainParameters: StaticDomainParameters,
     crypto: DomainSyncCryptoClient,
@@ -127,7 +126,7 @@ class TransactionProcessingSteps(
       SubmissionParam,
       TransactionSubmitted,
       TransactionViewType,
-      TransactionResultMessage,
+      ConfirmationResultMessage,
       TransactionSubmissionError,
     ]
     with NamedLogging {
@@ -148,7 +147,7 @@ class TransactionProcessingSteps(
   override type ResultError = TransactionProcessorError
 
   override type RequestType = ProcessingSteps.RequestType.Transaction
-  override val requestType = ProcessingSteps.RequestType.Transaction
+  override val requestType: RequestType = ProcessingSteps.RequestType.Transaction
 
   override def pendingSubmissions(state: SyncDomainEphemeralState): Unit = ()
 
@@ -167,7 +166,7 @@ class TransactionProcessingSteps(
 
   override def prepareSubmission(
       param: SubmissionParam,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       ephemeralState: SyncDomainEphemeralStateLookup,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
@@ -204,12 +203,17 @@ class TransactionProcessingSteps(
   ): Either[TransactionProcessorError, CantonTimestamp] =
     parameters.decisionTimeFor(requestTs).leftMap(DomainParametersError(parameters.domainId, _))
 
-  override def getSubmissionDataForTracker(
-      views: Seq[FullView]
-  ): Option[SubmissionTracker.SubmissionData] =
-    views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) =>
-      SubmissionTracker.SubmissionData(meta.submitterParticipant, meta.maxSequencingTimeO)
-    }
+  override def getSubmitterInformation(
+      views: Seq[DecryptedView]
+  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
+    val submitterMetadataO =
+      views.map(_.tree.submitterMetadata.unwrap).collectFirst { case Right(meta) => meta }
+    val submissionDataForTrackerO = submitterMetadataO.map(meta =>
+      SubmissionTracker.SubmissionData(meta.submittingParticipant, meta.maxSequencingTime)
+    )
+
+    (submitterMetadataO, submissionDataForTrackerO)
+  }
 
   override def participantResponseDeadlineFor(
       parameters: DynamicDomainParametersWithValidity,
@@ -223,7 +227,7 @@ class TransactionProcessingSteps(
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       recentSnapshot: DomainSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
       disclosedContracts: Map[LfContractId, SerializableContract],
@@ -284,7 +288,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         submitterInfo.toCompletionInfo().copy(optDeduplicationPeriod = dedupInfo.some),
         TransactionSubmissionTrackingData.CauseWithTemplate(error),
-        Some(domainId),
+        domainId,
         protocolVersion,
       )
     }
@@ -308,50 +312,12 @@ class TransactionProcessingSteps(
       val submitterInfoWithDedupPeriod =
         submitterInfo.copy(deduplicationPeriod = actualDeduplicationOffset)
 
-      def causeWithTemplate(message: String, reason: ConfirmationRequestCreationError) =
+      def causeWithTemplate(message: String, reason: TransactionConfirmationRequestCreationError) =
         TransactionSubmissionTrackingData.CauseWithTemplate(
           SubmissionErrors.MalformedRequest.Error(message, reason)
         )
 
       val result = for {
-        _ <-
-          if (staticDomainParameters.uniqueContractKeys) {
-            val result = wfTransaction.withoutVersion.contractKeyInputs match {
-              case Left(
-                    LfTransactionErrors.DuplicateContractIdKIError(
-                      LfTransactionErrors.DuplicateContractId(contractId)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract ID semantics",
-                  ContractIdDuplicateError(contractId),
-                ).asLeft
-
-              case Left(
-                    LfTransactionErrors.DuplicateContractKeyKIError(
-                      LfTransactionErrors.DuplicateContractKey(key)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract keys semantics",
-                  ContractKeyDuplicateError(key),
-                ).asLeft
-
-              case Left(
-                    LfTransactionErrors.InconsistentContractKeyKIError(
-                      LfTransactionErrors.InconsistentContractKey(key)
-                    )
-                  ) =>
-                causeWithTemplate(
-                  "Domain with unique contract keys semantics",
-                  ContractKeyConsistencyError(key),
-                ).asLeft
-
-              case Right(_) => ().asRight
-            }
-
-            EitherT.fromEither[Future](result)
-          } else EitherT.pure[Future, TransactionSubmissionTrackingData.RejectionCause](())
         confirmationPolicy <- EitherT(
           ConfirmationPolicy
             .choose(wfTransaction.unwrap, recentSnapshot.ipsSnapshot)
@@ -392,7 +358,7 @@ class TransactionProcessingSteps(
               )
 
         confirmationRequestTimer = metrics.protocolMessages.confirmationRequestCreation
-        // Perform phase 1 of the protocol that produces a confirmation request
+        // Perform phase 1 of the protocol that produces a transaction confirmation request
         request <- confirmationRequestTimer.timeEitherT(
           confirmationRequestFactory
             .createConfirmationRequest(
@@ -417,12 +383,14 @@ class TransactionProcessingSteps(
                 TransactionSubmissionTrackingData
                   .CauseWithTemplate(SubmissionErrors.UnknownContractDomain.Error(contractId))
               case creationError =>
-                causeWithTemplate("Confirmation request creation failed", creationError)
+                causeWithTemplate("Transaction confirmation request creation failed", creationError)
             }
         )
+        _ = logger.debug(s"Generated requestUuid=${request.informeeMessage.requestUuid}")
+        batch <- EitherT.right[TransactionSubmissionTrackingData.RejectionCause](
+          request.asBatch(recentSnapshot.ipsSnapshot)
+        )
       } yield {
-        logger.debug(s"Generated requestUuid=${request.informeeMessage.requestUuid}")
-        val batch = request.asBatch
         val batchSize = batch.toProtoVersioned.serializedSize
         metrics.protocolMessages.confirmationRequestSize.update(batchSize)(MetricsContext.Empty)
 
@@ -441,7 +409,7 @@ class TransactionProcessingSteps(
         val trackingData = TransactionSubmissionTrackingData(
           submitterInfoWithDedupPeriod.toCompletionInfo(),
           rejectionCause,
-          Some(domainId),
+          domainId,
           protocolVersion,
         )
         Success(Left(trackingData))
@@ -471,7 +439,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         submitterInfo.toCompletionInfo().copy(optDeduplicationPeriod = None),
         TransactionSubmissionTrackingData.TimeoutCause,
-        Some(domainId),
+        domainId,
         protocolVersion,
       )
 
@@ -526,7 +494,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         rejectionCause,
-        Some(domainId),
+        domainId,
         protocolVersion,
       )
     }
@@ -540,7 +508,7 @@ class TransactionProcessingSteps(
     EitherT.pure(())
 
   override def createSubmissionResult(
-      deliver: Deliver[Envelope[_]],
+      deliver: Deliver[Envelope[?]],
       unit: Unit,
   ): TransactionSubmitted =
     TransactionSubmitted
@@ -555,7 +523,7 @@ class TransactionProcessingSteps(
   ): EitherT[Future, TransactionProcessorError, DecryptedViews] =
     metrics.protocolMessages.transactionMessageReceipt.timeEitherT {
       // even if we encounter errors, we process the good views as normal
-      // such that the validation is available if the confirmation request gets approved nevertheless.
+      // such that the validation is available if the transaction confirmation request gets approved nevertheless.
 
       val pureCrypto = snapshot.pureCrypto
 
@@ -575,7 +543,6 @@ class TransactionProcessingSteps(
           sessionKeyStore,
           vt,
           participantId,
-          protocolVersion,
           optRandomness,
         )(
           lightTransactionViewTreeDeserializer
@@ -683,12 +650,12 @@ class TransactionProcessingSteps(
           ltvt <- decryptTree(viewMessage, Some(randomness))
           _ <- EitherT.fromEither[Future](
             ltvt.subviewHashes
-              .zip(TransactionSubviews.indices(protocolVersion, ltvt.subviewHashes.length))
+              .zip(TransactionSubviews.indices(ltvt.subviewHashes.length))
               .traverse(
                 deriveRandomnessForSubviews(viewMessage, randomness)
               )
           )
-        } yield (ltvt, viewMessage.submitterParticipantSignature)
+        } yield (ltvt, viewMessage.submittingParticipantSignature)
 
       def decryptView(
           transactionViewEnvelope: OpenEnvelope[TransactionViewMessage]
@@ -756,7 +723,7 @@ class TransactionProcessingSteps(
       ],
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -837,9 +804,8 @@ class TransactionProcessingSteps(
   override def constructPendingDataAndResponse(
       pendingDataAndResponseArgs: PendingDataAndResponseArgs,
       transferLookup: TransferLookup,
-      contractLookup: ContractLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -891,7 +857,7 @@ class TransactionProcessingSteps(
         // which already commits to the ParticipantMetadata and CommonMetadata
         commonData = checked(tryCommonData(rootViewTrees))
         amSubmitter = enrichedTransaction.submitterMetadataO.exists(
-          _.submitterParticipant == participantId
+          _.submittingParticipant == participantId
         )
         timeValidationE = TimeValidator.checkTimestamps(
           commonData,
@@ -912,7 +878,7 @@ class TransactionProcessingSteps(
         conformanceResultE <- modelConformanceChecker
           .check(
             rootViewTrees,
-            enrichedTransaction.usedAndCreated.keys.keyResolverFor(_),
+            keyResolverFor(_),
             pendingDataAndResponseArgs.rc,
             ipsSnapshot,
             commonData,
@@ -947,11 +913,11 @@ class TransactionProcessingSteps(
 
         if (contractResult.notFree.nonEmpty)
           throw new RuntimeException(
-            s"Activeness result for a confirmation request contains already non-free contracts ${contractResult.notFree}"
+            s"Activeness result for a transaction confirmation request contains already non-free contracts ${contractResult.notFree}"
           )
         if (activenessResult.inactiveTransfers.nonEmpty)
           throw new RuntimeException(
-            s"Activeness result for a confirmation request contains inactive transfers ${activenessResult.inactiveTransfers}"
+            s"Activeness result for a transaction confirmation request contains inactive transfers ${activenessResult.inactiveTransfers}"
           )
         activenessResult
     }
@@ -988,48 +954,10 @@ class TransactionProcessingSteps(
           val notActive = contractResult.notActive.keySet intersect coreInputs
           val inactive = unknown ++ notActive
 
-          // TODO(#9636) This logic does not make sense: the resolved keys of a view are relative to the contract/key state
-          //  at the beginning of the view, but `activenessResult.keys` reports conflicts at the beginning of the transaction.
-          val keyResult = activenessResult.keys
-          // We don't look at keys modified by `viewParticipantData.createdInSubviewArchivedInCore`
-          // because it is enough to consider them in the subview where the contract is created.
-          val keysOfCoreInputs =
-            viewParticipantData.coreInputs.to(LazyList).mapFilter { case (_cid, inputContract) =>
-              inputContract.contract.metadata.maybeKeyWithMaintainers
-            }
-          val freeResolvedKeysWithMaintainers =
-            viewParticipantData.resolvedKeys.to(LazyList).mapFilter {
-              case (key, FreeKey(maintainers)) =>
-                Some(LfGlobalKeyWithMaintainers(key, maintainers))
-              case (key, AssignedKey(cid)) => None
-            }
-          val createdKeysWithMaintainers =
-            viewParticipantData.createdCore
-              .to(LazyList)
-              .mapFilter(_.contract.metadata.maybeKeyWithMaintainers)
-
-          def filterKeys(
-              keysWithMaintainers: Seq[LfGlobalKeyWithMaintainers]
-          )(pred: LfGlobalKey => Boolean): Map[LfGlobalKey, Set[LfPartyId]] =
-            keysWithMaintainers.mapFilter { case LfGlobalKeyWithMaintainers(key, maintainers) =>
-              if (pred(key)) (key -> maintainers).some else None
-            }.toMap
-
-          val duplicateKeys =
-            filterKeys(createdKeysWithMaintainers)(keyResult.notFree.contains)
-          val inconsistentKeys =
-            filterKeys(freeResolvedKeysWithMaintainers)(keyResult.notFree.contains)
-          val allKeys =
-            keysOfCoreInputs ++ freeResolvedKeysWithMaintainers ++ createdKeysWithMaintainers
-          val lockedKeys = filterKeys(allKeys)(keyResult.alreadyLocked.contains)
-
           val viewActivenessResult = ViewActivenessResult(
             inactiveContracts = inactive,
             alreadyLockedContracts = alreadyLocked,
             existingContracts = existing,
-            duplicateKeys = duplicateKeys,
-            inconsistentKeys = inconsistentKeys,
-            lockedKeys = lockedKeys,
           )
 
           viewResults += (viewPosition -> ViewValidationResult(
@@ -1053,7 +981,6 @@ class TransactionProcessingSteps(
         witnessedAndDivulged = usedAndCreated.contracts.witnessedAndDivulged,
         createdContracts = usedAndCreated.contracts.created,
         transient = usedAndCreated.contracts.transient,
-        keyUpdates = usedAndCreated.keys.uckUpdatedKeysOfHostedMaintainers,
         successfulActivenessCheck = activenessResult.isSuccessful,
         viewValidationResults = viewResults.result(),
         timeValidationResultE = parallelChecksResult.timeValidationResultE,
@@ -1062,13 +989,12 @@ class TransactionProcessingSteps(
       )
     }
 
-    val mediatorRecipients = Recipients.cc(mediator.toRecipient)
+    val mediatorRecipients = Recipients.cc(mediator)
 
     val result =
       for {
         parallelChecksResult <- FutureUnlessShutdown.outcomeF(doParallelChecks(enrichedTransaction))
         activenessResult <- awaitActivenessResult
-        _ = crashOnUnknownKeys(activenessResult)
         transactionValidationResult = computeValidationResult(
           enrichedTransaction,
           parallelChecksResult,
@@ -1098,7 +1024,7 @@ class TransactionProcessingSteps(
           responses.map(_ -> mediatorRecipients),
           RejectionArgs(
             pendingTransaction,
-            LocalReject.TimeRejects.LocalTimeout.Reject(protocolVersion),
+            LocalRejectError.TimeRejects.LocalTimeout.Reject(protocolVersion),
           ),
         )
       }
@@ -1110,7 +1036,7 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
-  ): Seq[MediatorResponse] =
+  ): Seq[ConfirmationResponse] =
     Seq(
       confirmationResponseFactory.createConfirmationResponsesForMalformedPayloads(
         requestId,
@@ -1118,63 +1044,37 @@ class TransactionProcessingSteps(
       )
     )
 
-  /** A key is reported as unknown if the transaction tries to reassign or unassign it,
-    * but the key cannot be found in the [[com.digitalasset.canton.participant.store.ContractKeyJournal]].
-    * That is normal if the exercised contract has already been archived and pruned,
-    * so we expect to see a failed activeness check on the currently assigned contract.
-    * If not, this indicates either a malicious submitter or an inconsistency between the
-    * [[com.digitalasset.canton.participant.store.ContractKeyJournal]] and the
-    * [[com.digitalasset.canton.participant.store.ActiveContractStore]].
-    */
-  // TODO(i12925) Internal consistency checks should give the answer whether this is maliciousness or a corrupted store.
-  private def crashOnUnknownKeys(
-      result: ActivenessResult
-  )(implicit traceContext: TraceContext): Unit = {
-    if (result.contracts.isSuccessful && result.keys.unknown.nonEmpty)
-      ErrorUtil.internalError(
-        new IllegalStateException(
-          show"Unknown keys are to be reassigned. Either the persisted ledger state corrupted or this is a malformed transaction. Unknown keys: ${result.keys.unknown}"
-        )
-      )
-  }
-
-  override def eventAndSubmissionIdForInactiveMediator(
+  override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
       rc: RequestCounter,
       sc: SequencerCounter,
-      fullViews: NonEmpty[Seq[WithRecipients[FullView]]],
+      submitterMetadata: ViewSubmitterMetadata,
+      _rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
+      error: TransactionError,
   )(implicit
       traceContext: TraceContext
   ): (Option[TimestampedEvent], Option[PendingSubmissionId]) = {
-    val someView = fullViews.head1
-    val mediator = someView.unwrap.mediator
-    val submitterMetadataO = someView.unwrap.tree.submitterMetadata.unwrap.toOption
-    submitterMetadataO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx)).map {
-      completionInfo =>
-        val rejection = LedgerSyncEvent.CommandRejected.FinalReason(
-          TransactionProcessor.SubmissionErrors.InactiveMediatorError
-            .Error(mediator, ts)
-            .rpcStatus()
-        )
+    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(error.rpcStatus())
 
+    completionInfoFromSubmitterMetadataO(submitterMetadata, freshOwnTimelyTx).map {
+      completionInfo =>
         TimestampedEvent(
           LedgerSyncEvent.CommandRejected(
             ts.toLf,
             completionInfo,
             rejection,
             requestType,
-            Some(domainId),
+            domainId,
           ),
-          LocalOffset(rc),
+          RequestOffset(ts, rc),
           Some(sc),
         )
     } -> None // Transaction processing doesn't use pending submissions
   }
 
-  override def postProcessSubmissionForInactiveMediator(
-      declaredMediator: MediatorRef,
-      ts: CantonTimestamp,
+  override def postProcessSubmissionRejectedCommand(
+      error: TransactionError,
       pendingSubmission: Nothing,
   )(implicit
       traceContext: TraceContext
@@ -1203,19 +1103,10 @@ class TransactionProcessingSteps(
       submitterMetaO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx))
 
     rejectionReason.logWithContext(Map("requestId" -> pendingTransaction.requestId.toString))
-    val rejectionReasonStatus = rejectionReason.rpcStatusWithoutLoggingContext()
+    val rejectionReasonStatus = rejectionReason.reason()
     val mappedRejectionReason =
-      DeserializedCantonError.fromGrpcStatus(rejectionReasonStatus) match {
-        case Right(error) =>
-          // Turn canton-specific DuplicateKey and InconsistentKey errors into generic daml error code for duplicate/inconsistent keys for conformance.
-          // TODO(#7866): As part of mediator privacy work, clean up this ugly error code remapping
-          error.code.id match {
-            case LocalReject.ConsistencyRejections.DuplicateKey.id =>
-              ConsistencyErrors.DuplicateContractKey.Reject(error.cause).rpcStatus()
-            case LocalReject.ConsistencyRejections.InconsistentKey.id =>
-              ConsistencyErrors.InconsistentContractKey.Reject(error.cause).rpcStatus()
-            case _ => rejectionReasonStatus
-          }
+      DecodedCantonError.fromGrpcStatus(rejectionReasonStatus) match {
+        case Right(error) => rejectionReasonStatus
         case Left(err) =>
           logger.warn(s"Failed to parse the rejection reason: $err")
           rejectionReasonStatus
@@ -1225,8 +1116,8 @@ class TransactionProcessingSteps(
     val tseO = completionInfoO.map(info =>
       TimestampedEvent(
         LedgerSyncEvent
-          .CommandRejected(requestTime.toLf, info, rejection, requestType, Some(domainId)),
-        LocalOffset(requestCounter),
+          .CommandRejected(requestTime.toLf, info, rejection, requestType, domainId),
+        RequestOffset(requestTime, requestCounter),
         Some(requestSequencerCounter),
       )
     )
@@ -1240,19 +1131,14 @@ class TransactionProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, Unit] =
-    if (protocolVersion < ProtocolVersion.v4)
-      EitherT.rightT(())
-    else
-      EitherT.fromEither(
-        inputContracts.toList
-          .traverse_ { case (contractId, contract) =>
-            serializableContractAuthenticator
-              .authenticate(contract)
-              .leftMap(message =>
-                ContractAuthenticationFailed.Error(contractId, message).reported()
-              )
-          }
-      )
+    EitherT.fromEither(
+      inputContracts.toList
+        .traverse_ { case (contractId, contract) =>
+          serializableContractAuthenticator
+            .authenticate(contract)
+            .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
+        }
+    )
 
   private def completionInfoFromSubmitterMetadataO(
       meta: SubmitterMetadata,
@@ -1275,7 +1161,7 @@ class TransactionProcessingSteps(
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       freshOwnTimelyTx: Boolean,
   ): PendingTransaction = {
     val TransactionValidationResult(
@@ -1292,7 +1178,6 @@ class TransactionProcessingSteps(
       witnessedAndDivulged,
       createdContracts,
       transient,
-      keyUpdates,
       successfulActivenessCheck,
       viewValidationResults,
       timeValidationE,
@@ -1391,7 +1276,6 @@ class TransactionProcessingSteps(
           optUsedPackages = None,
           optNodeSeeds = Some(lfTx.metadata.seeds.to(ImmArray)),
           optByKeyNodes = None, // optByKeyNodes is unused by the indexer
-          optDomainId = Option(domainId),
         ),
         transaction = LfCommittedTransaction(lfTx.unwrap),
         transactionId = lfTxId,
@@ -1402,11 +1286,12 @@ class TransactionProcessingSteps(
         blindingInfoO = None,
         hostedWitnesses = hostedWitnesses.toList,
         contractMetadata = contractMetadata,
+        domainId = domainId,
       )
 
       timestampedEvent = TimestampedEvent(
         acceptedEvent,
-        LocalOffset(requestCounter),
+        RequestOffset(requestTime, requestCounter),
         Some(requestSequencerCounter),
       )
     } yield CommitAndStoreContractsAndPublishEvent(
@@ -1445,7 +1330,6 @@ class TransactionProcessingSteps(
         consumedInputsOfHostedParties = usedAndCreated.contracts.consumedInputsOfHostedStakeholders,
         transient = usedAndCreated.contracts.transient,
         createdContracts = createdContracts,
-        keyUpdates = usedAndCreated.keys.uckUpdatedKeysOfHostedMaintainers,
       )(protocolVersion)
 
       commitAndContractsAndEvent <- computeCommitAndContractsAndEvent(
@@ -1465,18 +1349,15 @@ class TransactionProcessingSteps(
   }
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
-      resultE: Either[MalformedMediatorRequestResult, TransactionResultMessage],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[MalformedConfirmationRequestResult, ConfirmationResultMessage],
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-    val content = eventE.fold(_.content, _.content)
+    val content = eventE.event.content
     val Deliver(_, ts, _, _, _) = content
     val submitterMetaO = pendingRequestData.transactionValidationResult.submitterMetadataO
     val completionInfoO = submitterMetaO.flatMap(
@@ -1488,7 +1369,7 @@ class TransactionProcessingSteps(
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
       import scala.util.Either.MergeableEither
       (
-        MergeableEither[MediatorResult](resultE).merge.verdict,
+        MergeableEither[ConfirmationResult](resultE).merge.verdict,
         pendingRequestData.modelConformanceResultE,
       ) match {
         case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)
@@ -1535,7 +1416,7 @@ class TransactionProcessingSteps(
 
     def rejectedWithModelConformanceError(error: ErrorWithSubTransaction) =
       rejected(
-        LocalReject.MalformedRejects.ModelConformance.Reject(error.errors.head1.toString)(
+        LocalRejectError.MalformedRejects.ModelConformance.Reject(error.errors.head1.toString)(
           LocalVerdict.protocolVersionRepresentativeFor(protocolVersion)
         )
       )
@@ -1561,7 +1442,26 @@ class TransactionProcessingSteps(
           EitherT.right[TransactionProcessorError](
             Future.failed(new IllegalArgumentException("Timeout message after decision time"))
           )
-      res <- getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)
+
+      resultTopologySnapshot <- EitherT.right[TransactionProcessorError](
+        crypto.ips.awaitSnapshot(ts)
+      )
+      mediatorActiveAtResultTs <- EitherT.right[TransactionProcessorError](
+        resultTopologySnapshot.isMediatorActive(pendingRequestData.mediator)
+      )
+      res <-
+        if (mediatorActiveAtResultTs) getCommitSetAndContractsToBeStoredAndEvent(topologySnapshot)
+        else {
+          // Additional validation requested during security audit as DIA-003-013.
+          // Activeness of the mediator already gets checked in Phase 3,
+          // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
+          rejected(
+            LocalRejectError.MalformedRejects.MalformedRequest.Reject(
+              s"The mediator ${pendingRequestData.mediator} has been deactivated while processing the request. Rolling back.",
+              protocolVersion,
+            )
+          )
+        }
     } yield res
   }
 
@@ -1636,6 +1536,11 @@ object TransactionProcessingSteps {
       error: TransactionRejection,
   )
 
+  def keyResolverFor(
+      rootView: TransactionView
+  )(implicit loggingContext: NamedLoggingContext): LfKeyResolver =
+    rootView.globalKeyInputs.fmap(_.resolution)
+
   /** @throws java.lang.IllegalArgumentException if `receivedViewTrees` contains views with different transaction root hashes
     */
   def tryCommonData(receivedViewTrees: NonEmpty[Seq[FullTransactionViewTree]]): CommonData = {
@@ -1655,5 +1560,4 @@ object TransactionProcessingSteps {
       submissionTime: CantonTimestamp,
       confirmationPolicy: ConfirmationPolicy,
   )
-
 }

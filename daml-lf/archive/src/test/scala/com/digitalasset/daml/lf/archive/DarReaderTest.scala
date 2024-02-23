@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -7,7 +7,7 @@ import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.daml_lf_dev.DamlLf1
+import com.daml.daml_lf_dev.DamlLf2
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -42,13 +42,13 @@ class DarReaderTest
 
     forAll(dar.all) { case ArchivePayload(packageId, archive, ver) =>
       packageId shouldNot be(Symbol("empty"))
-      archive.getDamlLf1.getModulesCount should be > 0
-      ver.major should be(LanguageMajorVersion.V1)
+      archive.getDamlLf2.getModulesCount should be > 0
+      ver.major should be(LanguageMajorVersion.V2)
     }
 
-    val mainArchiveModules = mainArchive.getDamlLf1.getModulesList.asScala
-    val mainArchiveInternedDotted = mainArchive.getDamlLf1.getInternedDottedNamesList.asScala
-    val mainArchiveInternedStrings = mainArchive.getDamlLf1.getInternedStringsList.asScala
+    val mainArchiveModules = mainArchive.getDamlLf2.getModulesList.asScala
+    val mainArchiveInternedDotted = mainArchive.getDamlLf2.getInternedDottedNamesList.asScala
+    val mainArchiveInternedStrings = mainArchive.getDamlLf2.getInternedStringsList.asScala
     inside(
       mainArchiveModules
         .find(m =>
@@ -60,7 +60,7 @@ class DarReaderTest
         )
     ) { case Some(module) =>
       val actualTypes: Set[String] =
-        module.getDataTypesList.asScala.toSet.map((t: DamlLf1.DefDataType) =>
+        module.getDataTypesList.asScala.toSet.map((t: DamlLf2.DefDataType) =>
           internedName(
             mainArchiveInternedDotted,
             mainArchiveInternedStrings,
@@ -71,9 +71,9 @@ class DarReaderTest
     }
 
     forExactly(1, dar.dependencies) { case ArchivePayload(_, archive, _) =>
-      val archiveModules = archive.getDamlLf1.getModulesList.asScala
-      val archiveInternedDotted = archive.getDamlLf1.getInternedDottedNamesList.asScala
-      val archiveInternedStrings = archive.getDamlLf1.getInternedStringsList.asScala
+      val archiveModules = archive.getDamlLf2.getModulesList.asScala
+      val archiveInternedDotted = archive.getDamlLf2.getInternedDottedNamesList.asScala
+      val archiveInternedStrings = archive.getDamlLf2.getInternedStringsList.asScala
       val archiveModuleNames = archiveModules
         .map(m =>
           internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname)
@@ -96,7 +96,7 @@ class DarReaderTest
   }
 
   private def internedName(
-      internedDotted: collection.Seq[DamlLf1.InternedDottedName],
+      internedDotted: collection.Seq[DamlLf2.InternedDottedName],
       internedStrings: collection.Seq[String],
       n: Int,
   ): String = {

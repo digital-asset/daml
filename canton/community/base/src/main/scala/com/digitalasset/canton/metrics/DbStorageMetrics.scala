@@ -7,9 +7,8 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
 import com.daml.metrics.api.noop.{NoOpGauge, NoOpTimer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
-import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 @MetricDoc.GroupTag(
@@ -18,13 +17,17 @@ import scala.concurrent.duration.*
 )
 class DbStorageMetrics(
     basePrefix: MetricName,
-    @nowarn("cat=deprecation") metricsFactory: MetricsFactory,
-) {
+    metricsFactory: CantonLabeledMetricsFactory,
+)(implicit context: MetricsContext) {
+
   val prefix: MetricName = basePrefix :+ "db-storage"
 
-  def loadGaugeM(name: String): TimedLoadGauge = {
-    val timerM = metricsFactory.timer(prefix :+ name)
-    metricsFactory.loadGauge(prefix :+ name :+ "load", 1.second, timerM)(MetricsContext.Empty)
+  def loadGaugeM(
+      name: String
+  )(implicit gaugeContext: MetricsContext = MetricsContext.Empty): TimedLoadGauge = {
+    val mc = context.merge(gaugeContext)
+    val timerM = metricsFactory.timer(prefix :+ name)(mc)
+    metricsFactory.loadGauge(prefix :+ name :+ "load", 1.second, timerM)(mc)
   }
 
   @MetricDoc.Tag(
@@ -46,17 +49,17 @@ class DbStorageMetrics(
   val loadExampleForDocs: Gauge[Double] =
     NoOpGauge(prefix :+ "<storage>" :+ "load", 0d)
 
-  object alerts extends DbAlertMetrics(prefix, metricsFactory)
-
   object queue extends DbQueueMetrics(prefix :+ "general", metricsFactory)
 
   object writeQueue extends DbQueueMetrics(prefix :+ "write", metricsFactory)
 
   object locks extends DbQueueMetrics(prefix :+ "locks", metricsFactory)
-
 }
 
-class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory: MetricsFactory) {
+class DbQueueMetrics(
+    basePrefix: MetricName,
+    factory: CantonLabeledMetricsFactory,
+) {
   val prefix: MetricName = basePrefix :+ "executor"
 
   @MetricDoc.Tag(
@@ -69,7 +72,7 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
         |will be retried, but won't show up in this metric.""",
     qualification = Debug,
   )
-  val queue = factory.counter(prefix :+ "queued")
+  val queue: Counter = factory.counter(prefix :+ "queued")
 
   @MetricDoc.Tag(
     summary = "Number of database access tasks currently running",
@@ -77,7 +80,7 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
         |the current number of tasks running in parallel.""",
     qualification = Debug,
   )
-  val running = factory.counter(prefix :+ "running")
+  val running: Counter = factory.counter(prefix :+ "running")
 
   @MetricDoc.Tag(
     summary = "Scheduling time metric for database tasks",
@@ -85,37 +88,6 @@ class DbQueueMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory:
         |The time a task is waiting in this queue is monitored using this metric.""",
     qualification = Debug,
   )
-  val waitTimer = factory.timer(prefix :+ "waittime")
-
-}
-
-class DbAlertMetrics(basePrefix: MetricName, @nowarn("cat=deprecation") factory: MetricsFactory) {
-  val prefix: MetricName = basePrefix :+ "alerts"
-
-  @MetricDoc.Tag(
-    summary = "Number of failed writes to the event log",
-    description =
-      """Failed writes to the single dimension event log indicate an issue requiring user intervention. In the case of
-        |domain event logs, the corresponding domain no longer emits any subsequent events until domain recovery is
-        |initiated (e.g. by disconnecting and reconnecting the participant from the domain). In the case of the
-        |participant event log, an operation might need to be reissued. If this counter is larger than zero, check the
-        |canton log for errors for details.
-        |""",
-    qualification = Debug,
-  )
-  val failedEventLogWrites: Counter = factory.counter(prefix :+ "single-dimension-event-log")
-
-  @MetricDoc.Tag(
-    summary = "Number of failed writes to the multi-domain event log",
-    description =
-      """Failed writes to the multi domain event log indicate an issue requiring user intervention. In the case of
-        |domain event logs, the corresponding domain no longer emits any subsequent events until domain recovery is
-        |initiated (e.g. by disconnecting and reconnecting the participant from the domain). In the case of the
-        |participant event log, an operation might need to be reissued. If this counter is larger than zero, check the
-        |canton log for errors for details.
-        |""",
-    qualification = Debug,
-  )
-  val failedMultiDomainEventLogWrites: Counter = factory.counter(prefix :+ "multi-domain-event-log")
+  val waitTimer: Timer = factory.timer(prefix :+ "waittime")
 
 }

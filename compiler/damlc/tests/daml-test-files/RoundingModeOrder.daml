@@ -1,7 +1,7 @@
 -- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SINCE-LF 1.13 2.0
+-- @SINCE-LF 2.dev
 
 -- | Test that rounding mode order matches the order in GHC.Types
 module RoundingModeOrder where

@@ -6,7 +6,7 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.*
@@ -36,7 +36,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
     val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
     var handler: Option[SerializedEventOrErrorHandler[SequencedEventError]] = None
     val member = ParticipantId(DefaultTestIdentities.uid)
-    val observer = mock[ServerCallStreamObserver[v0.SubscriptionResponse]]
+    val observer = mock[ServerCallStreamObserver[v30.SubscriptionResponse]]
     var cancelCallback: Option[Runnable] = None
 
     when(observer.setOnCancelHandler(any[Runnable]))
@@ -63,7 +63,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
           Batch(
             List(
               ClosedEnvelope
-                .tryCreate(message, Recipients.cc(member), Seq.empty, testedProtocolVersion)
+                .create(message, Recipients.cc(member), Seq.empty, testedProtocolVersion)
             ),
             testedProtocolVersion,
           ),
@@ -78,10 +78,10 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
       )
     }
 
-    private def toSubscriptionResponseV0(event: OrdinarySerializedEvent) =
-      v0.SubscriptionResponse(
-        signedSequencedEvent = Some(event.signedEvent.toProtoV0),
-        Some(SerializableTraceContext(event.traceContext).toProtoV0),
+    private def toSubscriptionResponseV30(event: OrdinarySerializedEvent) =
+      v30.SubscriptionResponse(
+        signedSequencedEvent = Some(event.signedEvent.toProtoV30),
+        Some(SerializableTraceContext(event.traceContext).toProtoV30),
       )
 
     def createManagedSubscription() =
@@ -92,7 +92,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
         None,
         timeouts,
         loggerFactory,
-        toSubscriptionResponseV0,
+        toSubscriptionResponseV30,
       )
   }
 
@@ -100,7 +100,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
     "send received events" in new Env {
       createManagedSubscription()
       deliver()
-      verify(observer).onNext(any[v0.SubscriptionResponse])
+      verify(observer).onNext(any[v30.SubscriptionResponse])
     }
 
     "if observer is cancelled then subscription is closed but no response is sent" in new Env {

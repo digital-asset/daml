@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
@@ -106,17 +106,17 @@ def _ghc_lib_deps_windows():
     )
 
     http_archive(
-        name = "ghc_865_win",
+        name = "ghc_win",
         build_file_content = """\
 load("@rules_sh//sh:sh.bzl", "sh_binaries")
 sh_binaries(
     name = "tools",
-    srcs = glob(["ghc-8.6.5/bin/*"]),
+    srcs = glob(["ghc-9.0.2*/bin/*"]),
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "457024c6ea43bdce340af428d86319931f267089398b859b00efdfe2fd4ce93f",
-        urls = ["https://downloads.haskell.org/~ghc/8.6.5/ghc-8.6.5-x86_64-unknown-mingw32.tar.xz"],
+        sha256 = "f6fbb8047ae16049dc6215a6abb652b4307205310bfffddea695a854af92dc99",
+        urls = ["https://downloads.haskell.org/~ghc/9.0.2/ghc-9.0.2-x86_64-unknown-mingw32.tar.xz"],
     )
 
     http_archive(

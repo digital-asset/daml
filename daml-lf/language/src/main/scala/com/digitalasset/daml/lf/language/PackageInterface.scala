@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -7,8 +7,6 @@ package language
 import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-
-import scala.math.Ordered.orderingToOrdered
 
 private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, PackageSignature]) {
 
@@ -238,32 +236,22 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
       context: => Reference,
   ): Either[
     LookupError,
-    PackageInterface.InterfaceInstanceInfo,
-  ] = {
-    val ref = Reference.InterfaceInstance(interfaceName, templateName)
-    for {
-      interface <- lookupInterface(interfaceName, context)
-      template <- lookupTemplate(templateName, context)
-      onInterface = interface.coImplements.get(templateName)
-      onTemplate = template.implements.get(interfaceName)
-      ok = { tOrI: TemplateOrInterface[Unit, Unit] =>
-        PackageInterface.InterfaceInstanceInfo(tOrI, interfaceName, templateName, interface)
-      }
-      r <- (onInterface, onTemplate) match {
-        case (Some(_), None) => Right(ok(TemplateOrInterface.Interface(())))
-        case (None, Some(_)) => Right(ok(TemplateOrInterface.Template(())))
-        case (None, None) => Left(LookupError.NotFound(ref, context))
-        case (Some(_), Some(_)) => Left(LookupError.AmbiguousInterfaceInstance(ref, context))
-      }
-    } yield r
-  }
+    TemplateImplementsSignature,
+  ] = for {
+    template <- lookupTemplate(templateName, context)
+    inst <- template.implements
+      .get(interfaceName)
+      .toRight(
+        LookupError.NotFound(Reference.InterfaceInstance(interfaceName, templateName), context)
+      )
+  } yield inst
 
   def lookupInterfaceInstance(
       interfaceName: TypeConName,
       templateName: TypeConName,
   ): Either[
     LookupError,
-    PackageInterface.InterfaceInstanceInfo,
+    TemplateImplementsSignature,
   ] =
     lookupInterfaceInstance(
       interfaceName,
@@ -367,11 +355,6 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
 
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
-
-  def hasSharedKeys(packageId: PackageId): Boolean = {
-    packageLanguageVersion(packageId) >= LanguageVersion.Features.sharedKeys
-  }
-
 }
 
 object PackageInterface {
@@ -436,24 +419,5 @@ object PackageInterface {
     final case class Inherited(ifaceId: TypeConName, choice: TemplateChoiceSignature)
         extends ChoiceInfo
 
-  }
-
-  final case class InterfaceInstanceInfo(
-      val parentTemplateOrInterface: TemplateOrInterface[Unit, Unit],
-      val interfaceId: TypeConName,
-      val templateId: TypeConName,
-      val interfaceSignature: DefInterfaceSignature,
-  ) {
-    val parent: TemplateOrInterface[TypeConName, TypeConName] =
-      parentTemplateOrInterface match {
-        case TemplateOrInterface.Template(_) => TemplateOrInterface.Template(templateId)
-        case TemplateOrInterface.Interface(_) => TemplateOrInterface.Interface(interfaceId)
-      }
-
-    val ref: Reference =
-      Reference.ConcreteInterfaceInstance(
-        parentTemplateOrInterface,
-        Reference.InterfaceInstance(interfaceId, templateId),
-      )
   }
 }

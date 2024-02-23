@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -19,7 +19,7 @@ trait RunnerMainTestBaseCanton extends CantonFixture with RunnerMainTestBase {
     implicit val ec: ExecutionContext = ExecutionContext.global
     for {
       client <- defaultLedgerClient()
-      res <- client.packageClient.listPackages()
+      res <- client.v2.packageService.listPackages()
       lf = DarParser.assertReadArchiveFromFile(dar.toFile)
     } yield res.packageIds.contains(lf.main.getHash)
   }

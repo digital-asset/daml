@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.platform.pekkostreams.dispatcher.{Dispatcher, SubSource}
+import com.digitalasset.canton.pekkostreams.dispatcher.{Dispatcher, SubSource}
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.MockitoSugar

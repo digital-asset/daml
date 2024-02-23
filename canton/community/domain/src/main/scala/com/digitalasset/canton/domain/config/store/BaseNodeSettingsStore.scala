@@ -5,9 +5,7 @@ package com.digitalasset.canton.domain.config.store
 
 import cats.data.EitherT
 import cats.instances.future.*
-import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
@@ -34,32 +32,6 @@ trait BaseNodeSettingsStore[T] extends AutoCloseable {
   def saveSettings(settings: T)(implicit
       traceContext: TraceContext
   ): EitherT[Future, BaseNodeSettingsStoreError, Unit]
-
-  // TODO(#15153) remove once we can assume that static domain parameters are persisted
-  protected def fixPreviousSettings(resetToConfig: Boolean, timeout: NonNegativeDuration)(
-      update: Option[T] => EitherT[Future, BaseNodeSettingsStoreError, Unit]
-  )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Unit = {
-
-    val eitherT = fetchSettings.flatMap {
-      // if a value is stored, don't do anything
-      case Some(_) if !resetToConfig =>
-        EitherT.rightT[Future, BaseNodeSettingsStoreError](())
-      case Some(value) =>
-        noTracingLogger.warn(
-          "Resetting static domain parameters to the ones defined in the config! Please disable this again."
-        )
-        update(Some(value))
-      case None => update(None)
-    }
-    // wait until setting of static domain parameters completed
-    timeout
-      .await("Setting static domain parameters")(eitherT.value)
-      .valueOr { err =>
-        logger.error(s"Failed to updating static domain parameters during initialization: $err")
-        throw new RuntimeException(err.toString)
-      }
-  }
-
 }
 
 object BaseNodeSettingsStore {

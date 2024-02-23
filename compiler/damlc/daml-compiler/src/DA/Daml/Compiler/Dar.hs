@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Compiler.Dar
     ( createDarFile
@@ -17,8 +17,6 @@ module DA.Daml.Compiler.Dar
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
-import Control.Applicative
-import Control.Exception (assert)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -28,12 +26,10 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
-import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
 import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
-import DA.Pretty (renderPretty)
 import qualified DA.Service.Logger as Logger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -139,19 +135,12 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
                  mbUpgradedPackage <-
-                   forM pUpgradedPackagePath $ \path ->
-                     if lfVersion `LF.supports` LF.featurePackageUpgrades
-                       then do
-                         ExtractedDar{edMain} <- liftIO $ extractDar path
-                         let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-                         case Archive.decodeArchive Archive.DecodeAsMain bs of
-                            Left _ -> error $ "Could not decode path " ++ path
-                            Right (pid, package) -> return (pid, package)
-                       else do
-                         liftIO $
-                           IdeLogger.logError (ideLogger service) $
-                             renderPretty $ EUnsupportedFeature LF.featurePackageUpgrades
-                         MaybeT (pure Nothing)
+                   forM pUpgradedPackagePath $ \path -> do
+                     ExtractedDar{edMain} <- liftIO $ extractDar path
+                     let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
+                     case Archive.decodeArchive Archive.DecodeAsMain bs of
+                        Left _ -> error $ "Could not decode path " ++ path
+                        Right (pid, package) -> return (pid, package)
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
@@ -277,15 +266,12 @@ getSrcRoot fileOrDir = do
 -- | Merge several packages into one.
 mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
 mergePkgs meta ver pkgs =
-    foldl'
-        (\pkg1 (WhnfPackage pkg2) -> assert (LF.packageLfVersion pkg1 == ver) $
-             LF.Package
-                 { LF.packageLfVersion = ver
-                 , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
-                 , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
-                 })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just meta }
-        pkgs
+    let mergedMods = foldl' NM.union NM.empty $ map (LF.packageModules . getWhnfPackage) pkgs
+     in LF.Package
+            { LF.packageLfVersion = ver
+            , LF.packageModules = mergedMods
+            , LF.packageMetadata = meta
+            }
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as
 -- main and return that file and all dependencies.

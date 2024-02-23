@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -101,7 +101,7 @@ object ContractIdClass {
   ) = {
     val exercisesParent =
       if (hasStandardArchive(choices, typeDeclarations))
-        classOf[javaapi.data.codegen.Exercises.Archive[_]]
+        classOf[javaapi.data.codegen.Exercises.Archivable[_]]
       else classOf[javaapi.data.codegen.Exercises[_]]
     val exercisesClass = TypeSpec
       .interfaceBuilder(exercisesInterface(className))

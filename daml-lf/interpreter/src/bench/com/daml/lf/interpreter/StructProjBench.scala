@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -43,6 +43,8 @@ class StructProjBench {
 
   private[this] def pkg = {
     p"""
+       metadata ( 'pkg' : '1.0.0' )
+
        module Mod {
 
         synonym Struct = < ${(0 until N).map(i => s"x$i : Int64").mkString(",")} > ;

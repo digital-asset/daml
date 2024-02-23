@@ -14,20 +14,18 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allSequentialIds: String =
     s"""
-      |SELECT event_sequential_id FROM participant_events_divulgence
+      |SELECT event_sequential_id FROM lapi_events_create
       |UNION ALL
-      |SELECT event_sequential_id FROM participant_events_create
+      |SELECT event_sequential_id FROM lapi_events_consuming_exercise
       |UNION ALL
-      |SELECT event_sequential_id FROM participant_events_consuming_exercise
-      |UNION ALL
-      |SELECT event_sequential_id FROM participant_events_non_consuming_exercise
+      |SELECT event_sequential_id FROM lapi_events_non_consuming_exercise
       |""".stripMargin
 
   private val SqlEventSequentialIdsSummary = SQL"""
       WITH sequential_ids AS (#$allSequentialIds)
       SELECT min(event_sequential_id) as min, max(event_sequential_id) as max, count(event_sequential_id) as count
-      FROM sequential_ids, parameters
-      WHERE event_sequential_id <= parameters.ledger_end_sequential_id
+      FROM sequential_ids, lapi_parameters
+      WHERE event_sequential_id <= lapi_parameters.ledger_end_sequential_id
       """
 
   // Don't fetch an unbounded number of rows
@@ -36,8 +34,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   private val SqlDuplicateEventSequentialIds = SQL"""
        WITH sequential_ids AS (#$allSequentialIds)
        SELECT event_sequential_id as id, count(*) as count
-       FROM sequential_ids, parameters
-       WHERE event_sequential_id <= parameters.ledger_end_sequential_id
+       FROM sequential_ids, lapi_parameters
+       WHERE event_sequential_id <= lapi_parameters.ledger_end_sequential_id
        GROUP BY event_sequential_id
        HAVING count(*) > 1
        FETCH NEXT #$maxReportedDuplicates ROWS ONLY
@@ -45,18 +43,18 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allEventIds: String =
     s"""
-       |SELECT event_offset, node_index FROM participant_events_create
+       |SELECT event_offset, node_index FROM lapi_events_create
        |UNION ALL
-       |SELECT event_offset, node_index FROM participant_events_consuming_exercise
+       |SELECT event_offset, node_index FROM lapi_events_consuming_exercise
        |UNION ALL
-       |SELECT event_offset, node_index FROM participant_events_non_consuming_exercise
+       |SELECT event_offset, node_index FROM lapi_events_non_consuming_exercise
        |""".stripMargin
 
   private val SqlDuplicateOffsets = SQL"""
        WITH event_ids AS (#$allEventIds)
        SELECT event_offset, node_index, count(*) as count
-       FROM event_ids, parameters
-       WHERE event_offset <= parameters.ledger_end
+       FROM event_ids, lapi_parameters
+       WHERE event_offset <= lapi_parameters.ledger_end
        GROUP BY event_offset, node_index
        HAVING count(*) > 1
        FETCH NEXT #$maxReportedDuplicates ROWS ONLY

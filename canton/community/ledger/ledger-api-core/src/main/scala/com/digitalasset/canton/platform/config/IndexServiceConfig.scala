@@ -4,8 +4,7 @@
 package com.digitalasset.canton.platform.config
 
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
-import com.digitalasset.canton.config.{DeprecatedConfigUtils, NonNegativeFiniteDuration}
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.typesafe.scalalogging.Logger
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -110,24 +109,6 @@ object ActiveContractsServiceStreamsConfig {
 
   val default: ActiveContractsServiceStreamsConfig = ActiveContractsServiceStreamsConfig()
 
-  trait ActiveContractsServiceDeprecationsImplicits {
-    implicit def deprecatedActiveContractsServiceConfig[X <: ActiveContractsServiceStreamsConfig]
-        : DeprecatedFieldsFor[X] = new DeprecatedFieldsFor[ActiveContractsServiceStreamsConfig] {
-      override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-        DeprecatedConfigUtils.MovedConfigPath("acs-id-page-size", "max-ids-per-id-page"),
-        DeprecatedConfigUtils
-          .MovedConfigPath("acs-id-page-buffer-size", "max-pages-per-id-pages-buffer"),
-        DeprecatedConfigUtils
-          .MovedConfigPath("acs-id-fetching-parallelism", "max-parallel-id-create-queries"),
-        DeprecatedConfigUtils.MovedConfigPath(
-          "acs-contract-fetching-parallelism",
-          "max-parallel-payload-create-queries",
-        ),
-      )
-    }
-  }
-
-  object DeprecatedImplicits extends ActiveContractsServiceDeprecationsImplicits
 }
 
 /** Flat transaction streams configuration.

@@ -78,3 +78,5 @@ out
 # Visual Studio Code
 .vscode/*
 !.vscode/settings.json.default
+
+/.tmp-pg/

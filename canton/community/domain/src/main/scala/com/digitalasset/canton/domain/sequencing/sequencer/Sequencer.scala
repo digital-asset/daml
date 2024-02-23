@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
@@ -15,14 +15,16 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
-import com.digitalasset.canton.lifecycle.HasCloseContext
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.util.EitherTUtil
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
@@ -75,30 +77,6 @@ trait Sequencer
   def registerMember(member: Member)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SequencerWriteError[RegisterMemberError], Unit]
-
-  /** Always returns false for Sequencer drivers that don't support ledger identity authorization. Otherwise returns
-    * whether the given ledger identity is registered on the underlying ledger (and configured smart contract).
-    */
-  def isLedgerIdentityRegistered(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): Future[Boolean]
-
-  /** Currently this method is only implemented by the enterprise-only Ethereum driver. It immediately returns a Left
-    * for ledgers where it is not implemented.
-    *
-    * This method authorizes a [[com.digitalasset.canton.domain.sequencing.sequencer.LedgerIdentity]] on the underlying ledger.
-    * In the Ethereum-backed ledger, this enables the given Ethereum account to also write to the deployed
-    * `Sequencer.sol` contract. Therefore, this method needs to be called before being able to use an Ethereum sequencer
-    * with a given Ethereum account.
-    *
-    * NB: in Ethereum, this method needs to be called by an Ethereum sequencer whose associated Ethereum account is
-    * already authorized. Else the authorization itself will fail.
-    * To bootstrap the authorization, the Ethereum account that deploys the `Sequencer.sol` contract is the first account
-    * to be authorized.
-    */
-  def authorizeLedgerIdentity(identity: LedgerIdentity)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
@@ -155,6 +133,15 @@ trait Sequencer
   def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext
   ): Future[SequencerTrafficStatus]
+
+  def setTrafficBalance(
+      member: Member,
+      serial: NonNegativeLong,
+      totalTrafficBalance: NonNegativeLong,
+      sequencerClient: SequencerClient,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp]
 
   /** Return the full traffic state of all known members.
     * This should not be exposed externally as is as it contains information not relevant to external consumers.

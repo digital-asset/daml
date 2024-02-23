@@ -1,11 +1,11 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc;
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory;
-import com.daml.ledger.api.v1.testing.TimeServiceGrpc;
-import com.daml.ledger.api.v1.testing.TimeServiceOuterClass;
+import com.daml.ledger.api.v2.testing.TimeServiceGrpc;
+import com.daml.ledger.api.v2.testing.TimeServiceOuterClass;
 import com.daml.ledger.rxjava.TimeClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
@@ -19,17 +19,12 @@ import java.util.Optional;
 
 public final class TimeClientImpl implements TimeClient {
 
-  private final String ledgerId;
   private final TimeServiceGrpc.TimeServiceFutureStub serviceFutureStub;
   private final TimeServiceGrpc.TimeServiceStub serviceStub;
   private final ExecutionSequencerFactory sequencerFactory;
 
   public TimeClientImpl(
-      String ledgerId,
-      Channel channel,
-      ExecutionSequencerFactory sequencerFactory,
-      Optional<String> accessToken) {
-    this.ledgerId = ledgerId;
+      Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
     this.sequencerFactory = sequencerFactory;
     this.serviceFutureStub =
         StubHelper.authenticating(TimeServiceGrpc.newFutureStub(channel), accessToken);
@@ -43,7 +38,6 @@ public final class TimeClientImpl implements TimeClient {
     }
     TimeServiceOuterClass.SetTimeRequest request =
         TimeServiceOuterClass.SetTimeRequest.newBuilder()
-            .setLedgerId(this.ledgerId)
             .setCurrentTime(
                 Timestamp.newBuilder()
                     .setSeconds(currentTime.getEpochSecond())
@@ -70,7 +64,7 @@ public final class TimeClientImpl implements TimeClient {
 
   private Flowable<Instant> getTime(Optional<String> accessToken) {
     TimeServiceOuterClass.GetTimeRequest request =
-        TimeServiceOuterClass.GetTimeRequest.newBuilder().setLedgerId(this.ledgerId).build();
+        TimeServiceOuterClass.GetTimeRequest.newBuilder().build();
     return ClientPublisherFlowable.create(
             request,
             StubHelper.authenticating(this.serviceStub, accessToken)::getTime,

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -325,14 +325,10 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "TRACE" -> BTrace,
     "ADD_NUMERIC" -> BAddNumeric,
     "SUB_NUMERIC" -> BSubNumeric,
-    "MUL_NUMERIC_LEGACY" -> BMulNumericLegacy,
     "MUL_NUMERIC" -> BMulNumeric,
-    "DIV_NUMERIC_LEGACY" -> BDivNumericLegacy,
     "DIV_NUMERIC" -> BDivNumeric,
     "ROUND_NUMERIC" -> BRoundNumeric,
-    "CAST_NUMERIC_LEGACY" -> BCastNumericLegacy,
     "CAST_NUMERIC" -> BCastNumeric,
-    "SHIFT_NUMERIC_LEGACY" -> BShiftNumericLegacy,
     "SHIFT_NUMERIC" -> BShiftNumeric,
     "ADD_INT64" -> BAddInt64,
     "SUB_INT64" -> BSubInt64,
@@ -340,7 +336,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "DIV_INT64" -> BDivInt64,
     "MOD_INT64" -> BModInt64,
     "EXP_INT64" -> BExpInt64,
-    "INT64_TO_NUMERIC_LEGACY" -> BInt64ToNumericLegacy,
     "INT64_TO_NUMERIC" -> BInt64ToNumeric,
     "NUMERIC_TO_INT64" -> BNumericToInt64,
     "DATE_TO_UNIX_DAYS" -> BDateToUnixDays,
@@ -377,7 +372,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "CODE_POINTS_TO_TEXT" -> BCodePointsToText,
     "TEXT_TO_PARTY" -> BTextToParty,
     "TEXT_TO_INT64" -> BTextToInt64,
-    "TEXT_TO_NUMERIC_LEGACY" -> BTextToNumericLegacy,
     "TEXT_TO_NUMERIC" -> BTextToNumeric,
     "TEXT_TO_CODE_POINTS" -> BTextToCodePoints,
     "ERROR" -> BError,
@@ -402,7 +396,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "MUL_BIGNUMERIC" -> BMulBigNumeric,
     "DIV_BIGNUMERIC" -> BDivBigNumeric,
     "SHIFT_RIGHT_BIGNUMERIC" -> BShiftRightBigNumeric,
-    "BIGNUMERIC_TO_NUMERIC_LEGACY" -> BBigNumericToNumericLegacy,
     "BIGNUMERIC_TO_NUMERIC" -> BBigNumericToNumeric,
     "NUMERIC_TO_BIGNUMERIC" -> BNumericToBigNumeric,
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,

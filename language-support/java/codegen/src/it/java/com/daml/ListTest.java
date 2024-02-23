@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml;
@@ -357,7 +357,6 @@ public class ListTest {
                             new IllegalArgumentException(
                                 "Expected list to be of type"
                                     + " com.daml.ledger.javaapi.data.DamlList"))
-                    .getValues()
                     .stream()
                     .map(
                         f1 ->

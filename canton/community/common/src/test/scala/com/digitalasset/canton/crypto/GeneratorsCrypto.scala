@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.Generators
 import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactory}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingIdentityFactoryX}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -66,28 +66,26 @@ object GeneratorsCrypto {
     NamedLoggerFactory.unnamedKey("test", "NotUsed-GeneratorsCrypto")
 
   lazy val cryptoFactory =
-    TestingIdentityFactory(loggerFactoryNotUsed).forOwnerAndDomain(
+    TestingIdentityFactoryX(loggerFactoryNotUsed).forOwnerAndDomain(
       DefaultTestIdentities.sequencerId
     )
   private lazy val sequencerKey =
-    TestingIdentityFactory(loggerFactoryNotUsed)
+    TestingIdentityFactoryX(loggerFactoryNotUsed)
       .newSigningPublicKey(DefaultTestIdentities.sequencerId)
       .fingerprint
   private lazy val privateCrypto = cryptoFactory.crypto.privateCrypto
   private lazy val pureCryptoApi: CryptoPureApi = cryptoFactory.pureCrypto
 
-  // TODO(#15813): Change arbitrary signing keys to match real keys
   implicit val signingPublicKeyArb: Arbitrary[SigningPublicKey] = Arbitrary(for {
     id <- Arbitrary.arbitrary[Fingerprint]
-    format = CryptoKeyFormat.Symbolic
+    format <- Arbitrary.arbitrary[CryptoKeyFormat]
     key <- Arbitrary.arbitrary[ByteString]
     scheme <- Arbitrary.arbitrary[SigningKeyScheme]
   } yield new SigningPublicKey(id, format, key, scheme))
 
-  // TODO(#15813): Change arbitrary encryption keys to match real keys
   implicit val encryptionPublicKeyArb: Arbitrary[EncryptionPublicKey] = Arbitrary(for {
     id <- Arbitrary.arbitrary[Fingerprint]
-    format = CryptoKeyFormat.Symbolic
+    format <- Arbitrary.arbitrary[CryptoKeyFormat]
     key <- Arbitrary.arbitrary[ByteString]
     scheme <- Arbitrary.arbitrary[EncryptionKeyScheme]
   } yield new EncryptionPublicKey(id, format, key, scheme))

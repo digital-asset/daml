@@ -7,10 +7,10 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.logging.NamedLogging
 import org.scalatest.Suite
 
-/** Mixin that provides an execution context for tests.
+/** Mixin that provides a default execution context for tests.
   * The execution context supports blocking operations, provided they are wrapped in [[scala.concurrent.blocking]]
   * or [[scala.concurrent.Await]].
   */
-trait HasExecutionContext extends HasExecutorService { this: Suite with NamedLogging =>
+trait HasExecutionContext extends HasExecutorService { this: Suite & NamedLogging =>
   implicit def parallelExecutionContext: ExecutionContextIdlenessExecutorService = executorService
 }

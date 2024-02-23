@@ -7,7 +7,6 @@ import better.files.File
 import cats.data.NonEmptyList
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.codahale.metrics
 import com.digitalasset.canton.admin.api.client.data.{CantonStatus, CommunityCantonStatus}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, Password}
@@ -22,44 +21,12 @@ import io.opentelemetry.sdk.metrics.data.MetricData
 
 import java.io.ByteArrayOutputStream
 import java.time.Instant
-import scala.concurrent.duration.TimeUnit
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object CantonHealthAdministrationEncoders {
-  implicit val timeUnitEncoder: Encoder[TimeUnit] = Encoder.encodeString.contramap(_.toString)
-
-  implicit val snapshotEncoder: Encoder[metrics.Snapshot] =
-    Encoder.forProduct4("mean", "std-dev", "p95", "median") { snapshot =>
-      def toMs(nanos: Double): Double = nanos / 1e6
-      (
-        toMs(snapshot.getMean),
-        toMs(snapshot.getStdDev),
-        toMs(snapshot.get95thPercentile()),
-        toMs(snapshot.getMedian),
-      )
-    }
-
-  implicit val counterEncoder: Encoder[metrics.Counter] = Encoder.forProduct1("count") { counter =>
-    counter.getCount
-  }
-  implicit val gaugeEncoder: Encoder[metrics.Gauge[_]] = Encoder.forProduct1("gauge") { gauge =>
-    gauge.getValue.toString
-  }
-  implicit val histoEncoder: Encoder[metrics.Histogram] =
-    Encoder.forProduct1("hist")(_.getSnapshot)
-
-  implicit val meterEncoder: Encoder[metrics.Meter] =
-    Encoder.forProduct3("count", "one-min-rate", "five-min-rate") { meter =>
-      (meter.getCount, meter.getFiveMinuteRate, meter.getOneMinuteRate)
-    }
-
-  implicit val timerEncoder: Encoder[metrics.Timer] =
-    Encoder.forProduct4("count", "one-min-rate", "five-min-rate", "hist") { timer =>
-      (timer.getCount, timer.getFiveMinuteRate, timer.getOneMinuteRate, timer.getSnapshot)
-    }
 
   /** Wraps the standardized log writer from OpenTelemetry, that outputs the metrics as JSON
     * Source: https://github.com/open-telemetry/opentelemetry-java/blob/main/exporters/logging-otlp/src/main/java/io/opentelemetry/exporter/logging/otlp/OtlpJsonLoggingMetricExporter.java
@@ -110,7 +77,7 @@ trait CantonHealthAdministration[Status <: CantonStatus]
   implicit private val ec: ExecutionContext = consoleEnv.environment.executionContext
   override val loggerFactory: NamedLoggerFactory = consoleEnv.environment.loggerFactory
 
-  protected def statusMap[A <: InstanceReferenceCommon](
+  protected def statusMap[A <: InstanceReference](
       nodes: NodeReferences[A, _, _]
   ): Map[String, () => NodeStatus[A#Status]] = {
     nodes.all.map { node => node.name -> (() => node.health.status) }.toMap
@@ -142,7 +109,7 @@ trait CantonHealthAdministration[Status <: CantonStatus]
     }
 
     // Try to get a local dump by going through the local nodes and returning the first one that succeeds
-    def getLocalDump(nodes: NonEmptyList[InstanceReferenceCommon]): Future[String] = {
+    def getLocalDump(nodes: NonEmptyList[InstanceReference]): Future[String] = {
       Future {
         nodes.head.health.dump(
           File.newTemporaryFile(s"local-"),
@@ -188,7 +155,8 @@ class CommunityCantonHealthAdministration(override val consoleEnv: ConsoleEnviro
   @Help.Summary("Aggregate status info of all participants and domains")
   def status(): CommunityCantonStatus = {
     CommunityCantonStatus.getStatus(
-      statusMap[DomainReference](consoleEnv.domains),
+      statusMap[SequencerNodeReference](consoleEnv.sequencers),
+      statusMap[MediatorReference](consoleEnv.mediators),
       statusMap[ParticipantReference](consoleEnv.participants),
     )
   }

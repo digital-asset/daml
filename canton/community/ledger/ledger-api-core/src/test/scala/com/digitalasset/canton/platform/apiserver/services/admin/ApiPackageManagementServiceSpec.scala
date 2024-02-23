@@ -23,8 +23,8 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
-import com.digitalasset.canton.ledger.api.domain.LedgerOffset.Absolute
 import com.digitalasset.canton.ledger.api.domain.PackageEntry
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexPackagesService,
   IndexTransactionsService,
@@ -235,18 +235,18 @@ object ApiPackageManagementServiceSpec {
     val pkg = Ast.GenPackage[Expr](
       Map.empty,
       Set.empty,
-      LanguageVersion.default,
-      Some(
-        Ast.PackageMetadata(
-          Ref.PackageName.assertFromString("aPackage"),
-          Ref.PackageVersion.assertFromString("0.0.0"),
-          None,
-        )
+      // TODO(#14706): revert to LanguageVersion.default once default's major version is 2
+      LanguageVersion.v2_1,
+      Ast.PackageMetadata(
+        Ref.PackageName.assertFromString("aPackage"),
+        Ref.PackageVersion.assertFromString("0.0.0"),
+        None,
       ),
     )
     Encode.encodeArchive(
       Ref.PackageId.assertFromString("-pkgId-") -> pkg,
-      LanguageVersion.default,
+      // TODO(#14706): revert to LanguageVersion.default once default's major version is 2
+      LanguageVersion.v2_1,
     )
   }
 

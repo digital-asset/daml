@@ -169,7 +169,7 @@ private[mediator] class MediatorState(
   )
 
   /** Prune unnecessary data from before and including the given timestamp which should be calculated by the [[Mediator]]
-    * based on the participant response timeout domain parameters. In practice a much larger retention period
+    * based on the confirmation response timeout domain parameters. In practice a much larger retention period
     * may be kept.
     *
     * Also updates the current age of the oldest finalized response after pruning.

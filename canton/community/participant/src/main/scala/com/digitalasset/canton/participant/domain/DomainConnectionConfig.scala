@@ -7,9 +7,9 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.DomainTimeTrackerConfig
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.admin.v0
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
@@ -59,6 +59,7 @@ final case class DomainConnectionConfig(
     initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
     maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
     timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
+    initializeFromTrustedDomain: Boolean = false,
 ) extends HasVersionedWrapper[DomainConnectionConfig]
     with PrettyPrinting {
 
@@ -69,22 +70,28 @@ final case class DomainConnectionConfig(
       sequencerAlias: SequencerAlias,
       connection: String,
       additionalConnections: String*
-  ): DomainConnectionConfig =
-    addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_)): _*)
+  ): Either[String, DomainConnectionConfig] =
+    addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_))*)
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: URI,
       additionalConnections: URI*
-  ): DomainConnectionConfig =
-    copy(sequencerConnections =
-      sequencerConnections.addEndpoints(sequencerAlias, connection, additionalConnections: _*)
+  ): Either[String, DomainConnectionConfig] = for {
+    sequencerConnections <- sequencerConnections.addEndpoints(
+      sequencerAlias,
+      connection,
+      additionalConnections*
     )
-  def addConnection(connection: SequencerConnection): DomainConnectionConfig = {
-    copy(sequencerConnections =
-      sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
-    )
-  }
+  } yield (
+    copy(sequencerConnections = sequencerConnections)
+  )
+
+  def addConnection(connection: SequencerConnection): Either[String, DomainConnectionConfig] = for {
+    sequencerConnections <- sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
+  } yield (
+    copy(sequencerConnections = sequencerConnections)
+  )
 
   def withCertificates(
       sequencerAlias: SequencerAlias,
@@ -102,19 +109,20 @@ final case class DomainConnectionConfig(
       paramIfDefined("initialRetryDelay", _.initialRetryDelay),
       paramIfDefined("maxRetryDelay", _.maxRetryDelay),
       paramIfNotDefault("timeTracker", _.timeTracker, DomainTimeTrackerConfig()),
+      paramIfNotDefault("initializeFromTrustedDomain", _.initializeFromTrustedDomain, false),
     )
 
-  def toProtoV0: v0.DomainConnectionConfig =
-    v0.DomainConnectionConfig(
+  def toProtoV30: v30.DomainConnectionConfig =
+    v30.DomainConnectionConfig(
       domainAlias = domain.unwrap,
-      sequencerConnections = sequencerConnections.toProtoV0,
+      sequencerConnections = sequencerConnections.toProtoV30.some,
       manualConnect = manualConnect,
       domainId = domainId.fold("")(_.toProtoPrimitive),
       priority = priority,
       initialRetryDelay = initialRetryDelay.map(_.toProtoPrimitive),
       maxRetryDelay = maxRetryDelay.map(_.toProtoPrimitive),
-      timeTracker = timeTracker.toProtoV0.some,
-      sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold.unwrap,
+      timeTracker = timeTracker.toProtoV30.some,
+      initializeFromTrustedDomain = initializeFromTrustedDomain,
     )
 }
 
@@ -122,10 +130,10 @@ object DomainConnectionConfig
     extends HasVersionedMessageCompanion[DomainConnectionConfig]
     with HasVersionedMessageCompanionDbHelpers[DomainConnectionConfig] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(0) -> ProtoCodec(
-      ProtocolVersion.v3,
-      supportedProtoVersion(v0.DomainConnectionConfig)(fromProtoV0),
-      _.toProtoV0.toByteString,
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v30,
+      supportedProtoVersion(v30.DomainConnectionConfig)(fromProtoV30),
+      _.toProtoV30.toByteString,
     )
   )
   override def name: String = "domain connection config"
@@ -141,6 +149,7 @@ object DomainConnectionConfig
       initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
       maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
       timeTracker: DomainTimeTrackerConfig = DomainTimeTrackerConfig(),
+      initializeFromTrustedDomain: Boolean = false,
   ): DomainConnectionConfig =
     DomainConnectionConfig(
       domainAlias,
@@ -153,31 +162,31 @@ object DomainConnectionConfig
       initialRetryDelay,
       maxRetryDelay,
       timeTracker,
+      initializeFromTrustedDomain,
     )
 
-  def fromProtoV0(
-      domainConnectionConfigP: v0.DomainConnectionConfig
+  def fromProtoV30(
+      domainConnectionConfigP: v30.DomainConnectionConfig
   ): ParsingResult[DomainConnectionConfig] = {
-    val v0.DomainConnectionConfig(
+    val v30.DomainConnectionConfig(
       domainAlias,
-      sequencerConnectionP,
+      sequencerConnectionsPO,
       manualConnect,
       domainId,
       priority,
       initialRetryDelayP,
       maxRetryDelayP,
       timeTrackerP,
-      sequencerTrustThreshold,
+      initializeFromTrustedDomain,
     ) =
       domainConnectionConfigP
     for {
       alias <- DomainAlias
         .create(domainAlias)
         .leftMap(err => InvariantViolation(s"DomainConnectionConfig.DomainAlias: $err"))
-      sequencerConnections <- SequencerConnections.fromLegacyProtoV0(
-        sequencerConnectionP,
-        sequencerTrustThreshold,
-      )
+      sequencerConnections <- ProtoConverter
+        .required("sequencerConnections", sequencerConnectionsPO)
+        .flatMap(SequencerConnections.fromProtoV30)
       domainId <- OptionUtil
         .emptyStringAsNone(domainId)
         .traverse(DomainId.fromProtoPrimitive(_, "domain_id"))
@@ -201,6 +210,7 @@ object DomainConnectionConfig
       initialRetryDelay,
       maxRetryDelay,
       timeTracker,
+      initializeFromTrustedDomain,
     )
   }
 }

@@ -20,7 +20,6 @@ import com.digitalasset.canton.platform.config.{
 }
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
@@ -362,15 +361,6 @@ class PureConfigReaderWriterSpec
     val value = "unknown-key=yes\n" + validCommandConfigurationValue
     convert(commandConfigurationConvert, value).left.value
       .prettyPrint(0) should include("Unknown key")
-  }
-
-  behavior of "TimeProviderType"
-
-  it should "read/write against predefined values" in {
-    timeProviderTypeConvert.to(TimeProviderType.Static) shouldBe fromAnyRef("static")
-    timeProviderTypeConvert.to(TimeProviderType.WallClock) shouldBe fromAnyRef("wall-clock")
-    timeProviderTypeConvert.from(fromAnyRef("static")).value shouldBe TimeProviderType.Static
-    timeProviderTypeConvert.from(fromAnyRef("wall-clock")).value shouldBe TimeProviderType.WallClock
   }
 
   behavior of "SynchronousCommitValue"

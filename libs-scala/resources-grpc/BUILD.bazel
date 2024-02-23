@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite")
@@ -31,7 +31,6 @@ da_scala_test_suite(
     deps = [
         ":resources-grpc",
         "//libs-scala/resources",
-        "//libs-scala/resources:resources-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_inprocess",
@@ -39,7 +38,6 @@ da_scala_test_suite(
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_netty_netty_common",
-        "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
     ],
 )

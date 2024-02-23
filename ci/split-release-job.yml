@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 jobs:
@@ -97,7 +97,7 @@ jobs:
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
-        tell_slack "Split release \`$(release_tag)\` just pushed to Artifactory." \
+        tell_slack "SDK release \`$(release_tag)\` just pushed to Artifactory." \
                    "$(Slack.team-canton)"
     - template: tell-slack-failed.yml
       parameters:

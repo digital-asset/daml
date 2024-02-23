@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -295,10 +295,9 @@ object NormalizeRollbackSpec {
   private def dummyCreateNode(n: Long): Node.Create =
     Node.Create(
       coid = toCid("dummyCid"),
-      packageName = None,
+      packageName = Ref.PackageName.assertFromString("-pkgName-"),
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueInt64(n),
-      agreementText = "dummyAgreement",
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,
@@ -310,7 +309,7 @@ object NormalizeRollbackSpec {
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = toCid("dummyTargetCoid"),
-      packageName = None,
+      packageName = Ref.PackageName.assertFromString("-pkgName-"),
       templateId = Ref.Identifier(
         Ref.PackageId.assertFromString("-dummyPkg-"),
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),

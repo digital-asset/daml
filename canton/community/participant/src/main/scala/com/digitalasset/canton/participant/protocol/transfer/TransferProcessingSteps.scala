@@ -12,37 +12,30 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
 import com.digitalasset.canton.data.ViewType.TransferViewType
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  TransferCommonData,
-  TransferSubmitterMetadata,
-  ViewType,
-}
+import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
+import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.LocalOffset
+import com.digitalasset.canton.participant.RequestOffset
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
   NoMediatorError,
   ProcessorError,
 }
-import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
   ProtocolProcessor,
   SubmissionTracker,
-  TransactionProcessor,
 }
 import com.digitalasset.canton.participant.store.TransferStore.TransferStoreError
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.MediatorResponse.InvalidMediatorResponse
+import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.protocol.messages.Verdict.{
   Approve,
   MediatorReject,
@@ -52,12 +45,10 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, WithRecipients}
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 
@@ -113,14 +104,11 @@ trait TransferProcessingSteps[
   ): Option[PendingTransferSubmission] =
     pendingSubmissions.remove(pendingSubmissionId)
 
-  override def postProcessSubmissionForInactiveMediator(
-      declaredMediator: MediatorRef,
-      ts: CantonTimestamp,
+  override def postProcessSubmissionRejectedCommand(
+      error: TransactionError,
       pendingSubmission: PendingTransferSubmission,
-  )(implicit traceContext: TraceContext): Unit = {
-    val error = SubmissionErrors.InactiveMediatorError.Error(declaredMediator, ts)
+  )(implicit traceContext: TraceContext): Unit =
     pendingSubmission.transferCompletion.success(error.rpcStatus())
-  }
 
   override def postProcessResult(
       verdict: Verdict,
@@ -130,7 +118,7 @@ trait TransferProcessingSteps[
       case _: Approve =>
         com.google.rpc.status.Status(com.google.rpc.Code.OK_VALUE)
       case reject: MediatorReject =>
-        reject.rpcStatusWithoutLoggingContext()
+        reject.reason
       case reasons: ParticipantReject =>
         reasons.keyEvent.rpcStatus()
     }
@@ -197,7 +185,7 @@ trait TransferProcessingSteps[
   override def constructResponsesForMalformedPayloads(
       requestId: RequestId,
       malformedPayloads: Seq[MalformedPayload],
-  )(implicit traceContext: TraceContext): Seq[MediatorResponse] =
+  )(implicit traceContext: TraceContext): Seq[ConfirmationResponse] =
     // TODO(i12926) This will crash the SyncDomain
     ErrorUtil.internalError(
       new UnsupportedOperationException(
@@ -208,31 +196,22 @@ trait TransferProcessingSteps[
   protected def hostedStakeholders(
       stakeholders: List[LfPartyId],
       snapshot: TopologySnapshot,
-  ): Future[List[LfPartyId]] = {
-    import cats.implicits.*
-    stakeholders.parTraverseFilter { stk =>
-      for {
-        relationshipO <- snapshot.hostedOn(stk, participantId)
-      } yield {
-        relationshipO.map { _ => stk }
-      }
-    }
-  }
+  )(implicit traceContext: TraceContext): Future[List[LfPartyId]] =
+    snapshot.hostedOn(stakeholders.toSet, participantId).map(_.keySet.toList)
 
-  override def eventAndSubmissionIdForInactiveMediator(
+  override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
       rc: RequestCounter,
       sc: SequencerCounter,
-      fullViews: NonEmpty[Seq[WithRecipients[FullView]]],
+      submitterMetadata: ViewSubmitterMetadata,
+      rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
+      error: TransactionError,
   )(implicit
       traceContext: TraceContext
   ): (Option[TimestampedEvent], Option[PendingSubmissionId]) = {
-    val someView = fullViews.head1
-    val mediator = someView.unwrap.mediator
-    val submitterMetadata = someView.unwrap.submitterMetadata
-
-    val isSubmittingParticipant = submitterMetadata.submittingParticipant == participantId.toLf
+    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(error.rpcStatus())
+    val isSubmittingParticipant = submitterMetadata.submittingParticipant == participantId
 
     lazy val completionInfo = CompletionInfo(
       actAs = List(submitterMetadata.submitter),
@@ -243,22 +222,16 @@ trait TransferProcessingSteps[
       statistics = None,
     )
 
-    lazy val rejection = LedgerSyncEvent.CommandRejected.FinalReason(
-      TransactionProcessor.SubmissionErrors.InactiveMediatorError
-        .Error(mediator, ts)
-        .rpcStatus()
-    )
-
     val tse = Option.when(isSubmittingParticipant)(
       TimestampedEvent(
         LedgerSyncEvent
-          .CommandRejected(ts.toLf, completionInfo, rejection, requestType, Some(domainId.unwrap)),
-        LocalOffset(rc),
+          .CommandRejected(ts.toLf, completionInfo, rejection, requestType, domainId.unwrap),
+        RequestOffset(ts, rc),
         Some(sc),
       )
     )
 
-    (tse, fullViews.head1.unwrap.rootHash.some)
+    (tse, rootHash.some)
   }
 
   override def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
@@ -267,7 +240,7 @@ trait TransferProcessingSteps[
 
     val RejectionArgs(pendingTransfer, rejectionReason) = rejectionArgs
     val isSubmittingParticipant =
-      pendingTransfer.submitterMetadata.submittingParticipant == participantId.toLf
+      pendingTransfer.submitterMetadata.submittingParticipant == participantId
 
     val completionInfoO = Option.when(isSubmittingParticipant)(
       CompletionInfo(
@@ -291,9 +264,9 @@ trait TransferProcessingSteps[
             info,
             rejection,
             requestType,
-            Some(domainId.unwrap),
+            domainId.unwrap,
           ),
-        LocalOffset(pendingTransfer.requestCounter),
+        RequestOffset(pendingTransfer.requestId.unwrap, pendingTransfer.requestCounter),
         Some(pendingTransfer.requestSequencerCounter),
       )
     )
@@ -307,9 +280,14 @@ trait TransferProcessingSteps[
   ): Either[TransferProcessorError, CantonTimestamp] =
     parameters.decisionTimeFor(requestTs).leftMap(TransferParametersError(parameters.domainId, _))
 
-  override def getSubmissionDataForTracker(
-      views: Seq[FullView]
-  ): Option[SubmissionTracker.SubmissionData] = None // Currently not used for transfers
+  override def getSubmitterInformation(
+      views: Seq[DecryptedView]
+  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) = {
+    val submitterMetadataO = views.map(_.submitterMetadata).headOption
+    val submissionDataForTrackerO = None // Currently not used for transfers
+
+    (submitterMetadataO, submissionDataForTrackerO)
+  }
 
   override def participantResponseDeadlineFor(
       parameters: DynamicDomainParametersWithValidity,
@@ -512,8 +490,10 @@ object TransferProcessingSteps {
     override def message: String = s"Cannot transfer-$kind: duplicatehash"
   }
 
-  final case class FailedToCreateResponse(transferId: TransferId, error: InvalidMediatorResponse)
-      extends TransferProcessorError {
+  final case class FailedToCreateResponse(
+      transferId: TransferId,
+      error: InvalidConfirmationResponse,
+  ) extends TransferProcessorError {
     override def message: String = s"Cannot transfer `$transferId`: failed to create response"
   }
 
@@ -535,46 +515,4 @@ object TransferProcessingSteps {
       param("error", _.error.unquoted),
     )
   }
-
-  // Disallow reassignments from a source domains that support transfer counters to a
-  // destination domain that does not support them
-  def incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-  ): Boolean =
-    (sourcePV.v >= TransferCommonData.minimumPvForTransferCounter) && (targetPV.v < TransferCommonData.minimumPvForTransferCounter)
-
-  def PVSourceDestinationDomainsAreCompatible(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-      contractId: LfContractId,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    //  In PV=4, we introduced the sourceProtocolVersion in TransferInView, which is needed for
-    //  proper deserialization. Hence, we disallow some transfers
-    val missingSourceProtocolVersionInTransferIn = targetPV.v <= ProtocolVersion.v3
-    val isSourceProtocolVersionRequired = sourcePV.v >= ProtocolVersion.v4
-
-    condUnitET[FutureUnlessShutdown](
-      !(missingSourceProtocolVersionInTransferIn && isSourceProtocolVersionRequired) && !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(
-        sourcePV,
-        targetPV,
-      ),
-      IncompatibleProtocolVersions(contractId, sourcePV, targetPV),
-    )
-  }
-
-  def checkIncompatiblePV(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-      contractId: LfContractId,
-  ): Either[IncompatibleProtocolVersions, Unit] =
-    Either.cond(
-      !incompatibleProtocolVersionsBetweenSourceAndDestinationDomains(sourcePV, targetPV),
-      (),
-      IncompatibleProtocolVersions(
-        contractId,
-        sourcePV,
-        targetPV,
-      ),
-    )
 }

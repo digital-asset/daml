@@ -15,14 +15,14 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceCommon,
+  InstanceReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.{KeyOwner, KeyOwnerCode}
+import com.digitalasset.canton.topology.{Member, MemberCode}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 
 class SecretKeyAdministration(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     override protected val consoleEnvironment: ConsoleEnvironment,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -140,7 +140,7 @@ class SecretKeyAdministration(
   private def findPublicKey(
       fingerprint: String,
       topologyAdmin: TopologyAdministrationGroupCommon,
-      owner: KeyOwner,
+      owner: Member,
   ): PublicKey =
     findPublicKeys(topologyAdmin, owner).find(_.fingerprint.unwrap == fingerprint) match {
       case Some(key) => key
@@ -159,7 +159,7 @@ class SecretKeyAdministration(
   )
   def rotate_kms_node_key(fingerprint: String, newKmsKeyId: String): PublicKey = {
 
-    val owner = instance.id.keyOwner
+    val owner = instance.id.member
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
     val newKey = currentKey.purpose match {
@@ -184,7 +184,7 @@ class SecretKeyAdministration(
       |The fingerprint of the key we want to rotate."""
   )
   def rotate_node_key(fingerprint: String, name: Option[String] = None): PublicKey = {
-    val owner = instance.id.keyOwner
+    val owner = instance.id.member
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
 
@@ -217,7 +217,7 @@ class SecretKeyAdministration(
   )
   def rotate_node_keys(): Unit = {
 
-    val owner = instance.id.keyOwner
+    val owner = instance.id.member
 
     // Find the current keys
     val currentKeys = findPublicKeys(instance.topology, owner)
@@ -246,18 +246,10 @@ class SecretKeyAdministration(
     */
   protected def findPublicKeys(
       topologyAdmin: TopologyAdministrationGroupCommon,
-      owner: KeyOwner,
+      owner: Member,
   ): Seq[PublicKey] =
     topologyAdmin match {
-      case t: TopologyAdministrationGroup =>
-        t.owner_to_key_mappings
-          .list(
-            filterStore = AuthorizedStore.filterName,
-            filterKeyOwnerUid = owner.filterString,
-            filterKeyOwnerType = Some(owner.code),
-          )
-          .map(_.item.key)
-      case tx: TopologyAdministrationGroupX =>
+      case tx: TopologyAdministrationGroup =>
         tx.owner_to_key_mappings
           .list(
             filterStore = AuthorizedStore.filterName,
@@ -266,8 +258,9 @@ class SecretKeyAdministration(
           )
           .flatMap(_.item.keys)
       case _ =>
+        // TODO(#15161): Remove the match when flattening TopologyAdministrationGroup and Common
         throw new IllegalStateException(
-          "Impossible to encounter topology admin group besides X and non-X"
+          "Impossible to encounter topology admin group besides X"
         )
     }
 
@@ -469,11 +462,11 @@ class PublicKeyAdministration(
   @Help.Summary("List active owners with keys for given search arguments.")
   @Help.Description("""This command allows deep inspection of the topology state.
       |The response includes the public keys.
-      |Optional filterKeyOwnerType type can be 'ParticipantId.Code' , 'MediatorId.Code','SequencerId.Code', 'DomainTopologyManagerId.Code'.
+      |Optional filterKeyOwnerType type can be 'ParticipantId.Code' , 'MediatorId.Code','SequencerId.Code'.
       |""")
   def list_owners(
       filterKeyOwnerUid: String = "",
-      filterKeyOwnerType: Option[KeyOwnerCode] = None,
+      filterKeyOwnerType: Option[MemberCode] = None,
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
@@ -490,7 +483,7 @@ class PublicKeyAdministration(
       |The response includes the public keys."""
   )
   def list_by_owner(
-      keyOwner: KeyOwner,
+      keyOwner: Member,
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
@@ -508,7 +501,7 @@ class PublicKeyAdministration(
 }
 
 class KeyAdministrationGroup(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     loggerFactory: NamedLoggerFactory,
@@ -530,7 +523,7 @@ class KeyAdministrationGroup(
 }
 
 class LocalSecretKeyAdministration(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     crypto: => Crypto,
@@ -596,7 +589,7 @@ class LocalSecretKeyAdministration(
 }
 
 class LocalKeyAdministrationGroup(
-    instance: InstanceReferenceCommon,
+    instance: InstanceReference,
     runner: AdminCommandRunner,
     consoleEnvironment: ConsoleEnvironment,
     crypto: => Crypto,

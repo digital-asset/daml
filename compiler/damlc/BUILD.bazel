@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
@@ -23,6 +23,7 @@ copy_file(
     out = "hpp" + (".exe" if is_windows else ""),
     allow_symlink = True,
     is_executable = True,
+    visibility = ["//visibility:public"],
 )
 
 package_app(
@@ -337,7 +338,7 @@ genrule(
             --output=daml-base-rst \\
             --input-format=json \\
             --format=Rst \\
-            --exclude-instances=HasField \\
+            --exclude-instances=GetField,SetField \\
             --drop-orphan-instances \\
             --template=$(location :daml-base-rst-template) \\
             --index-template=$(location :daml-base-rst-index-template) \\
@@ -366,9 +367,11 @@ daml_doc_test(
         "--import-source=no",
     ],
     ignored_srcs = [
-        "LibraryModules.daml",
-        "DA/Experimental/*.daml",
-        "DA/Time/Types.daml",
         "DA/Action/State/Type.daml",
+        "DA/Experimental/*.daml",
+        "DA/Internal/Scenario.daml",
+        "DA/Scenario.daml",
+        "DA/Time/Types.daml",
+        "LibraryModules.daml",
     ],
 )

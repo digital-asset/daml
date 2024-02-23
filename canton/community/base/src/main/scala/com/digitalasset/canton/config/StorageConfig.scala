@@ -22,13 +22,6 @@ import scala.jdk.CollectionConverters.*
   * @param failFastOnStartup If true, the node will fail-fast when the database cannot be connected to
   *                    If false, the node will wait indefinitely for the database to come up
   * @param migrationsPaths Where should database migrations be read from. Enables specialized DDL for different database servers (e.g. Postgres, Oracle).
-  * @param ledgerApiJdbcUrl Canton attempts to generate appropriate configuration for the daml ledger-api to persist the data it requires.
-  *                   In most circumstances this should be sufficient and there is no need to override this.
-  *                   However if this generation fails or an advanced configuration is required, the ledger-api jdbc url can be
-  *                   explicitly configured using this property.
-  *                   The jdbc url **must** specify the schema of `ledger_api` (using h2 parameter `schema` or postgres parameter `currentSchema`).
-  *                   This property is not used by a domain node as it does not run a ledger-api instance,
-  *                   and will be ignored if the node is configured with in-memory persistence.
   * @param connectionTimeout How long to wait for acquiring a database connection
   * @param warnOnSlowQuery Optional time when we start logging a query as slow.
   * @param warnOnSlowQueryInterval How often to repeat the logging statement for slow queries.
@@ -46,7 +39,6 @@ final case class DbParametersConfig(
     connectionAllocation: ConnectionAllocation = ConnectionAllocation(),
     failFastOnStartup: Boolean = true,
     migrationsPaths: Seq[String] = Seq.empty,
-    ledgerApiJdbcUrl: Option[String] = None,
     connectionTimeout: NonNegativeFiniteDuration = DbConfig.defaultConnectionTimeout,
     warnOnSlowQuery: Option[PositiveFiniteDuration] = None,
     warnOnSlowQueryInterval: PositiveFiniteDuration =
@@ -64,7 +56,6 @@ final case class DbParametersConfig(
             Some(x.migrationsPaths.map(_.doubleQuoted))
           else None,
       ),
-      paramIfDefined("ledgerApiJdbcUrl", _.ledgerApiJdbcUrl.map(_.doubleQuoted)),
       paramIfDefined("maxConnections", _.maxConnections),
       param("connectionAllocation", _.connectionAllocation),
       param("failFast", _.failFastOnStartup),
@@ -75,16 +66,29 @@ final case class DbParametersConfig(
 /** Various settings to control batching behaviour related to db queries
   *
   * @param maxItemsInSqlClause    maximum number of items to place in sql "in clauses"
+  * @param maxPruningBatchSize    maximum number of events to prune from a participant at a time, used to break up canton participant-internal batches
+  * @param ledgerApiPruningBatchSize  Number of events to prune from the ledger api server index-database at a time during automatic background pruning.
+  *                                   Canton-internal store pruning happens at the smaller batch size of "maxPruningBatchSize" to minimize memory usage
+  *                                   whereas ledger-api-server index-db pruning needs sufficiently large batches to amortize the database overhead of
+  *                                   "skipping over" active contracts.
   * @param parallelism            number of parallel queries to the db. defaults to 8
+  * @param aggregator             batching configuration for DB queries
   */
 final case class BatchingConfig(
     maxItemsInSqlClause: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsInSqlClause,
+    maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
+    ledgerApiPruningBatchSize: PositiveNumeric[Int] =
+      BatchingConfig.defaultLedgerApiPruningBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
+    aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
 )
 
 object BatchingConfig {
-  private val defaultMaxItemsInSqlClause: PositiveNumeric[Int] = PositiveNumeric.tryCreate(100)
-  private val defaultBatchingParallelism: PositiveNumeric[Int] = PositiveNumeric.tryCreate(8)
+  private val defaultMaxItemsInSqlClause: PositiveInt = PositiveNumeric.tryCreate(100)
+  private val defaultBatchingParallelism: PositiveInt = PositiveNumeric.tryCreate(8)
+  private val defaultMaxPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
+  private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
+  private val defaultAggregator: BatchAggregatorConfig.Batching = BatchAggregatorConfig.Batching()
 }
 
 final case class ConnectionAllocation(
@@ -128,44 +132,48 @@ trait StorageConfig {
   /** Returns the size of the Canton read connection pool for the given usage.
     *
     * @param forParticipant          True if the connection pool is used by a participant, then we reserve connections for the ledger API server.
+    * @param withWriteConnectionPool True for a replicated node's write connection pool, then we split the available connections between the read and write pools.
+    * @param withMainConnection      True for accounting an additional connection (write connection, or main connection with lock)
     */
   def numReadConnectionsCanton(
-      forParticipant: Boolean
+      forParticipant: Boolean,
+      withWriteConnectionPool: Boolean,
+      withMainConnection: Boolean,
   ): PositiveInt =
     parameters.connectionAllocation.numReads.getOrElse(
-      numConnectionsCanton(
-        forParticipant,
-        withWriteConnectionPool = true,
-        withMainConnection = false,
-      )
+      numConnectionsCanton(forParticipant, withWriteConnectionPool, withMainConnection)
     )
 
   /** Returns the size of the Canton write connection pool for the given usage.
     *
     * @param forParticipant          True if the connection pool is used by a participant, then we reserve connections for the ledger API server.
+    * @param withWriteConnectionPool True for a replicated node's write connection pool, then we split the available connections between the read and write pools.
+    * @param withMainConnection      True for accounting an additional connection (write connection, or main connection with lock)
     */
-  def numWriteConnectionsCanton(forParticipant: Boolean): PositiveInt =
+  def numWriteConnectionsCanton(
+      forParticipant: Boolean,
+      withWriteConnectionPool: Boolean,
+      withMainConnection: Boolean,
+  ): PositiveInt =
     parameters.connectionAllocation.numWrites.getOrElse(
-      numConnectionsCanton(
-        forParticipant,
-        withWriteConnectionPool = true,
-        withMainConnection = true,
-      )
+      numConnectionsCanton(forParticipant, withWriteConnectionPool, withMainConnection)
     )
 
   /** Returns the size of the combined Canton read+write connection pool for the given usage.
     *
     * @param forParticipant          True if the connection pool is used by a participant, then we reserve connections for the ledger API server.
+    * @param withWriteConnectionPool True for a replicated node's write connection pool, then we split the available connections between the read and write pools.
+    * @param withMainConnection      True for accounting an additional connection (write connection, or main connection with lock)
     */
-  def numCombinedConnectionsCanton(forParticipant: Boolean): PositiveInt =
+  def numCombinedConnectionsCanton(
+      forParticipant: Boolean,
+      withWriteConnectionPool: Boolean,
+      withMainConnection: Boolean,
+  ): PositiveInt =
     (parameters.connectionAllocation.numWrites.toList ++ parameters.connectionAllocation.numReads.toList)
       .reduceOption(_ + _)
       .getOrElse(
-        numConnectionsCanton(
-          forParticipant,
-          withWriteConnectionPool = false,
-          withMainConnection = false,
-        )
+        numConnectionsCanton(forParticipant, withWriteConnectionPool, withMainConnection)
       )
 
   /** Returns the size of the Canton connection pool for the given usage.

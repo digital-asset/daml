@@ -6,8 +6,9 @@ package com.digitalasset.canton
 import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersion,
+  AuthenticatedContractIdVersionV2,
   ExampleTransactionFactory,
   LfContractId,
   LfGlobalKey,
@@ -16,12 +17,19 @@ import com.digitalasset.canton.protocol.{
   LfTransactionVersion,
   Unicum,
 }
-import magnolify.scalacheck.auto.*
+import com.digitalasset.canton.topology.PartyId
 import org.scalacheck.{Arbitrary, Gen}
 
 object GeneratorsLf {
+  import com.digitalasset.canton.data.GeneratorsDataTime.*
+  import com.digitalasset.canton.topology.GeneratorsTopology.*
+
   implicit val lfPartyIdArb: Arbitrary[LfPartyId] = Arbitrary(
-    com.digitalasset.canton.topology.GeneratorsTopology.partyIdArb.arbitrary.map(_.toLf)
+    Arbitrary.arbitrary[PartyId].map(_.toLf)
+  )
+
+  implicit val lfTimestampArb: Arbitrary[LfTimestamp] = Arbitrary(
+    Arbitrary.arbitrary[CantonTimestamp].map(_.underlying)
   )
 
   implicit val lfContractIdArb: Arbitrary[LfContractId] = Arbitrary(
@@ -33,7 +41,7 @@ object GeneratorsLf {
       contractIdSuffix = Unicum(
         Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(suffix).finish()
       )
-    } yield AuthenticatedContractIdVersion.fromDiscriminator(
+    } yield AuthenticatedContractIdVersionV2.fromDiscriminator(
       contractIdDiscriminator,
       contractIdSuffix,
     )
@@ -71,5 +79,7 @@ object GeneratorsLf {
     lfVersionedGlobalKeyGen
   )
 
-  implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] = genArbitrary
+  implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] =
+    Arbitrary(Gen.oneOf(LfTransactionVersion.All))
+
 }

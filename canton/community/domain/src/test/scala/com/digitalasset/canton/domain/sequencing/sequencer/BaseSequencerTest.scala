@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
@@ -16,9 +16,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.time.SimClock
@@ -29,6 +30,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
 }
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.traffic.TrafficControlErrors
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.apache.pekko.Done
@@ -43,7 +45,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
   val messageId = MessageId.tryCreate("test-message-id")
   def mkBatch(recipients: Set[Member]): Batch[ClosedEnvelope] =
     Batch[ClosedEnvelope](
-      ClosedEnvelope.tryCreate(
+      ClosedEnvelope.create(
         ByteString.EMPTY,
         Recipients.ofSet(recipients).value,
         Seq.empty,
@@ -145,26 +147,28 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       ???
     override def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] =
       ???
-    override def isLedgerIdentityRegistered(identity: LedgerIdentity)(implicit
-        traceContext: TraceContext
-    ): Future[Boolean] = ???
-
-    override def authorizeLedgerIdentity(identity: LedgerIdentity)(implicit
-        traceContext: TraceContext
-    ): EitherT[Future, String, Unit] = ???
-
     override protected def healthInternal(implicit
         traceContext: TraceContext
     ): Future[SequencerHealthStatus] = Future.successful(SequencerHealthStatus(isActive = true))
-
-    override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
-
     override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
       ???
-
     override def trafficStatus(members: Seq[Member])(implicit
         traceContext: TraceContext
     ): Future[SequencerTrafficStatus] = ???
+
+    override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
+    override def setTrafficBalance(
+        member: Member,
+        serial: NonNegativeLong,
+        totalTrafficBalance: NonNegativeLong,
+        sequencerClient: SequencerClient,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[
+      FutureUnlessShutdown,
+      TrafficControlErrors.TrafficControlError,
+      CantonTimestamp,
+    ] = ???
   }
 
   Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>

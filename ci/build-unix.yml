@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -54,17 +54,14 @@ steps:
       p="_${{parameters.name}}"
       a="_$(Build.BuildNumber)_$(System.JobAttempt)"
       t="${{parameters.test_mode}}"
-      if [ "$p" == "_m1" ]; then
-          ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t || ./build.sh $p $a $t
-      else
-          ./build.sh $p $a $t
-      fi
+      ./build.sh $p $a $t
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
       ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
       ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
+      IS_FORK: $(System.PullRequest.IsFork)
     condition: and(succeeded(),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne('${{parameters.name}}', 'm1')))

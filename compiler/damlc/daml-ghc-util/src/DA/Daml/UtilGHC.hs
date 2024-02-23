@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MagicHash #-}
@@ -138,7 +138,7 @@ pattern DesugarDFunId tyCoVars dfunArgs name classArgs <-
         )
     )
 
-pattern HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasObserverDFunId,
+pattern HasSignatoryDFunId, HasEnsureDFunId, HasObserverDFunId,
     HasArchiveDFunId, ShowDFunId :: TyCon -> GHC.Var
 
 pattern HasSignatoryDFunId templateTyCon <-
@@ -146,9 +146,6 @@ pattern HasSignatoryDFunId templateTyCon <-
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasEnsureDFunId templateTyCon <-
     DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasEnsure")
-        [splitTyConApp_maybe -> Just (templateTyCon, [])]
-pattern HasAgreementDFunId templateTyCon <-
-    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasAgreement")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasObserverDFunId templateTyCon <-
     DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasObserver")

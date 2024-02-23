@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -16,15 +16,6 @@ object Decode {
       onlySerializableDataDefs: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
     payload.version match {
-      case LanguageVersion(LanguageMajorVersion.V1, minor)
-          if LanguageMajorVersion.V1.supportedMinorVersions.contains(minor) =>
-        new DecodeV1(minor)
-          .decodePackage(
-            payload.pkgId,
-            payload.proto.getDamlLf1,
-            onlySerializableDataDefs,
-          )
-          .map(payload.pkgId -> _)
       case LanguageVersion(LanguageMajorVersion.V2, minor)
           if LanguageMajorVersion.V2.supportedMinorVersions.contains(minor) =>
         new DecodeV2(minor)
@@ -58,11 +49,13 @@ object Decode {
   ): (PackageId, Ast.Package) =
     assertRight(decodeArchive(archive, onlySerializableDataDefs))
 
-  def decodeInfoPackage(archive: DamlLf.Archive): Either[Error, PackageInfo] =
+  def decodeInfoPackage(
+      archive: DamlLf.Archive
+  ): Either[Error, ((PackageId, Ast.Package), PackageInfo)] =
     decodeArchive(archive, onlySerializableDataDefs = true)
-      .map(entry => new PackageInfo(Map(entry)))
+      .map(entry => entry -> new PackageInfo(Map(entry)))
 
-  def assertDecodeInfoPackage(archive: DamlLf.Archive): PackageInfo =
+  def assertDecodeInfoPackage(archive: DamlLf.Archive): ((PackageId, Ast.Package), PackageInfo) =
     assertRight(decodeInfoPackage(archive: DamlLf.Archive))
 
 }

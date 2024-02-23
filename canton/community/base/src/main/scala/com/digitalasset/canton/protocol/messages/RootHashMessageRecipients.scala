@@ -3,96 +3,100 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.data.EitherT
 import cats.syntax.alternative.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessageV1.RecipientsInfo
-import com.digitalasset.canton.sequencing.protocol.{
-  MemberRecipient,
-  ParticipantsOfParty,
-  Recipient,
-  Recipients,
-  RecipientsTree,
-}
+import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{MediatorRef, ParticipantId, PartyId}
-import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.topology.{ParticipantId, PartyId}
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object RootHashMessageRecipients {
+object RootHashMessageRecipients extends HasLoggerName {
 
-  /** Returns a Left if some of the informeeParties don't have active
-    * participants, in which case the parties with missing active participants are returned.
-    */
-  def encryptedViewMessageRecipientsInfo(
+  def rootHashRecipientsForInformees(
+      informees: Set[LfPartyId],
       ipsSnapshot: TopologySnapshot,
-      informeeParties: List[LfPartyId],
   )(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, Set[LfPartyId], RecipientsInfo] = for {
-    partiesWithGroupAddressing <- EitherT.right(
-      ipsSnapshot.partiesWithGroupAddressing(informeeParties)
-    )
-    participantsOfInformessWithoutGroupAddressing <- ipsSnapshot
-      .activeParticipantsOfAll((informeeParties.toSet -- partiesWithGroupAddressing).toList)
-    participantsCoveredByGroupAddressing <- ipsSnapshot
-      .activeParticipantsOfAll(partiesWithGroupAddressing.toList)
-  } yield RecipientsInfo(
-    informeeParticipants =
-      participantsOfInformessWithoutGroupAddressing -- participantsCoveredByGroupAddressing,
-    partiesWithGroupAddressing.map(PartyId.tryFromLfParty),
-    participantsCoveredByGroupAddressing,
-  )
-
-  def confirmationRequestRootHashMessagesRecipients(
-      recipientInfos: Seq[RecipientsInfo],
-      mediator: MediatorRef,
-  ): List[Recipients] = {
-
-    val participantRecipients = {
-      val participantsAddressedByGroupAddress =
-        recipientInfos.toSet.flatMap[ParticipantId](
-          _.participantsAddressedByGroupAddress
+      loggingContext: NamedLoggingContext,
+      executionContext: ExecutionContext,
+  ): Future[Seq[Recipient]] = {
+    implicit val tc = loggingContext.traceContext
+    val informeesList = informees.toList
+    for {
+      participantsAddressedByInformees <- ipsSnapshot
+        .activeParticipantsOfAll(informeesList)
+        .valueOr(informeesWithoutParticipants =>
+          ErrorUtil.internalError(
+            new IllegalArgumentException(
+              show"Informees without participants: $informeesWithoutParticipants"
+            )
+          )
         )
-      val allInformeeParticipants = recipientInfos.toSet.flatMap[ParticipantId](
-        _.informeeParticipants
+      groupAddressedInformees <- ipsSnapshot.partiesWithGroupAddressing(informeesList)
+      participantsOfGroupAddressedInformees <- ipsSnapshot.activeParticipantsOfParties(
+        groupAddressedInformees.toList
       )
-      allInformeeParticipants -- participantsAddressedByGroupAddress
-    }.map(MemberRecipient)
+    } yield {
+      // If there are several group-addressed informees with overlapping participants,
+      // we actually look for a set cover. It doesn't matter which one we pick.
+      //
+      // It might be tempting to optimize even further by considering group addresses
+      // that resolve to a subset of the participants to be addressed---even if the party behind
+      // the group address is not an informee.  This would work in terms of reducing the bandwidth required for spelling out the recipients.
+      // But it would violate privacy, as the following example shows:
+      // Let the parties A and B be informees of a request. Party A is hosted on participants P1 and P2 with group addressing,
+      // and party B is hosted on participants P2 and P3 with group addressing.
+      // Participants P1, P2 and P3 also host party C with group addressing, which is not an informee.
+      // Then, it is bandwidth-optimal to address the root hash message to C.
+      // However, since the recipients learn about the used address, P1 can infer that P3 is involved in the transaction,
+      // but if the views for A are disjoint from the views for B, then P1 should not be able to learn that P3 is involved.
+      // By sticking to the informees of the original request,
+      // we avoid such a leak.
+      //
+      // Note: The SetCover below merely optimizes the size of the submission request. If we wanted to take the
+      // size of the delivered messages into account as well, we would compute a weighted set cover.
+      // For example, let the only informees A and B of a request be hosted on
+      // P1, P2, P3, P4 and P2, P3, P4, P5, P6, respectively, with group addressing.
+      // Then the root hash message will be addressed to A and B. This gives the following recipients
+      // on the root hash message envelope:
+      // - Submission request: {med, A}, {med, B}
+      // - Envelope delivered to the mediator, P2, P3, P4: {med, A}, {med, B}
+      // - Envelope delivered to P1: {med, A}
+      // - Envelope delivered to P5, P6: {med, B}
+      // This makes 4 + 4 * 4 + 2 + 2 * 2 = 26 recipients in total.
+      //
+      // In contrast, if the recipients for the root hash message were A, P5, P6, we would get the following situation:
+      // - Submission request: {med, A}, {med, P5}, {med, P6}
+      // - Envelope delivered to the mediator: {med, A}, {med, P5}, {med, P6}
+      // - Envelope delivered to P1, P2, P3, P4: {med, A}
+      // - Envelope delivered to P5: {med, P5}
+      // - Envelope delivered to P6: {med, P6}
+      // This makes 6 + 6 + 4 * 2 + 2 + 2 = 24 recipients in total.
 
-    val groupRecipients = recipientInfos.toSet
-      .flatMap[PartyId](_.partiesWithGroupAddressing)
-      .map(p => ParticipantsOfParty(p))
-
-    val recipients = participantRecipients ++ groupRecipients
-    val groupAddressingBeingUsed = groupRecipients.nonEmpty
-
-    NonEmpty
-      .from(recipients.toList)
-      .map { recipientsNE =>
-        if (groupAddressingBeingUsed) {
-          // if using group addressing, we just place all recipients in one group instead of separately as before (it was separate for legacy reasons)
-          val mediatorSet: NonEmpty[Set[Recipient]] = NonEmpty.mk(Set, mediator.toRecipient)
-          Recipients.recipientGroups(
-            NonEmpty
-              .mk(Seq, recipientsNE.toSet ++ mediatorSet)
-          )
-        } else
-          Recipients.recipientGroups(
-            recipientsNE.map(NonEmpty.mk(Set, _, mediator.toRecipient))
-          )
+      val groupAddressedParticipants = participantsOfGroupAddressedInformees.values.flatten.toSet
+      val directlyAddressedParticipants =
+        participantsAddressedByInformees -- groupAddressedParticipants
+      val sets = participantsOfGroupAddressedInformees.map { case (party, participants) =>
+        ParticipantsOfParty(PartyId.tryFromLfParty(party)) -> participants
+      } ++ directlyAddressedParticipants.map { participant =>
+        MemberRecipient(participant) -> Set(participant)
       }
-      .toList
+      // TODO(#13883) Use a set cover for the recipients instead of all of them
+      //  SetCover.greedy(sets.toMap)
+      sets.map { case (recipient, _) => recipient }.toSeq
+    }
   }
 
   def recipientsAreValid(
       recipients: Recipients,
       participantId: ParticipantId,
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
       participantIsAddressByPartyGroupAddress: (
           Seq[LfPartyId],
           ParticipantId,
@@ -100,9 +104,9 @@ object RootHashMessageRecipients {
   ): FutureUnlessShutdown[Boolean] =
     recipients.asSingleGroup match {
       case Some(group) =>
-        if (group == NonEmpty.mk(Set, MemberRecipient(participantId), mediator.toRecipient))
+        if (group == NonEmpty.mk(Set, MemberRecipient(participantId), mediator))
           FutureUnlessShutdown.pure(true)
-        else if (group.contains(mediator.toRecipient) && group.size >= 2) {
+        else if (group.contains(mediator) && group.size >= 2) {
           val informeeParty = group.collect { case ParticipantsOfParty(party) =>
             party.toLf
           }
@@ -118,7 +122,7 @@ object RootHashMessageRecipients {
 
   def wrongAndCorrectRecipients(
       recipientsList: Seq[Recipients],
-      mediator: MediatorRef,
+      mediator: MediatorsOfDomain,
   ): (Seq[RecipientsTree], Seq[NonEmpty[Set[Recipient]]]) = {
     val (wrongRecipients, correctRecipients) = recipientsList.flatMap { recipients =>
       recipients.trees.toList.map {
@@ -133,9 +137,8 @@ object RootHashMessageRecipients {
           }
           val groupAddressingBeingUsed = groupAddressCount > 0
           Either.cond(
-            ((group.size == 2) || (groupAddressingBeingUsed && group.size >= 2)) && group.contains(
-              mediator.toRecipient
-            ) && (participantCount + groupAddressCount > 0),
+            ((group.size == 2) || (groupAddressingBeingUsed && group.size >= 2)) &&
+              group.contains(mediator) && (participantCount + groupAddressCount > 0),
             group,
             tree,
           )
@@ -147,9 +150,12 @@ object RootHashMessageRecipients {
 
   def wrongMembers(
       rootHashMessagesRecipients: Seq[Recipient],
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       topologySnapshot: TopologySnapshot,
-  )(implicit executionContext: ExecutionContext): Future[WrongMembers] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): Future[WrongMembers] = {
     val informeesAddressedAsGroup = rootHashMessagesRecipients.collect {
       case ParticipantsOfParty(informee) =>
         informee.toLf
@@ -160,13 +166,13 @@ object RootHashMessageRecipients {
     val informeesNotAddressedAsGroups = request.allInformees -- informeesAddressedAsGroup.toSet
     val superfluousInformees = informeesAddressedAsGroup.toSet -- request.allInformees
     for {
-      allNonGroupAddressedInformeeParticipants <-
-        informeesNotAddressedAsGroups.toList
-          .parTraverse(topologySnapshot.activeParticipantsOf)
-          .map(_.flatMap(_.keySet).toSet)
-      participantsAddressedAsGroup <- informeesAddressedAsGroup.toList
-        .parTraverse(topologySnapshot.activeParticipantsOf)
-        .map(_.flatMap(_.keySet).toSet)
+      allNonGroupAddressedInformeeParticipants <- topologySnapshot
+        .activeParticipantsOfPartiesWithAttributes(informeesNotAddressedAsGroups.toList)
+        .map(_.values.flatMap(_.keySet).toSet)
+      participantsAddressedAsGroup <-
+        topologySnapshot
+          .activeParticipantsOfPartiesWithAttributes(informeesAddressedAsGroup.toList)
+          .map(_.values.flatMap(_.keySet).toSet)
     } yield {
       val participantsSet = participants.toSet
       val missingInformeeParticipants =

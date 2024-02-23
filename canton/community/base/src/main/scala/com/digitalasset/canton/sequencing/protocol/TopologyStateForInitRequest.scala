@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.protocol
 
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.*
@@ -21,8 +21,8 @@ final case class TopologyStateForInitRequest(member: Member)(
   @transient override protected lazy val companionObj: TopologyStateForInitRequest.type =
     TopologyStateForInitRequest
 
-  def toProtoV0: v0.TopologyStateForInitRequest =
-    v0.TopologyStateForInitRequest(member.toProtoPrimitive)
+  def toProtoV30: v30.DownloadTopologyStateForInitRequest =
+    v30.DownloadTopologyStateForInitRequest(member.toProtoPrimitive)
 }
 
 object TopologyStateForInitRequest
@@ -30,13 +30,12 @@ object TopologyStateForInitRequest
   override val name: String = "TopologyStateForInitRequest"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(-1) -> UnsupportedProtoCodec(ProtocolVersion.v3),
-    ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.CNTestNet)(
-      v0.TopologyStateForInitRequest
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v30)(
+      v30.DownloadTopologyStateForInitRequest
     )(
-      supportedProtoVersion(_)(fromProtoV0),
-      _.toProtoV0.toByteString,
-    ),
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30.toByteString,
+    )
   )
 
   def apply(
@@ -45,15 +44,14 @@ object TopologyStateForInitRequest
   ): TopologyStateForInitRequest =
     TopologyStateForInitRequest(member)(protocolVersionRepresentativeFor(protocolVersion))
 
-  def fromProtoV0(
-      topologyStateForInitRequestP: v0.TopologyStateForInitRequest
+  def fromProtoV30(
+      topologyStateForInitRequestP: v30.DownloadTopologyStateForInitRequest
   ): ParsingResult[TopologyStateForInitRequest] = {
-    val v0.TopologyStateForInitRequest(memberP) = topologyStateForInitRequestP
+    val v30.DownloadTopologyStateForInitRequest(memberP) = topologyStateForInitRequestP
     for {
       member <- Member.fromProtoPrimitive(memberP, "member")
-    } yield TopologyStateForInitRequest(member)(
-      protocolVersionRepresentativeFor(ProtoVersion(0))
-    )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield TopologyStateForInitRequest(member)(rpv)
   }
 
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -21,7 +21,6 @@ object ErrorResource {
     ContractId,
     ContractIds,
     ContractKey,
-    SharedKey,
     ContractKeyHash,
     DalfPackage,
     DevErrorType,
@@ -48,12 +47,6 @@ object ErrorResource {
   }
   object ContractKey extends ErrorResource {
     def asString: String = "CONTRACT_KEY"
-  }
-
-  // TODO https://github.com/digital-asset/daml/issues/17661 - this match is only needed for
-  //  temporary backward compatibility with Canton so can soon be removed
-  object SharedKey extends ErrorResource {
-    def asString: String = "SHARED_KEY"
   }
 
   object ContractArg extends ErrorResource {

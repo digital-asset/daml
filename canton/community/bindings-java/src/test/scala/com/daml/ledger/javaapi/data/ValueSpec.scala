@@ -3,18 +3,19 @@
 
 package com.daml.ledger.javaapi.data
 
-import java.time.Instant
-import java.util.{Optional => JOptional}
-import java.util.concurrent.TimeUnit
-
-import com.daml.ledger.javaapi.data.Generators._
 import com.daml.ledger.api.v1.ValueOuterClass.Value.SumCase
+import com.daml.ledger.javaapi.data.Generators.*
 import org.scalacheck.Gen
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.flatspec.AnyFlatSpec
 
+import java.time.Instant
+import java.util.concurrent.TimeUnit
+import java.util.Optional as JOptional
+
+@SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
 class ValueSpec
     extends AnyFlatSpec
     with Matchers

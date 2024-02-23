@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -10,7 +10,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class RecursionSpecV1 extends RecursionSpec(LanguageMajorVersion.V1)
 class RecursionSpecV2 extends RecursionSpec(LanguageMajorVersion.V2)
 
 class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -26,6 +25,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
 
     val p =
       p"""
+         metadata ( 'pkg' : '1.0.0' )
          module Math {
            val fact : (Int64 -> Int64) = \ (x: Int64) ->
              case (EQUAL_INT64 x 0) of
@@ -51,6 +51,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
     val negativeCase =
       // package without cyclic module dependencies
       p"""
+         metadata ( 'pkg' : '1.0.0' )
          ${module("A", "B", "E")}
          ${module("B", "B", "E")}
          ${module("E", "E")}
@@ -59,6 +60,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
     val positiveCase1 =
       // package with cyclic module dependency ("A" -> "B" -> "A")
       p"""
+         metadata ( 'pkg' : '1.0.0' )
          ${module("A", "B")}
          ${module("B", "A")}
        """
@@ -66,6 +68,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
     val positiveCase2 =
       // package with cyclic module dependency ("B" -> "C" -> "D" -> "B")
       p"""
+        metadata ( 'pkg' : '1.0.0' )
         ${module("A", "B", "C", "E")}
         ${module("B", "C", "E")}
         ${module("C", "D")}
@@ -84,6 +87,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
     val negativeCase =
       // module without a type-syn cycle
       p"""
+         metadata ( 'pkg' : '1.0.0' )
          module Mod {
            synonym SynInt = Int64 ;
            synonym SynSynInt = |Mod:SynInt| ;
@@ -93,6 +97,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
     val positiveCase1 =
       // module with a direct type-syn cycle
       p"""
+         metadata ( 'pkg' : '1.0.0' )
          module Mod {
            synonym SynCycle = |Mod:SynCycle| ;
          }
@@ -101,6 +106,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
     val positiveCase2 =
       // module with a mutual type-syn cycle
       p"""
+         metadata ( 'pkg' : '1.0.0' )
          module Mod {
            synonym SynInt = Int64 ;
            synonym SynBad1 = |Mod:SynBad2| ;

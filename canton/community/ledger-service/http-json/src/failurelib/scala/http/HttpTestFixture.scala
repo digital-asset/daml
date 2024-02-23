@@ -9,7 +9,7 @@ import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool
 import dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
-import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ports.LockedFreePort
 import com.daml.testing.postgresql.PostgresAroundAll
 import java.net.InetAddress

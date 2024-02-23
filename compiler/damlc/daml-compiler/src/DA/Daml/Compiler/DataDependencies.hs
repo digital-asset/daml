@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -11,7 +11,6 @@ module DA.Daml.Compiler.DataDependencies
     ) where
 
 import DA.Pretty hiding (first)
-import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bifunctor (first)
@@ -120,11 +119,8 @@ buildWorld Config{..} =
         self <- MS.lookup configSelfPkgId configPackages
         Just (LF.initWorldSelf extPackages self)
 
-worldLfVersion :: LF.World -> LF.Version
-worldLfVersion = LF.packageLfVersion . LF.getWorldSelf
-
 envLfVersion :: Env -> LF.Version
-envLfVersion = worldLfVersion . envWorld
+envLfVersion = LF.getWorldSelfPkgLfVersion . envWorld
 
 data DependencyInfo = DependencyInfo
   { depClassMap :: !DepClassMap
@@ -178,7 +174,7 @@ envLookupDepClass synName env =
 expandSynonyms :: LF.World -> LF.Type -> Either LF.Error ExpandedType
 expandSynonyms world ty =
     fmap (ExpandedType . fst) $ -- Ignore warnings from runGamma
-    LF.runGamma world (worldLfVersion world) $
+    LF.runGamma world (LF.getWorldSelfPkgLfVersion world) $
     LF.expandTypeSynonyms ty
 
 -- | Determine whether two type synonym definitions are similar enough to
@@ -1219,7 +1215,7 @@ buildHiddenRefMap config world =
     visitRef !refGraph ref
         | HMS.member ref refGraph
             = refGraph -- already in the map
-        | ref == RTypeCon (erasedTCon (LF.versionMajor (worldLfVersion world)))
+        | ref == RTypeCon (erasedTCon (LF.versionMajor (LF.getWorldSelfPkgLfVersion world)))
             = HMS.insert ref (True, []) refGraph -- Erased is always erased
 
         | RTypeCon tcon <- ref
@@ -1238,7 +1234,7 @@ buildHiddenRefMap config world =
         | RValue val <- ref
         , Right dval <- LF.lookupValue val world
         , -- we only care about typeclass instances
-          refs <- if hasDFunSig (LF.versionMajor (worldLfVersion world)) dval
+          refs <- if hasDFunSig (LF.versionMajor (LF.getWorldSelfPkgLfVersion world)) dval
             then DL.toList (refsFromDFun dval)
             else mempty
         , refGraph' <- HMS.insert ref (False, refs) refGraph
@@ -1279,10 +1275,10 @@ rootRefs :: Config -> LF.World -> DL.DList Ref
 rootRefs config world =
     fold
         [ modRootRefs
-            (LF.versionMajor (worldLfVersion world))
+            (LF.versionMajor (LF.getWorldSelfPkgLfVersion world))
             (configSelfPkgId config)
             mod
-        | mod <- NM.toList (LF.packageModules (LF.getWorldSelf world))
+        | mod <- NM.toList (LF.getWorldSelfPkgModules world)
         ]
 
 modRootRefs :: LF.MajorVersion -> LF.PackageId -> LF.Module -> DL.DList Ref
@@ -1408,12 +1404,12 @@ data DFunSig = DFunSig
 
 -- | Instance declaration head
 data DFunHead
-    = DFunHeadHasField -- ^ HasField instance
+    = DFunHeadGetSetField -- ^ GetField or SetField instance
           { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
           , dfhField :: !T.Text -- ^ first arg (a type level string)
           , dfhArgs :: [LF.Type] -- ^ rest of the args
           }
-    | DFunHeadNormal -- ^ Normal, i.e., non-HasField, instance
+    | DFunHeadNormal -- ^ Normal, i.e., non-{Get,Set}Field, instance
           { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
           , dfhArgs :: [LF.Type] -- ^ arguments
           }
@@ -1426,17 +1422,15 @@ hasDFunSig major dval = isJust (getDFunSig major dval)
 
 -- | Break a value type signature down into a dictionary function signature.
 getDFunSig :: LF.MajorVersion -> LF.DefValue -> Maybe DFunSig
-getDFunSig major LF.DefValue {..} = do
-    let (valName, valType) = dvalBinder
+getDFunSig major LF.DefValue {dvalBinder = (_, valType), ..} = do
     (dfsBinders, dfsContext, dfhName, dfhArgs) <- go valType
-    dfsHead <- if isHasField dfhName
+    dfsHead <- if isGetSetField dfhName
         then do
             (symbolTy : dfhArgs) <- Just dfhArgs
-            -- We handle both the old state where symbol was translated to unit
-            -- and new state where it is translated to PromotedText.
-            dfhField <- getPromotedText major symbolTy <|> getFieldArg valName
+            -- The first argument should have a Symbol, translated to LF as a PromotedText.
+            dfhField <- getPromotedText major symbolTy
             guard (not $ T.null dfhField)
-            Just DFunHeadHasField {..}
+            Just DFunHeadGetSetField {..}
         else do
           guard (not $ isIP dfhName)
           Just DFunHeadNormal {..}
@@ -1458,11 +1452,13 @@ getDFunSig major LF.DefValue {..} = do
         _ ->
             Nothing
 
-    -- | Is this an instance of the HasField typeclass?
-    isHasField :: LF.Qualified LF.TypeSynName -> Bool
-    isHasField LF.Qualified{..} =
+    -- | Is this an instance of the GetField or SetField typeclasses?
+    isGetSetField :: LF.Qualified LF.TypeSynName -> Bool
+    isGetSetField LF.Qualified{..} =
         qualModule == LF.ModuleName ["DA", "Internal", "Record"]
-        && qualObject == LF.TypeSynName ["HasField"]
+        && qualObject `elem` [ LF.TypeSynName ["GetField"]
+                             , LF.TypeSynName ["SetField"]
+                             ]
 
     -- | Is this an implicit parameters instance?
     -- Those need to be filtered out since
@@ -1472,13 +1468,6 @@ getDFunSig major LF.DefValue {..} = do
     isIP LF.Qualified{..} =
         qualModule == LF.ModuleName ["GHC", "Classes"]
         && qualObject == LF.TypeSynName ["IP"]
-
-    -- | Get the first arg of HasField (the name of the field) from
-    -- the name of the binding.
-    getFieldArg :: LF.ExprValName -> Maybe T.Text
-    getFieldArg (LF.ExprValName name) = do
-        name' <- T.stripPrefix "$fHasField\"" name
-        Just $ fst (T.breakOn "\"" name')
 
 getSuperclassReferences :: LF.Expr -> [(LF.PackageRef, LF.ModuleName)]
 getSuperclassReferences body =
@@ -1502,7 +1491,7 @@ convDFunSig env reexported DFunSig{..} = do
             ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
     mapM_ (uncurry (genModule env)) dfsSuper
     args <- case dfsHead of
-      DFunHeadHasField{..} -> do
+      DFunHeadGetSetField{..} -> do
           let arg0 = HsTyLit noExt . HsStrTy NoSourceText . mkFastString $ T.unpack dfhField
           args <- mapM (convType env reexported) dfhArgs
           pure (arg0 : args)

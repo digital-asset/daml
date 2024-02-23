@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -240,16 +240,11 @@ instance Pretty BuiltinExpr where
     BEContractIdToText -> "CONTRACT_ID_TO_TEXT"
     BEAddNumeric -> "ADD_NUMERIC"
     BESubNumeric -> "SUB_NUMERIC"
-    BEMulNumericLegacy -> "MUL_NUMERIC_LEGACY"
     BEMulNumeric -> "MUL_NUMERIC"
-    BEDivNumericLegacy -> "DIV_NUMERIC_LEGACY"
     BEDivNumeric -> "DIV_NUMERIC"
     BERoundNumeric -> "ROUND_NUMERIC"
-    BECastNumericLegacy -> "CAST_NUMERIC_LEGACY"
     BECastNumeric -> "CAST_NUMERIC"
-    BEShiftNumericLegacy -> "SHIFT_NUMERIC_LEGACY"
     BEShiftNumeric -> "SHIFT_NUMERIC"
-    BEInt64ToNumericLegacy -> "INT64_TO_NUMERIC_LEGACY"
     BEInt64ToNumeric -> "INT64_TO_NUMERIC"
     BENumericToInt64 -> "NUMERIC_TO_INT64"
     BEEqualNumeric -> "EQUAL_NUMERIC"
@@ -257,7 +252,6 @@ instance Pretty BuiltinExpr where
     BELessNumeric -> "LESS_NUMERIC"
     BEGreaterEqNumeric -> "GEQ_NUMERIC"
     BEGreaterNumeric -> "GREATER_NUMERIC"
-    BETextToNumericLegacy -> "TEXT_TO_NUMERIC_LEGACY"
     BETextToNumeric -> "TEXT_TO_NUMERIC"
     BENumericToText -> "NUMERIC_TO_TEXT"
     BEScaleBigNumeric -> "SCALE_BIGNUMERIC"
@@ -267,7 +261,6 @@ instance Pretty BuiltinExpr where
     BEMulBigNumeric -> "MUl_BIGNUMERIC"
     BEDivBigNumeric -> "DIV_BIGNUMERIC"
     BEShiftRightBigNumeric -> "SHIFT_RIGHT_BIGNUMERIC"
-    BEBigNumericToNumericLegacy -> "BIGNUMERIC_TO_NUMERIC_LEGACY"
     BEBigNumericToNumeric -> "BIGNUMERIC_TO_NUMERIC"
     BENumericToBigNumeric -> "NUMERIC_TO_BIGNUMERIC"
     BEAddInt64 -> "ADD_INT64"
@@ -409,9 +402,6 @@ instance Pretty Update where
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
-    USoftExercise tpl choice cid arg ->
-      pPrintAppKeyword lvl prec "soft_exercise"
-      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UDynamicExercise tpl choice cid arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "dynamic_exercise"
@@ -429,8 +419,6 @@ instance Pretty Update where
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
     UFetch tpl cid ->
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
-    USoftFetch tpl cid ->
-      pPrintAppKeyword lvl prec "soft_fetch" [tplArg tpl, TmArg cid]
     UFetchInterface interface cid ->
       pPrintAppKeyword lvl prec "fetch_interface" [interfaceArg interface, TmArg cid]
     UGetTime ->
@@ -638,16 +626,15 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
 
 pPrintTemplate ::
   PrettyLevel -> ModuleName -> Template -> Doc ann
-pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey implements) =
+pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observers choices mbKey implements) =
   withSourceLoc lvl mbLoc $
     keyword_ "template" <-> pPrint tpl <-> pPrint param
     <-> keyword_ "where"
-    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc] ++ implementsDoc ++ mbKeyDoc ++ choiceDocs))
+    $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc] ++ implementsDoc ++ mbKeyDoc ++ choiceDocs))
     where
       signatoriesDoc = keyword_ "signatory" <-> pPrintPrec lvl 0 signatories
       observersDoc = keyword_ "observer" <-> pPrintPrec lvl 0 observers
       precondDoc = keyword_ "ensure" <-> pPrintPrec lvl 0 precond
-      agreementDoc = hang (keyword_ "agreement") 2 (pPrintPrec lvl 0 agreement)
       choiceDocs = map (pPrintTemplateChoice lvl modName tpl) (NM.toList choices)
       mbKeyDoc = toList $ do
         key <- mbKey
@@ -709,7 +696,6 @@ pPrintDefInterface lvl modName defInterface =
       , intView
       , intMethods
       , intChoices
-      , intCoImplements
       } = defInterface
 
     header = hsep
@@ -724,7 +710,6 @@ pPrintDefInterface lvl modName defInterface =
       [ viewDoc
       , vcat methodDocs
       , vcat choiceDocs
-      , vcat interfaceInstanceDocs
       ]
 
     requiresDoc = case S.toList intRequires of
@@ -734,11 +719,6 @@ pPrintDefInterface lvl modName defInterface =
     viewDoc = keyword_ "viewtype" <-> pPrint intView
     methodDocs = map (pPrintInterfaceMethod lvl) (NM.toList intMethods)
     choiceDocs = map (pPrintTemplateChoice lvl modName intName) (NM.toList intChoices)
-    interfaceInstanceDocs =
-      [ pPrintInterfaceInstance lvl (InterfaceInstanceHead qIntName template) body loc
-      | InterfaceCoImplements template body loc <- NM.toList intCoImplements
-      ]
-    qIntName = Qualified PRSelf modName intName
 
 pPrintFeatureFlags :: FeatureFlags -> Doc ann
 pPrintFeatureFlags FeatureFlags = mempty
@@ -773,5 +753,5 @@ instance Pretty Package where
   pPrintPrec lvl _prec (Package version modules metadata) =
     vcat $
       "daml-lf" <-> pPrintPrec lvl 0 version
-      : maybe empty (\m -> "metadata" <-> pPrintPrec lvl 0 m) metadata
+      : "metadata" <-> pPrintPrec lvl 0 metadata
       : map (\m -> "" $-$ pPrintPrec lvl 0 m) (NM.toList modules)

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -333,7 +333,7 @@ private[lf] object Free {
     // Maps GHC unit ids to LF package ids. Used for location conversion.
     val knownPackages: Map[String, Ref.PackageId] = (for {
       pkgId <- compiledPackages.packageIds
-      md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
+      md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.map(_.metadata).toList
     } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   }

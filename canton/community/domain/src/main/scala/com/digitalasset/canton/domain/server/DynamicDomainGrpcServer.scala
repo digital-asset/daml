@@ -15,12 +15,11 @@ import com.digitalasset.canton.health.{
 }
 import com.digitalasset.canton.lifecycle.Lifecycle.{CloseableServer, toCloseableServer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.MetricHandle
+import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import io.grpc.protobuf.services.ProtoReflectionService
 
-import scala.annotation.nowarn
 import scala.concurrent.ExecutionContextExecutorService
 
 /** Creates a dynamic public domain server to which domain services can be added at a later time,
@@ -33,8 +32,7 @@ class DynamicDomainGrpcServer(
     maxRequestSize: MaxRequestSize,
     nodeParameters: HasGeneralCantonNodeParameters,
     serverConfig: PublicServerConfig,
-    @nowarn("cat=deprecation")
-    metrics: MetricHandle.MetricsFactory,
+    metrics: CantonLabeledMetricsFactory,
     grpcMetrics: GrpcServerMetrics,
     grpcHealthReporter: GrpcHealthReporter,
     domainHealthService: HealthService,

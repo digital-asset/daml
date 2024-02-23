@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -6,41 +6,40 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
+
 import org.apache.pekko.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
-import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
-import com.daml.ledger.rxjava.{
-  CommandCompletionClient,
-  EventQueryClient,
-  LedgerConfigurationClient,
-  PackageClient,
-}
+import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
+import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
-import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.command_completion_service.{
-  CompletionEndResponse,
-  CompletionStreamResponse,
+import com.digitalasset.canton.ledger.api.auth.interceptor.{
+  AuthorizationInterceptor,
+  IdentityProviderAwareAuthService,
 }
-import com.daml.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
+import com.digitalasset.canton.ledger.api.auth.{
+  AuthService,
+  AuthServiceWildcard,
+  Authorizer,
+  ClaimSet,
+}
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitForUpdateIdResponse,
 }
-import com.daml.ledger.api.v1.event_query_service.{
-  GetEventsByContractIdResponse,
-  GetEventsByContractKeyResponse,
-}
-import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
+import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v1.package_service.{
   GetPackageResponse,
   GetPackageStatusResponse,
   ListPackagesResponse,
 }
-import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
-import com.daml.logging.LoggingContext
-import com.daml.platform.localstore.InMemoryUserManagementStore
+import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
+import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
+import com.daml.tracing.NoOpTelemetry
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -49,24 +48,28 @@ import io.reactivex.Observable
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerServices(val ledgerId: String) {
+final class LedgerServices(val name: String) {
 
   import LedgerServices._
 
   val executionContext: ExecutionContext = global
-  private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
+  private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(name)
   private val pekkoSystem = ActorSystem("LedgerServicesParticipant")
   private val participantId = "LedgerServicesParticipant"
-  private val authorizer =
+  private val loggerFactory = NamedLoggerFactory.root
+  val authorizer: Authorizer =
     new Authorizer(
       now = () => Clock.systemUTC().instant(),
-      ledgerId = ledgerId,
+      ledgerId = name,
       participantId = participantId,
-      userManagementStore = new InMemoryUserManagementStore(),
+      userManagementStore = new InMemoryUserManagementStore(createAdmin = false, loggerFactory),
       ec = executionContext,
       userRightsCheckIntervalInSeconds = 1,
       pekkoScheduler = pekkoSystem.scheduler,
-    )(LoggingContext.ForTesting)
+      jwtTimestampLeeway = None,
+      telemetry = NoOpTelemetry,
+      loggerFactory = loggerFactory,
+    )
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 
@@ -101,14 +104,23 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
+  private class IDPAuthService extends IdentityProviderAwareAuthService {
+    override def decodeMetadata(headers: Metadata)(implicit
+        loggingContext: LoggingContextWithTrace
+    ): Future[ClaimSet] =
+      Future.successful(ClaimSet.Unauthenticated)
+  }
+
   private def createServer(
       authService: AuthService,
       services: Seq[ServerServiceDefinition],
   ): Server = {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
-      Some(new InMemoryUserManagementStore()),
-      { _ => Future.successful(ClaimSet.Unauthenticated) },
+      Some(new InMemoryUserManagementStore(false, loggerFactory)),
+      new IDPAuthService,
+      NoOpTelemetry,
+      loggerFactory,
       executionContext,
     )
     services
@@ -126,15 +138,16 @@ final class LedgerServices(val ledgerId: String) {
 
   def withACSClient(
       getActiveContractsResponses: Observable[GetActiveContractsResponse],
+      ledgerContent: Observable[LedgerItem],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
-  )(f: (ActiveContractClientImpl, ActiveContractsServiceImpl) => Any): Any = {
+  )(f: (StateClientImpl, StateServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponses, authorizer)(
+      StateServiceImpl.createWithRef(getActiveContractsResponses, ledgerContent, authorizer)(
         executionContext
       )
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new ActiveContractClientImpl(ledgerId, channel, esf, accessToken), serviceImpl)
+      f(new StateClientImpl(channel, esf, accessToken), serviceImpl)
     }
   }
 
@@ -144,11 +157,11 @@ final class LedgerServices(val ledgerId: String) {
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
   )(f: TimeClientImpl => Any): Any =
     withServerAndChannel(authService, services) { channel =>
-      f(new TimeClientImpl(ledgerId, channel, esf, accessToken))
+      f(new TimeClientImpl(channel, esf, accessToken))
     }
 
   def withCommandSubmissionClient(
-      getResponse: () => Future[Empty],
+      getResponse: () => Future[SubmitResponse],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
       timeout: java.util.Optional[Duration] = java.util.Optional.empty[Duration],
@@ -156,33 +169,30 @@ final class LedgerServices(val ledgerId: String) {
     val (service, serviceImpl) =
       CommandSubmissionServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandSubmissionClientImpl(ledgerId, channel, accessToken, timeout), serviceImpl)
+      f(new CommandSubmissionClientImpl(channel, accessToken, timeout), serviceImpl)
     }
   }
 
   def withCommandCompletionClient(
       completions: List[CompletionStreamResponse],
-      end: CompletionEndResponse,
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
   )(f: (CommandCompletionClient, CommandCompletionServiceImpl) => Any): Any = {
     val (service, impl) =
-      CommandCompletionServiceImpl.createWithRef(completions, end, authorizer)(executionContext)
+      CommandCompletionServiceImpl.createWithRef(completions, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandCompletionClientImpl(ledgerId, channel, esf, accessToken), impl)
+      f(new CommandCompletionClientImpl(channel, esf, accessToken), impl)
     }
   }
 
   def withEventQueryClient(
       getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
-      getEventsByContractKeyResponse: Future[GetEventsByContractKeyResponse],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
   )(f: (EventQueryClient, EventQueryServiceImpl) => Any): Any = {
     val (service, impl) =
       EventQueryServiceImpl.createWithRef(
         getEventsByContractIdResponse,
-        getEventsByContractKeyResponse,
         authorizer,
       )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
@@ -205,13 +215,13 @@ final class LedgerServices(val ledgerId: String) {
         authorizer,
       )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new PackageClientImpl(ledgerId, channel, accessToken), impl)
+      f(new PackageClientImpl(channel, accessToken), impl)
     }
   }
 
   def withCommandClient(
       submitAndWaitResponse: Future[Empty],
-      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
+      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       authService: AuthService = AuthServiceWildcard,
@@ -225,45 +235,19 @@ final class LedgerServices(val ledgerId: String) {
       authorizer,
     )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new CommandClientImpl(ledgerId, channel, accessToken), serviceImpl)
+      f(new CommandClientImpl(channel, accessToken), serviceImpl)
     }
   }
 
-  def withConfigurationClient(
-      responses: Seq[GetLedgerConfigurationResponse],
-      authService: AuthService = AuthServiceWildcard,
-      accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
-  )(f: (LedgerConfigurationClient, LedgerConfigurationServiceImpl) => Any): Any = {
-    val (service, impl) =
-      LedgerConfigurationServiceImpl.createWithRef(responses, authorizer)(executionContext)
-    withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new LedgerConfigurationClientImpl(ledgerId, channel, esf, accessToken), impl)
-    }
-  }
-
-  @deprecated("ledger identity service", since = "2.0.0")
-  def withLedgerIdentityClient(
-      getResponse: () => Future[String],
-      authService: AuthService = AuthServiceWildcard,
-      accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
-      timeout: java.util.Optional[Duration] = java.util.Optional.empty[Duration],
-  )(f: (LedgerIdentityClientImpl, LedgerIdentityServiceImpl) => Any): Any = {
-    val (service, serviceImpl) =
-      LedgerIdentityServiceImpl.createWithRef(getResponse, authorizer)(executionContext)
-    withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new LedgerIdentityClientImpl(channel, accessToken, timeout), serviceImpl)
-    }
-  }
-
-  def withTransactionsClient(
+  def withUpdateClient(
       ledgerContent: Observable[LedgerItem],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
-  )(f: (TransactionClientImpl, TransactionsServiceImpl) => Any): Any = {
+  )(f: (UpdateClientImpl, UpdateServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      TransactionsServiceImpl.createWithRef(ledgerContent, authorizer)(executionContext)
+      UpdateServiceImpl.createWithRef(ledgerContent, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
-      f(new TransactionClientImpl(ledgerId, channel, esf, accessToken), serviceImpl)
+      f(new UpdateClientImpl(channel, esf, accessToken), serviceImpl)
     }
   }
 
@@ -272,7 +256,7 @@ final class LedgerServices(val ledgerId: String) {
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
   )(f: (UserManagementClientImpl, UserManagementServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      UserManagementServiceImpl.createWithRef(authorizer)(executionContext)
+      UserManagementServiceImpl.createWithRef(authorizer, loggerFactory)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new UserManagementClientImpl(channel, accessToken), serviceImpl)
     }
@@ -281,37 +265,30 @@ final class LedgerServices(val ledgerId: String) {
   def withFakeLedgerServer(
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
       transactions: Observable[LedgerItem],
-      commandSubmissionResponse: Future[Empty],
+      commandSubmissionResponse: Future[SubmitResponse],
       completions: List[CompletionStreamResponse],
-      completionsEnd: CompletionEndResponse,
       submitAndWaitResponse: Future[Empty],
-      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
+      submitAndWaitForUpdateIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
-      getTimeResponses: List[GetTimeResponse],
-      getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
+      getTimeResponse: Future[GetTimeResponse],
       getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
-      getEventsByContractKeyResponse: Future[GetEventsByContractKeyResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
       authService: AuthService,
   )(f: (Server, LedgerServicesImpls) => Any): Any = {
     val (services, impls) = LedgerServicesImpls.createWithRef(
-      Future.successful(ledgerId),
       getActiveContractsResponse,
       transactions,
       commandSubmissionResponse,
       completions,
-      completionsEnd,
       submitAndWaitResponse,
-      submitAndWaitForTransactionIdResponse,
+      submitAndWaitForUpdateIdResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
-      getTimeResponses,
-      getLedgerConfigurationResponses,
+      getTimeResponse,
       getEventsByContractIdResponse,
-      getEventsByContractKeyResponse,
       listPackagesResponse,
       getPackageResponse,
       getPackageStatusResponse,

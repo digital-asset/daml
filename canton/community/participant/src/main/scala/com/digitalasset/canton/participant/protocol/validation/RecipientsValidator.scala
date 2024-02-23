@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
-import cats.syntax.alternative.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
@@ -66,7 +65,9 @@ class RecipientsValidator[I](
       requestId: RequestId,
       inputs: Seq[I],
       snapshot: PartyTopologySnapshotClient,
-  )(implicit traceContext: TraceContext): Future[(Seq[WrongRecipients], Seq[I])] = {
+  )(implicit
+      traceContext: TraceContext
+  ): Future[(Seq[WrongRecipients], Seq[I])] = {
 
     val rootHashes = inputs.map(viewOfInput(_).rootHash).distinct
     ErrorUtil.requireArgument(
@@ -101,7 +102,7 @@ class RecipientsValidator[I](
       val badViewPositions = invalidRecipientPositions ++ inactivePartyPositions
 
       // Check Condition 4, i.e., remove inputs that have a bad view position as descendant.
-      inputs.map { input =>
+      inputs.partitionMap { input =>
         val viewTree = viewOfInput(input)
 
         val isGood = badViewPositions.forall(badViewPosition =>
@@ -113,7 +114,7 @@ class RecipientsValidator[I](
           input,
           WrongRecipients(viewTree),
         )
-      }.separate
+      }
     }
   }
 
@@ -123,6 +124,8 @@ class RecipientsValidator[I](
   private def computeInformeeParticipantsOfPositionAndParty(
       inputs: Seq[I],
       snapshot: PartyTopologySnapshotClient,
+  )(implicit
+      traceContext: TraceContext
   ): Future[Map[List[MerklePathElement], Map[LfPartyId, Set[ParticipantId]]]] =
     inputs
       .parTraverse { input =>

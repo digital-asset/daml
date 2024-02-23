@@ -5,7 +5,7 @@ package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.apply.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveLong}
-import com.digitalasset.canton.domain.api.v0.SequencedEventTrafficState as SequencedEventTrafficStateP
+import com.digitalasset.canton.domain.api.v30.SequencedEventTrafficState as SequencedEventTrafficStateP
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.RequiredTypesCodec.*
@@ -19,7 +19,7 @@ final case class SequencedEventTrafficState(
 ) {
   lazy val extraTrafficLimit: Option[PositiveLong] =
     PositiveLong.create((extraTrafficRemainder + extraTrafficConsumed).value).toOption
-  def toProtoV0: SequencedEventTrafficStateP = {
+  def toProtoV30: SequencedEventTrafficStateP = {
     SequencedEventTrafficStateP(
       extraTrafficRemainder = extraTrafficRemainder.value,
       extraTrafficConsumed = extraTrafficConsumed.value,
@@ -29,7 +29,7 @@ final case class SequencedEventTrafficState(
 }
 
 object SequencedEventTrafficState {
-  def fromProtoV0(
+  def fromProtoV30(
       stateP: SequencedEventTrafficStateP
   ): ParsingResult[SequencedEventTrafficState] = {
     for {

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.conf
@@ -21,7 +21,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   it should "correctly split valid strings" in forAll {
     (name: String, separator: Char, version: String) =>
-      whenever(name.nonEmpty && version.nonEmpty) {
+      whenever(name.nonEmpty && version.nonEmpty && !version.contains(separator)) {
         CodegenConfigReader.splitNameAndVersion(
           s"$name$separator$version",
           separator,

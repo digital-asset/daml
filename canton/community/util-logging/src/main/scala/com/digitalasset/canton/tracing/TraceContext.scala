@@ -7,11 +7,12 @@ import cats.Show.Shown
 import com.daml.lf.data.NoCopy
 import com.daml.nonempty.NonEmpty
 import com.daml.tracing as damlTelemetry
-import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context as OpenTelemetryContext
 
 import scala.collection.mutable
+import scala.language.implicitConversions
 
 /** Container for values tracing operations through canton.
   */
@@ -72,6 +73,10 @@ object TraceContext {
     context
   )
 
+  implicit def traceContextFromErrorLoggingContext(
+      errorLoggingContext: ErrorLoggingContext
+  ): TraceContext = errorLoggingContext.traceContext
+
   object Implicits {
     object Empty {
       // make the empty trace context available as an implicit
@@ -79,9 +84,6 @@ object TraceContext {
       implicit val emptyTraceContext: TraceContext = TraceContext.empty
     }
 
-    object Todo {
-      implicit val traceContext: TraceContext = TraceContext.todo
-    }
   }
 
   val empty: TraceContext = new TraceContext(OpenTelemetryContext.root())

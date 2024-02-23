@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Helper.Studio
@@ -8,6 +8,8 @@ module DA.Daml.Helper.Studio
 
 import Control.Monad.Extra
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
+import Data.Char (toLower)
+import Data.Function (on)
 import Data.Maybe
 import System.Directory.Extra
 import System.Environment hiding (setEnv)
@@ -156,8 +158,10 @@ getInstalledExtensions = do
     oldBundled <- getOldExt
     extensions <- getExtensions
     let oldBundledIsInstalled = isJust oldBundled
-        publishedExtensionIsInstalled = not oldBundledIsInstalled && publishedExtensionName `elem` extensions
-        bundledInstalled = bundledExtensionName `elem` extensions
+        publishedExtensionIsInstalled =
+            not oldBundledIsInstalled &&
+                Lowercase publishedExtensionName `elem` extensions
+        bundledInstalled = Lowercase bundledExtensionName `elem` extensions
     pure InstalledExtensions {..}
     where getOldExt :: IO (Maybe FilePath)
           getOldExt = do
@@ -165,10 +169,20 @@ getInstalledExtensions = do
               let oldBundledDir = extensionsDir </> oldBundledExtensionDirName
               exists <- doesPathExist oldBundledDir
               pure $ if exists then Just oldBundledDir else Nothing
-          getExtensions :: IO [String]
+
+          getExtensions :: IO [Lowercase]
           getExtensions = do
               (_exitCode, extensionsStr, _err) <- runVsCodeCommand ["--list-extensions"]
-              pure $ lines extensionsStr
+              pure $ map Lowercase $ lines extensionsStr
+
+newtype Lowercase = Lowercase { originalString :: String }
+    deriving (Show)
+
+instance Eq Lowercase where
+    (==) = (==) `on` (map toLower . originalString)
+
+instance Ord Lowercase where
+    compare = compare `on` (map toLower . originalString)
 
 installBundledExtension :: FilePath -> IO ()
 installBundledExtension pathToVsix = do

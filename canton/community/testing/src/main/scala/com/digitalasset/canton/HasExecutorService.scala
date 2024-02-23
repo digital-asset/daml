@@ -18,7 +18,7 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 
-/** Mixin that provides an executor for tests.
+/** Mixin that adds an executor that can be used by tests.
   * The executor supports blocking operations, provided they are wrapped in [[scala.concurrent.blocking]]
   * or [[scala.concurrent.Await]].
   */
@@ -33,7 +33,7 @@ trait HasExecutorService extends BeforeAndAfterAll with HasExecutorServiceGeneri
     }
 }
 
-trait HasExecutorServiceGeneric extends NamedLogging with TestMetrics {
+trait HasExecutorServiceGeneric extends NamedLogging {
 
   private case class ExecutorState(
       scheduler: ScheduledExecutorService,
@@ -61,7 +61,6 @@ trait HasExecutorServiceGeneric extends NamedLogging with TestMetrics {
     val service = Threading.newExecutionContext(
       executionContextName,
       noTracingLogger,
-      Some(executorServiceMetrics),
       threads,
       exitOnFatal = exitOnFatal,
     )

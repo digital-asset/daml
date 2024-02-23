@@ -1,12 +1,12 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.auth.Authorizer
-import com.daml.ledger.api.auth.services.TimeServiceAuthorization
-import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
-import com.daml.ledger.api.v1.testing.time_service.{
+import com.digitalasset.canton.ledger.api.auth.Authorizer
+import com.digitalasset.canton.ledger.api.auth.services.TimeServiceAuthorization
+import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeService
+import com.daml.ledger.api.v2.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
   SetTimeRequest,
@@ -14,11 +14,10 @@ import com.daml.ledger.api.v1.testing.time_service.{
 }
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
-import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{ExecutionContext, Future};
+import scala.concurrent.{ExecutionContext, Future}
 
-final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
+final class TimeServiceImpl(getTimeResponse: Future[GetTimeResponse])
     extends TimeService
     with FakeAutoCloseable {
 
@@ -26,12 +25,10 @@ final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
   private var lastSetTimeRequest: Option[SetTimeRequest] = None
 
   override def getTime(
-      request: GetTimeRequest,
-      responseObserver: StreamObserver[GetTimeResponse],
-  ): Unit = {
+      request: GetTimeRequest
+  ): Future[GetTimeResponse] = {
     this.lastGetTimeRequest = Some(request)
-    getTimeResponses.foreach(responseObserver.onNext)
-    responseObserver.onCompleted()
+    getTimeResponse
   }
 
   override def setTime(request: SetTimeRequest): Future[Empty] = {
@@ -45,10 +42,10 @@ final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
 }
 
 object TimeServiceImpl {
-  def createWithRef(getTimeResponses: Seq[GetTimeResponse], authorizer: Authorizer)(implicit
+  def createWithRef(getTimeResponse: Future[GetTimeResponse], authorizer: Authorizer)(implicit
       ec: ExecutionContext
   ): (ServerServiceDefinition, TimeServiceImpl) = {
-    val impl = new TimeServiceImpl(getTimeResponses)
+    val impl = new TimeServiceImpl(getTimeResponse)
     val authImpl = new TimeServiceAuthorization(impl, authorizer)
     (TimeServiceGrpc.bindService(authImpl, ec), impl)
   }

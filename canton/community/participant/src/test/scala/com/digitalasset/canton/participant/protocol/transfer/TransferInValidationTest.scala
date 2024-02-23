@@ -11,10 +11,12 @@ import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.IncompatibleProtocolVersions
 import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId1
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.submitterParticipant
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
@@ -31,15 +33,11 @@ class TransferInValidationTest
   private val sourceDomain = SourceDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private val sourceMediator = MediatorId(
-    UniqueIdentifier.tryFromProtoPrimitive("mediator::source")
-  )
+  private val sourceMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(100))
   private val targetDomain = TargetDomainId(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private val targetMediator = MediatorId(
-    UniqueIdentifier.tryFromProtoPrimitive("mediator::target")
-  )
+  private val targetMediator = MediatorsOfDomain(MediatorGroupIndex.tryCreate(200))
 
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
@@ -53,33 +51,33 @@ class TransferInValidationTest
   )
 
   private val initialTransferCounter: TransferCounterO =
-    TransferCounter.forCreatedContract(testedProtocolVersion)
+    Some(TransferCounter.Genesis)
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
       submitter,
-      LedgerApplicationId.assertFromString("tests"),
-      participant.toLf,
+      participant,
       LedgerCommandId.assertFromString("transfer-in-validation-command-id"),
       submissionId = None,
+      LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
     )
   }
 
-  private val identityFactory = TestingTopology()
+  private val identityFactory = TestingTopologyX()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
-      Map(submitterParticipant -> Map(party1 -> ParticipantPermission.Submission))
+      Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
     )
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .build(loggerFactory)
 
   private val cryptoSnapshot =
     identityFactory
-      .forOwnerAndDomain(submitterParticipant, sourceDomain.unwrap)
+      .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
-  private val pureCrypto = TestingIdentityFactory.pureCrypto()
+  private val pureCrypto = TestingIdentityFactoryX.pureCrypto()
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
@@ -96,7 +94,7 @@ class TransferInValidationTest
       TransferResultHelpers.transferOutResult(
         sourceDomain,
         cryptoSnapshot,
-        submitterParticipant,
+        submittingParticipant,
       )
     val inRequest =
       makeFullTransferInTree(
@@ -135,7 +133,7 @@ class TransferInValidationTest
       contract,
       transferId.sourceDomain,
       SourceProtocolVersion(testedProtocolVersion),
-      MediatorRef(sourceMediator),
+      sourceMediator,
       targetDomain,
       TargetProtocolVersion(testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
@@ -150,7 +148,6 @@ class TransferInValidationTest
         seed,
         uuid,
       )
-      .value
     val transferData =
       TransferData(
         SourceProtocolVersion(testedProtocolVersion),
@@ -239,23 +236,19 @@ class TransferInValidationTest
             )
             .value
       } yield {
-        if (testedProtocolVersion < ProtocolVersion.CNTestNet) {
-          result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
-        } else {
-          result shouldBe Left(
-            InconsistentTransferCounter(
-              transferId,
-              inRequestWithWrongCounter.transferCounter,
-              transferData.transferCounter,
-            )
+        result shouldBe Left(
+          InconsistentTransferCounter(
+            transferId,
+            inRequestWithWrongCounter.transferCounter,
+            transferData.transferCounter,
           )
-        }
+        )
       }
     }
 
     "disallow transfers from source domain supporting transfer counter to destination domain not supporting them" in {
       val transferDataSourceDomainPVCNTestNet =
-        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.CNTestNet))
+        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v30))
       for {
         result <-
           transferInValidation
@@ -268,7 +261,7 @@ class TransferInValidationTest
             )
             .value
       } yield {
-        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.CNTestNet) {
+        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.v30) {
           result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
         } else {
           result shouldBe Left(
@@ -294,7 +287,7 @@ class TransferInValidationTest
 
     new TransferInValidation(
       domainId,
-      submitterParticipant,
+      submittingParticipant,
       damle,
       TestTransferCoordination.apply(
         Set(),
@@ -303,7 +296,6 @@ class TransferInValidationTest
         Some(awaitTimestampOverride),
         loggerFactory,
       ),
-      TargetProtocolVersion(testedProtocolVersion),
       loggerFactory = loggerFactory,
     )
   }
@@ -314,7 +306,7 @@ class TransferInValidationTest
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
-      targetMediator: MediatorId,
+      targetMediator: MediatorsOfDomain,
       transferOutResult: DeliveredTransferOutResult,
       uuid: UUID = new UUID(4L, 5L),
       transferCounter: TransferCounterO = initialTransferCounter,
@@ -330,7 +322,7 @@ class TransferInValidationTest
         transferCounter,
         creatingTransactionId,
         targetDomain,
-        MediatorRef(targetMediator),
+        targetMediator,
         transferOutResult,
         uuid,
         SourceProtocolVersion(testedProtocolVersion),

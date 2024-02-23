@@ -16,7 +16,6 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.indexer.parallel.BatchN
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
@@ -24,6 +23,7 @@ import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawCreatedContract,
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.grpc.{Metadata, StatusRuntimeException}
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
@@ -53,11 +53,9 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
     with NamedLogging {
 
   private val (queue, done) = createQueue()
-    .via(
-      BatchN(
-        maxBatchSize = maxBatchSize,
-        maxBatchCount = parallelism,
-      )
+    .batchN(
+      maxBatchSize = maxBatchSize,
+      maxBatchCount = parallelism,
     )
     .mapAsyncUnordered(parallelism) { batch =>
       Future
@@ -132,7 +130,6 @@ object ContractLoader {
       maxQueueSize: Int,
       maxBatchSize: Int,
       parallelism: Int,
-      multiDomainEnabled: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       materializer: Materializer,
@@ -150,12 +147,12 @@ object ContractLoader {
               .getOrElse(
                 throw new IllegalStateException("A batch should never be empty")
               )
-            metrics.daml.index.db.activeContractLookupBatchSize
+            metrics.index.db.activeContractLookupBatchSize
               .update(batch.size)(MetricsContext.Empty)
             val contractIds = batch.map(_._1._1)
             val archivedContractsF =
               dbDispatcher
-                .executeSql(metrics.daml.index.db.lookupArchivedContractsDbMetrics)(
+                .executeSql(metrics.index.db.lookupArchivedContractsDbMetrics)(
                   contractStorageBackend.archivedContracts(
                     contractIds = contractIds,
                     before = latestValidAtOffset,
@@ -163,7 +160,7 @@ object ContractLoader {
                 )(usedLoggingContext)
             val createdContractsF =
               dbDispatcher
-                .executeSql(metrics.daml.index.db.lookupCreatedContractsDbMetrics)(
+                .executeSql(metrics.index.db.lookupCreatedContractsDbMetrics)(
                   contractStorageBackend.createdContracts(
                     contractIds = contractIds,
                     before = latestValidAtOffset,
@@ -172,23 +169,22 @@ object ContractLoader {
             def additionalContractsF(
                 archivedContracts: Map[ContractId, RawArchivedContract],
                 createdContracts: Map[ContractId, RawCreatedContract],
-            ): Future[Map[ContractId, RawCreatedContract]] =
-              if (multiDomainEnabled) {
-                val notFoundContractIds = contractIds.view
-                  .filterNot(archivedContracts.contains)
-                  .filterNot(createdContracts.contains)
-                  .toSeq
-                if (notFoundContractIds.isEmpty) Future.successful(Map.empty)
-                else
-                  dbDispatcher.executeSql(metrics.daml.index.db.lookupAssignedContractsDbMetrics)(
-                    // The latestValidAtOffset is not used here as an upper bound for the lookup,
-                    // since the ContractStateCache only tracks creation and archival, therefore the
-                    // index is not moving ahead in case of assignment. This in corner cases would mean
-                    // that the index is behind of some assignments.
-                    // Instead the query is constrained by the ledgerEndCache.
-                    contractStorageBackend.assignedContracts(notFoundContractIds)
-                  )(usedLoggingContext)
-              } else Future.successful(Map.empty)
+            ): Future[Map[ContractId, RawCreatedContract]] = {
+              val notFoundContractIds = contractIds.view
+                .filterNot(archivedContracts.contains)
+                .filterNot(createdContracts.contains)
+                .toSeq
+              if (notFoundContractIds.isEmpty) Future.successful(Map.empty)
+              else
+                dbDispatcher.executeSql(metrics.index.db.lookupAssignedContractsDbMetrics)(
+                  // The latestValidAtOffset is not used here as an upper bound for the lookup,
+                  // since the ContractStateCache only tracks creation and archival, therefore the
+                  // index is not moving ahead in case of assignment. This in corner cases would mean
+                  // that the index is behind of some assignments.
+                  // Instead the query is constrained by the ledgerEndCache.
+                  contractStorageBackend.assignedContracts(notFoundContractIds)
+                )(usedLoggingContext)
+            }
             for {
               archivedContracts <- archivedContractsF
               createdContracts <- createdContractsF
@@ -208,9 +204,9 @@ object ContractLoader {
           createQueue = () =>
             InstrumentedGraph.queue(
               bufferSize = maxQueueSize,
-              capacityCounter = metrics.daml.index.db.activeContractLookupBufferCapacity,
-              lengthCounter = metrics.daml.index.db.activeContractLookupBufferLength,
-              delayTimer = metrics.daml.index.db.activeContractLookupBufferDelay,
+              capacityCounter = metrics.index.db.activeContractLookupBufferCapacity,
+              lengthCounter = metrics.index.db.activeContractLookupBufferLength,
+              delayTimer = metrics.index.db.activeContractLookupBufferDelay,
             ),
           maxBatchSize = maxBatchSize,
           parallelism = parallelism,

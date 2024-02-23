@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Please refer to the transaction spec (in daml-foundations/daml-lf/spec/transaction.rst)
@@ -31,6 +31,8 @@ message ContractInstance {
    string package_name = 4; // required *since dev*
     com.daml.lf.value.Identifier template_id = 1;
     com.daml.lf.value.VersionedValue arg_versioned = 2;
+    // TODO: https://github.com/digital-asset/daml/issues/18240
+    //  remove agreement text for the proto
     string agreement = 3;
 }
 // architecture-handbook-entry-end: Contract
@@ -38,38 +40,38 @@ message ContractInstance {
 // architecture-handbook-entry-begin: Nodes
 
 message Node {
-    string node_id = 1;
+    string version = 1;
+
+    string node_id = 2;
 
     oneof node_type {
-        NodeCreate create = 3;
+        FatContractInstance create = 3;
         NodeFetch fetch = 4;
         NodeExercise exercise = 5;
         NodeLookupByKey lookup_by_key = 6;
         NodeRollback rollback = 7;
     }
-
-    string version = 63;
 }
 
-message KeyWithMaintainers {
-    oneof key {
-        com.daml.lf.value.VersionedValue key_versioned = 1; // *must not be used*
-        bytes key_unversioned = 3;
-    }
-    repeated string maintainers = 2; // the maintainers induced by the key
-}
-
+// A self contained representation of a committed contract.
 message NodeCreate {
-    reserved 1; // was contract_id
-    ContractInstance contract_instance = 2; // *must not be used*
-    string package_name = 10; // required *since dev*
-    com.daml.lf.value.Identifier template_id = 7;
-    bytes arg_unversioned = 8;
-    string agreement = 9;
-    repeated string stakeholders = 3;
-    repeated string signatories = 4;
-    KeyWithMaintainers key_with_maintainers = 5;
-    com.daml.lf.value.ContractId contract_id_struct = 6;
+  bytes contract_id = 1;
+  string package_name = 2;
+  com.daml.lf.value.Identifier template_id = 3;
+
+  bytes create_arg = 4;
+
+  repeated string key_maintainers = 9; // required *since dev*
+
+  repeated string non_maintainer_signatories = 5;
+
+  repeated string non_signatory_stakeholders = 6;
+
+  bytes key = 10; // required *since dev*
+
+  sfixed64 created_at = 7; // optional
+
+  bytes canton_data = 8;// optional
 }
 
 message NodeFetch {
@@ -80,7 +82,7 @@ message NodeFetch {
     repeated string stakeholders = 3;
     repeated string signatories = 4;
     reserved 5; // was value_version
-    com.daml.lf.value.ContractId contract_id_struct = 6;
+    bytes contract_id = 6;
     KeyWithMaintainers key_with_maintainers = 8;
     bool by_key = 9;
 }
@@ -101,7 +103,7 @@ message NodeExercise {
     repeated string stakeholders = 8;
     repeated string signatories = 9;
     reserved 10; // was controllers
-    com.daml.lf.value.ContractId contract_id_struct = 11;
+    bytes contract_id = 11;
     oneof result {
         com.daml.lf.value.VersionedValue result_versioned = 12; // *must not be used*
         bytes result_unversioned = 17;
@@ -119,7 +121,7 @@ message NodeLookupByKey {
     com.daml.lf.value.Identifier template_id = 1;
     KeyWithMaintainers key_with_maintainers = 2;
     reserved 3; // was contract_id
-    com.daml.lf.value.ContractId contract_id_struct = 4;
+    bytes contract_id = 4;
 }
 
 message NodeRollback {
@@ -152,4 +154,13 @@ message FatContractInstance {
   sfixed64 created_at = 7;
 
   bytes canton_data = 8;
+}
+
+
+message KeyWithMaintainers {
+  oneof key {
+    com.daml.lf.value.VersionedValue key_versioned = 1; // *must not be used*
+    bytes key_unversioned = 3;
+  }
+  repeated string maintainers = 2; // the maintainers induced by the key
 }

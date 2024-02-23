@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -41,11 +41,6 @@ class HasEnsure t where
   -- | A predicate that must be true, otherwise contract creation will fail.
   ensure : t -> Bool
 
--- | Exposes `agreement` function. Part of the `Template` constraint.
-class HasAgreement t where
-  -- | The agreement text of a contract.
-  agreement : t -> Text
-
 -- | Exposes `create` function. Part of the `Template` constraint.
 class HasCreate t where
   -- | Create a contract based on a template `t`.
@@ -67,15 +62,11 @@ class HasSoftExercise t c r | t c -> r where
   -- | HIDE
   _softExercise : ContractId t -> c -> Update r
 
-#ifdef DAML_PACKAGE_UPGRADES
-
 softFetch : HasSoftFetch t => ContractId t -> Update t
 softFetch = _softFetch
 
 softExercise : HasSoftExercise t c r => ContractId t -> c -> Update r
 softExercise = _softExercise
-
-#endif -- DAML_PACKAGE_UPGRADES
 
 -- | Exposes `archive` function. Part of the `Template` constraint.
 class HasArchive t where

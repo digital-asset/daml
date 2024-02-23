@@ -8,7 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.store.TransferStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.topology.TestingIdentityFactory
+import com.digitalasset.canton.topology.TestingIdentityFactoryX
 import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -28,7 +28,7 @@ trait DbTransferStoreTest extends AsyncWordSpec with BaseTest with TransferStore
         storage,
         domainId,
         TargetProtocolVersion(testedProtocolVersion),
-        TestingIdentityFactory.pureCrypto(),
+        TestingIdentityFactoryX.pureCrypto(),
         futureSupervisor,
         timeouts,
         loggerFactory,

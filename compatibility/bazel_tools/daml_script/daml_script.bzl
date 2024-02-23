@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -21,6 +21,7 @@ def daml_script_example_dar(sdk_version):
             sdk_version = version_to_name(sdk_version),
         )],
         tools = [daml],
+        # TODO(#17366): remove explicit target once LF2 is the default
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
@@ -40,7 +41,8 @@ version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script
+  - daml3-script
+build-options: [--target=2.1]
 sandbox-options:
   - --wall-clock-time
 EOF
@@ -61,13 +63,10 @@ def daml_script_test(
         version = runner_version,
     )
 
-    # 1.16.0 is the first SDK version that defaulted to LF 1.14, which is the earliest LF version that Canton supports
-    use_canton = versions.is_at_least("2.0.0", runner_version) and versions.is_at_least("1.16.0", compiler_version)
-
     server = daml_runner
-    server_args = ["sandbox"] + (["--canton-port-file", "_port_file"] if (use_canton) else [])
+    server_args = ["sandbox", "--canton-port-file", "$$(pwd)/_port_file"]
     server_files = ["$(rootpath {})".format(compiled_dar)]
-    server_files_prefix = "--dar=" if use_canton else ""
+    server_files_prefix = "--dar="
 
     native.genrule(
         name = "{}-client-sh".format(name),
@@ -92,7 +91,7 @@ trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
 if [ {wait_for_port_file} -eq 1 ]; then
     timeout=60
-    while [ ! -e _port_file ]; do
+    while [ ! -e $$(pwd)/_port_file ]; do
         if [ "$$timeout" = 0 ]; then
             echo "Timed out waiting for Canton startup" >&2
             exit 1
@@ -121,7 +120,7 @@ chmod +x $(OUTS)
             runner = daml_runner,
             script_name = script_name,
             upload_dar = "0",
-            wait_for_port_file = "1" if use_canton else "0",
+            wait_for_port_file = "1",
         ),
         exec_tools = [
             compiled_dar,
@@ -155,7 +154,7 @@ chmod +x $(OUTS)
     )
 
 def daml_script_example_test(compiler_version, runner_version):
-    if versions.is_at_least("1.16.0", compiler_version):
+    if versions.is_at_least("3.0.0", compiler_version):
         daml_script_test(
             name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
                 compiler_version = version_to_name(compiler_version),

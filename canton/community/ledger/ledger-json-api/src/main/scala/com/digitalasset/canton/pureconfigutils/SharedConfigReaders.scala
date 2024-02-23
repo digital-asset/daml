@@ -6,7 +6,6 @@ package com.digitalasset.canton.pureconfigutils
 import org.apache.pekko.http.scaladsl.model.Uri
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
-import com.digitalasset.canton.platform.services.time.TimeProviderType
 import pureconfig.error.{CannotConvert, ConvertFailure, FailureReason}
 import pureconfig.{ConfigObjectCursor, ConfigReader, ConvertHelpers}
 import com.daml.jwt.{Error as JwtError}
@@ -84,16 +83,6 @@ object SharedConfigReaders {
 
   implicit val uriCfgReader: ConfigReader[Uri] =
     ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
-
-  implicit val timeProviderTypeCfgReader: ConfigReader[TimeProviderType] = {
-    ConfigReader.fromString[TimeProviderType](catchConvertError { s =>
-      s.toLowerCase() match {
-        case "static" => Right(TimeProviderType.Static)
-        case "wall-clock" => Right(TimeProviderType.WallClock)
-        case _ => Left("not one of 'static' or 'wall-clock'")
-      }
-    })
-  }
 
   implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
     ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>

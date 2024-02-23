@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -191,7 +191,7 @@ class TransactionSpec
   "isReplayedBy" - {
     def genTrans(node: Node) = {
       val nid = NodeId(1)
-      val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
+      val version = node.optVersion.getOrElse(TransactionVersion.minVersion)
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
@@ -227,7 +227,7 @@ class TransactionSpec
       }
 
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
+        val version = n.optVersion.getOrElse(TransactionVersion.minVersion)
         n match {
           case _: Node.Rollback => ()
           case n: Node.Action =>
@@ -383,7 +383,7 @@ class TransactionSpec
         ).map(s => {
           val node = create(cid(s))
           GlobalKey
-            .assertBuild(node.templateId, V.ValueText(cid(s).coid), Util.sharedKey(node.version))
+            .assertBuild(node.templateId, V.ValueText(cid(s).coid))
         }).toSet
 
       builder.build().contractKeys shouldBe expectedResults
@@ -394,9 +394,8 @@ class TransactionSpec
     import Transaction._
     val dummyBuilder = new TxBuilder()
     val parties = List("Alice")
-    val useSharedKeys = Util.sharedKey(TransactionVersion.StableVersions.max)
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k), useSharedKeys)
+    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k))
     def create(s: V.ContractId, k: String) = dummyBuilder
       .create(
         id = s,
@@ -712,7 +711,6 @@ class TransactionSpec
       val (cid3, create3) = create(builder, parties, Some("key2"))
       val (_, create4) = create(builder, parties, Some("key2"))
       val (_, create5) = create(builder, parties, Some("key3"))
-      val sharedKeys = Util.sharedKey(create0.version)
       builder.add(create0)
       builder.add(exercise(builder, create0, parties, false))
       builder.add(create1)
@@ -726,7 +724,7 @@ class TransactionSpec
       builder.add(exercise(builder, create3, parties, true), rollback)
       builder.add(create4, rollback)
 
-      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s), sharedKeys)
+      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s))
       builder.build().updatedContractKeys shouldBe
         Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
     }
@@ -1087,7 +1085,7 @@ object TransactionSpec {
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = cid,
-      packageName = None,
+      packageName = Ref.PackageName.assertFromString("PkgName"),
       templateId = "DummyModule:dummyName",
       interfaceId = None,
       choiceId = "dummyChoice",
@@ -1108,10 +1106,9 @@ object TransactionSpec {
   def dummyCreateNode(createCid: V.ContractId): Node.Create =
     Node.Create(
       coid = createCid,
-      packageName = None,
+      packageName = Ref.PackageName.assertFromString("PkgName"),
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueContractId(cid("#dummyCid")),
-      agreementText = "dummyAgreement",
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,

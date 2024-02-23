@@ -107,7 +107,7 @@ test_noDivulgenceOfCreateArguments = script do
 
 -- If we fetch the contract in the GoSwap1 choice, then the contract will be divulged to Bob and the
 -- swap scenario passes.
--- @WARN range=119:3-119:13; Use of divulged contracts is deprecated
+-- @ERROR range=112:1-112:26; Attempt to fetch or exercise a contract not visible to the reading parties.
 test_noDivulgenceForFetch : Script ()
 test_noDivulgenceForFetch = script do
   alice <- allocateParty "Alice"

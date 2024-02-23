@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.FreeVars
@@ -148,12 +148,10 @@ freeVarsStep = \case
         UCreateF _ e -> e
         UCreateInterfaceF _ e -> e
         UExerciseF _ _ e1 e2 -> e1 <> e2
-        USoftExerciseF _ _ e1 e2 -> e1 <> e2
         UDynamicExerciseF _ _ e1 e2 -> e1 <> e2
         UExerciseInterfaceF _ _ e1 e2 e3 -> e1 <> e2 <> fold e3
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
-        USoftFetchF _ e -> e
         UFetchInterfaceF _ e -> e
         UGetTimeF -> mempty
         UEmbedExprF t e -> freeVarsInType t <> e

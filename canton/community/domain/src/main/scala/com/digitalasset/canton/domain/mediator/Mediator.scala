@@ -28,7 +28,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, RequestId}
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.handlers.DiscardIgnoredEvents
 import com.digitalasset.canton.sequencing.protocol.{
   ClosedEnvelope,
@@ -64,7 +64,7 @@ private[mediator] class Mediator(
     val domain: DomainId,
     val mediatorId: MediatorId,
     @VisibleForTesting
-    val sequencerClient: SequencerClient,
+    val sequencerClient: RichSequencerClient,
     val topologyClient: DomainTopologyClientWithInit,
     private[canton] val syncCrypto: DomainSyncCryptoClient,
     topologyTransactionProcessor: TopologyTransactionProcessorCommon,
@@ -91,7 +91,7 @@ private[mediator] class Mediator(
       clock,
       logger,
       parameters.delayLoggingThreshold,
-      metrics.sequencerClient.delay,
+      metrics.sequencerClient.handler.delay,
     )
 
   val timeTracker = DomainTimeTracker(
@@ -106,7 +106,7 @@ private[mediator] class Mediator(
   private val verdictSender =
     VerdictSender(sequencerClient, syncCrypto, mediatorId, protocolVersion, loggerFactory)
 
-  private val processor = new ConfirmationResponseProcessor(
+  private val processor = new TransactionConfirmationResponseProcessor(
     domain,
     mediatorId,
     verdictSender,
@@ -306,7 +306,7 @@ private[mediator] class Mediator(
               )
 
               if (rootHashMessages.nonEmpty) {
-                // In this case, we assume it is a Mediator Request message
+                // In this case, we assume it is a Mediator Confirmation Request message
                 sendMalformedRejection(
                   rootHashMessages,
                   closedEvent.timestamp,
@@ -315,7 +315,12 @@ private[mediator] class Mediator(
               } else Future.unit
             }
 
-            (Traced(openEvent)(closedSignedEvent.traceContext), rejectionsF)
+            (
+              Traced(openEvent -> closedSignedEvent.signedEvent.timestampOfSigningKey)(
+                closedSignedEvent.traceContext
+              ),
+              rejectionsF,
+            )
           }
 
           val (tracedOpenEvents, rejectionsF) = tracedOpenEventsWithRejectionsF.unzip
@@ -389,7 +394,7 @@ private[mediator] object Mediator {
       domainParameters: DynamicDomainParametersWithValidity,
       cleanTs: CantonTimestamp,
   ): PruningSafetyCheck = {
-    lazy val timeout = domainParameters.parameters.participantResponseTimeout
+    lazy val timeout = domainParameters.parameters.confirmationResponseTimeout
     lazy val cappedSafePruningTs = domainParameters.validFrom.max(cleanTs - timeout)
 
     if (cleanTs <= domainParameters.validFrom) // If these parameters apply only to the future

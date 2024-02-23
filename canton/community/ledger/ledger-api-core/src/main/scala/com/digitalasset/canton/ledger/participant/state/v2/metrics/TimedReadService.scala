@@ -7,7 +7,11 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{
+  InternalStateService,
+  ReadService,
+  Update,
+}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.NotUsed
@@ -20,13 +24,13 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
   override def stateUpdates(
       beginAfter: Option[Offset]
   )(implicit traceContext: TraceContext): Source[(Offset, Traced[Update]), NotUsed] =
-    Timed.source(metrics.daml.services.read.stateUpdates, delegate.stateUpdates(beginAfter))
+    Timed.source(metrics.services.read.stateUpdates, delegate.stateUpdates(beginAfter))
 
   override def getConnectedDomains(
       request: ReadService.ConnectedDomainRequest
   )(implicit traceContext: TraceContext): Future[ReadService.ConnectedDomainResponse] =
     Timed.future(
-      metrics.daml.services.read.getConnectedDomains,
+      metrics.services.read.getConnectedDomains,
       delegate.getConnectedDomains(request),
     )
 
@@ -34,10 +38,19 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
       traceContext: TraceContext
   ): Future[Vector[Offset]] =
     Timed.future(
-      metrics.daml.services.read.getConnectedDomains,
+      metrics.services.read.getConnectedDomains,
       delegate.incompleteReassignmentOffsets(validAt, stakeholders),
     )
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
+
+  override def registerInternalStateService(internalStateService: InternalStateService): Unit =
+    delegate.registerInternalStateService(internalStateService)
+
+  override def internalStateService: Option[InternalStateService] =
+    delegate.internalStateService
+
+  override def unregisterInternalStateService(): Unit =
+    delegate.unregisterInternalStateService()
 }

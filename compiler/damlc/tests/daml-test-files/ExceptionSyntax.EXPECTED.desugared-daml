@@ -9,8 +9,9 @@ import DA.Assert ( (===) )
 data DA.Internal.Desugar.DamlException => MyException
   = MyException {m : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "m" MyException Text where
+instance DA.Internal.Record.GetField "m" MyException Text where
   getField = DA.Internal.Record.getFieldPrim @"m" @MyException @Text
+instance DA.Internal.Record.SetField "m" MyException Text where
   setField = DA.Internal.Record.setFieldPrim @"m" @MyException @Text
 instance DA.Internal.Desugar.HasMessage MyException where
   message this@MyException {..} = let _ = this in m
@@ -23,8 +24,9 @@ instance DA.Internal.Desugar.HasFromAnyException MyException where
 data GHC.Types.DamlTemplate => Test
   = Test {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "p" Test Party where
+instance DA.Internal.Record.GetField "p" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
+instance DA.Internal.Record.SetField "p" Test Party where
   setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
 data Call
   = Call {}
@@ -42,11 +44,6 @@ instance DA.Internal.Desugar.HasObserver Test where
 instance DA.Internal.Desugar.HasEnsure Test where
   ensure this@Test {..}
     = DA.Internal.Desugar.True
-    where
-        _ = this
-instance DA.Internal.Desugar.HasAgreement Test where
-  agreement this@Test {..}
-    = ""
     where
         _ = this
 instance DA.Internal.Desugar.HasArchive Test where

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -207,7 +207,7 @@ documentation numProcessors = Damldoc
         metavar "NAME[,NAME...]"
         <> long "exclude-instances"
         <> help ("Exclude instances from docs by class name. " <>
-                "Example: `HasField'. Default: none.")
+                "Example: `GetField,SetField'. Default: none.")
         <> value []
 
     optDropOrphanInstances :: Parser Bool

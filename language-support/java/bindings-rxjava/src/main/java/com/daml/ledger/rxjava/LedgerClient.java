@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava;
@@ -7,11 +7,9 @@ package com.daml.ledger.rxjava;
 public interface LedgerClient {
 
   /** @return The identifier of the Ledger connected to this {@link LedgerClient} */
-  String getLedgerId();
+  StateClient getStateClient();
 
-  ActiveContractsClient getActiveContractSetClient();
-
-  TransactionsClient getTransactionsClient();
+  UpdateClient getTransactionsClient();
 
   CommandClient getCommandClient();
 
@@ -19,14 +17,9 @@ public interface LedgerClient {
 
   CommandSubmissionClient getCommandSubmissionClient();
 
-  @Deprecated
-  LedgerIdentityClient getLedgerIdentityClient();
-
   EventQueryClient getEventQueryClient();
 
   PackageClient getPackageClient();
-
-  LedgerConfigurationClient getLedgerConfigurationClient();
 
   TimeClient getTimeClient();
 

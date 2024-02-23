@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create as ProtoCreate,
   CreateAndExercise as ProtoCreateAndExercise,
@@ -12,19 +13,15 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   Exercise as ProtoExercise,
   ExerciseByKey as ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.api.v1.commands as V1
-import com.daml.ledger.api.v2.commands as V2
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.lf.command.*
 import com.daml.lf.data.*
 import com.daml.lf.value.Value as Lf
-import com.digitalasset.canton.ledger.api.domain.{LedgerId, optionalLedgerId}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   Submitters,
   effectiveSubmitters,
 }
-import com.digitalasset.canton.ledger.api.validation.FieldValidator.ResolveToTemplateId
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.offset.Offset
@@ -33,22 +30,21 @@ import scalaz.syntax.tag.*
 
 import java.time.{Duration, Instant}
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.annotation.nowarn
 import scala.collection.immutable
 
 final class CommandsValidator(
-    ledgerId: LedgerId,
-    resolveToTemplateId: ResolveToTemplateId,
+    validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions =
+      ValidateUpgradingPackageResolutions.UpgradingDisabled,
     upgradingEnabled: Boolean = false,
-    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts(false),
+    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts,
 ) {
 
-  import ValidationErrors.*
   import FieldValidator.*
+  import ValidationErrors.*
   import ValueValidator.*
 
   def validateCommands(
-      commands: V1.Commands,
+      commands: Commands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationDuration: Option[Duration],
@@ -56,7 +52,6 @@ final class CommandsValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Commands] =
     for {
-      ledgerId <- matchLedgerId(ledgerId)(optionalLedgerId(commands.ledgerId))
       workflowId <-
         if (commands.workflowId.isEmpty) Right(None)
         else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
@@ -80,8 +75,10 @@ final class CommandsValidator(
         maxDeduplicationDuration,
       )
       validatedDisclosedContracts <- validateDisclosedContracts(commands)
+      packageResolutions <- validateUpgradingPackageResolutions(
+        commands.packageIdSelectionPreference
+      )
     } yield domain.Commands(
-      ledgerId = ledgerId,
       workflowId = workflowId,
       applicationId = appId,
       commandId = commandId,
@@ -96,11 +93,13 @@ final class CommandsValidator(
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
       disclosedContracts = validatedDisclosedContracts,
+      packageMap = packageResolutions.packageMap,
+      packagePreferenceSet = packageResolutions.packagePreferenceSet,
     )
 
   private def validateLedgerTime(
       currentTime: Instant,
-      commands: V1.Commands,
+      commands: Commands,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Instant] = {
@@ -123,7 +122,7 @@ final class CommandsValidator(
 
   // Public because it is used by Canton.
   def validateInnerCommands(
-      commands: Seq[V1.Command]
+      commands: Seq[Command]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, immutable.Seq[ApiCommand]] =
@@ -138,7 +137,7 @@ final class CommandsValidator(
 
   // Public so that clients have an easy way to convert ProtoCommand.Command to ApiCommand.
   def validateInnerCommand(
-      command: V1.Command.Command
+      command: Command.Command
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ApiCommand] =
@@ -146,25 +145,25 @@ final class CommandsValidator(
       case c: ProtoCreate =>
         for {
           templateId <- requirePresence(c.value.templateId, "template_id")
-          validatedTemplateId <- validateTemplateId(templateId)
+          typeConRef <- validateTypeConRef(templateId)(upgradingEnabled)
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
-          recordId <- createArguments.recordId.traverse(validateTemplateId)
+          recordId <- createArguments.recordId.traverse(validateIdentifier)
           validatedRecordField <- validateRecordFields(createArguments.fields)
         } yield ApiCommand.Create(
-          templateId = validatedTemplateId,
+          templateRef = typeConRef,
           argument = Lf.ValueRecord(recordId, validatedRecordField),
         )
 
       case e: ProtoExercise =>
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
-          validatedTemplateId <- validateTemplateId(templateId)
+          templateRef <- validateTypeConRef(templateId)(upgradingEnabled)
           contractId <- requireContractId(e.value.contractId, "contract_id")
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield ApiCommand.Exercise(
-          typeId = validatedTemplateId,
+          typeRef = templateRef,
           contractId = contractId,
           choiceId = choice,
           argument = validatedValue,
@@ -173,14 +172,14 @@ final class CommandsValidator(
       case ek: ProtoExerciseByKey =>
         for {
           templateId <- requirePresence(ek.value.templateId, "template_id")
-          validatedTemplateId <- validateTemplateId(templateId)
+          templateRef <- validateTypeConRef(templateId)(upgradingEnabled)
           contractKey <- requirePresence(ek.value.contractKey, "contract_key")
           validatedContractKey <- validateValue(contractKey)
           choice <- requireName(ek.value.choice, "choice")
           value <- requirePresence(ek.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield ApiCommand.ExerciseByKey(
-          templateId = validatedTemplateId,
+          templateRef = templateRef,
           contractKey = validatedContractKey,
           choiceId = choice,
           argument = validatedValue,
@@ -189,15 +188,15 @@ final class CommandsValidator(
       case ce: ProtoCreateAndExercise =>
         for {
           templateId <- requirePresence(ce.value.templateId, "template_id")
-          validatedTemplateId <- validateTemplateId(templateId)
+          templateRef <- validateTypeConRef(templateId)(upgradingEnabled)
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
-          recordId <- createArguments.recordId.traverse(validateTemplateId)
+          recordId <- createArguments.recordId.traverse(validateIdentifier)
           validatedRecordField <- validateRecordFields(createArguments.fields)
           choice <- requireName(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
         } yield ApiCommand.CreateAndExercise(
-          templateId = validatedTemplateId,
+          templateRef = templateRef,
           createArgument = Lf.ValueRecord(recordId, validatedRecordField),
           choiceId = choice,
           choiceArgument = validatedChoiceArgument,
@@ -206,15 +205,8 @@ final class CommandsValidator(
         Left(missingField("command"))
     }
 
-  private def validateTemplateId(identifier: Identifier)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Ref.Identifier] =
-    if (upgradingEnabled)
-      validateIdentifierWithOptionalPackageId(resolveToTemplateId)(identifier)
-    else validateIdentifier(identifier)
-
   private def validateSubmitters(
-      commands: V1.Commands
+      commands: Commands
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
@@ -237,11 +229,8 @@ final class CommandsValidator(
 
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */
-  @nowarn(
-    "msg=class DeduplicationTime in object DeduplicationPeriod is deprecated"
-  )
   def validateDeduplicationPeriod(
-      deduplicationPeriod: V1.Commands.DeduplicationPeriod,
+      deduplicationPeriod: Commands.DeduplicationPeriod,
       optMaxDeduplicationDuration: Option[Duration],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -254,19 +243,14 @@ final class CommandsValidator(
       )
     ) { maxDeduplicationDuration =>
       deduplicationPeriod match {
-        case V1.Commands.DeduplicationPeriod.Empty =>
+        case Commands.DeduplicationPeriod.Empty =>
           Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
-        case V1.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
+        case Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
           val deduplicationDuration = DurationConversion.fromProto(duration)
           DeduplicationPeriodValidator
             .validateNonNegativeDuration(deduplicationDuration)
             .map(DeduplicationPeriod.DeduplicationDuration)
-        case V1.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
-          val deduplicationDuration = DurationConversion.fromProto(duration)
-          DeduplicationPeriodValidator
-            .validateNonNegativeDuration(deduplicationDuration)
-            .map(DeduplicationPeriod.DeduplicationDuration)
-        case V1.Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
+        case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
           Ref.HexString
             .fromString(offset)
             .fold(
@@ -290,16 +274,12 @@ final class CommandsValidator(
 
 object CommandsValidator {
   def apply(
-      ledgerId: LedgerId,
-      resolveToTemplateId: ResolveToTemplateId,
+      validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
       upgradingEnabled: Boolean,
-      enableExplicitDisclosure: Boolean,
   ) =
     new CommandsValidator(
-      ledgerId = ledgerId,
-      resolveToTemplateId = resolveToTemplateId,
+      validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
       upgradingEnabled = upgradingEnabled,
-      validateDisclosedContracts = new ValidateDisclosedContracts(enableExplicitDisclosure),
     )
 
   /** Effective submitters of a command
@@ -308,37 +288,20 @@ object CommandsValidator {
     */
   final case class Submitters[T](actAs: Set[T], readAs: Set[T])
 
-  def effectiveSubmitters(commands: Option[V1.Commands]): Submitters[String] = {
+  def effectiveSubmitters(commands: Option[Commands]): Submitters[String] = {
     commands.fold(noSubmitters)(effectiveSubmitters)
   }
 
-  def effectiveSubmittersV2(commands: Option[V2.Commands]): Submitters[String] = {
+  def effectiveSubmittersV2(commands: Option[Commands]): Submitters[String] = {
     commands.fold(noSubmitters)(effectiveSubmitters)
   }
 
-  def effectiveSubmitters(commands: V1.Commands): Submitters[String] = {
-    val actAs = effectiveActAs(commands)
+  def effectiveSubmitters(commands: Commands): Submitters[String] = {
+    val actAs = commands.actAs.toSet
     val readAs = commands.readAs.toSet -- actAs
     Submitters(actAs, readAs)
   }
-
-  def effectiveSubmitters(commands: V2.Commands): Submitters[String] = {
-    val actAs = effectiveActAs(commands)
-    val readAs = commands.readAs.toSet -- actAs
-    Submitters(actAs, readAs)
-  }
-
-  def effectiveActAs(commands: V1.Commands): Set[String] =
-    if (commands.party.isEmpty)
-      commands.actAs.toSet
-    else
-      commands.actAs.toSet + commands.party
-
-  def effectiveActAs(commands: V2.Commands): Set[String] =
-    if (commands.party.isEmpty)
-      commands.actAs.toSet
-    else
-      commands.actAs.toSet + commands.party
 
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
+
 }

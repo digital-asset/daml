@@ -11,15 +11,15 @@ import com.digitalasset.canton.console.{
   FeatureFlagFilter,
   Help,
   Helpful,
-  InstanceReferenceX,
+  InstanceReference,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
 
 class TrafficControlSequencerAdministrationGroup(
-    instance: InstanceReferenceX,
-    topology: TopologyAdministrationGroupX,
+    instance: InstanceReference,
+    topology: TopologyAdministrationGroup,
     runner: AdminCommandRunner,
     override val consoleEnvironment: ConsoleEnvironment,
     override val loggerFactory: NamedLoggerFactory,

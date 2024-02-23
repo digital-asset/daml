@@ -9,28 +9,22 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging.*
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.value.Value as Lf
-import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
+import scalaz.@@
 import scalaz.syntax.tag.*
-import scalaz.{@@, Tag}
 
-import java.net.URL
 import scala.collection.immutable
-import scala.util.Try
 
-final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
-  def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
-    filtersByParty.get(party).fold(false)(_.apply(template))
-}
+final case class TransactionFilter(
+    filtersByParty: immutable.Map[Ref.Party, Filters],
+    alwaysPopulateCreatedEventBlob: Boolean = false,
+)
 
-final case class Filters(inclusive: Option[InclusiveFilters]) {
-  def apply(identifier: Ref.Identifier): Boolean =
-    inclusive.fold(true)(_.templateFilters.exists(_.templateId == identifier))
-}
+final case class Filters(inclusive: Option[InclusiveFilters])
 
 object Filters {
   val noFilter: Filters = Filters(None)
@@ -45,38 +39,45 @@ final case class InterfaceFilter(
 )
 
 final case class TemplateFilter(
-    templateId: Ref.Identifier,
+    templateTypeRef: Ref.TypeConRef,
     includeCreatedEventBlob: Boolean,
 )
+
+object TemplateFilter {
+  def apply(templateId: Ref.Identifier, includeCreatedEventBlob: Boolean): TemplateFilter =
+    TemplateFilter(
+      Ref.TypeConRef(Ref.PackageRef.Id(templateId.packageId), templateId.qualifiedName),
+      includeCreatedEventBlob,
+    )
+}
 
 final case class InclusiveFilters(
     templateFilters: immutable.Set[TemplateFilter],
     interfaceFilters: immutable.Set[InterfaceFilter],
 )
 
-sealed abstract class LedgerOffset extends Product with Serializable
+sealed abstract class ParticipantOffset extends Product with Serializable
 
-object LedgerOffset {
+object ParticipantOffset {
 
-  final case class Absolute(value: Ref.LedgerString) extends LedgerOffset
+  final case class Absolute(value: Ref.LedgerString) extends ParticipantOffset
 
-  case object LedgerBegin extends LedgerOffset
+  case object ParticipantBegin extends ParticipantOffset
 
-  case object LedgerEnd extends LedgerOffset
+  case object ParticipantEnd extends ParticipantOffset
 
-  implicit val `Absolute Ordering`: Ordering[LedgerOffset.Absolute] =
-    Ordering.by[LedgerOffset.Absolute, String](_.value)
+  implicit val `Absolute Ordering`: Ordering[ParticipantOffset.Absolute] =
+    Ordering.by[ParticipantOffset.Absolute, String](_.value)
 
-  implicit val `LedgerOffset to LoggingValue`: ToLoggingValue[LedgerOffset] = value =>
+  implicit val `ParticipantOffset to LoggingValue`: ToLoggingValue[ParticipantOffset] = value =>
     LoggingValue.OfString(value match {
-      case LedgerOffset.Absolute(absolute) => absolute
-      case LedgerOffset.LedgerBegin => "%begin%"
-      case LedgerOffset.LedgerEnd => "%end%"
+      case ParticipantOffset.Absolute(absolute) => absolute
+      case ParticipantOffset.ParticipantBegin => "%begin%"
+      case ParticipantOffset.ParticipantEnd => "%end%"
     })
 }
 
 final case class Commands(
-    ledgerId: Option[LedgerId],
     workflowId: Option[WorkflowId],
     applicationId: Ref.ApplicationId,
     commandId: CommandId,
@@ -88,6 +89,9 @@ final case class Commands(
     commands: LfCommands,
     disclosedContracts: ImmArray[DisclosedContract],
     domainId: Option[DomainId] = None,
+    packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
+    // Used to indicate the package map against which package resolution was performed.
+    packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
 ) extends PrettyPrinting {
 
   override def pretty: Pretty[Commands] = {
@@ -139,6 +143,7 @@ final case class NonUpgradableDisclosedContract(
 
 final case class UpgradableDisclosedContract(
     templateId: Ref.TypeConName,
+    packageName: Ref.PackageName,
     contractId: Lf.ContractId,
     argument: Value,
     createdAt: Timestamp,
@@ -158,9 +163,7 @@ object Commands {
     ToLoggingValue.ToStringToLoggingValue
 
   implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands => {
-    val maybeString: Option[String] = commands.ledgerId.map(Tag.unwrap)
     LoggingValue.Nested.fromEntries(
-      "ledgerId" -> OfString(maybeString.getOrElse("<empty-ledger-id>")),
       "workflowId" -> commands.workflowId,
       "applicationId" -> commands.applicationId,
       "submissionId" -> commands.submissionId,
@@ -208,114 +211,3 @@ object Logging {
   implicit def `tagged value to LoggingValue`[T: ToLoggingValue, Tag]: ToLoggingValue[T @@ Tag] =
     value => value.unwrap
 }
-
-final case class ObjectMeta(
-    resourceVersionO: Option[Long],
-    annotations: Map[String, String],
-)
-
-object ObjectMeta {
-  def empty: ObjectMeta = ObjectMeta(
-    resourceVersionO = None,
-    annotations = Map.empty,
-  )
-}
-
-final case class User(
-    id: Ref.UserId,
-    primaryParty: Option[Ref.Party],
-    isDeactivated: Boolean = false,
-    metadata: ObjectMeta = ObjectMeta.empty,
-    identityProviderId: IdentityProviderId = IdentityProviderId.Default,
-)
-
-final case class PartyDetails(
-    party: Ref.Party,
-    displayName: Option[String],
-    isLocal: Boolean,
-    metadata: ObjectMeta,
-    identityProviderId: IdentityProviderId,
-)
-
-sealed abstract class UserRight extends Product with Serializable
-object UserRight {
-  final case object ParticipantAdmin extends UserRight
-  final case object IdentityProviderAdmin extends UserRight
-  final case class CanActAs(party: Ref.Party) extends UserRight
-  final case class CanReadAs(party: Ref.Party) extends UserRight
-}
-
-sealed abstract class Feature extends Product with Serializable
-object Feature {
-  case object UserManagement extends Feature
-}
-
-final case class JwksUrl(value: String) extends AnyVal {
-  def toURL = new URL(value)
-}
-object JwksUrl {
-  def fromString(value: String): Either[String, JwksUrl] =
-    Try(new URL(value)).toEither.left
-      .map(_.getMessage)
-      .map(_ => JwksUrl(value))
-
-  def assertFromString(str: String): JwksUrl = fromString(str) match {
-    case Right(value) => value
-    case Left(err) => throw new IllegalArgumentException(err)
-  }
-}
-
-sealed trait IdentityProviderId {
-  def toRequestString: String
-
-  def toDb: Option[IdentityProviderId.Id]
-}
-
-object IdentityProviderId {
-  final case object Default extends IdentityProviderId {
-    override def toRequestString: String = ""
-    override def toDb: Option[Id] = None
-  }
-
-  final case class Id(value: Ref.LedgerString) extends IdentityProviderId {
-    override def toRequestString: String = value
-
-    override def toDb: Option[Id] = Some(this)
-  }
-
-  object Id {
-    def fromString(id: String): Either[String, IdentityProviderId.Id] = {
-      Ref.LedgerString.fromString(id).map(Id.apply)
-    }
-
-    def assertFromString(id: String): Id = {
-      Id(Ref.LedgerString.assertFromString(id))
-    }
-  }
-
-  def apply(identityProviderId: String): IdentityProviderId =
-    Some(identityProviderId).filter(_.nonEmpty) match {
-      case Some(id) => Id(Ref.LedgerString.assertFromString(id))
-      case None => Default
-    }
-
-  def fromString(identityProviderId: String): Either[String, IdentityProviderId] =
-    Some(identityProviderId).filter(_.nonEmpty) match {
-      case Some(id) => Ref.LedgerString.fromString(id).map(Id.apply)
-      case None => Right(Default)
-    }
-
-  def fromDb(identityProviderId: Option[IdentityProviderId.Id]): IdentityProviderId =
-    identityProviderId match {
-      case None => IdentityProviderId.Default
-      case Some(id) => id
-    }
-}
-
-final case class IdentityProviderConfig(
-    identityProviderId: IdentityProviderId.Id,
-    isDeactivated: Boolean = false,
-    jwksUrl: JwksUrl,
-    issuer: String,
-    audience: Option[String],
-)

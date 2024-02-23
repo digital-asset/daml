@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Util}
-import com.daml.lf.value.Value.{ValueText, VersionedContractInstance}
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.value.Value.ValueText
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,91 +17,22 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
 
   behavior of "JdbcLedgerDao (contracts)"
 
-  it should "be able to persist and load contracts" in {
+  it should "be able to persist and load contracts with the right visibility" in {
     for {
-      (_, tx) <- store(singleCreate)
-      result <- contractsReader.lookupActiveContractAndLoadArgument(
-        Set(alice),
-        nonTransient(tx).loneElement,
-      )
-    } yield {
-      result shouldEqual Some(someVersionedContractInstance)
-    }
-  }
-
-  it should "allow to divulge a contract that has already been committed" in {
-    for {
-      (_, tx) <- store(singleCreate)
-      create = nonTransient(tx).loneElement
-      _ <- storeCommitedContractDivulgence(
-        id = create,
-        divulgees = Set(charlie),
-      )
-      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie), create)
-    } yield {
-      // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someVersionedContractInstance)
-    }
-  }
-
-  it should "not find contracts that are not visible to the requester" in {
-    for {
-      (_, tx) <- store(singleCreate)
-      result <- contractsReader.lookupActiveContractAndLoadArgument(
-        Set(charlie),
-        nonTransient(tx).loneElement,
-      )
-    } yield {
-      result shouldEqual None
-    }
-  }
-
-  it should "not find contracts that are not visible to any of the requesters" in {
-    for {
-      (_, tx) <- createAndStoreContract(
+      (offset, tx) <- createAndStoreContract(
         submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob),
         key = None,
       )
-      contractId = nonTransient(tx).loneElement
-      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie, emma), contractId)
-    } yield {
-      result shouldBe None
-    }
-  }
-
-  it should "find contract if at least one of requesters is a stakeholder" in {
-    for {
-      (_, tx) <- createAndStoreContract(
-        submittingParties = Set(alice),
-        signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob, charlie),
-        key = None,
+      result <- contractsReader.lookupContractState(
+        nonTransient(tx).loneElement,
+        offset,
       )
-      contractId = nonTransient(tx).loneElement
-      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie, emma), contractId)
     } yield {
-      result.value shouldBe a[VersionedContractInstance]
-    }
-  }
-
-  it should "find contract if at least one of requesters is a divulgee" in {
-    for {
-      (_, tx) <- createAndStoreContract(
-        submittingParties = Set(alice),
-        signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob, charlie),
-        key = None,
-      )
-      contractId = nonTransient(tx).loneElement
-      _ <- storeCommitedContractDivulgence(
-        id = contractId,
-        divulgees = Set(emma),
-      )
-      result <- contractsReader.lookupActiveContractAndLoadArgument(Set(david, emma), contractId)
-    } yield {
-      result.value shouldBe a[VersionedContractInstance]
+      result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
+        (active.contract, active.stakeholders, active.signatories)
+      } shouldEqual Some((someVersionedContractInstance, Set(alice, bob), Set(alice, bob)))
     }
   }
 
@@ -149,7 +80,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       someTemplateId,
       aTextValue,
       Set(alice, bob),
-      Util.sharedKey(testLanguageVersion),
     )
 
     for {

@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_linux")
@@ -42,7 +42,6 @@ write_scalatest_runpath(
         ],
         runtime_deps = [
             "//ledger/error:error-test-lib",
-            "//libs-scala/flyway-testing",
             "//libs-scala/jwt",
             "//libs-scala/scalatest-utils",
         ],

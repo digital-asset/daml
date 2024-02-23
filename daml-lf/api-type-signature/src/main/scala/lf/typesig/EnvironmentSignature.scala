@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,8 +8,6 @@ import com.daml.lf.archive.Dar
 import data.Ref, Ref.{Identifier, PackageId}
 
 import scala.collection.immutable.Map
-import scalaz.std.tuple._
-import scalaz.syntax.functor._
 import scalaz.syntax.std.map._
 import scalaz.Semigroup
 
@@ -47,21 +45,6 @@ final case class EnvironmentSignature(
       }
     })
 
-  def resolveRetroImplements: EnvironmentSignature = {
-    import PackageSignature.findTemplate
-    val (newTypeDecls, newInterfaces) = interfaces.foldLeft((typeDecls, interfaces)) {
-      case ((typeDecls, interfaces), (ifTc, defIf)) =>
-        defIf
-          .resolveRetroImplements(ifTc, typeDecls) { case (typeDecls, tplName) =>
-            findTemplate(typeDecls, tplName) map { itt => f =>
-              typeDecls.updated(tplName, itt.copy(template = f(itt.template)))
-            }
-          }
-          .map(defIf => interfaces.updated(ifTc, defIf))
-    }
-    copy(typeDecls = newTypeDecls, interfaces = newInterfaces)
-  }
-
   def resolveInterfaceViewType(tcn: Ref.TypeConName): Option[DefInterface.ViewTypeFWT] =
     typeDecls get tcn flatMap (_.asInterfaceViewType)
 }
@@ -81,8 +64,8 @@ object EnvironmentSignature {
       case PackageSignature(packageId, _, _, astInterfaces) =>
         astInterfaces mapKeys (Identifier(packageId, _))
     }.toMap
-    val metadata = all.iterator.flatMap { case PackageSignature(packageId, metadata, _, _) =>
-      metadata.iterator.map(md => packageId -> md)
+    val metadata = all.iterator.map { case PackageSignature(packageId, metadata, _, _) =>
+      packageId -> metadata
     }.toMap
     EnvironmentSignature(metadata, typeDecls, astInterfaces)
   }

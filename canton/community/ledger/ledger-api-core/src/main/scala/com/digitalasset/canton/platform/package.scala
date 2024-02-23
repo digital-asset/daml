@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton
 
+import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.ledger.offset.Offset
+
+import scala.concurrent.Future
 
 /** Type aliases used throughout the package */
 package object platform {
@@ -51,6 +54,8 @@ package object platform {
   private[platform] val ChoiceName = lfdata.Ref.ChoiceName
   private[platform] type PackageId = lfdata.Ref.PackageId
   private[platform] val PackageId = lfdata.Ref.PackageId
+  private[platform] type PackageName = lfdata.Ref.PackageName
+  private[platform] val PackageName = lfdata.Ref.PackageName
   private[platform] type Relation[A, B] = lfdata.Relation[A, B]
   private[platform] type UserId = lfdata.Ref.UserId
   private[platform] val UserId = lfdata.Ref.UserId
@@ -61,4 +66,15 @@ package object platform {
   private[platform] type Hash = crypto.Hash
 
   private[platform] type PruneBuffers = Offset => Unit
+
+  implicit class ResourceOwnerOps[T](val resourceOwner: ResourceOwner[T]) extends AnyVal {
+    def afterReleased(body: => Unit): ResourceOwner[T] =
+      afterReleasedF(Future.successful(body))
+
+    def afterReleasedF(bodyF: => Future[Unit]): ResourceOwner[T] =
+      for {
+        _ <- ResourceOwner.forReleasable(() => ())(_ => bodyF)
+        t <- resourceOwner
+      } yield t
+  }
 }

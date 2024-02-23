@@ -11,6 +11,7 @@ import cats.syntax.either.*
 import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{CacheConfig, CachingConfigs, ProcessingTimeout}
@@ -37,7 +38,7 @@ import com.digitalasset.canton.topology.client.{
   TopologyClientApi,
   TopologySnapshot,
 }
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
@@ -55,7 +56,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * the right keys to use for signing / decryption based on domain and timestamp.
   */
 class SyncCryptoApiProvider(
-    val owner: KeyOwner,
+    val member: Member,
     val ips: IdentityProvidingServiceClient,
     val crypto: Crypto,
     cachingConfigs: CachingConfigs,
@@ -70,7 +71,7 @@ class SyncCryptoApiProvider(
 
   def tryForDomain(domain: DomainId, alias: Option[DomainAlias] = None): DomainSyncCryptoClient =
     new DomainSyncCryptoClient(
-      owner,
+      member,
       domain,
       ips.tryForDomain(domain),
       crypto,
@@ -84,7 +85,7 @@ class SyncCryptoApiProvider(
     for {
       dips <- ips.forDomain(domain)
     } yield new DomainSyncCryptoClient(
-      owner,
+      member,
       domain,
       dips,
       crypto,
@@ -228,64 +229,97 @@ object SyncCryptoClient {
       monad: Monad[F],
   ): F[SyncCryptoApi] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
-    val knownUntil = client.topologyKnownUntilTimestamp
-    if (desiredTimestamp <= knownUntil) {
-      getSnapshot(desiredTimestamp, traceContext)
+
+    def lookupDynamicDomainParameters(timestamp: CantonTimestamp): F[DynamicDomainParameters] =
+      for {
+        snapshot <- awaitSnapshotSupervised(
+          s"searching for topology change delay at $timestamp for desired timestamp $desiredTimestamp and known until ${client.topologyKnownUntilTimestamp}",
+          timestamp,
+          traceContext,
+        )
+        domainParams <- dynamicDomainParameters(
+          snapshot.ipsSnapshot,
+          traceContext,
+        )
+      } yield domainParams
+
+    computeTimestampForValidation(
+      desiredTimestamp,
+      previousTimestampO,
+      client.topologyKnownUntilTimestamp,
+      client.approximateTimestamp,
+      warnIfApproximate,
+    )(
+      lookupDynamicDomainParameters
+    ).flatMap { timestamp =>
+      if (timestamp <= client.topologyKnownUntilTimestamp) {
+        loggingContext.logger.debug(
+          s"Getting topology snapshot at $timestamp; desired=${desiredTimestamp}, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+        )
+        getSnapshot(timestamp, traceContext)
+      } else {
+        loggingContext.logger.debug(
+          s"Waiting for topology snapshot at $timestamp; desired=${desiredTimestamp}, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+        )
+        awaitSnapshotSupervised(
+          s"requesting topology snapshot at topology snapshot at $timestamp; desired=${desiredTimestamp}, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}",
+          timestamp,
+          traceContext,
+        )
+      }
+    }
+  }
+
+  def computeTimestampForValidation[F[_]](
+      desiredTimestamp: CantonTimestamp,
+      previousTimestampO: Option[CantonTimestamp],
+      topologyKnownUntilTimestamp: CantonTimestamp,
+      currentApproximateTimestamp: CantonTimestamp,
+      warnIfApproximate: Boolean,
+  )(
+      domainParamsLookup: CantonTimestamp => F[DynamicDomainParameters]
+  )(implicit
+      loggingContext: ErrorLoggingContext,
+      // executionContext: ExecutionContext,
+      monad: Monad[F],
+  ): F[CantonTimestamp] = {
+    if (desiredTimestamp <= topologyKnownUntilTimestamp) {
+      monad.pure(desiredTimestamp)
     } else {
-      loggingContext.logger.debug(
-        s"Waiting for topology snapshot at $desiredTimestamp; known until $knownUntil; previous $previousTimestampO"
-      )
       previousTimestampO match {
         case None =>
-          val approximateSnapshot = client.currentSnapshotApproximation
           LoggerUtil.logAtLevel(
             if (warnIfApproximate) Level.WARN else Level.INFO,
-            s"Using approximate topology snapshot at ${approximateSnapshot.ipsSnapshot.timestamp} for desired timestamp $desiredTimestamp",
+            s"Using approximate topology snapshot at ${currentApproximateTimestamp} for desired timestamp $desiredTimestamp",
           )
-          monad.pure(approximateSnapshot)
+          monad.pure(currentApproximateTimestamp)
         case Some(previousTimestamp) =>
           if (desiredTimestamp <= previousTimestamp.immediateSuccessor)
-            awaitSnapshotSupervised(
-              s"requesting topology snapshot at $desiredTimestamp with update timestamp $previousTimestamp and known until $knownUntil",
-              desiredTimestamp,
-              traceContext,
-            )
+            monad.pure(desiredTimestamp)
           else {
             import scala.Ordered.orderingToOrdered
-            for {
-              previousSnapshot <- awaitSnapshotSupervised(
-                s"searching for topology change delay at $previousTimestamp for desired timestamp $desiredTimestamp and known until $knownUntil",
-                previousTimestamp,
-                traceContext,
-              )
-              previousDomainParams <- dynamicDomainParameters(
-                previousSnapshot.ipsSnapshot,
-                traceContext,
-              )
-              delay = previousDomainParams.topologyChangeDelay
-              diff = desiredTimestamp - previousTimestamp
-              snapshotTimestamp =
+            domainParamsLookup(previousTimestamp).map { previousDomainParams =>
+              val delay = previousDomainParams.topologyChangeDelay
+              val diff = desiredTimestamp - previousTimestamp
+              val snapshotTimestamp =
                 if (diff > delay.unwrap) {
                   // `desiredTimestamp` is larger than `previousTimestamp` plus the `delay`,
                   // so timestamps cannot overflow here
                   checked(previousTimestamp.plus(delay.unwrap).immediateSuccessor)
                 } else desiredTimestamp
-              desiredSnapshot <- awaitSnapshotSupervised(
-                s"requesting topology snapshot at $snapshotTimestamp for desired timestamp $desiredTimestamp given previous timestamp $previousTimestamp with topology change delay $delay",
-                snapshotTimestamp,
-                traceContext,
-              )
-            } yield desiredSnapshot
+              snapshotTimestamp
+            }
           }
       }
     }
   }
+
 }
 
 /** Crypto operations on a particular domain
   */
 class DomainSyncCryptoClient(
-    val owner: KeyOwner,
+    val member: Member,
     val domainId: DomainId,
     val ips: DomainTopologyClient,
     val crypto: Crypto,
@@ -331,29 +365,28 @@ class DomainSyncCryptoClient(
 
   private def create(snapshot: TopologySnapshot): DomainSnapshotSyncCryptoApi = {
     new DomainSnapshotSyncCryptoApi(
-      owner,
+      member,
       domainId,
       snapshot,
       crypto,
-      ts => EitherT(mySigningKeyCache.get(ts)),
+      implicit tc => ts => EitherT(mySigningKeyCache.get(ts)),
       cacheConfigs.keyCache,
       loggerFactory,
     )
   }
 
-  private val mySigningKeyCache = cacheConfigs.mySigningKeyCache
-    .buildScaffeine()
-    .buildAsyncFuture[CantonTimestamp, Either[SyncCryptoError, Fingerprint]](
-      findSigningKey(_).value
-    )
+  private val mySigningKeyCache =
+    TracedScaffeine.buildTracedAsyncFuture[CantonTimestamp, Either[SyncCryptoError, Fingerprint]](
+      cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
+      loader = traceContext => timestamp => findSigningKey(timestamp)(traceContext).value,
+    )(logger)
 
   private def findSigningKey(
       referenceTime: CantonTimestamp
-  ): EitherT[Future, SyncCryptoError, Fingerprint] = {
-    import TraceContext.Implicits.Empty.*
+  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, Fingerprint] = {
     for {
       snapshot <- EitherT.right(ipsSnapshot(referenceTime))
-      signingKeys <- EitherT.right(snapshot.signingKeys(owner))
+      signingKeys <- EitherT.right(snapshot.signingKeys(member))
       existingKeys <- signingKeys.toList
         .parFilterA(pk => crypto.cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError)
@@ -361,7 +394,7 @@ class DomainSyncCryptoClient(
         .toRight[SyncCryptoError](
           SyncCryptoError
             .KeyNotAvailable(
-              owner,
+              member,
               KeyPurpose.Signing,
               snapshot.timestamp,
               signingKeys.map(_.fingerprint),
@@ -415,11 +448,15 @@ class DomainSyncCryptoClient(
 
 /** crypto operations for a (domain,timestamp) */
 class DomainSnapshotSyncCryptoApi(
-    val owner: KeyOwner,
+    val member: Member,
     val domainId: DomainId,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
-    fetchSigningKey: CantonTimestamp => EitherT[Future, SyncCryptoError, Fingerprint],
+    fetchSigningKey: TraceContext => CantonTimestamp => EitherT[
+      Future,
+      SyncCryptoError,
+      Fingerprint,
+    ],
     validKeysCacheConfig: CacheConfig,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -428,26 +465,44 @@ class DomainSnapshotSyncCryptoApi(
 
   override val pureCrypto: CryptoPureApi = crypto.pureCrypto
   private val validKeysCache =
-    validKeysCacheConfig
-      .buildScaffeine()
-      .buildAsyncFuture[KeyOwner, Map[Fingerprint, SigningPublicKey]](loadSigningKeysForOwner)
+    TracedScaffeine
+      .buildTracedAsyncFuture[Member, Map[Fingerprint, SigningPublicKey]](
+        cache = validKeysCacheConfig.buildScaffeine(),
+        loader = traceContext =>
+          member =>
+            loadSigningKeysForMembers(Seq(member))(traceContext)
+              .map(membersWithKeys => membersWithKeys(member)),
+        allLoader =
+          Some(traceContext => members => loadSigningKeysForMembers(members.toSeq)(traceContext)),
+      )(logger)
 
-  /** Sign given hash with signing key for (owner, domain, timestamp)
+  private def loadSigningKeysForMembers(
+      members: Seq[Member]
+  )(implicit traceContext: TraceContext): Future[Map[Member, Map[Fingerprint, SigningPublicKey]]] =
+    ipsSnapshot
+      .signingKeys(members)
+      .map(membersToKeys =>
+        members
+          .map(member =>
+            member -> membersToKeys
+              .getOrElse(member, Seq.empty)
+              .map(key => (key.fingerprint, key))
+              .toMap
+          )
+          .toMap
+      )
+
+  /** Sign given hash with signing key for (member, domain, timestamp)
     */
   override def sign(
       hash: Hash
   )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, Signature] =
     for {
-      fingerprint <- fetchSigningKey(ipsSnapshot.referenceTime)
+      fingerprint <- fetchSigningKey(traceContext)(ipsSnapshot.referenceTime)
       signature <- crypto.privateCrypto
         .sign(hash, fingerprint)
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError)
     } yield signature
-
-  private def loadSigningKeysForOwner(
-      owner: KeyOwner
-  ): Future[Map[Fingerprint, SigningPublicKey]] =
-    ipsSnapshot.signingKeys(owner).map(_.map(x => (x.fingerprint, x)).toMap)
 
   private def verifySignature(
       hash: Hash,
@@ -479,9 +534,9 @@ class DomainSnapshotSyncCryptoApi(
 
   override def verifySignature(
       hash: Hash,
-      signer: KeyOwner,
+      signer: Member,
       signature: Signature,
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
     for {
       validKeys <- EitherT.right(validKeysCache.get(signer))
       res <- EitherT.fromEither[Future](
@@ -492,9 +547,9 @@ class DomainSnapshotSyncCryptoApi(
 
   override def verifySignatures(
       hash: Hash,
-      signer: KeyOwner,
+      signer: Member,
       signatures: NonEmpty[Seq[Signature]],
-  ): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
     for {
       validKeys <- EitherT.right(validKeysCache.get(signer))
       res <- signatures.forgetNE.parTraverse_ { signature =>
@@ -516,21 +571,22 @@ class DomainSnapshotSyncCryptoApi(
             .toRight(
               SignatureCheckError.GeneralError(
                 new RuntimeException(
-                  s"Mediator request for unknown mediator group with index $mediatorGroupIndex"
+                  s"Mediator confirmation request for unknown mediator group with index $mediatorGroupIndex"
                 )
               )
             )
         }
       )
-      validKeysWithMember <- EitherT.right(
-        mediatorGroup.active
-          .parFlatTraverse { mediatorId =>
-            ipsSnapshot
-              .signingKeys(mediatorId)
-              .map(keys => keys.map(key => (key.id, (mediatorId, key))))
-          }
-          .map(_.toMap)
-      )
+      validKeysWithMember <-
+        EitherT.right(
+          ipsSnapshot
+            .signingKeys(mediatorGroup.active)
+            .map(memberToKeysMap =>
+              memberToKeysMap.flatMap { case (mediatorId, keys) =>
+                keys.map(key => (key.id, (mediatorId, key)))
+              }
+            )
+        )
       validKeys = validKeysWithMember.view.mapValues(_._2).toMap
       keyMember = validKeysWithMember.view.mapValues(_._1).toMap
       validated <- EitherT.right(signatures.forgetNE.parTraverse { signature =>
@@ -544,7 +600,7 @@ class DomainSnapshotSyncCryptoApi(
             )
           )
           .fold(
-            x => x.invalid[MediatorId],
+            _.invalid[MediatorId],
             _ => keyMember(signature.signedBy).valid[SignatureCheckError],
           )
       })
@@ -570,42 +626,6 @@ class DomainSnapshotSyncCryptoApi(
     } yield ()
   }
 
-  private def ownerIsInitialized(
-      validKeys: Seq[SigningPublicKey]
-  ): EitherT[Future, SignatureCheckError, Boolean] =
-    owner match {
-      case participant: ParticipantId => EitherT.right(ipsSnapshot.isParticipantActive(participant))
-      case _ => // we assume that a member other than a participant is initialised if at least one valid key is known
-        EitherT.rightT(validKeys.nonEmpty)
-    }
-
-  override def decrypt[M](encryptedMessage: Encrypted[M])(
-      deserialize: ByteString => Either[DeserializationError, M]
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {
-    EitherT(
-      ipsSnapshot
-        .encryptionKey(owner)
-        .map { keyO =>
-          keyO
-            .toRight(
-              KeyNotAvailable(
-                owner,
-                KeyPurpose.Encryption,
-                ipsSnapshot.timestamp,
-                Seq.empty,
-              ): SyncCryptoError
-            )
-        }
-    )
-      .flatMap(key =>
-        crypto.privateCrypto
-          .decrypt(AsymmetricEncrypted(encryptedMessage.ciphertext, key.fingerprint))(
-            deserialize
-          )
-          .leftMap(err => SyncCryptoError.SyncCryptoDecryptionError(err))
-      )
-  }
-
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit traceContext: TraceContext): EitherT[Future, SyncCryptoError, M] = {
@@ -614,29 +634,44 @@ class DomainSnapshotSyncCryptoApi(
       .leftMap[SyncCryptoError](err => SyncCryptoError.SyncCryptoDecryptionError(err))
   }
 
-  /** Encrypts a message for the given key owner
+  /** Encrypts a message for the given members
     *
     * Utility method to lookup a key on an IPS snapshot and then encrypt the given message with the
-    * most suitable key for the respective key owner.
+    * most suitable key for the respective member.
     */
-  override def encryptFor[M <: HasVersionedToByteString](
+  override def encryptFor[M <: HasVersionedToByteString, MemberType <: Member](
       message: M,
-      owner: KeyOwner,
+      members: Seq[MemberType],
       version: ProtocolVersion,
-  ): EitherT[Future, SyncCryptoError, AsymmetricEncrypted[M]] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, (MemberType, SyncCryptoError), Map[MemberType, AsymmetricEncrypted[M]]] = {
+    def encryptFor(keys: Map[Member, EncryptionPublicKey])(
+        member: MemberType
+    ): Either[(MemberType, SyncCryptoError), (MemberType, AsymmetricEncrypted[M])] = keys
+      .get(member)
+      .toRight(
+        member -> KeyNotAvailable(
+          member,
+          KeyPurpose.Encryption,
+          ipsSnapshot.timestamp,
+          Seq.empty,
+        )
+      )
+      .flatMap(k =>
+        crypto.pureCrypto
+          .encryptWith(message, k, version)
+          .bimap(error => member -> SyncCryptoEncryptionError(error), member -> _)
+      )
+
     EitherT(
       ipsSnapshot
-        .encryptionKey(owner)
-        .map { keyO =>
-          keyO
-            .toRight(
-              KeyNotAvailable(owner, KeyPurpose.Encryption, ipsSnapshot.timestamp, Seq.empty)
-            )
-            .flatMap(k =>
-              crypto.pureCrypto
-                .encryptWith(message, k, version)
-                .leftMap(SyncCryptoEncryptionError)
-            )
+        .encryptionKey(members)
+        .map { keys =>
+          members
+            .traverse(encryptFor(keys))
+            .map(_.toMap)
         }
     )
+  }
 }

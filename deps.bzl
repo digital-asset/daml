@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -277,9 +277,9 @@ def daml_deps():
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.59.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.59.0.tar.gz"],
-            sha256 = "3bcf6be49fc7ab8187577a5211421258cb8e6d179f46023cc82e42e3a6188e51",
+            strip_prefix = "grpc-java-1.60.0",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.60.0.tar.gz"],
+            sha256 = "02c9a7f9400d4e29c7e55667851083a9f695935081787079a834da312129bf97",
         )
 
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():

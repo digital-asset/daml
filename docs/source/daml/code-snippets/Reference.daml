@@ -1,11 +1,5 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
--- template-let warning disabled because 'start template let snippet' is
--- used by docs.daml.com for older compiler versions and to explain
--- new deprecation warning in 2.8.0
--- https://github.com/digital-asset/daml/issues/17263
-{-# OPTIONS_GHC -Wno-template-let #-}
 
 module Reference where
 type ExampleReturnType = ()
@@ -24,11 +18,7 @@ template NameOfTemplate
     exampleParam : Text
     -- more parameters here
 -- end template params snippet
--- start template let snippet
   where
-    let
-      allParties = [exampleParty, exampleParty2, exampleParty3]
--- end template let snippet
 -- start template sigs snippet
     signatory exampleParty
 -- end template sigs snippet
@@ -39,11 +29,6 @@ template NameOfTemplate
     ensure
       True -- a boolean condition goes here
 -- end template ensure snippet
--- start template agree snippet
-    agreement
-      -- text representing the contract
-      ""
--- end template agree snippet
 -- start contract key snippet
     key (exampleParty, exampleParam) : (Party, Text)
     maintainer (exampleFunction key)

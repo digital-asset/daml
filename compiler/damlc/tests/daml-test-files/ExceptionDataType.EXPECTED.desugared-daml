@@ -50,9 +50,10 @@ mkNoFieldsWhereMessage = NoFieldsWhereMessage
 data DA.Internal.Desugar.DamlException => WithFieldNoWhere
   = WithFieldNoWhere {f1 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "f1" WithFieldNoWhere Int where
+instance DA.Internal.Record.GetField "f1" WithFieldNoWhere Int where
   getField
     = DA.Internal.Record.getFieldPrim @"f1" @WithFieldNoWhere @Int
+instance DA.Internal.Record.SetField "f1" WithFieldNoWhere Int where
   setField
     = DA.Internal.Record.setFieldPrim @"f1" @WithFieldNoWhere @Int
 instance DA.Internal.Desugar.HasMessage WithFieldNoWhere where
@@ -68,9 +69,10 @@ mkWithFieldNoWhere = WithFieldNoWhere {f1 = 10}
 data DA.Internal.Desugar.DamlException => WithFieldWhereBlank
   = WithFieldWhereBlank {f2 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "f2" WithFieldWhereBlank Int where
+instance DA.Internal.Record.GetField "f2" WithFieldWhereBlank Int where
   getField
     = DA.Internal.Record.getFieldPrim @"f2" @WithFieldWhereBlank @Int
+instance DA.Internal.Record.SetField "f2" WithFieldWhereBlank Int where
   setField
     = DA.Internal.Record.setFieldPrim @"f2" @WithFieldWhereBlank @Int
 instance DA.Internal.Desugar.HasMessage WithFieldWhereBlank where
@@ -86,9 +88,10 @@ mkWithFieldWhereBlank = WithFieldWhereBlank {f2 = 10}
 data DA.Internal.Desugar.DamlException => WithFieldWhereMessage
   = WithFieldWhereMessage {f3 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "f3" WithFieldWhereMessage Int where
+instance DA.Internal.Record.GetField "f3" WithFieldWhereMessage Int where
   getField
     = DA.Internal.Record.getFieldPrim @"f3" @WithFieldWhereMessage @Int
+instance DA.Internal.Record.SetField "f3" WithFieldWhereMessage Int where
   setField
     = DA.Internal.Record.setFieldPrim @"f3" @WithFieldWhereMessage @Int
 instance DA.Internal.Desugar.HasMessage WithFieldWhereMessage where
@@ -105,9 +108,10 @@ mkWithFieldWhereMessage = WithFieldWhereMessage {f3 = 10}
 data DA.Internal.Desugar.DamlException => WithBracketsNoWhere
   = WithBracketsNoWhere {f4 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "f4" WithBracketsNoWhere Int where
+instance DA.Internal.Record.GetField "f4" WithBracketsNoWhere Int where
   getField
     = DA.Internal.Record.getFieldPrim @"f4" @WithBracketsNoWhere @Int
+instance DA.Internal.Record.SetField "f4" WithBracketsNoWhere Int where
   setField
     = DA.Internal.Record.setFieldPrim @"f4" @WithBracketsNoWhere @Int
 instance DA.Internal.Desugar.HasMessage WithBracketsNoWhere where
@@ -123,10 +127,11 @@ mkWithBracketsNoWhere = WithBracketsNoWhere {f4 = 10}
 data DA.Internal.Desugar.DamlException => WithBracketsWhereMessage
   = WithBracketsWhereMessage {f5 : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.HasField "f5" WithBracketsWhereMessage Int where
+instance DA.Internal.Record.GetField "f5" WithBracketsWhereMessage Int where
   getField
     = DA.Internal.Record.getFieldPrim
         @"f5" @WithBracketsWhereMessage @Int
+instance DA.Internal.Record.SetField "f5" WithBracketsWhereMessage Int where
   setField
     = DA.Internal.Record.setFieldPrim
         @"f5" @WithBracketsWhereMessage @Int

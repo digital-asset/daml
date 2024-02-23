@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -14,7 +14,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 
@@ -36,7 +36,7 @@ object SubmitError {
 
   final case class SubmitErrorConverters(env: ScriptF.Env) {
     def damlScriptErrorIdentifier(s: String) =
-      env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", s)
+      env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Submit.Error", s)
     def damlScriptVariant(
         datatypeName: String,
         variantName: String,
@@ -401,7 +401,10 @@ object SubmitError {
     // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {
       val devErrorTypeIdentifier =
-        env.scriptIds.damlScriptModule("Daml.Script.Questions.Submit.Error", "DevErrorType")
+        env.scriptIds.damlScriptModule(
+          "Daml.Script.Internal.Questions.Submit.Error",
+          "DevErrorType",
+        )
       val devErrorType = errorType match {
         case "ChoiceGuardFailed" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)

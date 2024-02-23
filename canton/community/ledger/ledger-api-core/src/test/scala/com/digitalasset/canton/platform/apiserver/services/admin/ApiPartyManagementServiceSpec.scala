@@ -14,8 +14,9 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
 import com.daml.lf.data.Ref
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
-import com.digitalasset.canton.ledger.api.domain.LedgerOffset.Absolute
+import com.digitalasset.canton.ledger.api.domain.ParticipantOffset.Absolute
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
+import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordStore}
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
@@ -26,7 +27,6 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
-import com.digitalasset.canton.platform.localstore.api.{PartyRecord, PartyRecordStore}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.{BaseTest, DiscardOps}
 import io.grpc.Status.Code

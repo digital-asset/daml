@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -41,6 +41,7 @@ private[inner] object RecordClass extends StrictLogging {
         .addFields(RecordFields(fields).asJava)
         .addField(createPackageIdField(packageId))
         .addMethods(recordMethods.asJava)
+        .addType(FromJsonGenerator.decoderAccessorClass(className, typeParameters))
         .build()
       logger.debug("End")
 

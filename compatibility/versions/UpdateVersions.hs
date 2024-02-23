@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -35,7 +35,7 @@ instance Semigroup Versions where
     Versions a <> Versions b = Versions (a <> b)
 
 minimumVersion :: Version
-minimumVersion =  fromRight (error "Invalid version") $ SemVer.fromText "2.0.0"
+minimumVersion =  fromRight (error "Invalid version") $ SemVer.fromText "3.0.0"
 
 headVersion :: Version
 headVersion = SemVer.initial
@@ -43,7 +43,7 @@ headVersion = SemVer.initial
 -- We include this here so buildifier does not modify this file.
 copyrightHeader :: [T.Text]
 copyrightHeader =
-    [ "# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
+    [ "# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
     , "# SPDX-License-Identifier: Apache-2.0"
     ]
 
@@ -63,7 +63,7 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , [ "stable_versions = [" ]
         , map renderVersion (stableVersions <> [headVersion])
         , [ "]" ]
-        , [ "latest_stable_version = \"" <> SemVer.toText (last stableVersions) <> "\"" ]
+        , [ "latest_stable_version = \"" <> SemVer.toText latestVersion <> "\"" ]
         , [ "version_sha256s = {"]
         , concatMap renderChecksums (Map.toList checksums)
         , [ "}" ]
@@ -78,14 +78,12 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , "        \"daml_ledger\": " <> renderDigest damlLedgerHash <> ","
         , "        \"daml_react\": " <> renderDigest damlReactHash <> ","
         ]
-      , [ "        \"create_daml_app_patch\": " <> renderDigest hash <> ","
-        | Just hash <- [mbCreateDamlAppPatchHash]
-        ]
       , [ "    }," ]
       ]
     renderDigest digest = T.pack $ show (convertToBase Base16 digest :: ByteString)
     renderVersion ver = "    \"" <> SemVer.toText ver <> "\","
     stableVersions = filter (null . view SemVer.release) versions
+    latestVersion = if null stableVersions then SemVer.version 2 8 0 [] [] else last stableVersions
 
 data Opts = Opts
   { outputFile :: FilePath
@@ -98,20 +96,8 @@ data Checksums = Checksums
   , damlTypesHash :: Digest SHA256
   , damlLedgerHash :: Digest SHA256
   , damlReactHash :: Digest SHA256
-  , mbCreateDamlAppPatchHash :: Maybe (Digest SHA256)
   -- ^ Nothing for older versions
   }
-
--- | The messaging patch wasn’t included in 1.0.0 directly
--- but only added later.
--- However, the code did not change and we can apply
--- the later patch on the older versions.
--- Therefore we fallback to using the patch from this version
--- for releases before this one.
-firstMessagingPatch :: Version
-firstMessagingPatch =
-    fromRight (error "Invalid version") $
-    SemVer.fromText "1.1.0-snapshot.20200422.3991.0.6391ee9f"
 
 getChecksums :: Version -> IO Checksums
 getChecksums ver = do
@@ -131,7 +117,6 @@ getChecksums ver = do
             , tsLib "ledger"
             , tsLib "react"
             ] getHash
-    mbCreateDamlAppPatchHash <- traverse getHash mbCreateDamlAppUrl
     pure Checksums {..}
   where sdkFilePath platform = T.pack $
             "./daml-sdk-" <> SemVer.toString ver <> "-" <> platform <> ".tar.gz"
@@ -141,12 +126,6 @@ getChecksums ver = do
         tsLib name =
             "https://registry.npmjs.org/@daml/" <> name <>
             "/-/" <> name <> "-" <> SemVer.toString ver <> ".tgz"
-        mbCreateDamlAppUrl
-          | ver >= firstMessagingPatch =
-             Just $
-               "https://raw.githubusercontent.com/digital-asset/daml/v" <> SemVer.toString ver
-               <> "/templates/create-daml-app-test-resources/messaging.patch"
-          | otherwise = Nothing
         getHash url = do
           req <- parseRequestThrow url
           bs <- httpLbs req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
@@ -174,8 +153,6 @@ latestPatchVersions allVersions =
 
 additionalVersions :: Set Version
 additionalVersions = Set.fromList [
-    -- we add 2.5.0 as 2.5.1 add a new version in the trigger Daml library
-    SemVer.version 2 5 0 [] []
   ]
 
 main :: IO ()

@@ -1,12 +1,23 @@
+// start all local instances defined in the configuration file
+nodes.local.start()
+
+// Bootstrap the domains
+bootstrap.domain(
+  domainName = "lostDomain",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  domainOwners = Seq(sequencer1, mediator1),
+)
+
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
-participants.all.dars.upload(darPath)
+participantsX.all.dars.upload(darPath)
 
 val Alice = participant1.parties.enable("Alice")
 val Bob = participant2.parties.enable("Bob", waitForDomain = DomainChoice.All)
 
 // setup parties and connect participants to domain
-Seq(participant1, participant2).foreach(_.domains.connect_local(lostDomain))
+Seq(participant1, participant2).foreach(_.domains.connect_local(sequencer1, alias = "lostDomain"))
 
 utils.retry_until_true {
     participant1.domains.active("lostDomain") && participant2.domains.active("lostDomain")

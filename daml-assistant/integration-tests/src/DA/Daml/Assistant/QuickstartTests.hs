@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.QuickstartTests (main) where
 
@@ -66,7 +66,8 @@ quickSandbox :: FilePath -> IO QuickSandboxResource
 quickSandbox projDir = do
     withDevNull $ \devNull -> do
         callCommandSilent $ unwords ["daml", "new", projDir, "--template=quickstart-java"]
-        callCommandSilentIn projDir "daml build"
+        -- TODO(#14706): remove explicit target once the default major version is 2
+        callCommandSilentIn projDir "daml build --target=2.1"
         ports <- sandboxPorts
         let portFile = "portfile.json"
         let darFile = ".daml" </> "dist" </> "quickstart-0.0.1.dar"
@@ -77,8 +78,9 @@ quickSandbox projDir = do
                         , "sandbox"
                         , "--port" , show $ ledger ports
                         , "--admin-api-port", show $ admin ports
-                        , "--domain-public-port", show $ domainPublic ports
-                        , "--domain-admin-port", show $ domainAdmin ports
+                        , "--sequencer-public-port", show $ sequencerPublic ports
+                        , "--sequencer-admin-port", show $ sequencerAdmin ports
+                        , "--mediator-admin-port", show $ mediatorAdmin ports
                         , "--port-file", portFile
                         , "--dar", darFile
                         , "--static-time"
@@ -187,7 +189,8 @@ quickstartTests quickstartDir mvnDir getSandbox =
             withTempDir $ \dir -> do
                 callCommandSilentIn dir $ unwords ["daml", "new", dir </> "quickstart", "--template=quickstart-java"]
                 let projEnv = [("DAML_PROJECT", dir </> "quickstart")]
-                callCommandSilentWithEnvIn dir projEnv "daml build"
+                -- TODO(#14706): remove explicit target once the default major version is 2
+                callCommandSilentWithEnvIn dir projEnv "daml build --target=2.1"
                 callCommandSilentWithEnvIn dir projEnv "daml codegen java"
                 pure ()
   where

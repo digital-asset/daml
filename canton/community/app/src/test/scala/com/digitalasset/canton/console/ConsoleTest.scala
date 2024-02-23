@@ -17,18 +17,11 @@ import com.digitalasset.canton.console.HeadlessConsole.{
   HeadlessConsoleError,
   RuntimeError,
 }
-import com.digitalasset.canton.domain.DomainNodeBootstrap
-import com.digitalasset.canton.environment.{
-  CantonNode,
-  CantonNodeBootstrap,
-  CommunityConsoleEnvironment,
-  CommunityEnvironment,
-  DomainNodes,
-  Nodes,
-  ParticipantNodes,
-}
+import com.digitalasset.canton.domain.mediator.MediatorNodeBootstrapX
+import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrapX
+import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
-import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
+import com.digitalasset.canton.participant.{ParticipantNodeBootstrapX, ParticipantNodeX}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.{BaseTest, ConfigStubs}
 import io.grpc.stub.AbstractStub
@@ -45,10 +38,15 @@ import java.nio.file.Paths
 class ConsoleTest extends AnyWordSpec with BaseTest {
 
   lazy val DefaultConfig: CantonCommunityConfig = CantonCommunityConfig(
-    domains = Map(
-      InstanceName.tryCreate("d1") -> ConfigStubs.domain,
-      InstanceName.tryCreate("d2") -> ConfigStubs.domain,
-      InstanceName.tryCreate("d-3") -> ConfigStubs.domain,
+    sequencers = Map(
+      InstanceName.tryCreate("s1") -> ConfigStubs.sequencerx,
+      InstanceName.tryCreate("s2") -> ConfigStubs.sequencerx,
+      InstanceName.tryCreate("s-3") -> ConfigStubs.sequencerx,
+    ),
+    mediators = Map(
+      InstanceName.tryCreate("m1") -> ConfigStubs.mediatorx,
+      InstanceName.tryCreate("m2") -> ConfigStubs.mediatorx,
+      InstanceName.tryCreate("m-3") -> ConfigStubs.mediatorx,
     ),
     participants = Map(
       InstanceName.tryCreate("p1") -> ConfigStubs.participant
@@ -62,36 +60,40 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
   lazy val NameClashConfig: CantonCommunityConfig = CantonCommunityConfig(
     participants = Map(
       // Reserved keyword
-      InstanceName.tryCreate("participants") -> ConfigStubs.participant,
+      InstanceName.tryCreate("participantsX") -> ConfigStubs.participant,
       // Name collision
-      InstanceName.tryCreate("d1") -> ConfigStubs.participant,
+      InstanceName.tryCreate("s1") -> ConfigStubs.participant,
     ),
-    domains = Map(
-      InstanceName.tryCreate("d1") -> ConfigStubs.domain
+    sequencers = Map(
+      InstanceName.tryCreate("s1") -> ConfigStubs.sequencerx
     ),
   )
 
   abstract class TestEnvironment(val config: CantonCommunityConfig = DefaultConfig) {
     val environment: CommunityEnvironment = mock[CommunityEnvironment]
     val participants: ParticipantNodes[
-      ParticipantNodeBootstrap,
-      ParticipantNode,
+      ParticipantNodeBootstrapX,
+      ParticipantNodeX,
       config.ParticipantConfigType,
     ] =
       mock[
-        ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode, config.ParticipantConfigType]
+        ParticipantNodes[ParticipantNodeBootstrapX, ParticipantNodeX, config.ParticipantConfigType]
       ]
-    val domains: DomainNodes[config.DomainConfigType] =
-      mock[DomainNodes[config.DomainConfigType]]
-    val participant: ParticipantNodeBootstrap = mock[ParticipantNodeBootstrap]
-    val domain: DomainNodeBootstrap = mock[DomainNodeBootstrap]
+    val sequencersX: SequencerNodesX[config.SequencerNodeXConfigType] =
+      mock[SequencerNodesX[config.SequencerNodeXConfigType]]
+    val mediatorsX: MediatorNodesX[config.MediatorNodeXConfigType] =
+      mock[MediatorNodesX[config.MediatorNodeXConfigType]]
+    val participant: ParticipantNodeBootstrapX = mock[ParticipantNodeBootstrapX]
+    val sequencer: SequencerNodeBootstrapX = mock[SequencerNodeBootstrapX]
+    val mediator: MediatorNodeBootstrapX = mock[MediatorNodeBootstrapX]
 
     when(environment.config).thenReturn(config)
     when(environment.testingConfig).thenReturn(
       TestingConfigInternal(initializeGlobalOpenTelemetry = false)
     )
     when(environment.participants).thenReturn(participants)
-    when(environment.domains).thenReturn(domains)
+    when(environment.sequencers).thenReturn(sequencersX)
+    when(environment.mediators).thenReturn(mediatorsX)
     when(environment.simClock).thenReturn(None)
     when(environment.loggerFactory).thenReturn(loggerFactory)
     when(environment.configuredOpenTelemetry).thenReturn(
@@ -99,6 +101,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         OpenTelemetrySdk.builder().build(),
         SdkTracerProvider.builder(),
         NoOpOnDemandMetricsReader$,
+        metricsEnabled = false,
       )
     )
     type NodeGroup = Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
@@ -107,8 +110,6 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     when(participants.startAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
     when(participants.stopAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
     when(participants.isRunning(anyString())).thenReturn(true)
-
-    when(domains.startAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
 
     val adminCommandRunner: ConsoleGrpcAdminCommandRunner = mock[ConsoleGrpcAdminCommandRunner]
     val testConsoleOutput: TestConsoleOutput = new TestConsoleOutput(loggerFactory)
@@ -133,7 +134,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       )
 
     def runOrFail(commands: String*): Unit = {
-      val (result, stderr) = run(commands: _*)
+      val (result, stderr) = run(commands*)
 
       // fail if unexpected content was printed to stderr (this likely indicates an error of some form which wasn't bubbled up through the interpreter)
       assertExpectedStdErrorOutput(stderr)
@@ -228,16 +229,20 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     }
 
     "start all participants" in new TestEnvironment {
-      runOrFail("participants.local start")
+      runOrFail("participantsX.local start")
       verifyStart(this, Seq("p1", "p2", "new", "p-4"))
     }
-    "start all domains" in new TestEnvironment {
-      runOrFail("domains.local start")
-      verifyStart(this, Seq("d1", "d2", "d-3"))
+    "start all sequencers" in new TestEnvironment {
+      runOrFail("sequencersX.local start")
+      verifyStart(this, Seq("s1", "s2", "s-3"))
+    }
+    "start all mediators" in new TestEnvironment {
+      runOrFail("mediatorsX.local start")
+      verifyStart(this, Seq("m1", "m2", "m-3"))
     }
     "start all" in new TestEnvironment {
       runOrFail("nodes.local.start()")
-      verifyStart(this, Seq("p1", "p2", "new", "p-4", "d1", "d2", "d-3"))
+      verifyStart(this, Seq("p1", "p2", "new", "p-4", "s1", "s2", "s-3", "m1", "m2", "m-3"))
     }
 
     "return a compile error if the code fails to compile" in new TestEnvironment {
@@ -258,13 +263,13 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       }
     }
 
-    "participants.all.dars.upload should attempt to invoke UploadDar on all participants" in new TestEnvironment {
+    "participantsX.all.dars.upload should attempt to invoke UploadDar on all participants" in new TestEnvironment {
       setupAdminCommandResponse("p1", Right(Seq()))
       setupAdminCommandResponse("p2", Right(Seq()))
       setupAdminCommandResponse("new", Right(Seq()))
       setupAdminCommandResponse("p-4", Right(Seq()))
 
-      runOrFail(s"""participants.all.dars.upload("$CantonExamplesPath", false)""")
+      runOrFail(s"""participantsX.all.dars.upload("$CantonExamplesPath", false)""")
 
       def verifyUploadDar(p: String): ConsoleCommandResult[String] =
         verify(adminCommandRunner).runCommand(
@@ -283,7 +288,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     "participants.local help shows help from both InstanceExtensions and ParticipantExtensions" in new TestEnvironment {
       testConsoleOutput.assertConsoleOutput(
         {
-          runOrFail("participants.local help")
+          runOrFail("participantsX.local help")
         },
         { helpText =>
           helpText should include("start") // from instance extensions
@@ -301,7 +306,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         message shouldEqual "Unable to create the console bindings"
         ex.getMessage should startWith(
           """Node names must be unique and must differ from reserved keywords. Please revisit node names in your config file.
-            |Offending names: (`d1` (2 occurrences), `participants` (2 occurrences))""".stripMargin
+            |Offending names: (`participantsX` (2 occurrences), `s1` (2 occurrences))""".stripMargin
         )
       }
     }

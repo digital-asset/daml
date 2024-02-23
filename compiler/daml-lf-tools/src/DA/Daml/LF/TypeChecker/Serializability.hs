@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeFamilies #-}
@@ -44,7 +44,6 @@ data CurrentModule = CurrentModule
 -- If no module name is given, the returned set is always empty.
 serializabilityConditionsType
   :: World
-  -> Version
   -> Maybe CurrentModule
      -- ^ See description on `serializabilityConditionsDataType`.
   -> HS.HashSet TypeVarName
@@ -53,15 +52,12 @@ serializabilityConditionsType
      -- the caller.
   -> Type
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsType world0 version mbCurrentModule vars = go
+serializabilityConditionsType world0 mbCurrentModule vars = go
   where
     noConditions = Right HS.empty
-    supportsInterfaces = version `supports` featureSimpleInterfaces
     go = \case
       -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
-      TContractId typ
-          | supportsInterfaces -> noConditions
-          | otherwise -> go typ
+      TContractId _ -> noConditions
       TList typ -> go typ
       TOptional typ -> go typ
       TTextMap typ -> go typ
@@ -123,7 +119,6 @@ serializabilityConditionsType world0 version mbCurrentModule vars = go
 -- up in the world. If no module name is given, the returned set is always empty.
 serializabilityConditionsDataType
   :: World
-  -> Version
   -> Maybe CurrentModule
      -- ^ We invoke this function in two different ways: During serializability inference
      -- world excludes the current module and this will be `Just`. In that case, any type
@@ -133,7 +128,7 @@ serializabilityConditionsDataType
      -- in the current modules is taking from `dataSerializable`.
   -> DefDataType
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsDataType world0 version mbCurrentModule (DefDataType _loc _ _ params cons) =
+serializabilityConditionsDataType world0 mbCurrentModule (DefDataType _loc _ _ params cons) =
   case find (\(_, k) -> k /= KStar) params of
     Just (v, k) -> Left (URHigherKinded v k)
     Nothing
@@ -142,14 +137,13 @@ serializabilityConditionsDataType world0 version mbCurrentModule (DefDataType _l
       | DataInterface <- cons -> Left URInterface
       | otherwise -> do
           let vars = HS.fromList (map fst params)
-          mconcatMapM (serializabilityConditionsType world0 version mbCurrentModule vars) (toListOf dataConsType cons)
+          mconcatMapM (serializabilityConditionsType world0 mbCurrentModule vars) (toListOf dataConsType cons)
 
 -- | Check whether a type is serializable.
 checkType :: MonadGamma m => SerializabilityRequirement -> Type -> m ()
 checkType req typ = do
-  version <- getLfVersion
   world0 <- getWorld
-  case serializabilityConditionsType world0 version Nothing HS.empty typ of
+  case serializabilityConditionsType world0 Nothing HS.empty typ of
     Left reason -> throwWithContext (EExpectedSerializableType req typ reason)
     Right _ -> pure ()
 
@@ -157,9 +151,8 @@ checkType req typ = do
 checkDataType :: MonadGamma m => ModuleName -> DefDataType -> m ()
 checkDataType modName dataType =
   when (getIsSerializable (dataSerializable dataType)) $ do
-    version <- getLfVersion
     world0 <- getWorld
-    case serializabilityConditionsDataType world0 version Nothing dataType of
+    case serializabilityConditionsDataType world0 Nothing dataType of
       Left reason -> do
         let typ = TCon (Qualified PRSelf modName (dataTypeCon dataType))
         throwWithContext (EExpectedSerializableType SRDataType typ reason)
@@ -183,7 +176,6 @@ checkInterface mod0 iface = do
     withContext (ContextDefInterface mod0 iface (IPChoice ch)) $ do
       checkType SRChoiceArg (snd (chcArgBinder ch))
       checkType SRChoiceRes (chcReturnType ch)
-      
   checkType SRView $ intView iface
 
 -- | Check whether exception is serializable.

@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Helper.Util
@@ -61,6 +61,7 @@ import qualified Web.JWT as JWT
 import qualified Data.Aeson as A
 import qualified Data.Map as Map
 
+import DA.PortFile
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
@@ -256,25 +257,65 @@ tokenFor parties ledgerId applicationId =
 data SandboxPorts = SandboxPorts
   { ledger :: Int
   , admin :: Int
-  , domainPublic :: Int
-  , domainAdmin :: Int
+  , sequencerPublic :: Int
+  , sequencerAdmin :: Int
+  , mediatorAdmin :: Int
   }
 
 defaultSandboxPorts :: SandboxPorts
-defaultSandboxPorts = SandboxPorts 6865 6866 6867 6868
+defaultSandboxPorts = SandboxPorts 6865 6866 6867 6868 6869
 
 runCantonSandbox :: CantonOptions -> [String] -> IO ()
 runCantonSandbox options args = withCantonSandbox options args (const $ pure ())
 
-withCantonSandbox :: CantonOptions -> [String] -> (Process () () () -> IO a) -> IO a
+withCantonSandbox ::
+    CantonOptions -> [String] -> ((Process () () (), Int) -> IO a) -> IO a
 withCantonSandbox options remainingArgs k = do
     sdkPath <- getSdkPath
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
     withTempFile $ \config -> do
-        BSL.writeFile config (cantonConfig options)
-        let args | cantonHelp options = ["--help"]
-                 | otherwise = concatMap (\f -> ["-c", f]) (cantonConfigFiles options)
-        withJar cantonJar [] ("daemon" : "-c" : config :  "--auto-connect-local" : (args <> remainingArgs)) k
+        withCantonPortFile options $ \options portFile -> do
+        withTempFile $ \altPortFile -> do
+            -- The port file is written by canton before the domain is bootstrapped. Some tests
+            -- (and presumably users) rely on the port file being written as a signal that canton
+            -- is ready to receive commands. In order not to break this clients, we pretend that
+            -- the requested port file is "altPortFile". Then at the end of the bootstrap
+            -- script, we copy altPortFile to portFile.
+            let options' = options { cantonPortFileM = Just altPortFile }
+            BSL.writeFile config (cantonConfig options')
+            withTempFile $ \bootstrapScript -> do
+                writeFile bootstrapScript (bootstrapScriptStr altPortFile portFile)
+                let args
+                        | cantonHelp options = ["--help"]
+                        | otherwise = concatMap (\f -> ["-c", f]) (cantonConfigFiles options)
+                withJar
+                    cantonJar
+                    []
+                    ( "daemon"
+                        : "-c"
+                        : config
+                        : "--bootstrap"
+                        : bootstrapScript
+                        : (args <> remainingArgs)
+                    )
+                    ( \ph -> do
+                        sandboxPort <-
+                            readPortFileWith
+                                decodeCantonSandboxPort
+                                (unsafeProcessHandle ph)
+                                maxRetries
+                                portFile
+                        k (ph, sandboxPort)
+                    )
+  where
+    bootstrapScriptStr altPortFile portFile =
+        unlines
+            [ "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto)"
+            , "val domainOwners = Seq(sequencer1, mediator1)"
+            , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
+            , "sandbox.domains.connect_local(sequencer1, \"mydomain\")"
+            , "os.copy(os.Path(" <> show altPortFile <> "), os.Path(" <> show portFile <> "))"
+            ]
 
 -- | Obtain a path to use as canton portfile, and give updated options.
 withCantonPortFile :: CantonOptions -> (CantonOptions -> FilePath -> IO a) -> IO a
@@ -292,8 +333,9 @@ newtype StaticTime = StaticTime Bool
 data CantonOptions = CantonOptions
   { cantonLedgerApi :: Int
   , cantonAdminApi :: Int
-  , cantonDomainPublicApi :: Int
-  , cantonDomainAdminApi :: Int
+  , cantonSequencerPublicApi :: Int
+  , cantonSequencerAdminApi :: Int
+  , cantonMediatorAdminApi :: Int
   , cantonPortFileM :: Maybe FilePath
   , cantonStaticTime :: StaticTime
   , cantonHelp :: Bool
@@ -337,11 +379,20 @@ cantonConfig CantonOptions{..} =
                      ]
                     )
                 ]
-            , "domains" Aeson..= Aeson.object
-                [ "local" Aeson..= Aeson.object
-                     [ storage
-                     , "public-api" Aeson..= port cantonDomainPublicApi
-                     , "admin-api" Aeson..= port cantonDomainAdminApi
+            , "sequencers" Aeson..= Aeson.object
+                [ "sequencer1" Aeson..= Aeson.object
+                    [ "sequencer" Aeson..= Aeson.object
+                        [ "config" Aeson..= Aeson.object [ storage ]
+                        , "type" Aeson..= ("community-reference" :: T.Text)
+                        ]
+                    , storage
+                    , "public-api" Aeson..= port cantonSequencerPublicApi
+                    , "admin-api" Aeson..= port cantonSequencerAdminApi
+                    ]
+                ]
+            , "mediators" Aeson..= Aeson.object
+                [ "mediator1" Aeson..= Aeson.object
+                     [ "admin-api" Aeson..= port cantonMediatorAdminApi
                      ]
                 ]
             ]
@@ -390,7 +441,7 @@ cantonReplConfig CantonReplOptions{..} =
                     (api "ledger-api" crpLedgerApi <> api "admin-api" crpAdminApi)
                 | CantonReplParticipant {..} <- croParticipants
                 ]
-            , "remote-domains" Aeson..= Aeson.object
+            , "remote-sequencers" Aeson..= Aeson.object
                 [ Aeson.Key.fromString crdName Aeson..= Aeson.object
                     (api "public-api" crdPublicApi <> api "admin-api" crdAdminApi)
                 | CantonReplDomain {..} <- croDomains

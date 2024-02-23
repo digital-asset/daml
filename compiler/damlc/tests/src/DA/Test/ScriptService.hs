@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.ScriptService (main) where
@@ -61,7 +61,6 @@ withScriptService lfVersion action =
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
       scriptDar <- locateRunfiles $ case LF.versionMajor lfVersion of
-          LF.V1 -> mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
           LF.V2 -> mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
@@ -694,108 +693,6 @@ testScriptService lfVersion getScriptService =
                     , "  \"logLedger\"\n"
                     , "  \"logClient2\"\n"
                     , "  \"please don't die\""
-                    ],
-              testCase "divulgence warning" $ do
-                rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
-                    [ "module Test where"
-                    , "import Daml.Script"
-                    , "template T"
-                    , "  with"
-                    , "    p1 : Party"
-                    , "    p2 : Party"
-                    , "  where"
-                    , "    signatory p1"
-                    , "    choice C : ()"
-                    , "      controller p2"
-                    , "      do pure ()"
-                    , "template Delegate"
-                    , "  with"
-                    , "    p1 : Party"
-                    , "    p2 : Party"
-                    , "    cid : ContractId T"
-                    , "  where"
-                    , "    signatory p1"
-                    , "    observer p2"
-                    , "    nonconsuming choice Fetch : T"
-                    , "      controller p2"
-                    , "      do fetch cid"
-                    , "    choice Exercise : ()"
-                    , "      controller p2"
-                    , "      do exercise cid C"
-                    , "template Divulge"
-                    , "  with"
-                    , "    p1 : Party"
-                    , "    p2 : Party"
-                    , "    cid : ContractId T"
-                    , "  where"
-                    , "    signatory p2"
-                    , "    observer p1"
-                    , "    choice Accept : T"
-                    , "      controller p1"
-                    , "      do fetch cid"
-                    , ""
-                    , "template CreateAndDelegate"
-                    , "  with"
-                    , "    p1 : Party" -- p1 is creator of template T
-                    , "    p2 : Party" -- p2 is target for delegation
-                    , "    p3 : Party" -- p3 is pulling the strings
-                    , "  where"
-                    , "    signatory p1"
-                    , "    observer p3"
-                    , "    choice AcceptCAD : ContractId Delegate"
-                    , "      controller p3"
-                    , "      do cid <- create (T p1 p2)"
-                    , "         create (Delegate p1 p2 cid)"
-                    , "template UseDelegate"
-                    , "  with"
-                    , "    p2 : Party"
-                    , "    p3 : Party"
-                    , "  where"
-                    , "    signatory p2"
-                    , "    observer p3"
-                    , "    choice GoUseDelegate : ()"
-                    , "      with delegateCid : ContractId Delegate"
-                    , "      controller p3"
-                    , "      do exercise delegateCid Fetch"
-                    , "         exercise delegateCid Exercise"
-                    , "template PullTheStrings"
-                    , "  with"
-                    , "    p3 : Party"
-                    , "    cadCid : ContractId CreateAndDelegate"
-                    , "    useDelegateCid : ContractId UseDelegate"
-                    , "  where"
-                    , "    signatory p3"
-                    , "    choice GoPullTheStrings : ()"
-                    , "      controller p3"
-                    , "      do delegateCid <- exercise cadCid AcceptCAD"
-                    , "         exercise useDelegateCid (GoUseDelegate delegateCid)"
-                    , ""
-                    , "testDivulge = do"
-                    , "  p1 <- allocateParty \"p1\""
-                    , "  p2 <- allocateParty \"p2\""
-                    , "  p3 <- allocateParty \"p3\""
-                    , "  cid <- submit p1 (createCmd (T p1 p2))"
-                    , "  divulgeCid <- submit p2 (createCmd (Divulge p1 p2 cid))"
-                    , "  submit p1 (exerciseCmd divulgeCid Accept)"
-                    , "  delegateCid <- submit p1 (createCmd (Delegate p1 p2 cid))"
-                    -- fetch divulged contract generates warning:
-                    , "  submit p2 (exerciseCmd delegateCid Fetch)"
-                    -- exercise divulged contract generates warning:
-                    , "  submit p2 (exerciseCmd delegateCid Exercise)"
-                    -- create, fetch, exercise in same transaction, so no warning expected:
-                    , "  cadCid <- submit p1 (createCmd (CreateAndDelegate p1 p2 p3))"
-                    , "  useDelegateCid <- submit p2 (createCmd (UseDelegate p2 p3))"
-                    , "  submit p3 (createAndExerciseCmd (PullTheStrings p3 cadCid useDelegateCid) GoPullTheStrings)"
-                    , "  pure ()"
-                    ]
-                expectScriptSuccess rs (vr "testDivulge") $ \r ->
-                  matchRegex r $ T.concat
-                    [ "Warnings: \n"
-                    , "  Tried to fetch or exercise -homePackageId-:Test:T on contract [0-9a-f]* but none of the reading parties \\[p2\\] are contract stakeholders \\[p1\\]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers \\[p2\\] as an observer to the contract.\n"
-                    , "  Tried to fetch or exercise -homePackageId-:Test:T on contract [0-9a-f]* but none of the reading parties \\[p2\\] are contract stakeholders \\[p1\\]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers \\[p2\\] as an observer to the contract."
                     ],
               testCase "multi-party query" $ do
                 rs <-

@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.domain.api.v0
+import com.digitalasset.canton.admin.domain.v30
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
@@ -29,43 +29,23 @@ import java.util.concurrent.Executor
 sealed trait SequencerConnection extends PrettyPrinting {
   def withAlias(alias: SequencerAlias): SequencerConnection
 
-  def toProtoV0: v0.SequencerConnection
-
-  @deprecated("Use addEndpoints instead", "2.7.1")
-  final def addConnection(
-      connection: String,
-      additionalConnections: String*
-  ): SequencerConnection =
-    addEndpoints(connection, additionalConnections *)
-
-  @deprecated("Use addEndpoints instead", "2.7.1")
-  final def addConnection(
-      connection: URI,
-      additionalConnections: URI*
-  ): SequencerConnection = addEndpoints(connection, additionalConnections *)
-
-  @deprecated("Use addEndpoints instead", "2.7.1")
-  final def addConnection(
-      connection: SequencerConnection,
-      additionalConnections: SequencerConnection*
-  ): SequencerConnection = addEndpoints(connection, additionalConnections *)
+  def toProtoV30: v30.SequencerConnection
 
   def addEndpoints(
       connection: String,
       additionalConnections: String*
-  ): SequencerConnection =
-    addEndpoints(new URI(connection), additionalConnections.map(new URI(_)) *)
+  ): Either[String, SequencerConnection] =
+    addEndpoints(new URI(connection), additionalConnections.map(new URI(_))*)
 
-  // TODO(#15224) change this to Either
   def addEndpoints(
       connection: URI,
       additionalConnections: URI*
-  ): SequencerConnection
+  ): Either[String, SequencerConnection]
 
   def addEndpoints(
       connection: SequencerConnection,
       additionalConnections: SequencerConnection*
-  ): SequencerConnection
+  ): Either[String, SequencerConnection]
 
   def sequencerAlias: SequencerAlias
 
@@ -89,10 +69,10 @@ final case class GrpcSequencerConnection(
     clientChannelBuilder
       .create(endpoints, transportSecurity, executor, customTrustCertificates, tracePropagation)
 
-  override def toProtoV0: v0.SequencerConnection =
-    v0.SequencerConnection(
-      v0.SequencerConnection.Type.Grpc(
-        v0.SequencerConnection.Grpc(
+  override def toProtoV30: v30.SequencerConnection =
+    v30.SequencerConnection(
+      v30.SequencerConnection.Type.Grpc(
+        v30.SequencerConnection.Grpc(
           endpoints.map(_.toURI(transportSecurity).toString).toList,
           transportSecurity,
           customTrustCertificates,
@@ -111,21 +91,18 @@ final case class GrpcSequencerConnection(
   override def addEndpoints(
       connection: URI,
       additionalConnections: URI*
-  ): SequencerConnection =
-    (for {
+  ): Either[String, SequencerConnection] =
+    for {
       newEndpoints <- Endpoint
-        .fromUris(NonEmpty(Seq, connection, additionalConnections: _*))
-    } yield copy(endpoints = endpoints ++ newEndpoints._1)).valueOr(err =>
-      throw new IllegalArgumentException(err)
-    )
+        .fromUris(NonEmpty(Seq, connection, additionalConnections*))
+    } yield copy(endpoints = endpoints ++ newEndpoints._1)
 
   override def addEndpoints(
       connection: SequencerConnection,
       additionalConnections: SequencerConnection*
-  ): SequencerConnection =
+  ): Either[String, SequencerConnection] =
     SequencerConnection
       .merge(this +: connection +: additionalConnections)
-      .valueOr(err => throw new IllegalArgumentException(err))
 
   override def withCertificates(certificates: ByteString): SequencerConnection =
     copy(customTrustCertificates = Some(certificates))
@@ -156,17 +133,16 @@ object GrpcSequencerConnection {
 }
 
 object SequencerConnection {
-
-  def fromProtoV0(
-      configP: v0.SequencerConnection
+  def fromProtoV30(
+      configP: v30.SequencerConnection
   ): ParsingResult[SequencerConnection] =
     configP.`type` match {
-      case v0.SequencerConnection.Type.Empty => Left(ProtoDeserializationError.FieldNotSet("type"))
-      case v0.SequencerConnection.Type.Grpc(grpc) => fromGrpcProto(grpc, configP.alias)
+      case v30.SequencerConnection.Type.Empty => Left(ProtoDeserializationError.FieldNotSet("type"))
+      case v30.SequencerConnection.Type.Grpc(grpc) => fromGrpcProto(grpc, configP.alias)
     }
 
   private def fromGrpcProto(
-      grpcP: v0.SequencerConnection.Grpc,
+      grpcP: v30.SequencerConnection.Grpc,
       alias: String,
   ): ParsingResult[SequencerConnection] =
     for {
