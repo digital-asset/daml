@@ -1,6 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+{-# LANGUAGE CPP #-}
+
 -- @SINCE-LF 2.1
 
 module AnyEqOrd where
@@ -14,8 +16,10 @@ template T1
     p : Party
   where
     signatory p
+#ifdef DAML_CONTRACT_KEYS
     key p : Party
     maintainer key
+#endif
     choice C : ()
       controller p
       do pure ()
@@ -26,8 +30,10 @@ template T1'
     p : Party
   where
     signatory p
+#ifdef DAML_CONTRACT_KEYS
     key p : Party
     maintainer key
+#endif
 
 template T2
   with
@@ -35,8 +41,10 @@ template T2
     p : Party
   where
     signatory p
+#ifdef DAML_CONTRACT_KEYS
     key (p, y) : (Party, Text)
     maintainer key._1
+#endif
 
 -- We don’t have a Show instance for AnyTemplate so we cannot use ===
 
@@ -55,8 +63,10 @@ main = script do
   assertBool (show (C, C)) (toAnyChoice @T1 C == toAnyChoice @T1 C)
   assertBool (show (C, Archive)) (toAnyChoice @T1 C /= toAnyChoice @T1 Archive)
   assertBool ("T1, T2" <> show (Archive, Archive)) (toAnyChoice @T1 C /= toAnyChoice @T2 Archive)
+#ifdef DAML_CONTRACT_KEYS
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p /= toAnyContractKey @T1' p)
   assertBool ("T1, T1" <> show (p, p)) (toAnyContractKey @T1 p == toAnyContractKey @T1 p)
+#endif
 
   assertBool (show (t1A, t1B)) (toAnyTemplate t1A <= toAnyTemplate t1B)
   assertBool (show (t1A, t1B)) (toAnyTemplate t1B > toAnyTemplate t1A)
@@ -64,5 +74,7 @@ main = script do
   assertBool (show (C, Archive)) (toAnyChoice @T1 C <= toAnyChoice @T1 Archive)
   assertBool (show (C, Archive)) (toAnyChoice @T1 Archive > toAnyChoice @T1 C)
 
+#ifdef DAML_CONTRACT_KEYS
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p <= toAnyContractKey @T1' p)
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1' p > toAnyContractKey @T1 p)
+#endif
