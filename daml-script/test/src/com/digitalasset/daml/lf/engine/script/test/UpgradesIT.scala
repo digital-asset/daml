@@ -318,7 +318,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
     )
 
     def readVersionedLines(contents: String): Seq[VersionedLine] = {
-      val versionedLinePat: Regex = "^.* -- @V(.*)$".r
+      val versionedLinePat: Regex = "-- @V(.*)$".r
       val intPat: Regex = "\\d+".r
       contents.split('\n').toSeq.map { line =>
         VersionedLine(
@@ -335,7 +335,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
         lines: Seq[VersionedLine],
         version: Int,
     ): (String, String) = {
-      val modNamePat: Regex = "module +(.*?) +where".r
+      val modNamePat: Regex = "module +([^ ]+) +where".r
       val contents = lines
         .collect { case vl if vl.versions.fold(true)(_.contains(version)) => vl.line }
         .mkString("\n")
