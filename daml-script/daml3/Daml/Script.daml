@@ -116,3 +116,7 @@ module Daml.Script
 
 import Daml.Script.Internal
 import Daml.Script.Questions
+
+instance HasSubmit Script Commands where
+  submit = submitWithOptions 
+  submitMustFail = submitMustFailWithOptions
