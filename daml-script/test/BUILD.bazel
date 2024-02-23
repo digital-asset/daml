@@ -346,14 +346,14 @@ da_scala_test_suite(
     size = "large",
     srcs = glob(
         ["src/com/**/*.scala"],
-        exclude = ["src/com/**/*Dev*.scala"],
+        exclude = [
+            "src/com/**/*Dev*.scala",
+            "src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+        ],
     ),
     data = [
         ":script-test-no-ledger.dar",
-        ":upgrade-test-files",
-        ":upgrade-test-lib.dar",
         "//compiler/damlc",
-        "//daml-script/daml3:daml3-script-2.1.dar",
         "//daml-script/runner:daml-script-binary",
     ] + [
         ":script{scriptVersion}-test-v{major}.dar".format(
@@ -368,12 +368,48 @@ da_scala_test_suite(
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = [
+        "cpu:4",
+    ],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/testing-utils",
+        "//test-common/canton/it-lib",
+    ],
+)
+
+da_scala_test(
+    name = "upgrade-test",
+    size = "large",
+    srcs = ["src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala"],
+    data = [
+        ":upgrade-test-files",
+        ":upgrade-test-lib.dar",
+        "//compiler/damlc",
+        "//daml-script/daml3:daml3-script-2.1.dar",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_yaml_common",
         "@maven//:io_circe_circe_yaml",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
     ],
@@ -398,7 +434,8 @@ da_scala_test_suite(
         "//libs-scala/timer-utils",
         "//test-common/canton/it-lib",
     ],
-)
+) if not is_windows else None
+# skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
 
 filegroup(
     name = "upgrade-test-files",
