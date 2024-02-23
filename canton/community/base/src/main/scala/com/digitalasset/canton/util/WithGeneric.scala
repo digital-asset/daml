@@ -9,19 +9,19 @@ import cats.{Applicative, Eval, Functor}
   * with appropriate `map` and `traverse` implementations.
   */
 trait WithGeneric[+A, B, C[+_]] {
-  protected def unwrap: A
+  protected def value: A
   protected def added: B
   protected def update[AA](newValue: AA): C[AA]
 
   // Copies of the above protected methods
   // so that we can access them from the companion object without having to make them widely visible
-  private[util] def unwrapInternal: A = unwrap
+  private[util] def unwrapInternal: A = value
   private[util] def addedInternal: B = added
   private[util] def updateInternal[AA](newValue: AA): C[AA] = update(newValue)
 
-  def map[AA](f: A => AA): C[AA] = update(f(unwrap))
+  def map[AA](f: A => AA): C[AA] = update(f(value))
   def traverse[F[_], AA](f: A => F[AA])(implicit F: Functor[F]): F[C[AA]] =
-    F.map(f(unwrap))(updateInternal)
+    F.map(f(value))(updateInternal)
 }
 
 trait WithGenericCompanion {

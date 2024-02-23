@@ -381,7 +381,7 @@ class SequencedEventValidatorTest
       val validatedSubscription =
         validator.validatePekko(subscription, None, DefaultTestIdentities.sequencerIdX)
       val validatedEventsF = validatedSubscription.source.runWith(Sink.seq)
-      validatedEventsF.futureValue.map(_.unwrap) shouldBe Seq(
+      validatedEventsF.futureValue.map(_.value) shouldBe Seq(
         Left(UpstreamSubscriptionError("error1"))
       )
     }
@@ -404,7 +404,7 @@ class SequencedEventValidatorTest
         validator.validatePekko(subscription, Some(deliver1), DefaultTestIdentities.sequencerIdX)
       val validatedEventsF = validatedSubscription.source.runWith(Sink.seq)
       // deliver1 should be filtered out because it's the prior event
-      validatedEventsF.futureValue.map(_.unwrap) shouldBe Seq(Right(deliver2), Right(deliver3))
+      validatedEventsF.futureValue.map(_.value) shouldBe Seq(Right(deliver2), Right(deliver3))
     }
 
     "stop upon a validation error" in { fixture =>
@@ -424,7 +424,7 @@ class SequencedEventValidatorTest
         validator.validatePekko(subscription, Some(deliver1), DefaultTestIdentities.sequencerIdX)
       val validatedEventsF = validatedSubscription.source.runWith(Sink.seq)
       // deliver1 should be filtered out because it's the prior event
-      validatedEventsF.futureValue.map(_.unwrap) shouldBe Seq(
+      validatedEventsF.futureValue.map(_.value) shouldBe Seq(
         Right(deliver2),
         Left(GapInSequencerCounter(deliver3.counter, deliver2.counter)),
       )
@@ -446,7 +446,7 @@ class SequencedEventValidatorTest
       val validatedSubscription =
         validator.validatePekko(subscription, Some(deliver1a), DefaultTestIdentities.sequencerIdX)
       loggerFactory.assertLogs(
-        validatedSubscription.source.runWith(Sink.seq).futureValue.map(_.unwrap) shouldBe Seq(
+        validatedSubscription.source.runWith(Sink.seq).futureValue.map(_.value) shouldBe Seq(
           Left(
             ForkHappened(
               SequencerCounter(1),
@@ -494,7 +494,7 @@ class SequencedEventValidatorTest
       val ((killSwitch, doneF), validatedEventsF) =
         validatedSubscription.source.toMat(Sink.seq)(Keep.both).run()
       // deliver1 should be filtered out because it's the prior event
-      validatedEventsF.futureValue.map(_.unwrap) shouldBe Seq(
+      validatedEventsF.futureValue.map(_.value) shouldBe Seq(
         Right(deliver2),
         Left(GapInSequencerCounter(deliver3.counter, deliver2.counter)),
       )

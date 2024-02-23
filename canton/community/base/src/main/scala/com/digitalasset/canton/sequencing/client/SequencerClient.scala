@@ -1508,7 +1508,7 @@ class SequencerClientImplPekko[E: Pretty](
           .viaMat(aggregatorFlow)(Keep.both)
           .injectKillSwitch { case (killSwitch, _) => killSwitch }
           .via(monotonicityChecker.flow)
-          .map(_.unwrap)
+          .map(_.value)
           // Drop the first event if it's a resubscription because we don't want to pass it to the application handler any more
           .via(dropPriorEvent(preSubscriptionEvent.isDefined))
           .via(batchFlow)
@@ -1556,7 +1556,7 @@ class SequencerClientImplPekko[E: Pretty](
           .via(applicationHandlerPekko.asFlow(config.maximumInFlightEventBatches))
           // Mark that the application handler has finished a given batch of promises.
           .map(_.map(_.map { withPromise =>
-            val completion = withPromise.unwrap match {
+            val completion = withPromise.value match {
               case Outcome(Left(error)) => Failure(SequencerClientSubscriptionException(error))
               case _ => Success(())
             }
@@ -1678,10 +1678,9 @@ class SequencerClientImplPekko[E: Pretty](
 }
 
 object SequencerClientImplPekko {
-  private final case class WithPromise[+A](private val value: A)(
+  private final case class WithPromise[+A](override val value: A)(
       val promise: Promise[Unit] = Promise[Unit]()
   ) extends WithGeneric[A, Promise[Unit], WithPromise] {
-    override def unwrap: A = value
     override protected def added: Promise[Unit] = promise
     override protected def update[AA](value: AA): WithPromise[AA] = copy(value)(promise)
   }

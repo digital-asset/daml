@@ -11,7 +11,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
 /** Serves as a backend to implement
-  * [[com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService]]
+  * [[com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateService]]
   */
 trait IndexActiveContractsService {
 

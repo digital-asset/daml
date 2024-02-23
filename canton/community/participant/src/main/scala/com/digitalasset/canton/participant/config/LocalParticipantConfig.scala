@@ -190,7 +190,6 @@ final case class LedgerApiServerConfig(
     // TODO(#14529): use a common value for ApiServerConfig's and LedgerIndexServiceConfig's apiStreamShutdownTimeout
     apiStreamShutdownTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultApiStreamShutdownTimeout,
-    additionalMigrationPaths: Seq[String] = Seq.empty,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     adminToken: Option[String] = None,
     identityProviderManagement: IdentityProviderManagementConfig =

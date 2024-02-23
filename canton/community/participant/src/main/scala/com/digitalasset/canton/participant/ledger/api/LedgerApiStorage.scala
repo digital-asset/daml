@@ -3,16 +3,15 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import cats.syntax.either.*
 import com.digitalasset.canton.config.{DbConfig, MemoryStorageConfig, StorageConfig}
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.LedgerApiServerError
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.digitalasset.canton.{DiscardOps, LedgerParticipantId}
 
-import java.sql.{DriverManager, SQLException}
+import java.sql.DriverManager
 import java.util.UUID.randomUUID
 import scala.concurrent.blocking
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Configuration and actions for the ledger-api persistence,
   * Actions are synchronous as they use the underlying jdbc driver directly and there is no simple version of async calls available.
@@ -20,38 +19,21 @@ import scala.util.{Failure, Success, Try}
   */
 class LedgerApiStorage private[api] (
     val jdbcUrl: String,
-    createAction: () => Unit,
     closeAction: String => Unit,
 ) extends AutoCloseable {
-
-  def createSchema(): Either[SQLException, Unit] =
-    asEitherT(_ => createAction(), Predef.identity)
 
   override def close(): Unit = {
     blocking {
       closeAction(jdbcUrl)
     }
   }
-
-  private def asEitherT[E](action: String => Unit, error: SQLException => E): Either[E, Unit] =
-    blocking {
-      Either.catchOnly[SQLException](action(jdbcUrl)).leftMap(error)
-    }
 }
 
 /** Different approaches for erasing and closing ledger-api persisted data */
 private[api] object DbActions {
 
-  import LedgerApiStorage.ledgerApiSchemaName
-
   /** It's in its own h2 instance so just shut it down */
   def shutdownH2(url: String): Unit = runSqlQuery(url, "shutdown").discard[Try[Unit]]
-
-  def createSchemaIfNotExists(url: String): Unit =
-    runSqlQuery(url, s"create schema if not exists $ledgerApiSchemaName") match {
-      case Failure(exception) => throw exception
-      case Success(_) => ()
-    }
 
   /** Do nothing. Useful comment. */
   def doNothing(url: String): Unit = ()
@@ -66,9 +48,6 @@ private[api] object DbActions {
 
 object LedgerApiStorage {
 
-  // should match what is created in the sql migrations
-  val ledgerApiSchemaName = "ledger_api"
-
   def fromDbConfig(dbConfig: DbConfig): Either[LedgerApiServerError, LedgerApiStorage] =
     LedgerApiJdbcUrl
       .fromDbConfig(dbConfig)
@@ -76,7 +55,6 @@ object LedgerApiStorage {
       .map(jdbcUrl =>
         new LedgerApiStorage(
           jdbcUrl.url,
-          () => jdbcUrl.createLedgerApiSchemaIfNotExists(),
           DbActions.doNothing,
         )
       )
@@ -103,7 +81,6 @@ object LedgerApiStorage {
     Right(
       new LedgerApiStorage(
         s"jdbc:h2:mem:ledger_api_$sanitizedParticipantId;DB_CLOSE_DELAY=-1",
-        () => (),
         DbActions.shutdownH2,
       )
     )

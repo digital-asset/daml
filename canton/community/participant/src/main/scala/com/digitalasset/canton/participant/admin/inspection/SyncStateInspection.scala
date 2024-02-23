@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin.inspection
 import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.foldable.*
-import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset

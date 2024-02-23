@@ -34,7 +34,7 @@ trait SubmissionTracker extends AutoCloseable {
       traceContext: TraceContext,
   ): Future[CompletionResponse]
 
-  /** [[com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse.completions]] do not have `act_as` populated,
+  /** [[com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.completion]] do not have `act_as` populated,
     * hence submitters are propagated separately.
     * TODO(#12658): Use only the completion response once completions.act_as is populated.
     */

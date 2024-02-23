@@ -88,7 +88,7 @@ public class TemplateMethodTest {
   @Test
   void templateHasArchive() {
     SimpleTemplate.ContractId cid = new SimpleTemplate.ContractId("id");
-    Exercises.Archive<?> wideCid = cid;
+    Exercises.Archivable<?> wideCid = cid;
     assertEquals(
         wideCid.exerciseArchive().commands(), cid.exerciseArchive(new Archive()).commands());
   }

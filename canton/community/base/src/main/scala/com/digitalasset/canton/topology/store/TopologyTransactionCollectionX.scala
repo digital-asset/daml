@@ -33,7 +33,6 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   def toTopologyState: List[M] =
     result.map(_.transaction.transaction.mapping).toList
 
-  // note, we are reusing v0, as v0 just expects bytestrings ...
   def toProtoV30: v30.TopologyTransactions = v30.TopologyTransactions(
     items = result.map { item =>
       v30.TopologyTransactions.Item(

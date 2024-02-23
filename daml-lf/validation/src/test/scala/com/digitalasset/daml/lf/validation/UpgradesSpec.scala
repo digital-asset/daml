@@ -20,13 +20,72 @@ import scala.io.Source
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.archive.DarReader
 
-import scala.util.{Failure, Success}
+//import com.daml.lf.archive.{DarReader}
+import scala.util.{Success, Failure}
+import com.daml.lf.validation.Upgrading
 
-class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
+class UpgradesSpecAdminAPI extends UpgradesSpec {
+  override def uploadPackagePair(
+      path: Upgrading[String]
+  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+    val client = AdminLedgerClient.singleHost(
+      ledgerPorts(0).adminPort,
+      config,
+    )
+    for {
+      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
+      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
+      uploadV1Result <- client
+        .uploadDar(testPackageV1BS, path.past)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+      uploadV2Result <- client
+        .uploadDar(testPackageV2BS, path.present)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+    } yield Upgrading(
+      (testPackageV1Id, uploadV1Result),
+      (testPackageV2Id, uploadV2Result),
+    )
+  }
+}
+
+class UpgradesSpecLedgerAPI extends UpgradesSpec {
+  override def uploadPackagePair(
+      path: Upgrading[String]
+  ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
+    for {
+      client <- defaultLedgerClient()
+      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
+      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
+      uploadV1Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV1BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+      uploadV2Result <- client.packageManagementClient
+        .uploadDarFile(testPackageV2BS)
+        .transform({
+          case Failure(err) => Success(Some(err));
+          case Success(_) => Success(None);
+        })
+    } yield Upgrading(
+      (testPackageV1Id, uploadV1Result),
+      (testPackageV2Id, uploadV2Result),
+    )
+  }
+}
+
+abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
 
-  private def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
+  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
     assert(dar != null, s"Unable to load test package resource '$path'")
 
@@ -39,6 +98,10 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
     bytes.onComplete(_ => testPackage.map(_.close()))
     bytes.map((dar.main.pkgId, _))
   }
+
+  def uploadPackagePair(
+      path: Upgrading[String]
+  ): Future[Upgrading[(PackageId, Option[Throwable])]]
 
   private def assertPackageUpgradeCheck(failureMessage: Option[String])(
       testPackageV1Id: PackageId,
@@ -141,21 +204,10 @@ class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFi
       ) => String => Assertion,
   ): Future[Assertion] = {
     for {
-      client <- defaultLedgerClient()
-      (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(upgraded)
-      (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(upgrading)
-      uploadV1Result <- client.packageManagementClient
-        .uploadDarFile(testPackageV1BS)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
-      uploadV2Result <- client.packageManagementClient
-        .uploadDarFile(testPackageV2BS)
-        .transform({
-          case Failure(err) => Success(Some(err));
-          case Success(_) => Success(None);
-        })
+      Upgrading(
+        (testPackageV1Id, uploadV1Result),
+        (testPackageV2Id, uploadV2Result),
+      ) <- uploadPackagePair(Upgrading(upgraded, upgrading))
     } yield {
       val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
       try {

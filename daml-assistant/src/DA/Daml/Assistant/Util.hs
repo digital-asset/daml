@@ -34,8 +34,8 @@ wrapErrG wrapSomeException ctx m = m `catches`
         addErrorContext err =
             err { errContext = errContext err <|> Just ctx }
 
-wrapErr :: Text -> IO a -> IO a
-wrapErr = wrapErrG wrapSomeExceptionWithoutMsg
+wrapErrNoDisplay :: Text -> IO a -> IO a
+wrapErrNoDisplay = wrapErrG wrapSomeExceptionWithoutMsg
 
 wrapSomeExceptionWithoutMsg :: Text -> SomeException -> AssistantError
 wrapSomeExceptionWithoutMsg ctx err =
@@ -45,8 +45,8 @@ wrapSomeExceptionWithoutMsg ctx err =
         , errInternal = Just (pack (show err))
         }
 
-wrapErrDisplay :: Text -> IO a -> IO a
-wrapErrDisplay = wrapErrG wrapSomeExceptionWithMsg
+wrapErr :: Text -> IO a -> IO a
+wrapErr = wrapErrG wrapSomeExceptionWithMsg
 
 wrapSomeExceptionWithMsg :: Text -> SomeException -> AssistantError
 wrapSomeExceptionWithMsg ctx err =

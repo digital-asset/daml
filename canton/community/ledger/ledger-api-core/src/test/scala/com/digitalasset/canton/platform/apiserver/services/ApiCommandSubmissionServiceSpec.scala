@@ -9,7 +9,6 @@ import com.daml.lf.data.Ref
 import com.daml.tracing.{DefaultOpenTelemetry, SpanAttribute}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.MockMessages.*
-import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.validation.{
@@ -132,7 +131,6 @@ class ApiCommandSubmissionServiceSpec
     new ApiCommandSubmissionService(
       commandSubmissionService = commandSubmissionService,
       commandsValidator = CommandsValidator(
-        ledgerId = LedgerId(ledgerId),
         validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
         upgradingEnabled = false,
       ),

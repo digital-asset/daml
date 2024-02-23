@@ -5,14 +5,13 @@ package com.digitalasset.canton.participant.ledger.api
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.engine.Engine
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.ledger.configuration.{LedgerId, LedgerTimeModel}
@@ -25,19 +24,14 @@ import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.apiserver.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
+import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.{
-  IndexerConfig,
-  IndexerServiceOwner,
-  IndexerStartupMode,
-}
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.tracing.{NoTracing, TracerProvider}
 import com.digitalasset.canton.{LedgerParticipantId, checked}
 import org.apache.pekko.actor.ActorSystem
 
 import java.time.Duration as JDuration
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** Wrapper of ledger API server to manage start, stop, and erasing of state.
@@ -144,16 +138,9 @@ object CantonLedgerApiServerWrapper extends NoTracing {
             telemetry = new DefaultOpenTelemetry(config.tracerProvider.openTelemetry),
             futureSupervisor = futureSupervisor,
           )
-        val startupMode: IndexerStartupMode =
-          if (config.cantonParameterConfig.dbMigrateAndStart)
-            IndexerStartupMode.MigrateAndStart
-          else IndexerStartupMode.MigrateOnEmptySchemaAndStart
         val startFUS = for {
-          _ <- FutureUnlessShutdown.outcomeF(tryCreateSchema(ledgerApiStorage, config.logger))
           _ <-
-            if (startLedgerApiServer)
-              startableStoppableLedgerApiServer
-                .start(overrideIndexerStartupMode = Some(startupMode))
+            if (startLedgerApiServer) startableStoppableLedgerApiServer.start()
             else FutureUnlessShutdown.unit
         } yield ()
 
@@ -172,48 +159,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
           case Failure(e) => FutureUnlessShutdown.pure(Left(FailedToStartLedgerApiServer(e)))
         })
       }
-  }
-
-  private def tryCreateSchema(ledgerApiStorage: LedgerApiStorage, logger: TracedLogger)(implicit
-      ec: ExecutionContext
-  ): Future[Unit] =
-    Future {
-      logger.debug(s"Trying to create schema for ledger API server...")
-      ledgerApiStorage.createSchema().valueOr { err =>
-        logger.error(s"Failed to create schema for ledger API server", err)
-      }
-    }
-
-  /** Config for indexer migrate schema entry point
-    *
-    * @param dbConfig          canton DB storage config so that indexer can share the participant db
-    * @param additionalMigrationPaths optional paths for extra migration files
-    */
-  final case class MigrateSchemaConfig(
-      dbConfig: DbConfig,
-      additionalMigrationPaths: Seq[String],
-  )
-
-  /** Migrates ledger API server database schema to latest flyway version
-    */
-  def migrateSchema(config: MigrateSchemaConfig, loggerFactory: NamedLoggerFactory)(implicit
-      ec: ExecutionContext
-  ): Future[Unit] = {
-    implicit val resourceContext: ResourceContext = ResourceContext(ec)
-
-    val logger = loggerFactory.getTracedLogger(getClass)
-
-    for {
-      ledgerApiStorage <- LedgerApiStorage
-        .fromDbConfig(config.dbConfig)
-        .fold(t => Future.failed(t.asRuntimeException()), Future.successful)
-      _ <- tryCreateSchema(ledgerApiStorage, logger)
-      _ <- IndexerServiceOwner.migrateOnly(
-        ledgerApiStorage.jdbcUrl,
-        loggerFactory,
-        additionalMigrationPaths = config.additionalMigrationPaths,
-      )
-    } yield ()
   }
 
   final case class LedgerApiServerState(

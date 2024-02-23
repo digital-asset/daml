@@ -65,8 +65,8 @@ case class InformeeMessage(
       requestId: RequestId,
       verdict: Verdict,
       recipientParties: Set[LfPartyId],
-  ): TransactionResultMessage =
-    TransactionResultMessage(
+  ): ConfirmationResultMessage =
+    ConfirmationResultMessage(
       requestId,
       verdict,
       fullInformeeTree.tree.rootHash,
