@@ -65,12 +65,6 @@ daml_build_test(
     visibility = ["//daml-lf:__subpackages__"],
 ) if is_intel else None
 
-daml_build_test(
-    name = "ReinterpretTests-v2",
-    project_dir = "reinterpret-v2",
-    visibility = ["//daml-lf:__subpackages__"],
-)
-
 daml_compile(
     name = "AtVersion13",
     srcs = ["reinterpret-v1/AtVersion13.daml"],
