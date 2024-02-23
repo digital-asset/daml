@@ -446,8 +446,13 @@ object SyncDomainEphemeralStateFactory {
           // No request is known to be clean, nothing can be pruned
           Future.successful(CantonTimestamp.MinValue)
         case Some(cursorHead) =>
-          requestJournalStore.firstRequestWithCommitTimeAfter(cursorHead.timestamp).map {
-            _.fold(cursorHead.timestamp)(_.requestTimestamp).immediatePredecessor
+          requestJournalStore.firstRequestWithCommitTimeAfter(cursorHead.timestamp).map { res =>
+            val ts = res.fold(cursorHead.timestamp)(_.requestTimestamp)
+            /*
+            If the only processed requests so far are repair requests, it can happen that `ts == CantonTimestamp.MinValue`.
+            Taking the predecessor throws an exception.
+             */
+            if (ts == CantonTimestamp.MinValue) ts else ts.immediatePredecessor
           }
       }
       preheadSequencerCounterTs <- sequencerCounterTrackerStore.preheadSequencerCounter.map {

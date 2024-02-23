@@ -22,7 +22,6 @@ import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.api.domain.ConfigurationEntry.Accepted
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -400,27 +399,6 @@ private[index] class IndexServiceImpl(
       .map(
         _.map { case (offset, config) => (toAbsolute(offset), config) }
       )(directEc)
-
-  /** Looks up the current configuration, if set, and continues to stream configuration changes.
-    */
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[LedgerConfiguration, NotUsed] = {
-    Source
-      .future(lookupConfiguration())
-      .flatMapConcat { optResult =>
-        val offset = optResult.map(_._1)
-        val foundConfig = optResult.map(_._2)
-
-        val initialConfig = Source(foundConfig.toList)
-        val configStream = configurationEntries(offset).collect {
-          case (_, Accepted(_, configuration)) => configuration
-        }
-        initialConfig
-          .concat(configStream)
-          .map(cfg => LedgerConfiguration(cfg.maxDeduplicationDuration))
-      }
-  }
 
   /** Retrieve configuration entries. */
   override def configurationEntries(startExclusive: Option[ParticipantOffset.Absolute])(implicit

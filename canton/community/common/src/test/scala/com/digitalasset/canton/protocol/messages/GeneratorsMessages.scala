@@ -6,7 +6,13 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestampSecond, GeneratorsData, ViewPosition, ViewType}
-import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash, TransferDomainId}
+import com.digitalasset.canton.protocol.{
+  GeneratorsProtocol,
+  Malformed,
+  RequestId,
+  RootHash,
+  TransferDomainId,
+}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -84,14 +90,14 @@ final class GeneratorsMessages(
       )
     )
 
-  implicit val transactionResultMessageArb: Arbitrary[TransactionResultMessage] = Arbitrary(for {
+  implicit val transactionResultMessageArb: Arbitrary[ConfirmationResultMessage] = Arbitrary(for {
     verdict <- verdictArb.arbitrary
     rootHash <- Arbitrary.arbitrary[RootHash]
     requestId <- Arbitrary.arbitrary[RequestId]
     domainId <- Arbitrary.arbitrary[DomainId]
 
     // TODO(#14241) Also generate instance that contains InformeeTree + make pv above cover all the values
-  } yield TransactionResultMessage(requestId, verdict, rootHash, domainId, protocolVersion))
+  } yield ConfirmationResultMessage(requestId, verdict, rootHash, domainId, protocolVersion))
 
   implicit val confirmationResponseArb: Arbitrary[ConfirmationResponse] = Arbitrary(
     for {
@@ -136,7 +142,7 @@ final class GeneratorsMessages(
   implicit val mediatorResultArb: Arbitrary[ConfirmationResult] = Arbitrary(
     Gen.oneOf[ConfirmationResult](
       Arbitrary.arbitrary[MalformedConfirmationRequestResult],
-      Arbitrary.arbitrary[TransactionResultMessage],
+      Arbitrary.arbitrary[ConfirmationResultMessage],
       Arbitrary.arbitrary[TransferResult[TransferDomainId]],
     )
   )
