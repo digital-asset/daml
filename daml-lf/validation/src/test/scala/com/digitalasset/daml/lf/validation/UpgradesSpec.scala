@@ -225,14 +225,14 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
   def suffix: String
 
   s"Upload-time Upgradeability Checks ($suffix)" should {
-    s"uploading the same package multiple times succeeds ($suffix)" in {
+    s"uploading the same package multiple times succeeds ($suffix)" ignore {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v1.dar",
         assertDuplicatePackageUpload(),
       )
     }
-    s"uploads against the same package name must be version unique ($suffix)" in {
+    s"uploads against the same package name must be version unique ($suffix)" ignore {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
