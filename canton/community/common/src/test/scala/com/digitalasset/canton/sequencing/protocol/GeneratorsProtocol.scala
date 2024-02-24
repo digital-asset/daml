@@ -107,12 +107,14 @@ final class GeneratorsProtocol(
     timestamp <- Arbitrary.arbitrary[CantonTimestamp]
     counter <- Arbitrary.arbitrary[SequencerCounter]
     messageIdO <- Gen.option(Arbitrary.arbitrary[MessageId])
+    topologyTimestampO <- Gen.option(Arbitrary.arbitrary[CantonTimestamp])
   } yield Deliver.create(
     counter,
     timestamp,
     domainId,
     messageIdO,
     batch,
+    topologyTimestampO,
     protocolVersion,
   )
 

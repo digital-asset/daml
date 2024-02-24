@@ -587,6 +587,7 @@ private[routing] object DomainSelectorTest {
           domainIdResolver = domainAliasResolver,
           contractRoutingParties = inputContractStakeholders,
           submitterDomainId = prescribedSubmitterDomainId,
+          disclosedContracts = Nil,
         )
 
       private val domainSelector: EitherT[Future, TransactionRoutingError, DomainSelector] =

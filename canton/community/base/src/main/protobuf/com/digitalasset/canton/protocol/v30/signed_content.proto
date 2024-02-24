@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -15,5 +14,5 @@ message SignedContent {
 
   google.protobuf.BytesValue content = 1;
   repeated com.digitalasset.canton.crypto.v30.Signature signatures = 2;
-  google.protobuf.Timestamp timestamp_of_signing_key = 3;
+  google.protobuf.Int64Value timestamp_of_signing_key = 3; // in microseconds of UTC time since Unix epoch
 }

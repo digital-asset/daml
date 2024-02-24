@@ -62,7 +62,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
     val invalidFormatContractId = LfContractId.assertFromString("00" * 34)
 
     val authenticatedContractId =
-      AuthenticatedContractIdVersionV2.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
+      AuthenticatedContractIdVersionV10.fromDiscriminator(contractIdDiscriminator, contractIdSuffix)
 
     val pkgName = Ref.PackageName.assertFromString("pkgName")
     val disclosedContract = ProcessedDisclosedContract(
@@ -114,7 +114,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             )
           )
           .left
-          .value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 does not start with one of the supported prefixes: Bytes(ca02)"
+          .value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 does not start with one of the supported prefixes: Bytes(ca10)"
       }
     }
 

@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
-import "google/protobuf/timestamp.proto";
 
 // Definitions shared by at least 2 out of mediator.proto, participant_transaction.proto and participant_transfer.proto
 
@@ -37,6 +36,6 @@ message SerializableContract {
   string contract_id = 1;
   bytes raw_contract_instance = 2;
   Metadata metadata = 3;
-  google.protobuf.Timestamp ledger_create_time = 4;
+  int64 ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
   com.digitalasset.canton.crypto.v30.Salt contract_salt = 5; // optional
 }

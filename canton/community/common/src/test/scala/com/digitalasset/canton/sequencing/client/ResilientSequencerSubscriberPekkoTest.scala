@@ -378,6 +378,7 @@ object TestSequencerSubscriptionFactoryPekko {
       DefaultTestIdentities.domainId,
       None,
       Batch.empty(BaseTest.testedProtocolVersion),
+      None,
       BaseTest.testedProtocolVersion,
     )
     val signedContent =

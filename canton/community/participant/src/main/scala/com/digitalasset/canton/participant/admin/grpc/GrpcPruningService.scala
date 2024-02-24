@@ -65,7 +65,7 @@ class GrpcPruningService(
       val validatedRequestE: ParsingResult[(CantonTimestamp, GlobalOffset)] = for {
         beforeOrAt <-
           ProtoConverter.parseRequired(
-            CantonTimestamp.fromProtoPrimitive,
+            CantonTimestamp.fromProtoTimestamp,
             "before_or_at",
             request.beforeOrAt,
           )

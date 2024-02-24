@@ -199,6 +199,8 @@ trait PublicKeyWithName
   def publicKey: K
   def name: Option[KeyName]
 
+  def id: Fingerprint
+
   override protected def companionObj = PublicKeyWithName
 
   def toProtoV30: v30.PublicKeyWithName =

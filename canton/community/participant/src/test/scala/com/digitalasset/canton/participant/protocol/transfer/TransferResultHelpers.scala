@@ -53,6 +53,7 @@ object TransferResultHelpers {
         sourceDomain.unwrap,
         Some(MessageId.tryCreate("msg-0")),
         batch,
+        None,
         protocolVersion,
       )
     val signature =

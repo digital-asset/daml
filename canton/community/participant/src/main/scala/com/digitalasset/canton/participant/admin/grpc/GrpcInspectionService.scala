@@ -78,7 +78,7 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
     request.timestamp.fold[Future[LookupOffsetByTime.Response]](
       Future.failed(new IllegalArgumentException(s"""Timestamp not specified"""))
     ) { ts =>
-      CantonTimestamp.fromProtoPrimitive(ts) match {
+      CantonTimestamp.fromProtoTimestamp(ts) match {
         case Right(cantonTimestamp) =>
           syncStateInspection
             .getOffsetByTime(cantonTimestamp)

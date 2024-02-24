@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.sequencing.protocol
 
-import cats.syntax.option.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
+import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.{
   HasMemoizedProtocolVersionedWrapperCompanion,
@@ -26,7 +25,7 @@ final case class AcknowledgeRequest private (member: Member, timestamp: CantonTi
 ) extends HasProtocolVersionedWrapper[AcknowledgeRequest]
     with ProtocolVersionedMemoizedEvidence {
   def toProtoV30: v30.AcknowledgeRequest =
-    v30.AcknowledgeRequest(member.toProtoPrimitive, timestamp.toProtoPrimitive.some)
+    v30.AcknowledgeRequest(member.toProtoPrimitive, timestamp.toProtoPrimitive)
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
@@ -59,11 +58,7 @@ object AcknowledgeRequest extends HasMemoizedProtocolVersionedWrapperCompanion[A
   )(deserializedFrom: Option[ByteString]): ParsingResult[AcknowledgeRequest] =
     for {
       member <- Member.fromProtoPrimitive(reqP.member, "member")
-      timestamp <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "timestamp",
-        reqP.timestamp,
-      )
+      timestamp <- CantonTimestamp.fromProtoPrimitive(reqP.timestamp)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield {
       AcknowledgeRequest(member, timestamp)(

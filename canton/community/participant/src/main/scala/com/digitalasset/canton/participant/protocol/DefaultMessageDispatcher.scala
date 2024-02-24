@@ -132,11 +132,11 @@ class DefaultMessageDispatcher(
       signedEventE: WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     signedEventE.event.content match {
-      case deliver @ Deliver(sc, ts, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
+      case deliver @ Deliver(sc, ts, _, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
         logTimeProof(sc, ts)
         tickTrackers(sc, ts, triggerAcsChangePublication = true)
 
-      case Deliver(sc, ts, _, msgIdO, _) =>
+      case Deliver(sc, ts, _, msgIdO, _, _) =>
         if (signedEventE.hasNoErrors) {
           logEvent(sc, ts, msgIdO, signedEventE.event)
         } else {

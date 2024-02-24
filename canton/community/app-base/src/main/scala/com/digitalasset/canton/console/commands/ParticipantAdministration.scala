@@ -1095,7 +1095,36 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
       )
-      registerFromConfig(config, handshakeOnly = handshakeOnly, synchronize)
+      register_with_config(config, handshakeOnly = handshakeOnly, synchronize)
+    }
+
+    @Help.Summary(
+      "Macro to register a locally configured domain given by reference"
+    )
+    @Help.Description("""
+        The arguments are:
+          config - Config for the domain connection
+          handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def register_with_config(
+        config: DomainConnectionConfig,
+        handshakeOnly: Boolean,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): Unit = {
+      val current = this.config(config.domain)
+      // if the config is not found, then we register the domain
+      if (current.isEmpty) {
+        // register the domain configuration
+        consoleEnvironment.run {
+          ParticipantCommands.domains.register(runner, config, handshakeOnly = handshakeOnly)
+        }
+      }
+      synchronize.foreach { timeout =>
+        ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
+      }
     }
 
     def connect_local_bft(
@@ -1156,24 +1185,6 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           SequencerConnections.single(instance.sequencerConnection),
         )
       )
-
-    private def registerFromConfig(
-        config: DomainConnectionConfig,
-        handshakeOnly: Boolean,
-        synchronize: Option[NonNegativeDuration],
-    ): Unit = {
-      val current = this.config(config.domain)
-      // if the config is not found, then we register the domain
-      if (current.isEmpty) {
-        // register the domain configuration
-        consoleEnvironment.run {
-          ParticipantCommands.domains.register(runner, config, handshakeOnly = handshakeOnly)
-        }
-      }
-      synchronize.foreach { timeout =>
-        ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
-      }
-    }
 
     private def connectFromConfig(
         config: DomainConnectionConfig,

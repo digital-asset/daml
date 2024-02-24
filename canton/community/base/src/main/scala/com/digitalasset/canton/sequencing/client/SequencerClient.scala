@@ -445,8 +445,9 @@ abstract class SequencerClientImpl(
                 SequencerCounter.Genesis,
                 CantonTimestamp.now(),
                 domainId,
-                None,
+                messageIdO = None,
                 Batch(List.empty, protocolVersion),
+                topologyTimestampO = None,
                 protocolVersion,
               )
             )

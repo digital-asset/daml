@@ -7,7 +7,7 @@ import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV2,
+  AuthenticatedContractIdVersionV10,
   CantonContractIdVersion,
   ContractMetadata,
   LfContractId,
@@ -19,7 +19,7 @@ import com.digitalasset.canton.protocol.{
 trait SerializableContractAuthenticator {
 
   /** Authenticates the contract payload and metadata (consisted of ledger create time, contract instance and
-    * contract salt) against the contract id, iff the contract id has a [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV2]] format.
+    * contract salt) against the contract id, iff the contract id has a [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10]] format.
     *
     * @param contract the serializable contract
     */
@@ -74,7 +74,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
     val ContractId.V1(_discriminator, cantonContractSuffix) = contractId
     val optContractIdVersion = CantonContractIdVersion.fromContractSuffix(cantonContractSuffix)
     optContractIdVersion match {
-      case Right(AuthenticatedContractIdVersionV2) =>
+      case Right(AuthenticatedContractIdVersionV10) =>
         for {
           contractIdVersion <- optContractIdVersion
           salt <- contractSalt.toRight(

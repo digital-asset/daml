@@ -695,11 +695,11 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
             aliceEvents.map(_.counter) shouldBe (SequencerCounter(0) until SequencerCounter(
               delivers.length.toLong
             ))
-            val deliverWithSigningTimestamps =
+            val deliverWithTopologyTimestamps =
               aliceEvents.zip(delivers).zipWithIndex.collect {
                 filterForTopologyTimestamps
               }
-            forEvery(deliverWithSigningTimestamps) {
+            forEvery(deliverWithTopologyTimestamps) {
               case DeliveredEventToCheck(
                     delivered,
                     sequencingTimestamp,
@@ -715,6 +715,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                       domainId,
                       messageId.some,
                       batch,
+                      Some(topologyTimestamp),
                       testedProtocolVersion,
                     )
                   else
@@ -744,11 +745,11 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
             bobEvents.length shouldBe delivers.length
             bobEvents.map(_.counter) shouldBe (0L until delivers.length.toLong)
               .map(SequencerCounter(_))
-            val deliverWithSigningTimestamps =
+            val deliverWithTopologyTimestamps =
               bobEvents.zip(delivers).zipWithIndex.collect {
                 filterForTopologyTimestamps
               }
-            forEvery(deliverWithSigningTimestamps) {
+            forEvery(deliverWithTopologyTimestamps) {
               case DeliveredEventToCheck(
                     delivered,
                     sequencingTimestamp,
@@ -764,6 +765,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                       domainId,
                       None,
                       batch,
+                      Some(topologyTimestamp),
                       testedProtocolVersion,
                     )
                   else
@@ -773,6 +775,7 @@ class SequencerReaderTest extends FixtureAsyncWordSpec with BaseTest {
                       domainId,
                       None,
                       Batch.empty(testedProtocolVersion),
+                      None,
                       testedProtocolVersion,
                     )
                 delivered.signedEvent.content shouldBe expectedSequencedEvent

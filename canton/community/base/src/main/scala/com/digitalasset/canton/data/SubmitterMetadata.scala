@@ -66,7 +66,7 @@ final case class SubmitterMetadata private (
     salt = Some(salt.toProtoV30),
     submissionId = submissionId.getOrElse(""),
     dedupPeriod = Some(SerializableDeduplicationPeriod(dedupPeriod).toProtoV30),
-    maxSequencingTime = Some(maxSequencingTime.toProtoPrimitive),
+    maxSequencingTime = maxSequencingTime.toProtoPrimitive,
   )
 }
 
@@ -186,11 +186,7 @@ object SubmitterMetadata
         .toRight(
           ProtoDeserializationError.ValueConversionError("acsAs", "actAs set must not be empty.")
         )
-      maxSequencingTime <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "SubmitterMetadata.max_sequencing_time",
-        maxSequencingTimeOP,
-      )
+      maxSequencingTime <- CantonTimestamp.fromProtoPrimitive(maxSequencingTimeOP)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SubmitterMetadata(
       actAsNes,

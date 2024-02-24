@@ -20,7 +20,7 @@ final case class DeliveredTransferOutResult(result: SignedContent[Deliver[Defaul
     extends PrettyPrinting {
 
   val unwrap: TransferOutResult = result.content match {
-    case Deliver(_, _, _, _, Batch(envelopes)) =>
+    case Deliver(_, _, _, _, Batch(envelopes), _) =>
       val transferOutResults =
         envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[TransferOutResult]])
       val size = transferOutResults.size
