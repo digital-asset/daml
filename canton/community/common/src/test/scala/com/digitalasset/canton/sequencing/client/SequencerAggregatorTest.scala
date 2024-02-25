@@ -6,9 +6,7 @@ package com.digitalasset.canton.sequencing.client
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.SequencerAggregator.SequencerAggregatorError
-import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerAggregator}
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -208,47 +206,6 @@ class SequencerAggregatorTest
       assertCombinedDownstreamMessage(aggregator, event1, event2)
       f1.futureValueUS shouldBe Right(true)
       f2.futureValueUS shouldBe Right(false)
-    }
-
-    "fail if events share timestamp but timestampOfSigningKey is different" in { fixture =>
-      import fixture.*
-      val event1 = createEvent(timestampOfSigningKey = Some(CantonTimestamp.Epoch)).futureValue
-
-      /*
-      The goal is to do `createEvent(timestampOfSigningKey = None).futureValue`
-      But if we do, we have different salt (because of the randomness in the ExampleTransactionFactory
-      used by createEvent). So instead, we build the event.
-       */
-      val event2 = {
-        val signedContent = SignedContent.tryCreate(
-          content = event1.signedEvent.content,
-          signatures = event1.signedEvent.signatures,
-          timestampOfSigningKey = None,
-          representativeProtocolVersion = event1.signedEvent.representativeProtocolVersion,
-        )
-
-        OrdinarySequencedEvent(
-          signedEvent = signedContent,
-          trafficState = event1.trafficState,
-        )(event1.traceContext)
-      }
-
-      val aggregator = mkAggregator(
-        config(Set(sequencerAlice, sequencerBob), sequencerTrustThreshold = 2)
-      )
-      val f1 = aggregator
-        .combineAndMergeEvent(sequencerAlice, event1)
-
-      f1.isCompleted shouldBe false
-      assertNoMessageDownstream(aggregator)
-
-      aggregator
-        .combineAndMergeEvent(sequencerBob, event2)
-        .futureValueUS shouldBe Left(
-        SequencerAggregatorError.NotTheSameTimestampOfSigningKey(
-          NonEmpty(Set, Some(CantonTimestamp.Epoch), None)
-        )
-      )
     }
 
     "fail if events share timestamp but content is different" in { fixture =>

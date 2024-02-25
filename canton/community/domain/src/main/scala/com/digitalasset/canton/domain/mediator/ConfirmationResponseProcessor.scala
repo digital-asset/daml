@@ -69,7 +69,7 @@ private[mediator] final case class MediatorResultLog(
 /** Scalable service to check the received Stakeholder Trees and Confirmation Responses, derive a verdict and post
   * result messages to stakeholders.
   */
-private[mediator] class TransactionConfirmationResponseProcessor(
+private[mediator] class ConfirmationResponseProcessor(
     domainId: DomainId,
     private val mediatorId: MediatorId,
     verdictSender: VerdictSender,

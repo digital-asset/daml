@@ -60,7 +60,7 @@ case class ConfirmationResultMessage private (
 
   protected def toProtoV30: v30.TransactionResultMessage =
     v30.TransactionResultMessage(
-      requestId = Some(requestId.toProtoPrimitive),
+      requestId = requestId.toProtoPrimitive,
       verdict = Some(verdict.toProtoV30),
       rootHash = rootHash.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
@@ -111,12 +111,10 @@ object ConfirmationResultMessage
   private def fromProtoV30(protoResultMessage: v30.TransactionResultMessage)(
       bytes: ByteString
   ): ParsingResult[ConfirmationResultMessage] = {
-    val v30.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =
+    val v30.TransactionResultMessage(requestIdP, verdictPO, rootHashP, domainIdP) =
       protoResultMessage
     for {
-      requestId <- ProtoConverter
-        .required("request_id", requestIdPO)
-        .flatMap(RequestId.fromProtoPrimitive)
+      requestId <- RequestId.fromProtoPrimitive(requestIdP)
       transactionResult <- ProtoConverter
         .required("verdict", verdictPO)
         .flatMap(Verdict.fromProtoV30)

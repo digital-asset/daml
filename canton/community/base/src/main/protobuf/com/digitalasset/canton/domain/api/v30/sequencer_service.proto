@@ -8,7 +8,6 @@ package com.digitalasset.canton.domain.api.v30;
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
-import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 // The service that a member can use to send messages to the domain and
@@ -204,7 +203,8 @@ message AcknowledgeRequest {
 
   // The timestamp in sequencer time that they are acknowledging and will not re-read earlier events.
   // It is expected that the caller has a received an event with this timestamp but this is not validated.
-  google.protobuf.Timestamp timestamp = 2;
+  // In microseconds of UTC time since Unix epoch
+  int64 timestamp = 2;
 }
 
 message AcknowledgeResponse {}

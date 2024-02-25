@@ -310,7 +310,8 @@ abstract class TopologyTransactionProcessorCommonImpl[M](
         MonadUtil.sequentialTraverseMonoid(tracedBatch.value) {
           _.withTraceContext { implicit traceContext =>
             {
-              case Deliver(sc, ts, _, _, batch) =>
+              // TODO(#13883) Topology transactions must not specify a topology timestamp. Check this.
+              case Deliver(sc, ts, _, _, batch, _) =>
                 logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
                 val sequencedTime = SequencedTime(ts)
                 val transactionsF = extractTopologyUpdatesAndValidateEnvelope(

@@ -454,7 +454,7 @@ class RemoteClock(
   private def getRemoteTime: CantonTimestamp = {
     val req = for {
       pbTimestamp <- EitherT.right[ProtoDeserializationError](getCurrentRemoteTime())
-      timestamp <- EitherT.fromEither[Future](CantonTimestamp.fromProtoPrimitive(pbTimestamp))
+      timestamp <- EitherT.fromEither[Future](CantonTimestamp.fromProtoTimestamp(pbTimestamp))
     } yield timestamp
     import TraceContext.Implicits.Empty.*
     timeouts.network.await("fetching remote time")(req.value) match {

@@ -43,7 +43,7 @@ import scala.jdk.CollectionConverters.*
 import scala.language.reflectiveCalls
 
 @nowarn("msg=match may not be exhaustive")
-class TransactionConfirmationResponseProcessorTestV5
+class ConfirmationResponseProcessorTestV5
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
@@ -212,7 +212,7 @@ class TransactionConfirmationResponseProcessorTestV5
       timeouts,
       loggerFactory,
     )
-    val processor = new TransactionConfirmationResponseProcessor(
+    val processor = new ConfirmationResponseProcessor(
       domainId,
       mediatorId,
       verdictSender,

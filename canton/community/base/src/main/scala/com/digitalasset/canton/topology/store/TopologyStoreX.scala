@@ -413,12 +413,12 @@ object TimeQuery {
   }
   final case class Snapshot(asOf: CantonTimestamp) extends TimeQuery {
     override def toProtoV30: topoV30.BaseQuery.TimeQuery =
-      topoV30.BaseQuery.TimeQuery.Snapshot(asOf.toProtoPrimitive)
+      topoV30.BaseQuery.TimeQuery.Snapshot(asOf.toProtoTimestamp)
   }
   final case class Range(from: Option[CantonTimestamp], until: Option[CantonTimestamp])
       extends TimeQuery {
     override def toProtoV30: topoV30.BaseQuery.TimeQuery = topoV30.BaseQuery.TimeQuery.Range(
-      topoV30.BaseQuery.TimeRange(from.map(_.toProtoPrimitive), until.map(_.toProtoPrimitive))
+      topoV30.BaseQuery.TimeRange(from.map(_.toProtoTimestamp), until.map(_.toProtoTimestamp))
     )
   }
 
@@ -430,12 +430,12 @@ object TimeQuery {
       case topoV30.BaseQuery.TimeQuery.Empty =>
         Left(ProtoDeserializationError.FieldNotSet(fieldName))
       case topoV30.BaseQuery.TimeQuery.Snapshot(value) =>
-        CantonTimestamp.fromProtoPrimitive(value).map(Snapshot)
+        CantonTimestamp.fromProtoTimestamp(value).map(Snapshot)
       case topoV30.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
       case topoV30.BaseQuery.TimeQuery.Range(value) =>
         for {
-          fromO <- value.from.traverse(CantonTimestamp.fromProtoPrimitive)
-          toO <- value.until.traverse(CantonTimestamp.fromProtoPrimitive)
+          fromO <- value.from.traverse(CantonTimestamp.fromProtoTimestamp)
+          toO <- value.until.traverse(CantonTimestamp.fromProtoTimestamp)
         } yield Range(fromO, toO)
     }
 }

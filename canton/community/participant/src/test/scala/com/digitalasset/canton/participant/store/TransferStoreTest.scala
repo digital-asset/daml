@@ -1417,7 +1417,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       creatingTransactionId: TransactionId = transactionId1,
       contract: SerializableContract = contract,
       transferOutGlobalOffset: Option[GlobalOffset] = None,
-  ) =
+  ): Future[TransferData] =
     mkTransferDataForDomain(
       transferId,
       sourceMediator,
@@ -1447,19 +1447,19 @@ object TransferStoreTest extends EitherValues with NoTracing {
         )
       val batch =
         Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
-      val deliver =
-        Deliver.create(
-          SequencerCounter(1),
-          CantonTimestamp.ofEpochMilli(10),
-          transferData.sourceDomain.unwrap,
-          Some(MessageId.tryCreate("1")),
-          batch,
-          BaseTest.testedProtocolVersion,
-        )
+      val deliver = Deliver.create(
+        SequencerCounter(1),
+        CantonTimestamp.ofEpochMilli(10),
+        transferData.sourceDomain.unwrap,
+        Some(MessageId.tryCreate("1")),
+        batch,
+        Some(transferData.transferOutTimestamp),
+        BaseTest.testedProtocolVersion,
+      )
       SignedContent(
         deliver,
         sign("TransferOutResult-sequencer"),
-        Some(transferData.transferOutTimestamp),
+        None,
         BaseTest.testedProtocolVersion,
       )
     }

@@ -15,10 +15,10 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.*
-import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownDomain
+import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncServiceError}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
@@ -143,6 +143,15 @@ class DomainConnectivityService(
           .fromProtoV30(request)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
+
+      _ <-
+        if (conf.manualConnect && handshakeOnly)
+          Future.failed(
+            SyncServiceError.InvalidArgument
+              .Error("For handshakeOnly to be useful, manualConnect should be set to false")
+              .asGrpcError
+          )
+        else Future.unit
 
       _ = logger.info(show"Registering ${request.domainAlias} with ${conf}")
       _ <- mapErrNewET(sync.addDomain(conf)).valueOr(throw _)

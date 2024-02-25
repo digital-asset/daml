@@ -90,7 +90,7 @@ object EnterpriseSequencerAdminCommands {
         SequencerSnapshot,
       ] {
     override def createRequest(): Either[String, v30.SnapshotRequest] = {
-      Right(v30.SnapshotRequest(Some(timestamp.toProtoPrimitive)))
+      Right(v30.SnapshotRequest(Some(timestamp.toProtoTimestamp)))
     }
 
     override def submitRequest(
@@ -125,7 +125,7 @@ object EnterpriseSequencerAdminCommands {
         String,
       ] {
     override def createRequest(): Either[String, v30.SequencerPruning.PruneRequest] =
-      Right(v30.SequencerPruning.PruneRequest(timestamp.toProtoPrimitive.some))
+      Right(v30.SequencerPruning.PruneRequest(timestamp.toProtoTimestamp.some))
 
     override def submitRequest(
         service: v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
@@ -166,7 +166,7 @@ object EnterpriseSequencerAdminCommands {
         response: LocatePruningTimestamp.Response
     ): Either[String, Option[CantonTimestamp]] =
       response.timestamp.fold(Right(None): Either[String, Option[CantonTimestamp]])(
-        CantonTimestamp.fromProtoPrimitive(_).bimap(_.message, Some(_))
+        CantonTimestamp.fromProtoTimestamp(_).bimap(_.message, Some(_))
       )
   }
 

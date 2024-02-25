@@ -54,6 +54,7 @@ import com.digitalasset.canton.participant.{
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
 
@@ -541,7 +542,6 @@ abstract class ParticipantReference(
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
     val connected = domains.list_connected().map(_.domainId).toSet
-
     // for every participant
     consoleEnvironment.participants.all
       .filter(p => p.health.running() && p.health.initialized())
@@ -552,10 +552,14 @@ abstract class ParticipantReference(
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
                 // ensure that vetted packages on the domain match the ones in the authorized store
+                val timeQuery =
+                  if (consoleEnvironment.environment.simClock.isDefined) TimeQuery.HeadState
+                  else TimeQuery.Snapshot(consoleEnvironment.environment.clock.now)
                 val onDomain = participant.topology.vetted_packages
                   .list(
                     filterStore = item.domainId.filterString,
                     filterParticipant = id.filterString,
+                    timeQuery = timeQuery,
                   )
                   .flatMap(_.item.packageIds)
                   .toSet

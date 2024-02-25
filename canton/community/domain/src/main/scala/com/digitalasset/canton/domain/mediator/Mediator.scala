@@ -106,7 +106,7 @@ private[mediator] class Mediator(
   private val verdictSender =
     VerdictSender(sequencerClient, syncCrypto, mediatorId, protocolVersion, loggerFactory)
 
-  private val processor = new TransactionConfirmationResponseProcessor(
+  private val processor = new ConfirmationResponseProcessor(
     domain,
     mediatorId,
     verdictSender,
@@ -316,9 +316,7 @@ private[mediator] class Mediator(
             }
 
             (
-              Traced(openEvent -> closedSignedEvent.signedEvent.timestampOfSigningKey)(
-                closedSignedEvent.traceContext
-              ),
+              Traced(openEvent)(closedSignedEvent.traceContext),
               rejectionsF,
             )
           }

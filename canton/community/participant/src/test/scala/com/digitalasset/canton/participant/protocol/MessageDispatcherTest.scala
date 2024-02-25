@@ -278,8 +278,9 @@ trait MessageDispatcherTest {
       sc: SequencerCounter = SequencerCounter(0),
       ts: CantonTimestamp = CantonTimestamp.Epoch,
       messageId: Option[MessageId] = None,
+      topologyTimestampO: Option[CantonTimestamp] = None,
   ): Deliver[DefaultOpenEnvelope] =
-    Deliver.create(sc, ts, domainId, messageId, batch, testedProtocolVersion)
+    Deliver.create(sc, ts, domainId, messageId, batch, topologyTimestampO, testedProtocolVersion)
 
   private def rootHash(index: Int): RootHash = RootHash(TestHash.digest(index))
 
