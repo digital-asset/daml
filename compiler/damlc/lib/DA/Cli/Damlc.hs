@@ -12,7 +12,7 @@
 module DA.Cli.Damlc (main, Command (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, handle, throwIO, throw)
+import Control.Exception (bracket, catch, displayException, handle, throwIO, throw)
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
@@ -1735,12 +1735,14 @@ deriveDarPath path name version mOutput = case mOutput of
 darPathFromDamlYaml :: FilePath -> IO FilePath
 darPathFromDamlYaml path = do
   (name, version, mOutput) <-
-    onDamlYaml (error "Failed to read daml.yaml") (\project -> fromRight (error "Failed to get project info") $ do
-      name <- queryProjectConfigRequired ["name"] project
-      version <- queryProjectConfigRequired ["version"] project
-      mOutput <- queryProjectConfigBuildOutput project
-      pure (name, version, mOutput)
-    ) mbProjectOpts
+    onDamlYaml 
+      (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
+      (\project -> fromRight (error $ "Failed to read package info in daml.yaml at " <> path) $ do
+        name <- queryProjectConfigRequired ["name"] project
+        version <- queryProjectConfigRequired ["version"] project
+        mOutput <- queryProjectConfigBuildOutput project
+        pure (name, version, mOutput)
+      ) mbProjectOpts
   deriveDarPath path name version mOutput
   where
     mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
@@ -1749,7 +1751,7 @@ darPathFromDamlYaml path = do
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
 buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
-    (error "Failed to parse daml.yaml for build-multi")
+    (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
     (\project -> fromRight (error "Failed to get project info") $ do
       bmSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
       bmName <- queryProjectConfigRequired ["name"] project
@@ -1764,20 +1766,20 @@ buildMultiPackageConfigFromDamlYaml path =
     mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
-onDamlYaml :: t -> (ProjectConfig -> t) -> Maybe ProjectOpts -> IO t
+onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> t) -> Maybe ProjectOpts -> IO t
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
     mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
     let mbProjectPath = projectRoot =<< mbProjectOpts
     let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
-    handle (\(_ :: ConfigError) -> pure def) $ do
+    handle (\(e :: ConfigError) -> pure $ def e) $ do
         project <- readProjectConfig projectPath
         pure $ f project
 
 cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
 cliArgsFromDamlYaml =
-  onDamlYaml [] $ \project -> case queryProjectConfigRequired ["build-options"] project of
+  onDamlYaml (const []) $ \project -> case queryProjectConfigRequired ["build-options"] project of
     Left _ -> []
     Right xs -> xs
 

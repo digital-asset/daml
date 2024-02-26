@@ -29,7 +29,7 @@ import DA.Daml.Project.Util
 import Data.Aeson (Result (..), fromJSON)
 import qualified Data.Aeson.Key as A
 import qualified Data.Array as Array
-import Data.Bifunctor (bimap)
+import Data.Bifunctor (first)
 import Data.Generics.Uniplate.Data (transformM)
 import qualified Data.Text as T
 import Data.Text (Text)
@@ -41,7 +41,9 @@ import System.Environment
 import System.FilePath
 import Control.Exception.Safe
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Lazy
 import Text.Regex.TDFA
 
 -- | Read daml config file.
@@ -52,7 +54,11 @@ readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
 -- | Read project config file.
 -- Throws a ConfigError if reading or parsing fails.
 readProjectConfig :: ProjectPath -> IO ProjectConfig
-readProjectConfig (ProjectPath path) = readConfigWithEnv "project" (path </> projectConfigName)
+readProjectConfig path = fst <$> readProjectConfigEnvCheck path
+
+-- | Same as readProjectConfig but returns a flag noting whether environment variables were used
+readProjectConfigEnvCheck :: ProjectPath -> IO (ProjectConfig, Bool)
+readProjectConfigEnvCheck (ProjectPath path) = readConfigWithEnv "project" (path </> projectConfigName)
 
 -- | Read sdk config file.
 -- Throws a ConfigError if reading or parsing fails.
@@ -62,7 +68,7 @@ readSdkConfig (SdkPath path) = readConfig "SDK" (path </> sdkConfigName)
 -- | Read multi package config file.
 -- Throws a ConfigError if reading or parsing fails.
 readMultiPackageConfig :: ProjectPath -> IO MultiPackageConfig
-readMultiPackageConfig (ProjectPath path) = readConfigWithEnv "multi-package" (path </> multiPackageConfigName)
+readMultiPackageConfig (ProjectPath path) = fst <$> readConfigWithEnv "multi-package" (path </> multiPackageConfigName)
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
@@ -93,12 +99,12 @@ transformSubmatch = fmap (fmap toSubMatch . Array.elems) . Array.elems
 -- Finds any ${...} where the dollar isn't preceeded by (an odd number of) '\'
 -- Replaces the inner name with the value provided by the below mapping
 -- Note that `.` in the name are replaced with `_`, to allow for future support for heirarchical names
-interpolateEnvVariables :: [(String, String)] -> T.Text -> Either String T.Text
+interpolateEnvVariables :: [(String, String)] -> T.Text -> Either String (T.Text, Bool)
 interpolateEnvVariables env str = do
   let matchPositions :: [[SubMatch]] = transformSubmatch $ getAllTextMatches (str =~ ("(^|[^\\\\])(\\\\*)\\${([^}]+)}" :: String))
       -- First 2 matches aren't needed (whole match + start of line check)
       --   TDFA doesn't support non capturing groups, which is why that match exists in the first place
-      replaceWithPrefix (s, start) [_, _, escapeSlashes, name] = do
+      replaceWithPrefix (s, start, hasReplaced) [_, _, escapeSlashes, name] = do
         -- Divide by 2 and floor to get the number of `\` that should be in the final string
         let finalSlashesText = T.replicate (smLength escapeSlashes `div` 2) "\\"
             prefix = textSub start (smStart escapeSlashes) str
@@ -108,6 +114,7 @@ interpolateEnvVariables env str = do
                     <> finalSlashesText
                     <> textSub (smEnd escapeSlashes) (smEnd name + 1) str
                 , smEnd name + 1
+                , hasReplaced
                 )
           else do
             let envVarName = T.unpack $ T.replace "." "_" $ smText name
@@ -116,27 +123,32 @@ interpolateEnvVariables env str = do
             pure 
               ( s <> prefix <> finalSlashesText <> T.pack envVarValue
               , smEnd name + 1
+              , True
               )
       -- Impossible case to appease the warnings
       replaceWithPrefix _ _ = Left "Impossible incorrect regex submatches"
-  (replacedPrefix, prefixEnd) <- foldlM replaceWithPrefix ("" :: Text, 0) matchPositions
-  pure $ replacedPrefix <> textSub prefixEnd (T.length str) str
+  (replacedPrefix, prefixEnd, hasReplaced) <- foldlM replaceWithPrefix ("" :: Text, 0, False) matchPositions
+  pure (replacedPrefix <> textSub prefixEnd (T.length str) str, hasReplaced)
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
 -- Also performs environment variable interpolation on all string fields in the form of ${ENV_VAR}.
+-- Returns whether or not any env variables were used.
 -- TODO: ensure everything that reads the daml.yaml uses this, e.g. assistant for daml.yaml, multi-package for dependencies, etc.
-readConfigWithEnv :: Y.FromJSON b => Text -> FilePath -> IO b
+readConfigWithEnv :: Y.FromJSON b => Text -> FilePath -> IO (b, Bool)
 readConfigWithEnv name path = do
   configE <- runExceptT $ do
     (configValue :: Y.Value) <- ExceptT $ Y.decodeFileEither path
     env <- liftIO getEnvironment
-    configValueTransformed <- 
-      except $ flip transformM configValue $ \case
-        Y.String str -> bimap Y.AesonException Y.String $ interpolateEnvVariables env str
+    (configValueTransformed, hasReplaced) <- 
+      except $ flip runStateT False $ flip transformM configValue $ \case
+        Y.String str -> do
+          (updatedStr, hasReplaced) <- lift $ first Y.AesonException $ interpolateEnvVariables env str
+          modify (|| hasReplaced)
+          pure $ Y.String updatedStr
         v -> pure v
     case fromJSON configValueTransformed of
-      Success x -> pure x
+      Success x -> pure (x, hasReplaced)
       Error str -> throwE $ Y.AesonException str
   fromRightM (throwIO . ConfigFileInvalid name) configE
 
