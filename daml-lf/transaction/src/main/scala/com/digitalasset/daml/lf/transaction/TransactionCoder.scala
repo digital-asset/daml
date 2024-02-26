@@ -256,7 +256,7 @@ object TransactionCoder {
       _ <- node.choiceAuthorizers match {
         case Some(authorizers) =>
           if (node.version <= TransactionVersion.minChoiceAuthorizers)
-            Right(
+            Left(
               EncodeError(s"choice authorizers are not supported by ${node.version.protoValue}")
             )
           else
