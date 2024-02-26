@@ -161,7 +161,7 @@ class AuthenticationTokenProvider(
               (for {
                 token <- AuthenticationToken.fromProtoPrimitive(tokenP).leftMap(_.toString)
                 expiresAtP <- ProtoConverter.required("expires_at", expiryOP).leftMap(_.toString)
-                expiresAt <- CantonTimestamp.fromProtoPrimitive(expiresAtP).leftMap(_.toString)
+                expiresAt <- CantonTimestamp.fromProtoTimestamp(expiresAtP).leftMap(_.toString)
               } yield AuthenticationTokenWithExpiry(token, expiresAt))
                 .leftMap(err =>
                   Status.INTERNAL.withDescription(s"Received invalid authentication token: $err")

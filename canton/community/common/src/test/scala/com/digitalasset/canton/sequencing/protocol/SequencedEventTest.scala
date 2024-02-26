@@ -43,6 +43,7 @@ class SequencedEventTest extends BaseTestWordSpec {
           domainId,
           Some(MessageId.tryCreate("some-message-id")),
           batch,
+          Some(CantonTimestamp.ofEpochSecond(1)),
           testedProtocolVersion,
         )
 

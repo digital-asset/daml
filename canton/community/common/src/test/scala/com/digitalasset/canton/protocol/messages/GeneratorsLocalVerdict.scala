@@ -4,28 +4,29 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.protocol.messages.LocalReject.ConsistencyRejections.{
+import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.{
   InactiveContracts,
   LockedContracts,
 }
-import com.digitalasset.canton.protocol.messages.LocalReject.MalformedRejects.{
+import com.digitalasset.canton.protocol.LocalRejectError.MalformedRejects.{
   BadRootHashMessages,
   CreatesExistingContracts,
   ModelConformance,
   Payloads,
 }
-import com.digitalasset.canton.protocol.messages.LocalReject.TimeRejects.{
+import com.digitalasset.canton.protocol.LocalRejectError.TimeRejects.{
   LedgerTime,
   LocalTimeout,
   SubmissionTime,
 }
-import com.digitalasset.canton.protocol.messages.LocalReject.TransferInRejects.{
+import com.digitalasset.canton.protocol.LocalRejectError.TransferInRejects.{
   AlreadyCompleted,
   ContractAlreadyActive,
   ContractAlreadyArchived,
   ContractIsLocked,
 }
-import com.digitalasset.canton.protocol.messages.LocalReject.TransferOutRejects.ActivenessCheckFailed
+import com.digitalasset.canton.protocol.LocalRejectError.TransferOutRejects.ActivenessCheckFailed
+import com.digitalasset.canton.protocol.{LocalRejectErrorImpl, Malformed}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -34,27 +35,28 @@ final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
   import com.digitalasset.canton.GeneratorsLf.lfPartyIdArb
 
   // TODO(#14515) Check that the generator is exhaustive
-  private def localRejectImplGen: Gen[LocalRejectImpl] = {
+  private def localRejectErrorImplGen: Gen[LocalRejectErrorImpl] = {
     val resources = List("resource1", "resource2")
     val details = "details"
 
-    val builders: Seq[RepresentativeProtocolVersion[LocalVerdict.type] => LocalRejectImpl] = Seq(
-      LockedContracts.Reject(resources),
-      InactiveContracts.Reject(resources),
-      LedgerTime.Reject(details),
-      SubmissionTime.Reject(details),
-      LocalTimeout.Reject(),
-      ActivenessCheckFailed.Reject(details),
-      ContractAlreadyArchived.Reject(details),
-      ContractAlreadyActive.Reject(details),
-      ContractIsLocked.Reject(details),
-      AlreadyCompleted.Reject(details),
-      /*
+    val builders: Seq[RepresentativeProtocolVersion[LocalVerdict.type] => LocalRejectErrorImpl] =
+      Seq(
+        LockedContracts.Reject(resources),
+        InactiveContracts.Reject(resources),
+        LedgerTime.Reject(details),
+        SubmissionTime.Reject(details),
+        LocalTimeout.Reject(),
+        ActivenessCheckFailed.Reject(details),
+        ContractAlreadyArchived.Reject(details),
+        ContractAlreadyActive.Reject(details),
+        ContractIsLocked.Reject(details),
+        AlreadyCompleted.Reject(details),
+        /*
        GenericReject is intentionally excluded
        Reason: it should not be serialized.
-       */
-      // GenericReject("cause", details, resources, "SOME_ID", ErrorCategory.TransientServerFailure),
-    )
+         */
+        // GenericReject("cause", details, resources, "SOME_ID", ErrorCategory.TransientServerFailure),
+      )
 
     Gen.oneOf(builders).map(_(LocalVerdict.protocolVersionRepresentativeFor(protocolVersion)))
   }
@@ -82,7 +84,7 @@ final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
 
   // TODO(#14515) Check that the generator is exhaustive
   private def localRejectGen: Gen[LocalReject] =
-    Gen.oneOf(localRejectImplGen, localVerdictMalformedGen)
+    Gen.oneOf(localRejectErrorImplGen, localVerdictMalformedGen)
 
   private def localApproveGen: Gen[LocalApprove] =
     Gen.const(LocalApprove(protocolVersion))

@@ -787,8 +787,8 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, GetMeteringReportRequest] =
         Right(
           GetMeteringReportRequest(
-            from = Some(from.toProtoPrimitive),
-            to = to.map(_.toProtoPrimitive),
+            from = Some(from.toProtoTimestamp),
+            to = to.map(_.toProtoTimestamp),
             applicationId = applicationId.getOrElse(""),
           )
         )
@@ -823,7 +823,7 @@ object LedgerApiCommands {
         service.getTime(request).map {
           _.currentTime
             .toRight("Empty timestamp received from ledger Api server")
-            .flatMap(CantonTimestamp.fromProtoPrimitive(_).leftMap(_.message))
+            .flatMap(CantonTimestamp.fromProtoTimestamp(_).leftMap(_.message))
         }
 
       /** Create the request from configured options
@@ -850,8 +850,8 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, SetTimeRequest] =
         Right(
           SetTimeRequest(
-            currentTime = Some(currentTime.toProtoPrimitive),
-            newTime = Some(newTime.toProtoPrimitive),
+            currentTime = Some(currentTime.toProtoTimestamp),
+            newTime = Some(newTime.toProtoTimestamp),
           )
         )
 

@@ -140,6 +140,7 @@ object BaseError {
       "definiteAnswer",
       "representativeProtocolVersion",
       "companionObj",
+      "orderedErrors",
     )
 
   def extractContext[D](obj: D): Map[String, String] = {

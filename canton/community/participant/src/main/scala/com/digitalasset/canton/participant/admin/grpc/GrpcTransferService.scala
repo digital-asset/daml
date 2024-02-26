@@ -65,7 +65,7 @@ class GrpcTransferService(
       )
       filterTimestampO <- Future(
         filterTimestampP
-          .map(CantonTimestamp.fromProtoPrimitive)
+          .map(CantonTimestamp.fromProtoTimestamp)
           .sequence
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
       )
@@ -103,7 +103,7 @@ final case class TransferSearchResult(
       targetDomain = targetDomain,
       submittingParty = submittingParty,
       readyForTransferIn = readyForTransferIn,
-      targetTimeProof = targetTimeProofO.map(_.toProtoPrimitive),
+      targetTimeProof = targetTimeProofO.map(_.toProtoTimestamp),
     )
 }
 
@@ -128,7 +128,7 @@ object TransferSearchResult {
           transferId <- ProtoConverter
             .required("transferId", transferIdP)
             .flatMap(TransferId.fromAdminProto30)
-          targetTimeProofO <- targetTimeProofOP.traverse(CantonTimestamp.fromProtoPrimitive)
+          targetTimeProofO <- targetTimeProofOP.traverse(CantonTimestamp.fromProtoTimestamp)
           _ <- Either.cond(sourceDomain.nonEmpty, (), FieldNotSet("originDomain"))
           _ <- Either.cond(targetDomain.nonEmpty, (), FieldNotSet("targetDomain"))
           _ <- Either.cond(submitter.nonEmpty, (), FieldNotSet("submitter"))

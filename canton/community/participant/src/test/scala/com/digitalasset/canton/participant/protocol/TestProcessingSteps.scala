@@ -78,7 +78,7 @@ class TestProcessingSteps(
       Int,
       Unit,
       TestViewType,
-      TransactionResultMessage,
+      ConfirmationResultMessage,
       TestProcessingError,
     ]
     with BaseTest {
@@ -282,7 +282,7 @@ class TestProcessingSteps(
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[MalformedConfirmationRequestResult, TransactionResultMessage],
+      resultE: Either[MalformedConfirmationRequestResult, ConfirmationResultMessage],
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,

@@ -174,7 +174,7 @@ object SequencedEventStore {
     def toProtoV30: v30.PossiblyIgnoredSequencedEvent =
       v30.PossiblyIgnoredSequencedEvent(
         counter = counter.toProtoPrimitive,
-        timestamp = Some(timestamp.toProtoPrimitive),
+        timestamp = timestamp.toProtoPrimitive,
         traceContext = Some(SerializableTraceContext(traceContext).toProtoV30),
         isIgnored = isIgnored,
         underlying = underlying.map(_.toProtoV30),
@@ -297,7 +297,7 @@ object SequencedEventStore {
     ): ParsingResult[PossiblyIgnoredProtocolEvent] = {
       val v30.PossiblyIgnoredSequencedEvent(
         counter,
-        timestampPO,
+        timestampP,
         traceContextPO,
         isIgnored,
         underlyingPO,
@@ -313,9 +313,7 @@ object SequencedEventStore {
               _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, protocolVersion))
             )
         )
-        timestamp <- ProtoConverter
-          .required("timestamp", timestampPO)
-          .flatMap(CantonTimestamp.fromProtoPrimitive)
+        timestamp <- CantonTimestamp.fromProtoPrimitive(timestampP)
         traceContext <- ProtoConverter
           .required("trace_context", traceContextPO)
           .flatMap(SerializableTraceContext.fromProtoV30)

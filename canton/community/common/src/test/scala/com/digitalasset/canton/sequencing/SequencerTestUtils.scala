@@ -35,6 +35,7 @@ object SequencerTestUtils extends BaseTest {
       domainId: DomainId = DefaultTestIdentities.domainId,
       deserializedFrom: Option[ByteString] = None,
       messageId: Option[MessageId] = Some(MessageId.tryCreate("mock-deliver")),
+      topologyTimestampO: Option[CantonTimestamp] = None,
   ): Deliver[ClosedEnvelope] = {
     val batch = Batch.empty(testedProtocolVersion)
 
@@ -44,6 +45,7 @@ object SequencerTestUtils extends BaseTest {
       domainId,
       messageId,
       batch,
+      topologyTimestampO,
       testedProtocolVersion,
     )
 
@@ -64,6 +66,7 @@ object SequencerTestUtils extends BaseTest {
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
       domainId: DomainId = DefaultTestIdentities.domainId,
       messageId: Option[MessageId] = Some(MessageId.tryCreate("mock-deliver")),
+      topologyTimestampO: Option[CantonTimestamp] = None,
   ): Deliver[Nothing] = {
     val batch = Batch.empty(testedProtocolVersion)
     Deliver.create[Nothing](
@@ -72,6 +75,7 @@ object SequencerTestUtils extends BaseTest {
       domainId,
       messageId,
       batch,
+      topologyTimestampO,
       BaseTest.testedProtocolVersion,
     )
   }

@@ -222,7 +222,7 @@ trait PrettyInstances {
   implicit def prettyLfContractId: Pretty[LfContractId] = prettyOfString {
     case LfContractId.V1(discriminator, suffix)
         // Shorten only Canton contract ids
-        if suffix.startsWith(AuthenticatedContractIdVersionV2.versionPrefixBytes) =>
+        if suffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes) =>
       val prefixBytesSize = CantonContractIdVersion.versionPrefixBytesSize
 
       val cantonVersionPrefix = suffix.slice(0, prefixBytesSize)

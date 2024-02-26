@@ -20,18 +20,18 @@ import com.google.protobuf.ByteString
   * @param verdict          the finalized verdict on the request
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class TransactionResultMessage private (
+case class ConfirmationResultMessage private (
     override val requestId: RequestId,
     override val verdict: Verdict,
     rootHash: RootHash,
     override val domainId: DomainId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      TransactionResultMessage.type
+      ConfirmationResultMessage.type
     ],
     override val deserializedFrom: Option[ByteString],
 ) extends RegularConfirmationResult
-    with HasProtocolVersionedWrapper[TransactionResultMessage]
+    with HasProtocolVersionedWrapper[ConfirmationResultMessage]
     with PrettyPrinting {
 
   def copy(
@@ -39,8 +39,8 @@ case class TransactionResultMessage private (
       verdict: Verdict = this.verdict,
       rootHash: RootHash = this.rootHash,
       domainId: DomainId = this.domainId,
-  ): TransactionResultMessage =
-    TransactionResultMessage(requestId, verdict, rootHash, domainId)(
+  ): ConfirmationResultMessage =
+    ConfirmationResultMessage(requestId, verdict, rootHash, domainId)(
       representativeProtocolVersion,
       None,
     )
@@ -55,12 +55,12 @@ case class TransactionResultMessage private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  @transient override protected lazy val companionObj: TransactionResultMessage.type =
-    TransactionResultMessage
+  @transient override protected lazy val companionObj: ConfirmationResultMessage.type =
+    ConfirmationResultMessage
 
   protected def toProtoV30: v30.TransactionResultMessage =
     v30.TransactionResultMessage(
-      requestId = Some(requestId.toProtoPrimitive),
+      requestId = requestId.toProtoPrimitive,
       verdict = Some(verdict.toProtoV30),
       rootHash = rootHash.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
@@ -72,7 +72,7 @@ case class TransactionResultMessage private (
       getCryptographicEvidence
     )
 
-  override def pretty: Pretty[TransactionResultMessage] =
+  override def pretty: Pretty[ConfirmationResultMessage] =
     prettyOfClass(
       param("requestId", _.requestId.unwrap),
       param("verdict", _.verdict),
@@ -81,9 +81,9 @@ case class TransactionResultMessage private (
     )
 }
 
-object TransactionResultMessage
+object ConfirmationResultMessage
     extends HasMemoizedProtocolVersionedWrapperCompanion[
-      TransactionResultMessage,
+      ConfirmationResultMessage,
     ] {
   override val name: String = "TransactionResultMessage"
 
@@ -102,36 +102,34 @@ object TransactionResultMessage
       rootHash: RootHash,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-  ): TransactionResultMessage =
-    TransactionResultMessage(requestId, verdict, rootHash, domainId)(
+  ): ConfirmationResultMessage =
+    ConfirmationResultMessage(requestId, verdict, rootHash, domainId)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
 
   private def fromProtoV30(protoResultMessage: v30.TransactionResultMessage)(
       bytes: ByteString
-  ): ParsingResult[TransactionResultMessage] = {
-    val v30.TransactionResultMessage(requestIdPO, verdictPO, rootHashP, domainIdP) =
+  ): ParsingResult[ConfirmationResultMessage] = {
+    val v30.TransactionResultMessage(requestIdP, verdictPO, rootHashP, domainIdP) =
       protoResultMessage
     for {
-      requestId <- ProtoConverter
-        .required("request_id", requestIdPO)
-        .flatMap(RequestId.fromProtoPrimitive)
+      requestId <- RequestId.fromProtoPrimitive(requestIdP)
       transactionResult <- ProtoConverter
         .required("verdict", verdictPO)
         .flatMap(Verdict.fromProtoV30)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield TransactionResultMessage(requestId, transactionResult, rootHash, domainId)(
+    } yield ConfirmationResultMessage(requestId, transactionResult, rootHash, domainId)(
       rpv,
       Some(bytes),
     )
   }
 
-  implicit val transactionResultMessageCast: SignedMessageContentCast[TransactionResultMessage] =
-    SignedMessageContentCast.create[TransactionResultMessage]("TransactionResultMessage") {
-      case m: TransactionResultMessage => Some(m)
+  implicit val transactionResultMessageCast: SignedMessageContentCast[ConfirmationResultMessage] =
+    SignedMessageContentCast.create[ConfirmationResultMessage]("TransactionResultMessage") {
+      case m: ConfirmationResultMessage => Some(m)
       case _ => None
     }
 }

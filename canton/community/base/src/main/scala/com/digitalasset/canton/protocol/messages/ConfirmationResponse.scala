@@ -26,12 +26,12 @@ import monocle.macros.GenLens
   * @param requestId The unique identifier of the request.
   * @param sender The identity of the sender.
   * @param viewPositionO the view position of the underlying view.
-  *                      May be empty if the [[localVerdict]] is [[com.digitalasset.canton.protocol.messages.LocalReject.Malformed]].
+  *                      May be empty if the [[localVerdict]] is [[protocol.LocalRejectError.Malformed]].
   *                      Must be empty if the protoVersion is strictly lower than 2.
   * @param localVerdict The participant's verdict on the request's view.
   * @param rootHash The root hash of the request if the local verdict is [[com.digitalasset.canton.protocol.messages.LocalApprove]]
   *                 or [[com.digitalasset.canton.protocol.messages.LocalReject]]. [[scala.None$]] otherwise.
-  * @param confirmingParties The non-empty set of confirming parties of the view hosted by the sender if the local verdict is [[com.digitalasset.canton.protocol.messages.LocalApprove]]
+  * @param confirmingParties   The non-empty set of confirming parties of the view hosted by the sender if the local verdict is [[com.digitalasset.canton.protocol.messages.LocalApprove]]
   *                          or [[com.digitalasset.canton.protocol.messages.LocalReject]]. Empty otherwise.
   * @param domainId The domain ID over which the request is sent.
   */
@@ -118,7 +118,7 @@ case class ConfirmationResponse private (
 
   protected def toProtoV30: v30.ConfirmationResponse =
     v30.ConfirmationResponse(
-      requestId = Some(requestId.toProtoPrimitive),
+      requestId = requestId.toProtoPrimitive,
       sender = sender.toProtoPrimitive,
       viewPosition = viewPositionO.map(_.toProtoV30),
       localVerdict = Some(localVerdict.toProtoV30),
@@ -253,7 +253,7 @@ object ConfirmationResponse
       bytes: ByteString
   ): ParsingResult[ConfirmationResponse] = {
     val v30.ConfirmationResponse(
-      requestIdPO,
+      requestIdP,
       senderP,
       localVerdictPO,
       rootHashP,
@@ -263,9 +263,7 @@ object ConfirmationResponse
     ) =
       confirmationResponseP
     for {
-      requestId <- ProtoConverter
-        .required("ConfirmationResponse.request_id", requestIdPO)
-        .flatMap(RequestId.fromProtoPrimitive)
+      requestId <- RequestId.fromProtoPrimitive(requestIdP)
       sender <- ParticipantId.fromProtoPrimitive(senderP, "ConfirmationResponse.sender")
       localVerdict <- ProtoConverter
         .required("ConfirmationResponse.local_verdict", localVerdictPO)

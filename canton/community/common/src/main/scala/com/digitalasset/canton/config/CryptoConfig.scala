@@ -45,8 +45,7 @@ trait CryptoConfig {
 }
 
 final case class CommunityCryptoConfig(
-    provider: CommunityCryptoProvider =
-      CommunityCryptoProvider.Tink, // TODO(i12244): Migrate to JCE.
+    provider: CommunityCryptoProvider = CommunityCryptoProvider.Jce,
     signing: CryptoSchemeConfig[SigningKeyScheme] = CryptoSchemeConfig(),
     encryption: CryptoSchemeConfig[EncryptionKeyScheme] = CryptoSchemeConfig(),
     symmetric: CryptoSchemeConfig[SymmetricKeyScheme] = CryptoSchemeConfig(),

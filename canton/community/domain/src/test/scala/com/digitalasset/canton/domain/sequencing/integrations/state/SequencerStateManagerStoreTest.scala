@@ -758,6 +758,7 @@ trait SequencerStateManagerStoreTest
               ),
               testedProtocolVersion,
             ),
+            None,
             testedProtocolVersion,
           ),
           signature,

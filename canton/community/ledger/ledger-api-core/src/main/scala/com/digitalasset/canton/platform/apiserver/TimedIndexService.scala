@@ -59,14 +59,6 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       delegate.packageEntries(startExclusive),
     )
 
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[v2.LedgerConfiguration, NotUsed] =
-    Timed.source(
-      metrics.services.index.getLedgerConfiguration,
-      delegate.getLedgerConfiguration(),
-    )
-
   override def currentLedgerEnd(): Future[ParticipantOffset.Absolute] =
     Timed.future(metrics.services.index.currentLedgerEnd, delegate.currentLedgerEnd())
 

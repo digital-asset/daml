@@ -121,12 +121,13 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
             Recipients.cc(mediatorId),
           ),
         ),
+        None,
         testedProtocolVersion,
       )
 
     def handle(events: RawProtocolEvent*): FutureUnlessShutdown[Unit] =
       processor
-        .handle(events.map(e => Traced(e -> None)(traceContext)))
+        .handle(events.map(e => Traced(e)(traceContext)))
         .flatMap(_.unwrap)
 
     def receivedEventsFor(requestId: RequestId): Seq[MediatorEvent] =
@@ -194,9 +195,10 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
               domainId,
               None,
               batch,
+              None,
               testedProtocolVersion,
             )
-          ).map(e => Traced(e -> None)(traceContext))
+          ).map(e => Traced(e)(traceContext))
         ),
         expectedMessages map { error => (logEntry: LogEntry) =>
           logEntry.errorMessage should include(error)

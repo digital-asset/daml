@@ -82,7 +82,7 @@ class TransactionConfirmationResponseFactory(
         Some(
           logged(
             requestId,
-            LocalReject.MalformedRejects.CreatesExistingContracts
+            LocalRejectError.MalformedRejects.CreatesExistingContracts
               .Reject(existing.toSeq.map(_.coid))(verdictProtocolVersion),
           )
         )
@@ -106,14 +106,14 @@ class TransactionConfirmationResponseFactory(
         if (inactiveInputs.nonEmpty) {
           // The transaction uses an inactive contract. Reject.
           Some(
-            LocalReject.ConsistencyRejections.InactiveContracts
+            LocalRejectError.ConsistencyRejections.InactiveContracts
               .Reject(inactiveInputs.toSeq.map(_.coid))(verdictProtocolVersion)
           )
         } else if (lockedInputs.nonEmpty | lockedForActivation.nonEmpty) {
           // The transaction would create / use a locked contract. Reject.
           val allLocked = lockedForActivation ++ lockedInputs
           Some(
-            LocalReject.ConsistencyRejections.LockedContracts
+            LocalRejectError.ConsistencyRejections.LockedContracts
               .Reject(allLocked.toSeq.map(_.coid))(verdictProtocolVersion)
           )
         } else {
@@ -138,7 +138,7 @@ class TransactionConfirmationResponseFactory(
                 error.errors.map(cause =>
                   logged(
                     requestId,
-                    LocalReject.MalformedRejects.ModelConformance.Reject(cause.toString)(
+                    LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString)(
                       verdictProtocolVersion
                     ),
                   )
@@ -150,7 +150,7 @@ class TransactionConfirmationResponseFactory(
               transactionValidationResult.internalConsistencyResultE.swap.toOption.map(cause =>
                 logged(
                   requestId,
-                  LocalReject.MalformedRejects.ModelConformance.Reject(cause.toString)(
+                  LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString)(
                     verdictProtocolVersion
                   ),
                 )
@@ -163,7 +163,7 @@ class TransactionConfirmationResponseFactory(
                 .map(err =>
                   logged(
                     requestId,
-                    LocalReject.MalformedRejects.MalformedRequest.Reject(err)(
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err)(
                       verdictProtocolVersion
                     ),
                   )
@@ -176,7 +176,9 @@ class TransactionConfirmationResponseFactory(
                   logged(
                     requestId,
                     // TODO(i13513): Check whether a `Malformed` code is appropriate
-                    LocalReject.MalformedRejects.MalformedRequest.Reject(err.format(viewPosition))(
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(
+                      err.format(viewPosition)
+                    )(
                       verdictProtocolVersion
                     ),
                   )
@@ -189,7 +191,7 @@ class TransactionConfirmationResponseFactory(
                 .map(cause =>
                   logged(
                     requestId,
-                    LocalReject.MalformedRejects.MalformedRequest.Reject(cause)(
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(cause)(
                       verdictProtocolVersion
                     ),
                   )
@@ -203,7 +205,7 @@ class TransactionConfirmationResponseFactory(
                       recordTime,
                       maxDelta,
                     ) =>
-                  LocalReject.TimeRejects.LedgerTime.Reject(
+                  LocalRejectError.TimeRejects.LedgerTime.Reject(
                     s"ledgerTime=$ledgerTime, recordTime=$recordTime, maxDelta=$maxDelta"
                   )(verdictProtocolVersion)
                 case TimeValidator.SubmissionTimeRecordTimeDeltaTooLargeError(
@@ -211,14 +213,15 @@ class TransactionConfirmationResponseFactory(
                       recordTime,
                       maxDelta,
                     ) =>
-                  LocalReject.TimeRejects.SubmissionTime.Reject(
+                  LocalRejectError.TimeRejects.SubmissionTime.Reject(
                     s"submissionTime=$submissionTime, recordTime=$recordTime, maxDelta=$maxDelta"
                   )(verdictProtocolVersion)
               }
 
             val contractConsistencyRejections =
               transactionValidationResult.contractConsistencyResultE.swap.toOption.map { err =>
-                LocalReject.MalformedRejects.MalformedRequest.Reject(err.toString, protocolVersion)
+                LocalRejectError.MalformedRejects.MalformedRequest
+                  .Reject(err.toString, protocolVersion)
               }
 
             // Approve if the consistency check succeeded, reject otherwise.
@@ -233,7 +236,7 @@ class TransactionConfirmationResponseFactory(
             val localVerdictAndPartiesO = localVerdicts
               .collectFirst[(LocalVerdict, Set[LfPartyId])] {
                 case malformed: Malformed => malformed -> Set.empty
-                case localReject: LocalReject if hostedConfirmingParties.nonEmpty =>
+                case localReject: LocalRejectError if hostedConfirmingParties.nonEmpty =>
                   localReject -> hostedConfirmingParties
               }
               .orElse(
@@ -296,7 +299,7 @@ class TransactionConfirmationResponseFactory(
           None,
           logged(
             requestId,
-            LocalReject.MalformedRejects.Payloads
+            LocalRejectError.MalformedRejects.Payloads
               .Reject(malformedPayloads.toString)(verdictProtocolVersion),
           ),
           None,

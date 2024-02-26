@@ -50,8 +50,8 @@ final case class ParticipantMetadata private (
     ParticipantMetadata
 
   private def toProtoV30: v30.ParticipantMetadata = v30.ParticipantMetadata(
-    ledgerTime = Some(ledgerTime.toProtoPrimitive),
-    submissionTime = Some(submissionTime.toProtoPrimitive),
+    ledgerTime = ledgerTime.toProtoPrimitive,
+    submissionTime = submissionTime.toProtoPrimitive,
     workflowId = workflowIdO.fold("")(_.toProtoPrimitive),
     salt = Some(salt.toProtoV30),
   )
@@ -83,13 +83,11 @@ object ParticipantMetadata
 
   private def fromProtoV30(hashOps: HashOps, metadataP: v30.ParticipantMetadata)(
       bytes: ByteString
-  ): ParsingResult[ParticipantMetadata] =
+  ): ParsingResult[ParticipantMetadata] = {
+    val v30.ParticipantMetadata(saltP, ledgerTimeP, submissionTimeP, workflowIdP) = metadataP
     for {
-      let <- ProtoConverter
-        .parseRequired(CantonTimestamp.fromProtoPrimitive, "ledgerTime", metadataP.ledgerTime)
-      v30.ParticipantMetadata(saltP, _ledgerTimeP, submissionTimeP, workflowIdP) = metadataP
-      submissionTime <- ProtoConverter
-        .parseRequired(CantonTimestamp.fromProtoPrimitive, "submissionTime", submissionTimeP)
+      let <- CantonTimestamp.fromProtoPrimitive(ledgerTimeP)
+      submissionTime <- CantonTimestamp.fromProtoPrimitive(submissionTimeP)
       workflowId <- workflowIdP match {
         case "" => Right(None)
         case wf =>
@@ -107,4 +105,5 @@ object ParticipantMetadata
       rpv,
       Some(bytes),
     )
+  }
 }

@@ -38,6 +38,7 @@ import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
+  LocalRejectError,
   RequestAndRootHashMessage,
   RequestId,
   RequestProcessor,
@@ -206,7 +207,7 @@ trait MessageDispatcherTest {
           any[CantonTimestamp],
           any[RootHash],
           any[MediatorsOfDomain],
-          any[LocalReject],
+          any[LocalRejectError],
         )(anyTraceContext)
       )
         .thenReturn(badRootHashMessagesRequestProcessorF)
@@ -277,8 +278,9 @@ trait MessageDispatcherTest {
       sc: SequencerCounter = SequencerCounter(0),
       ts: CantonTimestamp = CantonTimestamp.Epoch,
       messageId: Option[MessageId] = None,
+      topologyTimestampO: Option[CantonTimestamp] = None,
   ): Deliver[DefaultOpenEnvelope] =
-    Deliver.create(sc, ts, domainId, messageId, batch, testedProtocolVersion)
+    Deliver.create(sc, ts, domainId, messageId, batch, topologyTimestampO, testedProtocolVersion)
 
   private def rootHash(index: Int): RootHash = RootHash(TestHash.digest(index))
 
@@ -881,7 +883,7 @@ trait MessageDispatcherTest {
                         eqTo(rootHash),
                         eqTo(mediatorId),
                         eqTo(
-                          LocalReject.MalformedRejects.BadRootHashMessages
+                          LocalRejectError.MalformedRejects.BadRootHashMessages
                             .Reject(reason, testedProtocolVersion)
                         ),
                       )(anyTraceContext)

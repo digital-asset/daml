@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 // Definition of the ConfirmationResponse message which is shared between the transaction and transfer protocol
@@ -56,7 +55,7 @@ message LocalReject {
 message ConfirmationResponse {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
-  google.protobuf.Timestamp request_id = 1;
+  int64 request_id = 1; // in microseconds of UTC time since Unix epoch
   string sender = 2;
   LocalVerdict local_verdict = 3;
   bytes root_hash = 4; // May be empty for Malformed verdicts if the participant cannot determine the root hash.

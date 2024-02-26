@@ -809,6 +809,7 @@ final class TransferOutProcessingStepsTest
             sourceDomain.unwrap,
             Some(MessageId.tryCreate("msg-0")),
             batch,
+            None,
             testedProtocolVersion,
           )
         }

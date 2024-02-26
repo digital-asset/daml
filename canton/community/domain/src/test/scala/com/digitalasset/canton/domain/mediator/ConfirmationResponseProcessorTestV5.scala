@@ -43,7 +43,7 @@ import scala.jdk.CollectionConverters.*
 import scala.language.reflectiveCalls
 
 @nowarn("msg=match may not be exhaustive")
-class TransactionConfirmationResponseProcessorTestV5
+class ConfirmationResponseProcessorTestV5
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
@@ -212,7 +212,7 @@ class TransactionConfirmationResponseProcessorTestV5
       timeouts,
       loggerFactory,
     )
-    val processor = new TransactionConfirmationResponseProcessor(
+    val processor = new ConfirmationResponseProcessor(
       domainId,
       mediatorId,
       verdictSender,
@@ -974,7 +974,7 @@ class TransactionConfirmationResponseProcessorTestV5
 
       def isMalformedWarn(participant: ParticipantId)(logEntry: LogEntry): Assertion = {
         logEntry.shouldBeCantonError(
-          LocalReject.MalformedRejects.Payloads,
+          LocalRejectError.MalformedRejects.Payloads,
           _ shouldBe s"Rejected transaction due to malformed payload within views $malformedMsg",
           _ should contain("reportedBy" -> s"$participant"),
         )
@@ -987,7 +987,8 @@ class TransactionConfirmationResponseProcessorTestV5
           requestId,
           participant,
           None,
-          LocalReject.MalformedRejects.Payloads.Reject(malformedMsg)(localVerdictProtocolVersion),
+          LocalRejectError.MalformedRejects.Payloads
+            .Reject(malformedMsg)(localVerdictProtocolVersion),
           Some(fullInformeeTree.transactionId.toRootHash),
           Set.empty,
           factory.domainId,
@@ -1071,7 +1072,7 @@ class TransactionConfirmationResponseProcessorTestV5
             // TODO(#5337) These are only the rejections for the first view because this view happens to be finalized first.
             reasons.length shouldEqual 2
             reasons.foreach { case (party, reject) =>
-              reject shouldBe LocalReject.MalformedRejects.Payloads.Reject(malformedMsg)(
+              reject shouldBe LocalRejectError.MalformedRejects.Payloads.Reject(malformedMsg)(
                 localVerdictProtocolVersion
               )
               party should (contain(submitter) or contain(signatory))

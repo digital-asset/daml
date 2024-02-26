@@ -91,7 +91,7 @@ class GrpcSequencerAuthenticationService(
         { case AuthenticationTokenWithExpiry(token, expiry) =>
           AuthenticateResponse.Value.Success(
             AuthenticateResponse
-              .Success(token = token.toProtoPrimitive, expiresAt = Some(expiry.toProtoPrimitive))
+              .Success(token = token.toProtoPrimitive, expiresAt = Some(expiry.toProtoTimestamp))
           )
         },
       )

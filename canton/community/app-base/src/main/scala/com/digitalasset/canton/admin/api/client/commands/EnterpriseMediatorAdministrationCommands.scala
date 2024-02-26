@@ -89,7 +89,7 @@ object EnterpriseMediatorAdministrationCommands {
     ): v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub =
       v30.MediatorAdministrationServiceGrpc.stub(channel)
     override def createRequest(): Either[String, v30.MediatorPruning.PruneRequest] =
-      Right(v30.MediatorPruning.PruneRequest(timestamp.toProtoPrimitive.some))
+      Right(v30.MediatorPruning.PruneRequest(timestamp.toProtoTimestamp.some))
     override def submitRequest(
         service: v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
         request: v30.MediatorPruning.PruneRequest,
@@ -121,7 +121,7 @@ object EnterpriseMediatorAdministrationCommands {
         response: LocatePruningTimestamp.Response
     ): Either[String, Option[CantonTimestamp]] =
       response.timestamp.fold(Right(None): Either[String, Option[CantonTimestamp]])(
-        CantonTimestamp.fromProtoPrimitive(_).bimap(_.message, Some(_))
+        CantonTimestamp.fromProtoTimestamp(_).bimap(_.message, Some(_))
       )
   }
 }

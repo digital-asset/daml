@@ -102,7 +102,7 @@ object TypedSignedProtocolMessageContent
         case Sm.ConfirmationResponse(confirmationResponseBytes) =>
           ConfirmationResponse.fromByteString(expectedProtocolVersion)(confirmationResponseBytes)
         case Sm.TransactionResult(transactionResultMessageBytes) =>
-          TransactionResultMessage.fromByteString(expectedProtocolVersion)(
+          ConfirmationResultMessage.fromByteString(expectedProtocolVersion)(
             transactionResultMessageBytes
           )
         case Sm.TransferResult(transferResultBytes) =>

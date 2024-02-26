@@ -32,7 +32,12 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.select
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestAndRootHashMessage, RequestProcessor, RootHash}
+import com.digitalasset.canton.protocol.{
+  LocalRejectError,
+  RequestAndRootHashMessage,
+  RequestProcessor,
+  RootHash,
+}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.processing.{
@@ -181,7 +186,9 @@ trait MessageDispatcher { this: NamedLogging =>
       eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     val deliver = eventE.event.content
-    val Deliver(sc, ts, _, _, batch) = deliver
+    // TODO(#13883) Validate the topology timestamp
+    // TODO(#13883) Centralize the topology timestamp constraints in a single place so that they are well-documented
+    val Deliver(sc, ts, _, _, batch, _) = deliver
 
     val envelopesWithCorrectDomainId = filterBatchForDomainId(batch, sc, ts)
 
@@ -380,7 +387,7 @@ trait MessageDispatcher { this: NamedLogging =>
               ts,
               rootHash,
               mediator,
-              LocalReject.MalformedRejects.BadRootHashMessages.Reject(reason, protocolVersion),
+              LocalRejectError.MalformedRejects.BadRootHashMessages.Reject(reason, protocolVersion),
             ),
           )
       }
@@ -594,7 +601,7 @@ trait MessageDispatcher { this: NamedLogging =>
       events: Seq[RawProtocolEvent]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     val receipts = events.mapFilter {
-      case Deliver(counter, timestamp, _domainId, messageIdO, batch) =>
+      case Deliver(counter, timestamp, _domainId, messageIdO, batch, _) =>
         // The event was submitted by the current participant iff the message ID is set.
         messageIdO.foreach(_ => recordEventDelivered())
         messageIdO.map(_ -> SequencedSubmission(counter, timestamp))

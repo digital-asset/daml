@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
-import com.digitalasset.canton.protocol.{RequestId, RootHash}
+import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.{BaseTest, LfPartyId, topology}
@@ -31,7 +31,7 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     RequestId(CantonTimestamp.now()),
     topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
     None,
-    LocalReject.MalformedRejects.Payloads.Reject("test message")(localVerdictProtocolVersion),
+    LocalRejectError.MalformedRejects.Payloads.Reject("test message")(localVerdictProtocolVersion),
     Some(RootHash(TestHash.digest("txid3"))),
     Set.empty,
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),

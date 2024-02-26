@@ -129,6 +129,8 @@ class BlockSequencerStateManager(
     import TraceContext.Implicits.Empty.*
     val headBlock =
       timeouts.unbounded.await(s"Reading the head of the $domainId sequencer state")(store.readHead)
+    // TODO(#17380) remove excessive debug logs
+    logger.debug(s"Initialized the block sequencer with head state $headBlock")
     HeadState.fullyProcessed(headBlock)
   })
 
@@ -392,6 +394,10 @@ class BlockSequencerStateManager(
     )
 
     logger.debug(s"Adding block updates for chunk $chunkNumber to store")
+    // TODO(#17380) remove excessive debug logs
+    logger.debug(
+      s"In-flight aggregation updates for chunk $chunkNumber: ${update.inFlightAggregationUpdates}"
+    )
     for {
       _ <- store.partialBlockUpdate(
         newMembers = update.newMembers,

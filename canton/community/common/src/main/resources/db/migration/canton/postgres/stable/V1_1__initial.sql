@@ -965,7 +965,7 @@ create index top_up_events_idx ON top_up_events (member);
 
 -- Stores metadata for epochs completed in entirety
 -- Individual blocks/transactions exist in separate table
-create table completed_epochs (
+create table ord_completed_epochs (
     -- strictly-increasing, contiguous epoch number
     epoch_number bigint not null primary key ,
     -- first block sequence number (globally) of the epoch
@@ -979,7 +979,7 @@ create table completed_epochs (
 );
 
 -- Stores consensus state for active epoch
-create table active_epoch (
+create table ord_active_epoch (
     -- epoch number that consensus is actively working on
     epoch_number bigint not null,
     -- global sequence number of the ordered block
@@ -990,7 +990,7 @@ create table active_epoch (
     constraint unique_block unique (epoch_number, block_number)
 );
 
-create table availability_batch (
+create table ord_availability_batch (
     id varchar(300) collate "C" not null,
     batch bytea not null,
     primary key (id)

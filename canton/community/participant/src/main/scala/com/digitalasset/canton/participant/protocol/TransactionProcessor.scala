@@ -75,7 +75,7 @@ class TransactionProcessor(
       TransactionProcessingSteps.SubmissionParam,
       TransactionSubmitted,
       TransactionViewType,
-      TransactionResultMessage,
+      ConfirmationResultMessage,
       TransactionProcessor.TransactionSubmissionError,
     ](
       new TransactionProcessingSteps(

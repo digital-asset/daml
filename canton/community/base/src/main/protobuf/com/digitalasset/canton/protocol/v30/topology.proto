@@ -7,7 +7,7 @@ package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
-import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
 message Enums {
@@ -134,8 +134,9 @@ message ParticipantDomainPermission {
 
   // optional earliest time when participant can log in (again)
   // used to temporarily disable participants
+  // In microseconds of UTC time since Unix epoch
   // TODO(#14049) implement participant deny list
-  google.protobuf.Timestamp login_after = 5;
+  google.protobuf.Int64Value login_after = 5;
 }
 
 // the optional hosting limits for a party on a given domain
