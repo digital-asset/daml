@@ -107,9 +107,9 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq('${{parameters.scala_version}}', ''),
-                   eq('${{parameters.name}}', 'Linux-intel'),
+                   eq('${{parameters.name}}', 'linux-intel'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'),
-                   in('${{parameters.name}}', 'linux', 'linux-scala-2.12'))
+                   in('${{parameters.name}}', 'linux-intel', 'linux-scala-2.12'))
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib
