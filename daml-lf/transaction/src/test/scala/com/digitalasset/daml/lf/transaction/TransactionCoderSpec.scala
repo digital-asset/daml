@@ -834,10 +834,11 @@ class TransactionCoderSpec
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
       choiceObservers = exe.choiceObservers,
-      choiceAuthorizers =
-        if (exe.version >= TransactionVersion.minChoiceAuthorizers)
-          Some(exe.choiceAuthorizers.getOrElse(Set.empty))
-        else None,
+      choiceAuthorizers = exe.choiceAuthorizers match {
+        case Some(_) if exe.version <= TransactionVersion.minChoiceAuthorizers => None
+        case Some(parties) if parties.isEmpty => None
+        case otherwise => otherwise
+      },
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
       byKey =
         if (exe.version >= TransactionVersion.minContractKeys)

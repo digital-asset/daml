@@ -255,11 +255,16 @@ object TransactionCoder {
       _ = node.choiceObservers.foreach(builder.addObservers)
       _ <- node.choiceAuthorizers match {
         case Some(authorizers) =>
-          Either.cond(
-            node.version >= TransactionVersion.minChoiceAuthorizers,
-            authorizers.foreach(builder.addAuthorizers),
-            EncodeError(s"choice authorizers are not supported by ${node.version.protoValue}"),
-          )
+          if (node.version <= TransactionVersion.minChoiceAuthorizers)
+            Right(
+              EncodeError(s"choice authorizers are not supported by ${node.version.protoValue}")
+            )
+          else
+            Either.cond(
+              node.choiceAuthorizers.nonEmpty,
+              authorizers.foreach(builder.addAuthorizers),
+              EncodeError(s"choice authorizers cannot be empty"),
+            )
         case None =>
           Right(())
       }
@@ -475,12 +480,10 @@ object TransactionCoder {
       result <- decodeOptionalValue(nodeVersion, msg.getResult)
       observers <- toPartySet(msg.getObserversList)
       authorizers <-
-        if (nodeVersion < TransactionVersion.minChoiceAuthorizers)
-          Either.cond(
-            msg.getAuthorizersCount == 0,
-            None,
-            DecodeError(s"Exercise Authorizer not supported by ${nodeVersion.protoValue}"),
-          )
+        if (msg.getAuthorizersCount == 0)
+          Right(None)
+        else if (nodeVersion < TransactionVersion.minChoiceAuthorizers)
+          Left(DecodeError(s"Exercise Authorizer not supported by ${nodeVersion.protoValue}"))
         else
           toPartySet(msg.getAuthorizersList).map(Some(_))
     } yield Node.Exercise(
