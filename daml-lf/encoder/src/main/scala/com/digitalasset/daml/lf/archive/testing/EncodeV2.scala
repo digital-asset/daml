@@ -892,7 +892,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       PLF.DefTemplate.DefKey
         .newBuilder()
         .setType(key.typ)
-        .setComplexKey(key.body)
+        .setKeyExpr(key.body)
         .setMaintainers(key.maintainers)
         .build()
 
