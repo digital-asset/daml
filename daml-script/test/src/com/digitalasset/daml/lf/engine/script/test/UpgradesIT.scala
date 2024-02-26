@@ -58,7 +58,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       testCase.name in {
         for {
           // Build dars
-          (testDarPath, deps) <- Future { buildTestCaseDar(testCase) }
+          (testDarPath, deps) <- buildTestCaseDar(testCase)
 
           // Connection
           clients <- scriptClients(provideAdminPorts = true)
@@ -121,7 +121,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       })
   }
 
-  def buildTestCaseDar(testCase: TestCase): (Path, Seq[Dar]) = {
+  def buildTestCaseDar(testCase: TestCase): Future[(Path, Seq[Dar])] = Future {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
     val dars: Seq[Dar] = testCase.pkgDefs.map(_.build(testCaseRoot))
