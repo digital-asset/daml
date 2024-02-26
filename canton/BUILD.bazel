@@ -390,6 +390,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//daml-script:__subpackages__"],
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",

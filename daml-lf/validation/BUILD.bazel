@@ -79,7 +79,7 @@ upgrade_test_file = "src/test/scala/com/digitalasset/daml/lf/validation/Upgrades
 
 da_scala_test_suite(
     name = "tests",
-    size = "small",
+    size = "large",
     srcs = glob(
         ["src/test/**/*.scala"],
         exclude = [
