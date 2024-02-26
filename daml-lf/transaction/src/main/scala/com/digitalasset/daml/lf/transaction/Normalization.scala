@@ -4,6 +4,7 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref
 import com.daml.lf.value.{Value => Val}
 
@@ -84,7 +85,11 @@ class Normalization {
       case GlobalKeyWithMaintainers(key, maintainers) =>
         GlobalKeyWithMaintainers(
           GlobalKey
-            .assertBuild(key.templateId, normValue(version)(key.key), packageName),
+            .assertBuild(
+              key.templateId,
+              normValue(version)(key.key),
+              KeyPackageName(packageName, version),
+            ),
           maintainers,
         )
     }

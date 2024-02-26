@@ -49,7 +49,6 @@ import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
 import com.daml.fetchcontracts.domain.ContractTypeId.{OptionalPkg, toLedgerApiValue}
 import com.daml.http.ContractsService.RPN
-import com.daml.http.PackageService.KeyPackageName
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -60,6 +59,7 @@ import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.EitherT.{either, eitherT, rightT}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.nonempty.NonEmpty
 
 object WebSocketService {

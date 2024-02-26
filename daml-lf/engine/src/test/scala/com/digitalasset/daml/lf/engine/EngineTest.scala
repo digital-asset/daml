@@ -31,6 +31,7 @@ import com.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue,
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
 import com.daml.lf.language.{
@@ -2454,11 +2455,10 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
     s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
   )
-
+  val basicTestsPkgName: KeyPackageName =
+    KeyPackageName(basicTestsPkg.name, basicTestsPkg.languageVersion)
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
-
-  val basicTestsPkgName = basicTestsPkg.name
 
   val party: Ref.IdString.Party = Party.assertFromString("Party")
   val alice: Ref.IdString.Party = Party.assertFromString("Alice")

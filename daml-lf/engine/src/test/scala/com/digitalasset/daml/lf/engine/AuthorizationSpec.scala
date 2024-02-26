@@ -4,6 +4,7 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.Authorize
@@ -49,7 +50,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside with TestI
           templateId,
           Value.ValueUnit,
           maintainers,
-          init.packageName,
+          KeyPackageName(init.packageName, init.version),
         )
       )
     )

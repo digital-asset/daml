@@ -5,8 +5,9 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageName, TypeConName}
+import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
@@ -36,7 +37,7 @@ object GlobalKey {
   def assertWithRenormalizedValue(
       key: GlobalKey,
       value: Value,
-      packageName: Option[PackageName],
+      packageName: KeyPackageName,
   ): GlobalKey = {
     if (
       key.key != value &&
@@ -55,7 +56,7 @@ object GlobalKey {
   def build(
       templateId: Ref.TypeConName,
       key: Value,
-      packageName: Option[Ref.PackageName],
+      packageName: KeyPackageName,
   ): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash
       .hashContractKey(templateId, key, packageName)
@@ -79,7 +80,7 @@ object GlobalKey {
   def assertBuild(
       templateId: Ref.TypeConName,
       key: Value,
-      packageName: Option[PackageName],
+      packageName: KeyPackageName,
   ): GlobalKey =
     data.assertRight(build(templateId, key, packageName).left.map(_.msg))
 
@@ -114,7 +115,7 @@ object GlobalKeyWithMaintainers {
       templateId: Ref.TypeConName,
       value: Value,
       maintainers: Set[Ref.Party],
-      packageName: Option[Ref.PackageName],
+      packageName: KeyPackageName,
   ): GlobalKeyWithMaintainers =
     data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
 
@@ -131,7 +132,7 @@ object GlobalKeyWithMaintainers {
       templateId: Ref.TypeConName,
       value: Value,
       maintainers: Set[Ref.Party],
-      packageName: Option[PackageName],
+      packageName: KeyPackageName,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
     GlobalKey.build(templateId, value, packageName).map(GlobalKeyWithMaintainers(_, maintainers))
 }

@@ -57,9 +57,13 @@ object SubmitError {
   }
 
   def globalKeyToAnyContractKey(env: Env, key: GlobalKey): SValue = {
-    val ty = env.lookupKeyTy(key.templateId).toOption.get
-    val sValue = env.translateValue(ty, key.key).toOption.get
-    fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))
+    globalKeyToAnyContractKey(env, key.templateId, key.key)
+  }
+
+  def globalKeyToAnyContractKey(env: Env, templateId: Identifier, key: Value): SValue = {
+    val ty = env.lookupKeyTy(templateId).toOption.get
+    val sValue = env.translateValue(ty, key).toOption.get
+    fromAnyContractKey(AnyContractKey(templateId, ty, sValue))
   }
 
   def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => SValue): SValue = {

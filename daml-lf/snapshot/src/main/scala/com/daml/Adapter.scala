@@ -4,6 +4,7 @@
 package com.daml.lf
 package testing.snapshot
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.snapshot.Adapter.TxBuilder
@@ -71,10 +72,11 @@ final class Adapter(
 
   def adapt(gkey: GlobalKey): GlobalKey = {
     val adaptedTemplateId = adapt(gkey.templateId)
+    val pkg = packages(adaptedTemplateId.packageId)
     GlobalKey.assertBuild(
       adaptedTemplateId,
       adapt(gkey.key),
-      packages(adaptedTemplateId.packageId).name,
+      KeyPackageName(pkg.name, pkg.languageVersion),
     )
   }
 

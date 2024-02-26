@@ -7,6 +7,7 @@ package transaction
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.transaction.Transaction.{
   AliasedNode,
@@ -383,7 +384,11 @@ class TransactionSpec
         ).map(s => {
           val node = create(cid(s))
           GlobalKey
-            .assertBuild(node.templateId, V.ValueText(cid(s).coid), node.packageName)
+            .assertBuild(
+              node.templateId,
+              V.ValueText(cid(s).coid),
+              KeyPackageName(node.packageName, node.version),
+            )
         }).toSet
 
       builder.build().contractKeys shouldBe expectedResults
@@ -394,9 +399,13 @@ class TransactionSpec
     import Transaction._
     val dummyBuilder = new TxBuilder()
     val parties = List("Alice")
-    val pkgName: Option[Ref.PackageName] = None
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k), pkgName)
+    def globalKey(
+        k: String,
+        pkgName: Option[Ref.PackageName] = None,
+        version: TransactionVersion = TransactionVersion.minVersion,
+    ) =
+      GlobalKey.assertBuild("Mod:T", keyValue(k), KeyPackageName(pkgName, version))
     def create(s: V.ContractId, k: String) = dummyBuilder
       .create(
         id = s,
@@ -726,7 +735,8 @@ class TransactionSpec
       builder.add(exercise(builder, create3, parties, true), rollback)
       builder.add(create4, rollback)
 
-      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s), packageName)
+      def key(s: String) =
+        GlobalKey.assertBuild("Mod:T", V.ValueText(s), KeyPackageName(packageName, create0.version))
       builder.build().updatedContractKeys shouldBe
         Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
     }

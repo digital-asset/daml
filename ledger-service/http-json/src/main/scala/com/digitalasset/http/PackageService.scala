@@ -24,11 +24,9 @@ import scalaz.syntax.std.option._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.lf.data.Ref.PackageName
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.crypto.Hash.KeyPackageName
 
 import scala.collection.MapView
-import scala.math.Ordered.orderingToOrdered
 
 private class PackageService(
     reloadPackageStoreIfChanged: (
@@ -52,10 +50,11 @@ private class PackageService(
       packageStore: PackageStore,
   ) {
 
-    val packageNameMap: PackageNameMap = packageStore.view.mapValues(s =>
-      s.metadata
-        .filter(_ => s.languageVersion >= LanguageVersion.Features.packageUpgrades)
-        .map(_.name)
+    val packageNameMap: PackageNameMap = packageStore.view.mapValues(ps =>
+      KeyPackageName(
+        ps.metadata.map(m => Ref.PackageName.assertFromString(m.name)),
+        ps.languageVersion,
+      )
     )
 
     def append(diff: PackageStore): State = {
@@ -396,7 +395,6 @@ object PackageService {
   type KeyTypeMap = Map[ContractTypeId.Template.Resolved, typesig.Type]
 
   type ResolvePackageName = String => KeyPackageName
-  type KeyPackageName = Option[PackageName]
   type PackageNameMap = MapView[String, KeyPackageName]
 
   private def getTemplateIdInterfaceMaps(

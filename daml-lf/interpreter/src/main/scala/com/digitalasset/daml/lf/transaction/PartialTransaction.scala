@@ -410,6 +410,7 @@ private[speedy] case class PartialTransaction(
 
   def insertLookup(
       optLocation: Option[Location],
+      packageName: Option[PackageName],
       key: CachedKey,
       result: Option[Value.ContractId],
       keyVersion: TxVersion,
@@ -418,7 +419,7 @@ private[speedy] case class PartialTransaction(
       val auth = Authorize(context.info.authorizers)
       val nid = NodeId(nextNodeIdx)
       val node = Node.LookupByKey(
-        key.packageName,
+        packageName,
         key.templateId,
         key.globalKeyWithMaintainers,
         result,

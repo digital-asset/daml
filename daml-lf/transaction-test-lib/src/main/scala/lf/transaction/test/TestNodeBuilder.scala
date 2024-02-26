@@ -5,6 +5,7 @@ package com.daml.lf
 package transaction
 package test
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
 import com.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConName}
 import com.daml.lf.data.{ImmArray, Ref}
@@ -53,7 +54,7 @@ trait TestNodeBuilder {
             templateId,
             value,
             signatories,
-            packageName,
+            KeyPackageName(packageName, transactionVersion),
           )
         )
       case CreateKey.KeyWithMaintainers(value, maintainers) =>
@@ -62,7 +63,7 @@ trait TestNodeBuilder {
             templateId,
             value,
             maintainers,
-            packageName,
+            KeyPackageName(packageName, transactionVersion),
           )
         )
     }

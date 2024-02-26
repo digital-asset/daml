@@ -4,6 +4,8 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.crypto.Hash.KeyPackageName
+
 import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -1484,6 +1486,7 @@ private[lf] object SBuiltin {
       }
       machine.ptx.insertLookup(
         optLocation = machine.getLastLocation,
+        packageName = pkgName,
         key = cachedKey,
         result = mbCoid,
         keyVersion = keyVersion,
@@ -1560,7 +1563,7 @@ private[lf] object SBuiltin {
           IE.FetchEmptyContractKeyMaintainers(
             cachedKey.templateId,
             cachedKey.lfValue,
-            cachedKey.packageName,
+            cachedKey.keyPackageName,
           )
         )
       } else {
@@ -2083,12 +2086,12 @@ private[lf] object SBuiltin {
         val keyValue = vals.get(keyIdx)
         val lfValue = keyValue.toNormalizedValue(packageTxVersion)
         val gkey = GlobalKey
-          .build(templateId, lfValue, pkgName)
+          .build(templateId, lfValue, KeyPackageName(pkgName, packageTxVersion))
           .getOrElse(
             throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
           )
         CachedKey(
-          packageName = pkgName,
+          keyPackageName = KeyPackageName(pkgName, packageTxVersion),
           globalKeyWithMaintainers = GlobalKeyWithMaintainers(
             gkey,
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),

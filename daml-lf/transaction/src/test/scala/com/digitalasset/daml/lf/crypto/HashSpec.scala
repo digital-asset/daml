@@ -4,7 +4,10 @@
 package com.daml.lf
 package crypto
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
@@ -12,19 +15,22 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
-import shapeless.{Coproduct => HSum, HNil}
+import shapeless.{HNil, Coproduct => HSum}
 
 import scala.language.implicitConversions
 
 class HashSpec extends AnyWordSpec with Matchers {
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
-  private val packageName0 = Ref.PackageName.assertFromString("package-x")
+  private val packageName0 = Ref.PackageName.assertFromString("package-name")
+
+  private val noKeyPackageName = KeyPackageName(None, TransactionVersion.V15)
+  private val usePackageName = KeyPackageName(Some(packageName0), TransactionVersion.minUpgrade)
 
   def assertHashContractKey(
       templateId: Ref.Identifier,
       key: Value,
-      packageName: Option[Ref.PackageName] = Some(packageName0),
+      packageName: KeyPackageName = usePackageName,
   ): Hash = {
     Hash.assertHashContractKey(templateId, key, packageName = packageName)
   }
@@ -98,14 +104,14 @@ class HashSpec extends AnyWordSpec with Matchers {
       val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
-      assertHashContractKey(name, value, packageName = None).toHexString shouldBe hash
+      assertHashContractKey(name, value, noKeyPackageName).toHexString shouldBe hash
     }
 
     "be stable (post package name)" in {
-      val hash = "89d6543a851e6a176af00d8ac4b211c5fea0cd01b4cc18531d1b7c3f9aa42f72"
+      val hash = "e329689cca7b540ba772d5f56b6431b4ea3f8bfebb34946d88b1c65930872ad5"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
-      assertHashContractKey(name, value).toHexString shouldBe hash
+      assertHashContractKey(name, value, usePackageName).toHexString shouldBe hash
     }
 
     "be deterministic and thread safe" in {
@@ -671,6 +677,27 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "KeyPackageName" should {
+    val somePkgName = Some(Ref.PackageName.assertFromString("package-name"))
+    "build depending on transaction version" in {
+      KeyPackageName(somePkgName, TransactionVersion.minUpgrade).toOption shouldBe somePkgName
+      KeyPackageName(somePkgName, TransactionVersion.V15).toOption shouldBe None
+      assertThrows[IllegalArgumentException] {
+        KeyPackageName(None, TransactionVersion.minUpgrade).toOption shouldBe somePkgName
+      }
+    }
+    "build depending on language version" in {
+      KeyPackageName(
+        somePkgName,
+        LanguageVersion.Features.packageUpgrades,
+      ).toOption shouldBe somePkgName
+      KeyPackageName(somePkgName, LanguageVersion.v1_15).toOption shouldBe None
+      assertThrows[IllegalArgumentException] {
+        KeyPackageName(None, LanguageVersion.Features.packageUpgrades).toOption shouldBe somePkgName
+      }
+    }
+  }
+
   "Hash.hashContractKey" should {
 
     val templateId = defRef(name = "upgradable")
@@ -681,7 +708,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       Hash.assertHashContractKey(
         templateId,
         ValueTrue,
-        packageName = None,
+        noKeyPackageName,
       ) shouldBe unPackageNamedHash
     }
 
@@ -689,21 +716,20 @@ class HashSpec extends AnyWordSpec with Matchers {
       Hash.assertHashContractKey(
         templateId,
         ValueTrue,
-        Some(packageName0),
+        usePackageName,
       ) should not be unPackageNamedHash
     }
 
     "produce an identical hash to the same template in a different package with a common package name" in {
-      val commonPkgName = Some(packageName0)
       val h1 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageA")),
         ValueTrue,
-        commonPkgName,
+        usePackageName,
       )
       val h2 = Hash.assertHashContractKey(
         templateId.copy(packageId = Ref.PackageId.assertFromString("packageB")),
         ValueTrue,
-        commonPkgName,
+        usePackageName,
       )
       h1 shouldBe h2
     }

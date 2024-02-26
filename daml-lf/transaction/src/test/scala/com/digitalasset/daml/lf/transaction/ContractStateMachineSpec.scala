@@ -5,6 +5,7 @@ package com.daml
 package lf
 package transaction
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.ContractStateMachine.{
   ActiveLedgerState,
@@ -67,7 +68,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       templateId: Ref.TypeConName,
       key: String,
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS, pkgName)
+    GlobalKeyWithMaintainers.assertBuild(
+      templateId,
+      Value.ValueText(key),
+      aliceS,
+      KeyPackageName(pkgName, txVersion),
+    )
 
   private def toOptKeyWithMaintainers(
       templateId: Ref.TypeConName,
@@ -77,7 +83,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     else Some(toKeyWithMaintainers(templateId, key))
 
   def gkey(key: String): GlobalKey =
-    GlobalKey.assertBuild(templateId, Value.ValueText(key), pkgName)
+    GlobalKey.assertBuild(templateId, Value.ValueText(key), KeyPackageName(pkgName, txVersion))
 
   def mkCreate(
       contractId: ContractId,

@@ -30,7 +30,6 @@ import util.{ApiValueToLfValueConverter, toLedgerId}
 import com.daml.fetchcontracts.AcsTxStreams.transactionFilter
 import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.fetchcontracts.util.GraphExtensions._
-import com.daml.http.PackageService.KeyPackageName
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
@@ -51,6 +50,7 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.crypto.Hash.KeyPackageName
 import scalaz.std.scalaFuture._
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO

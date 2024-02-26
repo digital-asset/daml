@@ -4,6 +4,8 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.crypto.Hash.KeyPackageName
+
 import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
@@ -111,7 +113,7 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class CachedKey(
-      packageName: Option[PackageName],
+      keyPackageName: KeyPackageName,
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
   ) {
@@ -127,7 +129,7 @@ private[lf] object Speedy {
         globalKey = GlobalKey.assertWithRenormalizedValue(
           globalKey,
           key.toNormalizedValue(version),
-          packageName,
+          KeyPackageName(packageName, version),
         )
       )
     }

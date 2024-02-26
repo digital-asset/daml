@@ -21,6 +21,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
+import com.daml.lf.crypto.Hash.KeyPackageName
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
@@ -276,12 +277,13 @@ object ValueGenerators {
 
   def keyWithMaintainersGen(
       templateId: Ref.TypeConName,
+      version: TransactionVersion,
       packageName: Option[Ref.PackageName],
   ): Gen[GlobalKeyWithMaintainers] = {
     for {
       key <- valueGen()
       maintainers <- genNonEmptyParties
-      gkey = GlobalKey.build(templateId, key, packageName).toOption
+      gkey = GlobalKey.build(templateId, key, KeyPackageName(packageName, version)).toOption
       if gkey.isDefined
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
@@ -322,7 +324,7 @@ object ValueGenerators {
       agreement <- Arbitrary.arbitrary[String]
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, packageName))
+      key <- Gen.option(keyWithMaintainersGen(templateId, version, packageName))
     } yield Node.Create(
       coid = coid,
       packageName = packageName,
@@ -349,7 +351,7 @@ object ValueGenerators {
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, pkgName))
+      key <- Gen.option(keyWithMaintainersGen(templateId, version, pkgName))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
@@ -403,7 +405,7 @@ object ValueGenerators {
         .map(_.map(NodeId(_)))
         .map(_.to(ImmArray))
       exerciseResult <- Gen.option(valueGen())
-      key <- Gen.option(keyWithMaintainersGen(templateId, pkgName))
+      key <- Gen.option(keyWithMaintainersGen(templateId, version, pkgName))
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
@@ -431,7 +433,7 @@ object ValueGenerators {
       targetCoid <- coidGen
       pkgName <- pkgNameGen(version)
       templateId <- idGen
-      key <- keyWithMaintainersGen(templateId, pkgName)
+      key <- keyWithMaintainersGen(templateId, version, pkgName)
       result <- Gen.option(targetCoid)
     } yield Node.LookupByKey(
       packageName = pkgName,

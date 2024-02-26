@@ -4,6 +4,7 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.data.ImmArray
@@ -384,7 +385,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
-        .build(templateId, value, packageName)
+        .build(templateId, value, KeyPackageName(packageName, version))
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
@@ -405,7 +406,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyUnversioned,
       )
       gkey <- GlobalKey
-        .build(templateId, value, packageName)
+        .build(templateId, value, KeyPackageName(packageName, version))
         .left
         .map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)

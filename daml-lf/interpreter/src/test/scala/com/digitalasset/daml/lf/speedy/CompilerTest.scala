@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
@@ -121,7 +122,12 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
 
     "using a template with no key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
-      val disclosedContract1 = buildDisclosedContract(disclosedCid1, alice, templateId, pkg.name)
+      val disclosedContract1 = buildDisclosedContract(
+        disclosedCid1,
+        alice,
+        templateId,
+        KeyPackageName(pkg.name, pkg.languageVersion),
+      )
       val versionedContract1 = Versioned(
         version = version,
         ContractInstance(
@@ -130,7 +136,12 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
       )
-      val disclosedContract2 = buildDisclosedContract(disclosedCid2, alice, templateId, pkg.name)
+      val disclosedContract2 = buildDisclosedContract(
+        disclosedCid2,
+        alice,
+        templateId,
+        KeyPackageName(pkg.name, pkg.languageVersion),
+      )
       val versionedContract2 = Versioned(
         version = version,
         ContractInstance(
@@ -302,7 +313,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           disclosedCid1,
           alice,
           templateId,
-          pkg.name,
+          KeyPackageName(pkg.name, pkg.languageVersion),
           keyLabel = "test-label-1",
         )
       val versionedContract1 = Versioned(
@@ -318,7 +329,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           disclosedCid2,
           alice,
           templateId,
-          pkg.name,
+          KeyPackageName(pkg.name, pkg.languageVersion),
           keyLabel = "test-label-2",
         )
       val versionedContract2 = Versioned(
@@ -584,7 +595,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       contractId: ContractId,
       maintainer: Party,
       templateId: Ref.Identifier,
-      packageName: Option[Ref.PackageName],
+      packageName: KeyPackageName,
       keyLabel: String = "",
   ): DisclosedContract = {
     val withKey = keyLabel.nonEmpty

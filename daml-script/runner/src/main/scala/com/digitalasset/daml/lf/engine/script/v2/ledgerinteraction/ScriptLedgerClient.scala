@@ -9,6 +9,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.CompiledPackages
 import com.daml.lf.command.ApiCommand
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -186,7 +187,7 @@ trait ScriptLedgerClient {
       //     At that point though, the wrapper only needs to act as a tag to inform the scenario service to take the most recent transaction step as the partial tx
       //     again requires explicit mustFail succeeded error, which will likely break some tests
       // Suppressed exception tag is likely cleanest, though possibly a misuse of this feature.
-      packageNameLookup: PackageId => Either[String, Option[PackageName]],
+      keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,

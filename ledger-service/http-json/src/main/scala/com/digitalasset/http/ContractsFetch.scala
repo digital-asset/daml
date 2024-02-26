@@ -23,7 +23,6 @@ import com.daml.fetchcontracts.util.{
   InsertDeleteStep,
   LedgerBegin,
 }
-import com.daml.http.PackageService.KeyPackageName
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmpty
@@ -47,6 +46,7 @@ import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 
 import scala.collection.immutable.List

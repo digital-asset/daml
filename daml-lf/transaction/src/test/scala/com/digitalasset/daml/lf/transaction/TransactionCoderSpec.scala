@@ -6,6 +6,7 @@ package lf
 package transaction
 
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.{Identifier, PackageName, Party}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
@@ -616,7 +617,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId, create.packageName),
+          keyWithMaintainersGen(create.templateId, create.version, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -683,7 +684,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId, create.packageName),
+          keyWithMaintainersGen(create.templateId, create.version, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -730,7 +731,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId, create.packageName),
+          keyWithMaintainersGen(create.templateId, create.version, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -1075,7 +1076,7 @@ class TransactionCoderSpec
       GlobalKey.assertBuild(
         key.globalKey.templateId,
         normalize(key.value, version),
-        packageName,
+        KeyPackageName(packageName, version),
       )
     )
 

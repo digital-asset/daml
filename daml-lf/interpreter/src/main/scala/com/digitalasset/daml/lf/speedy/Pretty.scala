@@ -124,7 +124,7 @@ private[lf] object Pretty {
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
           text("The computed key is") & prettyValue(true)(key)
       case FetchEmptyContractKeyMaintainers(tid, key, packageName) =>
-        val packageNameText = packageName.fold("no package name")(p => s"package name $p")
+        val packageNameText = packageName.toOption.fold("no package name")(p => s"package name $p")
         text(
           "Update failed due to a contract key with an empty set of maintainers when fetching or looking up by key"
         ) &

@@ -4,6 +4,7 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
@@ -428,7 +429,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
       T,
       keyValue,
       Set(alice),
-      pkg.name,
+      KeyPackageName(pkg.name, pkg.languageVersion),
     ) -> cId
   )
 

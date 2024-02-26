@@ -10,6 +10,7 @@ package ledgerinteraction
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
@@ -279,20 +280,18 @@ class IdeLedgerClient(
         }
       )
 
-    val packageName = compiledPackages.pkgInterface
+    val pkg = compiledPackages.pkgInterface
       .lookupPackage(templateId.packageId)
       .fold(
         e => throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}, $e"),
         s => s,
       )
-      .metadata
-      .map(_.name)
 
     GlobalKey
       .build(
         templateId,
         keyValue,
-        packageName,
+        KeyPackageName(pkg.name, pkg.languageVersion),
       )
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
@@ -614,7 +613,7 @@ class IdeLedgerClient(
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
-      packageNameLookup: PackageId => Either[String, Option[PackageName]],
+      keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,

@@ -4,6 +4,7 @@
 package com.daml.fetchcontracts.domain
 
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref
 import com.daml.nonempty.NonEmpty
 import scalaz.{-\/, Applicative, Traverse, \/, \/-}
