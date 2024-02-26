@@ -229,12 +229,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     private var currentDefinitionRef: Option[DefinitionRef] = None
 
     def decodeModule(lfModule: PLF.Module): Module = {
-      val moduleName = handleDottedName(
-        lfModule.getNameCase,
-        PLF.Module.NameCase.NAME_INTERNED_DNAME,
-        lfModule.getNameInternedDname,
-        "Module.name.name",
-      )
+      val moduleName = getInternedDottedName(lfModule.getNameInternedDname)
       copy(optModuleName = Some(moduleName)).decodeModuleWithName(lfModule, moduleName)
     }
 
@@ -248,12 +243,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
-            val defName = handleDottedName(
-              defn.getNameCase,
-              PLF.DefTypeSyn.NameCase.NAME_INTERNED_DNAME,
-              defn.getNameInternedDname,
-              "DefTypeSyn.name.name",
-            )
+            val defName = getInternedDottedName(defn.getNameInternedDname)
             currentDefinitionRef =
               Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
             val d = runWork(decodeDefTypeSyn(defn))
@@ -265,12 +255,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       lfModule.getDataTypesList.asScala
         .filter(!onlySerializableDataDefs || _.getSerializable)
         .foreach { defn =>
-          val defName = handleDottedName(
-            defn.getNameCase,
-            PLF.DefDataType.NameCase.NAME_INTERNED_DNAME,
-            defn.getNameInternedDname,
-            "DefDataType.name.name",
-          )
+          val defName = getInternedDottedName(defn.getNameInternedDname)
           currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
           val d = runWork(decodeDefDataType(defn))
           defs += (defName -> d)
@@ -280,11 +265,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         // collect values
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
-          val defName = handleDottedName(
-            nameWithType.getNameDnameList.asScala,
-            nameWithType.getNameInternedDname,
-            "NameWithType.name",
-          )
+          val defName = getInternedDottedName(nameWithType.getNameInternedDname)
 
           currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
           val d = runWork(decodeDefValue(defn))
@@ -294,12 +275,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
       // collect templates
       lfModule.getTemplatesList.asScala.foreach { defn =>
-        val defName = handleDottedName(
-          defn.getTyconCase,
-          PLF.DefTemplate.TyconCase.TYCON_INTERNED_DNAME,
-          defn.getTyconInternedDname,
-          "DefTemplate.tycon.tycon",
-        )
+        val defName = getInternedDottedName(defn.getTyconInternedDname)
         currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
         templates += ((defName, runWork(decodeTemplate(defName, defn))))
       }
@@ -345,26 +321,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames.lift(id).getOrElse {
         throw Error.Parsing(s"invalid dotted name table index $id")
       }
-
-    private[this] def handleDottedName(
-        segments: collection.Seq[String],
-        interned_id: Int,
-        description: => String,
-    ): DottedName = {
-      assertUndefined(segments, description)
-      getInternedDottedName(interned_id)
-    }
-
-    private[this] def handleDottedName[Case](
-        actualCase: Case,
-        internedDNameCase: Case,
-        internedDName: => Int,
-        description: => String,
-    ): DottedName = {
-      if (actualCase != internedDNameCase)
-        throw Error.Parsing(s"${description}_interned_dname is required by Daml-LF 2.$minor")
-      getInternedDottedName(internedDName)
-    }
 
     private[archive] def decodeFeatureFlags(flags: PLF.FeatureFlags): FeatureFlags = {
       // NOTE(JM, #157): We disallow loading packages with these flags because they impact the Ledger API in
@@ -490,11 +446,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       if (!lfValue.getNoPartyLiterals) {
         throw Error.Parsing("DefValue must have no_party_literals set to true")
       }
-      val name = handleDottedName(
-        lfValue.getNameWithType.getNameDnameList.asScala,
-        lfValue.getNameWithType.getNameInternedDname,
-        "DefValue.NameWithType.name",
-      )
+      val name = getInternedDottedName(lfValue.getNameWithType.getNameInternedDname)
       decodeType(lfValue.getNameWithType.getType) { typ =>
         decodeExpr(lfValue.getExpr, name.toString) { body =>
           Ret(
@@ -922,12 +874,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private[this] def decodeModuleRef(lfRef: PLF.ModuleRef): (PackageId, ModuleName) = {
-      val modName = handleDottedName(
-        lfRef.getModuleNameCase,
-        PLF.ModuleRef.ModuleNameCase.MODULE_NAME_INTERNED_DNAME,
-        lfRef.getModuleNameInternedDname,
-        "ModuleRef.module_name.module_name",
-      )
+      val modName = getInternedDottedName(lfRef.getModuleNameInternedDname)
       import PLF.PackageRef.{SumCase => SC}
 
       val pkgId = lfRef.getPackageRef.getSumCase match {
@@ -946,30 +893,19 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
       val (packageId, module) = decodeModuleRef(lfVal.getModule)
-      val name =
-        handleDottedName(lfVal.getNameDnameList.asScala, lfVal.getNameInternedDname, "ValName.name")
+      val name = getInternedDottedName(lfVal.getNameInternedDname)
       ValueRef(packageId, QualifiedName(module, name))
     }
 
     private[this] def decodeTypeConName(lfTyConName: PLF.TypeConName): TypeConName = {
       val (packageId, module) = decodeModuleRef(lfTyConName.getModule)
-      val name = handleDottedName(
-        lfTyConName.getNameCase,
-        PLF.TypeConName.NameCase.NAME_INTERNED_DNAME,
-        lfTyConName.getNameInternedDname,
-        "TypeConName.name.name",
-      )
+      val name = getInternedDottedName(lfTyConName.getNameInternedDname)
       Identifier(packageId, QualifiedName(module, name))
     }
 
     private[this] def decodeTypeSynName(lfTySynName: PLF.TypeSynName): TypeSynName = {
       val (packageId, module) = decodeModuleRef(lfTySynName.getModule)
-      val name = handleDottedName(
-        lfTySynName.getNameCase,
-        PLF.TypeSynName.NameCase.NAME_INTERNED_DNAME,
-        lfTySynName.getNameInternedDname,
-        "TypeSynName.name.name",
-      )
+      val name = getInternedDottedName(lfTySynName.getNameInternedDname)
       Identifier(packageId, QualifiedName(module, name))
     }
 
@@ -1839,10 +1775,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   // minVersion included
   private[this] def assertSince(minVersion: LV, description: => String): Unit =
     if (versionIsOlderThan(minVersion))
-      throw notSupportedError(description)
-
-  private def assertUndefined(s: collection.Seq[_], description: => String): Unit =
-    if (s.nonEmpty)
       throw notSupportedError(description)
 
   private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =

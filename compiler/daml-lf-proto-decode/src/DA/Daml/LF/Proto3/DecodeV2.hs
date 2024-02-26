@@ -84,15 +84,9 @@ decodeMangledString t = (decoded, unmangledOrErr)
 -- by a repeatable string and a number. If there's at least one string,
 -- then the number must not be set, i.e. zero. If there are no strings,
 -- then the number is treated as an index into the interning table.
-decodeInternableStrings :: V.Vector TL.Text -> Int32 -> Decode ([T.Text], Either String [UnmangledIdentifier])
-decodeInternableStrings strs id
-    | V.null strs = lookupDottedName id
-    | id == 0 =
-      let decodedStrs = map decodeString (V.toList strs)
-          unmangled = mapM unmangleIdentifier decodedStrs
-      in pure (decodedStrs, unmangled)
-    | otherwise = throwError $ ParseError "items and interned id both set for string list"
-
+decodeInternableStrings :: Int32 -> Decode ([T.Text], Either String [UnmangledIdentifier])
+decodeInternableStrings id = lookupDottedName id
+    
 -- | Decode the name of a syntactic object, e.g., a variable or a data
 -- constructor. These strings are mangled to escape special characters. All
 -- names will be interned in Daml-LF 1.7 and onwards.
@@ -119,12 +113,9 @@ decodeNameString wrapName unmangledOrErr =
 -- | Decode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names will be interned
 -- in Daml-LF 1.7 and onwards.
-decodeDottedName :: Util.EitherLike LF2.DottedName Int32 e
-                 => ([T.Text] -> a) -> Maybe e -> Decode a
-decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
-    (_, unmangledOrErr) <- case Util.toEither dottedNameOrId of
-        Left (LF2.DottedName mangledV) -> decodeInternableStrings mangledV 0
-        Right dnId -> lookupDottedName dnId
+decodeDottedName :: ([T.Text] -> a) -> Int32 -> Decode a
+decodeDottedName wrapDottedName dNameId = do
+    (_, unmangledOrErr) <- lookupDottedName dNameId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right unmangled -> pure $ wrapDottedName (coerce unmangled)
@@ -138,22 +129,22 @@ decodeDottedNameId wrapDottedName dnId = do
 
 -- | Decode the name of a top-level value. The name is mangled and will be
 -- interned in Daml-LF 1.7 and onwards.
-decodeValueName :: String -> V.Vector TL.Text -> Int32 -> Decode ExprValName
-decodeValueName ident mangledV dnId = do
-    (mangled, unmangledOrErr) <- decodeInternableStrings mangledV dnId
+decodeValueName :: String -> Int32 -> Decode ExprValName
+decodeValueName ident dnId = do
+    (mangled, unmangledOrErr) <- decodeInternableStrings dnId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right [UnmangledIdentifier unmangled] -> pure $ ExprValName unmangled
       Right [] -> throwError $ MissingField ident
       Right _ ->
-          throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
+          throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangled
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
 -- interned in Daml-LF 1.7 and onwards.
 decodeValName :: LF2.ValName -> Decode (Qualified ExprValName)
 decodeValName LF2.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
-  name <- decodeValueName "valNameName" valNameNameDname valNameNameInternedDname
+  name <- decodeValueName "valNameName" valNameNameInternedDname
   pure $ Qualified pref mname name
 
 -- | Decode a reference to a package. Package names are not mangled. Package
@@ -251,7 +242,7 @@ decodeDefTypeSyn :: LF2.DefTypeSyn -> Decode DefTypeSyn
 decodeDefTypeSyn LF2.DefTypeSyn{..} =
   DefTypeSyn
     <$> traverse decodeLocation defTypeSynLocation
-    <*> decodeDottedName TypeSynName defTypeSynName
+    <*> decodeDottedName TypeSynName defTypeSynNameInternedDname
     <*> traverse decodeTypeVarWithKind (V.toList defTypeSynParams)
     <*> mayDecode "typeSynType" defTypeSynType decodeType
 
@@ -266,7 +257,7 @@ decodeDefDataType :: LF2.DefDataType -> Decode DefDataType
 decodeDefDataType LF2.DefDataType{..} =
   DefDataType
     <$> traverse decodeLocation defDataTypeLocation
-    <*> decodeDottedName TypeConName defDataTypeName
+    <*> decodeDottedName TypeConName defDataTypeNameInternedDname
     <*> pure (IsSerializable defDataTypeSerializable)
     <*> traverse decodeTypeVarWithKind (V.toList defDataTypeParams)
     <*> mayDecode "dataTypeDataCons" defDataTypeDataCons decodeDataCons
@@ -287,7 +278,7 @@ decodeDataCons = \case
 
 decodeDefValueNameWithType :: LF2.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF2.DefValue_NameWithType{..} = (,)
-  <$> decodeValueName "defValueName" defValue_NameWithTypeNameDname defValue_NameWithTypeNameInternedDname
+  <$> decodeValueName "defValueName" defValue_NameWithTypeNameInternedDname
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF2.DefValue -> Decode DefValue
@@ -305,7 +296,7 @@ decodeDefTemplate LF2.DefTemplate{..} = do
   tplParam <- decodeName ExprVarName defTemplateParam
   Template
     <$> traverse decodeLocation defTemplateLocation
-    <*> decodeDottedName TypeConName defTemplateTycon
+    <*> decodeDottedName TypeConName defTemplateTyconInternedDname
     <*> pure tplParam
     <*> mayDecode "defTemplatePrecond" defTemplatePrecond decodeExpr
     <*> mayDecode "defTemplateSignatories" defTemplateSignatories decodeExpr
@@ -976,20 +967,20 @@ decodeTypeConApp LF2.Type_Con{..} =
 decodeTypeSynName :: LF2.TypeSynName -> Decode (Qualified TypeSynName)
 decodeTypeSynName LF2.TypeSynName{..} = do
   (pref, mname) <- mayDecode "typeSynNameModule" typeSynNameModule decodeModuleRef
-  syn <- decodeDottedName TypeSynName typeSynNameName
+  syn <- decodeDottedName TypeSynName typeSynNameNameInternedDname
   pure $ Qualified pref mname syn
 
 decodeTypeConName :: LF2.TypeConName -> Decode (Qualified TypeConName)
 decodeTypeConName LF2.TypeConName{..} = do
   (pref, mname) <- mayDecode "typeConNameModule" typeConNameModule decodeModuleRef
-  con <- decodeDottedName TypeConName typeConNameName
+  con <- decodeDottedName TypeConName typeConNameNameInternedDname
   pure $ Qualified pref mname con
 
 decodeModuleRef :: LF2.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF2.ModuleRef{..} =
   (,)
     <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
-    <*> decodeDottedName ModuleName moduleRefModuleName
+    <*> decodeDottedName ModuleName moduleRefModuleNameInternedDname
 
 ------------------------------------------------------------------------
 -- Helpers

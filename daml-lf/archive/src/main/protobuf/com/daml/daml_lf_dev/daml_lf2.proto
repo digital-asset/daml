@@ -47,70 +47,34 @@ message PackageRef {
   }
 }
 
-// A `name`, e.g. Util.Either.isLeft
-// *Available in version < 1.7*
-message DottedName {
-
-  // *Must be a non-empty list of a valid identifiers*
-  repeated string segments = 1;
-
-}
-
 // A fully qualified module reference
 message ModuleRef {
-
   // package where the module is defined.
   PackageRef package_ref = 1;
-
-  oneof module_name {
-    // module name
-    DottedName module_name_dname = 2; // *Available in version < 1.7*
-
-    int32 module_name_interned_dname = 3; // *Available in version >= 1.7*
-  }
-
+  int32 module_name_interned_dname = 3; // *Available in version >= 1.7*
 }
 
 // A fully qualified reference to a type constructor name.
 message TypeConName {
-
   // Module where the type is defined.
   ModuleRef module = 1;
-
-  oneof name {
-    // type constructor name.
-    DottedName name_dname = 2;
-
-    // *Must be a valid interned name*
-    int32 name_interned_dname = 3; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 3; // *Available in versions >= 1.7*
 }
 
 // A fully qualified reference to a type synonym name.
 // *Available in versions >= 1.8*
 message TypeSynName {
-
   // Module where the type is defined.
   ModuleRef module = 1;
-
-  oneof name {
-    // type synonym name.
-    DottedName name_dname = 2;
-
-    // *Must be a valid interned name*
-    int32 name_interned_dname = 3;
-  }
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 3;
 }
 
 // A fully qualified reference to a value definition.
 message ValName {
-
   // Module where the value is defined
   ModuleRef module = 1;
-
-  // *Must be a non-empty list of valid identifier*
-  repeated string name_dname = 2; // *Available in version < 1.7*
-
   // *Must be a valid interned name*
   int32 name_interned_dname = 3; // *Available in versions >= 1.7*
 }
@@ -1615,12 +1579,8 @@ message DefTemplate {
 
   // The type constructor for the template, acting as both
   // the name of the template and the type of the template argument.
-  oneof tycon {
-    DottedName tycon_dname = 1;
-
-    // *Must be a valid interned name*
-    int32 tycon_interned_dname = 12; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned name*
+  int32 tycon_interned_dname = 12; // *Available in versions >= 1.7*
 
   // Name to which the template argument is bound.
   oneof param {
@@ -1731,12 +1691,8 @@ message DefDataType {
   }
 
   // name of the defined data type
-  oneof name {
-    DottedName name_dname = 1;
-
-    // *Must be a valid interned name*
+  // *Must be a valid interned name*
     int32 name_interned_dname = 8; // *Available in versions >= 1.7*
-  }
 
   // type parameters
   // *Must be empty if enum field is set*
@@ -1764,20 +1720,12 @@ message DefDataType {
 // Type synonym definition
 // *Available in versions >= 1.8*
 message DefTypeSyn {
-
   // name of the defined type synonym
-  oneof name {
-    DottedName name_dname = 1;
-
-    // *Must be a valid interned name*
-    int32 name_interned_dname = 8;
-  }
-
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 8;
   // type parameters
   repeated TypeVarWithKind params = 2;
-
   Type type = 3;
-
   Location location = 4;
 }
 
@@ -1787,13 +1735,8 @@ message DefValue {
   // and type in DefValue is that it was VarWithType before, and we
   // want to be binary-compatible with it.
   message NameWithType {
-
-    // *Must a non-empty list a valid identifier*
-    repeated string name_dname = 1; // *Available in version < 1.7*
-
     // *Must be a valid interned name*
     int32 name_interned_dname = 3; // *Available in versions >= 1.7*
-
     // Type of the value
     Type type = 2;
   }
@@ -1819,10 +1762,7 @@ message FeatureFlags {
 
 message Module {
 
-  oneof name {
-    DottedName name_dname = 1;
-    int32 name_interned_dname = 8; // *Available in versions >= 1.7*
-  }
+  int32 name_interned_dname = 8; // *Available in versions >= 1.7*
   // repeated Definition definitions = 2; // Removed in favour of data_types, values and templates.
   reserved 2;
   // repeated string scenario_tests = 3; // Removed in favour of DefValue.is_test.
