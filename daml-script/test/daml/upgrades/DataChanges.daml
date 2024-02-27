@@ -6,24 +6,23 @@
 module DataChanges (main) where
 
 import UpgradeTestLib
--- TODO[SW] Consider having all "PACKAGE" defs in a file become one dar, or an alternative "EXTEND-PACKAGE" syntax
 import qualified V1.NameChanges as V1
 import qualified V1.FieldsRemoved as V1
 import qualified V1.FieldsRemovedNested as V1
 import qualified V1.NonOptionalFieldsAdded as V1
 import qualified V1.NonOptionalFieldsAddedNested as V1
-import qualified V1.VariantUnchanged as V1
-import qualified V1.VariantRemoved as V1
-import qualified V1.VariantAdditional as V1
+import qualified V1.EnumUnchanged as V1
+import qualified V1.EnumRemoved as V1
+import qualified V1.EnumAdditional as V1
 
 import qualified V2.NameChanges as V2
 import qualified V2.FieldsRemoved as V2
 import qualified V2.FieldsRemovedNested as V2
 import qualified V2.NonOptionalFieldsAdded as V2
 import qualified V2.NonOptionalFieldsAddedNested as V2
-import qualified V2.VariantUnchanged as V2
-import qualified V2.VariantRemoved as V2
-import qualified V2.VariantAdditional as V2
+import qualified V2.EnumUnchanged as V2
+import qualified V2.EnumRemoved as V2
+import qualified V2.EnumAdditional as V2
 import DA.Text
 
 main : Script ()
@@ -33,11 +32,11 @@ main = tests
   , ("Fails if non-optional fields are added", templateNonOptionalFieldsAdded)
   , ("Fails if nested fields are removed", templateFieldsRemovedNested)
   , ("Fails if nested non-optional fields are added", templateNonOptionalFieldsAddedNested)
-  , ("Succeeds if a nested variant is unchanged", templateVariantUnchanged)
-  , ("Succeeds if a nested variant is upgraded and extended", templateVariantUpgradeFromOld)
-  , ("Succeeds if a nested variant is an old case when downgrading", templateVariantDowngradeFromOld)
-  , ("Fails if a nested variant is a removed case", templateVariantUpgradeToRemoved)
-  , ("Fails if a nested variant is an additional case when downgrading", templateVariantDowngradeFromNew)
+  , ("Succeeds if a nested enum is unchanged", templateEnumUnchanged)
+  , ("Succeeds if a nested enum is upgraded and extended", templateEnumUpgradeFromOld)
+  , ("Succeeds if a nested enum is an old case when downgrading", templateEnumDowngradeFromOld)
+  , ("Fails if a nested enum is a removed case", templateEnumUpgradeToRemoved)
+  , ("Fails if a nested enum is an additional case when downgrading", templateEnumDowngradeFromNew)
   ]
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasEnsure t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
@@ -179,110 +178,111 @@ templateNonOptionalFieldsAddedNested =
 {- MODULE
 package: data-changes
 contents: |
-  module VariantUnchanged where
+  module EnumUnchanged where
 
-  data VariantUnchangedData
-    = VariantUnchangedData1
-    | VariantUnchangedData2
-    deriving (Eq, Show)
-  template VariantUnchanged
+  data EnumUnchangedData
+    = EnumUnchangedData1
+    | EnumUnchangedData2
+    deriving (Eq, Show, Enum)
+  template EnumUnchanged
     with
       party : Party
-      nestedData : VariantUnchangedData
+      nestedData : EnumUnchangedData
     where
       signatory party
-      choice VariantUnchangedCall : Text
+      choice EnumUnchangedCall : Text
         controller party
         do pure "V1"                     -- @V 1
         do pure "V2"                     -- @V  2
 -}
 
-templateVariantUnchanged : Script ()
-templateVariantUnchanged =
+templateEnumUnchanged : Script ()
+templateEnumUnchanged =
   templateInvalidChange
-    @V2.VariantUnchanged
+    @V2.EnumUnchanged
     True
-    (`V1.VariantUnchanged` V1.VariantUnchangedData1)
-    V2.VariantUnchangedCall
+    (`V1.EnumUnchanged` V1.EnumUnchangedData1)
+    V2.EnumUnchangedCall
 
 {- MODULE
 package: data-changes
 contents: |
-  module VariantRemoved where
+  module EnumRemoved where
 
-  data VariantRemovedData
-    = VariantRemovedData1
-    | VariantRemovedData2              -- @V 1
-    deriving (Eq, Show)
-  template VariantRemoved
+  data EnumRemovedData
+    = EnumRemovedData1
+    | EnumRemovedData2
+    | EnumRemovedData3                 -- @V 1
+    deriving (Eq, Show, Enum)
+  template EnumRemoved
     with
       party : Party
-      nestedData : VariantRemovedData
+      nestedData : EnumRemovedData
     where
       signatory party
-      choice VariantRemovedCall : Text
+      choice EnumRemovedCall : Text
         controller party
         do pure "V1"                   -- @V 1
         do pure "V2"                   -- @V  2
 -}
 
-templateVariantUpgradeToRemoved : Script ()
-templateVariantUpgradeToRemoved =
+templateEnumUpgradeToRemoved : Script ()
+templateEnumUpgradeToRemoved =
   templateInvalidChange
-    @V2.VariantRemoved
+    @V2.EnumRemoved
     False
-    (`V1.VariantRemoved` V1.VariantRemovedData2)
-    V2.VariantRemovedCall
+    (`V1.EnumRemoved` V1.EnumRemovedData3)
+    V2.EnumRemovedCall
 
 {- MODULE
 package: data-changes
 contents: |
-  module VariantAdditional where
+  module EnumAdditional where
 
-  data VariantAdditionalData
-    = VariantAdditionalData1
-    | VariantAdditionalData2
-    | VariantAdditionalData3              -- @V  2
-    deriving (Eq, Show)
-  template VariantAdditional
+  data EnumAdditionalData
+    = EnumAdditionalData1
+    | EnumAdditionalData2
+    | EnumAdditionalData3                 -- @V  2
+    deriving (Eq, Show, Enum)
+  template EnumAdditional
     with
       party : Party
-      nestedData : VariantAdditionalData
+      nestedData : EnumAdditionalData
     where
       signatory party
-      choice VariantAdditionalCall : Text
+      choice EnumAdditionalCall : Text
         controller party
         do pure "V1"                      -- @V 1
         do pure "V2"                      -- @V  2
 -}
 
-templateVariantDowngradeFromNew : Script ()
-templateVariantDowngradeFromNew = do
+templateEnumDowngradeFromNew : Script ()
+templateEnumDowngradeFromNew = do
   a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmd V2.VariantAdditional with party = a, nestedData = V2.VariantAdditionalData3
+  cid <- a `submit` createCmd V2.EnumAdditional with party = a, nestedData = V2.EnumAdditionalData3
 
-  let cidV1 = coerceContractId @V2.VariantAdditional @V1.VariantAdditional cid
+  let cidV1 = coerceContractId @V2.EnumAdditional @V1.EnumAdditional cid
 
   -- Ensure we can only call the V1 choice
-  res <- a `trySubmit` exerciseExactCmd cidV1 V1.VariantAdditionalCall
+  res <- a `trySubmit` exerciseExactCmd cidV1 V1.EnumAdditionalCall
 
   case res of
     Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected specific failure but got " <> show res
 
-templateVariantUpgradeFromOld : Script ()
-templateVariantUpgradeFromOld =
+templateEnumUpgradeFromOld : Script ()
+templateEnumUpgradeFromOld =
   templateInvalidChange
-    @V2.VariantAdditional
+    @V2.EnumAdditional
     True
-    (`V1.VariantAdditional` V1.VariantAdditionalData1)
-    V2.VariantAdditionalCall
+    (`V1.EnumAdditional` V1.EnumAdditionalData1)
+    V2.EnumAdditionalCall
 
-templateVariantDowngradeFromOld : Script ()
-templateVariantDowngradeFromOld =
+templateEnumDowngradeFromOld : Script ()
+templateEnumDowngradeFromOld =
   templateInvalidChange
-    @V1.VariantAdditional
+    @V1.EnumAdditional
     True
-    (`V2.VariantAdditional` V2.VariantAdditionalData1)
-    V1.VariantAdditionalCall
+    (`V2.EnumAdditional` V2.EnumAdditionalData1)
+    V1.EnumAdditionalCall
 
