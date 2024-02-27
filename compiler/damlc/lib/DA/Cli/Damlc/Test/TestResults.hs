@@ -21,7 +21,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Set as S
-import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
+import qualified Com.Daml.DamlLfDev.DamlLf2 as LF2
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 import Data.Foldable (fold)
@@ -141,10 +141,10 @@ instance Protobuf TR.TestResults TestResults where
             (mapToVec exercised)
 
 instance Protobuf TR.PackageId PackageId where
-    decode (TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))) = Just LocalPackageId
+    decode (TR.PackageId (Just (TR.PackageIdVarietyLocal LF2.Unit))) = Just LocalPackageId
     decode (TR.PackageId (Just (TR.PackageIdVarietyExternal (TR.PackageId_ExternalPackageId id name)))) = Just (ExternalPackageId (TL.toStrict id) (TL.toStrict name))
     decode _ = Nothing
-    encode LocalPackageId = TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))
+    encode LocalPackageId = TR.PackageId (Just (TR.PackageIdVarietyLocal LF2.Unit))
     encode (ExternalPackageId ext name) = TR.PackageId (Just (TR.PackageIdVarietyExternal (TR.PackageId_ExternalPackageId (TL.fromStrict ext) (TL.fromStrict name))))
 
 saveTestResults :: FilePath -> TestResults -> IO ()
