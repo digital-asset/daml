@@ -8,6 +8,7 @@ import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.LanguageVersion
+import com.daml.SdkVersion
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.sys.process._
@@ -46,7 +47,7 @@ object DarUtil {
 
     def writeDamlYaml(pkgRoot: Path) = {
       val fileContent =
-        s"""sdk-version: 0.0.0
+        s"""sdk-version: ${SdkVersion.sdkVersion}
           |build-options: [--target=${lfVersion.pretty}]
           |name: $name
           |source: .
