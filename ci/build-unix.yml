@@ -40,7 +40,7 @@ steps:
 
   - bash: ./fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
-    condition: and(succeeded(), eq('${{parameters.name}}', 'Linux-intel'))
+    condition: and(succeeded(), eq('${{parameters.name}}', 'linux-intel'))
 
   - bash: |
       set -euo pipefail
