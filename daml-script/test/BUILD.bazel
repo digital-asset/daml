@@ -189,6 +189,7 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_base",
         "//canton:community_ledger_ledger-common",
