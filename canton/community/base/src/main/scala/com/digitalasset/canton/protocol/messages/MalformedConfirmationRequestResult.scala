@@ -55,7 +55,7 @@ final case class MalformedConfirmationRequestResult private (
 
   protected def toProtoV30: v30.MalformedMediatorConfirmationRequestResult =
     v30.MalformedMediatorConfirmationRequestResult(
-      requestId = Some(requestId.toProtoPrimitive),
+      requestId = requestId.toProtoPrimitive,
       domainId = domainId.toProtoPrimitive,
       viewType = viewType.toProtoEnum,
       rejection = Some(verdict.toProtoMediatorRejectV30),
@@ -118,16 +118,14 @@ object MalformedConfirmationRequestResult
   ): ParsingResult[MalformedConfirmationRequestResult] = {
 
     val v30.MalformedMediatorConfirmationRequestResult(
-      requestIdPO,
+      requestIdP,
       domainIdP,
       viewTypeP,
       rejectionPO,
     ) =
       MalformedMediatorConfirmationRequestResultP
     for {
-      requestId <- ProtoConverter
-        .required("request_id", requestIdPO)
-        .flatMap(RequestId.fromProtoPrimitive)
+      requestId <- RequestId.fromProtoPrimitive(requestIdP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       reject <- ProtoConverter.parseRequired(

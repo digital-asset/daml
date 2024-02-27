@@ -8,7 +8,6 @@ package com.digitalasset.canton.participant.protocol.v30;
 import "com/digitalasset/canton/protocol/v30/participant_transaction.proto";
 import "com/digitalasset/canton/protocol/v30/participant_transfer.proto";
 import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -38,7 +37,7 @@ message ConfigurationChanged {
   string submission_id = 1;
   Configuration configuration = 2;
   string participant_id = 3;
-  google.protobuf.Timestamp record_time = 4;
+  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
 }
 
 message Configuration {
@@ -57,7 +56,7 @@ message ConfigurationChangeRejected {
   string submission_id = 1;
   string reason = 2;
   string participant_id = 3;
-  google.protobuf.Timestamp record_time = 4;
+  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
   Configuration proposed_configuration = 5;
 }
 
@@ -65,27 +64,27 @@ message PartyAddedToParticipant {
   string party = 1;
   string display_name = 2;
   string participant_id = 3;
-  google.protobuf.Timestamp record_time = 4;
+  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
   string submission_id = 5;
 }
 
 message PartyAllocationRejected {
   string submission_id = 1;
   string participant_id = 2;
-  google.protobuf.Timestamp record_time = 3;
+  int64 record_time = 3; // in microseconds of UTC time since Unix epoch
   string rejection_reason = 4;
 }
 
 message PublicPackageUpload {
   repeated bytes archives = 1;
   google.protobuf.StringValue source_description = 2;
-  google.protobuf.Timestamp record_time = 3;
+  int64 record_time = 3; // in microseconds of UTC time since Unix epoch
   string submission_id = 4;
 }
 
 message PublicPackageUploadRejected {
   string submission_id = 1;
-  google.protobuf.Timestamp record_time = 2;
+  int64 record_time = 2; // in microseconds of UTC time since Unix epoch
   string rejection_reason = 3;
 }
 
@@ -94,7 +93,7 @@ message TransactionAccepted {
   TransactionMeta transaction_meta = 2;
   bytes transaction = 3;
   string transaction_id = 4;
-  google.protobuf.Timestamp record_time = 5;
+  int64 record_time = 5; // in microseconds of UTC time since Unix epoch
   repeated DivulgedContract divulged_contracts = 6;
   BlindingInfo blinding_info = 7; // optional
   map<string, bytes> contract_metadata = 8; //optional
@@ -111,9 +110,9 @@ message CompletionInfo {
 }
 
 message TransactionMeta {
-  google.protobuf.Timestamp ledger_time = 1;
+  int64 ledger_time = 1; // in microseconds of UTC time since Unix epoch
   google.protobuf.StringValue workflow_id = 2;
-  google.protobuf.Timestamp submission_time = 3;
+  int64 submission_time = 3; // in microseconds of UTC time since Unix epoch
   bytes submission_seed = 4;
   repeated string used_packages = 5;
   repeated NodeSeed node_seeds = 6;
@@ -151,7 +150,7 @@ enum CommandKind {
 
 message CommandRejected {
   CompletionInfo completion_info = 1;
-  google.protobuf.Timestamp record_time = 2;
+  int64 record_time = 2; // in microseconds of UTC time since Unix epoch
   GrpcRejectionReasonTemplate rejection_reason = 3;
   // Is always a `com.daml.ledger.participant.state.v2.FinalReason`
   message GrpcRejectionReasonTemplate {
@@ -165,12 +164,12 @@ message TransferredOut {
   string update_id = 1;
   CompletionInfo completion_info = 2; // optional
   string submitter = 3; // optional
-  google.protobuf.Timestamp record_time = 4;
+  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
   string contract_id = 5;
   repeated string contract_stakeholders = 6;
   string source_domain = 7;
   string target_domain = 8;
-  google.protobuf.Timestamp transfer_in_exclusivity = 9;
+  google.protobuf.Int64Value transfer_in_exclusivity = 9; // in microseconds of UTC time since Unix epoch
   string workflow_id = 10; // optional
   string template_id = 11; // optional
   bool is_transferring_participant = 12;
@@ -182,8 +181,8 @@ message TransferredIn {
   string update_id = 1;
   CompletionInfo completion_info = 2; // optional
   string submitter = 3; // optional
-  google.protobuf.Timestamp record_time = 4;
-  google.protobuf.Timestamp ledger_create_time = 5;
+  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
+  int64 ledger_create_time = 5; // in microseconds of UTC time since Unix epoch
   bytes create_node = 6;
   string creating_transaction_id = 7;
   bytes contract_metadata = 8;
@@ -199,8 +198,8 @@ message ContractsAdded {
   string transaction_id = 1;
   repeated bytes contracts = 2;
   string domain_id = 3;
-  google.protobuf.Timestamp ledger_time = 4;
-  google.protobuf.Timestamp record_time = 5;
+  int64 ledger_time = 4; // in microseconds of UTC time since Unix epoch
+  int64 record_time = 5; // in microseconds of UTC time since Unix epoch
   repeated string hosted_witnesses = 6;
   map<string, bytes> contract_metadata = 7;
   string workflow_id = 8;
@@ -210,20 +209,20 @@ message ContractsPurged {
   string transaction_id = 1;
   repeated bytes contracts = 2;
   string domain_id = 3;
-  google.protobuf.Timestamp record_time = 4;
+  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
   repeated string hosted_witnesses = 5;
 }
 
 message PartiesAddedToParticipant {
   repeated string parties = 1;
   string participant_id = 2;
-  google.protobuf.Timestamp record_time = 3;
-  google.protobuf.Timestamp effective_time = 4;
+  int64 record_time = 3; // in microseconds of UTC time since Unix epoch
+  int64 effective_time = 4; // in microseconds of UTC time since Unix epoch
 }
 
 message PartiesRemovedFromParticipant {
   repeated string parties = 1;
   string participant_id = 2;
-  google.protobuf.Timestamp record_time = 3;
-  google.protobuf.Timestamp effective_time = 4;
+  int64 record_time = 3; // in microseconds of UTC time since Unix epoch
+  int64 effective_time = 4; // in microseconds of UTC time since Unix epoch
 }

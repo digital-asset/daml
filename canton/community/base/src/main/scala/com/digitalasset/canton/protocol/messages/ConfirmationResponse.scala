@@ -118,7 +118,7 @@ case class ConfirmationResponse private (
 
   protected def toProtoV30: v30.ConfirmationResponse =
     v30.ConfirmationResponse(
-      requestId = Some(requestId.toProtoPrimitive),
+      requestId = requestId.toProtoPrimitive,
       sender = sender.toProtoPrimitive,
       viewPosition = viewPositionO.map(_.toProtoV30),
       localVerdict = Some(localVerdict.toProtoV30),
@@ -253,7 +253,7 @@ object ConfirmationResponse
       bytes: ByteString
   ): ParsingResult[ConfirmationResponse] = {
     val v30.ConfirmationResponse(
-      requestIdPO,
+      requestIdP,
       senderP,
       localVerdictPO,
       rootHashP,
@@ -263,9 +263,7 @@ object ConfirmationResponse
     ) =
       confirmationResponseP
     for {
-      requestId <- ProtoConverter
-        .required("ConfirmationResponse.request_id", requestIdPO)
-        .flatMap(RequestId.fromProtoPrimitive)
+      requestId <- RequestId.fromProtoPrimitive(requestIdP)
       sender <- ParticipantId.fromProtoPrimitive(senderP, "ConfirmationResponse.sender")
       localVerdict <- ProtoConverter
         .required("ConfirmationResponse.local_verdict", localVerdictPO)

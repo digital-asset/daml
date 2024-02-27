@@ -83,23 +83,6 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
     result.map(_.transaction)
   )
 
-  /** Split transactions into certificates and everything else (used when uploading to a participant) */
-  def splitCertsAndRest: StoredTopologyTransactionsX.CertsAndRest = {
-    val certTypes = Set(
-      TopologyMappingX.Code.NamespaceDelegationX,
-      TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
-      TopologyMappingX.Code.IdentifierDelegationX,
-    )
-    val empty = Seq.empty[GenericStoredTopologyTransactionX]
-    val (certs, rest) = result.foldLeft((empty, empty)) { case ((certs, rest), tx) =>
-      if (certTypes.contains(tx.transaction.transaction.mapping.code))
-        (certs :+ tx, rest)
-      else
-        (certs, rest :+ tx)
-    }
-    StoredTopologyTransactionsX.CertsAndRest(certs, rest)
-  }
-
   /** The timestamp of the last topology transaction (if there is at least one)
     * adjusted by topology change delay
     */

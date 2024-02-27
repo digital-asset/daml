@@ -64,6 +64,9 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
   ): F[SequencedEvent[Env2]]
 
   def envelopes: Seq[Env]
+
+  /** The timestamp when the sequencer's signature key on the event's signature must be valid */
+  def timestampOfSigningKey: CantonTimestamp
 }
 
 object SequencedEvent
@@ -84,16 +87,21 @@ object SequencedEvent
       bytes: ByteString
   ): ParsingResult[SequencedEvent[ClosedEnvelope]] = {
     import cats.syntax.traverse.*
-    val v30.SequencedEvent(counter, tsP, domainIdP, mbMsgIdP, mbBatchP, mbDeliverErrorReasonP) =
-      sequencedEventP
+    val v30.SequencedEvent(
+      counter,
+      tsP,
+      domainIdP,
+      mbMsgIdP,
+      mbBatchP,
+      mbDeliverErrorReasonP,
+      topologyTimestampP,
+    ) = sequencedEventP
 
     val sequencerCounter = SequencerCounter(counter)
 
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-      timestamp <- ProtoConverter
-        .required("SequencedEvent.timestamp", tsP)
-        .flatMap(CantonTimestamp.fromProtoPrimitive)
+      timestamp <- CantonTimestamp.fromProtoPrimitive(tsP)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "SequencedEvent.domainId")
       mbBatch <- mbBatchP.traverse(
         // TODO(i10428) Prevent zip bombing when decompressing the request
@@ -110,35 +118,26 @@ object SequencedEvent
             msgId <- ProtoConverter
               .required("DeliverError", mbMsgIdP)
               .flatMap(MessageId.fromProtoPrimitive)
+            _ <- Either.cond(
+              topologyTimestampP.isEmpty,
+              (),
+              OtherError("topology_timestamp must not be set for DeliverError"),
+            )
           } yield new DeliverError(
             sequencerCounter,
             timestamp,
             domainId,
             msgId,
             deliverErrorReason,
-          )(
+          )(rpv, Some(bytes)) {}
+        case (None, Some(batch)) =>
+          for {
+            topologyTimestampO <- topologyTimestampP.traverse(CantonTimestamp.fromProtoPrimitive)
+            msgIdO <- mbMsgIdP.traverse(MessageId.fromProtoPrimitive)
+          } yield Deliver(sequencerCounter, timestamp, domainId, msgIdO, batch, topologyTimestampO)(
             rpv,
             Some(bytes),
-          ) {}
-        case (None, Some(batch)) =>
-          mbMsgIdP match {
-            case None =>
-              Right(
-                Deliver(sequencerCounter, timestamp, domainId, None, batch)(
-                  rpv,
-                  Some(bytes),
-                )
-              )
-            case Some(msgId) =>
-              MessageId
-                .fromProtoPrimitive(msgId)
-                .map(msgId =>
-                  Deliver(sequencerCounter, timestamp, domainId, Some(msgId), batch)(
-                    rpv,
-                    Some(bytes),
-                  )
-                )
-          }
+          )
       }): ParsingResult[SequencedEvent[ClosedEnvelope]]
     } yield event
   }
@@ -194,11 +193,12 @@ sealed abstract case class DeliverError private[sequencing] (
 
   def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
     counter = counter.toProtoPrimitive,
-    timestamp = Some(timestamp.toProtoPrimitive),
+    timestamp = timestamp.toProtoPrimitive,
     domainId = domainId.toProtoPrimitive,
     messageId = Some(messageId.toProtoPrimitive),
     batch = None,
     deliverErrorReason = Some(reason),
+    topologyTimestamp = None,
   )
 
   override protected def traverse[F[_], Env <: Envelope[?]](f: Nothing => F[Env])(implicit
@@ -219,6 +219,8 @@ sealed abstract case class DeliverError private[sequencing] (
     case SequencerErrors.PersistTombstone(_) => true
     case _ => false
   }
+
+  override def timestampOfSigningKey: CantonTimestamp = timestamp
 }
 
 object DeliverError {
@@ -277,6 +279,7 @@ object DeliverError {
   * @param timestamp a timestamp defining the order.
   * @param messageIdO  populated with the message id used on the originating send operation only for the sender
   * @param batch     a batch of envelopes.
+  * @param topologyTimestampO the timestamp of the topology snapshot used for resolving group recipients if this timestamp is different from the sequencing `timestamp`
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class Deliver[+Env <: Envelope[_]] private[sequencing] (
@@ -285,6 +288,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
     override val domainId: DomainId,
     messageIdO: Option[MessageId],
     batch: Batch[Env],
+    topologyTimestampO: Option[CantonTimestamp],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[SequencedEvent.type],
     val deserializedFrom: Option[ByteString],
@@ -297,18 +301,19 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
 
   protected[sequencing] def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
     counter = counter.toProtoPrimitive,
-    timestamp = Some(timestamp.toProtoPrimitive),
+    timestamp = timestamp.toProtoPrimitive,
     domainId = domainId.toProtoPrimitive,
     messageId = messageIdO.map(_.toProtoPrimitive),
     batch = Some(batch.toProtoV30),
     deliverErrorReason = None,
+    topologyTimestamp = topologyTimestampO.map(_.toProtoPrimitive),
   )
 
   protected def traverse[F[_], Env2 <: Envelope[?]](
       f: Env => F[Env2]
   )(implicit F: Applicative[F]): F[SequencedEvent[Env2]] =
     F.map(batch.traverse(f))(
-      Deliver(counter, timestamp, domainId, messageIdO, _)(
+      Deliver(counter, timestamp, domainId, messageIdO, _, topologyTimestampO)(
         representativeProtocolVersion,
         deserializedFrom,
       )
@@ -321,9 +326,10 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       domainId: DomainId = this.domainId,
       messageIdO: Option[MessageId] = this.messageIdO,
       batch: Batch[Env2] = this.batch,
+      topologyTimestampO: Option[CantonTimestamp] = this.topologyTimestampO,
       deserializedFromO: Option[ByteString] = None,
   ): Deliver[Env2] =
-    Deliver[Env2](counter, timestamp, domainId, messageIdO, batch)(
+    Deliver[Env2](counter, timestamp, domainId, messageIdO, batch, topologyTimestampO)(
       representativeProtocolVersion,
       deserializedFromO,
     )
@@ -334,10 +340,13 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       param("timestamp", _.timestamp),
       paramIfNonEmpty("message id", _.messageIdO),
       param("domain id", _.domainId),
+      paramIfDefined("topology timestamp", _.topologyTimestampO),
       unnamedParam(_.batch),
     )
 
   def envelopes: Seq[Env] = batch.envelopes
+
+  override def timestampOfSigningKey: CantonTimestamp = topologyTimestampO.getOrElse(timestamp)
 }
 
 object Deliver {
@@ -347,9 +356,10 @@ object Deliver {
       domainId: DomainId,
       messageIdO: Option[MessageId],
       batch: Batch[Env],
+      topologyTimestampO: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
   ): Deliver[Env] =
-    Deliver[Env](counter, timestamp, domainId, messageIdO, batch)(
+    Deliver[Env](counter, timestamp, domainId, messageIdO, batch, topologyTimestampO)(
       SequencedEvent.protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
@@ -358,7 +368,7 @@ object Deliver {
       deliverEvent: SequencedEvent[Env]
   ): Option[Deliver[Env]] =
     deliverEvent match {
-      case deliver @ Deliver(_, _, _, _, _) => Some(deliver)
+      case deliver @ Deliver(_, _, _, _, _, _) => Some(deliver)
       case _: DeliverError => None
     }
 

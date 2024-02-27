@@ -378,6 +378,7 @@ final case class SigningPublicKeyWithName(
     override val name: Option[KeyName],
 ) extends PublicKeyWithName {
   type K = SigningPublicKey
+  override val id: Fingerprint = publicKey.id
 }
 
 object SigningPublicKeyWithName {

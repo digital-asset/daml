@@ -431,6 +431,7 @@ final case class EncryptionPublicKeyWithName(
     override val name: Option[KeyName],
 ) extends PublicKeyWithName {
   type K = EncryptionPublicKey
+  override val id: Fingerprint = publicKey.id
 }
 
 object EncryptionPublicKeyWithName {

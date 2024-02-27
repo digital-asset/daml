@@ -893,9 +893,7 @@ object ParticipantDomainPermissionX {
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
       permission <- ParticipantPermission.fromProtoV30(value.permission)
       limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
-      loginAfter <- value.loginAfter.fold[ParsingResult[Option[CantonTimestamp]]](Right(None))(
-        CantonTimestamp.fromProtoPrimitive(_).map(_.some)
-      )
+      loginAfter <- value.loginAfter.traverse(CantonTimestamp.fromProtoPrimitive)
     } yield ParticipantDomainPermissionX(
       domainId,
       participantId,

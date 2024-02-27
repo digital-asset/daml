@@ -1358,7 +1358,7 @@ class TransactionProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
     val content = eventE.event.content
-    val Deliver(_, ts, _, _, _) = content
+    val Deliver(_, ts, _, _, _, _) = content
     val submitterMetaO = pendingRequestData.transactionValidationResult.submitterMetadataO
     val completionInfoO = submitterMetaO.flatMap(
       completionInfoFromSubmitterMetadataO(_, pendingRequestData.freshOwnTimelyTx)

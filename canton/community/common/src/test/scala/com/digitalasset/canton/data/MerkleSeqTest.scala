@@ -129,7 +129,7 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
             .fromByteString(testedProtocolVersion)(
               (
                 hashOps,
-                AbstractLeaf.fromByteStringLegacy(testedProtocolVersion)(_),
+                AbstractLeaf.fromByteString(testedProtocolVersion)(_),
               )
             )(merkleSeqP)
             .value

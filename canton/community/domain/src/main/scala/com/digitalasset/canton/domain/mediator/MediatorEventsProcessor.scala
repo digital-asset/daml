@@ -106,9 +106,7 @@ private[mediator] class MediatorEventsProcessor(
   private def handle(
       events: NonEmpty[Seq[TracedProtocolEvent]]
   )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): HandlerResult = {
-    val identityF = identityClientEventHandler(Traced(events.map(_.map { case (event, _) =>
-      event
-    })))
+    val identityF = identityClientEventHandler(Traced(events))
 
     val envelopesByEvent = envelopesGroupedByEvent(events)
     for {
@@ -214,8 +212,7 @@ private[mediator] class MediatorEventsProcessor(
   ): NonEmpty[Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]] =
     events.map { tracedProtocolEvent =>
       implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
-      val (event, _) = tracedProtocolEvent.value
-      val envelopes = event match {
+      val envelopes = tracedProtocolEvent.value match {
         case deliver: Deliver[DefaultOpenEnvelope] =>
           val domainEnvelopes = ProtocolMessage.filterDomainsEnvelopes(
             deliver.batch,
@@ -245,19 +242,23 @@ private[mediator] class MediatorEventsProcessor(
         // work out requests that will timeout during this range of events
         // (keep in mind that they may receive a result during this time, in which case the timeout will be ignored)
         val (lastTracedProtocolEvent, _) = envelopesByEventNE.last1
-        val (lastEvent, _) = lastTracedProtocolEvent.value
+        val lastEvent = lastTracedProtocolEvent.value
         val unfinalized = state.pendingRequestIdsBefore(lastEvent.timestamp)
 
         val stagesF =
           envelopesByEventNE.foldLeft(Future.successful(EventProcessingStages(unfinalized))) {
             case (stages, (tracedProtocolEvent, envelopes)) =>
               implicit val traceContext = tracedProtocolEvent.traceContext
-              val (event, timestampOfSigningKey) = tracedProtocolEvent.value
+              val event = tracedProtocolEvent.value
+              val topologyTimestampO = event match {
+                case deliver: Deliver[?] => deliver.topologyTimestampO
+                case _ => None
+              }
               for {
                 stages <- extractMediatorEventsStage(
                   event.counter,
                   event.timestamp,
-                  timestampOfSigningKey,
+                  topologyTimestampO,
                   envelopes,
                 ).toList.foldLeft(stages) { case (acc, stage) => acc.map(_.addStage(stage)) }
 
@@ -271,7 +272,7 @@ private[mediator] class MediatorEventsProcessor(
   private def extractMediatorEventsStage(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      timestampOfSigningKey: Option[CantonTimestamp],
+      topologyTimestamp: Option[CantonTimestamp],
       envelopes: Seq[DefaultOpenEnvelope],
   )(implicit traceContext: TraceContext): Option[MediatorEventStage] = {
     val requests = envelopes.mapFilter(ProtocolMessage.select[MediatorConfirmationRequest])
@@ -310,8 +311,7 @@ private[mediator] class MediatorEventsProcessor(
           counter,
           timestamp,
           res.protocolMessage,
-          // The topology timestamp on the submission request is communicated to the clients via the timestamp of signing key
-          topologyTimestamp = timestampOfSigningKey,
+          topologyTimestamp,
           res.recipients,
         )
       )
@@ -326,7 +326,7 @@ private[mediator] object MediatorEventsProcessor {
       state: MediatorState,
       crypto: DomainSyncCryptoClient,
       identityClientEventHandler: UnsignedProtocolEventHandler,
-      confirmationResponseProcessor: TransactionConfirmationResponseProcessor,
+      confirmationResponseProcessor: ConfirmationResponseProcessor,
       mediatorEventDeduplicator: MediatorEventDeduplicator,
       protocolVersion: ProtocolVersion,
       metrics: MediatorMetrics,

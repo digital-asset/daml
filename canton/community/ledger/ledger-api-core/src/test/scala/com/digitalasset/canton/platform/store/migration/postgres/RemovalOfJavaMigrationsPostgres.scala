@@ -9,15 +9,12 @@ import com.digitalasset.canton.platform.store.FlywayMigrations
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Future
-
 class RemovalOfJavaMigrationsPostgres
     extends AsyncFlatSpec
     with Matchers
     with TestResourceContext
     with PostgresAroundEachForMigrations
     with TestEssentials {
-  import com.digitalasset.canton.platform.store.migration.MigrationTestSupport.*
 
   behavior of "Flyway migrations after the removal of Java migrations"
 
@@ -25,18 +22,6 @@ class RemovalOfJavaMigrationsPostgres
     val migration =
       new FlywayMigrations(postgresDatabase.url, loggerFactory = loggerFactory)
     for {
-      _ <- migration.migrate()
-    } yield {
-      succeed
-    }
-  }
-
-  // Version of the last Java migration
-  it should "migrate from V38 to the latest schema" in {
-    val migration =
-      new FlywayMigrations(postgresDatabase.url, loggerFactory = loggerFactory)
-    for {
-      _ <- Future(migrateTo("38"))
       _ <- migration.migrate()
     } yield {
       succeed

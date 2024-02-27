@@ -40,12 +40,12 @@ final case class SequencerSnapshot(
       v30.SequencerSnapshot.InFlightAggregationWithId(
         aggregationId.toProtoPrimitive,
         Some(rule.toProtoV30),
-        Some(maxSequencingTime.toProtoPrimitive),
+        maxSequencingTime.toProtoPrimitive,
         aggregatedSenders.toSeq.map {
           case (sender, AggregationBySender(sequencingTimestamp, signatures)) =>
             v30.SequencerSnapshot.AggregationBySender(
               sender.toProtoPrimitive,
-              Some(sequencingTimestamp.toProtoPrimitive),
+              sequencingTimestamp.toProtoPrimitive,
               signatures.map(sigsOnEnv =>
                 v30.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv.map(_.toProtoV30))
               ),
@@ -55,7 +55,7 @@ final case class SequencerSnapshot(
     }
 
     v30.SequencerSnapshot(
-      latestTimestamp = Some(lastTs.toProtoPrimitive),
+      latestTimestamp = lastTs.toProtoPrimitive,
       headMemberCounters =
         // TODO(#12075) sortBy is a poor man's approach to achieving deterministic serialization here
         //  Figure out whether we need this for sequencer snapshots
@@ -126,11 +126,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
           "v30.SequencerSnapshot.InFlightAggregationWithId.aggregation_rule",
           aggregationRuleP,
         )
-        maxSequencingTime <- ProtoConverter.parseRequired(
-          CantonTimestamp.fromProtoPrimitive,
-          "v30.SequencerSnapshot.InFlightAggregationWithId.max_sequencing_time",
-          maxSequencingTimeP,
-        )
+        maxSequencingTime <- CantonTimestamp.fromProtoPrimitive(maxSequencingTimeP)
         aggregatedSenders <- aggregatedSendersP
           .traverse {
             case v30.SequencerSnapshot.AggregationBySender(
@@ -143,11 +139,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
                   senderP,
                   "v30.SequencerSnapshot.AggregationBySender.sender",
                 )
-                sequencingTimestamp <- ProtoConverter.parseRequired(
-                  CantonTimestamp.fromProtoPrimitive,
-                  "v30.SequencerSnapshot.AggregationBySender.sequencing_timestamp",
-                  sequencingTimestampP,
-                )
+                sequencingTimestamp <- CantonTimestamp.fromProtoPrimitive(sequencingTimestampP)
                 signatures <- signaturesByEnvelopeP.traverse {
                   case v30.SequencerSnapshot.SignaturesForEnvelope(sigsOnEnv) =>
                     sigsOnEnv.traverse(Signature.fromProtoV30)
@@ -166,11 +158,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
     }
 
     for {
-      lastTs <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "latestTimestamp",
-        request.latestTimestamp,
-      )
+      lastTs <- CantonTimestamp.fromProtoPrimitive(request.latestTimestamp)
       heads <- request.headMemberCounters
         .traverse { case v30.SequencerSnapshot.MemberCounter(member, counter) =>
           Member

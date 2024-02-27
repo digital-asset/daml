@@ -64,7 +64,7 @@ final case class SubmissionRequest private (
     messageId = messageId.toProtoPrimitive,
     isRequest = isRequest,
     batch = Some(batch.toProtoV30),
-    maxSequencingTime = Some(maxSequencingTime.toProtoPrimitive),
+    maxSequencingTime = maxSequencingTime.toProtoPrimitive,
     topologyTimestamp = topologyTimestamp.map(_.toProtoPrimitive),
     aggregationRule = aggregationRule.map(_.toProtoV30),
   )
@@ -244,11 +244,7 @@ object SubmissionRequest
     for {
       sender <- Member.fromProtoPrimitive(senderP, "sender")
       messageId <- MessageId.fromProtoPrimitive(messageIdP)
-      maxSequencingTime <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "SubmissionRequest.maxSequencingTime",
-        maxSequencingTimeP,
-      )
+      maxSequencingTime <- CantonTimestamp.fromProtoPrimitive(maxSequencingTimeP)
       batch <- ProtoConverter.parseRequired(
         Batch.fromProtoV30(_, maxRequestSize),
         "SubmissionRequest.batch",

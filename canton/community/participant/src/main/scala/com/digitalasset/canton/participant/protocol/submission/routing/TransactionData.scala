@@ -49,6 +49,7 @@ private[routing] object TransactionData {
       domainStateProvider: DomainStateProvider,
       domainIdResolver: DomainAlias => Option[DomainId],
       contractRoutingParties: Map[LfContractId, Set[Party]],
+      disclosedContracts: Seq[LfContractId],
       submitterDomainId: Option[DomainId],
   )(implicit
       ec: ExecutionContext,
@@ -60,9 +61,18 @@ private[routing] object TransactionData {
           .map(domainId => Right(Some(domainId))) // submitter domain takes precedence
           .getOrElse(toDomainId(workflowIdO, domainIdResolver))
       )
-      contractsDomainData <- EitherT.liftF(
-        ContractsDomainData.create(domainStateProvider, contractRoutingParties)
-      )
+      contractsDomainData <-
+        ContractsDomainData
+          .create(
+            domainStateProvider,
+            contractRoutingParties,
+            disclosedContracts = disclosedContracts,
+          )
+          .leftMap[TransactionRoutingError](cids =>
+            TransactionRoutingError.TopologyErrors.UnknownContractDomains
+              .Error(cids.map(_.coid).toList)
+          )
+
     } yield TransactionData(
       transaction = transaction,
       requiredPackagesPerParty = Blinding.partyPackages(transaction),
@@ -79,6 +89,7 @@ private[routing] object TransactionData {
       domainStateProvider: DomainStateProvider,
       domainIdResolver: DomainAlias => Option[DomainId],
       contractRoutingParties: Map[LfContractId, Set[Party]],
+      disclosedContracts: Seq[LfContractId],
       submitterDomainId: Option[DomainId],
   )(implicit
       ec: ExecutionContext,
@@ -102,6 +113,7 @@ private[routing] object TransactionData {
         domainStateProvider,
         domainIdResolver,
         contractRoutingParties,
+        disclosedContracts,
         submitterDomainId,
       )
     } yield transactionData

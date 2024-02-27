@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.option.*
@@ -237,31 +237,27 @@ class SequencerReader(
         s"Latest topology client timestamp for $member at counter ${event.counter} / ${event.timestamp} is $previousTopologyClientTimestamp / $latestTopologyClientTimestamp"
       )
 
-      val topologyTimestampOAndSnapshotF = topologyTimestampAndSnapshotO match {
-        case Some((topologyTimestamp, topologySnaphot)) =>
-          FutureUnlessShutdown.pure(Some(topologyTimestamp) -> topologySnaphot)
-        case None =>
-          val warnIfApproximate =
-            (event.counter > SequencerCounter.Genesis) && member.isAuthenticated
-          SyncCryptoClient
-            .getSnapshotForTimestampUS(
+      for {
+        signingSnapshot <- OptionT
+          .fromOption[FutureUnlessShutdown](topologyTimestampAndSnapshotO)
+          .getOrElseF {
+            val warnIfApproximate =
+              (event.counter > SequencerCounter.Genesis) && member.isAuthenticated
+            SyncCryptoClient.getSnapshotForTimestampUS(
               syncCryptoApi,
               event.timestamp,
               previousTopologyClientTimestamp,
               protocolVersion,
               warnIfApproximate = warnIfApproximate,
             )
-            .map(None -> _)
-      }
-      topologyTimestampOAndSnapshotF
-        .flatMap { case (topologyTimestampO, topologySnapshot) =>
-          logger.debug(
-            s"Signing event with counter ${event.counter} / timestamp ${event.timestamp} for $member"
-          )
-          performUnlessClosingF("sign-event")(
-            signEvent(event, topologyTimestampO, topologySnapshot)
-          )
-        }
+          }
+        _ = logger.debug(
+          s"Signing event with counter ${event.counter} / timestamp ${event.timestamp} for $member"
+        )
+        signed <- performUnlessClosingF("sign-event")(
+          signEvent(event, signingSnapshot)
+        )
+      } yield signed
     }
 
     def latestTopologyClientTimestampAfter(
@@ -281,7 +277,7 @@ class SequencerReader(
 
       def validationSuccess(
           eventF: Future[SequencedEvent[ClosedEnvelope]],
-          signingInfo: Option[(CantonTimestamp, SyncCryptoApi)],
+          signingSnapshot: Option[SyncCryptoApi],
       ): Future[(Option[CantonTimestamp], UnsignedEventData)] = {
         val topologyClientTimestampAfter =
           latestTopologyClientTimestampAfter(topologyClientTimestampBefore, unvalidatedEvent)
@@ -289,7 +285,7 @@ class SequencerReader(
           topologyClientTimestampAfter ->
             UnsignedEventData(
               event,
-              signingInfo,
+              signingSnapshot,
               topologyClientTimestampBefore,
               topologyClientTimestampAfter,
               unvalidatedEvent.traceContext,
@@ -312,7 +308,7 @@ class SequencerReader(
           // The topology timestamp will end up as the timestamp of topology on the signed event.
           // So we validate it accordingly.
           SequencedEventValidator
-            .validateSigningTimestamp(
+            .validateTopologyTimestamp(
               syncCryptoApi,
               topologyTimestamp,
               sequencingTimestamp,
@@ -334,9 +330,9 @@ class SequencerReader(
                     Some(topologySnapshot.ipsSnapshot),
                     topologyClientTimestampBefore,
                   )
-                validationSuccess(eventF, Some(topologyTimestamp -> topologySnapshot))
+                validationSuccess(eventF, Some(topologySnapshot))
 
-              case Left(SequencedEventValidator.SigningTimestampAfterSequencingTime) =>
+              case Left(SequencedEventValidator.TopologyTimestampAfterSequencingTime) =>
                 // The SequencerWriter makes sure that the signing timestamp is at most the sequencing timestamp
                 ErrorUtil.internalError(
                   new IllegalArgumentException(
@@ -345,7 +341,7 @@ class SequencerReader(
                 )
 
               case Left(
-                    SequencedEventValidator.SigningTimestampTooOld(_) |
+                    SequencedEventValidator.TopologyTimestampTooOld(_) |
                     SequencedEventValidator.NoDynamicDomainParameters(_)
                   ) =>
                 // We can't use the topology timestamp for the sequencing time.
@@ -374,6 +370,7 @@ class SequencerReader(
                     domainId,
                     None,
                     Batch.empty[ClosedEnvelope](protocolVersion),
+                    None,
                     protocolVersion,
                   )
                 Future.successful(
@@ -483,7 +480,6 @@ class SequencerReader(
 
     private def signEvent(
         event: SequencedEvent[ClosedEnvelope],
-        topologyTimestampO: Option[CantonTimestamp],
         topologySnapshot: SyncCryptoApi,
     )(implicit traceContext: TraceContext): Future[OrdinarySerializedEvent] = {
       for {
@@ -491,7 +487,7 @@ class SequencerReader(
           topologySnapshot.pureCrypto,
           topologySnapshot,
           event,
-          topologyTimestampO,
+          None,
           HashPurpose.SequencedEventSignature,
           protocolVersion,
         )
@@ -519,7 +515,7 @@ class SequencerReader(
               messageId,
               _recipients,
               payload,
-              _topologyTimestampO,
+              topologyTimestampO,
               _traceContext,
             ) =>
           val messageIdO =
@@ -573,6 +569,7 @@ class SequencerReader(
               domainId,
               messageIdO,
               filteredBatch,
+              topologyTimestampO,
               protocolVersion,
             )
           }
@@ -687,7 +684,7 @@ object SequencerReader {
 
   private[SequencerReader] final case class UnsignedEventData(
       event: SequencedEvent[ClosedEnvelope],
-      topologyTimestampAndSnapshotO: Option[(CantonTimestamp, SyncCryptoApi)],
+      signingSnapshotO: Option[SyncCryptoApi],
       previousTopologyClientTimestamp: Option[CantonTimestamp],
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       eventTraceContext: TraceContext,

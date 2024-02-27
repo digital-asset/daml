@@ -54,7 +54,7 @@ final case class TransferResult[+Domain <: TransferDomainId] private (
         v30.TransferResult.Domain.TargetDomain(domainId.toProtoPrimitive)
     }
     v30.TransferResult(
-      requestId = Some(requestId.toProtoPrimitive),
+      requestId = requestId.toProtoPrimitive,
       domain = domainP,
       informees = informees.toSeq,
       verdict = Some(verdict.toProtoV30),
@@ -117,12 +117,10 @@ object TransferResult
   private def fromProtoV30(transferResultP: v30.TransferResult)(
       bytes: ByteString
   ): ParsingResult[TransferResult[TransferDomainId]] = {
-    val v30.TransferResult(maybeRequestIdPO, domainP, informeesP, verdictPO) = transferResultP
+    val v30.TransferResult(requestIdP, domainP, informeesP, verdictPO) = transferResultP
     import v30.TransferResult.Domain
     for {
-      requestId <- ProtoConverter
-        .required("TransferOutResult.requestId", maybeRequestIdPO)
-        .flatMap(RequestId.fromProtoPrimitive)
+      requestId <- RequestId.fromProtoPrimitive(requestIdP)
       domain <- domainP match {
         case Domain.SourceDomain(sourceDomain) =>
           DomainId

@@ -9,7 +9,6 @@ import "com/digitalasset/canton/protocol/v30/common.proto";
 import "com/digitalasset/canton/protocol/v30/confirmation_response.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 import "scalapb/scalapb.proto";
 
@@ -50,7 +49,7 @@ message MediatorReject {
 message MalformedMediatorConfirmationRequestResult {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  google.protobuf.Timestamp request_id = 1;
+  int64 request_id = 1; // in microseconds of UTC time since Unix epoch
   string domain_id = 2;
   com.digitalasset.canton.protocol.v30.ViewType view_type = 3;
   MediatorReject rejection = 4;
@@ -69,7 +68,7 @@ message Verdict {
 message TransactionResultMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  google.protobuf.Timestamp request_id = 1;
+  int64 request_id = 1; // in microseconds of UTC time since Unix epoch
   Verdict verdict = 2;
   bytes root_hash = 3;
   string domain_id = 4;
@@ -78,7 +77,7 @@ message TransactionResultMessage {
 message TransferResult {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  google.protobuf.Timestamp request_id = 1;
+  int64 request_id = 1; // in microseconds of UTC time since Unix epoch
   oneof domain {
     string source_domain = 2; // result for transfer-out request
     string target_domain = 3; // result for transfer-in request

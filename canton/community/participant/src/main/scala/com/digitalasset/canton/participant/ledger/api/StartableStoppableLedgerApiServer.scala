@@ -227,7 +227,6 @@ class StartableStoppableLedgerApiServer(
         config.metrics,
         inMemoryState,
         inMemoryStateUpdaterFlow,
-        Seq(),
         executionContext,
         tracer,
         loggerFactory,

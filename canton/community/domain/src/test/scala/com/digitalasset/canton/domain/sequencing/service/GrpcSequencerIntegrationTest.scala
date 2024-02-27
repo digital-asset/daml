@@ -202,7 +202,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
             .Success(
               v30.SequencerAuthentication.AuthenticateResponse.Success(
                 AuthenticationToken.generate(cryptoApi.pureCrypto).toProtoPrimitive,
-                Some(clock.now.plusSeconds(100000).toProtoPrimitive),
+                Some(clock.now.plusSeconds(100000).toProtoTimestamp),
               )
             )
         )

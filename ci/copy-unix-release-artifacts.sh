@@ -27,7 +27,7 @@ bazel build //compiler/damlc:damlc-dist
 cp bazel-bin/compiler/damlc/damlc-dist.tar.gz $OUTPUT_DIR/split-release/damlc-$RELEASE_TAG-$NAME.tar.gz
 
 # Platform independent artifacts are only built on Linux.
-if [[ "$NAME" == "linux" ]]; then
+if [[ "$NAME" == "linux-intel" ]]; then
     bazel build //release:protobufs
     PROTOS_ZIP=protobufs-$RELEASE_TAG.zip
     cp bazel-bin/release/protobufs.zip $OUTPUT_DIR/github/$PROTOS_ZIP

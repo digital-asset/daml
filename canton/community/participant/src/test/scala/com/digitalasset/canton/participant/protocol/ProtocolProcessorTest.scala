@@ -163,6 +163,7 @@ class ProtocolProcessorTest
                 domain,
                 Some(messageId),
                 Batch.filterOpenEnvelopesFor(batch, participant, Set.empty),
+                None,
                 testedProtocolVersion,
               )
             )

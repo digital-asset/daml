@@ -981,7 +981,7 @@ object ParticipantAdminCommands {
             case Value.Absolute(value) => Right(value)
             case other => Left(s"Unable to convert ledger_end `$other` to absolute value")
           }
-        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoPrimitive), ledgerEnd)
+        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoTimestamp), ledgerEnd)
 
       override def submitRequest(
           service: PruningServiceStub,
