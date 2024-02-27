@@ -581,7 +581,7 @@ instance Pretty UpgradeError where
     ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
     TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
     TemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
-    TemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " has added a key where it didn't have one previously."
+    TemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
