@@ -238,7 +238,7 @@ class SyncDomain(
     loggerFactory,
   )
 
-  private val acsCommitmentProcessor = {
+  private[canton] val acsCommitmentProcessor = {
     val listener = new AcsCommitmentProcessor(
       domainId,
       participantId,

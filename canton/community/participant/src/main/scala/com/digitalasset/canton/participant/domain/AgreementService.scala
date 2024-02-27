@@ -71,23 +71,18 @@ class AgreementService(
   ): EitherT[Future, AgreementServiceError, Option[ServiceAgreement]] =
     for {
       optAgreement <- {
-        if (protocolVersion >= ProtocolVersion.v3) {
-          ResourceUtil.withResource(
-            new GrpcSequencerConnectClient(
-              sequencerConnection,
-              timeouts,
-              nodeParameters.tracing.propagation,
-              loggerFactory,
-            )
-          )(client =>
-            client
-              .getAgreement(domainId)
-              .leftMap(err => AgreementServiceError(err.message))
+        ResourceUtil.withResource(
+          new GrpcSequencerConnectClient(
+            sequencerConnection,
+            timeouts,
+            nodeParameters.tracing.propagation,
+            loggerFactory,
           )
-        } else
-          domainServiceClient
-            .getAgreement(domainId, sequencerConnection)
+        )(client =>
+          client
+            .getAgreement(domainId)
             .leftMap(err => AgreementServiceError(err.message))
+        )
       }
 
       _ <- optAgreement.traverse_(ag =>

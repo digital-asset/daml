@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.domain.config.CommunityDomainConfig
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
+import com.digitalasset.canton.version.{DomainProtocolVersion, ProtocolVersion}
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*
 
@@ -61,6 +62,16 @@ object CommunityConfigTransforms {
     val dbPrefix = Random.alphanumeric.take(8).map(_.toLower).mkString
     s"${dbPrefix}_$nodeName"
   }
+
+  def updateAllDomainsProtocolVersion(pv: ProtocolVersion): CommunityConfigTransform =
+    updateAllDomainConfigs_(
+      _.focus(_.init.domainParameters.protocolVersion).replace(DomainProtocolVersion(pv))
+    )
+
+  def updateAllDomainConfigs_(
+      update: CommunityDomainConfig => CommunityDomainConfig
+  ): CommunityConfigTransform =
+    updateAllDomainConfigs((_, config) => update(config))
 
   def updateAllDomainConfigs(
       update: (String, CommunityDomainConfig) => CommunityDomainConfig

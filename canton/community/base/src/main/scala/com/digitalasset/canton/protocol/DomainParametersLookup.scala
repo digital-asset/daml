@@ -137,7 +137,9 @@ object DomainParametersLookup {
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DomainParametersLookup[PositiveSeconds] = {
-    if (staticDomainParameters.protocolVersion < ProtocolVersion.v4)
+    if (
+      staticDomainParameters.protocolVersion < ProtocolVersion.v4
+    ) // TODO(#17313) - Reconsider removing if not needed
       new StaticDomainParametersLookup(staticDomainParameters.reconciliationInterval)
     else
       new DynamicDomainParametersLookup(
@@ -149,7 +151,6 @@ object DomainParametersLookup {
       )
   }
 
-  @nowarn("msg=deprecated")
   def forSequencerDomainParameters(
       staticDomainParameters: StaticDomainParameters,
       overrideMaxRequestSize: Option[NonNegativeInt],
@@ -157,26 +158,17 @@ object DomainParametersLookup {
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DomainParametersLookup[SequencerDomainParameters] = {
-    if (staticDomainParameters.protocolVersion < ProtocolVersion.v4)
-      new StaticDomainParametersLookup(
+    new DynamicDomainParametersLookup(
+      params =>
         SequencerDomainParameters(
-          staticDomainParameters.maxRatePerParticipant,
-          staticDomainParameters.maxRequestSize,
-        )
-      )
-    else {
-      new DynamicDomainParametersLookup(
-        params =>
-          SequencerDomainParameters(
-            params.maxRatePerParticipant,
-            overrideMaxRequestSize.map(MaxRequestSize).getOrElse(params.maxRequestSize),
-          ),
-        topologyClient,
-        staticDomainParameters.protocolVersion,
-        futureSupervisor,
-        loggerFactory,
-      )
-    }
+          params.maxRatePerParticipant,
+          overrideMaxRequestSize.map(MaxRequestSize).getOrElse(params.maxRequestSize),
+        ),
+      topologyClient,
+      staticDomainParameters.protocolVersion,
+      futureSupervisor,
+      loggerFactory,
+    )
   }
 
   final case class SequencerDomainParameters(

@@ -294,23 +294,32 @@ class DomainNodeBootstrap(
       nodeId: NodeId,
       staticDomainParameters: StaticDomainParameters,
   ): Either[String, DomainTopologyManager] = {
-    // starts second stage
-    ErrorUtil.requireState(topologyManager.isEmpty, "Topology manager is already initialized.")
 
-    logger.debug("Starting domain topology manager")
-    val manager = new DomainTopologyManager(
-      DomainTopologyManagerId(nodeId.identity),
-      clock,
-      authorizedTopologyStore,
-      crypto.value,
-      parameters.processingTimeouts,
-      staticDomainParameters.protocolVersion,
-      loggerFactory,
-      futureSupervisor,
-    )
-    topologyManager = Some(manager)
-    startTopologyManagementWriteService(manager)
-    Right(manager)
+    val protocolVersion = staticDomainParameters.protocolVersion
+    if (protocolVersion.isSupported) {
+
+      // starts second stage
+      ErrorUtil.requireState(topologyManager.isEmpty, "Topology manager is already initialized.")
+
+      logger.debug("Starting domain topology manager")
+      val manager = new DomainTopologyManager(
+        DomainTopologyManagerId(nodeId.identity),
+        clock,
+        authorizedTopologyStore,
+        crypto.value,
+        parameters.processingTimeouts,
+        protocolVersion,
+        loggerFactory,
+        futureSupervisor,
+      )
+      topologyManager = Some(manager)
+      startTopologyManagementWriteService(manager)
+      Right(manager)
+    } else {
+      Left(
+        s"Domain node $nodeId cannot start, because protocol version $protocolVersion is not supported."
+      )
+    }
   }
 
   /** If we're running a sequencer within the domain node itself, then locally start some core services */

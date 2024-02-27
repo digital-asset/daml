@@ -295,91 +295,45 @@ class GrpcSequencerService(
   override def sendAsyncSigned(
       requestP: protocolV0.SignedContent
   ): Future[v0.SendAsyncSignedResponse] =
-    if (!SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unsigned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else if (SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The versioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        SignedSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = true,
-      ).map(_.toSendAsyncSignedResponseProto)
-    }
+    Future.failed(
+      wrongProtocolVersion(
+        s"The versioned send endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
   override def sendAsync(requestP: protocolV0.SubmissionRequest): Future[v0.SendAsyncResponse] =
-    if (SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The signed send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        PlainSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = true,
-      ).map(_.toSendAsyncResponseProto)
-    }
+    Future.failed(
+      wrongProtocolVersion(
+        s"The signed send endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
   override def sendAsyncUnauthenticated(
       requestP: protocolV0.SubmissionRequest
   ): Future[v0.SendAsyncResponse] =
-    if (SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The versioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        PlainSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = false,
-      ).map(_.toSendAsyncResponseProto)
-    }
+    Future.failed(
+      wrongProtocolVersion(
+        s"The versioned send endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
   override def sendAsyncVersioned(
       requestP: v0.SendAsyncVersionedRequest
   ): Future[v0.SendAsyncSignedResponse] =
-    if (!SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unversioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        VersionedSignedSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = true,
-      ).map(_.toSendAsyncSignedResponseProto)
-    }
+    validateAndSend(
+      requestP,
+      VersionedSignedSubmissionRequestProcessing,
+      isUsingAuthenticatedEndpoint = true,
+    ).map(_.toSendAsyncSignedResponseProto)
 
   override def sendAsyncUnauthenticatedVersioned(
       requestP: v0.SendAsyncUnauthenticatedVersionedRequest
   ): Future[v0.SendAsyncResponse] =
-    if (!SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unversioned send endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else {
-      validateAndSend(
-        requestP,
-        VersionedUnsignedSubmissionRequestProcessing,
-        isUsingAuthenticatedEndpoint = false,
-      ).map(_.toSendAsyncResponseProto)
-    }
+    validateAndSend(
+      requestP,
+      VersionedUnsignedSubmissionRequestProcessing,
+      isUsingAuthenticatedEndpoint = false,
+    ).map(_.toSendAsyncResponseProto)
 
   private def validateAndSend[ProtoClass <: scalapb.GeneratedMessage](
       proto: ProtoClass,
@@ -698,76 +652,43 @@ class GrpcSequencerService(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.SubscriptionResponse],
   ): Unit =
-    if (usingVersionedSubscription(protocolVersion))
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    else
-      subscribeInternal[v0.SubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = true,
-        toSubscriptionResponseV0,
-      )
-
-  def usingVersionedSubscription(protocolVersion: ProtocolVersion) =
-    protocolVersion >= ProtocolVersion.v5
+    responseObserver.onError(
+      wrongProtocolVersion(
+        s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
   override def subscribeUnauthenticated(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.SubscriptionResponse],
   ): Unit =
-    if (usingVersionedSubscription(protocolVersion)) {
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      subscribeInternal[v0.SubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = false,
-        toSubscriptionResponseV0,
-      )
+    responseObserver.onError(
+      wrongProtocolVersion(
+        s"The versioned subscribe endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
   override def subscribeVersioned(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.VersionedSubscriptionResponse],
   ): Unit =
-    if (!usingVersionedSubscription(protocolVersion)) {
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The unversioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      subscribeInternal[v0.VersionedSubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = true,
-        toVersionSubscriptionResponseV0,
-      )
+    subscribeInternal[v0.VersionedSubscriptionResponse](
+      request,
+      responseObserver,
+      requiresAuthentication = true,
+      toVersionSubscriptionResponseV0,
+    )
 
   override def subscribeUnauthenticatedVersioned(
       request: v0.SubscriptionRequest,
       responseObserver: StreamObserver[v0.VersionedSubscriptionResponse],
   ): Unit =
-    if (!usingVersionedSubscription(protocolVersion)) {
-      responseObserver.onError(
-        wrongProtocolVersion(
-          s"The unversioned subscribe endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      subscribeInternal[v0.VersionedSubscriptionResponse](
-        request,
-        responseObserver,
-        requiresAuthentication = false,
-        toVersionSubscriptionResponseV0,
-      )
+    subscribeInternal[v0.VersionedSubscriptionResponse](
+      request,
+      responseObserver,
+      requiresAuthentication = false,
+      toVersionSubscriptionResponseV0,
+    )
 
   private def subscribeInternal[T](
       request: v0.SubscriptionRequest,
@@ -834,34 +755,19 @@ class GrpcSequencerService(
     }
 
   override def acknowledge(requestP: v0.AcknowledgeRequest): Future[Empty] =
-    if (SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The signed acknowledgement endpoints must be used with protocol version $protocolVersion"
-        ).asException
-      )
-    } else
-      performAcknowledge(
-        AcknowledgeRequest
-          .fromProtoV0Unmemoized(requestP)
-          .map(ack => PlainAcknowledgeRequest(ack))
-      )
+    Future.failed(
+      wrongProtocolVersion(
+        s"The signed acknowledgement endpoints must be used with protocol version $protocolVersion"
+      ).asException
+    )
 
   override def acknowledgeSigned(request: protocolV0.SignedContent): Future[Empty] = {
-    if (!SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-      Future.failed(
-        wrongProtocolVersion(
-          s"The unsigned acknowledgement endpoints must be used with protocol version $protocolVersion"
-        ).asException
+    val acknowledgeRequestE = SignedContent
+      .fromProtoV0(request)
+      .flatMap(
+        _.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion))
       )
-    } else {
-      val acknowledgeRequestE = SignedContent
-        .fromProtoV0(request)
-        .flatMap(
-          _.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion))
-        )
-      performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
-    }
+    performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
   }
 
   private def performAcknowledge(

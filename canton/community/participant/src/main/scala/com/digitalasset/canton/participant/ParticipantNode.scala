@@ -125,8 +125,12 @@ class ParticipantNodeBootstrap(
       criticalDependencies = Seq(storage),
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
-      softDependencies =
-        Seq(syncDomainHealth, syncDomainEphemeralHealth, syncDomainSequencerClientHealth),
+      softDependencies = Seq(
+        syncDomainHealth,
+        syncDomainEphemeralHealth,
+        syncDomainSequencerClientHealth,
+        syncAcsCommitmentProcessorHealth,
+      ),
     )
 
   private val packageDependencyResolver =
@@ -382,6 +386,7 @@ class ParticipantNodeBootstrap(
       syncDomainHealth,
       syncDomainEphemeralHealth,
       syncDomainSequencerClientHealth,
+      syncAcsCommitmentProcessorHealth,
     )(logger)
     super.onClosed()
   }

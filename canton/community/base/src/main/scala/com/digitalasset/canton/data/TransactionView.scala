@@ -65,17 +65,6 @@ final case class TransactionView private (
       )
     )
 
-  private def tryUnblindSubview(subview: MerkleTree[TransactionView], fieldName: String)(implicit
-      loggingContext: NamedLoggingContext
-  ): TransactionView =
-    subview.unwrap.getOrElse(
-      ErrorUtil.internalError(
-        new IllegalStateException(
-          s"$fieldName of view $viewHash can be computed only if all subviews are unblinded, but ${subview.rootHash} is blinded"
-        )
-      )
-    )
-
   override private[data] def withBlindedSubtrees(
       blindingCommandPerNode: PartialFunction[RootHash, MerkleTree.BlindingCommand]
   ): MerkleTree[TransactionView] =
@@ -179,8 +168,6 @@ final case class TransactionView private (
     * while interpreting the root action of the view, enriched with the maintainers of the key and the
     * [[com.digitalasset.canton.protocol.LfTransactionVersion]] to be used for serializing the key.
     *
-    * @throws java.lang.UnsupportedOperationException
-    *   if the protocol version is below [[com.digitalasset.canton.version.ProtocolVersion.v3]]
     * @throws java.lang.IllegalStateException if the [[ViewParticipantData]] of this view or any subview is blinded
     */
   def globalKeyInputs(implicit
@@ -296,8 +283,6 @@ final case class TransactionView private (
     *
     * Must only be used in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]]
     *
-    * @throws java.lang.UnsupportedOperationException
-    *   if the protocol version is below [[com.digitalasset.canton.version.ProtocolVersion.v3]]
     * @throws java.lang.IllegalStateException if the [[ViewParticipantData]] of this view or any subview is blinded.
     */
   def activeLedgerState(implicit
@@ -309,8 +294,6 @@ final case class TransactionView private (
     *
     * Must only be used in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]]
     *
-    * @throws java.lang.UnsupportedOperationException
-    *   if the protocol version is below [[com.digitalasset.canton.version.ProtocolVersion.v3]]
     * @throws java.lang.IllegalStateException if the [[ViewParticipantData]] of this view or any subview is blinded.
     */
   def updatedKeys(implicit loggingContext: NamedLoggingContext): Map[LfGlobalKey, Set[LfPartyId]] =
@@ -320,8 +303,6 @@ final case class TransactionView private (
     *
     * Must only be used in mode [[com.daml.lf.transaction.ContractKeyUniquenessMode.Strict]]
     *
-    * @throws java.lang.UnsupportedOperationException
-    *   if the protocol version is below [[com.digitalasset.canton.version.ProtocolVersion.v3]]
     * @throws java.lang.IllegalStateException if the [[ViewParticipantData]] of this view or any subview is blinded.
     */
   def updatedKeyValues(implicit
@@ -518,11 +499,6 @@ object TransactionView
   @VisibleForTesting
   val viewParticipantDataUnsafe: Lens[TransactionView, MerkleTree[ViewParticipantData]] =
     GenLens[TransactionView](_.viewParticipantData)
-
-  /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
-  @VisibleForTesting
-  val subviewsUnsafe: Lens[TransactionView, TransactionSubviews] =
-    GenLens[TransactionView](_.subviews)
 
   private def fromProtoV0(
       context: (HashOps, ConfirmationPolicy, ProtocolVersion),

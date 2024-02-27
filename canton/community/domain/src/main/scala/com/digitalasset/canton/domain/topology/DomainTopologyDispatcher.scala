@@ -657,16 +657,7 @@ private[domain] class DomainTopologyDispatcher(
     val receivingParticipantsF = performUnlessClosingF(functionFullName)(
       headSnapshot
         .participants()
-        .map(_.collect {
-          case (participantId, perm)
-              if perm.isActive ||
-                // with protocol version v5, we also dispatch topology transactions to disabled participants
-                // which avoids the "catchup" tx computation.
-                // but beware, there is a difference between "Disabled" and "None". with disabled, you are
-                // explicitly disabled, with None, we are back at the behaviour of < v5
-                protocolVersion >= ProtocolVersion.v5 =>
-            participantId
-        })
+        .map(_.map { case (participantId, _) => participantId })
     )
     val mediatorsF = performUnlessClosingF(functionFullName)(
       headSnapshot.mediatorGroups().map(_.map(_.active))
@@ -1083,16 +1074,8 @@ class MemberTopologyCatchup(
     def isActivation(
         from: Option[ParticipantPermission],
         to: Option[ParticipantPermission],
-    ): Boolean =
-      if (protocolVersion < ProtocolVersion.v5) {
-        // before protocol version 5, we would not dispatch topology changes to disabled participants.
-        // starting with v5, we do, which changes the transition logic here
-        !from.getOrElse(ParticipantPermission.Disabled).isActive && to
-          .getOrElse(ParticipantPermission.Disabled)
-          .isActive
-      } else {
-        from.isEmpty && to.nonEmpty
-      }
+    ): Boolean = from.isEmpty && to.nonEmpty
+
     determinePermissionChange(asOf, participantId).flatMap {
       case (from, to) if isActivation(from, to) =>
         for {
@@ -1149,16 +1132,7 @@ class MemberTopologyCatchup(
     def isDeactivation(
         from: Option[ParticipantPermission],
         to: Option[ParticipantPermission],
-    ): Boolean = {
-      // same as above: different logic depending on protocol version
-      if (protocolVersion < ProtocolVersion.v5) {
-        from.getOrElse(ParticipantPermission.Disabled).isActive && !to
-          .getOrElse(ParticipantPermission.Disabled)
-          .isActive
-      } else {
-        from.nonEmpty && to.isEmpty
-      }
-    }
+    ): Boolean = from.nonEmpty && to.isEmpty
 
     val limit = 1000
     // let's find the last time this node got deactivated. note, we assume that the participant is

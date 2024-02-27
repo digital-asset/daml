@@ -116,5 +116,8 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
       result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
     }
 
+    "assert protocol versions of a release do not contain deleted protocol versions" in {
+      ProtocolVersion.stableAndSupported
+    }
   }
 }

@@ -21,10 +21,8 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, LfKeyResolver, LfPartyId, checked}
+import com.digitalasset.canton.{DiscardOps, LfPartyId}
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Helper to extract information from transaction view trees.
@@ -114,7 +112,6 @@ object ExtractUsedAndCreated {
       .map { hostedParties =>
         new ExtractUsedAndCreated(
           staticDomainParameters.uniqueContractKeys,
-          staticDomainParameters.protocolVersion,
           hostedParties,
           loggerFactory,
         ).usedAndCreated(rootViews)
@@ -138,7 +135,6 @@ object ExtractUsedAndCreated {
 
 private[validation] class ExtractUsedAndCreated(
     uniqueContractKeys: Boolean,
-    protocolVersion: ProtocolVersion,
     hostedParties: Map[LfPartyId, Boolean],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit traceContext: TraceContext)
@@ -161,12 +157,8 @@ private[validation] class ExtractUsedAndCreated(
     )
   }
 
-  private def inputAndUpdatedKeys(rootViews: Seq[TransactionView]): InputAndUpdatedKeys = {
-    if (protocolVersion >= ProtocolVersion.v3)
-      extractInputAndUpdatedKeysV3(rootViews)
-    else
-      extractInputAndUpdatedKeysV2(rootViews)
-  }
+  private def inputAndUpdatedKeys(rootViews: Seq[TransactionView]): InputAndUpdatedKeys =
+    extractInputAndUpdatedKeysV3(rootViews)
 
   private[validation] def inputContractPrep(
       dataViews: Seq[ViewData]
@@ -305,163 +297,6 @@ private[validation] class ExtractUsedAndCreated(
       maybeCreated = maybeCreated,
       transient = transient,
       used = inputContracts.used,
-    )
-  }
-
-  /** For [[com.digitalasset.canton.data.FullTransactionViewTree]]s produced by
-    * com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImplV2
-    */
-  private def extractInputAndUpdatedKeysV2(
-      rootViews: Seq[TransactionView]
-  ): InputAndUpdatedKeys = {
-    val perRootViewInputKeysB = Map.newBuilder[ViewHash, LfKeyResolver]
-    // We had computed `transientSameViewOrEarlier` already in `extractUsedAndCreatedContracts`,
-    // but we need to recompute it again for the keys here.
-    val transientSameViewOrEarlier = mutable.Set.empty[LfContractId]
-    val inputKeysOfHostedMaintainers = mutable.Map.empty[LfGlobalKey, ContractKeyJournal.Status]
-
-    // Stores the change in the number of active contracts for a given key.
-    // We process the nodes in the transaction out of execution order,
-    // so during processing the numbers may lie outside of {-1,0,+1}.
-    // At the end, however, by the assumption of internal key consistency of the submitted transaction
-    // we should end up with 0 or -1 for assigned input keys and 0 or +1 for unassigned ones.
-    //
-    // This assumption holds only for honest submitters. We don't need to improve this, because this code is only
-    // called by PV2 and this protocol version need not be resilient against malicious submitters.
-    //
-    // Keys in this map must be locked during phase 3 even if their status does not change (i.e., maps to 0)
-    // because we cannot guarantee that the transaction is committed atomically (with dishonest submitter and confirmers).
-    val keyUpdatesOfHostedMaintainers = mutable.Map.empty[LfGlobalKey, Int]
-
-    def updateKeyCount(key: LfGlobalKey, delta: Int): Unit = {
-      if (delta == 0) {
-        keyUpdatesOfHostedMaintainers.getOrElseUpdate(key, 0).discard[Int]
-      } else {
-        val previous = keyUpdatesOfHostedMaintainers.getOrElse(key, 0)
-        // We don't have to check for overflow here
-        // because by the assumption on internal key consistency,
-        // the overflows will cancel out in the end.
-        keyUpdatesOfHostedMaintainers += key -> (previous + delta)
-      }
-    }
-
-    def keyMustBeFree(key: LfGlobalKey): Unit = {
-      inputKeysOfHostedMaintainers.getOrElseUpdate(key, ContractKeyJournal.Unassigned).discard
-    }
-
-    rootViews.foreach { rootView =>
-      val resolvedKeysInView = mutable.Map.empty[LfGlobalKey, Option[LfContractId]]
-
-      viewDataInPreOrder(rootView).foreach { viewData =>
-        val viewParticipantData = viewData.participant
-        val informees = viewData.common.informees.map(_.party)
-
-        viewParticipantData.resolvedKeys.foreach { case (key, resolved) =>
-          resolvedKeysInView.getOrElseUpdate(key, resolved.resolution).discard
-          resolved match {
-            case FreeKey(maintainers) =>
-              if (hostsAny(maintainers)) {
-                keyMustBeFree(key)
-              }
-            case AssignedKey(_) =>
-            // AssignedKeys are part of the coreInputs and thus will be dealt with below.
-          }
-        }
-        viewParticipantData.coreInputs.values.foreach { inputContractWithMetadata =>
-          if (
-            inputContractWithMetadata.consumed &&
-            hostsAny(inputContractWithMetadata.maintainers)
-          ) {
-            val key = inputContractWithMetadata.contractKey.getOrElse(
-              throw new RuntimeException(
-                "If there is no key, then there cannot be a hosted maintainer."
-              )
-            )
-            // In UCK mode (inputKeysOfHostedMaintainers only used in UCK mode), key must still be marked as
-            // assigned even if the contract was consumed under a rollback node. (In non-UCK mode the semantics
-            // are more nuanced per https://github.com/digital-asset/daml/pull/9546).
-            inputKeysOfHostedMaintainers.getOrElseUpdate(key, ContractKeyJournal.Assigned).discard
-
-            // Contract key assignments below rollbacks do not change at the level of the transaction.
-            if (!viewParticipantData.rollbackContext.inRollback) {
-              // But under rollback we would not update the key count
-              updateKeyCount(key, delta = -1)
-            }
-          }
-        }
-
-        def isCreatedContractRolledBack(createdContract: CreatedContract): Boolean =
-          viewParticipantData.rollbackContext.inRollback || createdContract.rolledBack
-
-        // Since the informees of a Create node are the stakeholders of the created contract,
-        // the participant either witnesses all creations in a view's core or hosts a party of all created contracts.
-        if (hostsAny(informees)) {
-          transientSameViewOrEarlier ++= viewData.transientContracts()
-
-          // Update the key allocation count for created contracts.
-          // Also deals with their archivals for transient contracts
-          // if the archival happens in the current view's core or one of its parent view's cores.
-          //
-          // If the archival happens in a proper subview or a later subview of the current view,
-          // then this view will list the contract among its core inputs and the archival will be dealt with then.
-          viewParticipantData.createdCore.foreach { createdContract =>
-            createdContract.contract.metadata.maybeKeyWithMaintainers.foreach { keyAndMaintainer =>
-              val LfGlobalKeyWithMaintainers(key, maintainers) = keyAndMaintainer
-              if (hostsAny(maintainers)) {
-                keyMustBeFree(key)
-
-                if (isCreatedContractRolledBack(createdContract)) {
-                  // Created contracts under rollback nodes don't update the key count.
-                  updateKeyCount(key, delta = 0)
-                } else if (
-                  transientSameViewOrEarlier.contains(createdContract.contract.contractId)
-                ) {
-                  // If the contract is archived by the core of the current view or a parent view,
-                  // then it's transient and doesn't modify the allocation count.
-                  //
-                  // `transientSameViewOrEarlier` may contain contracts archived in earlier root views or
-                  // from subviews of the current root view that precede the current subview.
-                  // So it is a superset of the contracts we're looking for.
-                  // However, this does not affect the condition here by the assumption of internal consistency,
-                  // because these archivals from preceding non-parent views must refer to different contract IDs
-                  // as the contract ID of the created node is fresh.
-                  updateKeyCount(key, delta = 0)
-                } else {
-                  updateKeyCount(key, delta = 1)
-                }
-              }
-            }
-          }
-        }
-      }
-      perRootViewInputKeysB += rootView.viewHash -> resolvedKeysInView.toMap
-    }
-
-    // Only perform activeness checks for keys on domains with unique contract key semantics
-    val (updatedKeys, freeKeys) = if (uniqueContractKeys) {
-      val updatedKeys = keyUpdatesOfHostedMaintainers.map { case (key, delta) =>
-        import ContractKeyJournal.*
-        val newStatus = (checked(inputKeysOfHostedMaintainers(key)), delta) match {
-          case (status, 0) => status
-          case (Assigned, -1) => Unassigned
-          case (Unassigned, 1) => Assigned
-          case (status, _) =>
-            throw new IllegalArgumentException(
-              s"Request changes allocation count of $status key $key by $delta."
-            )
-        }
-        key -> newStatus
-      }.toMap
-      val freeKeys = inputKeysOfHostedMaintainers.collect {
-        case (key, ContractKeyJournal.Unassigned) => key
-      }.toSet
-      (updatedKeys, freeKeys)
-    } else (Map.empty[LfGlobalKey, ContractKeyJournal.Status], Set.empty[LfGlobalKey])
-
-    InputAndUpdatedKeysV2(
-      keyResolvers = perRootViewInputKeysB.result(),
-      uckFreeKeysOfHostedMaintainers = freeKeys,
-      uckUpdatedKeysOfHostedMaintainers = updatedKeys,
     )
   }
 

@@ -131,18 +131,11 @@ class GrpcSequencerClientTransportPekko(
       )
     }
 
-    if (protocolVersion >= ProtocolVersion.v5) {
-      val subscriber =
-        if (requiresAuthentication) sequencerServiceClient.subscribeVersioned _
-        else sequencerServiceClient.subscribeUnauthenticatedVersioned _
+    val subscriber =
+      if (requiresAuthentication) sequencerServiceClient.subscribeVersioned _
+      else sequencerServiceClient.subscribeUnauthenticatedVersioned _
 
-      mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV0(protocolVersion)(_)(_))
-    } else {
-      val subscriber =
-        if (requiresAuthentication) sequencerServiceClient.subscribe _
-        else sequencerServiceClient.subscribeUnauthenticated _
-      mkSubscription(subscriber)(SubscriptionResponse.fromProtoV0(protocolVersion)(_)(_))
-    }
+    mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV0(protocolVersion)(_)(_))
 
   }
 

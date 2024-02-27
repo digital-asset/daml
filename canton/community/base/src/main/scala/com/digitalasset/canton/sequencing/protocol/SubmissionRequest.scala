@@ -202,9 +202,4 @@ object SubmissionRequest
     )(rpv, bytes)
   }
 
-  def usingSignedSubmissionRequest(protocolVersion: ProtocolVersion): Boolean =
-    protocolVersion >= ProtocolVersion.v4
-
-  def usingVersionedSubmissionRequest(protocolVersion: ProtocolVersion): Boolean =
-    protocolVersion >= ProtocolVersion.v5
 }

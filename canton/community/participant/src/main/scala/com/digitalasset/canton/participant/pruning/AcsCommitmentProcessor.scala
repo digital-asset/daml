@@ -19,11 +19,18 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  OnShutdownRunner,
+}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.event.{AcsChange, AcsChangeListener, RecordTime}
 import com.digitalasset.canton.participant.metrics.PruningMetrics
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.DegradationError
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
@@ -161,6 +168,11 @@ class AcsCommitmentProcessor(
     with NamedLogging {
 
   import AcsCommitmentProcessor.*
+  private[canton] val healthComponent = new AcsCommitmentProcessorHealth(
+    AcsCommitmentProcessor.healthName,
+    this,
+    logger,
+  )
 
   // As the commitment computation is in the worst case expected to last the same order of magnitude as the
   // reconciliation interval, wait for at least that long
@@ -431,7 +443,10 @@ class AcsCommitmentProcessor(
     * the participant sends out commitments for each reconciliation interval covered by the catch-up period to those
     * counter-participants whose commitments do not match.
     */
-  private def publishTick(toc: RecordTime, acsChange: AcsChange)(implicit
+  private def publishTick(
+      toc: RecordTime,
+      acsChange: AcsChange,
+  )(implicit
       traceContext: TraceContext
   ): Unit = {
     if (!lastPublished.forall(_ < toc))
@@ -475,6 +490,17 @@ class AcsCommitmentProcessor(
         hasCaughtUpToBoundaryRes <- caughtUpToBoundary(
           completedPeriod.toInclusive.forgetRefinement
         )
+
+        _ = if (catchingUpInProgress && healthComponent.isOk) {
+          metrics.commitments.catchupModeEnabled.mark()
+          logger.debug(s"Entered catch-up mode with config ${config.toString}")
+          if (config.exists(cfg => cfg.catchUpIntervalSkip.value == 1))
+            healthComponent.degradationOccurred(
+              DegradationError.AcsCommitmentDegradationWithIneffectiveConfig.Report()
+            )
+          else
+            healthComponent.degradationOccurred(DegradationError.AcsCommitmentDegradation.Report())
+        }
 
         _ = logger.debug(
           show"Processing completed period $completedPeriod. Modes: in catch-up mode = $catchingUpInProgress, " +
@@ -535,6 +561,7 @@ class AcsCommitmentProcessor(
 
         _ <-
           if (!catchingUpInProgress) {
+            healthComponent.resolveUnhealthy()
             indicateReadyForRemote(completedPeriod.toInclusive)
             for {
               _ <- processBuffered(completedPeriod.toInclusive)
@@ -1186,9 +1213,21 @@ class AcsCommitmentProcessor(
     // flatMap instead of zip because the `publishQueue` pushes tasks into the `queue`,
     // so we must call `queue.flush()` only after everything in the `publishQueue` has been flushed.
     publishQueue.flush().flatMap(_ => dbQueue.flush())
+
+  private[canton] class AcsCommitmentProcessorHealth(
+      override val name: String,
+      override protected val associatedOnShutdownRunner: OnShutdownRunner,
+      override protected val logger: TracedLogger,
+  ) extends AtomicHealthComponent {
+    override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
+    override def closingState: ComponentHealthState =
+      ComponentHealthState.failed(s"Disconnected from domain")
+  }
 }
 
 object AcsCommitmentProcessor extends HasLoggerName {
+
+  val healthName: String = "acs-commitment-processor"
 
   type ProcessorType =
     (
@@ -1400,14 +1439,15 @@ object AcsCommitmentProcessor extends HasLoggerName {
       runningCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       domainCrypto: SyncCryptoClient[SyncCryptoApi],
       timestamp: CantonTimestampSecond,
-      pruningMetrics: Option[PruningMetrics],
+      metrics: Option[PruningMetrics],
       parallelism: PositiveNumeric[Int],
       cachedCommitments: CachedCommitments,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): Future[Map[ParticipantId, AcsCommitment.CommitmentType]] = {
-    val commitmentTimer = pruningMetrics.map(_.commitments.compute.startAsync())
+
+    val commitmentTimer = metrics.map(_.commitments.compute.startAsync())
 
     for {
       byParticipant <- stakeholderCommitmentsPerParticipant(
@@ -1735,6 +1775,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   }
 
   object Errors extends AcsCommitmentErrorGroup {
+
     @Explanation(
       """This error indicates that there was an internal error within the ACS commitment processing."""
     )
@@ -1811,6 +1852,46 @@ object AcsCommitmentProcessor extends HasLoggerName {
       @Resolution("Contact support.")
       object AcsCommitmentAlarm extends AlarmErrorCode(id = "ACS_COMMITMENT_ALARM") {
         final case class Warn(override val cause: String) extends Alarm(cause)
+      }
+    }
+
+    trait AcsCommitmentDegradation extends CantonError
+    object DegradationError extends ErrorGroup {
+
+      @Explanation(
+        "The participant is configured to engage catchup mode, however configuration is invalid to have any effect"
+      )
+      @Resolution("Please update catchup mode to have a catchUpIntervalSkip higher than 1")
+      object AcsCommitmentDegradationWithIneffectiveConfig
+          extends ErrorCode(
+            id = "ACS_COMMITMENT_DEGRADATION_WITH_INEFFECTIVE_CONFIG",
+            ErrorCategory.BackgroundProcessDegradationWarning,
+          ) {
+        final case class Report()(implicit
+            val loggingContext: ErrorLoggingContext
+        ) extends CantonError.Impl(
+              cause =
+                "The participant has activated catchup mode, however catchUpIntervalSkip is set to 1, so it will have no improvement."
+            )
+            with AcsCommitmentDegradation
+      }
+
+      @Explanation(
+        "The participant has detected that ACS computation is taking to long and trying to catch up."
+      )
+      @Resolution("Catch up mode is enabled and the participant should recover on its own.")
+      object AcsCommitmentDegradation
+          extends ErrorCode(
+            id = "ACS_COMMITMENT_DEGRADATION",
+            ErrorCategory.BackgroundProcessDegradationWarning,
+          ) {
+        final case class Report()(implicit
+            val loggingContext: ErrorLoggingContext
+        ) extends CantonError.Impl(
+              cause =
+                "The participant has activated ACS catchup mode to combat computation problem."
+            )
+            with AcsCommitmentDegradation
       }
     }
   }

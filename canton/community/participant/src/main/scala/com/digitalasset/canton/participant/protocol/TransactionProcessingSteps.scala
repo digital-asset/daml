@@ -81,7 +81,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   DiscardOps,
   LedgerSubmissionId,
@@ -1225,20 +1224,16 @@ class TransactionProcessingSteps(
       inputContracts: Map[LfContractId, SerializableContract]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, Unit] =
-    if (protocolVersion < ProtocolVersion.v4)
-      EitherT.rightT(())
-    else
-      EitherT.fromEither(
-        inputContracts.toList
-          .traverse_ { case (contractId, contract) =>
-            serializableContractAuthenticator
-              .authenticate(contract)
-              .leftMap(message =>
-                ContractAuthenticationFailed.Error(contractId, message).reported()
-              )
-          }
-      )
+  ): EitherT[Future, TransactionProcessorError, Unit] = {
+    EitherT.fromEither(
+      inputContracts.toList
+        .traverse_ { case (contractId, contract) =>
+          serializableContractAuthenticator
+            .authenticate(contract)
+            .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
+        }
+    )
+  }
 
   private def completionInfoFromSubmitterMetadataO(
       meta: SubmitterMetadata,

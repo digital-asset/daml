@@ -188,9 +188,7 @@ private[domain] object RequestProcessingStrategy {
         transactions: List[SignedTopologyTransaction[TopologyChangeOp]],
     )(implicit
         traceContext: TraceContext
-    ): EitherT[Future, DomainTopologyManagerError, Unit] = if (protocolVersion < ProtocolVersion.v3)
-      EitherT.pure(())
-    else {
+    ): EitherT[Future, DomainTopologyManagerError, Unit] =
       EitherT
         .fromEither[Future](transactions.traverse { tx =>
           for {
@@ -222,7 +220,6 @@ private[domain] object RequestProcessingStrategy {
             .Failure(participantId = participantId, reason = err)
         )
         .map(_ => ())
-    }
 
     private def validateAuthorizationOfOnboardingTransactions(
         participantId: ParticipantId,
@@ -434,18 +431,14 @@ private[domain] class DomainTopologyManagerRequestService(
             (
               rest,
               acc :+ RegisterTopologyTransactionResponseResult.create(
-                tx.uniquePath.toProtoPrimitive,
-                result,
-                protocolVersion,
+                result
               ),
             )
           case ((rest, acc), (tx, failed)) =>
             (
               rest,
               acc :+ RegisterTopologyTransactionResponseResult.create(
-                tx.uniquePath.toProtoPrimitive,
-                failed,
-                protocolVersion,
+                failed
               ),
             )
         }

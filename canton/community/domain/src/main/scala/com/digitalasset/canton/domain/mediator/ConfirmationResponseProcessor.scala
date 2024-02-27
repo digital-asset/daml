@@ -234,7 +234,6 @@ private[mediator] class ConfirmationResponseProcessor(
             val aggregationF = ResponseAggregation.fromRequest(
               requestId,
               request,
-              protocolVersion,
               topologySnapshot,
             )
 

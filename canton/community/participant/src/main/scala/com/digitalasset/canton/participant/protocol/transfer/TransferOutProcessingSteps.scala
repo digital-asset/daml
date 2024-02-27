@@ -118,13 +118,6 @@ class TransferOutProcessingSteps(
       _ <- targetIsNotSource(contractId, targetDomain)
       storedContract <- getStoredContract(ephemeralState.contractLookup, contractId)
       stakeholders = storedContract.contract.metadata.stakeholders
-      templateId = storedContract.contract.rawContractInstance.contractInstance.unversioned.template
-
-      _ <- PVSourceDestinationDomainsAreCompatible(
-        sourceDomainProtocolVersion,
-        targetProtocolVersion,
-        contractId,
-      )
 
       timeProofAndSnapshot <- transferCoordination.getTimeProofAndSnapshot(targetDomain)
       (timeProof, targetCrypto) = timeProofAndSnapshot
@@ -495,7 +488,6 @@ class TransferOutProcessingSteps(
         requestId,
         transferringParticipant,
         activenessResult,
-        contract.contractId,
         confirmingStakeholders.toSet,
         fullTree.viewHash,
         fullTree.tree.rootHash,
@@ -706,7 +698,6 @@ class TransferOutProcessingSteps(
       requestId: RequestId,
       transferringParticipant: Boolean,
       activenessResult: ActivenessResult,
-      contractId: LfContractId,
       confirmingStakeholders: Set[LfPartyId],
       viewHash: ViewHash,
       rootHash: RootHash,

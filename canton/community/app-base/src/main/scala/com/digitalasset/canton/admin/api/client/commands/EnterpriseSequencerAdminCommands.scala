@@ -22,7 +22,6 @@ import com.digitalasset.canton.pruning.admin.v0.LocatePruningTimestamp
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
 import com.digitalasset.canton.topology.{DomainId, Member}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
@@ -93,22 +92,6 @@ object EnterpriseSequencerAdminCommands {
   }
 
   object Initialize {
-    final case class V0(
-        domainId: DomainId,
-        topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive],
-        domainParameters: StaticDomainParameters,
-        snapshotO: Option[SequencerSnapshot],
-    ) extends Initialize[v0.InitRequest] {
-
-      override protected def serializer: InitializeSequencerRequest => v0.InitRequest = _.toProtoV0
-
-      override def submitRequest(
-          service: v0.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
-          request: v0.InitRequest,
-      ): Future[v0.InitResponse] =
-        service.init(request)
-    }
-
     final case class V1(
         domainId: DomainId,
         topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive],
@@ -130,11 +113,7 @@ object EnterpriseSequencerAdminCommands {
         topologySnapshot: StoredTopologyTransactions[TopologyChangeOp.Positive],
         domainParameters: StaticDomainParameters,
         snapshotO: Option[SequencerSnapshot] = None,
-    ): Initialize[_] = {
-      if (domainParameters.protocolVersion >= ProtocolVersion.v4)
-        V1(domainId, topologySnapshot, domainParameters, snapshotO)
-      else V0(domainId, topologySnapshot, domainParameters, snapshotO)
-    }
+    ): Initialize[_] = V1(domainId, topologySnapshot, domainParameters, snapshotO)
   }
 
   final case class Snapshot(timestamp: CantonTimestamp)

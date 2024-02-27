@@ -173,7 +173,7 @@ final case class GenTransactionTree private (
       protocolVersion: ProtocolVersion
   ): Seq[LightTransactionViewTree] =
     allTransactionViewTrees.map(
-      LightTransactionViewTree.fromTransactionViewTree(_, protocolVersion)
+      LightTransactionViewTree.fromTransactionViewTree
     )
 
   /** All lightweight transaction trees in this [[GenTransactionTree]], accompanied by their witnesses and randomness
@@ -223,7 +223,7 @@ final case class GenTransactionTree private (
     witnessAndSeedMapE.map { witnessAndSeedMap =>
       allTransactionViewTrees.map { tvt =>
         val (witnesses, seed) = witnessAndSeedMap(tvt.viewPosition)
-        (LightTransactionViewTree.fromTransactionViewTree(tvt, protocolVersion), witnesses, seed)
+        (LightTransactionViewTree.fromTransactionViewTree(tvt), witnesses, seed)
       }
     }
   }

@@ -326,7 +326,6 @@ class MediatorEventStageProcessorTest extends AsyncWordSpec with BaseTest with H
     ResponseAggregation.fromRequest(
       requestId,
       InformeeMessage(fullInformeeTree)(testedProtocolVersion),
-      testedProtocolVersion,
       mockTopologySnapshot,
     )
   }

@@ -294,10 +294,7 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
           // The slot is available to us -- yay!
           val amSubmitter = submissionData.submitterParticipant == participantId
 
-          val requestIsValidFUS = if (protocolVersion <= ProtocolVersion.v4) {
-            // Replay mitigation was introduced in PV=5; before that, we fall back on the previous behavior
-            FutureUnlessShutdown.pure(amSubmitter)
-          } else {
+          val requestIsValidFUS = {
             val maxSequencingTime = submissionData.maxSequencingTimeO.getOrElse(
               ErrorUtil.internalError(
                 new InternalError(

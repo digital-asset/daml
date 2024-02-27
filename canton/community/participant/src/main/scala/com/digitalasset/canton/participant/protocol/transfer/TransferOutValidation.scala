@@ -93,11 +93,6 @@ private[transfer] object TransferOutValidation {
     for {
       _ <- validation.checkStakeholders
       _ <- validation.checkParticipants(logger)
-      _ <- PVSourceDestinationDomainsAreCompatible(
-        sourceProtocolVersion,
-        request.targetDomainPV,
-        request.contractId,
-      )
     } yield ()
   }
 
