@@ -340,19 +340,16 @@ checkDefDataType origin datatype = do
           checkFields origin (Upgrading {..})
       Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
           let upgrade = Upgrading{..}
-          (existing, new) <- checkDeleted (\_ -> EUpgradeError (VariantRemovedVariant origin)) (fmap HMS.fromList upgrade)
-          when (not (null new)) $
-              throwWithContextF present $ EUpgradeError (VariantAddedVariant origin)
+          (existing, _new) <- checkDeleted (\_ -> EUpgradeError (VariantRemovedVariant origin)) (fmap HMS.fromList upgrade)
           when (not (all (foldU alphaType) existing)) $
               throwWithContextF present $ EUpgradeError (VariantChangedVariantType origin)
       Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
           let upgrade = Upgrading{..}
-          (_, new) <-
+          (_, _new) <-
               checkDeleted
                 (\_ -> EUpgradeError (EnumRemovedVariant origin))
                 (fmap (HMS.fromList . map (,())) upgrade)
-          when (not (null new)) $
-              throwWithContextF present $ EUpgradeError (EnumAddedVariant origin)
+          pure ()
       Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
           pure ()
       _ ->
@@ -364,14 +361,13 @@ checkFields origin fields = do
     -- If a field from the upgraded package has had its type changed
     when (any matchingFieldDifferentType existing) $
         throwWithContextF present (EUpgradeError (RecordFieldsExistingChanged origin))
-    case origin of
-      VariantConstructor{} ->
-        when (not (null new)) $
+    when (not (all newFieldOptionalType new)) $
+        case origin of
+          VariantConstructor{} ->
             throwWithContextF present (EUpgradeError (VariantAddedVariantField origin))
-      _ ->
-        -- If a new field has a non-optional type
-        when (not (all newFieldOptionalType new)) $
+          _ ->
             throwWithContextF present (EUpgradeError (RecordFieldsNewNonOptional origin))
+        -- If a new field has a non-optional type
     -- If the order of fields changed
     when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) fields) $
         throwWithContextF present (EUpgradeError (RecordFieldsOrderChanged origin))

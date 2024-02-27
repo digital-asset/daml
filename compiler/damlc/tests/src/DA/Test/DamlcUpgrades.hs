@@ -703,7 +703,7 @@ tests damlc =
               ]
         , test
               "Fails when a top-level variant adds a variant"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added a new variant.")
+              Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -754,7 +754,7 @@ tests damlc =
               ]
         , test
               "Fails when a top-level variant adds an optional field to a variant's type"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded variant constructor Y from variant A has added a field.")
+              Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
@@ -771,7 +771,7 @@ tests damlc =
               ]
         , test
               "Fails when a top-level enum changes"
-              (FailWithError "\ESC\\[0;91merror type checking data type MyLib.A:\n  The upgraded data type A has added a new variant.")
+              Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"

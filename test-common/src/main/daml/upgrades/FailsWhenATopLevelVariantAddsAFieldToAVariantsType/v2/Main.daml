@@ -1,0 +1,2 @@
+module Main where
+data A = X { x : Int } | Y { y : Int, y2 : Int }

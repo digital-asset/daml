@@ -45,7 +45,7 @@ object UpgradeError {
 
   final case class MissingDataCon(name: Ref.DottedName) extends Error {
     override def message: String =
-      s"Datatype $name appears in package that is being upgraded, but does not appear in the upgrading package."
+      s"Data type $name appears in package that is being upgraded, but does not appear in the upgrading package."
   }
 
   final case class MissingChoice(name: Ref.ChoiceName) extends Error {
@@ -166,12 +166,12 @@ final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.Choic
 final case class VariantConstructor(datatype: Ref.DottedName, variant: Ref.TypeConName)
     extends UpgradedRecordOrigin {
   override def toString(): String =
-    s"variant constructor $variant from variant $datatype"
+    s"variant constructor ${variant.qualifiedName.name} from variant $datatype"
 }
 
 final case class TopLevel(datatype: Ref.DottedName) extends UpgradedRecordOrigin {
   override def toString(): String =
-    s"datatype $datatype"
+    s"data type $datatype"
 }
 
 final case class ModuleWithMetadata(module: Ast.Module) {
@@ -192,7 +192,7 @@ final case class ModuleWithMetadata(module: Ast.Module) {
       (dataTypeName, Ast.DDataType(_, _, variant: Ast.DataVariant)) <- module.definitions
       (recordName, variantType) <- variant.variants.iterator
       variantName <- leftMostApp(variantType).iterator
-      fullName = dataTypeName.segments.init.slowSnoc(recordName)
+      fullName = dataTypeName.segments.slowSnoc(recordName)
     } yield (Ref.DottedName.unsafeFromNames(fullName), (dataTypeName, variantName))
 
   private def leftMostApp(typ: Ast.Type): Option[Ref.TypeConName] = {
@@ -313,6 +313,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       })
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
+    println(moduleWithMetadata.map(_.variantNameMap))
     for {
       (existingTemplates, _new) <- checkDeleted(
         module.map(_.templates),
@@ -344,28 +345,39 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def checkType(typ: Upgrading[Ast.Type]): Boolean = {
-    AlphaEquiv.alphaEquiv(unifyPackageIds(typ.past), unifyPackageIds(typ.present))
+    AlphaEquiv.alphaEquiv(unifyTypes(typ.past), unifyTypes(typ.present))
   }
 
   // TODO: https://github.com/digital-asset/daml/pull/18377
   // We should strip package ids from all packages in the upgrade set, not just within the pair
-  private def unifyPackageIds(typ: Ast.Type): Ast.Type = {
-    def stripIdentifier(id: Ref.Identifier): Ref.Identifier =
-      if (id.packageId == packageId.present) {
-        Ref.Identifier(packageId.past, id.qualifiedName)
-      } else {
-        id
-      }
+  private def unifyIdentifier(id: Ref.Identifier): Ref.Identifier =
+    if (id.packageId == packageId.present) {
+      Ref.Identifier(packageId.past, id.qualifiedName)
+    } else {
+      id
+    }
 
+  private def unifyUpgradedRecordOrigin(origin: UpgradedRecordOrigin): UpgradedRecordOrigin =
+    origin match {
+      case _: TemplateBody => origin
+      case TemplateChoiceInput(template, choice) =>
+        TemplateChoiceInput(template, choice)
+      case VariantConstructor(datatype, variant) =>
+        VariantConstructor(datatype, unifyIdentifier(variant))
+      case TopLevel(datatype: Ref.DottedName) =>
+        TopLevel(datatype)
+    }
+
+  private def unifyTypes(typ: Ast.Type): Ast.Type = {
     typ match {
       case Ast.TNat(n) => Ast.TNat(n)
-      case Ast.TSynApp(n, args) => Ast.TSynApp(stripIdentifier(n), args.map(unifyPackageIds(_)))
+      case Ast.TSynApp(n, args) => Ast.TSynApp(unifyIdentifier(n), args.map(unifyTypes(_)))
       case Ast.TVar(n) => Ast.TVar(n)
-      case Ast.TTyCon(con) => Ast.TTyCon(stripIdentifier(con))
+      case Ast.TTyCon(con) => Ast.TTyCon(unifyIdentifier(con))
       case Ast.TBuiltin(bt) => Ast.TBuiltin(bt)
-      case Ast.TApp(fun, arg) => Ast.TApp(unifyPackageIds(fun), unifyPackageIds(arg))
-      case Ast.TForall(v, body) => Ast.TForall(v, unifyPackageIds(body))
-      case Ast.TStruct(fields) => Ast.TStruct(fields.mapValues(unifyPackageIds(_)))
+      case Ast.TApp(fun, arg) => Ast.TApp(unifyTypes(fun), unifyTypes(arg))
+      case Ast.TForall(v, body) => Ast.TForall(v, unifyTypes(body))
+      case Ast.TStruct(fields) => Ast.TStruct(fields.mapValues(unifyTypes(_)))
     }
   }
 
@@ -404,12 +416,12 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   ): Try[Unit] = {
     val (name, datatype) = nameAndDatatype
     val origin = moduleWithMetadata.map(_.dataTypeOrigin(name))
-    if (origin.present != origin.past) {
+    if (unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)) {
       fail(UpgradeError.RecordChangedOrigin(name, origin))
     } else {
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-          checkFields(origin.present, Upgrading(past, present))
+          checkFields(name, origin.present, Upgrading(past, present))
         case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
           val upgrade = Upgrading(past, present)
           val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
@@ -420,8 +432,6 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
               (_: Ast.VariantConName, _: Ast.Type) =>
                 UpgradeError.VariantRemovedVariant(origin.present),
             )
-
-            _ <- failIf(new_.nonEmpty, UpgradeError.VariantAddedVariant(origin.present))
 
             changedTypes = existing.filter { case (field @ _, typ) => !checkType(typ) }
             _ <-
@@ -438,10 +448,6 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
               enums,
               (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
             )
-
-            _ <-
-              if (new_.nonEmpty) fail(UpgradeError.EnumAddedVariant(origin.present))
-              else Success(())
           } yield ()
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
         case other => fail(UpgradeError.MismatchDataConsVariety(name, other))
@@ -450,6 +456,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def checkFields(
+      name: Ref.DottedName,
       origin: UpgradedRecordOrigin,
       records: Upgrading[Ast.DataRecord],
   ): Try[Unit] = {
@@ -475,12 +482,16 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
       // Then we check for new non-optional types, and vary the message if its a variant
       newNonOptionalTypes = _new_.find { case (field @ _, typ) => !fieldTypeOptional(typ) }
-      _ <- origin match {
-        case _: VariantConstructor =>
-          failIf(_new_.nonEmpty, UpgradeError.VariantAddedVariantField(origin))
-        case _ =>
-          failIf(newNonOptionalTypes.nonEmpty, UpgradeError.RecordFieldsNewNonOptional(origin))
-      }
+      _ <- failIf(newNonOptionalTypes.nonEmpty, origin match {
+        case _: VariantConstructor => {
+          println(s"lalalalala name $name")
+          UpgradeError.VariantAddedVariantField(origin)
+        }
+        case _ => {
+          println(s"lalalalala name $name")
+          UpgradeError.RecordFieldsNewNonOptional(origin)
+        }
+      })
 
       // Finally, reordered field names
       changedFieldNames: ImmArray[(Ast.FieldName, Ast.FieldName)] = {

@@ -1,0 +1,2 @@
+module Main where
+data A = A { x : Int, y : Optional Text }

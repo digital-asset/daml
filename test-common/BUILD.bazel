@@ -116,6 +116,19 @@ da_scala_dar_resources_library(
         "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice",
         "SucceedsWhenTemplateChoiceInputArgumentHasChanged",
         "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged",
+
+        # More tests ported from DamlcUpgrades.hs
+        "FailsWhenATopLevelEnumChanges",
+        "FailsWhenATopLevelRecordAddsANonOptionalField",
+        "FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd",
+        "FailsWhenATopLevelVariantAddsAFieldToAVariantsType",
+        "FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType",
+        "FailsWhenATopLevelVariantAddsAVariant",
+        "FailsWhenATopLevelVariantRemovesAVariant",
+        "FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes",
+        "SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd",
+        "SucceedsWhenATopLevelTypeSynonymChanges",
+        "SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes",
     ]
 ]
 
