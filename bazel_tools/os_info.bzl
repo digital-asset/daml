@@ -18,10 +18,10 @@ is_intel = is_windows or is_darwin or is_linux_intel
 def _os_info_impl(repository_ctx):
     cpu = get_cpu_value(repository_ctx)
     known_cpu_values = [
-        "aarch64", # linux arm64
-        "darwin", # macOS amd64
-        "darwin_arm64", # macOS arm64
-        "k8", # linux amd64
+        "aarch64",  # linux arm64
+        "darwin",  # macOS amd64
+        "darwin_arm64",  # macOS arm64
+        "k8",  # linux amd64
         "x64_windows",
     ]
     if cpu not in known_cpu_values:

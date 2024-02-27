@@ -482,16 +482,19 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
 
       // Then we check for new non-optional types, and vary the message if its a variant
       newNonOptionalTypes = _new_.find { case (field @ _, typ) => !fieldTypeOptional(typ) }
-      _ <- failIf(newNonOptionalTypes.nonEmpty, origin match {
-        case _: VariantConstructor => {
-          println(s"lalalalala name $name")
-          UpgradeError.VariantAddedVariantField(origin)
-        }
-        case _ => {
-          println(s"lalalalala name $name")
-          UpgradeError.RecordFieldsNewNonOptional(origin)
-        }
-      })
+      _ <- failIf(
+        newNonOptionalTypes.nonEmpty,
+        origin match {
+          case _: VariantConstructor => {
+            println(s"lalalalala name $name")
+            UpgradeError.VariantAddedVariantField(origin)
+          }
+          case _ => {
+            println(s"lalalalala name $name")
+            UpgradeError.RecordFieldsNewNonOptional(origin)
+          }
+        },
+      )
 
       // Finally, reordered field names
       changedFieldNames: ImmArray[(Ast.FieldName, Ast.FieldName)] = {
