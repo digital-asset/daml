@@ -267,8 +267,8 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           }
       }
 
-    lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
-    lazy val modulePattern: Regex = "\\{- MODULE *\n((?:.|[\r\n])+?)-\\}".r
+    lazy val packagePattern: Regex = "(?:^|\n)\\{- PACKAGE *\n((?:.|[\r\n])+?)\n-\\}".r
+    lazy val modulePattern: Regex = "(?:^|\n)\\{- MODULE *\n((?:.|[\r\n])+?)\n-\\}".r
 
     def readFromFile(path: Path): Seq[PackageDefinition] = {
       val fileContents = Files.readString(path)

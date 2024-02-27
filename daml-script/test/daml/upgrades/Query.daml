@@ -6,6 +6,8 @@ module Query (main) where
 import UpgradeTestLib
 import qualified V1.Query as V1
 import qualified V2.Query as V2
+import qualified V2.QueryDelayedUpgrade as V2
+import qualified V3.QueryDelayedUpgrade as V3
 
 {- PACKAGE
 name: query
@@ -30,6 +32,8 @@ main = tests
   [ ("Upgrade a contract when querying", queryUpgraded)
   , ("Downgrade a contract with Nones when querying", queryDowngradedNone)
   , ("Fail to downgrade a contract with Somes when querying", queryDowngradedSome)
+  , ("Succeeds adding a field to a template only defined in V2", queryDelayedUpgraded)
+  , ("Succeeds adding a field to a nested datatype only defined in V2", queryDelayedNestedUpgraded)
   ]
 
 queryUpgraded : Script ()
@@ -60,3 +64,50 @@ queryDowngradedSome = do
     Left (FailedCmd (CommandName "QueryContractId") _ _) -> pure ()
     _ -> assertFail $ "Expected QueryContractId to error, but got " <> show res
 
+{- PACKAGE
+name: query-delayed-upgrade
+versions: 3
+-}
+
+{- MODULE
+package: query-delayed-upgrade
+contents: |
+  module QueryDelayedUpgrade where
+
+  template QueryDelayedUpgradeTemplate     -- @V 2 3
+    with                                   -- @V 2 3
+      party : Party                        -- @V 2 3
+      newField : Optional Text             -- @V   3
+    where                                  -- @V 2 3
+      signatory party                      -- @V 2 3
+  
+  template QueryDelayedUpgradeNestedTemplate
+    with
+      party : Party
+      nestedData : Optional NestedData     -- @V 2 3
+    where
+      signatory party
+    
+  data NestedData = NestedData with        -- @V 2 3
+      field1 : Int                         -- @V 2 3
+      field2 : Optional Int                -- @V   3
+    deriving (Show, Eq)                    -- @V 2 3
+-}
+
+queryDelayedUpgraded : Script ()
+queryDelayedUpgraded = do
+  a <- allocatePartyOn "alice" participant0
+
+  cid <- a `submit` createExactCmd V2.QueryDelayedUpgradeTemplate with party = a
+  let v3Cid = coerceContractId @V2.QueryDelayedUpgradeTemplate @V3.QueryDelayedUpgradeTemplate cid
+  v3Name <- queryContractId a v3Cid
+  v3Name === Some V3.QueryDelayedUpgradeTemplate with party = a, newField = None
+
+queryDelayedNestedUpgraded : Script ()
+queryDelayedNestedUpgraded = do
+  a <- allocatePartyOn "alice" participant0
+
+  cid <- a `submit` createExactCmd V2.QueryDelayedUpgradeNestedTemplate with party = a, nestedData = Some (V2.NestedData 1)
+  let v3Cid = coerceContractId @V2.QueryDelayedUpgradeNestedTemplate @V3.QueryDelayedUpgradeNestedTemplate cid
+  v3Name <- queryContractId a v3Cid
+  v3Name === Some V3.QueryDelayedUpgradeNestedTemplate with party = a, nestedData = Some (V3.NestedData 1 None)
