@@ -74,7 +74,11 @@ import com.digitalasset.canton.participant.protocol.transfer.{
   IncompleteTransferData,
   TransferCoordination,
 }
-import com.digitalasset.canton.participant.pruning.{NoOpPruningProcessor, PruningProcessor}
+import com.digitalasset.canton.participant.pruning.{
+  AcsCommitmentProcessor,
+  NoOpPruningProcessor,
+  PruningProcessor,
+}
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.MissingConfigForAlias
 import com.digitalasset.canton.participant.store.MultiDomainEventLog.PublicationData
 import com.digitalasset.canton.participant.store.*
@@ -177,6 +181,8 @@ class CantonSyncService(
     MutableHealthComponent(loggerFactory, SyncDomainEphemeralState.healthName, timeouts)
   val sequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
+  val acsCommitmentProcessorHealth: MutableHealthComponent =
+    MutableHealthComponent(loggerFactory, AcsCommitmentProcessor.healthName, timeouts)
 
   val maxDeduplicationDuration: NonNegativeFiniteDuration =
     participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration
@@ -1222,6 +1228,7 @@ class CantonSyncService(
         _ = syncDomainHealth.set(syncDomain)
         _ = ephemeralHealth.set(syncDomain.ephemeral)
         _ = sequencerClientHealth.set(syncDomain.sequencerClient.healthComponent)
+        _ = acsCommitmentProcessorHealth.set(syncDomain.acsCommitmentProcessor.healthComponent)
         _ = syncDomain.resolveUnhealthy()
 
         // Start sequencer client subscription only after sync domain has been added to connectedDomainsMap, e.g. to
@@ -1458,6 +1465,7 @@ class CantonSyncService(
       syncDomainHealth,
       ephemeralHealth,
       sequencerClientHealth,
+      acsCommitmentProcessorHealth,
     )
 
     Lifecycle.close(instances: _*)(logger)

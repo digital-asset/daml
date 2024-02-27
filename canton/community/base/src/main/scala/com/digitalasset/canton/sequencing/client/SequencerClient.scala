@@ -40,7 +40,6 @@ import com.digitalasset.canton.sequencing.handlers.{
   StoreSequencedEvent,
   ThrottlingApplicationEventHandler,
 }
-import com.digitalasset.canton.sequencing.protocol.SubmissionRequest.usingSignedSubmissionRequest
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
@@ -369,10 +368,7 @@ class SequencerClientImpl(
   ): Either[SendAsyncClientError, Unit] = {
     // We're ignoring the size of the SignedContent wrapper here.
     // TODO(#12320) Look into what we really want to do here
-    val serializedRequestSize =
-      if (SubmissionRequest.usingVersionedSubmissionRequest(protocolVersion))
-        request.toProtoV0.serializedSize
-      else request.toByteString.size()
+    val serializedRequestSize = request.toProtoV0.serializedSize
 
     Either.cond(
       serializedRequestSize <= maxRequestSize.unwrap,
@@ -488,19 +484,16 @@ class SequencerClientImpl(
       .timed(metrics.submissions.sends) {
         val timeout = timeouts.network.duration
         if (requiresAuthentication) {
-          if (usingSignedSubmissionRequest(protocolVersion)) {
-            for {
-              signedContent <- requestSigner
-                .signRequest(request, HashPurpose.SubmissionRequestSignature)
-                .leftMap { err =>
-                  val message = s"Error signing submission request $err"
-                  logger.error(message)
-                  SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
-                }
-              _ <- sequencersTransportState.transport.sendAsyncSigned(signedContent, timeout)
-            } yield ()
-          } else
-            sequencersTransportState.transport.sendAsync(request, timeout)
+          for {
+            signedContent <- requestSigner
+              .signRequest(request, HashPurpose.SubmissionRequestSignature)
+              .leftMap { err =>
+                val message = s"Error signing submission request $err"
+                logger.error(message)
+                SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
+              }
+            _ <- sequencersTransportState.transport.sendAsyncSigned(signedContent, timeout)
+          } yield ()
         } else
           sequencersTransportState.transport.sendAsyncUnauthenticated(request, timeout)
       }
@@ -724,7 +717,6 @@ class SequencerClientImpl(
                 clock,
                 timeouts,
                 loggerFactory,
-                protocolVersion,
               )
               .some,
           )

@@ -446,7 +446,7 @@ abstract class TransactionTreeFactoryImpl(
       rawContractInstance = serializedCantonContractInst,
       metadata = contractMetadata,
       ledgerCreateTime = LedgerCreateTime(state.ledgerTime),
-      contractSalt = Option.when(protocolVersion >= ProtocolVersion.v4)(contractSalt.unwrap),
+      contractSalt = Some(contractSalt.unwrap),
     )
     state.setCreatedContractInfo(contractId, createdInfo)
 

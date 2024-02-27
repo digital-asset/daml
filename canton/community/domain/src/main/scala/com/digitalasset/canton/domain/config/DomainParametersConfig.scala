@@ -159,47 +159,41 @@ final case class DomainParametersConfig(
           |Please use the admin api to set this parameter: domain-name.service.$setConsoleCommand($configuredValue)
           |""".stripMargin
 
-    val currentPV = protocolVersion.version
+    val reconciliationIntervalValid = Either.cond(
+      reconciliationInterval == StaticDomainParameters.defaultReconciliationInterval.toConfig,
+      (),
+      errorMessage(
+        "reconciliation interval",
+        "set_reconciliation_interval",
+        reconciliationInterval.underlying.toString(),
+        StaticDomainParameters.defaultReconciliationInterval.toFiniteDuration.toString(),
+      ),
+    )
 
-    if (currentPV < ProtocolVersion.v4) {
-      Right(())
-    } else {
-      val reconciliationIntervalValid = Either.cond(
-        reconciliationInterval == StaticDomainParameters.defaultReconciliationInterval.toConfig,
-        (),
-        errorMessage(
-          "reconciliation interval",
-          "set_reconciliation_interval",
-          reconciliationInterval.underlying.toString(),
-          StaticDomainParameters.defaultReconciliationInterval.toFiniteDuration.toString(),
-        ),
-      )
+    val maxRatePerParticipantValid = Either.cond(
+      maxRatePerParticipant == StaticDomainParameters.defaultMaxRatePerParticipant,
+      (),
+      errorMessage(
+        "max rate per participant",
+        "set_max_rate_per_participant",
+        maxRatePerParticipant.value.toString,
+        StaticDomainParameters.defaultMaxRatePerParticipant.value.toString,
+      ),
+    )
 
-      val maxRatePerParticipantValid = Either.cond(
-        maxRatePerParticipant == StaticDomainParameters.defaultMaxRatePerParticipant,
-        (),
-        errorMessage(
-          "max rate per participant",
-          "set_max_rate_per_participant",
-          maxRatePerParticipant.value.toString,
-          StaticDomainParameters.defaultMaxRatePerParticipant.value.toString,
-        ),
-      )
+    val maxRequestSizeValid = Either.cond(
+      maxInboundMessageSize == StaticDomainParameters.defaultMaxRequestSize,
+      (),
+      errorMessage(
+        "max request size (previously: max inbound message size)",
+        "set_max_request_size",
+        maxInboundMessageSize.unwrap.toString,
+        StaticDomainParameters.defaultMaxRequestSize.unwrap.toString,
+      ),
+    )
 
-      val maxRequestSizeValid = Either.cond(
-        maxInboundMessageSize == StaticDomainParameters.defaultMaxRequestSize,
-        (),
-        errorMessage(
-          "max request size (previously: max inbound message size)",
-          "set_max_request_size",
-          maxInboundMessageSize.unwrap.toString,
-          StaticDomainParameters.defaultMaxRequestSize.unwrap.toString,
-        ),
-      )
-
-      (reconciliationIntervalValid, maxRatePerParticipantValid, maxRequestSizeValid).tupled.map(_ =>
-        ()
-      )
-    }
+    (reconciliationIntervalValid, maxRatePerParticipantValid, maxRequestSizeValid).tupled.map(_ =>
+      ()
+    )
   }
 }

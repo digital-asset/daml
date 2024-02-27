@@ -532,21 +532,18 @@ object TransferOutView
     ),
   )
 
-  private lazy val rpv4: RepresentativeProtocolVersion[TransferOutView.type] =
-    protocolVersionRepresentativeFor(ProtocolVersion.v4)
-
-  lazy val submittingParticipantDefaultValue: IdString.ParticipantId =
+  private lazy val submittingParticipantDefaultValue: IdString.ParticipantId =
     LedgerParticipantId.assertFromString("no-participant-id")
 
-  lazy val commandIdDefaultValue: IdString.LedgerString =
+  private lazy val commandIdDefaultValue: IdString.LedgerString =
     LedgerCommandId.assertFromString("no-command-id")
 
-  lazy val applicationIdDefaultValue: IdString.ApplicationId =
+  private lazy val applicationIdDefaultValue: IdString.ApplicationId =
     LedgerApplicationId.assertFromString("no-application-id")
 
-  lazy val submissionIdDefaultValue: Option[LedgerSubmissionId] = None
+  private lazy val submissionIdDefaultValue: Option[LedgerSubmissionId] = None
 
-  lazy val workflowIdDefaultValue: Option[LfWorkflowId] = None
+  private lazy val workflowIdDefaultValue: Option[LfWorkflowId] = None
 
   lazy val templateIdDefaultValue: LfTemplateId =
     LfTemplateId.assertFromString("no-package-id:no.module.name:no.entity.name")
@@ -560,23 +557,14 @@ object TransferOutView
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
   ): TransferOutView =
-    if (sourceProtocolVersion.v < ProtocolVersion.v4)
-      TransferOutViewV0(
-        salt,
-        submitterMetadata,
-        contract.contractId,
-        targetDomain,
-        targetTimeProof,
-      )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
-    else
-      TransferOutViewV4(
-        salt,
-        submitterMetadata,
-        contract.contractId,
-        targetDomain,
-        targetTimeProof,
-        targetProtocolVersion,
-      )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
+    TransferOutViewV4(
+      salt,
+      submitterMetadata,
+      contract.contractId,
+      targetDomain,
+      targetTimeProof,
+      targetProtocolVersion,
+    )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
 
   private[this] def fromProtoV0(hashOps: HashOps, transferOutViewP: v0.TransferOutView)(
       bytes: ByteString
@@ -689,8 +677,6 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
   def sourceDomain: SourceDomainId = commonData.sourceDomain
 
   def targetDomain: TargetDomainId = view.targetDomain
-
-  def targetDomainPV: TargetProtocolVersion = view.targetProtocolVersion
 
   def targetTimeProof: TimeProof = view.targetTimeProof
 

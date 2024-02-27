@@ -16,7 +16,6 @@ import com.digitalasset.canton.protocol.messages.EncryptedViewMessageV1.Recipien
 import com.digitalasset.canton.protocol.messages.{
   EncryptedView,
   EncryptedViewMessage,
-  EncryptedViewMessageV0,
   EncryptedViewMessageV1,
   EncryptedViewMessageV2,
   RootHashMessageRecipients,
@@ -253,24 +252,6 @@ object EncryptedViewMessageFactory {
         )
       )
 
-    def createEncryptedViewMessageV0(
-        evmCommon: EncryptedViewMessageCommon[VT]
-    ): EitherT[Future, EncryptedViewMessageCreationError, EncryptedViewMessageV0[VT]] =
-      createDataMap(
-        evmCommon.recipientsInfo.informeeParticipants.to(LazyList),
-        randomness,
-        cryptoSnapshot,
-        protocolVersion,
-      ).map(randomnessMapV0 =>
-        EncryptedViewMessageV0[VT](
-          evmCommon.signature,
-          viewTree.viewHash,
-          randomnessMapV0.fmap(_.encrypted),
-          evmCommon.encryptedView,
-          viewTree.domainId,
-        )
-      )
-
     def encryptRandomnessWithSessionKey(
         sessionKey: SymmetricKey
     ): EitherT[Future, EncryptedViewMessageCreationError, Encrypted[SecureRandomness]] =
@@ -284,8 +265,7 @@ object EncryptedViewMessageFactory {
       evmCommon <- createEVMCommon()
       message <-
         if (protocolVersion >= ProtocolVersion.v6) createEncryptedViewMessageV2(evmCommon)
-        else if (protocolVersion >= ProtocolVersion.v4) createEncryptedViewMessageV1(evmCommon)
-        else createEncryptedViewMessageV0(evmCommon)
+        else createEncryptedViewMessageV1(evmCommon)
     } yield message
   }
 

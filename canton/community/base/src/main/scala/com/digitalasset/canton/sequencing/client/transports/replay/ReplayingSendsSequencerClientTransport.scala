@@ -195,26 +195,21 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
     TraceContext.withNewTraceContext { traceContext =>
       val withExtendedMst = extendMaxSequencingTime(submission)
-      val sendET = if (SubmissionRequest.usingSignedSubmissionRequest(protocolVersion)) {
-        for {
-          // We need a new signature because we've modified the max sequencing time.
-          signedRequest <- requestSigner
-            .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)(
-              implicitly,
-              traceContext,
-            )
-            .leftMap(error =>
-              SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
-            )
-          _ <- underlyingTransport.sendAsyncSigned(
-            signedRequest,
-            replaySendsConfig.sendTimeout.toScala,
-          )(traceContext)
-        } yield ()
-      } else {
-        underlyingTransport
-          .sendAsync(withExtendedMst, replaySendsConfig.sendTimeout.toScala)(traceContext)
-      }
+      val sendET = for {
+        // We need a new signature because we've modified the max sequencing time.
+        signedRequest <- requestSigner
+          .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)(
+            implicitly,
+            traceContext,
+          )
+          .leftMap(error =>
+            SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
+          )
+        _ <- underlyingTransport.sendAsyncSigned(
+          signedRequest,
+          replaySendsConfig.sendTimeout.toScala,
+        )(traceContext)
+      } yield ()
 
       sendET.value
         .map(handleSendResult)

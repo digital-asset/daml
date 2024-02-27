@@ -251,9 +251,13 @@ object ProtocolVersion {
 
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
-  // All stable protocol versions supported by this release
-  private val stableAndSupported: NonEmpty[List[ProtocolVersion]] =
-    NonEmpty
+  private val deprecated: Seq[ProtocolVersion] = Seq()
+  private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2), v3, v4)
+
+  /** All stable protocol versions supported by this release.
+    */
+  val stableAndSupported: NonEmpty[List[ProtocolVersion]] = {
+    val releasePVs = NonEmpty
       .from(
         BuildInfo.protocolVersions
           .map(parseUnchecked)
@@ -263,9 +267,13 @@ object ProtocolVersion {
       .getOrElse(
         sys.error("Release needs to support at least one protocol version")
       )
-
-  private val deprecated: Seq[ProtocolVersion] = Seq()
-  private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2), v3, v4)
+    val deletedIntersection = releasePVs.forgetNE.intersect(deleted)
+    require(
+      deletedIntersection.isEmpty,
+      s"Release contains deleted protocol version(s): ${deletedIntersection.mkString(", ")}",
+    )
+    releasePVs
+  }
 
   val unstable: NonEmpty[List[ProtocolVersionWithStatus[Unstable]]] =
     NonEmpty.mk(List, ProtocolVersion.v6, ProtocolVersion.dev)
@@ -276,20 +284,6 @@ object ProtocolVersion {
   val latest: ProtocolVersion = stableAndSupported.max1
 
   val smallestStable: ProtocolVersion = stableAndSupported.min1
-
-  /** Returns the two most recent stable protocol versions; or the same version twice
-    * if there is only a single stable protocol version available.
-    */
-  def lastStableVersions2: (ProtocolVersion, ProtocolVersion) = {
-    ProtocolVersion.stableAndSupported.forgetNE.sorted.takeRight(2) match {
-      case List(latest) => (latest, latest)
-      case List(beforeLatest, latest) => (beforeLatest, latest)
-      case _ =>
-        throw new IllegalStateException(
-          "Release must support at least one stable protocol versions"
-        )
-    }
-  }
 
   lazy val dev: ProtocolVersionWithStatus[Unstable] = ProtocolVersion.unstable(Int.MaxValue)
 

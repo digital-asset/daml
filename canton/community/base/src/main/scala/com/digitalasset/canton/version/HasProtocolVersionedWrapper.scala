@@ -819,7 +819,6 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
     * @param protoVersion Proto version of the bytes to be deserialized
     * @param bytes data
     */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
   def fromByteStringLegacy(
       protoVersion: ProtoVersion
   )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
@@ -1072,7 +1071,6 @@ trait HasProtocolVersionedCompanion2[
     * @param protocolVersion protocol version of the bytes to be deserialized
     * @param bytes data
     */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
   def fromByteStringLegacy(
       protocolVersion: ProtocolVersion
   )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
@@ -1181,7 +1179,6 @@ trait HasProtocolVersionedWithContextCompanion[
     * @param protoVersion Proto version of the bytes to be deserialized
     * @param bytes data
     */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
   def fromByteStringLegacy(
       protoVersion: ProtoVersion
   )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] =
@@ -1199,7 +1196,6 @@ trait HasProtocolVersionedWithContextCompanion[
     * @param protocolVersion protocol version of the bytes to be deserialized
     * @param bytes data
     */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
   def fromByteStringLegacy(
       protocolVersion: ProtocolVersion
   )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {

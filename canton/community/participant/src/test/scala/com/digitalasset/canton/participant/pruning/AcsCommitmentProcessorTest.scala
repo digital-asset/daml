@@ -26,6 +26,10 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.
 }
 import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.pruning
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.DegradationError.{
+  AcsCommitmentDegradation,
+  AcsCommitmentDegradationWithIneffectiveConfig,
+}
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   CachedCommitments,
   CommitmentSnapshot,
@@ -250,7 +254,9 @@ sealed trait AcsCommitmentProcessorBaseTest
       .thenReturn(EitherT.rightT[Future, SendAsyncClientError](()))
 
     val changeTimes =
-      (timeProofs.map(ts => TimeOfChange(RequestCounter(0), ts)) ++ contractSetup.values.toList
+      (timeProofs
+        .map(time => time.plusSeconds(1))
+        .map(ts => TimeOfChange(RequestCounter(0), ts)) ++ contractSetup.values.toList
         .flatMap { case (_, creationTs, archivalTs) =>
           List(creationTs, archivalTs)
         }).distinct.sorted
@@ -1083,10 +1089,8 @@ class AcsCommitmentProcessorTest
             processor.processBatchInternal(ts.forgetRefinement, batch)
           }
           .onShutdown(fail())
-        _ = changes.foreach { case (ts, tb, change) =>
-          processor.publish(RecordTime(ts, tb.v), change)
-        }
-        _ <- processor.flush()
+        _ <- processChanges(processor, store, changes)
+
         computed <- store.searchComputedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
         received <- store.searchReceivedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
       } yield {
@@ -1835,10 +1839,8 @@ class AcsCommitmentProcessorTest
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
             .onShutdown(fail())
-          _ = changes.foreach { case (ts, tb, change) =>
-            processor.publish(RecordTime(ts, tb.v), change)
-          }
-          _ <- processor.flush()
+          _ <- processChanges(processor, store, changes)
+
           outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
           computed <- store.searchComputedBetween(
             CantonTimestamp.Epoch,
@@ -1923,15 +1925,14 @@ class AcsCommitmentProcessorTest
             processor,
             changes,
             store,
-            testSequences.last.addMicros(reconciliationInterval.seconds.toMicros),
             reconciliationInterval,
           )
           // first catch-up step to 30, in steps of 2*5 => 3 sends at [10,20,30]
           // second catch-up step to 60, in steps of 2*5 => 2 sends at [40,50,60]
           // third catch-up would be up to 90, in steps of 2*5, but only if we are 3*5 = 15 seconds behind
           // as the last tick is 70, we don't trigger catch-up mode, and instead send commitments every 5 seconds
-          // so the timestamps are [10,20,30,40,50,60,65,70]
-          _ = verify(sequencerClient, times(8)).sendAsync(
+          // so the timestamps are [5,10,20,30,40,50,60,65,70]
+          _ = verify(sequencerClient, times(9)).sendAsync(
             any[Batch[DefaultOpenEnvelope]],
             any[SendType],
             any[Option[CantonTimestamp]],
@@ -2000,13 +2001,13 @@ class AcsCommitmentProcessorTest
             processor,
             changes,
             store,
-            testSequences.last.addMicros(reconciliationInterval.seconds.toMicros),
             reconciliationInterval,
           )
+          // we get an initial send at 5
           // first catch-up step to 100, in steps of 10*5 => 2 sends at [50,100]
           // second catch-up to 200, in steps of 10*5 => 2 sends at [150,200]
           // at time 200 we end catch-up mode, and send 5 more commitments at 205,210,215,220,225
-          _ = verify(sequencerClient, times(9)).sendAsync(
+          _ = verify(sequencerClient, times(10)).sendAsync(
             any[Batch[DefaultOpenEnvelope]],
             any[SendType],
             any[Option[CantonTimestamp]],
@@ -2069,10 +2070,7 @@ class AcsCommitmentProcessorTest
           )
           // First ask for the local commitments to be processed, and then receive the remote ones,
           // because the remote participants are catching up
-          _ = changes.foreach { case (ts, tb, change) =>
-            processor.publish(RecordTime(ts, tb.v), change)
-          }
-          _ <- processor.flush()
+          _ <- processChanges(processor, store, changes)
           _ <- delivered
             .parTraverse_ { case (ts, batch) =>
               processor.processBatchInternal(ts.forgetRefinement, batch)
@@ -2168,9 +2166,7 @@ class AcsCommitmentProcessorTest
               changes.foreach { case (ts, tb, change) =>
                 processor.publish(RecordTime(ts, tb.v), change)
               }
-              for {
-                _ <- processor.flush()
-              } yield ()
+              processor.flush()
             },
             // there should be one mismatch
             // however, since buffered remote commitments are deleted asynchronously, it can happen that they
@@ -2279,9 +2275,7 @@ class AcsCommitmentProcessorTest
               changes.foreach { case (ts, tb, change) =>
                 processor.publish(RecordTime(ts, tb.v), change)
               }
-              for {
-                _ <- processor.flush()
-              } yield ()
+              processor.flush()
             },
             // there should be two mismatches
             // however, since buffered remote commitments are deleted asynchronously, it can happen that they
@@ -2347,9 +2341,6 @@ class AcsCommitmentProcessorTest
               .toList,
           )
 
-        val changeSequence =
-          testSequences.map(sequence => sequence.map(time => time.addMicros(1.second.toMicros)))
-
         val contractSetup = Map(
           // contract ID to stakeholders, creation and archival time
           (
@@ -2372,13 +2363,13 @@ class AcsCommitmentProcessorTest
 
         val disabledConfigWithValidity = DomainParameters.WithValidity(
           validFrom = testSequences.apply(1).head,
-          validUntil = Some(changeSequence.apply(1).last),
+          validUntil = Some(testSequences.apply(1).last),
           parameter = defaultParameters,
         )
 
         val (processor, store, sequencerClient, changes) =
           testSetupDontPublish(
-            changeSequence.flatten,
+            testSequences.flatten,
             contractSetup,
             topology,
             catchUpModeEnabled = true,
@@ -2407,8 +2398,8 @@ class AcsCommitmentProcessorTest
             processor,
             changes,
             store,
-            changeSequence.head.last,
             reconciliationInterval,
+            expectDegradation = true,
           )
           // catchup is enabled so we send only 3 commitments
           _ = verify(sequencerClient, times(3)).sendAsync(
@@ -2424,7 +2415,6 @@ class AcsCommitmentProcessorTest
             processor,
             changes,
             store,
-            changeSequence.apply(1).last,
             reconciliationInterval,
           )
           // catchup is disabled so we send all 5 commitments (plus 3 previous)
@@ -2441,8 +2431,8 @@ class AcsCommitmentProcessorTest
             processor,
             changes,
             store,
-            changeSequence.last.last,
             reconciliationInterval,
+            expectDegradation = true,
           )
           // catchup is re-enabled but with a step of 1 so we send 5 commitments (plus 5 & 3 previous)
           _ = verify(sequencerClient, times(3 + 5 + 5)).sendAsync(
@@ -2510,24 +2500,25 @@ class AcsCommitmentProcessorTest
           _ <- checkCatchUpModeCfgDisabled(processor, testSequences.last)
 
           // we apply any changes (contract deployment) that happens before our windows
-          _ = changes
-            .filter(a => a._1 < testSequences.head)
-            .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
-            }
+          _ =
+            changes
+              .filter(a => a._1 < testSequences.head)
+              .foreach { case (ts, tb, change) =>
+                processor.publish(RecordTime(ts, tb.v), change)
+              }
           _ <- processor.flush()
+
           _ <- testSequence(
             testSequences,
             processor,
             changes,
             store,
-            testSequences.last.addMicros(reconciliationInterval.seconds.toMicros),
             reconciliationInterval,
           )
           // here we get the times: [5,10,15,20,25,30,35,40,45,50]
           // we disable the config at 36.
-          // expected send timestamps are: [5,15,30,45,50]
-          _ = verify(sequencerClient, times(5)).sendAsync(
+          // expected send timestamps are: [5,15,30,45,50,55]
+          _ = verify(sequencerClient, times(6)).sendAsync(
             any[Batch[DefaultOpenEnvelope]],
             any[SendType],
             any[Option[CantonTimestamp]],
@@ -2602,15 +2593,17 @@ class AcsCommitmentProcessorTest
             .filter(a => a._1 < testSequences.head)
             .foreach { case (ts, tb, change) =>
               processor.publish(RecordTime(ts, tb.v), change)
+
             }
           _ <- processor.flush()
+
           _ <- testSequence(
             testSequences,
             processor,
             changes,
             store,
-            testSequences.last.addMicros(reconciliationInterval.seconds.toMicros),
             reconciliationInterval,
+            expectDegradation = true,
           )
           // here we get the times: [5,10,15,20,25,30,35,40,45,50,55]
           // the sends with a catch-up of (3,1) are [5,15,30,45]
@@ -2618,6 +2611,7 @@ class AcsCommitmentProcessorTest
           // at the next tick, 40, we realize we are at a boundary according to the new catch-up parameters and we send
           // the catch-up is extended to 50, and we also send at 50
           // expected send timestamps are: [5,15,30,40,50]
+          // 55 is not expected since at 45 we are still behind (so next catchup boundary would be 60)
           _ = verify(sequencerClient, times(5)).sendAsync(
             any[Batch[DefaultOpenEnvelope]],
             any[SendType],
@@ -2631,13 +2625,74 @@ class AcsCommitmentProcessorTest
         }
       }
 
+      "should mark as unhealthy when not caught up" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+        val reconciliationInterval = 5
+        val testSequences =
+          (1L to 10)
+            .map(i => i * reconciliationInterval)
+            .map(CantonTimestamp.ofEpochSecond)
+            .toList
+
+        val timeProofs =
+          (1L to 5)
+            .map(i => i * reconciliationInterval)
+            .map(CantonTimestamp.ofEpochSecond)
+            .toList
+
+        val contractSetup = Map(
+          // contract ID to stakeholders, creation and archival time
+          (
+            coid(0, 0),
+            (Set(alice, bob), toc(1), toc(20000)),
+          )
+        )
+
+        val topology = Map(
+          localId -> Set(alice),
+          remoteId1 -> Set(bob),
+        )
+
+        val (processor, store, sequencerClient, changes) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            catchUpModeEnabled = true,
+          )
+
+        for {
+          // we apply any changes (contract deployment) that happens before our windows
+          _ <- Future.successful(
+            changes
+              .filter(a => a._1 < testSequences.head)
+              .foreach { case (ts, tb, change) =>
+                processor.publish(RecordTime(ts, tb.v), change)
+
+              }
+          )
+          _ <- processor.flush()
+
+          _ <- testSequence(
+            testSequences,
+            processor,
+            changes,
+            store,
+            reconciliationInterval,
+            expectDegradation = true,
+          )
+          _ = assert(processor.healthComponent.isDegrading)
+        } yield {
+          succeed
+        }
+      }
+
       def testSequence(
           sequence: List[CantonTimestamp],
           processor: AcsCommitmentProcessor,
           changes: List[(CantonTimestamp, RequestCounter, AcsChange)],
           store: AcsCommitmentStore,
-          computeUntil: CantonTimestamp,
           reconciliationInterval: Int,
+          expectDegradation: Boolean = false,
       ): Future[Assertion] = {
         val remoteCommitments = sequence
           .map(i =>
@@ -2645,17 +2700,24 @@ class AcsCommitmentProcessorTest
               remoteId1,
               Seq(coid(0, 0)),
               ts(i),
-              ts(i.addMicros(reconciliationInterval.seconds.toMicros)),
+              ts(i.plusSeconds(reconciliationInterval.toLong)),
             )
           )
         for {
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
             (
-              cmt.message.period.toInclusive.plusSeconds(1),
+              cmt.message.period.toInclusive,
               List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
             )
           )
+          endOfRemoteCommitsPeriod = sequence.last.plusSeconds(
+            reconciliationInterval.toLong
+          )
+
+          changesApplied = changes
+            .filter(a => a._1 >= sequence.head && a._1 <= endOfRemoteCommitsPeriod)
+
           // First ask for the remote commitments to be processed, and then compute locally
           // This triggers catch-up mode
           _ <- delivered
@@ -2663,22 +2725,68 @@ class AcsCommitmentProcessorTest
               processor.processBatchInternal(ts.forgetRefinement, batch)
             }
             .onShutdown(fail())
-          _ = changes
-            .filter(a => (a._1 >= sequence.head && a._1 <= computeUntil))
-            .foreach { case (ts, tb, change) =>
-              processor.publish(RecordTime(ts, tb.v), change)
-            }
-          _ <- processor.flush()
+          _ <- processChanges(
+            processor,
+            store,
+            changesApplied,
+          )
+
           received <- store.searchReceivedBetween(
             sequence.head,
-            computeUntil,
+            endOfRemoteCommitsPeriod,
+          )
+          computed <- store.searchComputedBetween(
+            sequence.head,
+            endOfRemoteCommitsPeriod,
           )
         } yield {
+          if (expectDegradation)
+            assert(processor.healthComponent.isDegrading)
+          else {
+            assert(processor.healthComponent.isOk)
+          }
+          if (changesApplied.last._1 >= sequence.last)
+            assert(computed.size === sequence.length)
           assert(received.size === sequence.length)
         }
       }
     }
 
+    def processChanges(
+        processor: AcsCommitmentProcessor,
+        store: AcsCommitmentStore,
+        changes: List[(CantonTimestamp, RequestCounter, AcsChange)],
+    ): Future[Unit] = {
+      lazy val fut = {
+        changes.foreach { case (ts, tb, change) =>
+          processor.publish(RecordTime(ts, tb.v), change)
+        }
+        processor.flush()
+      }
+      for {
+        config <- processor.catchUpConfig(changes.head._1)
+        remote <- store.searchReceivedBetween(changes.head._1, changes.last._1)
+        _ <- config match {
+          case _ if remote.isEmpty => fut
+          case None => fut
+          case Some(cfg) if cfg.catchUpIntervalSkip.value == 1 =>
+            loggerFactory.assertLogs(
+              fut,
+              entry => {
+                entry.message should include(AcsCommitmentDegradationWithIneffectiveConfig.id)
+              },
+            )
+          case _ =>
+            loggerFactory.assertLogs(
+              fut,
+              entry => {
+                entry.message should include(AcsCommitmentDegradation.id)
+              },
+            )
+        }
+      } yield ()
+
+    }
     "caching commitments" should {
 
       "caches and computes correctly" in {

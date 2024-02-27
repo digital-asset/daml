@@ -431,18 +431,18 @@ class GenTransactionTreeTest
       "given consistent subview hashes" must {
         s"pass sanity tests at creation (for the $index-th transaction view tree)" in {
           noException should be thrownBy LightTransactionViewTree
-            .tryCreate(genTransactionTree, tvt.subviewHashes, testedProtocolVersion)
+            .tryCreate(genTransactionTree, tvt.subviewHashes)
         }
       }
 
       "given inconsistent subview hashes" must {
         s"reject creation (for the $index-th transaction view tree)" in {
           an[InvalidLightTransactionViewTree] should be thrownBy LightTransactionViewTree
-            .tryCreate(genTransactionTree, mangledSubviewHashes, testedProtocolVersion)
+            .tryCreate(genTransactionTree, mangledSubviewHashes)
 
           if (tvt.subviewHashes.nonEmpty)
             an[InvalidLightTransactionViewTree] should be thrownBy LightTransactionViewTree
-              .tryCreate(genTransactionTree, Seq.empty, testedProtocolVersion)
+              .tryCreate(genTransactionTree, Seq.empty)
         }
       }
     }

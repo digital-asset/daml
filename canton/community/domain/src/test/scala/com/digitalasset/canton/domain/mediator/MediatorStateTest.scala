@@ -91,7 +91,6 @@ class MediatorStateTest
         .fromRequest(
           requestId,
           informeeMessage,
-          testedProtocolVersion,
           mockTopologySnapshot,
         )(anyTraceContext, executorService)
         .futureValue // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext

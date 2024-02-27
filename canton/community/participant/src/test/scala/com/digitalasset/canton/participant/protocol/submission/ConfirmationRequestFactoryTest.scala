@@ -307,7 +307,7 @@ class ConfirmationRequestFactoryTest
             TransactionViewType,
             testedProtocolVersion,
           )(
-            LightTransactionViewTree.fromTransactionViewTree(tree, testedProtocolVersion)
+            LightTransactionViewTree.fromTransactionViewTree(tree)
           )
           .valueOr(err => fail(s"Failed to encrypt view tree: $err"))
 

@@ -7,7 +7,6 @@ import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.MerkleTree.{BlindSubtree, RevealIfNeedBe, RevealSubtree}
-import com.digitalasset.canton.protocol.v0.TransferViewTree
 import com.digitalasset.canton.protocol.{ViewHash, v0, v1}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.{
@@ -35,21 +34,9 @@ abstract class GenTransferViewTree[
 
   override def subtrees: Seq[MerkleTree[_]] = Seq(commonData, participantData)
 
-  /*
-  This method is visible because we need the non-deterministic serialization only when we encrypt the tree,
-  but the message to the mediator is sent unencrypted.
-
-  The versioning does not play well with this parametrized class so we define the serialization
-  method explicitly.
-   */
-  def toProtoVersioned(version: ProtocolVersion): VersionedMessage[TransferViewTree] = {
-    if (version <= ProtocolVersion.v3)
-      VersionedMessage(toProtoV0.toByteString, 0)
-    else
-      VersionedMessage(toProtoV1.toByteString, 1)
-  }
-
-  def toByteString(version: ProtocolVersion): ByteString = toProtoVersioned(version).toByteString
+  // If you add new versions, take `version` into account
+  def toByteString(version: ProtocolVersion): ByteString =
+    VersionedMessage(toProtoV1.toByteString, 1).toByteString
 
   def toProtoV0: v0.TransferViewTree =
     v0.TransferViewTree(

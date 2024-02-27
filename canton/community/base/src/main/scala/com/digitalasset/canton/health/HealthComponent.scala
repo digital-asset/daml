@@ -13,6 +13,8 @@ trait HealthQuasiComponent extends HealthElement {
   override protected def prettyState: Pretty[State] = Pretty[State]
 
   def isFailed: Boolean = getState.toComponentHealthState.isFailed
+  def isOk: Boolean = getState.toComponentHealthState.isOk
+  def isDegrading: Boolean = getState.toComponentHealthState.isDegrading
   def toComponentStatus: ComponentStatus = ComponentStatus(name, getState.toComponentHealthState)
 
   override def closingState: State

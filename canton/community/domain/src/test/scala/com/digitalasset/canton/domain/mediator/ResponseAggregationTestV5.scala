@@ -181,7 +181,6 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         .fromRequest(
           requestId,
           informeeMessage,
-          testedProtocolVersion,
           topologySnapshot,
         )
         .futureValue
@@ -537,7 +536,6 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         .fromRequest(
           requestId,
           informeeMessage,
-          testedProtocolVersion,
           topologySnapshot,
         )
         .futureValue
@@ -695,7 +693,6 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         .fromRequest(
           requestId,
           informeeMessage,
-          testedProtocolVersion,
           topologySnapshotVip,
         )
         .futureValue
@@ -894,7 +891,6 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
         .fromRequest(
           requestId,
           informeeMessage,
-          testedProtocolVersion,
           topologySnapshot,
         )
         .futureValue

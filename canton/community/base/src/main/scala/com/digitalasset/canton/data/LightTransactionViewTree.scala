@@ -130,21 +130,13 @@ object LightTransactionViewTree
   def tryCreate(
       tree: GenTransactionTree,
       subviewHashes: Seq[ViewHash],
-      protocolVersion: ProtocolVersion,
   ): LightTransactionViewTree =
-    create(tree, subviewHashes, protocolVersion).valueOr(err =>
-      throw InvalidLightTransactionViewTree(err)
-    )
+    create(tree, subviewHashes).valueOr(err => throw InvalidLightTransactionViewTree(err))
 
   def create(
       tree: GenTransactionTree,
       subviewHashes: Seq[ViewHash],
-      protocolVersion: ProtocolVersion,
-  ): Either[String, LightTransactionViewTree] =
-    if (protocolVersion >= ProtocolVersion.v4)
-      createV1(tree, subviewHashes)
-    else
-      createV0(tree)
+  ): Either[String, LightTransactionViewTree] = createV1(tree, subviewHashes)
 
   private def createV0(tree: GenTransactionTree): Either[String, LightTransactionViewTree] =
     LightTransactionViewTreeV0(tree).validated
@@ -271,14 +263,13 @@ object LightTransactionViewTree
 
   /** Turns a full transaction view tree into a lightweight one. Not stack-safe. */
   def fromTransactionViewTree(
-      tvt: FullTransactionViewTree,
-      protocolVersion: ProtocolVersion,
+      tvt: FullTransactionViewTree
   ): LightTransactionViewTree = {
     val withBlindedSubviews = tvt.view.copy(subviews = tvt.view.subviews.blindFully)
     val genTransactionTree =
       tvt.tree.mapUnblindedRootViews(_.replace(tvt.viewHash, withBlindedSubviews))
     // By definition, the view in a TransactionViewTree has all subviews unblinded
-    LightTransactionViewTree.tryCreate(genTransactionTree, tvt.subviewHashes, protocolVersion)
+    LightTransactionViewTree.tryCreate(genTransactionTree, tvt.subviewHashes)
   }
 
 }

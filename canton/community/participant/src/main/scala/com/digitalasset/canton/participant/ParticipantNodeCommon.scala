@@ -47,6 +47,7 @@ import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapp
 }
 import com.digitalasset.canton.participant.ledger.api.*
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.scheduler.{
   ParticipantSchedulersParameters,
   SchedulersWithParticipantPruning,
@@ -225,6 +226,13 @@ trait ParticipantNodeBootstrapCommon {
     MutableHealthComponent(
       loggerFactory,
       SequencerClient.healthName,
+      timeouts,
+    )
+
+  lazy val syncAcsCommitmentProcessorHealth: MutableHealthComponent =
+    MutableHealthComponent(
+      loggerFactory,
+      AcsCommitmentProcessor.healthName,
       timeouts,
     )
 
@@ -464,6 +472,7 @@ trait ParticipantNodeBootstrapCommon {
         syncDomainHealth.set(sync.syncDomainHealth)
         syncDomainEphemeralHealth.set(sync.ephemeralHealth)
         syncDomainSequencerClientHealth.set(sync.sequencerClientHealth)
+        syncAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
       }
 
       ledgerApiServer <- ledgerApiServerFactory

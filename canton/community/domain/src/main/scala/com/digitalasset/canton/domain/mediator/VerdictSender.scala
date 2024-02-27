@@ -181,34 +181,21 @@ private[mediator] class DefaultVerdictSender(
         )
       )
       envelopes <- {
-        if (protocolVersion >= ProtocolVersion.v5) {
-          val result = request.createMediatorResult(requestId, verdict, request.allInformees)
-          val recipientSeq = informeesMap.keys.toSeq.map(Recipient(_))
-          val recipients =
-            NonEmpty
-              .from(recipientSeq.map { (r: Recipient) => NonEmpty(Set, r).toSet })
-              .map(Recipients.recipientGroups)
-              .getOrElse(
-                // Should never happen as the topology (same snapshot) is checked in
-                // `ConfirmationResponseProcessor.validateRequest`
-                ErrorUtil.invalidState("No active participants for informees")
-              )
+        val result = request.createMediatorResult(requestId, verdict, request.allInformees)
+        val recipientSeq = informeesMap.keys.toSeq.map(Recipient(_))
+        val recipients =
+          NonEmpty
+            .from(recipientSeq.map { (r: Recipient) => NonEmpty(Set, r).toSet })
+            .map(Recipients.recipientGroups)
+            .getOrElse(
+              // Should never happen as the topology (same snapshot) is checked in
+              // `ConfirmationResponseProcessor.validateRequest`
+              ErrorUtil.invalidState("No active participants for informees")
+            )
 
-          SignedProtocolMessage
-            .signAndCreate(result, snapshot, protocolVersion)
-            .map(signedResult => List(OpenEnvelope(signedResult, recipients)(protocolVersion)))
-        } else {
-          // TODO(i12171): Remove this block in 3.0
-          informeesMap.toList
-            .parTraverse { case (participantId, informees) =>
-              val result = request.createMediatorResult(requestId, verdict, informees)
-              SignedProtocolMessage
-                .signAndCreate(result, snapshot, protocolVersion)
-                .map(signedResult =>
-                  OpenEnvelope(signedResult, Recipients.cc(participantId))(protocolVersion)
-                )
-            }
-        }
+        SignedProtocolMessage
+          .signAndCreate(result, snapshot, protocolVersion)
+          .map(signedResult => List(OpenEnvelope(signedResult, recipients)(protocolVersion)))
       }
     } yield Batch(envelopes, protocolVersion)
 

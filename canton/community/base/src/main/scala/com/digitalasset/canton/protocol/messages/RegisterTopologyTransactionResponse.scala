@@ -367,12 +367,5 @@ object RegisterTopologyTransactionResponseResult {
     }
   }
 
-  def create(
-      uniquePathProtoPrimitive: String,
-      state: State,
-      protocolVersion: ProtocolVersion,
-  ): RegisterTopologyTransactionResponseResult =
-    if (protocolVersion >= ProtocolVersion.v4)
-      V1(state)
-    else V0(uniquePathProtoPrimitive, state)
+  def create(state: State): RegisterTopologyTransactionResponseResult = V1(state)
 }

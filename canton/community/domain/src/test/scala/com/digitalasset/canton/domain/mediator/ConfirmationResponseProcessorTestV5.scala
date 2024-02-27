@@ -747,7 +747,6 @@ abstract class ConfirmationResponseProcessorTestV5Base(minimumPV: ProtocolVersio
             ResponseAggregation.fromRequest(
               requestId,
               informeeMessage,
-              testedProtocolVersion,
               mockTopologySnapshot,
             )
 

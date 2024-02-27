@@ -14,7 +14,6 @@ import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
 import com.digitalasset.canton.data.ViewType.TransferViewType
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
 import com.digitalasset.canton.ledger.participant.state.v2.CompletionInfo
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.LocalOffset
@@ -49,11 +48,8 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 
 import scala.collection.concurrent
@@ -512,15 +508,6 @@ object TransferProcessingSteps {
     override def message: String = s"Cannot transfer `$transferId`: failed to create response"
   }
 
-  final case class IncompatibleProtocolVersions(
-      contractId: LfContractId,
-      source: SourceProtocolVersion,
-      target: TargetProtocolVersion,
-  ) extends TransferProcessorError {
-    override def message: String =
-      s"Cannot transfer contract `$contractId`: invalid transfer from domain with protocol version $source to domain with protocol version $target"
-  }
-
   final case class FieldConversionError(transferId: TransferId, field: String, error: String)
       extends TransferProcessorError {
     override def message: String = s"Cannot transfer `$transferId`: invalid conversion for `$field`"
@@ -531,19 +518,4 @@ object TransferProcessingSteps {
     )
   }
 
-  def PVSourceDestinationDomainsAreCompatible(
-      sourcePV: SourceProtocolVersion,
-      targetPV: TargetProtocolVersion,
-      contractId: LfContractId,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    //  In PV=4, we introduced the sourceProtocolVersion in TransferInView, which is needed for
-    //  proper deserialization. Hence, we disallow some transfers
-    val missingSourceProtocolVersionInTransferIn = targetPV.v <= ProtocolVersion.v3
-    val isSourceProtocolVersionRequired = sourcePV.v >= ProtocolVersion.v4
-
-    condUnitET[FutureUnlessShutdown](
-      !(missingSourceProtocolVersionInTransferIn && isSourceProtocolVersionRequired),
-      IncompatibleProtocolVersions(contractId, sourcePV, targetPV),
-    )
-  }
 }
