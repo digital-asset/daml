@@ -310,7 +310,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
             , getCantSkipPreprocessorTestFiles
             ]
 
-    let outdir = "compiler/damlc/output"
+    let outdir = "/tmp/compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
     -- initialise the compiler service
