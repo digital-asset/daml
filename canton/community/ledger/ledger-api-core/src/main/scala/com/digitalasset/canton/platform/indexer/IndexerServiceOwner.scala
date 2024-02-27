@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
-import com.digitalasset.canton.ledger.api.health.{Healthy, ReportsHealth}
+import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
@@ -32,7 +32,6 @@ final class IndexerServiceOwner(
     metrics: Metrics,
     inMemoryState: InMemoryState,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
-    additionalMigrationPaths: Seq[String] = Seq.empty,
     executionContext: ExecutionContext,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
@@ -48,7 +47,6 @@ final class IndexerServiceOwner(
     val flywayMigrations =
       new FlywayMigrations(
         participantDataSourceConfig.jdbcUrl,
-        additionalMigrationPaths,
         loggerFactory,
       )
     val indexerFactory = new JdbcIndexer.Factory(
@@ -95,32 +93,6 @@ final class IndexerServiceOwner(
         startIndexer(
           migration = flywayMigrations.migrate()
         )
-
-      case IndexerStartupMode.ValidateAndStart =>
-        startIndexer(
-          migration = flywayMigrations.validate()
-        )
-
-      case IndexerStartupMode.ValidateAndWaitOnly(
-            schemaMigrationAttempts,
-            schemaMigrationAttemptBackoff,
-          ) =>
-        Resource
-          .fromFuture(
-            flywayMigrations
-              .validateAndWaitOnly(schemaMigrationAttempts, schemaMigrationAttemptBackoff)
-          )
-          .map[ReportsHealth] { _ =>
-            logger.debug("Waiting for the indexer to validate the schema migrations.")
-            () => Healthy
-          }
-
-      case IndexerStartupMode.MigrateOnEmptySchemaAndStart =>
-        startIndexer(
-          migration = flywayMigrations.migrateOnEmptySchema(),
-          initializedDebugLogMessage =
-            "Waiting for the indexer to initialize the empty or up-to-date database.",
-        )
     }
   }
 }
@@ -132,10 +104,9 @@ object IndexerServiceOwner {
   def migrateOnly(
       jdbcUrl: String,
       loggerFactory: NamedLoggerFactory,
-      additionalMigrationPaths: Seq[String] = Seq.empty,
   )(implicit rc: ResourceContext, traceContext: TraceContext): Future[Unit] = {
     val flywayMigrations =
-      new FlywayMigrations(jdbcUrl, additionalMigrationPaths, loggerFactory)
+      new FlywayMigrations(jdbcUrl, loggerFactory)
     flywayMigrations.migrate()
   }
 }

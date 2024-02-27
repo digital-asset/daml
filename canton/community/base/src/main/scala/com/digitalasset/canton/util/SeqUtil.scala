@@ -23,25 +23,6 @@ object SeqUtil {
     go(Seq.empty, xs).reverse
   }
 
-  /** Groups consecutive elements of the input list `xs` if they have the same `key` */
-  def clusterBy[A, K](xs: Seq[A])(key: A => K): Seq[NonEmpty[Seq[A]]] = {
-    val grouped = Seq.newBuilder[NonEmpty[Seq[A]]]
-
-    @tailrec def go(remaining: Seq[A]): Unit = {
-      NonEmpty.from(remaining) match {
-        case Some(remainingNE) =>
-          val k = key(remainingNE.head1)
-          val (cluster, rest) = remainingNE.span(x => k == key(x))
-          grouped.addOne(NonEmptyUtil.fromUnsafe(cluster))
-          go(rest)
-        case None => ()
-      }
-    }
-
-    go(xs)
-    grouped.result()
-  }
-
   /** Picks a random subset of indices of size `size` from `xs` and returns a random permutation of the elements
     * at these indices.
     * Implements the Fisher-Yates shuffle (https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)

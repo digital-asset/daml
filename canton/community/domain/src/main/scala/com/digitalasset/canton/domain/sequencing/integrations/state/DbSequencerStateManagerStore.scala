@@ -30,7 +30,7 @@ import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.{ErrorUtil, RangeUtil, SeqUtil}
+import com.digitalasset.canton.util.{ErrorUtil, RangeUtil}
 import com.digitalasset.canton.version.*
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -154,21 +154,21 @@ class DbSequencerStateManagerStore(
         )
       ]
     aggregationsQ.map { aggregations =>
-      val byAggregationId = SeqUtil.clusterBy(aggregations) { case (aggregationId, _, _, _, _, _) =>
+      val byAggregationId = aggregations.groupBy { case (aggregationId, _, _, _, _, _) =>
         aggregationId
       }
-      byAggregationId.map { aggregationsNE =>
-        val (aggregationId, maxSequencingTimestamp, aggregationRule, _, _, _) =
+      byAggregationId.fmap { aggregationsForId =>
+        val aggregationsNE = NonEmptyUtil.fromUnsafe(aggregationsForId)
+        val (_, maxSequencingTimestamp, aggregationRule, _, _, _) =
           aggregationsNE.head1
         val aggregatedSenders = aggregationsNE.map {
           case (_, _, _, sender, sequencingTimestamp, signatures) =>
             sender -> AggregationBySender(sequencingTimestamp, signatures.signaturesByEnvelope)
         }.toMap
-        aggregationId ->
-          InFlightAggregation
-            .create(aggregatedSenders, maxSequencingTimestamp, aggregationRule)
-            .valueOr(err => throw new DbDeserializationException(err))
-      }.toMap
+        InFlightAggregation
+          .create(aggregatedSenders, maxSequencingTimestamp, aggregationRule)
+          .valueOr(err => throw new DbDeserializationException(err))
+      }
     }
   }
 
