@@ -194,7 +194,7 @@ private[daml] object StablePackagesV2 extends StablePackages {
   )
   val GHC_Types: StablePackage = new StablePackage(
     "GHC.Types",
-    "2f07eb3e4731beccfd88fcd19177268f120f9a2b06a52534ee808a4ba1e89720",
+    "48b29a202dfd2b7c892f113aff1e70ff124059df9f756af4bcf1faf75fc41b19",
     "daml-prim",
     v2_1,
   )
