@@ -117,12 +117,6 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
     * Subclasses should make this method public by default, as this supports composing proto serializations.
     * Keep it protected, if there are good reasons for it
     * (e.g. [[com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence]]).
-    *
-    * Be aware that if calling on a class that defines a LegacyProtoConverter, this method will still
-    * return a VersionedMessage. If the current protocol version maps to the
-    * legacy converter, deserialization will then fail (as it will try to deserialize to the raw protobuf instead of the
-    * VersionedMessage wrapper this was serialized to.
-    * Prefer using toByteString which handles this use case correctly.
     */
   def toProtoVersioned: VersionedMessage[ValueClass] =
     companionObj.supportedProtoVersions.converters
@@ -781,22 +775,6 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
         .deserializerFor(ProtoVersion(proto.version))(bytes, data)
     } yield valueClass
 
-  /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly
-    * set the version to use for the deserialization.
-    * @param protoVersion Proto version of the bytes to be deserialized
-    * @param bytes data
-    */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
-  def fromByteStringLegacy(
-      protoVersion: ProtoVersion
-  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
-    protocolVersionRepresentativeFor(protoVersion).flatMap { rpv =>
-      deserializeForVersion(
-        rpv,
-        fromByteStringUnsafe(bytes),
-      )
-    }
-
   override protected def deserializationErrorK(
       error: ProtoDeserializationError
   ): (OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass] =
@@ -1058,21 +1036,6 @@ trait HasProtocolVersionedCompanion2[
     }
   }
 
-  /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly
-    * set the version to use for the deserialization.
-    * @param protocolVersion protocol version of the bytes to be deserialized
-    * @param bytes data
-    */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
-  def fromByteStringLegacy(
-      protocolVersion: ProtocolVersion
-  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = {
-    deserializeForVersion(
-      protocolVersionRepresentativeFor(protocolVersion),
-      fromByteStringUnsafe(bytes),
-    )
-  }
-
   implicit def hasVersionedWrapperGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]
   ): GetResult[DeserializedValueClass] = GetResult { r =>
@@ -1141,38 +1104,6 @@ trait HasProtocolVersionedWithContextCompanion[
     proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
     valueClass <- fromProtoVersionedUnsafe(context)(VersionedMessage(proto))
   } yield valueClass
-
-  /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly
-    * set the Proto version to use for the deserialization.
-    * @param protoVersion Proto version of the bytes to be deserialized
-    * @param bytes data
-    */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
-  def fromByteStringLegacy(
-      protoVersion: ProtoVersion
-  )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
-    protocolVersionRepresentativeFor(protoVersion).flatMap { rpv =>
-      deserializeForVersion(
-        rpv,
-        fromByteStringUnsafe(context)(bytes),
-      )
-    }
-  }
-
-  /** Use this method when deserializing bytes for classes that have a legacy proto converter to explicitly
-    * set the protocol version to use for the deserialization.
-    * @param protocolVersion protocol version of the bytes to be deserialized
-    * @param bytes data
-    */
-  // TODO(#15250) - Remove this method when protocol versions 3 and 4 are removed
-  def fromByteStringLegacy(
-      protocolVersion: ProtocolVersion
-  )(context: Context)(bytes: OriginalByteString): ParsingResult[ValueClass] = {
-    deserializeForVersion(
-      protocolVersionRepresentativeFor(protocolVersion),
-      fromByteStringUnsafe(context)(bytes),
-    )
-  }
 
   override protected def deserializationErrorK(
       error: ProtoDeserializationError
@@ -1271,21 +1202,4 @@ trait HasMemoizedProtocolVersionedWithValidationCompanion[
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =
     super.fromByteString(expectedProtocolVersion)(expectedProtocolVersion)(bytes)
-}
-
-/** Similar to [[HasProtocolVersionedWithOptionalValidationCompanion]] but with memoization. */
-trait HasMemoizedProtocolVersionedWithOptionalValidationCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion
-] extends HasMemoizedProtocolVersionedWithContextCompanion2[
-      ValueClass,
-      ValueClass,
-      ProtocolVersionValidation,
-    ] {
-  def fromByteString(expectedProtocolVersion: ProtocolVersionValidation)(
-      bytes: OriginalByteString
-  ): ParsingResult[ValueClass] =
-    super.fromByteString(expectedProtocolVersion)(expectedProtocolVersion)(bytes)
-
-  def fromByteStringUnsafe(bytes: OriginalByteString): ParsingResult[ValueClass] =
-    super.fromByteStringUnsafe(ProtocolVersionValidation.NoValidation)(bytes)
 }

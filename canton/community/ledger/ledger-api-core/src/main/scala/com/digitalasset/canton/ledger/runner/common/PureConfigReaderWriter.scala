@@ -25,11 +25,7 @@ import com.digitalasset.canton.platform.config.{
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.{
-  IndexerConfig,
-  IndexerStartupMode,
-  PackageMetadataViewConfig,
-}
+import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.digitalasset.canton.platform.store.DbSupport.{
   ConnectionPoolConfig,
   DataSourceProperties,
@@ -191,27 +187,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val rateLimitingConfigConvert: ConfigConvert[Option[RateLimitingConfig]] =
     optConvertEnabled(deriveConvert[RateLimitingConfig])
-
-  implicit val validateAndStartConvert: ConfigConvert[IndexerStartupMode.ValidateAndStart.type] =
-    deriveConvert[IndexerStartupMode.ValidateAndStart.type]
-
-  implicit val MigrateOnEmptySchemaAndStartReader
-      : ConfigConvert[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] =
-    deriveConvert[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
-
-  implicit val migrateAndStartConvert: ConfigConvert[IndexerStartupMode.MigrateAndStart.type] =
-    deriveConvert[IndexerStartupMode.MigrateAndStart.type]
-
-  implicit val validateAndWaitOnlyHint: ProductHint[IndexerStartupMode.ValidateAndWaitOnly] =
-    ProductHint[IndexerStartupMode.ValidateAndWaitOnly](allowUnknownKeys = false)
-
-  implicit val validateAndWaitOnlyConvert: ConfigConvert[IndexerStartupMode.ValidateAndWaitOnly] =
-    deriveConvert[IndexerStartupMode.ValidateAndWaitOnly]
-  implicit val justStartOnlyConvert: ConfigConvert[IndexerStartupMode.JustStart.type] =
-    deriveConvert[IndexerStartupMode.JustStart.type]
-
-  implicit val indexerStartupModeConvert: ConfigConvert[IndexerStartupMode] =
-    deriveConvert[IndexerStartupMode]
 
   implicit val haConfigHint: ProductHint[HaConfig] =
     ProductHint[HaConfig](allowUnknownKeys = false)
