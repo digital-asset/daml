@@ -220,7 +220,7 @@ tests damlc =
               ]
         , test
               "Fails when template adds key type"
-              (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template MyLib.A key:\n  The upgraded template A has added a key where it didn't have one previously.")
+              (FailWithError "\ESC\\[0;91merror type checking template MyLib.A key:\n  The upgraded template A cannot add a key where it didn't have one previously.")
               [ ( "daml/MyLib.daml"
                 , unlines
                       [ "module MyLib where"
