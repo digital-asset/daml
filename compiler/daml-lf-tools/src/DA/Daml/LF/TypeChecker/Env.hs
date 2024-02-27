@@ -70,7 +70,7 @@ runGamma
   -> Version
   -> ReaderT Gamma (StateT [Warning] (Either Error)) a
   -> Either Error (a, [Warning])
-runGamma world0 version act = runStateT (runReaderT act (emptyGamma world0 version)) []
+runGamma world0 version act = runGammaF (emptyGamma world0 version) act
 
 runGammaF
   :: gamma
