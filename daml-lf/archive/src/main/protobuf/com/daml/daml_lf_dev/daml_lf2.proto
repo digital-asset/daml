@@ -36,10 +36,6 @@ message PackageRef {
     // belongs.
     Unit self = 1;
 
-    // A `Package identifier` for an imported Package.
-    // *Must be a list of valid packageId string*
-    string package_id_str = 2; // *Available in versions < 1.7*
-
     // An index into `interned_package_ids` of the Package containing
     // this reference.
     // *Must be a valid interned package Id string*
@@ -82,13 +78,8 @@ message ValName {
 // A field name definition in a record or a variant associated with a type.
 message FieldWithType {
 
-  oneof field {
-      // *Must be a valid identifier*
-      string field_str = 1; // *Available in version < 1.7*
-
-      // *Must a valid interned identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.7*
-  }
+  // *Must a valid interned identifier*
+  int32 field_interned_str = 3;
 
   // Type associated
   Type type = 2;
@@ -97,14 +88,8 @@ message FieldWithType {
 // Binder associated with a type.
 message VarWithType {
 
-  // Name of the bound expression variable.
-  oneof var {
-    // *Must be a valid identifier*
-    string var_str = 1; // *Available in version < 1.7*
-
-    // *Must be a valid interned identifier*
-    int32 var_interned_str = 3; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned identifier*
+  int32 var_interned_str = 3;
 
   // Type of the bound variable
   Type type = 2;
@@ -113,14 +98,8 @@ message VarWithType {
 // Type binder associated with a kind.
 message TypeVarWithKind {
 
-  // Name of the bound expression variable
-  oneof var {
-    // *Must be a valid identifier*
-    string var_str = 1; // *Available in version < 1.7*
-
-    // *Must be a valid interned identifier*
-    int32 var_interned_str = 3; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned identifier*
+  int32 var_interned_str = 3;
 
   // Kind of the bound variable
   Kind kind = 2;
@@ -129,13 +108,8 @@ message TypeVarWithKind {
 // A field in a record with its value.
 message FieldWithExpr {
 
-  oneof field {
-    // *Must be a valid identifier*
-    string field_str = 1; // *Available in version < 1.7*
-
-    // *Must be a valid interned identifier*
-    int32 field_interned_str = 3; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned identifier*
+  int32 field_interned_str = 3;
 
   // Value of the field
   Expr expr = 2;
@@ -259,14 +233,8 @@ message Type {
   // Possibly applied type variable 'TyVar'
   message Var {
 
-    // Name of the variable.
-    oneof var {
-      // *Must be a valid identifier*
-      string var_str = 1; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 var_interned_str = 3; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 3;
 
     // Types to which the variable is applied
     repeated Type args = 2;
@@ -537,21 +505,13 @@ message PrimLit {
     string decimal_str = 2; // *Available in versions < 1.7*
 
     // *Must be a valid interned numeric */
-    int32 numeric_interned_str = 10; // *Available in versions >= 1.7*
-
-    string text_str = 4; // *Available in version < 1.7*
+    int32 numeric_interned_str = 10;
 
     // *Must be a valid interned text*
-    int32 text_interned_str = 11; // *Available in versions >= 1.7*
+    int32 text_interned_str = 11;
 
     // *Must be a valid timestamp*
     sfixed64 timestamp = 5;
-
-    // *Must be a valid PartyId string*
-    string party_str = 7; // *Available in version < 1.7*
-
-    // *Must be a valid interned PartyId string*
-    int32 party_interned_str = 12; // *Available in versions >= 1.7*
 
     // *Must be a valid date*
     int32 date = 8;
@@ -600,14 +560,8 @@ message Expr {
     // type of the record being projected.
     Type.Con tycon = 1;
 
-    // Name of the record field to be projected on.
-    oneof field {
-      // *Must be a valid identifier*
-      string field_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 field_interned_str = 4; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 4;
 
     // projected expression
     Expr record = 3;
@@ -619,14 +573,8 @@ message Expr {
     // type of the record being updated
     Type.Con tycon = 1;
 
-    // Name of the updated field.
-    oneof field {
-      // *Must be a valid identifier*
-      string field_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 field_interned_str = 5; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 5;
 
     // Actual record being updated
     Expr record = 3;
@@ -641,14 +589,8 @@ message Expr {
     // type of the variant being constructed
     Type.Con tycon = 1;
 
-    // name of the variant constructor
-    oneof variant_con {
-      // *Must be a valid identifier*
-      string variant_con_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 variant_con_interned_str = 4; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 variant_con_interned_str = 4;
 
     // Argument of the variant.
     Expr variant_arg = 3;
@@ -660,14 +602,8 @@ message Expr {
     // Name of the type constructor name
     TypeConName tycon = 1;
 
-    // name of the enum constructor
-    oneof enum_con {
-      // *Must be a valid identifier*
-      string enum_con_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 enum_con_interned_str = 3; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 enum_con_interned_str = 3;
   }
 
   // Struct Construction ('ExpStructCon')
@@ -678,15 +614,8 @@ message Expr {
 
   // Struct Projection ('ExpStructProj')
   message StructProj {
-
-    // Name of the field to be projected on.
-    oneof field {
-      // *Must be a valid Identifier*
-      string field_str = 1; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+      int32 field_interned_str = 3;
 
     // struct to be projected.
     Expr struct = 2;
@@ -694,15 +623,8 @@ message Expr {
 
   // Struct update ('ExpTuplUpdate')
   message StructUpd {
-
-    // Name of the updated field.
-    oneof field {
-      // *Must be a valid identifier*.
-      string field_str = 1; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 field_interned_str = 4; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 4;
 
     // Actual struct being updated.
     Expr struct = 2;
@@ -965,11 +887,8 @@ message Expr {
 
   oneof Sum {
 
-    // *Must be a valid identifier*
-    string var_str = 1; // *Available in version < 1.7*
-
     // *Must be a valid interned identifier*
-    int32 var_interned_str = 29; // *Available in versions >= 1.7*
+    int32 var_interned_str = 29;
 
     // Defined value ('ExpVal')
     ValName val = 2;
@@ -1123,23 +1042,11 @@ message CaseAlt {
     // name of the type constructor
     TypeConName con = 1;
 
-    // name of the variant constructor
-    oneof variant {
-      // *Must be a valid identifier*
-      string variant_str = 2; // *Available in version < 1.7*
+    // *Must be a valid interned identifier*
+    int32 variant_interned_str = 4;
 
-      // *Must be a valid interned identifier*
-      int32 variant_interned_str = 4; // *Available in versions >= 1.7*
-    }
-
-    // name of the variant binder
-    oneof binder {
-      // *Must be a valid identifier*
-      string binder_str = 3; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 binder_interned_str = 5; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 binder_interned_str = 5;
   }
 
   // Enum pattern
@@ -1148,49 +1055,23 @@ message CaseAlt {
     // name of the type constructor
     TypeConName con = 1;
 
-    // name of the variant constructor
-    // *Must be a valid identifier*
-    oneof constructor {
-      // *Must be a valid identifier*
-      string constructor_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 constructor_interned_str = 3; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 constructor_interned_str = 3;
   }
 
   // Non empty list pattern
   message Cons {
+    // *Must be a valid interned identifier*
+    int32 var_head_interned_str = 3;
 
-    // name of the binder for the head
-    oneof var_head {
-      // *Must be a valid identifier*
-      string var_head_str = 1; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 var_head_interned_str = 3; // *Available in versions >= 1.7*
-    }
-
-
-    oneof var_tail {
-      // *Must be a valid identifier*
-      string var_tail_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 var_tail_interned_str = 4; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 var_tail_interned_str = 4;
   }
 
   // Non empty option patterm
   message OptionalSome {
-
-    oneof var_body {
-      // *Must be a valid identifier*
-      string var_body_str = 1; // *Available in version < 1.7*
-
       // *Must be a valid interned identifier*
-      int32 var_body_interned_str = 2; // *Available in versions >= 1.7*
-    }
+      int32 var_body_interned_str = 2;
   }
 
   oneof Sum {
@@ -1251,14 +1132,8 @@ message Update {
     // Template type
     TypeConName template = 1;
 
-    // name of the exercised template choice
-    oneof choice {
-      // *Must be a valid identifier*
-      string choice_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 choice_interned_str = 6; // *Available in versions >= 1.7*
-    }
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 6;
 
     // contract id
     Expr cid = 3;
@@ -1274,16 +1149,8 @@ message Update {
   message SoftExercise {
     // Template type
     TypeConName template = 1;
-
-    // name of the exercised template choice
-    oneof choice {
-      // *Must be a valid identifier*
-      string choice_str = 2;
-
-      // *Must be a valid interned identifier*
+    // *Must be a valid interned identifier*
       int32 choice_interned_str = 6;
-    }
-
     // contract id
     Expr cid = 3;
     // argument
@@ -1453,14 +1320,8 @@ message Scenario {
 
 // Template choice definition.
 message TemplateChoice {
-
-  // *Must be a valid identifier*
-  oneof name {
-    string name_str = 1; // *Available in version < 1.7*
-
-    // *Must be a valid interned identifier*
-    int32 name_interned_str = 9; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned identifier*
+  int32 name_interned_str = 9;
 
   // Choice type
   bool consuming = 2;
@@ -1488,14 +1349,8 @@ message TemplateChoice {
   // the template parameter and the choice parameter in scope.
   Expr update = 6;
 
-  // Name to bind the ContractId of the contract this choice is exercised on to.
-  oneof self_binder {
-    // *Must be a valid identifier*
-    string self_binder_str = 7; // *Available in version < 1.7*
-
-    // *Must be a valid interned identifier*
-    int32 self_binder_interned_str = 10; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned identifier*
+  int32 self_binder_interned_str = 10;
 
   Location location = 8;
 }
@@ -1535,14 +1390,8 @@ message DefTemplate {
   // *Must be a valid interned name*
   int32 tycon_interned_dname = 12; // *Available in versions >= 1.7*
 
-  // Name to which the template argument is bound.
-  oneof param {
-    // *Must be a valid identifier*
-    string param_str = 2; // *Available in version < 1.7*
-
-    // *Must be a valid interned identifier*
-    int32 param_interned_str = 11; // *Available in versions >= 1.7*
-  }
+  // *Must be a valid interned identifier*
+  int32 param_interned_str = 11;
 
   // NOTE(MH): The new runtime authorization check for Daml 1.0 does not rely
   // on the stakeholder signatures produced by the obligables computation
@@ -1635,12 +1484,8 @@ message DefDataType {
   }
 
   message EnumConstructors {
-
-    // *Must be a list of valid identifiers*
-    repeated string constructors_str = 1; // *Available in version < 1.7*
-
     // *Must be a list of valid interned identifiers*
-    repeated int32 constructors_interned_str = 2; // *Available in versions >= 1.7*
+    repeated int32 constructors_interned_str = 2;
   }
 
   // name of the defined data type
@@ -1730,17 +1575,17 @@ message Module {
 }
 
 message InternedDottedName {
-  repeated int32 segments_interned_str = 1; // *Available in versions >= 1.7*
+  repeated int32 segments_interned_str = 1;
 }
 
 // *Available in versions >= 1.dev*
 message UpgradedPackageId {
-  int32 upgraded_package_id_interned_str = 1; // *Available in versions >= 1.dev*
+  int32 upgraded_package_id_interned_str = 1;
 }
 
 message PackageMetadata {
-  int32 name_interned_str = 1; // *Available in versions >= 1.8*
-  int32 version_interned_str = 2; // *Available in versions >= 1.8*
+  int32 name_interned_str = 1;
+  int32 version_interned_str = 2;
   UpgradedPackageId upgraded_package_id = 3; // *optional*, *Available in versions >= 1.dev*
 }
 
