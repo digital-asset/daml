@@ -16,6 +16,7 @@ import qualified V1.VariantAddOptFld as V1
 import qualified V1.VariantAddOptNestedFld as V1
 import qualified V1.VariantAddNonOptFld as V1
 import qualified V1.VariantAddNonOptNestedFld as V1
+import qualified V1.VariantNonLastAdditional as V1
 
 import qualified V2.VariantUnchanged as V2
 import qualified V2.VariantRemCon as V2
@@ -25,6 +26,7 @@ import qualified V2.VariantAddOptFld as V2
 import qualified V2.VariantAddOptNestedFld as V2
 import qualified V2.VariantAddNonOptFld as V2
 import qualified V2.VariantAddNonOptNestedFld as V2
+import qualified V2.VariantNonLastAdditional as V2
 
 main : Script ()
 main = tests
@@ -43,6 +45,9 @@ main = tests
   , ("Downgrade fails if variant is a new constructor", downgradeFromNewCon)
   , broken ("Downgrade fails if variant has optional fields added as Some", downgradeFromSomeNewOptField)
   , broken ("Downgrade fails if variant has optional nested fields added as Some", downgradeFromSomeNewOptNestedField)
+  , broken ("Fails if upgrading a variant with a new case in the middle, from a case with unchanged rank", templateVariantUpgradeNonLastSameRank)
+  , broken ("Fails if upgrading a variant with a new case in the middle, from a case with changed rank", templateVariantUpgradeNonLastDifferentRank)
+  , ("Fails if downgrading a variant from a new case in the middle", templateVariantDowngradeNonLastDifferentRank)
   ]
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasEnsure t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
@@ -50,9 +55,10 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice = do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (makeV1Contract a)
   let cidV2 = coerceContractId @t1 @t2 cid
-  res <- a `trySubmit` exerciseCmd cidV2 v2Choice
+  res <- a `trySubmit` exerciseExactCmd cidV2 v2Choice
 
   case (res, shouldSucceed) of
+    (Right "V1", True) -> pure ()
     (Right "V2", True) -> pure ()
     (Left (WronglyTypedContract {}), False) -> pure ()
     (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
@@ -396,3 +402,48 @@ downgradeFromSomeNewOptNestedField =
         vaonf_nested_field_3 = Some "nested goodbye"
     )
     V1.VariantAddOptNestedFldCall
+
+{- MODULE
+package: variant-changes
+contents: |
+  module VariantNonLastAdditional where
+  data VariantNonLastAdditionalData
+    = VariantNonLastAdditionalData1 Int
+    | VariantNonLastAdditionalData15 (Numeric 10) -- @V 2
+    | VariantNonLastAdditionalData2 Bool
+    deriving (Eq, Show)
+  template VariantNonLastAdditional
+    with
+      party : Party
+      nestedData : VariantNonLastAdditionalData
+    where
+      signatory party
+      choice VariantNonLastAdditionalCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+templateVariantUpgradeNonLastSameRank : Script ()
+templateVariantUpgradeNonLastSameRank =
+  templateInvalidChange
+    @V2.VariantNonLastAdditional
+    False
+    (`V1.VariantNonLastAdditional` V1.VariantNonLastAdditionalData1 1)
+    V2.VariantNonLastAdditionalCall
+
+templateVariantUpgradeNonLastDifferentRank : Script ()
+templateVariantUpgradeNonLastDifferentRank =
+  templateInvalidChange
+    @V2.VariantNonLastAdditional
+    False
+    (`V1.VariantNonLastAdditional` V1.VariantNonLastAdditionalData2 True) -- Data2 is second in V1, and third in V2
+    V2.VariantNonLastAdditionalCall
+
+templateVariantDowngradeNonLastDifferentRank : Script ()
+templateVariantDowngradeNonLastDifferentRank =
+  templateInvalidChange
+    @V1.VariantNonLastAdditional
+    False
+    (`V2.VariantNonLastAdditional` V2.VariantNonLastAdditionalData15 1.0) -- Data15 is second in V2, Data2 is second in V1
+    V1.VariantNonLastAdditionalCall
