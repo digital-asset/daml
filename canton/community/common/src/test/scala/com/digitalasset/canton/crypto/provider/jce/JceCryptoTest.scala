@@ -22,6 +22,7 @@ class JceCryptoTest
     with EncryptionTest
     with PrivateKeySerializationTest
     with HkdfTest
+    with PasswordBasedEncryptionTest
     with RandomTest
     with JavaPublicKeyConverterTest {
 
@@ -105,5 +106,10 @@ class JceCryptoTest
       new TinkJavaConverter,
     )
 
+    behave like pbeProvider(
+      Jce.pbkdf.valueOrFail("no PBKDF schemes configured").supported,
+      Jce.symmetric.supported,
+      jceCrypto().map(_.pureCrypto),
+    )
   }
 }

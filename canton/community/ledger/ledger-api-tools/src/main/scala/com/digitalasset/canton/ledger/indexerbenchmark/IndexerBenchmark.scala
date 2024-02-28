@@ -96,6 +96,7 @@ class IndexerBenchmark extends NamedLogging {
           loggerFactory,
           dataSourceProperties,
           highAvailability,
+          None,
         )
         _ = println("Setting up the index database...")
         indexer <- indexer(config, indexerExecutionContext, indexerFactory)

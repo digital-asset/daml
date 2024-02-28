@@ -833,6 +833,7 @@ scala_library(
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_postgresql_postgresql",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_13",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",

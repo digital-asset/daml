@@ -199,7 +199,7 @@ class ProtocolProcessorTest
   )
 
   private val encryptedRandomnessTest =
-    Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY).value
+    Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY)
   private val sessionKeyMapTest = NonEmpty(
     Seq,
     new AsymmetricEncrypted[SecureRandomness](ByteString.EMPTY, Fingerprint.tryCreate("dummy")),
@@ -364,7 +364,7 @@ class ProtocolProcessorTest
   private lazy val rootHash = RootHash(TestHash.digest(1))
   private lazy val viewHash = ViewHash(TestHash.digest(2))
   private lazy val encryptedView =
-    EncryptedView(TestViewType)(Encrypted.fromByteString(rootHash.toProtoPrimitive).value)
+    EncryptedView(TestViewType)(Encrypted.fromByteString(rootHash.toProtoPrimitive))
   private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
     submittingParticipantSignature = None,
     viewHash = viewHash,
@@ -608,7 +608,7 @@ class ProtocolProcessorTest
       val wrongRootHash = RootHash(TestHash.digest(3))
       val viewHash1 = ViewHash(TestHash.digest(2))
       val encryptedViewWrongRH =
-        EncryptedView(TestViewType)(Encrypted.fromByteString(wrongRootHash.toProtoPrimitive).value)
+        EncryptedView(TestViewType)(Encrypted.fromByteString(wrongRootHash.toProtoPrimitive))
       val viewMessageWrongRH = EncryptedViewMessage(
         submittingParticipantSignature = None,
         viewHash = viewHash1,
@@ -650,8 +650,7 @@ class ProtocolProcessorTest
         viewHash = viewHash,
         randomness = encryptedRandomnessTest,
         sessionKey = sessionKeyMapTest,
-        encryptedView =
-          EncryptedView(TestViewType)(Encrypted.fromByteString(ByteString.EMPTY).value),
+        encryptedView = EncryptedView(TestViewType)(Encrypted.fromByteString(ByteString.EMPTY)),
         domainId = DefaultTestIdentities.domainId,
         viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
         protocolVersion = testedProtocolVersion,
@@ -930,7 +929,7 @@ class ProtocolProcessorTest
       when(mockSignedProtocolMessage.message).thenReturn(trm)
       when(
         mockSignedProtocolMessage
-          .verifySignature(any[SyncCryptoApi], any[MediatorGroupIndex])(anyTraceContext)
+          .verifyMediatorSignatures(any[SyncCryptoApi], any[MediatorGroupIndex])(anyTraceContext)
       )
         .thenReturn(EitherT.rightT(()))
       sut

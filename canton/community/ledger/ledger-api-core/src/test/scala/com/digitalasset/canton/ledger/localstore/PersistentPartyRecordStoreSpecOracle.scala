@@ -9,4 +9,5 @@ import org.scalatest.freespec.AsyncFreeSpec
 class PersistentPartyRecordStoreSpecOracle
     extends AsyncFreeSpec
     with PersistentPartyRecordStoreTests
+    with ConcurrentPersistentPartyRecordStoreTests
     with StorageBackendProviderOracle

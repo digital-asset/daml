@@ -78,6 +78,8 @@ trait CryptoPureApi
     with HkdfOps
     with HashOps
     with RandomOps
+    with PasswordBasedEncryptionOps
+
 trait CryptoPrivateApi extends EncryptionPrivateOps with SigningPrivateOps
 trait CryptoPrivateStoreApi
     extends CryptoPrivateApi
@@ -162,9 +164,14 @@ trait SyncCryptoApi {
     * Can be successful even if some signatures fail the check, logs the errors in that case.
     * When the threshold is not met returns `Left` with all the signature check errors.
     */
-  def verifySignatures(
+  def verifyMediatorSignatures(
       hash: Hash,
       mediatorGroupIndex: MediatorGroupIndex,
+      signatures: NonEmpty[Seq[Signature]],
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
+
+  def verifySequencerSignatures(
+      hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
 

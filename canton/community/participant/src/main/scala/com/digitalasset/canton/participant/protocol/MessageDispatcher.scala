@@ -46,6 +46,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -82,6 +83,7 @@ trait MessageDispatcher { this: NamedLogging =>
 
   protected def topologyProcessor
       : (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
+  protected def trafficProcessor: TrafficControlProcessor
   protected def acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType
   protected def requestCounterAllocator: RequestCounterAllocator
   protected def recordOrderPublisher: RecordOrderPublisher
@@ -188,7 +190,7 @@ trait MessageDispatcher { this: NamedLogging =>
     val deliver = eventE.event.content
     // TODO(#13883) Validate the topology timestamp
     // TODO(#13883) Centralize the topology timestamp constraints in a single place so that they are well-documented
-    val Deliver(sc, ts, _, _, batch, _) = deliver
+    val Deliver(sc, ts, _, _, batch, topologyTimestampO) = deliver
 
     val envelopesWithCorrectDomainId = filterBatchForDomainId(batch, sc, ts)
 
@@ -206,6 +208,7 @@ trait MessageDispatcher { this: NamedLogging =>
         SequencedTime(ts),
         envelopesWithCorrectDomainId,
       )
+      trafficResult <- processTraffic(ts, topologyTimestampO, envelopesWithCorrectDomainId)
       acsCommitmentResult <- processAcsCommitmentEnvelope(envelopesWithCorrectDomainId, sc, ts)
       // Make room for the repair requests that have been inserted before the current timestamp.
       //
@@ -224,6 +227,7 @@ trait MessageDispatcher { this: NamedLogging =>
     } yield Foldable[List].fold(
       List(
         identityResult,
+        trafficResult,
         acsCommitmentResult,
         repairProcessorResult,
         transactionTransferResult,
@@ -239,6 +243,18 @@ trait MessageDispatcher { this: NamedLogging =>
     doProcess(
       TopologyTransaction,
       topologyProcessor(sc, ts, Traced(envelopes)),
+    )
+
+  protected def processTraffic(
+      ts: CantonTimestamp,
+      timestampOfSigningKeyO: Option[CantonTimestamp],
+      envelopes: List[DefaultOpenEnvelope],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ProcessingResult] =
+    doProcess(
+      TrafficControlTransaction,
+      trafficProcessor.processSetTrafficBalanceEnvelopes(ts, timestampOfSigningKeyO, envelopes),
     )
 
   private def processTransactionAndTransferMessages(
@@ -763,6 +779,7 @@ private[participant] object MessageDispatcher {
   }
 
   case object TopologyTransaction extends MessageKind[AsyncResult]
+  case object TrafficControlTransaction extends MessageKind[Unit]
   final case class RequestKind(viewType: ViewType) extends MessageKind[AsyncResult] {
     override def pretty: Pretty[RequestKind] = prettyOfParam(unnamedParam(_.viewType))
   }
@@ -802,6 +819,7 @@ private[participant] object MessageDispatcher {
             SequencedTime,
             Traced[List[DefaultOpenEnvelope]],
         ) => HandlerResult,
+        trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
@@ -822,6 +840,7 @@ private[participant] object MessageDispatcher {
         transferInProcessor: TransferInProcessor,
         registerTopologyTransactionResponseProcessor: EnvelopeHandler,
         topologyProcessor: TopologyTransactionProcessorCommon,
+        trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
@@ -862,6 +881,7 @@ private[participant] object MessageDispatcher {
         requestTracker,
         requestProcessors,
         identityProcessor,
+        trafficProcessor,
         acsCommitmentProcessor,
         requestCounterAllocator,
         recordOrderPublisher,
@@ -886,6 +906,7 @@ private[participant] object MessageDispatcher {
             SequencedTime,
             Traced[List[DefaultOpenEnvelope]],
         ) => HandlerResult,
+        trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
@@ -902,6 +923,7 @@ private[participant] object MessageDispatcher {
         requestTracker,
         requestProcessors,
         topologyProcessor,
+        trafficProcessor,
         acsCommitmentProcessor,
         requestCounterAllocator,
         recordOrderPublisher,

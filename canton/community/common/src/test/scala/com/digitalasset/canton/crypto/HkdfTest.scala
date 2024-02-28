@@ -99,7 +99,7 @@ trait HkdfTest {
   )
 
   def hkdfProvider(providerF: => Future[HkdfOps with RandomOps]): Unit = {
-    "HKDF provider" should {
+    "derive keys using HMAC" should {
       "pass golden tests from RFC 5869 for extract-and-expand" in {
         val algo = HmacAlgorithm.HmacSha256
         providerF.map { provider =>

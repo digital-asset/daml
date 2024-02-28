@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.localstore
 import com.digitalasset.canton.platform.store.backend.StorageBackendProviderH2
 import org.scalatest.freespec.AsyncFreeSpec
 
-class PersistentIdentityProviderConfigStoreH2Spec
+class PersistentUserStoreSpecH2
     extends AsyncFreeSpec
-    with PersistentIdentityProviderConfigStoreTests
+    with PersistentUserStoreTests
     with StorageBackendProviderH2

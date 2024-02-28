@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.metrics
 
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
-import com.daml.metrics.api.MetricHandle.{Gauge, Meter}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Meter}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
@@ -109,6 +109,24 @@ class SequencerMetrics(
       qualification = Traffic,
     )
     val eventDelivered: Meter = openTelemetryMetricsFactory.meter(prefix :+ "event-delivered-cost")
+
+    @MetricDoc.Tag(
+      summary = "Counts balance updates fully processed by the sequencer.",
+      description = """Value of balance updates for all (aggregated).""",
+      qualification = Traffic,
+    )
+    val balanceUpdateProcessed: Counter =
+      openTelemetryMetricsFactory.counter(prefix :+ "balance-update")
+
+    @MetricDoc.Tag(
+      summary = "Counts cache misses when trying to retrieve a balance for a given timestamp.",
+      description = """The per member cache only keeps in memory a subset of all the non-pruned balance updates persisted in the database.
+          |If the cache contains *some* balances for a member but not the one requested, a DB call will be made to try to retrieve it.
+          |When that happens, this metric is incremented. If this occurs too frequently, consider increasing the config value of trafficBalanceCacheSizePerMember.""",
+      qualification = Traffic,
+    )
+    val balanceCacheMissesForTimestamp: Counter =
+      openTelemetryMetricsFactory.counter(prefix :+ "balance-cache-miss-for-timestamp")
   }
 }
 

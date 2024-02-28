@@ -185,22 +185,20 @@ object EncryptedViewMessageFactory {
            )
          } yield encryptedSessionKeyInfo
        } else {
+         val encryptedRandomness = Encrypted.fromByteString[SecureRandomness](randomness.unwrap)
          eitherT(
-           Encrypted
-             .fromByteString[SecureRandomness](randomness.unwrap)
-             .leftMap(FailedToDeserializeEncryptedRandomness)
-             .map(encryptedRandomness =>
-               (
-                 encryptedRandomness,
-                 NonEmpty(
-                   Seq,
-                   AsymmetricEncrypted[SecureRandomness](
-                     ByteString.EMPTY,
-                     AsymmetricEncrypted.noEncryptionFingerprint,
-                   ),
+           Right(
+             (
+               encryptedRandomness,
+               NonEmpty(
+                 Seq,
+                 AsymmetricEncrypted[SecureRandomness](
+                   ByteString.EMPTY,
+                   AsymmetricEncrypted.noEncryptionFingerprint,
                  ),
-               )
+               ),
              )
+           )
          )
        }).map { case (randomnessV2, sessionKeyMap) =>
         EncryptedViewMessage[VT](

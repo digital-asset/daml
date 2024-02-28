@@ -31,8 +31,8 @@ import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.digests.SHA256Digest
-import org.bouncycastle.crypto.generators.HKDFBytesGenerator
-import org.bouncycastle.crypto.params.HKDFParameters
+import org.bouncycastle.crypto.generators.{Argon2BytesGenerator, HKDFBytesGenerator}
+import org.bouncycastle.crypto.params.{Argon2Parameters, HKDFParameters}
 import org.bouncycastle.jce.spec.IESParameterSpec
 import sun.security.ec.ECPrivateKeyImpl
 
@@ -74,6 +74,7 @@ class JcePureCrypto(
     javaKeyConverter: JceJavaConverter,
     override val defaultSymmetricKeyScheme: SymmetricKeyScheme,
     override val defaultHashAlgorithm: HashAlgorithm,
+    override val defaultPbkdfScheme: PbkdfScheme,
     override val loggerFactory: NamedLoggerFactory,
 ) extends CryptoPureApi
     with ShowUtil
@@ -882,4 +883,42 @@ class JcePureCrypto(
 
   override protected def generateRandomBytes(length: Int): Array[Byte] =
     JceSecureRandom.generateRandomBytes(length)
+
+  override def deriveSymmetricKey(
+      password: String,
+      symmetricKeyScheme: SymmetricKeyScheme,
+      pbkdfScheme: PbkdfScheme,
+      saltO: Option[SecureRandomness],
+  ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey] = {
+    pbkdfScheme match {
+      case mode: PbkdfScheme.Argon2idMode1.type =>
+        val salt = saltO.getOrElse(generateSecureRandomness(pbkdfScheme.defaultSaltLengthInBytes))
+
+        val params = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
+          .withIterations(mode.iterations)
+          .withMemoryAsKB(mode.memoryInKb)
+          .withParallelism(mode.parallelism)
+          .withSalt(salt.unwrap.toByteArray)
+          .build()
+
+        val argon2 = new Argon2BytesGenerator()
+        argon2.init(params)
+
+        val keyLength = symmetricKeyScheme.keySizeInBytes
+        val keyBytes = new Array[Byte](keyLength)
+        val keyLen = argon2.generateBytes(password.toCharArray, keyBytes)
+
+        val key =
+          SymmetricKey(CryptoKeyFormat.Raw, ByteString.copyFrom(keyBytes), symmetricKeyScheme)
+
+        Either.cond(
+          keyLen == keyLength,
+          PasswordBasedEncryptionKey(key = key, salt = salt),
+          PasswordBasedEncryptionError.PbkdfOutputLengthInvalid(
+            expectedLength = keyLength,
+            actualLength = keyLen,
+          ),
+        )
+    }
+  }
 }
