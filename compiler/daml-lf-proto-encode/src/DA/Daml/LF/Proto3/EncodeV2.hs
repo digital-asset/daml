@@ -146,12 +146,8 @@ encodeNames = encodeInternableStrings . fmap mangleName
 --  encodeDottedName anymore.
 -- | Encode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names are interned.
-encodeDottedName :: Util.EitherLike P.DottedName Int32 e
-                 => (a -> [T.Text]) -> a -> Encode (Just e)
+encodeDottedName :: (a -> [T.Text]) -> a -> Encode Int32
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
-    Just .
-      Util.fromEither @P.DottedName @Int32 .
-      Right <$>
       encodeDottedName' unmangled
 
 encodeDottedName' :: [T.Text] -> Encode Int32
@@ -172,10 +168,9 @@ encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) =
 -- because currently GenDALF generates weird names like `.` that we'd
 -- have to handle separatedly. So for now, considering that we do not
 -- use values in codegen, just mangle the entire thing.
-encodeValueName :: ExprValName -> Encode (V.Vector TL.Text, Int32)
+encodeValueName :: ExprValName -> Encode Int32
 encodeValueName valName = do
-    id <- encodeDottedName' [unExprValName valName]
-    pure (V.empty, id)
+    encodeDottedName' [unExprValName valName]
 
 -- | Encode a reference to a package. Package names are not mangled. Package
 -- names are interned.
@@ -206,7 +201,7 @@ encodeSet encodeElem = fmap V.fromList . mapM encodeElem . S.toList
 encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
     typeSynNameModule <- encodeModuleRef pref mname
-    typeSynNameName <- encodeDottedName unTypeSynName syn
+    typeSynNameNameInternedDname <- encodeDottedName unTypeSynName syn
     pure $ P.TypeSynName{..}
 
 encodeQualTypeSynName :: Qualified TypeSynName -> Encode (Just P.TypeSynName)
@@ -215,7 +210,7 @@ encodeQualTypeSynName tysyn = Just <$> encodeQualTypeSynName' tysyn
 encodeQualTypeConName' :: Qualified TypeConName -> Encode P.TypeConName
 encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
-    typeConNameName <- encodeDottedName unTypeConName con
+    typeConNameNameInternedDname <- encodeDottedName unTypeConName con
     pure $ P.TypeConName{..}
 
 encodeQualTypeConName :: Qualified TypeConName -> Encode (Just P.TypeConName)
@@ -237,7 +232,7 @@ encodeSourceLoc SourceLoc{..} = do
 encodeModuleRef :: PackageRef -> ModuleName -> Encode (Just P.ModuleRef)
 encodeModuleRef pkgRef modName = do
     moduleRefPackageRef <- encodePackageRef pkgRef
-    moduleRefModuleName <- encodeDottedName unModuleName modName
+    moduleRefModuleNameInternedDname <- encodeDottedName unModuleName modName
     pure $ Just P.ModuleRef{..}
 
 encodeFieldsWithTypes :: (a -> T.Text) -> [(a, Type)] -> Encode (V.Vector P.FieldWithType)
@@ -539,7 +534,7 @@ encodeExpr' = \case
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
         valNameModule <- encodeModuleRef pkgRef modName
-        (valNameNameDname, valNameNameInternedDname) <- encodeValueName val
+        valNameNameInternedDname <- encodeValueName val
         pureExpr $ P.ExprSumVal P.ValName{..}
     EBuiltin bi -> expr <$> encodeBuiltinExpr bi
     ERecCon{..} -> do
@@ -875,7 +870,7 @@ encodeCaseAlternative CaseAlternative{..} = do
 
 encodeDefTypeSyn :: DefTypeSyn -> Encode P.DefTypeSyn
 encodeDefTypeSyn DefTypeSyn{..} = do
-    defTypeSynName <- encodeDottedName unTypeSynName synName
+    defTypeSynNameInternedDname <- encodeDottedName unTypeSynName synName
     defTypeSynParams <- encodeTypeVarsWithKinds synParams
     defTypeSynType <- encodeType synType
     defTypeSynLocation <- traverse encodeSourceLoc synLocation
@@ -883,7 +878,7 @@ encodeDefTypeSyn DefTypeSyn{..} = do
 
 encodeDefDataType :: DefDataType -> Encode P.DefDataType
 encodeDefDataType DefDataType{..} = do
-    defDataTypeName <- encodeDottedName unTypeConName dataTypeCon
+    defDataTypeNameInternedDname <- encodeDottedName unTypeConName dataTypeCon
     defDataTypeParams <- encodeTypeVarsWithKinds dataParams
     defDataTypeDataCons <- fmap Just $ case dataCons of
         DataRecord fs -> do
@@ -906,7 +901,7 @@ encodeDefDataType DefDataType{..} = do
 
 encodeDefValue :: DefValue -> Encode P.DefValue
 encodeDefValue DefValue{..} = do
-    (defValue_NameWithTypeNameDname, defValue_NameWithTypeNameInternedDname) <- encodeValueName (fst dvalBinder)
+    defValue_NameWithTypeNameInternedDname <- encodeValueName (fst dvalBinder)
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody
@@ -925,7 +920,7 @@ encodeDefException DefException{..} = do
 
 encodeTemplate :: Template -> Encode P.DefTemplate
 encodeTemplate Template{..} = do
-    defTemplateTycon <- encodeDottedName unTypeConName tplTypeCon
+    defTemplateTyconInternedDname <- encodeDottedName unTypeConName tplTypeCon
     defTemplateParam <- encodeName unExprVarName tplParam
     defTemplatePrecond <- encodeExpr tplPrecondition
     defTemplateSignatories <- encodeExpr tplSignatories
@@ -1007,7 +1002,7 @@ encodeScenarioModule version mod =
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
-    moduleName <- encodeDottedName unModuleName moduleName
+    moduleNameInternedDname <- encodeDottedName unModuleName moduleName
     let moduleFlags = encodeFeatureFlags moduleFeatureFlags
     moduleSynonyms <- encodeNameMap encodeDefTypeSyn moduleSynonyms
     moduleDataTypes <- encodeNameMap encodeDefDataType moduleDataTypes
