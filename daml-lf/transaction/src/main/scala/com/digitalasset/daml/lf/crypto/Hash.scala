@@ -18,7 +18,7 @@ import scalaz.Order
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import scala.math.Ordered.orderingToOrdered
+import Ordering.Implicits._
 import scala.util.control.NoStackTrace
 
 final class Hash private (val bytes: Bytes) {
@@ -302,8 +302,18 @@ object Hash {
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
+  @throws[HashingError]
   def assertHashContractKey(templateId: Ref.Identifier, key: Value, shared: Boolean): Hash = {
+    _assertHashContractKey(templateId, key, shared)
+  }
+
+  @throws[HashingError]
+  private def _assertHashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      shared: Boolean,
+  ): Hash = {
     val hashBuilder = builder(Purpose.ContractKey, noCid2String)
     (if (shared) {
        val sharedPackageIdLength = 0 // To ensure there cannot be a hash collision
@@ -313,7 +323,23 @@ object Hash {
      }).addTypedValue(key).build
   }
 
+  private val usePackageBasedHashing = false // Until canton is updated to use new constructor
+
+  @throws[HashingError]
   def assertHashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      packageName: KeyPackageName,
+  ): Hash = {
+    if (usePackageBasedHashing) {
+      _assertHashContractKey(templateId, key, packageName)
+    } else {
+      _assertHashContractKey(templateId, key, packageName.toOption.isDefined)
+    }
+  }
+
+  @throws[HashingError]
+  private def _assertHashContractKey(
       templateId: Ref.Identifier,
       key: Value,
       packageName: KeyPackageName,
@@ -326,7 +352,7 @@ object Hash {
     }).addTypedValue(key).build
   }
 
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def hashContractKey(
       templateId: Ref.Identifier,
       key: Value,
@@ -446,12 +472,6 @@ object Hash {
             s"Invalid combination of package name and language version"
           )
       }
-
-    /** Only use in testing */
-    def unsafe(packageName: Option[PackageName]): KeyPackageName = packageName match {
-      case Some(name) => UsePackageName(name)
-      case _ => NoPackageName
-    }
   }
 
 }

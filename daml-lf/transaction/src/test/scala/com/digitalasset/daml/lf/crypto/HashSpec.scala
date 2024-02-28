@@ -108,7 +108,9 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
 
     "be stable (post package name)" in {
-      val hash = "e329689cca7b540ba772d5f56b6431b4ea3f8bfebb34946d88b1c65930872ad5"
+      // Until package based hash is fully enabled
+      // val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
+      val hash = "1934eb3965284ccf3062f19548fa04284313e48ee81c9732f33c7fc05322c9f9"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
       assertHashContractKey(name, value, usePackageName).toHexString shouldBe hash

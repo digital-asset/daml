@@ -24,6 +24,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import collection.immutable.TreeSet
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
+import NodeVersionUpdater.Ops
 
 class TransactionCoderSpec
     extends AnyWordSpec
@@ -482,14 +483,14 @@ class TransactionCoderSpec
         minSuccessful(5),
       ) { case ((nodeId, node), pkgName) =>
         val wrongPackageName = pkgName.filter(_ => node.version < TransactionVersion.minUpgrade)
-        val wronNode = updatePackageName(normalizeNode(node), wrongPackageName)
+        val wrongNode = updatePackageName(normalizeNode(node), wrongPackageName)
 
         TransactionCoder.encodeNode(
           TransactionCoder.NidEncoder,
           ValueCoder.CidEncoder,
           node.version,
           nodeId,
-          wronNode,
+          wrongNode,
         ) shouldBe a[Left[_, _]]
       }
     }

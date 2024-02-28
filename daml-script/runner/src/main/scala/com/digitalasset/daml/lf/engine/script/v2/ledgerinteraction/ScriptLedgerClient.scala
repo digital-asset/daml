@@ -172,6 +172,7 @@ trait ScriptLedgerClient {
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
       // TODO[SW]: The error behaviour handling logic is written in ScriptF, so each LedgerClient doesn't need to know about it
       // However, the IDELedgerClient knows more about the script being run than it should, and requires to know whether a transaction behaved correctly or not
       // in order to correctly set the partial transaction.
@@ -187,7 +188,6 @@ trait ScriptLedgerClient {
       //     At that point though, the wrapper only needs to act as a tag to inform the scenario service to take the most recent transaction step as the partial tx
       //     again requires explicit mustFail succeeded error, which will likely break some tests
       // Suppressed exception tag is likely cleanest, though possibly a misuse of this feature.
-      keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,

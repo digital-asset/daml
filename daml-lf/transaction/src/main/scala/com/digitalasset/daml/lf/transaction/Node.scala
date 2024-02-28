@@ -4,9 +4,8 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value._
 
@@ -34,8 +33,6 @@ object Node {
   sealed abstract class Action extends Node with CidContainer[Action] {
 
     def version: TransactionVersion
-
-    private[lf] def updateVersion(version: TransactionVersion): Node
 
     def packageName: Option[PackageName]
 
@@ -100,9 +97,6 @@ object Node {
 
     override def byKey: Boolean = false
 
-    override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
-      copy(version = version, keyOpt = keyOpt.map(rehash(packageName, version)))
-
     override def mapCid(f: ContractId => ContractId): Node.Create =
       copy(coid = f(coid), arg = arg.mapCid(f))
 
@@ -136,9 +130,6 @@ object Node {
   ) extends LeafOnlyAction {
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
-
-    override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
-      copy(version = version, keyOpt = keyOpt.map(rehash(packageName, version)))
 
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid))
@@ -179,9 +170,6 @@ object Node {
 
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
-
-    override private[lf] def updateVersion(version: TransactionVersion): Node.Exercise =
-      copy(version = version, keyOpt = keyOpt.map(rehash(packageName, version)))
 
     override def mapCid(f: ContractId => ContractId): Node.Exercise = copy(
       targetCoid = f(targetCoid),
@@ -229,9 +217,6 @@ object Node {
 
     override def byKey: Boolean = true
 
-    override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
-      copy(version = version, key = rehash(packageName, version)(key))
-
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
     final def informeesOfNode: Set[Party] =
@@ -261,17 +246,6 @@ object Node {
 
     override protected def self: Node = this
   }
-
-  private def rehash(
-      packageName: Option[Ref.PackageName],
-      version: TransactionVersion,
-  )(gk: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(
-      gk.globalKey.templateId,
-      gk.value,
-      gk.maintainers,
-      KeyPackageName(packageName, version),
-    )
 
 }
 

@@ -75,12 +75,12 @@ object Util {
     normalizeValue(contract.unversioned.arg, contract.version)
       .map(normalized => contract.map(_.copy(arg = normalized)))
 
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def sharedKey(version: TransactionVersion): Boolean = {
     version >= TransactionVersion.minSharedKeys
   }
 
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def sharedKey(version: LanguageVersion): Boolean = {
     version >= LanguageVersion.Features.sharedKeys
   }

@@ -30,7 +30,7 @@ import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.CompiledPackages
 import com.daml.lf.command
-import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.engine.script.v2.Converter
@@ -275,7 +275,7 @@ class GrpcLedgerClient(
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
-      keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
+      keyPackageNameLookup: PackageId => Either[String, Hash.KeyPackageName],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,

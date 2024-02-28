@@ -35,6 +35,7 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.HashMap
 import scala.util.Random
+import NodeVersionUpdater.Ops
 
 class TransactionSpec
     extends AnyFreeSpec

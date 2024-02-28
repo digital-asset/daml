@@ -62,7 +62,7 @@ object GlobalKey {
       .hashContractKey(templateId, key, packageName)
       .map(new GlobalKey(templateId, key, _))
 
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def build(
       templateId: Ref.TypeConName,
       key: Value,
@@ -73,7 +73,7 @@ object GlobalKey {
       .map(new GlobalKey(templateId, key, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def assertBuild(templateId: Ref.TypeConName, key: Value, shared: Boolean): GlobalKey =
     data.assertRight(build(templateId, key, shared).left.map(_.msg))
 
@@ -87,9 +87,9 @@ object GlobalKey {
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
     Some((globalKey.templateId, globalKey.key))
 
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def isShared(key: GlobalKey): Boolean =
-    Hash.hashContractKey(key.templateId, key.key, true) == Right(key.hash)
+    Hash.hashContractKey(key.templateId, key.key, shared = true) == Right(key.hash)
 
 }
 
@@ -102,7 +102,7 @@ final case class GlobalKeyWithMaintainers(
 
 object GlobalKeyWithMaintainers {
 
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def assertBuild(
       templateId: Ref.TypeConName,
       value: Value,
@@ -119,7 +119,7 @@ object GlobalKeyWithMaintainers {
   ): GlobalKeyWithMaintainers =
     data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
 
-  @deprecated("Use package name variant", "LF 1.16")
+  // TODO(#18599) remove/deprecate non package based construction
   def build(
       templateId: Ref.TypeConName,
       value: Value,
