@@ -4,13 +4,13 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
 
 -- | This module provides the data type for the environment of the Daml-LF type
 -- checker and functions to manipulate it.
 module DA.Daml.LF.TypeChecker.Env(
     MonadGamma,
-    MonadGammaF,
+    TcM,
+    TcMF,
     throwWithContext, throwWithContextF,
     warnWithContext, warnWithContextF,
     catchAndRethrow,
@@ -63,7 +63,9 @@ getWorld = view world
 -- | Type class constraint capturing the needed monadic effects for the
 -- functions manipulating the type checker environment.
 type MonadGamma m = MonadGammaF Gamma m
-type MonadGammaF gamma m = ReaderT gamma (StateT [Warning] (Either Error)) ~ m
+type MonadGammaF gamma m = (MonadError Error m, MonadReader gamma m, MonadState [Warning] m)
+type TcMF gamma = ReaderT gamma (StateT [Warning] (Either Error))
+type TcM = TcMF Gamma
 
 runGamma
   :: World
