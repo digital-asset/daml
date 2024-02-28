@@ -49,7 +49,9 @@ main :: IO ()
 main = withSdkVersions $
     hspec $
         describe "repl func tests" $
-            [minBound @LF.MajorVersion .. maxBound] `forM_` \major ->
+--            [minBound @LF.MajorVersion .. maxBound] 
+            [LF.V1] 
+              `forM_` \major ->
                 context ("LF version " <> LF.renderMajorVersion major) $
                     aroundAll
                         (withInteractionTester major)

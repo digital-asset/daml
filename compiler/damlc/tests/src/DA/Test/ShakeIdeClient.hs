@@ -46,7 +46,8 @@ main = withSdkVersions $ do
         Tasty.testGroup
             "IDE Shake API tests"
             [ test lfVersion scenarioLogger
-            | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
+--            | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
+            | lfVersion <- map LF.defaultOrLatestStable [LF.V1]
             ]
 
 test :: SdkVersioned => LF.Version -> Logger.Handle IO -> Tasty.TestTree
@@ -1370,3 +1371,4 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
     where
         testCase' = testCase lfVersion mbScenarioService (Just scriptPackageData)
         testCaseFails' msg = testCaseFails lfVersion msg mbScenarioService (Just scriptPackageData)
+

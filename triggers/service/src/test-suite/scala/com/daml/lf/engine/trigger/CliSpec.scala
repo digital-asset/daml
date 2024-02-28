@@ -109,8 +109,6 @@ class CliSpec extends AsyncWordSpec with Matchers {
           "localhost",
           "--ledger-port",
           "9999",
-          "--lf-major-version",
-          "2",
           "--dev-mode-unsafe",
         ),
         Set(),

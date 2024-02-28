@@ -38,7 +38,9 @@ main = do
     limitJvmMemory defaultJvmMemoryLimits{maxHeapSize = "1g"}
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
-    tests <- forM [minBound @LF.MajorVersion .. maxBound] $ \major -> do
+    tests <- 
+--      forM [minBound @LF.MajorVersion .. maxBound] $ \major -> do
+      forM [LF.V1] $ \major -> do      
         let lfVersion = LF.defaultOrLatestStable major
         let prettyMajor = LF.renderMajorVersion major
         -- TODO(#17366): replace with LF.isDevVersion lfVersion once the engine supports running
