@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
 import com.daml.ledger.javaapi.data.Party
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{DottedName, PackageId, PackageName, QualifiedName}
 import com.daml.lf.transaction.ContractStateMachine.ActiveLedgerState
 import com.daml.lf.transaction.TransactionErrors.{
   DuplicateContractId,
@@ -199,6 +199,8 @@ trait PrettyInstances {
     }
 
   implicit def prettyPackageId: Pretty[PackageId] = prettyOfString(id => show"${id.readableHash}")
+
+  implicit def prettyPackageName: Pretty[PackageName] = prettyOfString(_.toString)
 
   implicit def prettyChangeId: Pretty[ChangeId] = prettyOfClass(
     param("application Id", _.applicationId),

@@ -30,7 +30,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.topology.{DomainId, MediatorRef, ParticipantId}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
-import com.digitalasset.canton.{LfInterfaceId, LfPartyId}
+import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -165,6 +165,11 @@ final class GeneratorsData(
           Gen.option(Arbitrary.arbitrary[LfInterfaceId])
         else Gen.const(None)
 
+      packagePreference <-
+        if (rpv >= ExerciseActionDescription.packagePreferenceSupportedSince)
+          Gen.containerOf[Set, LfPackageId](Arbitrary.arbitrary[LfPackageId])
+        else Gen.const(Set.empty[LfPackageId])
+
       // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
       chosenValue <- Gen.long.map(ValueInt64)
 
@@ -179,6 +184,7 @@ final class GeneratorsData(
       templateId,
       choice,
       interfaceId,
+      packagePreference,
       chosenValue,
       actors,
       byKey,

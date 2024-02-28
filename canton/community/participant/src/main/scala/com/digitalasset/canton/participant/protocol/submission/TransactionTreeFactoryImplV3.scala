@@ -9,8 +9,9 @@ import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.lf.transaction.ContractStateMachine.KeyInactive
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInput, NegativeKeyLookup}
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine, Util}
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
+import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
@@ -26,9 +27,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
+import com.digitalasset.canton.{LfKeyResolver, LfPackageId, LfPartyId, checked}
 
 import java.util.UUID
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -56,6 +58,50 @@ class TransactionTreeFactoryImplV3(
     ContractStateMachine.initial[Unit](
       if (uniqueContractKeys) ContractKeyUniquenessMode.Strict else ContractKeyUniquenessMode.Off
     )
+
+  private[submission] def buildPackagePreference(
+      decomposition: TransactionViewDecomposition
+  ): Set[LfPackageId] = {
+
+    def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
+      case ex: LfNodeExercises if ex.interfaceId.isDefined =>
+        ex.packageName match {
+          case Some(packageName) => Set((packageName, ex.templateId.packageId))
+          case None =>
+            throw new IllegalStateException(s"LF 1.16 nodes must have package name [$ex]")
+        }
+      case _ => Set.empty
+    }
+
+    @tailrec
+    def go(
+        decompositions: List[TransactionViewDecomposition],
+        resolved: Set[(LfPackageName, LfPackageId)],
+    ): Set[(LfPackageName, LfPackageId)] = {
+      decompositions match {
+        case Nil =>
+          resolved
+        case (v: SameView) :: others =>
+          go(others, resolved ++ nodePref(v.lfNode))
+        case (v: NewView) :: others =>
+          go(v.tailNodes.toList ::: others, resolved ++ nodePref(v.lfNode))
+      }
+    }
+
+    /* LF 1.16 will be enabled as part of ProtocolVersion.v6 */
+    if (Util.sharedKey(decomposition.lfNode.version)) {
+      val preferences = go(List(decomposition), Set.empty)
+      MapsUtil.toNonConflictingMap(preferences) match {
+        case Right(map) => map.values.toSet
+        case Left(conflicts) =>
+          throw new IllegalArgumentException(
+            s"Detected conflicting package preferences [$conflicts]"
+          )
+      }
+    } else {
+      Set.empty[LfPackageId]
+    }
+  }
 
   protected[submission] class State private (
       override val mediator: MediatorRef,
@@ -275,7 +321,8 @@ class TransactionTreeFactoryImplV3(
 
       // Compute the parameters of the view
       seed = view.rootSeed
-      actionDescription = createActionDescription(suffixedRootNode, seed)
+      packagePreference = buildPackagePreference(view)
+      actionDescription = createActionDescription(suffixedRootNode, seed, packagePreference)
       viewCommonData = createViewCommonData(view, viewCommonDataSalt)
       viewKeyInputs = state.csmState.globalKeyInputs
       resolvedK <- EitherT.fromEither[Future](

@@ -15,7 +15,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ActionDescriptionTest extends AnyWordSpec with BaseTest {
 
-  private val unsuffixedId: LfContractId = ExampleTransactionFactory.unsuffixedId(10)
   private val suffixedId: LfContractId = ExampleTransactionFactory.suffixedId(0, 0)
   private val seed: LfHash = ExampleTransactionFactory.lfHash(5)
   private val testTxVersion: LfTransactionVersion = ExampleTransactionFactory.transactionVersion
@@ -42,6 +41,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
           templateId = Some(defaultTemplateId),
           choiceName,
           None,
+          Set.empty,
           ExampleTransactionFactory.veryDeepValue,
           Set(ExampleTransactionFactory.submitter),
           byKey = true,
@@ -78,6 +78,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
         ActionDescription.fromLfActionNode(
           ExampleTransactionFactory.createNode(suffixedId),
           None,
+          Set.empty,
           testedProtocolVersion,
         ) shouldBe
           Left(InvalidActionDescription("No seed for a Create node given"))
@@ -85,6 +86,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
         ActionDescription.fromLfActionNode(
           ExampleTransactionFactory.exerciseNodeWithoutChildren(suffixedId),
           None,
+          Set.empty,
           testedProtocolVersion,
         ) shouldBe
           Left(InvalidActionDescription("No seed for an Exercise node given"))
@@ -94,6 +96,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
         ActionDescription.fromLfActionNode(
           ExampleTransactionFactory.fetchNode(suffixedId),
           Some(seed),
+          Set.empty,
           testedProtocolVersion,
         ) shouldBe
           Left(InvalidActionDescription("No seed should be given for a Fetch node"))
@@ -102,6 +105,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
           ExampleTransactionFactory
             .lookupByKeyNode(globalKey, maintainers = Set(ExampleTransactionFactory.observer)),
           Some(seed),
+          Set.empty,
           testedProtocolVersion,
         ) shouldBe Left(InvalidActionDescription("No seed should be given for a LookupByKey node"))
       }
@@ -110,6 +114,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
         ActionDescription.fromLfActionNode(
           ExampleTransactionFactory.fetchNode(suffixedId, actingParties = Set.empty),
           None,
+          Set.empty,
           testedProtocolVersion,
         ) shouldBe Left(InvalidActionDescription("Fetch node without acting parties"))
       }

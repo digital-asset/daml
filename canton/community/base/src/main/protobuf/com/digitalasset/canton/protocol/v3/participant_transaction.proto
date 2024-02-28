@@ -13,7 +13,7 @@ import "scalapb/scalapb.proto";
 
 // Messages sent by a participant as part of the transaction protocol
 
-// Compared to v2: action_description changed type from v1.ActionDescription to v3.ActionDescription
+// Compared to v2: action_description changed type from v1.ActionDescription to v2.ActionDescription
 message ViewParticipantData {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   com.digitalasset.canton.crypto.v0.Salt salt = 1;
@@ -23,4 +23,30 @@ message ViewParticipantData {
   repeated v0.ViewParticipantData.ResolvedKey resolved_keys = 5;
   v2.ActionDescription action_description = 6;
   v0.ViewParticipantData.RollbackContext rollback_context = 7; // optional; defaults to the empty RollbackContext if omitted.
+}
+
+// Compared to v2: packagePreference added to ExerciseActionDescription
+message ActionDescription {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  oneof description {
+    v0.ActionDescription.CreateActionDescription create = 1;
+    ExerciseActionDescription exercise = 2;
+    v0.ActionDescription.FetchActionDescription fetch = 3;
+    v0.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
+  }
+
+  message ExerciseActionDescription {
+    string input_contract_id = 1;
+    string choice = 2;
+    bytes chosen_value = 3;
+    repeated string actors = 4;
+    bool by_key = 5;
+    bytes node_seed = 6;
+    string version = 7;
+    bool failed = 8;
+    optional string interface_id = 9;
+    optional string template_id = 10;
+    repeated string package_preference = 11;
+  }
 }
