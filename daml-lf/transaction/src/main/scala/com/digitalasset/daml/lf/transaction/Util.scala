@@ -75,29 +75,12 @@ object Util {
     normalizeValue(contract.unversioned.arg, contract.version)
       .map(normalized => contract.map(_.copy(arg = normalized)))
 
-  def normalizeKey(
-      key: GlobalKeyWithMaintainers,
-      version: TransactionVersion,
-  ): Either[String, GlobalKeyWithMaintainers] =
-    normalizeValue(key.globalKey.key, version).map(normalized =>
-      key.copy(globalKey =
-        GlobalKey.assertBuild(key.globalKey.templateId, normalized, Util.sharedKey(version))
-      )
-    )
-
-  def normalizeOptKey(
-      key: Option[GlobalKeyWithMaintainers],
-      version: TransactionVersion,
-  ): Either[String, Option[GlobalKeyWithMaintainers]] =
-    key match {
-      case Some(value) => normalizeKey(value, version).map(Some(_))
-      case None => Right(None)
-    }
-
+  // TODO(#18599) remove/deprecate non package based construction
   def sharedKey(version: TransactionVersion): Boolean = {
     version >= TransactionVersion.minSharedKeys
   }
 
+  // TODO(#18599) remove/deprecate non package based construction
   def sharedKey(version: LanguageVersion): Boolean = {
     version >= LanguageVersion.Features.sharedKeys
   }

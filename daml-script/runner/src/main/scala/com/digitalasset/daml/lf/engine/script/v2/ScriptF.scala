@@ -12,6 +12,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.CompiledPackages
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.{
   Identifier,
   Location,
@@ -111,6 +112,13 @@ object ScriptF {
       }
     }
 
+    def lookupPackageName(packageId: PackageId): Either[String, Option[PackageName]] = {
+      compiledPackages.pkgInterface.lookupPackageName(packageId) match {
+        case Right(lv) => Right(lv)
+        case Left(err) => Left(err.pretty)
+      }
+    }
+
   }
 
   final case class Throw(exc: SAny) extends Cmd {
@@ -179,6 +187,11 @@ object ScriptF {
         .traverse(submissions)(singleSubmit(_, env))
         .map(results => SEValue(SList(results.to(FrontStack))))
 
+    def keyPackageNameLookup(env: Env)(pkgId: PackageId): Either[String, KeyPackageName] = for {
+      lv <- env.lookupLanguageVersion(pkgId)
+      pn <- env.lookupPackageName(pkgId)
+    } yield KeyPackageName(pn, lv)
+
     def singleSubmit(
         submission: Submission,
         env: Env,
@@ -195,6 +208,7 @@ object ScriptF {
           submission.cmds,
           submission.optLocation,
           env.lookupLanguageVersion,
+          keyPackageNameLookup(env),
           submission.errorBehaviour,
         )
         res <- (submitRes, submission.errorBehaviour) match {

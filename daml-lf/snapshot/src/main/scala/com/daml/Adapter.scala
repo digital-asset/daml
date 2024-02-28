@@ -4,6 +4,7 @@
 package com.daml.lf
 package testing.snapshot
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.snapshot.Adapter.TxBuilder
@@ -17,12 +18,14 @@ final class Adapter(
     packages: Map[Ref.PackageId, Ast.Package]
 ) {
 
-  private val interface = com.daml.lf.language.PackageInterface(packages)
+  private val packageInterface = com.daml.lf.language.PackageInterface(packages)
 
   def adapt(tx: VersionedTransaction): SubmittedTransaction =
-    tx.foldWithPathState(new TxBuilder(interface.packageLanguageVersion), Option.empty[NodeId])(
-      (builder, parent, _, node) =>
-        (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
+    tx.foldWithPathState(
+      new TxBuilder(packageInterface.packageLanguageVersion),
+      Option.empty[NodeId],
+    )((builder, parent, _, node) =>
+      (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
     ).buildSubmitted()
 
   // drop value version and children
@@ -57,7 +60,9 @@ final class Adapter(
           )
     }
 
-  def adapt(k: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
+  def adapt(
+      k: GlobalKeyWithMaintainers
+  ): GlobalKeyWithMaintainers =
     k.copy(globalKey = adapt(k.globalKey))
 
   def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
@@ -65,8 +70,15 @@ final class Adapter(
       unversioned.copy(template = adapt(unversioned.template), arg = adapt(unversioned.arg))
     )
 
-  def adapt(gkey: GlobalKey): GlobalKey =
-    GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key), GlobalKey.isShared(gkey))
+  def adapt(gkey: GlobalKey): GlobalKey = {
+    val adaptedTemplateId = adapt(gkey.templateId)
+    val pkg = packages(adaptedTemplateId.packageId)
+    GlobalKey.assertBuild(
+      adaptedTemplateId,
+      adapt(gkey.key),
+      KeyPackageName(pkg.name, pkg.languageVersion),
+    )
+  }
 
   private[this] def adapt(value: Value): Value =
     value match {
@@ -96,7 +108,7 @@ final class Adapter(
   private[this] def lookup(id: Ref.Identifier): Either[String, Ref.Identifier] = {
     val pkgIds = packages.keysIterator.flatMap { pkgId =>
       val renamed = id.copy(packageId = pkgId)
-      if (interface.lookupDefinition(renamed).isRight)
+      if (packageInterface.lookupDefinition(renamed).isRight)
         List(renamed)
       else
         List.empty

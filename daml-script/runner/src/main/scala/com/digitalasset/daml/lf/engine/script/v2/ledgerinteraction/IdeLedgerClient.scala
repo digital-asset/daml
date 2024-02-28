@@ -10,6 +10,7 @@ package ledgerinteraction
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails, User, UserRight}
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
@@ -278,11 +279,19 @@ class IdeLedgerClient(
             )
         }
       )
+
+    val pkg = compiledPackages.pkgInterface
+      .lookupPackage(templateId.packageId)
+      .fold(
+        e => throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}, $e"),
+        s => s,
+      )
+
     GlobalKey
       .build(
         templateId,
         keyValue,
-        compiledPackages.pkgInterface.hasSharedKeys(templateId.packageId),
+        KeyPackageName(pkg.name, pkg.languageVersion),
       )
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
@@ -331,9 +340,9 @@ class IdeLedgerClient(
       case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
-      case FetchEmptyContractKeyMaintainers(tid, keyValue, sharedKey) =>
+      case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(tid, keyValue, sharedKey)
+          GlobalKey.assertBuild(tid, keyValue, packageName)
         )
       case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>
@@ -604,6 +613,7 @@ class IdeLedgerClient(
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
   )(implicit
       ec: ExecutionContext,

@@ -4,13 +4,14 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization._
 import com.daml.lf.speedy.DefaultAuthorizationChecker
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, Util}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueRecord
@@ -49,7 +50,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside with TestI
           templateId,
           Value.ValueUnit,
           maintainers,
-          Util.sharedKey(init.version),
+          KeyPackageName(init.packageName, init.version),
         )
       )
     )

@@ -5,16 +5,20 @@ package com.daml.lf
 package crypto
 
 import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
+import com.daml.lf.data.Ref.PackageName
 
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import scalaz.Order
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import Ordering.Implicits._
 import scala.util.control.NoStackTrace
 
 final class Hash private (val bytes: Bytes) {
@@ -298,8 +302,18 @@ object Hash {
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
+  // TODO(#18599) remove/deprecate non package based construction
   @throws[HashingError]
   def assertHashContractKey(templateId: Ref.Identifier, key: Value, shared: Boolean): Hash = {
+    _assertHashContractKey(templateId, key, shared)
+  }
+
+  @throws[HashingError]
+  private def _assertHashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      shared: Boolean,
+  ): Hash = {
     val hashBuilder = builder(Purpose.ContractKey, noCid2String)
     (if (shared) {
        val sharedPackageIdLength = 0 // To ensure there cannot be a hash collision
@@ -309,12 +323,49 @@ object Hash {
      }).addTypedValue(key).build
   }
 
+  private val usePackageBasedHashing = false // Until canton is updated to use new constructor
+
+  @throws[HashingError]
+  def assertHashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      packageName: KeyPackageName,
+  ): Hash = {
+    if (usePackageBasedHashing) {
+      _assertHashContractKey(templateId, key, packageName)
+    } else {
+      _assertHashContractKey(templateId, key, packageName.toOption.isDefined)
+    }
+  }
+
+  @throws[HashingError]
+  private def _assertHashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      packageName: KeyPackageName,
+  ): Hash = {
+    val hashBuilder = builder(Purpose.ContractKey, noCid2String)
+    (packageName match {
+      case UsePackageName(name) =>
+        hashBuilder.add(s"#$name").addQualifiedName(templateId.qualifiedName)
+      case NoPackageName => hashBuilder.addIdentifier(templateId)
+    }).addTypedValue(key).build
+  }
+
+  // TODO(#18599) remove/deprecate non package based construction
   def hashContractKey(
       templateId: Ref.Identifier,
       key: Value,
       shared: Boolean,
   ): Either[HashingError, Hash] =
     handleError(assertHashContractKey(templateId, key, shared))
+
+  def hashContractKey(
+      templateId: Ref.Identifier,
+      key: Value,
+      packageName: KeyPackageName,
+  ): Either[HashingError, Hash] =
+    handleError(assertHashContractKey(templateId, key, packageName))
 
   // This function assumes that `arg` is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a contract argument of type τ
@@ -391,4 +442,36 @@ object Hash {
       .add(keyHash)
       .add(maintainer)
       .build
+
+  sealed trait KeyPackageName {
+    def toOption: Option[PackageName]
+  }
+  private final case class UsePackageName(name: PackageName) extends KeyPackageName {
+    override val toOption: Option[PackageName] = Some(name)
+  }
+  private case object NoPackageName extends KeyPackageName {
+    override val toOption: Option[PackageName] = None
+  }
+  object KeyPackageName {
+    def apply(packageName: Option[PackageName], version: TransactionVersion): KeyPackageName =
+      packageName match {
+        case Some(name) if version >= TransactionVersion.minUpgrade => UsePackageName(name)
+        case _ if version < TransactionVersion.minUpgrade => NoPackageName
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Invalid combination of package name and transaction version"
+          )
+      }
+    def apply(packageName: Option[PackageName], version: LanguageVersion): KeyPackageName =
+      packageName match {
+        case Some(name) if version >= LanguageVersion.Features.packageUpgrades =>
+          UsePackageName(name)
+        case _ if version < LanguageVersion.Features.packageUpgrades => NoPackageName
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Invalid combination of package name and language version"
+          )
+      }
+  }
+
 }

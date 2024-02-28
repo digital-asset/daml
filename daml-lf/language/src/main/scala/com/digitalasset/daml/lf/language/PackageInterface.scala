@@ -8,8 +8,6 @@ import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
-import scala.math.Ordered.orderingToOrdered
-
 private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, PackageSignature]) {
 
   import PackageInterface._
@@ -365,12 +363,11 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
   def lookupPackageLanguageVersion(pkgId: PackageId): Either[LookupError, LanguageVersion] =
     lookupPackage(pkgId).map(_.languageVersion)
 
+  def lookupPackageName(pkgId: PackageId): Either[LookupError, Option[PackageName]] =
+    lookupPackage(pkgId).map(_.name)
+
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
-
-  def hasSharedKeys(packageId: PackageId): Boolean = {
-    packageLanguageVersion(packageId) >= LanguageVersion.Features.sharedKeys
-  }
 
 }
 

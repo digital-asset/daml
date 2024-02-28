@@ -123,13 +123,13 @@ private[lf] object Pretty {
         text("Update failed due to a contract key with an empty set of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
           text("The computed key is") & prettyValue(true)(key)
-      case FetchEmptyContractKeyMaintainers(tid, key, sharedKey) =>
-        val sharedKeyText = if (sharedKey) "shared" else ""
+      case FetchEmptyContractKeyMaintainers(tid, key, packageName) =>
+        val packageNameText = packageName.toOption.fold("no package name")(p => s"package name $p")
         text(
           "Update failed due to a contract key with an empty set of maintainers when fetching or looking up by key"
         ) &
           prettyTypeConName(tid) /
-          text(s"The provided $sharedKeyText key is") & prettyValue(true)(key)
+          text(s"The provided key, with $packageNameText, is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
       case NonComparableValues =>

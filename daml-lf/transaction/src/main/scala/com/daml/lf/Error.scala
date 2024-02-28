@@ -4,8 +4,9 @@
 package com.daml.lf
 package interpretation
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.transaction.{NodeId, GlobalKey}
+import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value
@@ -99,7 +100,7 @@ object Error {
   final case class FetchEmptyContractKeyMaintainers(
       templateId: TypeConName,
       key: Value,
-      shared: Boolean,
+      packageName: KeyPackageName,
   ) extends Error
 
   /** We tried to fetch / exercise a contract of the wrong type --

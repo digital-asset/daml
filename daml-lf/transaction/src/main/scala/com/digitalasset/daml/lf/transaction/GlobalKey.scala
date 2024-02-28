@@ -5,6 +5,7 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.value.Value
@@ -33,14 +34,17 @@ final class GlobalKey private (
 
 object GlobalKey {
 
-  def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
+  def assertWithRenormalizedValue(
+      key: GlobalKey,
+      value: Value,
+      packageName: KeyPackageName,
+  ): GlobalKey = {
     if (
       key.key != value &&
-      Hash.assertHashContractKey(key.templateId, value, true) != key.hash &&
-      Hash.assertHashContractKey(key.templateId, value, false) != key.hash
+      Hash.assertHashContractKey(key.templateId, value, packageName) != key.hash
     ) {
       throw new IllegalArgumentException(
-        s"Hash must not change as a result of value renormalization key=$key, value=$value"
+        s"Hash must not change as a result of value renormalization key=$key, value=$value, packageName=$packageName"
       )
     }
 
@@ -52,6 +56,16 @@ object GlobalKey {
   def build(
       templateId: Ref.TypeConName,
       key: Value,
+      packageName: KeyPackageName,
+  ): Either[crypto.Hash.HashingError, GlobalKey] =
+    crypto.Hash
+      .hashContractKey(templateId, key, packageName)
+      .map(new GlobalKey(templateId, key, _))
+
+  // TODO(#18599) remove/deprecate non package based construction
+  def build(
+      templateId: Ref.TypeConName,
+      key: Value,
       shared: Boolean,
   ): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash
@@ -59,15 +73,23 @@ object GlobalKey {
       .map(new GlobalKey(templateId, key, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
-  @throws[IllegalArgumentException]
+  // TODO(#18599) remove/deprecate non package based construction
   def assertBuild(templateId: Ref.TypeConName, key: Value, shared: Boolean): GlobalKey =
     data.assertRight(build(templateId, key, shared).left.map(_.msg))
+
+  def assertBuild(
+      templateId: Ref.TypeConName,
+      key: Value,
+      packageName: KeyPackageName,
+  ): GlobalKey =
+    data.assertRight(build(templateId, key, packageName).left.map(_.msg))
 
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
     Some((globalKey.templateId, globalKey.key))
 
+  // TODO(#18599) remove/deprecate non package based construction
   def isShared(key: GlobalKey): Boolean =
-    Hash.hashContractKey(key.templateId, key.key, true) == Right(key.hash)
+    Hash.hashContractKey(key.templateId, key.key, shared = true) == Right(key.hash)
 
 }
 
@@ -80,6 +102,7 @@ final case class GlobalKeyWithMaintainers(
 
 object GlobalKeyWithMaintainers {
 
+  // TODO(#18599) remove/deprecate non package based construction
   def assertBuild(
       templateId: Ref.TypeConName,
       value: Value,
@@ -88,6 +111,15 @@ object GlobalKeyWithMaintainers {
   ): GlobalKeyWithMaintainers =
     data.assertRight(build(templateId, value, maintainers, shared).left.map(_.msg))
 
+  def assertBuild(
+      templateId: Ref.TypeConName,
+      value: Value,
+      maintainers: Set[Ref.Party],
+      packageName: KeyPackageName,
+  ): GlobalKeyWithMaintainers =
+    data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
+
+  // TODO(#18599) remove/deprecate non package based construction
   def build(
       templateId: Ref.TypeConName,
       value: Value,
@@ -95,6 +127,14 @@ object GlobalKeyWithMaintainers {
       shared: Boolean,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
     GlobalKey.build(templateId, value, shared).map(GlobalKeyWithMaintainers(_, maintainers))
+
+  def build(
+      templateId: Ref.TypeConName,
+      value: Value,
+      maintainers: Set[Ref.Party],
+      packageName: KeyPackageName,
+  ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
+    GlobalKey.build(templateId, value, packageName).map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.

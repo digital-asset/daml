@@ -5,6 +5,7 @@ package com.daml
 package lf
 package transaction
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.ContractStateMachine.{
   ActiveLedgerState,
@@ -47,9 +48,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   val aliceS: Set[Ref.Party] = Set(alice)
   val templateId: Ref.TypeConName = "Template:Id"
   val choiceId: Ref.ChoiceName = "Choice"
-  val pkgName = Some(Ref.PackageName.assertFromString("package-name"))
+  val pkgName: Option[Ref.PackageName] = Some(Ref.PackageName.assertFromString("package-name"))
   val txVersion: TransactionVersion = TransactionVersion.maxVersion
-  val sharedKeys: Boolean = Util.sharedKey(txVersion)
   val unit: Value = Value.ValueUnit
 
   implicit def contractIdFromInt(coid: Int): ContractId = cid(coid)
@@ -68,7 +68,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       templateId: Ref.TypeConName,
       key: String,
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS, sharedKeys)
+    GlobalKeyWithMaintainers.assertBuild(
+      templateId,
+      Value.ValueText(key),
+      aliceS,
+      KeyPackageName(pkgName, txVersion),
+    )
 
   private def toOptKeyWithMaintainers(
       templateId: Ref.TypeConName,
@@ -78,7 +83,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     else Some(toKeyWithMaintainers(templateId, key))
 
   def gkey(key: String): GlobalKey =
-    GlobalKey.assertBuild(templateId, Value.ValueText(key), sharedKeys)
+    GlobalKey.assertBuild(templateId, Value.ValueText(key), KeyPackageName(pkgName, txVersion))
 
   def mkCreate(
       contractId: ContractId,

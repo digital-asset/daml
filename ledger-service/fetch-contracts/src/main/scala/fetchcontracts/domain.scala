@@ -15,7 +15,7 @@ import scalaz.std.option._
 import scalaz.std.string._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/, -\/}
+import scalaz.{-\/, @@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
 
 package object domain {
   type LfValue = lf.value.Value
@@ -37,6 +37,7 @@ package object domain {
     def required(label: String): Error \/ A =
       o toRightDisjunction Error(Symbol("ErrorOps_required"), s"Missing required field $label")
   }
+
 }
 
 package domain {

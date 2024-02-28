@@ -24,7 +24,9 @@ import scalaz.syntax.std.option._
 import scala.concurrent.{ExecutionContext, Future}
 import java.time._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.crypto.Hash.KeyPackageName
+
+import scala.collection.MapView
 
 private class PackageService(
     reloadPackageStoreIfChanged: (
@@ -41,13 +43,19 @@ private class PackageService(
 
   private case class State(
       packageIds: Set[String],
-      packageLanguageVersionMap: PackageLanguageVersionMap,
       interfaceIdMap: InterfaceIdMap,
       templateIdMap: TemplateIdMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
       packageStore: PackageStore,
   ) {
+
+    val packageNameMap: PackageNameMap = packageStore.view.mapValues(ps =>
+      KeyPackageName(
+        ps.metadata.map(m => Ref.PackageName.assertFromString(m.name)),
+        ps.languageVersion,
+      )
+    )
 
     def append(diff: PackageStore): State = {
       val newPackageStore: PackageStore = appendAndResolveRetroactiveInterfaces(
@@ -56,8 +64,6 @@ private class PackageService(
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
-        packageLanguageVersionMap =
-          packageLanguageVersionMap ++ getPackageLanguageMap(newPackageStore),
         interfaceIdMap = ifaceIdMap,
         templateIdMap = tpIdMap,
         choiceTypeMap = getChoiceTypeMap(newPackageStore),
@@ -90,7 +96,6 @@ private class PackageService(
     @volatile private var _state: State =
       State(
         Set.empty,
-        Map.empty,
         TemplateIdMap.Empty,
         TemplateIdMap.Empty,
         Map.empty,
@@ -174,11 +179,11 @@ private class PackageService(
   def resolveContractTypeId(implicit ec: ExecutionContext): ResolveContractTypeId =
     resolveContractTypeIdFromState { () =>
       val st = state
-      (st.templateIdMap, st.interfaceIdMap, st.packageLanguageVersionMap)
+      (st.templateIdMap, st.interfaceIdMap, st.packageNameMap)
     }
 
   private[this] def resolveContractTypeIdFromState(
-      latestMaps: () => (TemplateIdMap, InterfaceIdMap, PackageLanguageVersionMap)
+      latestMaps: () => (TemplateIdMap, InterfaceIdMap, PackageNameMap)
   )(implicit ec: ExecutionContext): ResolveContractTypeId = new ResolveContractTypeId {
     import ResolveContractTypeId.{Overload => O}, domain.{ContractTypeId => C}
     override def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
@@ -186,31 +191,31 @@ private class PackageService(
     )(implicit
         lc: LoggingContextOf[InstanceUUID],
         overload: O[U, R],
-    ): Future[Error \/ Option[(R, LanguageVersion)]] = {
-      type ResultType = Option[(R, LanguageVersion)]
-      def withLanguageVersion[T[_]](
+    ): Future[Error \/ Option[(R, KeyPackageName)]] = {
+      type ResultType = Option[(R, KeyPackageName)]
+      def withKeyPackageName[T[_]](
           r: ResolvedOf[T]
-      ): Option[(ResolvedOf[T], LanguageVersion)] =
+      ): Option[(ResolvedOf[T], KeyPackageName)] =
         latestMaps()._3.get(r.packageId).map(l => (r, l))
       // we use a different resolution strategy depending on the static type
       // determined by 'overload', as well as the class of 'x'.  We figure the
       // strategy exactly once so the reload is cheaper
       val doSearch: () => ResultType = overload match {
-        case O.Template => () => (latestMaps()._1 resolve x).flatMap(withLanguageVersion)
+        case O.Template => () => (latestMaps()._1 resolve x).flatMap(withKeyPackageName)
         case O.Top =>
           (x: C.OptionalPkg) match {
             // only search the template or interface map, if that is the origin
             // class, since searching the other map would convert template IDs
             // to interface IDs and vice versa
             case x: C.Template.OptionalPkg =>
-              () => (latestMaps()._1 resolve x).flatMap(r => withLanguageVersion(r))
+              () => (latestMaps()._1 resolve x).flatMap(r => withKeyPackageName(r))
             case x: C.Interface.OptionalPkg =>
-              () => (latestMaps()._2 resolve x).flatMap(r => withLanguageVersion(r))
+              () => (latestMaps()._2 resolve x).flatMap(r => withKeyPackageName(r))
             case x: C.Unknown.OptionalPkg => { () =>
               val (tids, iids, _) = latestMaps()
               (tids resolve x, iids resolve x) match {
-                case (tid @ Some(_), None) => tid.flatMap(r => withLanguageVersion(r))
-                case (None, iid @ Some(_)) => iid.flatMap(r => withLanguageVersion(r))
+                case (tid @ Some(_), None) => tid.flatMap(r => withKeyPackageName(r))
+                case (None, iid @ Some(_)) => iid.flatMap(r => withKeyPackageName(r))
                 // presence in both means the ID is ambiguous
                 case (None, None) | (Some(_), Some(_)) => None
               }
@@ -282,10 +287,10 @@ private class PackageService(
           )
           reload(jwt, ledgerId)
         } else Future.successful(())
-      f.map(_ =>
-        state.templateIdMap.all.keySet.map(k => (k, state.packageLanguageVersionMap(k.packageId)))
-      )
+      f.map(_ => state.templateIdMap.all.keySet.map(k => (k, state.packageNameMap(k.packageId))))
   }
+
+  val resolvePackageName: ResolvePackageName = templateId => state.packageNameMap(templateId)
 
   // See the above comment on resolveTemplateId
   def resolveChoiceArgType: ResolveChoiceArgType =
@@ -316,7 +321,7 @@ object PackageService {
     def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
         x: U with ContractTypeId.OptionalPkg
     )(implicit lc: LoggingContextOf[InstanceUUID], overload: Overload[U, R]): Future[
-      PackageService.Error \/ Option[(R, LanguageVersion)]
+      PackageService.Error \/ Option[(R, KeyPackageName)]
     ]
   }
 
@@ -351,7 +356,7 @@ object PackageService {
     ] => (
         Jwt,
         LedgerApiDomain.LedgerId,
-    ) => Future[Set[(domain.ContractTypeId.Template.Resolved, LanguageVersion)]]
+    ) => Future[Set[(domain.ContractTypeId.Template.Resolved, KeyPackageName)]]
 
   type ResolveChoiceArgType =
     (
@@ -389,7 +394,8 @@ object PackageService {
 
   type KeyTypeMap = Map[ContractTypeId.Template.Resolved, typesig.Type]
 
-  type PackageLanguageVersionMap = Map[String, LanguageVersion]
+  type ResolvePackageName = String => KeyPackageName
+  type PackageNameMap = MapView[String, KeyPackageName]
 
   private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
@@ -465,10 +471,6 @@ object PackageService {
       qn: Ref.QualifiedName,
   ): b.Resolved =
     b(pkgId, qn.module.dottedName, qn.name.dottedName)
-
-  private def getPackageLanguageMap(packageStore: PackageStore): Map[String, LanguageVersion] = {
-    packageStore.view.map({ case (p, s) => p -> s.languageVersion }).toMap
-  }
 
   // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
   private def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =

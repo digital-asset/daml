@@ -18,7 +18,6 @@ import com.daml.lf.transaction.{
   Normalization,
   ReplayMismatch,
   SubmittedTransaction,
-  Util,
   Validation,
   VersionedTransaction,
   Transaction => Tx,
@@ -32,6 +31,7 @@ import com.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue,
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
 import com.daml.lf.language.{
@@ -406,7 +406,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                   (Some[Ref.Name]("k"), ValueInt64(43)),
                 ),
               ),
-              basicUseSharedKeys,
+              basicTestsPkgName,
             )
           )
         )
@@ -668,7 +668,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicUseSharedKeys,
+                basicTestsPkgName,
               )
             )
           )
@@ -716,7 +716,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
                     (Some[Ref.Name]("k"), ValueInt64(43)),
                   ),
                 ),
-                basicUseSharedKeys,
+                basicTestsPkgName,
               )
             )
           )
@@ -746,7 +746,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicTestsPkgName)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -756,7 +756,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicTestsPkgName)),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
@@ -777,7 +777,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               usedDisclosedContract.templateId,
               usedContractKey,
               Set(alice),
-              basicUseSharedKeys,
+              basicTestsPkgName,
             )
         ),
         agreementText = "",
@@ -1597,7 +1597,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey, basicTestsPkgName)),
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
@@ -1607,7 +1607,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
           ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
         ),
-        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicUseSharedKeys)),
+        Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey, basicTestsPkgName)),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
         templateId = templateId,
@@ -1624,7 +1624,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         stakeholders = Set(alice),
         keyOpt = Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, usedContractKey, Set(alice), basicUseSharedKeys)
+            .assertBuild(templateId, usedContractKey, Set(alice), basicTestsPkgName)
         ),
         agreementText = "",
         version = transactionVersion,
@@ -2455,11 +2455,10 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
     s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}.dar"
   )
-
+  val basicTestsPkgName: KeyPackageName =
+    KeyPackageName(basicTestsPkg.name, basicTestsPkg.languageVersion)
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
-
-  val basicUseSharedKeys: Boolean = Util.sharedKey(basicTestsPkg.languageVersion)
 
   val party: Ref.IdString.Party = Party.assertFromString("Party")
   val alice: Ref.IdString.Party = Party.assertFromString("Alice")
@@ -2521,7 +2520,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       GlobalKey.assertBuild(
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-        basicUseSharedKeys,
+        basicTestsPkgName,
       ),
       Set(alice),
     )

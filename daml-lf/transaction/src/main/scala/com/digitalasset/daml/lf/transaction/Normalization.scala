@@ -4,6 +4,8 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.data.Ref
 import com.daml.lf.value.{Value => Val}
 
 class Normalization {
@@ -49,23 +51,23 @@ class Normalization {
     case old: Node.Create =>
       old
         .copy(arg = normValue(old.version)(old.arg))
-        .copy(keyOpt = old.keyOpt.map(normKWM(old.version)))
+        .copy(keyOpt = old.keyOpt.map(normKWM(old.version, old.packageName)))
 
     case old: Node.Fetch =>
       old.copy(
-        keyOpt = old.keyOpt.map(normKWM(old.version))
+        keyOpt = old.keyOpt.map(normKWM(old.version, old.packageName))
       )
 
     case old: Node.Exercise =>
       old.copy(
         chosenValue = normValue(old.version)(old.chosenValue),
         exerciseResult = old.exerciseResult.map(normValue(old.version)),
-        keyOpt = old.keyOpt.map(normKWM(old.version)),
+        keyOpt = old.keyOpt.map(normKWM(old.version, old.packageName)),
       )
 
     case old: Node.LookupByKey =>
       old.copy(
-        key = normKWM(old.version)(old.key)
+        key = normKWM(old.version, old.packageName)(old.key)
       )
 
     case old: Node.Rollback => old
@@ -76,12 +78,18 @@ class Normalization {
     Util.assertNormalizeValue(x, version)
   }
 
-  private def normKWM(version: TransactionVersion)(x: KWM): KWM = {
+  private def normKWM(version: TransactionVersion, packageName: Option[Ref.PackageName])(
+      x: KWM
+  ): KWM = {
     x match {
       case GlobalKeyWithMaintainers(key, maintainers) =>
         GlobalKeyWithMaintainers(
           GlobalKey
-            .assertBuild(key.templateId, normValue(version)(key.key), Util.sharedKey(version)),
+            .assertBuild(
+              key.templateId,
+              normValue(version)(key.key),
+              KeyPackageName(packageName, version),
+            ),
           maintainers,
         )
     }

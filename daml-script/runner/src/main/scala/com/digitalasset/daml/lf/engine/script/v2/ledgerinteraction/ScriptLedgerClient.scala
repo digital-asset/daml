@@ -9,6 +9,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.CompiledPackages
 import com.daml.lf.command.ApiCommand
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -171,6 +172,7 @@ trait ScriptLedgerClient {
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
+      keyPackageNameLookup: PackageId => Either[String, KeyPackageName],
       // TODO[SW]: The error behaviour handling logic is written in ScriptF, so each LedgerClient doesn't need to know about it
       // However, the IDELedgerClient knows more about the script being run than it should, and requires to know whether a transaction behaved correctly or not
       // in order to correctly set the partial transaction.

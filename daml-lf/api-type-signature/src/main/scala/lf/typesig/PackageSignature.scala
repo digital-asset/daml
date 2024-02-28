@@ -233,9 +233,9 @@ object PackageSignature {
     }
 
     (0 until newSignatures.size).foldLeft((s, newSignatures)) {
-      case (st @ (_, newSignatures), ifcK) =>
+      case (st @ (_, newSignatures1), ifcK) =>
         val ((s2, newSignatures2), newAtIfcK) =
-          newSignatures(ifcK).resolveRetroImplements(st)(findTpl)
+          newSignatures1(ifcK).resolveRetroImplements(st)(findTpl)
         // the tricky part here: newSignatures2 is guaranteed not to have altered
         // the value at ifcK, and to have made all "self" changes in newAtIfcK.
         // So there is no conflict, we can discard the value in the seq

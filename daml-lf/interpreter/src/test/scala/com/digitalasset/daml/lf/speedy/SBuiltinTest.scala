@@ -5,11 +5,12 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
 import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
@@ -17,13 +18,7 @@ import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-  Util,
-  Versioned,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1779,7 +1774,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "when no template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
         val (disclosedContract, None) =
-          buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
+          buildDisclosedContract(
+            contractId,
+            alice,
+            alice,
+            templateId,
+            withKey = false,
+            version = pkg.languageVersion,
+          )
         val contractInfo = ContractInfo(
           version = txVersion,
           packageName = pkg.name,
@@ -1824,7 +1826,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val sharedKey = Util.sharedKey(txVersion)
         val (disclosedContract, Some((key, keyWithMaintainers))) =
           buildDisclosedContract(
             contractId,
@@ -1832,14 +1833,15 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             alice,
             templateId,
             withKey = true,
-            sharedKey = sharedKey,
+            pkg.name,
+            pkg.languageVersion,
           )
+        val keyPackageName = KeyPackageName(pkg.name, pkg.languageVersion)
         val cachedKey = CachedKey(
-          pkgName,
+          keyPackageName,
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), sharedKey),
+            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), keyPackageName),
           key,
-          sharedKey,
         )
         val contractInfo = ContractInfo(
           version = txVersion,
@@ -1968,11 +1970,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     """
 
   val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
-  val pkgName =
-    if (txVersion < TransactionVersion.minUpgrade)
-      None
-    else
-      Some(Ref.PackageName.assertFromString("-sbuiltin-test-"))
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
@@ -2061,7 +2058,8 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-      sharedKey: Boolean = true,
+      packageName: Option[Ref.PackageName] = None,
+      version: LanguageVersion,
   ): (DisclosedContract, Option[(SValue, SValue)]) = {
     val key = SValue.SRecord(
       templateId,
@@ -2090,7 +2088,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             templateId,
             key.toUnnormalizedValue,
             Set(maintainer),
-            sharedKey,
+            KeyPackageName(packageName, version),
           )
         )
       } else {

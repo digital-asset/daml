@@ -6,15 +6,16 @@ package lf
 package transaction
 
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{PackageName, Party, Identifier}
+import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.Ref.{Identifier, PackageName, Party}
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.ValueCoder.{EncodeError, DecodeError}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.lf.value.{Value, ValueCoder}
 import com.google.protobuf
 import com.google.protobuf.{ByteString, Message}
-import org.scalacheck.{Gen, Arbitrary}
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,6 +24,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import collection.immutable.TreeSet
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
+import NodeVersionUpdater.Ops
 
 class TransactionCoderSpec
     extends AnyWordSpec
@@ -481,14 +483,14 @@ class TransactionCoderSpec
         minSuccessful(5),
       ) { case ((nodeId, node), pkgName) =>
         val wrongPackageName = pkgName.filter(_ => node.version < TransactionVersion.minUpgrade)
-        val wronNode = updatePackageName(normalizeNode(node), wrongPackageName)
+        val wrongNode = updatePackageName(normalizeNode(node), wrongPackageName)
 
         TransactionCoder.encodeNode(
           TransactionCoder.NidEncoder,
           ValueCoder.CidEncoder,
           node.version,
           nodeId,
-          wronNode,
+          wrongNode,
         ) shouldBe a[Left[_, _]]
       }
     }
@@ -616,7 +618,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId, create.version),
+          keyWithMaintainersGen(create.templateId, create.version, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -683,7 +685,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId, create.version),
+          keyWithMaintainersGen(create.templateId, create.version, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -730,7 +732,7 @@ class TransactionCoderSpec
         minSuccessful(2),
       ) { (party, create, time, salt) =>
         forAll(
-          keyWithMaintainersGen(create.templateId, create.version),
+          keyWithMaintainersGen(create.templateId, create.version, create.packageName),
           minSuccessful(2),
         ) { key =>
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
@@ -1027,7 +1029,7 @@ class TransactionCoderSpec
     }
     node.copy(
       arg = normalize(create.arg, create.version),
-      keyOpt = create.keyOpt.map(normalizeKey(_, create.version)),
+      keyOpt = create.keyOpt.map(normalizeKey(_, create.version, create.packageName)),
     )
   }
 
@@ -1040,7 +1042,7 @@ class TransactionCoderSpec
       case _ => fetch
     }
     node.copy(
-      keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version))
+      keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version, fetch.packageName))
     )
   }
 
@@ -1061,7 +1063,7 @@ class TransactionCoderSpec
       choiceObservers = exe.choiceObservers,
       choiceAuthorizers =
         if (exe.version >= TransactionVersion.minChoiceAuthorizers) exe.choiceAuthorizers else None,
-      keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
+      keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version, exe.packageName)),
       byKey = exe.byKey,
     )
   }
@@ -1069,12 +1071,13 @@ class TransactionCoderSpec
   private[this] def normalizeKey(
       key: GlobalKeyWithMaintainers,
       version: TransactionVersion,
+      packageName: Option[Ref.PackageName],
   ) =
     key.copy(globalKey =
       GlobalKey.assertBuild(
         key.globalKey.templateId,
         normalize(key.value, version),
-        GlobalKey.isShared(key.globalKey),
+        KeyPackageName(packageName, version),
       )
     )
 

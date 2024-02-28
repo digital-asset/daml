@@ -4,21 +4,16 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.{IdString, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-  Util,
-  Versioned,
-}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -87,7 +82,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
        }
        """
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(pkg)
-  val useSharedKeys: Boolean = Util.sharedKey(defaultParserParameters.languageVersion)
   val maintainerParty: IdString.Party = Ref.Party.assertFromString("maintainerParty")
   val ledgerParty: IdString.Party = Ref.Party.assertFromString("ledgerParty")
   val disclosureParty: IdString.Party = Ref.Party.assertFromString("disclosureParty")
@@ -99,7 +93,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   val altDisclosureContractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-alternative-disclosure-contract-id"))
   val invalidTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Invalid")
-  val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
   val houseTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
   val houseTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
   val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
@@ -130,6 +123,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildDisclosedHouseContract(
       owner: Party,
       maintainer: Party,
+      version: LanguageVersion = pkg.languageVersion,
       packageName: Option[Ref.PackageName] = pkg.name,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
@@ -139,11 +133,10 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       if (withKey)
         Some(
           Speedy.CachedKey(
-            packageName,
+            keyPackageName = KeyPackageName(packageName, version),
             globalKeyWithMaintainers =
               GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
             key = buildContractSKey(maintainer),
-            shared = Util.sharedKey(TransactionVersion.maxVersion),
           )
         )
       else
@@ -198,7 +191,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     GlobalKey.assertBuild(
       houseTemplateType,
       buildContractKeyValue(maintainer, label),
-      useSharedKeys,
+      KeyPackageName(pkg.name, pkg.languageVersion),
     )
 
   def buildContractSKey(maintainer: Party, label: String = testKeyName): SValue =
@@ -249,10 +242,10 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       signatory: Party,
       maintainer: Party,
       packageName: Option[Ref.PackageName] = pkg.name,
+      version: LanguageVersion = pkg.languageVersion,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
-      sharedKey: Boolean = true,
   ): ContractInfo = {
     val contract = SValue.SRecord(
       templateId,
@@ -263,17 +256,22 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       ),
     )
     val mbKey =
-      if (withKey)
+      if (withKey) {
+        val keyPackageName = KeyPackageName(packageName, version)
         Some(
           CachedKey(
-            packageName = packageName,
+            keyPackageName,
             GlobalKeyWithMaintainers
-              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer), sharedKey),
+              .assertBuild(
+                templateId,
+                contract.toUnnormalizedValue,
+                Set(maintainer),
+                keyPackageName,
+              ),
             contract,
-            sharedKey,
           )
         )
-      else None
+      } else None
 
     ContractInfo(
       version = TransactionVersion.minExplicitDisclosure,

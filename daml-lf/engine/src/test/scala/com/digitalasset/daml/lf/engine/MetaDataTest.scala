@@ -39,6 +39,7 @@ class MetaDataTest(majorVersion: LanguageMajorVersion)
       observers = noOne,
       key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
       version = CreateTransactionVersion.FromPackage,
+      packageName = Some(Ref.PackageName.assertFromString("package-name")),
     )
     val nodeWithoutInterface = Table[TestNodeBuilder => Node](
       "transaction",
@@ -72,6 +73,7 @@ class MetaDataTest(majorVersion: LanguageMajorVersion)
       observers = noOne,
       key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
       version = CreateTransactionVersion.FromPackage,
+      packageName = somePkgName,
     )
     val nodeWithInterface = Table[TestNodeBuilder => Node](
       "transaction",
@@ -121,6 +123,7 @@ class MetaDataTest(majorVersion: LanguageMajorVersion)
         signatories = parties,
         observers = noOne,
         version = CreateTransactionVersion.FromPackage,
+        packageName = somePkgName,
       )
       forEvery(nodeWithoutInterface) { mkNodeWithout =>
         forEvery(nodeWithInterface) { mkNodeWith =>
@@ -154,6 +157,8 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
     override def packageVersion(packageId: PackageId): Option[TransactionVersion] =
       Some(TransactionVersion.assignNodeVersion(langVersion))
   }
+
+  val somePkgName = Some(Ref.PackageName.assertFromString("package-name"))
 
   val engine = Engine.DevEngine(majorLanguageVersion)
 

@@ -48,7 +48,7 @@ import Liskov.<~<
 import com.daml.fetchcontracts.domain.ResolvedQuery
 import ResolvedQuery.Unsupported
 import com.daml.fetchcontracts.domain.ContractTypeId.{OptionalPkg, toLedgerApiValue}
-import com.daml.http.ContractsService.RLV
+import com.daml.http.ContractsService.RPN
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -59,8 +59,7 @@ import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.EitherT.{either, eitherT, rightT}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.Util
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.nonempty.NonEmpty
 
 object WebSocketService {
@@ -300,7 +299,7 @@ object WebSocketService {
 
         def resolveIds(
             sfq: domain.SearchForeverQuery
-        ): Future[(Set[RLV], Set[domain.ContractTypeId.OptionalPkg])] =
+        ): Future[(Set[RPN], Set[domain.ContractTypeId.OptionalPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse(x =>
               resolveContractTypeId(jwt, ledgerId)(x).map(_.toOption.flatten.toLeft(x))
@@ -308,7 +307,7 @@ object WebSocketService {
             .map(
               _.toSet.partitionMap(
                 identity[
-                  Either[RLV, domain.ContractTypeId.OptionalPkg]
+                  Either[RPN, domain.ContractTypeId.OptionalPkg]
                 ]
               )
             )
@@ -538,7 +537,7 @@ object WebSocketService {
   case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: NonEmpty[Map[RLV, NonEmpty[Set[V]]]],
+      q: NonEmpty[Map[RPN, NonEmpty[Set[V]]]],
       unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
 
@@ -617,7 +616,7 @@ object WebSocketService {
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
-            .toSet[Either[((domain.ContractTypeId.Resolved, LanguageVersion), LfV), OptionalPkg]]
+            .toSet[Either[((domain.ContractTypeId.Resolved, KeyPackageName), LfV), OptionalPkg]]
             .partitionMap(identity)
           for {
             resolvedWithKey <- (NonEmpty from resolvedWithKey toRightDisjunction InvalidUserInput(
@@ -654,11 +653,11 @@ object WebSocketService {
           }
       }
       def dbQueries(
-          q: NonEmpty[Map[RLV, NonEmpty[Set[LfV]]]]
+          q: NonEmpty[Map[RPN, NonEmpty[Set[LfV]]]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
       ): NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]] =
-        q.toSeq map { case ((t, lv), lfvKeys) =>
+        q.toSeq map { case ((t, pn), lfvKeys) =>
           val keys = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
           (
@@ -666,7 +665,8 @@ object WebSocketService {
             joinFragment(
               keys map (k =>
                 keyEquality(
-                  Hash.assertHashContractKey(toLedgerApiValue(t), k, shared = Util.sharedKey(lv))
+                  Hash
+                    .assertHashContractKey(toLedgerApiValue(t), k, pn)
                 )
               ),
               sql" OR ",

@@ -7,6 +7,7 @@ package transaction
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.transaction.Transaction.{
   AliasedNode,
@@ -34,6 +35,7 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.HashMap
 import scala.util.Random
+import NodeVersionUpdater.Ops
 
 class TransactionSpec
     extends AnyFreeSpec
@@ -383,7 +385,11 @@ class TransactionSpec
         ).map(s => {
           val node = create(cid(s))
           GlobalKey
-            .assertBuild(node.templateId, V.ValueText(cid(s).coid), Util.sharedKey(node.version))
+            .assertBuild(
+              node.templateId,
+              V.ValueText(cid(s).coid),
+              KeyPackageName(node.packageName, node.version),
+            )
         }).toSet
 
       builder.build().contractKeys shouldBe expectedResults
@@ -394,9 +400,13 @@ class TransactionSpec
     import Transaction._
     val dummyBuilder = new TxBuilder()
     val parties = List("Alice")
-    val useSharedKeys = Util.sharedKey(TransactionVersion.StableVersions.max)
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k), useSharedKeys)
+    def globalKey(
+        k: String,
+        pkgName: Option[Ref.PackageName] = None,
+        version: TransactionVersion = TransactionVersion.minVersion,
+    ) =
+      GlobalKey.assertBuild("Mod:T", keyValue(k), KeyPackageName(pkgName, version))
     def create(s: V.ContractId, k: String) = dummyBuilder
       .create(
         id = s,
@@ -712,7 +722,7 @@ class TransactionSpec
       val (cid3, create3) = create(builder, parties, Some("key2"))
       val (_, create4) = create(builder, parties, Some("key2"))
       val (_, create5) = create(builder, parties, Some("key3"))
-      val sharedKeys = Util.sharedKey(create0.version)
+      val packageName = create0.packageName
       builder.add(create0)
       builder.add(exercise(builder, create0, parties, false))
       builder.add(create1)
@@ -726,7 +736,8 @@ class TransactionSpec
       builder.add(exercise(builder, create3, parties, true), rollback)
       builder.add(create4, rollback)
 
-      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s), sharedKeys)
+      def key(s: String) =
+        GlobalKey.assertBuild("Mod:T", V.ValueText(s), KeyPackageName(packageName, create0.version))
       builder.build().updatedContractKeys shouldBe
         Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
     }
