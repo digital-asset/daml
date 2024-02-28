@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package com.digitalasset.canton.protocol.v30;
 
-import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 // A commitment to the active contract set (ACS) that is shared between two participants on a given domain at a given time.
@@ -19,7 +18,7 @@ message AcsCommitment {
   string domain_id = 1;
   string sending_participant = 2;
   string counter_participant = 3;
-  google.protobuf.Timestamp from_exclusive = 4;
-  google.protobuf.Timestamp to_inclusive = 5;
+  int64 from_exclusive = 4; // in microseconds of UTC time since Unix epoch
+  int64 to_inclusive = 5; // in microseconds of UTC time since Unix epoch
   bytes commitment = 6;
 }

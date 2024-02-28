@@ -83,7 +83,7 @@ abstract class ProtocolProcessor[
     SubmissionParam,
     SubmissionResult,
     RequestViewType <: ViewType,
-    Result <: MediatorResult with SignedProtocolMessageContent,
+    Result <: ConfirmationResult with SignedProtocolMessageContent,
     SubmissionError <: WrapsProcessorError,
 ](
     private[protocol] val steps: ProcessingSteps[
@@ -96,7 +96,7 @@ abstract class ProtocolProcessor[
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     ephemeral: SyncDomainEphemeralState,
     crypto: DomainSyncCryptoClient,
-    sequencerClient: SequencerClient,
+    sequencerClient: SequencerClientSend,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -460,6 +460,7 @@ abstract class ProtocolProcessor[
           callback = res => sendResultP.trySuccess(res).discard,
           maxSequencingTime = maxSequencingTime,
           messageId = messageId,
+          amplify = true,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap { err =>
@@ -517,7 +518,7 @@ abstract class ProtocolProcessor[
                 NonEmpty(
                   List,
                   Set.empty[LfPartyId] ->
-                    LocalReject.TimeRejects.LocalTimeout.Reject(protocolVersion),
+                    LocalRejectError.TimeRejects.LocalTimeout.Reject(protocolVersion),
                 ),
                 protocolVersion,
               ),
@@ -1045,7 +1046,7 @@ abstract class ProtocolProcessor[
       pendingDataAndResponsesAndTimeoutEvent <-
         if (isCleanReplay(rc)) {
           val pendingData = CleanReplayData(rc, sc, mediator)
-          val responses = Seq.empty[(MediatorResponse, Recipients)]
+          val responses = Seq.empty[(ConfirmationResponse, Recipients)]
           val timeoutEvent = Either.right(Option.empty[TimestampedEvent])
           EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             (pendingData, responses, () => timeoutEvent)
@@ -1184,34 +1185,35 @@ abstract class ProtocolProcessor[
     }
   }
 
-  override def processMalformedMediatorRequestResult(
+  override def processMalformedMediatorConfirmationRequestResult(
       timestamp: CantonTimestamp,
       sequencerCounter: SequencerCounter,
-      signedResultBatch: Either[EventWithErrors[Deliver[DefaultOpenEnvelope]], SignedContent[
-        Deliver[DefaultOpenEnvelope]
-      ]],
+      signedResultBatch: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatch.fold(_.content, _.content)
+    val content = signedResultBatch.event.content
     val ts = content.timestamp
 
     val processedET = performUnlessClosingEitherU(functionFullName) {
-      val malformedMediatorRequestEnvelopes = content.batch.envelopes
-        .mapFilter(ProtocolMessage.select[SignedProtocolMessage[MalformedMediatorRequestResult]])
+      val malformedMediatorConfirmationRequestEnvelopes = content.batch.envelopes
+        .mapFilter(
+          ProtocolMessage.select[SignedProtocolMessage[MalformedConfirmationRequestResult]]
+        )
       require(
-        malformedMediatorRequestEnvelopes.sizeCompare(1) == 0,
-        steps.requestKind + " result contains multiple malformed mediator request envelopes",
+        malformedMediatorConfirmationRequestEnvelopes.sizeCompare(1) == 0,
+        steps.requestKind + " result contains multiple malformed mediator confirmation request envelopes",
       )
-      val malformedMediatorRequest = malformedMediatorRequestEnvelopes(0).protocolMessage
-      val requestId = malformedMediatorRequest.message.requestId
+      val malformedMediatorConfirmationRequest =
+        malformedMediatorConfirmationRequestEnvelopes(0).protocolMessage
+      val requestId = malformedMediatorConfirmationRequest.message.requestId
       val sc = content.counter
 
       logger.info(
-        show"Got malformed mediator result for ${steps.requestKind.unquoted} request at $requestId."
+        show"Got malformed confirmation result for ${steps.requestKind.unquoted} request at $requestId."
       )
 
       performResultProcessing(
         signedResultBatch,
-        Left(malformedMediatorRequest),
+        Left(malformedMediatorConfirmationRequest),
         requestId,
         ts,
         sc,
@@ -1236,12 +1238,9 @@ abstract class ProtocolProcessor[
   }
 
   override def processResult(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ]
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatchE.fold(_.content, _.content)
+    val content = event.event.content
     val ts = content.timestamp
     val sc = content.counter
 
@@ -1263,7 +1262,7 @@ abstract class ProtocolProcessor[
         show"Got result for ${steps.requestKind.unquoted} request at $requestId: $resultEnvelopes"
       )
 
-      performResultProcessing(signedResultBatchE, Right(result), requestId, ts, sc)
+      performResultProcessing(event, Right(result), requestId, ts, sc)
     }
 
     toHandlerResult(ts, processedET)
@@ -1271,13 +1270,11 @@ abstract class ProtocolProcessor[
 
   @VisibleForTesting
   private[protocol] def performResultProcessing(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[
+        SignedProtocolMessage[MalformedConfirmationRequestResult],
+        SignedProtocolMessage[Result],
       ],
-      resultE: Either[SignedProtocolMessage[MalformedMediatorRequestResult], SignedProtocolMessage[
-        Result
-      ]],
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1342,7 +1339,7 @@ abstract class ProtocolProcessor[
       asyncResult <-
         if (!precedesCleanReplay(requestId))
           performResultProcessing2(
-            signedResultBatchE,
+            eventE,
             resultE,
             requestId,
             resultTs,
@@ -1357,16 +1354,13 @@ abstract class ProtocolProcessor[
   }
 
   /** This processing step corresponds to the end of the synchronous part of the processing
-    * of mediator result.
+    * of confirmation result.
     * The inner `EitherT` corresponds to the subsequent async stage.
     */
   private[this] def performResultProcessing2(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       resultE: Either[
-        SignedProtocolMessage[MalformedMediatorRequestResult],
+        SignedProtocolMessage[MalformedConfirmationRequestResult],
         SignedProtocolMessage[Result],
       ],
       requestId: RequestId,
@@ -1389,7 +1383,7 @@ abstract class ProtocolProcessor[
           case Left(err) =>
             SyncServiceAlarm
               .Warn(
-                s"Received a mediator result at $resultTs for $requestId " +
+                s"Received a confirmation result at $resultTs for $requestId " +
                   s"with an invalid signature for ${pendingRequestData.mediator}. Discarding message... Details: $err"
               )
               .report()
@@ -1405,7 +1399,7 @@ abstract class ProtocolProcessor[
         ]
     ): Future[Boolean] = Future.successful {
       val invalidO = for {
-        case TransactionResultMessage(
+        case ConfirmationResultMessage(
           requestId,
           _verdict,
           resultRootHash,
@@ -1448,11 +1442,11 @@ abstract class ProtocolProcessor[
     //
     // We don't know whether any protocol processor has ever seen the request with `requestId`;
     // it might be that the message dispatcher already decided that the request is malformed and should not be processed.
-    // In this case, the message dispatcher has assigned a request counter to the request if it expects to get a mediator result
+    // In this case, the message dispatcher has assigned a request counter to the request if it expects to get a confirmation result
     // and the BadRootHashMessagesRequestProcessor moved the request counter to `Confirmed`.
     // So the deadlock should happen only if the mediator or sequencer are dishonest.
     //
-    // TODO(M99) This argument relies on the mediator sending a MalformedMediatorRequest only to participants
+    // TODO(M99) This argument relies on the mediator sending a MalformedMediatorConfirmationRequest only to participants
     //  that have also received a message with the request.
     //  A dishonest sequencer or mediator could break this assumption.
 
@@ -1475,7 +1469,7 @@ abstract class ProtocolProcessor[
           }
       ).flatMap { pendingRequestDataOrReplayData =>
         performResultProcessing3(
-          signedResultBatchE,
+          eventE,
           unsignedResultE,
           requestId,
           resultTs,
@@ -1492,11 +1486,8 @@ abstract class ProtocolProcessor[
 
   // The processing in this method is done in the asynchronous part of the processing
   private[this] def performResultProcessing3(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
-      resultE: Either[MalformedMediatorRequestResult, Result],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[MalformedConfirmationRequestResult, Result],
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1518,7 +1509,7 @@ abstract class ProtocolProcessor[
           for {
             commitSetAndContractsAndEvent <- steps
               .getCommitSetAndContractsToBeStoredAndEvent(
-                signedResultBatchE,
+                eventE,
                 resultE,
                 pendingRequestData,
                 steps.pendingSubmissions(ephemeral),
@@ -1734,7 +1725,9 @@ abstract class ProtocolProcessor[
       commitFuture <- EitherT
         .fromEither[Future](ephemeral.requestTracker.addCommitSet(rc, commitSetT))
         .leftMap(e => {
-          SyncServiceAlarm.Warn(s"Unexpected mediator result message for $requestId. $e").report()
+          SyncServiceAlarm
+            .Warn(s"Unexpected confirmation result message for $requestId. $e")
+            .report()
           e: RequestTracker.RequestTrackerError
         })
     } yield {

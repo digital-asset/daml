@@ -120,7 +120,7 @@ class MediatorStateTest
         mock[Clock],
         MediatorTestMetrics,
         testedProtocolVersion,
-        CachingConfigs.defaultFinalizedMediatorRequestsCache,
+        CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
         timeouts,
         loggerFactory,
       )

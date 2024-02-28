@@ -25,20 +25,20 @@ private[mediator] object MediatorEvent {
   final case class Request(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyXTransaction: Boolean,
   ) extends MediatorEvent {
     override val requestId: RequestId = RequestId(timestamp)
   }
 
-  /** A response to a mediator request.
+  /** A response to a mediator confirmation request.
     * Currently each response is processed independently even if they arrive within the same batch.
     */
   final case class Response(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      response: SignedProtocolMessage[MediatorResponse],
+      response: SignedProtocolMessage[ConfirmationResponse],
       topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
   ) extends MediatorEvent {

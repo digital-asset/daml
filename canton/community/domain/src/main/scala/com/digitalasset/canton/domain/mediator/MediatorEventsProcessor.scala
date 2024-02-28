@@ -29,10 +29,10 @@ import scala.concurrent.{ExecutionContext, Future}
 /** The [[MediatorEventsProcessor]] divides incoming events into a series of stages where each stage should be executed
   * sequentially but the actions in the stage itself may execute in parallel.
   *
-  * All mediator request related events that can be processed concurrently grouped by requestId.
+  * All mediator confirmation request related events that can be processed concurrently grouped by requestId.
   */
 // TODO(#15627) we can simplify this quite a bit as we just need to push the events into the
-//    ConfirmationResponseProcessor pipelines instead of doing the complicated book keeping here.
+//    TransactionConfirmationResponseProcessor pipelines instead of doing the complicated book keeping here.
 private[mediator] final case class MediatorEventStage(
     requests: NonEmpty[Map[RequestId, NonEmpty[Seq[Traced[MediatorEvent]]]]]
 ) {
@@ -64,13 +64,13 @@ private[mediator] object MediatorEventStage {
 /** Attempt to process a sequence of sequential events from the sequencer for the mediator in an optimal manner.
   * We could correctly process them sequentially however this is suboptimal.
   * We can parallelize their processing by respecting the following rules:
-  *  - Mediator requests/responses with different request ids can be processed in parallel.
+  *  - Mediator confirmation requests/responses with different request ids can be processed in parallel.
   *    For events referencing the same request-id we can provide these to the confirmation request processor as a group
   *    so it can make optimizations such as deferring persistence of a response state until the final message
   *    to avoid unnecessary database writes.
-  *  - Identity transactions must be processed by the identity client before subsequent mediator request/responses as
+  *  - Identity transactions must be processed by the identity client before subsequent mediator confirmation request/responses as
   *    the confirmation response processor may require knowing the latest relevant topology state.
-  *  - Pending mediator requests could timeout during the execution of this batch and should be handled with the timestamp
+  *  - Pending mediator confirmation requests could timeout during the execution of this batch and should be handled with the timestamp
   *    of the event from the sequencer that caused them to timeout (it is tempting to just use the last timestamp to
   *    determine timeouts however we would like to ensure we use the closest timestamp to ensure a consistent version
   *    is applied across Mediators regardless of the batches of events they process). Unlikely however technically
@@ -106,9 +106,7 @@ private[mediator] class MediatorEventsProcessor(
   private def handle(
       events: NonEmpty[Seq[TracedProtocolEvent]]
   )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): HandlerResult = {
-    val identityF = identityClientEventHandler(Traced(events.map(_.map { case (event, _) =>
-      event
-    })))
+    val identityF = identityClientEventHandler(Traced(events))
 
     val envelopesByEvent = envelopesGroupedByEvent(events)
     for {
@@ -181,7 +179,7 @@ private[mediator] class MediatorEventsProcessor(
         .flatMap(_.findDynamicDomainParametersOrDefault(protocolVersion))
         .map { domainParameters =>
           val requestTimeout =
-            pendingRequestId.unwrap.plus(domainParameters.participantResponseTimeout.unwrap)
+            pendingRequestId.unwrap.plus(domainParameters.confirmationResponseTimeout.unwrap)
 
           timestamp.isAfter(requestTimeout)
         }
@@ -214,8 +212,7 @@ private[mediator] class MediatorEventsProcessor(
   ): NonEmpty[Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]] =
     events.map { tracedProtocolEvent =>
       implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
-      val (event, _) = tracedProtocolEvent.value
-      val envelopes = event match {
+      val envelopes = tracedProtocolEvent.value match {
         case deliver: Deliver[DefaultOpenEnvelope] =>
           val domainEnvelopes = ProtocolMessage.filterDomainsEnvelopes(
             deliver.batch,
@@ -245,19 +242,23 @@ private[mediator] class MediatorEventsProcessor(
         // work out requests that will timeout during this range of events
         // (keep in mind that they may receive a result during this time, in which case the timeout will be ignored)
         val (lastTracedProtocolEvent, _) = envelopesByEventNE.last1
-        val (lastEvent, _) = lastTracedProtocolEvent.value
+        val lastEvent = lastTracedProtocolEvent.value
         val unfinalized = state.pendingRequestIdsBefore(lastEvent.timestamp)
 
         val stagesF =
           envelopesByEventNE.foldLeft(Future.successful(EventProcessingStages(unfinalized))) {
             case (stages, (tracedProtocolEvent, envelopes)) =>
               implicit val traceContext = tracedProtocolEvent.traceContext
-              val (event, timestampOfSigningKey) = tracedProtocolEvent.value
+              val event = tracedProtocolEvent.value
+              val topologyTimestampO = event match {
+                case deliver: Deliver[?] => deliver.topologyTimestampO
+                case _ => None
+              }
               for {
                 stages <- extractMediatorEventsStage(
                   event.counter,
                   event.timestamp,
-                  timestampOfSigningKey,
+                  topologyTimestampO,
                   envelopes,
                 ).toList.foldLeft(stages) { case (acc, stage) => acc.map(_.addStage(stage)) }
 
@@ -271,17 +272,17 @@ private[mediator] class MediatorEventsProcessor(
   private def extractMediatorEventsStage(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      timestampOfSigningKey: Option[CantonTimestamp],
+      topologyTimestamp: Option[CantonTimestamp],
       envelopes: Seq[DefaultOpenEnvelope],
   )(implicit traceContext: TraceContext): Option[MediatorEventStage] = {
-    val requests = envelopes.mapFilter(ProtocolMessage.select[MediatorRequest])
+    val requests = envelopes.mapFilter(ProtocolMessage.select[MediatorConfirmationRequest])
     val responses =
-      envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[MediatorResponse]])
+      envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[ConfirmationResponse]])
 
     val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
 
     val events: Seq[MediatorEvent] = if (requests.nonEmpty && responses.nonEmpty) {
-      logger.error("Received both mediator requests and mediator responses.")
+      logger.error("Received both mediator confirmation requests and confirmation responses.")
       Seq.empty
     } else if (requests.nonEmpty) {
       requests match {
@@ -301,7 +302,7 @@ private[mediator] class MediatorEventsProcessor(
           )
 
         case _ =>
-          logger.error("Received more than one mediator request.")
+          logger.error("Received more than one mediator confirmation request.")
           Seq.empty
       }
     } else if (responses.nonEmpty) {
@@ -310,8 +311,7 @@ private[mediator] class MediatorEventsProcessor(
           counter,
           timestamp,
           res.protocolMessage,
-          // The topology timestamp on the submission request is communicated to the clients via the timestamp of signing key
-          topologyTimestamp = timestampOfSigningKey,
+          topologyTimestamp,
           res.recipients,
         )
       )

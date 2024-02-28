@@ -505,7 +505,7 @@ class TransferOutProcessingSteps(
       responseOpt.map(_ -> Recipients.cc(mediator)).toList,
       RejectionArgs(
         entry,
-        LocalReject.TimeRejects.LocalTimeout.Reject(sourceDomainProtocolVersion.v),
+        LocalRejectError.TimeRejects.LocalTimeout.Reject(sourceDomainProtocolVersion.v),
       ),
     )
   }
@@ -525,11 +525,8 @@ class TransferOutProcessingSteps(
     )
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
-      resultE: Either[MalformedMediatorRequestResult, TransferOutResult],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[MalformedConfirmationRequestResult, TransferOutResult],
       pendingRequestData: PendingTransferOut,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -558,7 +555,7 @@ class TransferOutProcessingSteps(
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
 
     import scala.util.Either.MergeableEither
-    MergeableEither[MediatorResult](resultE).merge.verdict match {
+    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -713,7 +710,7 @@ class TransferOutProcessingSteps(
       declaredTransferCounter: TransferCounter,
       confirmingStakeholders: Set[LfPartyId],
       rootHash: RootHash,
-  ): Option[MediatorResponse] = {
+  ): Option[ConfirmationResponse] = {
     val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
       contractId -> Some(ActiveContractStore.Active(Some(declaredTransferCounter - 1)))
     )
@@ -730,11 +727,11 @@ class TransferOutProcessingSteps(
       val localVerdict =
         if (successful) LocalApprove(sourceDomainProtocolVersion.v)
         else
-          LocalReject.TransferOutRejects.ActivenessCheckFailed.Reject(s"$activenessResult")(
+          LocalRejectError.TransferOutRejects.ActivenessCheckFailed.Reject(s"$activenessResult")(
             LocalVerdict.protocolVersionRepresentativeFor(sourceDomainProtocolVersion.v)
           )
       val response = checked(
-        MediatorResponse.tryCreate(
+        ConfirmationResponse.tryCreate(
           requestId,
           participantId,
           Some(ViewPosition.root),

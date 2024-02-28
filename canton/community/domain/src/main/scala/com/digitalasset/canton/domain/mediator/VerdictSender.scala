@@ -45,7 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[mediator] trait VerdictSender {
   def sendResult(
       requestId: RequestId,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       verdict: Verdict,
       decisionTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Unit]
@@ -58,14 +58,14 @@ private[mediator] trait VerdictSender {
       sendVerdict: Boolean,
   )(implicit traceContext: TraceContext): Future[Unit]
 
-  /** Mediator rejects are important for situations where malformed mediator request or RHMs can have valid state
+  /** Mediator rejects are important for situations where malformed mediator confirmation request or RHMs can have valid state
     * and thus consume resources on the participant side. A prompt rejection will allow to free these resources.
     * RHMs are used in this method to identify the affected participants that may have received them and to whom
     * the rejects will be addressed to.
     */
   def sendReject(
       requestId: RequestId,
-      requestO: Option[MediatorRequest],
+      requestO: Option[MediatorConfirmationRequest],
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       rejectionReason: Verdict.MediatorReject,
       decisionTime: CantonTimestamp,
@@ -94,7 +94,7 @@ private[mediator] class DefaultVerdictSender(
     with NamedLogging {
   override def sendResult(
       requestId: RequestId,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       verdict: Verdict,
       decisionTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Unit] = {
@@ -171,6 +171,7 @@ private[mediator] class DefaultVerdictSender(
         callback = callback,
         maxSequencingTime = decisionTime,
         aggregationRule = aggregationRule,
+        amplify = true,
       )
     } else {
       logger.info(
@@ -187,7 +188,7 @@ private[mediator] class DefaultVerdictSender(
 
   private[this] def createResults(
       requestId: RequestId,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       verdict: Verdict,
   )(implicit
       traceContext: TraceContext
@@ -202,7 +203,7 @@ private[mediator] class DefaultVerdictSender(
       )
       (informeesMap, informeesWithGroupAddressing) = result
       envelopes <- {
-        val result = request.createMediatorResult(requestId, verdict, request.allInformees)
+        val result = request.createConfirmationResult(requestId, verdict, request.allInformees)
         val recipientSeq =
           informeesMap.keys.toSeq.map(MemberRecipient) ++ informeesWithGroupAddressing.toSeq
             .map(p => ParticipantsOfParty(PartyId.tryFromLfParty(p)))
@@ -299,7 +300,7 @@ private[mediator] class DefaultVerdictSender(
 
   override def sendReject(
       requestId: RequestId,
-      requestO: Option[MediatorRequest],
+      requestO: Option[MediatorConfirmationRequest],
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       rejectionReason: Verdict.MediatorReject,
       decisionTime: CantonTimestamp,
@@ -325,20 +326,20 @@ private[mediator] class DefaultVerdictSender(
           .parTraverse { case (viewType, flatRecipients) =>
             // This is currently a bit messy. We need to a TransactionResultMessage or TransferXResult whenever possible,
             // because that allows us to easily intercept and change the verdict in tests.
-            // However, in some cases, the required information is not available, so we fall back to MalformedMediatorRequestResult.
-            // TODO(i11326): Remove unnecessary fields from the result message types, so we can get rid of MalformedMediatorRequestResult and simplify this code.
+            // However, in some cases, the required information is not available, so we fall back to MalformedMediatorConfirmationRequestResult.
+            // TODO(i11326): Remove unnecessary fields from the result message types, so we can get rid of MalformedMediatorConfirmationRequestResult and simplify this code.
             val rejection = (viewType match {
               case ViewType.TransactionViewType =>
                 requestO match {
                   case Some(request @ InformeeMessage(_, _)) =>
-                    request.createMediatorResult(
+                    request.createConfirmationResult(
                       requestId,
                       rejectionReason,
                       Set.empty,
                     )
                   // For other kinds of request, or if the request is unknown, we send a generic result
                   case _ =>
-                    MalformedMediatorRequestResult.tryCreate(
+                    MalformedConfirmationRequestResult.tryCreate(
                       requestId,
                       crypto.domainId,
                       viewType,
@@ -364,14 +365,14 @@ private[mediator] class DefaultVerdictSender(
                   protocolVersion,
                 )
               case _: ViewType =>
-                MalformedMediatorRequestResult.tryCreate(
+                MalformedConfirmationRequestResult.tryCreate(
                   requestId,
                   crypto.domainId,
                   viewType,
                   rejectionReason,
                   protocolVersion,
                 )
-            }): MediatorResult
+            }): ConfirmationResult
 
             val recipients = Recipients.recipientGroups(flatRecipients.map(r => NonEmpty(Set, r)))
 

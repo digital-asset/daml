@@ -6,7 +6,13 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestampSecond, GeneratorsData, ViewPosition, ViewType}
-import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash, TransferDomainId}
+import com.digitalasset.canton.protocol.{
+  GeneratorsProtocol,
+  Malformed,
+  RequestId,
+  RootHash,
+  TransferDomainId,
+}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -67,14 +73,15 @@ final class GeneratorsMessages(
     verdict <- verdictArb.arbitrary
   } yield TransferResult.create(requestId, informees, domain, verdict, protocolVersion))
 
-  implicit val malformedMediatorRequestResultArb: Arbitrary[MalformedMediatorRequestResult] =
+  implicit val MalformedMediatorConfirmationRequestResultArb
+      : Arbitrary[MalformedConfirmationRequestResult] =
     Arbitrary(
       for {
         requestId <- Arbitrary.arbitrary[RequestId]
         domainId <- Arbitrary.arbitrary[DomainId]
         viewType <- Arbitrary.arbitrary[ViewType]
         mediatorReject <- mediatorRejectArb.arbitrary
-      } yield MalformedMediatorRequestResult.tryCreate(
+      } yield MalformedConfirmationRequestResult.tryCreate(
         requestId,
         domainId,
         viewType,
@@ -83,16 +90,16 @@ final class GeneratorsMessages(
       )
     )
 
-  implicit val transactionResultMessageArb: Arbitrary[TransactionResultMessage] = Arbitrary(for {
+  implicit val transactionResultMessageArb: Arbitrary[ConfirmationResultMessage] = Arbitrary(for {
     verdict <- verdictArb.arbitrary
     rootHash <- Arbitrary.arbitrary[RootHash]
     requestId <- Arbitrary.arbitrary[RequestId]
     domainId <- Arbitrary.arbitrary[DomainId]
 
     // TODO(#14241) Also generate instance that contains InformeeTree + make pv above cover all the values
-  } yield TransactionResultMessage(requestId, verdict, rootHash, domainId, protocolVersion))
+  } yield ConfirmationResultMessage(requestId, verdict, rootHash, domainId, protocolVersion))
 
-  implicit val mediatorResponseArb: Arbitrary[MediatorResponse] = Arbitrary(
+  implicit val confirmationResponseArb: Arbitrary[ConfirmationResponse] = Arbitrary(
     for {
       requestId <- Arbitrary.arbitrary[RequestId]
       sender <- Arbitrary.arbitrary[ParticipantId]
@@ -119,7 +126,7 @@ final class GeneratorsMessages(
         case _ => Gen.option(Arbitrary.arbitrary[ViewPosition])
       }
 
-    } yield MediatorResponse.tryCreate(
+    } yield ConfirmationResponse.tryCreate(
       requestId,
       sender,
       viewPositionO,
@@ -132,10 +139,10 @@ final class GeneratorsMessages(
   )
 
   // TODO(#14515) Check that the generator is exhaustive
-  implicit val mediatorResultArb: Arbitrary[MediatorResult] = Arbitrary(
-    Gen.oneOf[MediatorResult](
-      Arbitrary.arbitrary[MalformedMediatorRequestResult],
-      Arbitrary.arbitrary[TransactionResultMessage],
+  implicit val mediatorResultArb: Arbitrary[ConfirmationResult] = Arbitrary(
+    Gen.oneOf[ConfirmationResult](
+      Arbitrary.arbitrary[MalformedConfirmationRequestResult],
+      Arbitrary.arbitrary[ConfirmationResultMessage],
       Arbitrary.arbitrary[TransferResult[TransferDomainId]],
     )
   )
@@ -144,9 +151,9 @@ final class GeneratorsMessages(
   implicit val signedProtocolMessageContentArb: Arbitrary[SignedProtocolMessageContent] = Arbitrary(
     Gen.oneOf(
       Arbitrary.arbitrary[AcsCommitment],
-      Arbitrary.arbitrary[MalformedMediatorRequestResult],
-      Arbitrary.arbitrary[MediatorResponse],
-      Arbitrary.arbitrary[MediatorResult],
+      Arbitrary.arbitrary[MalformedConfirmationRequestResult],
+      Arbitrary.arbitrary[ConfirmationResponse],
+      Arbitrary.arbitrary[ConfirmationResult],
     )
   )
 

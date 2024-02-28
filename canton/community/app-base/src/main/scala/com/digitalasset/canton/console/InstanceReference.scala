@@ -54,6 +54,7 @@ import com.digitalasset.canton.participant.{
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
 
@@ -541,9 +542,8 @@ abstract class ParticipantReference(
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
     val connected = domains.list_connected().map(_.domainId).toSet
-
     // for every participant
-    consoleEnvironment.participantsX.all
+    consoleEnvironment.participants.all
       .filter(p => p.health.running() && p.health.initialized())
       .foreach { participant =>
         // for every domain this participant is connected to as well
@@ -552,10 +552,14 @@ abstract class ParticipantReference(
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
                 // ensure that vetted packages on the domain match the ones in the authorized store
+                val timeQuery =
+                  if (consoleEnvironment.environment.simClock.isDefined) TimeQuery.HeadState
+                  else TimeQuery.Snapshot(consoleEnvironment.environment.clock.now)
                 val onDomain = participant.topology.vetted_packages
                   .list(
                     filterStore = item.domainId.filterString,
                     filterParticipant = id.filterString,
+                    timeQuery = timeQuery,
                   )
                   .flatMap(_.item.packageIds)
                   .toSet
@@ -649,17 +653,17 @@ class LocalParticipantReference(
     with LocalInstanceReference
     with BaseInspection[ParticipantNodeX] {
 
-  override private[console] val nodes = consoleEnvironment.environment.participantsX
+  override private[console] val nodes = consoleEnvironment.environment.participants
 
   @Help.Summary("Return participant config")
   def config: LocalParticipantConfig =
     consoleEnvironment.environment.config.participantsByString(name)
 
   override def runningNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getRunning(name)
+    consoleEnvironment.environment.participants.getRunning(name)
 
   override def startingNode: Option[ParticipantNodeBootstrapX] =
-    consoleEnvironment.environment.participantsX.getStarting(name)
+    consoleEnvironment.environment.participants.getStarting(name)
 
   /** secret, not publicly documented way to get the admin token */
   def adminToken: Option[String] = underlying.map(_.adminToken.secret)
@@ -1167,7 +1171,7 @@ class LocalSequencerNodeReference(
       .fold(err => sys.error(s"Sequencer $name has invalid connection config: $err"), identity)
 
   private[console] val nodes: SequencerNodesX[?] =
-    consoleEnvironment.environment.sequencersX
+    consoleEnvironment.environment.sequencers
 
   override protected[console] def runningNode: Option[SequencerNodeBootstrapX] =
     nodes.getRunning(name)
@@ -1285,7 +1289,7 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
   override def config: MediatorNodeConfigCommon =
     consoleEnvironment.environment.config.mediatorsByString(name)
 
-  private[console] val nodes: MediatorNodesX[?] = consoleEnvironment.environment.mediatorsX
+  private[console] val nodes: MediatorNodesX[?] = consoleEnvironment.environment.mediators
 
   override protected[console] def runningNode: Option[MediatorNodeBootstrapX] =
     nodes.getRunning(name)

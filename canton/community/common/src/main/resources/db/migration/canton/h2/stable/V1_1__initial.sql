@@ -69,7 +69,6 @@ create table contracts (
     contract_salt binary large object,
     -- Metadata: signatories, stakeholders, keys
     -- Stored as a Protobuf blob as H2 will only support typed arrays in 1.4.201
-    -- TODO(#3256): change when H2 is upgraded
     metadata binary large object not null,
     -- The ledger time when the contract was created.
     ledger_create_time varchar(300) not null,
@@ -220,7 +219,7 @@ CREATE index active_contracts_ts_domain_id_idx ON active_contracts (ts, domain_i
 create table response_aggregations (
   -- identified by the sequencer timestamp (UTC timestamp in microseconds relative to EPOCH)
   request_id bigint not null primary key,
-  mediator_request binary large object not null,
+  mediator_confirmation_request binary large object not null,
   -- UTC timestamp is stored in microseconds relative to EPOCH
   version bigint not null,
   verdict binary large object not null,
@@ -776,7 +775,7 @@ create table sequencer_domain_configuration (
 );
 
 CREATE TABLE pruning_schedules(
-    -- node_type is one of "PAR", "MED", or "SEQ"
+    -- node_type is one of "MED", or "SEQ"
     -- since mediator and sequencer sometimes share the same db
     node_type varchar(3) not null primary key,
     cron varchar(300) not null,
@@ -812,8 +811,6 @@ CREATE TABLE participant_pruning_schedules (
     prune_internally_only boolean NOT NULL DEFAULT false -- whether to prune only canton-internal stores not visible to ledger api
 );
 
-
--- TODO(#15155) Move this to stable when releasing BFT: BEGIN
 CREATE TABLE in_flight_aggregation(
                                       aggregation_id varchar(300) not null primary key,
     -- UTC timestamp in microseconds relative to EPOCH
@@ -835,7 +832,7 @@ CREATE TABLE in_flight_aggregated_sender(
 );
 
 -- stores the topology-x state transactions
-CREATE TABLE topology_transactions_x (
+CREATE TABLE topology_transactions (
     -- serial identifier used to preserve insertion order
     id bigserial not null primary key,
     -- the id of the store
@@ -883,12 +880,10 @@ CREATE TABLE topology_transactions_x (
     -- tx_hash but different signatures
     hash_of_signatures varchar(300) not null,
     -- index used for idempotency during crash recovery
-    -- TODO(#12390) should mapping_key_hash rather be tx_hash?
     unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures)
 );
-CREATE INDEX topology_transactions_x_idx ON topology_transactions_x (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
--- TODO(#14061): Decide whether we want additional indices by mapping_key_hash and tx_hash (e.g. for update/removal and lookups)
--- TODO(#14061): Come up with columns/indexing for efficient ParticipantId => Seq[PartyId] lookup
+
+CREATE INDEX topology_transactions_idx ON topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
 
 -- update the sequencer_state_manager_events to store traffic information per event
 -- this will be needed to re-hydrate the sequencer from a specific point in time deterministically
@@ -947,24 +942,28 @@ create index top_up_events_idx ON top_up_events (member);
 
 -- Stores metadata for epochs completed in entirety
 -- Individual blocks/transactions exist in separate table
-create table completed_epochs (
+create table ord_completed_epochs (
     -- strictly-increasing, contiguous epoch number
-    epoch_number bigint not null primary key ,
+    epoch_number bigint not null primary key,
     -- first block sequence number (globally) of the epoch
     start_block_number bigint not null,
+    -- commit messages of the last block in the epoch
+    last_block_commits binary large object not null,
     -- number of total blocks in the epoch
     epoch_length integer not null
 );
 
 -- Stores consensus state for active epoch
-create table active_epoch (
+create table ord_active_epoch (
     -- epoch number that consensus is actively working on
     epoch_number bigint not null,
     -- global sequence number of the ordered block
-    block_number bigint not null primary key
+    block_number bigint not null primary key,
+    -- commit messages of the block
+    commit_messages binary large object not null
 );
 
-create table availability_batch(
+create table ord_availability_batch(
     id varchar(300) not null,
     batch binary large object not null,
     primary key (id)

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.mediator
 
-import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.CachingConfigs
@@ -23,19 +22,13 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.Verdict.{Approve, MediatorReject}
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.sequencing.client.{
-  SendAsyncClientError,
-  SendCallback,
-  SendType,
-  SequencerClientSend,
-}
+import com.digitalasset.canton.sequencing.client.TestSequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil.{sequentialTraverse, sequentialTraverse_}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -64,21 +57,18 @@ class ConfirmationResponseProcessorTestV5
   protected val passiveMediator3 = MediatorId(UniqueIdentifier.tryCreate("mediator", "three"))
   protected val activeMediator4 = MediatorId(UniqueIdentifier.tryCreate("mediator", "four"))
 
-  private def mediatorGroup0(mediators: MediatorId*) =
+  private def mediatorGroup0(mediators: NonEmpty[Seq[MediatorId]]) =
     MediatorGroup(MediatorGroupIndex.zero, mediators, Seq.empty, PositiveInt.one)
 
   protected val mediatorGroup: MediatorGroup = MediatorGroup(
     index = MediatorGroupIndex.zero,
-    active = Seq(
-      activeMediator1,
-      activeMediator2,
-    ),
+    active = NonEmpty.mk(Seq, activeMediator1, activeMediator2),
     passive = Seq(passiveMediator3),
     threshold = PositiveInt.tryCreate(2),
   )
   protected val mediatorGroup2: MediatorGroup = MediatorGroup(
     index = MediatorGroupIndex.one,
-    active = Seq(activeMediator4),
+    active = NonEmpty.mk(Seq, activeMediator4),
     passive = Seq.empty,
     threshold = PositiveInt.one,
   )
@@ -119,7 +109,7 @@ class ConfirmationResponseProcessorTestV5
   private lazy val localVerdictProtocolVersion =
     LocalVerdict.protocolVersionRepresentativeFor(testedProtocolVersion)
 
-  protected val participantResponseTimeout: NonNegativeFiniteDuration =
+  protected val confirmationResponseTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMillis(100L)
 
   protected lazy val submitter = ExampleTransactionFactory.submitter
@@ -147,7 +137,7 @@ class ConfirmationResponseProcessorTestV5
     topology,
     loggerFactory,
     dynamicDomainParameters =
-      initialDomainParameters.tryUpdate(participantResponseTimeout = participantResponseTimeout),
+      initialDomainParameters.tryUpdate(confirmationResponseTimeout = confirmationResponseTimeout),
   )
 
   private lazy val identityFactory2: TestingIdentityFactoryBase = {
@@ -166,7 +156,8 @@ class ConfirmationResponseProcessorTestV5
 
   private lazy val identityFactory3: TestingIdentityFactoryBase = {
     val otherMediatorId = MediatorId(UniqueIdentifier.tryCreate("mediator", "other"))
-    val topology3 = topology.copy(mediatorGroups = Set(mediatorGroup0(otherMediatorId)))
+    val topology3 =
+      topology.copy(mediatorGroups = Set(mediatorGroup0(NonEmpty.mk(Seq, otherMediatorId))))
     TestingIdentityFactoryX(
       topology3,
       loggerFactory,
@@ -181,7 +172,7 @@ class ConfirmationResponseProcessorTestV5
         Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)
         ),
-        Set(mediatorGroup0(mediatorId)),
+        Set(mediatorGroup0(NonEmpty.mk(Seq, mediatorId))),
         sequencerGroup,
       ),
       loggerFactory,
@@ -197,30 +188,10 @@ class ConfirmationResponseProcessorTestV5
   protected lazy val decisionTime = requestIdTs.plusSeconds(120)
 
   class Fixture(syncCryptoApi: DomainSyncCryptoClient = domainSyncCryptoApi) {
-    val interceptedBatchesQueue: java.util.concurrent.BlockingQueue[
-      (Batch[DefaultOpenEnvelope], Option[AggregationRule])
-    ] =
-      new java.util.concurrent.LinkedBlockingQueue()
-
-    private val sequencerSend: SequencerClientSend = new SequencerClientSend {
-      override def sendAsync(
-          batch: Batch[DefaultOpenEnvelope],
-          sendType: SendType,
-          topologyTimestamp: Option[CantonTimestamp],
-          maxSequencingTime: CantonTimestamp,
-          messageId: MessageId,
-          aggregationRule: Option[AggregationRule],
-          callback: SendCallback,
-      )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
-        interceptedBatchesQueue.add((batch, aggregationRule))
-        EitherT.pure(())
-      }
-
-      override def generateMaxSequencingTime: CantonTimestamp = ???
-    }
+    private val sequencerSend: TestSequencerClientSend = new TestSequencerClientSend
 
     def interceptedBatches: Iterable[Batch[DefaultOpenEnvelope]] =
-      interceptedBatchesQueue.asScala.map(_._1)
+      sequencerSend.requestsQueue.asScala.map(_.batch)
 
     val verdictSender: TestVerdictSender =
       new TestVerdictSender(
@@ -237,7 +208,7 @@ class ConfirmationResponseProcessorTestV5
       mock[Clock],
       MediatorTestMetrics,
       testedProtocolVersion,
-      CachingConfigs.defaultFinalizedMediatorRequestsCache,
+      CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
       timeouts,
       loggerFactory,
     )
@@ -262,8 +233,8 @@ class ConfirmationResponseProcessorTestV5
       viewPosition: ViewPosition,
       verdict: LocalVerdict,
       requestId: RequestId,
-  ): Future[SignedProtocolMessage[MediatorResponse]] = {
-    val response: MediatorResponse = MediatorResponse.tryCreate(
+  ): Future[SignedProtocolMessage[ConfirmationResponse]] = {
+    val response: ConfirmationResponse = ConfirmationResponse.tryCreate(
       requestId,
       participant,
       Some(viewPosition),
@@ -288,14 +259,14 @@ class ConfirmationResponseProcessorTestV5
     .sign(tree.tree.rootHash.unwrap)
     .futureValue
 
-  "ConfirmationResponseProcessor" should {
+  "TransactionConfirmationResponseProcessor" should {
     def shouldBeViewThresholdBelowMinimumAlarm(
         requestId: RequestId,
         viewPosition: ViewPosition,
     ): LogEntry => Assertion =
       _.shouldBeCantonError(
         MediatorError.MalformedMessage,
-        _ shouldBe s"Received a mediator request with id $requestId having threshold 0 for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of 1. Rejecting request...",
+        _ shouldBe s"Received a mediator confirmation request with id $requestId having threshold 0 for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of 1. Rejecting request...",
       )
 
     lazy val rootHashMessages = Seq(
@@ -311,7 +282,7 @@ class ConfirmationResponseProcessorTestV5
       )(testedProtocolVersion)
     )
 
-    "timestamp of mediator request is propagated" in {
+    "timestamp of mediator confirmation request is propagated" in {
       val sut = new Fixture()
 
       val testMediatorRequest =
@@ -370,7 +341,7 @@ class ConfirmationResponseProcessorTestV5
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
             _ should startWith(
-              s"Received a mediator request with id $requestId from $participant with an invalid signature. Rejecting request.\nDetailed error: SignatureWithWrongKey"
+              s"Received a mediator confirmation request with id $requestId from $participant with an invalid signature. Rejecting request.\nDetailed error: SignatureWithWrongKey"
             ),
           ),
         )
@@ -402,7 +373,7 @@ class ConfirmationResponseProcessorTestV5
           rootHashMessages,
           batchAlsoContainsTopologyXTransaction = false,
         )
-        response = MediatorResponse.tryCreate(
+        response = ConfirmationResponse.tryCreate(
           reqId,
           participant,
           Some(view0Position),
@@ -532,10 +503,10 @@ class ConfirmationResponseProcessorTestV5
       val otherParticipant = participant2
 
       def exampleForRequest(
-          request: MediatorRequest,
+          request: MediatorConfirmationRequest,
           rootHashMessages: (RootHashMessage[SerializedRootHashMessagePayload], Recipients)*
       ): (
-          MediatorRequest,
+          MediatorConfirmationRequest,
           List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       ) =
         (
@@ -616,7 +587,7 @@ class ConfirmationResponseProcessorTestV5
 
       // format: off
       val testCases
-      : Seq[(((MediatorRequest, List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]]), String),
+      : Seq[(((MediatorConfirmationRequest, List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]]), String),
         List[(Set[Member], ViewType)])] = List(
 
         (batchWithoutRootHashMessages -> show"Missing root hash message for informee participants: $participant") -> List.empty,
@@ -667,7 +638,7 @@ class ConfirmationResponseProcessorTestV5
               ),
               _.shouldBeCantonError(
                 MediatorError.MalformedMessage,
-                _ shouldBe s"Received a mediator request with id ${RequestId(ts)} with invalid root hash messages. Rejecting... Reason: $msg",
+                _ shouldBe s"Received a mediator confirmation request with id ${RequestId(ts)} with invalid root hash messages. Rejecting... Reason: $msg",
               ),
             )
           }
@@ -681,7 +652,7 @@ class ConfirmationResponseProcessorTestV5
             val results = resultBatch.envelopes.map { envelope =>
               envelope.recipients -> Some(
                 envelope.protocolMessage
-                  .asInstanceOf[SignedProtocolMessage[MediatorResult]]
+                  .asInstanceOf[SignedProtocolMessage[ConfirmationResult]]
                   .message
                   .viewType
               )
@@ -745,7 +716,7 @@ class ConfirmationResponseProcessorTestV5
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
             message => {
-              message should (include("Rejecting mediator request") and include(
+              message should (include("Rejecting mediator confirmation request") and include(
                 s"${RequestId(ts)}"
               ) and include("this mediator not being part of the mediator group") and include(
                 s"$otherMediatorGroupIndex"
@@ -810,7 +781,7 @@ class ConfirmationResponseProcessorTestV5
         _ = requestState shouldBe responseAggregation
         // receiving the confirmation response
         ts1 = CantonTimestamp.Epoch.plusMillis(1L)
-        approvals: Seq[SignedProtocolMessage[MediatorResponse]] <- sequentialTraverse(
+        approvals: Seq[SignedProtocolMessage[ConfirmationResponse]] <- sequentialTraverse(
           List(
             view0Position -> view,
             view1Position -> factory.MultipleRootsAndViewNestings.view1,
@@ -1003,7 +974,7 @@ class ConfirmationResponseProcessorTestV5
 
       def isMalformedWarn(participant: ParticipantId)(logEntry: LogEntry): Assertion = {
         logEntry.shouldBeCantonError(
-          LocalReject.MalformedRejects.Payloads,
+          LocalRejectError.MalformedRejects.Payloads,
           _ shouldBe s"Rejected transaction due to malformed payload within views $malformedMsg",
           _ should contain("reportedBy" -> s"$participant"),
         )
@@ -1011,12 +982,13 @@ class ConfirmationResponseProcessorTestV5
 
       def malformedResponse(
           participant: ParticipantId
-      ): Future[SignedProtocolMessage[MediatorResponse]] = {
-        val response = MediatorResponse.tryCreate(
+      ): Future[SignedProtocolMessage[ConfirmationResponse]] = {
+        val response = ConfirmationResponse.tryCreate(
           requestId,
           participant,
           None,
-          LocalReject.MalformedRejects.Payloads.Reject(malformedMsg)(localVerdictProtocolVersion),
+          LocalRejectError.MalformedRejects.Payloads
+            .Reject(malformedMsg)(localVerdictProtocolVersion),
           Some(fullInformeeTree.transactionId.toRootHash),
           Set.empty,
           factory.domainId,
@@ -1100,7 +1072,7 @@ class ConfirmationResponseProcessorTestV5
             // TODO(#5337) These are only the rejections for the first view because this view happens to be finalized first.
             reasons.length shouldEqual 2
             reasons.foreach { case (party, reject) =>
-              reject shouldBe LocalReject.MalformedRejects.Payloads.Reject(malformedMsg)(
+              reject shouldBe LocalRejectError.MalformedRejects.Payloads.Reject(malformedMsg)(
                 localVerdictProtocolVersion
               )
               party should (contain(submitter) or contain(signatory))
@@ -1114,7 +1086,7 @@ class ConfirmationResponseProcessorTestV5
       val requestTs = CantonTimestamp.Epoch.plusMillis(1)
       val requestId = RequestId(requestTs)
       // response is just too late
-      val participantResponseDeadline = requestIdTs.plus(participantResponseTimeout.unwrap)
+      val participantResponseDeadline = requestIdTs.plus(confirmationResponseTimeout.unwrap)
       val responseTs = participantResponseDeadline.addMicros(1)
 
       val informeeMessage =
@@ -1131,7 +1103,7 @@ class ConfirmationResponseProcessorTestV5
         _ <- sut.processor.processRequest(
           requestId,
           notSignificantCounter,
-          requestIdTs.plus(participantResponseTimeout.unwrap),
+          requestIdTs.plus(confirmationResponseTimeout.unwrap),
           requestIdTs.plusSeconds(120),
           informeeMessage,
           List(
@@ -1203,7 +1175,7 @@ class ConfirmationResponseProcessorTestV5
             MediatorError.MalformedMessage,
             message => {
               message should (include(
-                s"Received a mediator request with id ${RequestId(ts)} also containing a topology transaction."
+                s"Received a mediator confirmation request with id ${RequestId(ts)} also containing a topology transaction."
               ))
             },
           ),
@@ -1246,7 +1218,7 @@ class ConfirmationResponseProcessorTestV5
           ),
           _.shouldBeCantonError(
             MediatorError.InvalidMessage,
-            _ shouldBe s"Received a mediator request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, signatory)}. Rejecting request...",
+            _ shouldBe s"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: ${Set(observer, signatory)}. Rejecting request...",
           ),
         )
       } yield succeed
@@ -1307,7 +1279,7 @@ class ConfirmationResponseProcessorTestV5
           ), {
             _.shouldBeCantonError(
               MediatorError.InvalidMessage,
-              _ shouldBe show"Received a mediator response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
+              _ shouldBe show"Received a confirmation response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
             )
           },
         )
@@ -1327,7 +1299,7 @@ class ConfirmationResponseProcessorTestV5
           MediatorError.MalformedMessage,
           message =>
             message should (include(
-              "Discarding mediator response because the topology timestamp is not set to the request id"
+              "Discarding confirmation response because the topology timestamp is not set to the request id"
             ) and include(s"$requestId")),
         )
       }

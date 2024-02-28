@@ -344,6 +344,7 @@ class GrpcVaultService(
               } yield ()
           }
           .valueOr(err => throw CryptoPublicStoreError.ErrorCode.Wrap(err).asGrpcError)
+        _ = logger.info(s"Uploading key ${validatedName}")
         _ <- cryptoPrivateStore
           .storePrivateKey(keyPair.privateKey, validatedName)
           .valueOr(err => throw CryptoPrivateStoreError.ErrorCode.Wrap(err).asGrpcError)

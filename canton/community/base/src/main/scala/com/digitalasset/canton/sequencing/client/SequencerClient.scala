@@ -55,7 +55,7 @@ import com.digitalasset.canton.sequencing.handlers.{
   StoreSequencedEvent,
   ThrottlingApplicationEventHandler,
 }
-import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.{AggregationRule, *}
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.store.*
@@ -100,6 +100,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       messageId: MessageId = generateMessageId,
       aggregationRule: Option[AggregationRule] = None,
       callback: SendCallback = SendCallback.empty,
+      amplify: Boolean = false,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit]
 
   /** Does the same as [[sendAsync]], except that this method is supposed to be used
@@ -244,12 +245,13 @@ abstract class SequencerClientImpl(
 
   override def sendAsyncUnauthenticatedOrNot(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType = SendType.Other,
-      topologyTimestamp: Option[CantonTimestamp] = None,
-      maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
-      messageId: MessageId = generateMessageId,
-      aggregationRule: Option[AggregationRule] = None,
-      callback: SendCallback = SendCallback.empty,
+      sendType: SendType,
+      topologyTimestamp: Option[CantonTimestamp],
+      maxSequencingTime: CantonTimestamp,
+      messageId: MessageId,
+      aggregationRule: Option[AggregationRule],
+      callback: SendCallback,
+      amplify: Boolean,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     member match {
       case _: AuthenticatedMember =>
@@ -275,12 +277,13 @@ abstract class SequencerClientImpl(
 
   override def sendAsync(
       batch: Batch[DefaultOpenEnvelope],
-      sendType: SendType = SendType.Other,
-      topologyTimestamp: Option[CantonTimestamp] = None,
-      maxSequencingTime: CantonTimestamp = generateMaxSequencingTime,
-      messageId: MessageId = generateMessageId,
-      aggregationRule: Option[AggregationRule] = None,
-      callback: SendCallback = SendCallback.empty,
+      sendType: SendType,
+      topologyTimestamp: Option[CantonTimestamp],
+      maxSequencingTime: CantonTimestamp,
+      messageId: MessageId,
+      aggregationRule: Option[AggregationRule],
+      callback: SendCallback,
+      amplify: Boolean,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     for {
       _ <- EitherT.cond[Future](
@@ -312,6 +315,7 @@ abstract class SequencerClientImpl(
         messageId,
         aggregationRule,
         callback,
+        amplify,
       )
     } yield result
 
@@ -337,12 +341,13 @@ abstract class SequencerClientImpl(
         batch,
         requiresAuthentication = false,
         sendType,
-        // Requests involving unauthenticated members must not specify a signing key
-        None,
-        maxSequencingTime,
-        messageId,
-        None,
-        callback,
+        // Requests involving unauthenticated members must not specify a topology timestamp
+        topologyTimestamp = None,
+        maxSequencingTime = maxSequencingTime,
+        messageId = messageId,
+        aggregationRule = None,
+        callback = callback,
+        amplify = false,
       )
 
   private def checkRequestSize(
@@ -371,6 +376,7 @@ abstract class SequencerClientImpl(
       messageId: MessageId,
       aggregationRule: Option[AggregationRule],
       callback: SendCallback,
+      amplify: Boolean,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
       val requestE = SubmissionRequest
@@ -409,14 +415,13 @@ abstract class SequencerClientImpl(
         case _: ParticipantId => true
         case _ => false
       }
-      val domainParamsF =
-        EitherTUtil.fromFuture(
-          domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults),
-          throwable =>
-            SendAsyncClientError.RequestFailed(
-              s"failed to retrieve maxRequestSize because ${throwable.getMessage}"
-            ),
-        )
+      val domainParamsF = EitherTUtil.fromFuture(
+        domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults),
+        throwable =>
+          SendAsyncClientError.RequestFailed(
+            s"failed to retrieve maxRequestSize because ${throwable.getMessage}"
+          ),
+      )
 
       def trackSend: EitherT[Future, SendAsyncClientError, Unit] =
         sendTracker
@@ -440,8 +445,9 @@ abstract class SequencerClientImpl(
                 SequencerCounter.Genesis,
                 CantonTimestamp.now(),
                 domainId,
-                None,
+                messageIdO = None,
                 Batch(List.empty, protocolVersion),
+                topologyTimestampO = None,
                 protocolVersion,
               )
             )
@@ -454,7 +460,7 @@ abstract class SequencerClientImpl(
           _ <- EitherT.fromEither[Future](checkRequestSize(request, domainParams.maxRequestSize))
           _ <- trackSend
           _ = recorderO.foreach(_.recordSubmission(request))
-          _ <- performSend(messageId, request, requiresAuthentication)
+          _ <- performSend(messageId, request, requiresAuthentication, amplify)
         } yield ()
       }
     }
@@ -465,22 +471,49 @@ abstract class SequencerClientImpl(
       messageId: MessageId,
       request: SubmissionRequest,
       requiresAuthentication: Boolean,
+      amplify: Boolean,
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
     EitherTUtil
       .timed(metrics.submissions.sends) {
         val timeout = timeouts.network.duration
         if (requiresAuthentication) {
+          val (transports, amplifiableRequest) = if (amplify) {
+            val transports = sequencersTransportState.amplifiedTransports
+            val amplifiableRequest = if (transports.sizeIs > 1 && request.aggregationRule.isEmpty) {
+              val aggregationRule =
+                AggregationRule(NonEmpty(Seq, member), PositiveInt.one, protocolVersion)
+              logger.debug(
+                s"Adding aggregation rule $aggregationRule to submission request with message ID $messageId"
+              )
+              request.copy(aggregationRule = aggregationRule.some)
+            } else request
+            (transports, amplifiableRequest)
+          } else { (NonEmpty(Seq, sequencersTransportState.transport), request) }
+
           for {
             signedContent <- requestSigner
-              .signRequest(request, HashPurpose.SubmissionRequestSignature)
+              .signRequest(amplifiableRequest, HashPurpose.SubmissionRequestSignature)
               .leftMap { err =>
                 val message = s"Error signing submission request $err"
                 logger.error(message)
                 SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
               }
-            _ <- sequencersTransportState.transport.sendAsyncSigned(signedContent, timeout)
+            sendResults <- EitherT.right(
+              transports.toNEF.parTraverse(_.sendAsyncSigned(signedContent, timeout).value)
+            )
+            (errors, successes) = sendResults.forgetNE.separate
+            _ <- EitherT.cond[Future](
+              successes.nonEmpty,
+              (),
+              errors match {
+                case Seq(single) => single
+                case multiple =>
+                  SendAsyncClientError.RequestFailed(
+                    s"Failed to send submission request to any sequencer: ${multiple.mkString(", ")}"
+                  )
+              },
+            )
           } yield ()
-
         } else
           sequencersTransportState.transport.sendAsyncUnauthenticatedVersioned(request, timeout)
       }
@@ -1476,7 +1509,7 @@ class SequencerClientImplPekko[E: Pretty](
           .viaMat(aggregatorFlow)(Keep.both)
           .injectKillSwitch { case (killSwitch, _) => killSwitch }
           .via(monotonicityChecker.flow)
-          .map(_.unwrap)
+          .map(_.value)
           // Drop the first event if it's a resubscription because we don't want to pass it to the application handler any more
           .via(dropPriorEvent(preSubscriptionEvent.isDefined))
           .via(batchFlow)
@@ -1524,7 +1557,7 @@ class SequencerClientImplPekko[E: Pretty](
           .via(applicationHandlerPekko.asFlow(config.maximumInFlightEventBatches))
           // Mark that the application handler has finished a given batch of promises.
           .map(_.map(_.map { withPromise =>
-            val completion = withPromise.unwrap match {
+            val completion = withPromise.value match {
               case Outcome(Left(error)) => Failure(SequencerClientSubscriptionException(error))
               case _ => Success(())
             }
@@ -1646,10 +1679,9 @@ class SequencerClientImplPekko[E: Pretty](
 }
 
 object SequencerClientImplPekko {
-  private final case class WithPromise[+A](private val value: A)(
+  private final case class WithPromise[+A](override val value: A)(
       val promise: Promise[Unit] = Promise[Unit]()
   ) extends WithGeneric[A, Promise[Unit], WithPromise] {
-    override def unwrap: A = value
     override protected def added: Promise[Unit] = promise
     override protected def update[AA](value: AA): WithPromise[AA] = copy(value)(promise)
   }
@@ -1695,6 +1727,7 @@ object SequencerClient {
   final case class SequencerTransports[E](
       sequencerToTransportMap: NonEmpty[Map[SequencerAlias, SequencerTransportContainer[E]]],
       sequencerTrustThreshold: PositiveInt,
+      submissionRequestAmplification: PositiveInt,
   ) {
     def expectedSequencers: NonEmpty[Set[SequencerId]] =
       sequencerToTransportMap.map(_._2.sequencerId).toSet
@@ -1716,6 +1749,7 @@ object SequencerClient {
         ],
         expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
         sequencerSignatureThreshold: PositiveInt,
+        submissionRequestAmplification: PositiveInt,
     ): Either[String, SequencerTransports[E]] =
       if (sequencerTransportsMap.keySet != expectedSequencers.keySet) {
         Left("Inconsistent map of sequencer transports and their ids.")
@@ -1728,6 +1762,7 @@ object SequencerClient {
                 sequencerAlias -> SequencerTransportContainer(sequencerId, transport)
               }.toMap,
             sequencerTrustThreshold = sequencerSignatureThreshold,
+            submissionRequestAmplification = submissionRequestAmplification,
           )
         )
 
@@ -1743,7 +1778,8 @@ object SequencerClient {
             sequencerAlias -> SequencerTransportContainer(sequencerId, transport),
           )
           .toMap,
-        PositiveInt.tryCreate(1),
+        PositiveInt.one,
+        PositiveInt.one,
       )
 
     def default[E](

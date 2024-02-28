@@ -654,10 +654,14 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
         _result <- valueOrFail(
           transferInProcessingSteps.getCommitSetAndContractsToBeStoredAndEvent(
-            mock[Either[
-              EventWithErrors[Deliver[DefaultOpenEnvelope]],
-              SignedContent[Deliver[DefaultOpenEnvelope]],
-            ]],
+            NoOpeningErrors(
+              SignedContent(
+                mock[Deliver[DefaultOpenEnvelope]],
+                Signature.noSignature,
+                None,
+                testedProtocolVersion,
+              )
+            ),
             Right(inRes),
             pendingRequestData,
             state.pendingTransferInSubmissions,

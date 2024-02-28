@@ -65,6 +65,10 @@ message ReconnectDomainsResponse {}
 /** Register and optionally auto-connect to a new domain */
 message RegisterDomainRequest {
   DomainConnectionConfig add = 1;
+
+  // If true, only performs the handshake but does not connect to the domain
+  // Note that in that case domain connection will need to be performed subsequently
+  bool handshake_only = 2;
 }
 
 message RegisterDomainResponse {}

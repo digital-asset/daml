@@ -4,10 +4,11 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
-import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List as ApiList, Map as ApiMap, Optional as ApiOptional, *}
+import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
 import com.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
 import com.daml.lf.data.Ref.TypeConRef
 import com.daml.lf.data.*
@@ -23,6 +24,7 @@ import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, Ledge
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, DomainMocks, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.offset.Offset
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND}
@@ -33,10 +35,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag.*
 
 import java.time.{Duration as JDuration, Instant}
-import scala.annotation.nowarn
-import scala.collection.immutable.Map
 
-@nowarn("msg=deprecated")
 class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
@@ -76,14 +75,13 @@ class SubmitRequestValidatorTest
     val commandWithPackageNameScoping = commandDef(Ref.PackageRef.Name(packageName).toString)
 
     val commands = Commands(
-      ledgerId = ledgerId.unwrap,
       workflowId = workflowId.unwrap,
       applicationId = applicationId,
       submissionId = submissionId.unwrap,
       commandId = commandId.unwrap,
-      party = submitter,
+      actAs = Seq(submitter),
       commands = Seq(command),
-      deduplicationPeriod = DeduplicationPeriodProto.DeduplicationTime(deduplicationDuration),
+      deduplicationPeriod = DeduplicationPeriodProto.DeduplicationDuration(deduplicationDuration),
       minLedgerTimeAbs = None,
       minLedgerTimeRel = None,
       packageIdSelectionPreference = Seq.empty,
@@ -128,7 +126,6 @@ class SubmitRequestValidatorTest
         packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
         packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
     ) = ApiCommands(
-      ledgerId = Some(ledgerId),
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
@@ -174,7 +171,6 @@ class SubmitRequestValidatorTest
       .thenReturn(Right(internal.disclosedContracts))
 
     new CommandsValidator(
-      ledgerId = ledgerId,
       validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
       upgradingEnabled = false,
       validateDisclosedContracts = validateDisclosedContractsMock,
@@ -220,11 +216,11 @@ class SubmitRequestValidatorTest
 
       "allow missing ledgerId" in {
         testedCommandValidator.validateCommands(
-          api.commands.withLedgerId(""),
+          api.commands,
           internal.ledgerTime,
           internal.submittedAt,
           Some(internal.maxDeduplicationDuration),
-        ) shouldEqual Right(internal.emptyCommands.copy(ledgerId = None))
+        ) shouldEqual Right(internal.emptyCommands)
       }
 
       "tolerate a missing workflowId" in {
@@ -274,7 +270,7 @@ class SubmitRequestValidatorTest
       "not allow missing submitter" in {
         requestMustFailWith(
           request = testedCommandValidator.validateCommands(
-            api.commands.withParty(""),
+            api.commands.withActAs(Seq.empty),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
@@ -291,7 +287,7 @@ class SubmitRequestValidatorTest
         val result = testedCommandValidator
           .validateCommands(
             api.commands
-              .withParty("alice")
+              .withActAs(Seq("alice"))
               .addActAs("bob")
               .addReadAs("alice")
               .addReadAs("charlie")
@@ -312,7 +308,7 @@ class SubmitRequestValidatorTest
 
         testedCommandValidator
           .validateCommands(
-            api.commands.withParty("").addActAs(api.submitter),
+            api.commands.withActAs(Seq.empty).addActAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
@@ -323,7 +319,10 @@ class SubmitRequestValidatorTest
 
         testedCommandValidator
           .validateCommands(
-            api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
+            api.commands
+              .withActAs(Seq(api.submitter))
+              .addActAs(api.submitter)
+              .addReadAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
@@ -361,8 +360,10 @@ class SubmitRequestValidatorTest
         forAll(
           Table[DeduplicationPeriodProto, DeduplicationPeriod](
             ("input proto deduplication", "valid model deduplication"),
-            DeduplicationPeriodProto.DeduplicationTime(deduplicationDuration) -> DeduplicationPeriod
-              .DeduplicationDuration(JDuration.ofSeconds(10)),
+            DeduplicationPeriodProto.DeduplicationOffset("abcdef") -> DeduplicationPeriod
+              .DeduplicationOffset(
+                Offset(Bytes.fromString("abcdef").getOrElse(Bytes.Empty))
+              ),
             DeduplicationPeriodProto.DeduplicationDuration(
               deduplicationDuration
             ) -> DeduplicationPeriod
@@ -392,7 +393,6 @@ class SubmitRequestValidatorTest
         forAll(
           Table(
             "deduplication period",
-            DeduplicationPeriodProto.DeduplicationTime(Duration.of(-1, 0)),
             DeduplicationPeriodProto.DeduplicationDuration(Duration.of(-1, 0)),
           )
         ) { deduplication =>
@@ -417,9 +417,6 @@ class SubmitRequestValidatorTest
         forAll(
           Table(
             "deduplication period",
-            DeduplicationPeriodProto.DeduplicationTime(
-              Duration.of(durationSecondsExceedingMax.getSeconds, 0)
-            ),
             DeduplicationPeriodProto.DeduplicationDuration(
               Duration.of(durationSecondsExceedingMax.getSeconds, 0)
             ),
@@ -479,7 +476,6 @@ class SubmitRequestValidatorTest
           )
 
         val failingDisclosedContractsValidator = new CommandsValidator(
-          ledgerId = ledgerId,
           upgradingEnabled = false,
           validateDisclosedContracts = validateDisclosedContractsMock,
         )
@@ -555,7 +551,6 @@ class SubmitRequestValidatorTest
         }
 
         val commandsValidatorWithUpgradingEnabled = new CommandsValidator(
-          ledgerId = ledgerId,
           upgradingEnabled = true,
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           validateDisclosedContracts = validateDisclosedContractsMock,

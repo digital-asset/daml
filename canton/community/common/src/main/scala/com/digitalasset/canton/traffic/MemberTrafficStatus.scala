@@ -23,7 +23,7 @@ final case class MemberTrafficStatus(
       trafficState.extraTrafficLimit.map(_.value),
       trafficState.extraTrafficConsumed.value,
       currentAndFutureTopUps.map(_.toProtoV30),
-      Some(timestamp.toProtoPrimitive),
+      Some(timestamp.toProtoTimestamp),
     )
   }
 }
@@ -48,7 +48,7 @@ object MemberTrafficStatus {
       )
       topUps <- trafficStatusP.topUpEvents.toList.traverse(TopUpEvent.fromProtoV30)
       ts <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
+        CantonTimestamp.fromProtoTimestamp,
         "ts",
         trafficStatusP.ts,
       )

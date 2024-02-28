@@ -960,7 +960,7 @@ encodeTemplateKey :: TemplateKey -> Encode P.DefTemplate_DefKey
 encodeTemplateKey TemplateKey{..} = do
     defTemplate_DefKeyType <- encodeType tplKeyType
     defTemplate_DefKeyKeyExpr <-
-        Just . P.DefTemplate_DefKeyKeyExprComplexKey <$> encodeExpr' tplKeyBody
+        Just <$> encodeExpr' tplKeyBody
     defTemplate_DefKeyMaintainers <- encodeExpr tplKeyMaintainers
     pure P.DefTemplate_DefKey{..}
 

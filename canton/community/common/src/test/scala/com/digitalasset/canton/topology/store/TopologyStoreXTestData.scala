@@ -119,7 +119,7 @@ class TopologyStoreXTestData(
       partyId = fredOfCanton,
       domainId = None,
       threshold = PositiveInt.one,
-      participants = Seq(HostingParticipant(participantId1, ParticipantPermissionX.Submission)),
+      participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
       groupAddressing = true,
     ),
     isProposal = true,
@@ -146,7 +146,7 @@ class TopologyStoreXTestData(
       partyId = fredOfCanton,
       domainId = None,
       threshold = PositiveInt.one,
-      participants = Seq(HostingParticipant(participantId1, ParticipantPermissionX.Submission)),
+      participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
       groupAddressing = true,
     )
   )

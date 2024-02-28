@@ -62,7 +62,7 @@ import slick.lifted.Aliases
 import slick.util.{AsyncExecutor, AsyncExecutorWithMetrics, ClassLoaderUtil}
 
 import java.io.ByteArrayInputStream
-import java.sql.{Blob, SQLException, Statement}
+import java.sql.{Blob, SQLException, SQLTransientException, Statement}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
@@ -422,6 +422,9 @@ object DbStorage {
 
   final case class PassiveInstanceException(reason: String)
       extends RuntimeException(s"DbStorage instance is not active: $reason")
+
+  final case class NoConnectionAvailable()
+      extends SQLTransientException("No free connection available")
 
   sealed trait Profile extends Product with Serializable with PrettyPrinting {
     def jdbc: JdbcProfile

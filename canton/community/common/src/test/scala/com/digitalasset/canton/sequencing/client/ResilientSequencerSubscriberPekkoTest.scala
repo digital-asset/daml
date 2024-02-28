@@ -140,7 +140,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
         subscriber
           .subscribeFrom(SequencerCounter.Genesis)
           .source
-          .map(_.unwrap)
+          .map(_.value)
           .toMat(TestSink.probe)(Keep.both)
           .run()
       sink.request(30)
@@ -324,7 +324,7 @@ class TestSequencerSubscriptionFactoryPekko(
       .concat(Source.never[Element])
       .withUniqueKillSwitchMat()(Keep.right)
       .mapConcat { withKillSwitch =>
-        noTracingLogger.debug(s"Processing element ${withKillSwitch.unwrap}")
+        noTracingLogger.debug(s"Processing element ${withKillSwitch.value}")
         withKillSwitch.traverse {
           case Error(error) =>
             withKillSwitch.killSwitch.shutdown()
@@ -378,6 +378,7 @@ object TestSequencerSubscriptionFactoryPekko {
       DefaultTestIdentities.domainId,
       None,
       Batch.empty(BaseTest.testedProtocolVersion),
+      None,
       BaseTest.testedProtocolVersion,
     )
     val signedContent =

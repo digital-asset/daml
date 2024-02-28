@@ -124,14 +124,14 @@ object SequencedEventValidationError {
       param("used timestamp", _.usedTimestamp),
     )
   }
-  final case class InvalidTimestampOfSigningKey(
+  final case class InvalidTopologyTimestamp(
       sequencedTimestamp: CantonTimestamp,
-      declaredSigningKeyTimestamp: CantonTimestamp,
-      reason: SequencedEventValidator.SigningTimestampVerificationError,
+      declaredTopologyTimestamp: CantonTimestamp,
+      reason: SequencedEventValidator.TopologyTimestampVerificationError,
   ) extends SequencedEventValidationError[Nothing] {
-    override def pretty: Pretty[InvalidTimestampOfSigningKey] = prettyOfClass(
+    override def pretty: Pretty[InvalidTopologyTimestamp] = prettyOfClass(
       param("sequenced timestamp", _.sequencedTimestamp),
-      param("declared signing key timestamp", _.declaredSigningKeyTimestamp),
+      param("declared topology timestamp", _.declaredTopologyTimestamp),
       param("reason", _.reason),
     )
   }
@@ -237,75 +237,64 @@ object SequencedEventValidator extends HasLoggerName {
     NoValidation
   }
 
-  /** Validates the requested signing timestamp against the sequencing timestamp and the
+  /** Validates the requested topology timestamp against the sequencing timestamp and the
     * [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]]
-    * of the domain parameters valid at the requested signing timestamp.
+    * of the domain parameters valid at the requested topology timestamp.
     *
     * @param latestTopologyClientTimestamp The timestamp of an earlier event sent to the topology client
     *                                      such that no topology update has happened
     *                                      between this timestamp (exclusive) and the sequencing timestamp (exclusive).
     * @param warnIfApproximate             Whether to emit a warning if an approximate topology snapshot is used
-    * @param optimistic if true, we'll try to be optimistic and validate the event with the current snapshot approximation
-    *                   instead of the proper snapshot for the signing timestamp.
-    *                   During sequencer key rolling or while updating the dynamic domain parameters,
-    *                   an event might have been signed by a key that was just revoked or with a signing key timestamp
-    *                   that exceeds the [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]].
-    *                   Optimistic validation may not catch such problems.
-    * @return [[scala.Left$]] if the signing timestamp is after the sequencing timestamp or the sequencing timestamp
-    *         is after the signing timestamp by more than the
-    *         [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]] valid at the signing timestamp.
+    * @return [[scala.Left$]] if the topology timestamp is after the sequencing timestamp or the sequencing timestamp
+    *         is after the topology timestamp by more than the
+    *         [[com.digitalasset.canton.protocol.DynamicDomainParameters.sequencerTopologyTimestampTolerance]] valid at the topology timestamp.
     *         [[scala.Right$]] the topology snapshot that can be used for signing the event
     *         and verifying the signature on the event;
     */
-  // TODO(#10040) remove optimistic validation
-  def validateSigningTimestamp(
+  def validateTopologyTimestamp(
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
-      signingTimestamp: CantonTimestamp,
+      topologyTimestamp: CantonTimestamp,
       sequencingTimestamp: CantonTimestamp,
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      optimistic: Boolean = false,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): EitherT[Future, SigningTimestampVerificationError, SyncCryptoApi] = {
+  ): EitherT[Future, TopologyTimestampVerificationError, SyncCryptoApi] = {
 
-    validateSigningTimestampInternal(
+    validateTopologyTimestampInternal(
       syncCryptoApi,
-      signingTimestamp,
+      topologyTimestamp,
       sequencingTimestamp,
       latestTopologyClientTimestamp,
       protocolVersion,
       warnIfApproximate,
-      optimistic,
     )(
       SyncCryptoClient.getSnapshotForTimestamp _,
       (topology, traceContext) => topology.findDynamicDomainParameters()(traceContext),
     )
   }
 
-  def validateSigningTimestampUS(
+  def validateTopologyTimestampUS(
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
-      signingTimestamp: CantonTimestamp,
+      topologyTimestamp: CantonTimestamp,
       sequencingTimestamp: CantonTimestamp,
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      optimistic: Boolean = false,
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
       closeContext: CloseContext,
-  ): EitherT[FutureUnlessShutdown, SigningTimestampVerificationError, SyncCryptoApi] = {
-    validateSigningTimestampInternal(
+  ): EitherT[FutureUnlessShutdown, TopologyTimestampVerificationError, SyncCryptoApi] = {
+    validateTopologyTimestampInternal(
       syncCryptoApi,
-      signingTimestamp,
+      topologyTimestamp,
       sequencingTimestamp,
       latestTopologyClientTimestamp,
       protocolVersion,
       warnIfApproximate,
-      optimistic,
     )(
       SyncCryptoClient.getSnapshotForTimestampUS _,
       (topology, traceContext) =>
@@ -318,14 +307,13 @@ object SequencedEventValidator extends HasLoggerName {
   // Base version of validateSigningTimestamp abstracting over the effect type to allow for
   // a `Future` and `FutureUnlessShutdown` version. Once we migrate all usages to the US version, this abstraction
   // should not be needed anymore
-  private def validateSigningTimestampInternal[F[_]: Monad](
+  private def validateTopologyTimestampInternal[F[_]: Monad](
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
-      signingTimestamp: CantonTimestamp,
+      topologyTimestamp: CantonTimestamp,
       sequencingTimestamp: CantonTimestamp,
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean,
-      optimistic: Boolean = false,
   )(
       getSnapshotF: (
           SyncCryptoClient[SyncCryptoApi],
@@ -340,12 +328,12 @@ object SequencedEventValidator extends HasLoggerName {
       ) => F[Either[String, DynamicDomainParametersWithValidity]],
   )(implicit
       loggingContext: NamedLoggingContext
-  ): EitherT[F, SigningTimestampVerificationError, SyncCryptoApi] = {
+  ): EitherT[F, TopologyTimestampVerificationError, SyncCryptoApi] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
 
     def snapshotF: F[SyncCryptoApi] = getSnapshotF(
       syncCryptoApi,
-      signingTimestamp,
+      topologyTimestamp,
       latestTopologyClientTimestamp,
       protocolVersion,
       warnIfApproximate,
@@ -353,7 +341,7 @@ object SequencedEventValidator extends HasLoggerName {
 
     def validateWithSnapshot(
         snapshot: SyncCryptoApi
-    ): F[Either[SigningTimestampVerificationError, SyncCryptoApi]] = {
+    ): F[Either[TopologyTimestampVerificationError, SyncCryptoApi]] = {
       getDynamicDomainParameters(snapshot.ipsSnapshot, traceContext)
         .map { dynamicDomainParametersE =>
           for {
@@ -361,56 +349,43 @@ object SequencedEventValidator extends HasLoggerName {
             tolerance = dynamicDomainParameters.sequencerTopologyTimestampTolerance
             withinSigningTolerance = {
               import scala.Ordered.orderingToOrdered
-              tolerance.unwrap >= sequencingTimestamp - signingTimestamp
+              tolerance.unwrap >= sequencingTimestamp - topologyTimestamp
             }
-            _ <- Either.cond(withinSigningTolerance, (), SigningTimestampTooOld(tolerance))
+            _ <- Either.cond(withinSigningTolerance, (), TopologyTimestampTooOld(tolerance))
           } yield snapshot
         }
     }
 
-    if (signingTimestamp > sequencingTimestamp) {
-      EitherT.leftT[F, SyncCryptoApi](SigningTimestampAfterSequencingTime)
-    } else if (optimistic) {
-      val approximateSnapshot = syncCryptoApi.currentSnapshotApproximation(traceContext)
-      val approximateSnapshotTime = approximateSnapshot.ipsSnapshot.timestamp
-      // If the topology client has caught up to the signing timestamp,
-      // use the right snapshot
-      if (signingTimestamp <= approximateSnapshotTime) {
-        EitherT(snapshotF.flatMap(validateWithSnapshot))
-      } else {
-        loggingContext.debug(
-          s"Validating event at $sequencingTimestamp optimistically with snapshot taken at $approximateSnapshotTime"
-        )
-        EitherT(validateWithSnapshot(approximateSnapshot))
-      }
-    } else if (signingTimestamp == sequencingTimestamp) {
+    if (topologyTimestamp > sequencingTimestamp) {
+      EitherT.leftT[F, SyncCryptoApi](TopologyTimestampAfterSequencingTime)
+    } else if (topologyTimestamp == sequencingTimestamp) {
       // If the signing timestamp is the same as the sequencing timestamp,
       // we don't need to check the tolerance because it is always non-negative.
-      EitherT.right[SigningTimestampVerificationError](snapshotF)
+      EitherT.right[TopologyTimestampVerificationError](snapshotF)
     } else {
       EitherT(snapshotF.flatMap(validateWithSnapshot))
     }
   }
 
-  sealed trait SigningTimestampVerificationError
+  sealed trait TopologyTimestampVerificationError
       extends Product
       with Serializable
       with PrettyPrinting
-  case object SigningTimestampAfterSequencingTime extends SigningTimestampVerificationError {
-    override def pretty: Pretty[SigningTimestampAfterSequencingTime] =
-      prettyOfObject[SigningTimestampAfterSequencingTime]
+  case object TopologyTimestampAfterSequencingTime extends TopologyTimestampVerificationError {
+    override def pretty: Pretty[TopologyTimestampAfterSequencingTime] =
+      prettyOfObject[TopologyTimestampAfterSequencingTime]
   }
-  type SigningTimestampAfterSequencingTime = SigningTimestampAfterSequencingTime.type
+  type TopologyTimestampAfterSequencingTime = TopologyTimestampAfterSequencingTime.type
 
-  final case class SigningTimestampTooOld(tolerance: NonNegativeFiniteDuration)
-      extends SigningTimestampVerificationError {
-    override def pretty: Pretty[SigningTimestampTooOld] = prettyOfClass(
+  final case class TopologyTimestampTooOld(tolerance: NonNegativeFiniteDuration)
+      extends TopologyTimestampVerificationError {
+    override def pretty: Pretty[TopologyTimestampTooOld] = prettyOfClass(
       param("tolerance", _.tolerance)
     )
   }
 
   final case class NoDynamicDomainParameters(error: String)
-      extends SigningTimestampVerificationError {
+      extends TopologyTimestampVerificationError {
     override def pretty: Pretty[NoDynamicDomainParameters] = prettyOfClass(
       param("error", _.error.unquoted)
     )
@@ -453,16 +428,9 @@ object SequencedEventValidatorFactory {
 /** Validate whether a received event is valid for processing.
   *
   * @param unauthenticated if true, then the connection is unauthenticated. in such cases, we have to skip some validations.
-  * @param optimistic if true, we'll try to be optimistic and validate the event possibly with some stale data. this
-  *                   means that during sequencer key rolling, a message might have been signed by a key that was just revoked.
-  *                   the security impact is very marginal (and an adverse scenario only possible in the async ms of
-  *                   this node validating a few inflight transactions). therefore, this parameter should be set to
-  *                   true due to performance reasons.
   */
-// TODO(#10040) remove optimistic validation
 class SequencedEventValidatorImpl(
     unauthenticated: Boolean,
-    optimistic: Boolean,
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
@@ -612,55 +580,36 @@ class SequencedEventValidatorImpl(
       // the member will only be able to compute snapshots for the current topology state and later.
       EitherT.fromEither[FutureUnlessShutdown](checkNoTimestampOfSigningKey(event))
     } else {
-      val signingTs = event.signedEvent.timestampOfSigningKey.getOrElse(event.timestamp)
-
-      def doValidate(
-          optimistic: Boolean
-      ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
-        for {
-          snapshot <- SequencedEventValidator
-            .validateSigningTimestampUS(
-              syncCryptoApi,
-              signingTs,
-              event.timestamp,
-              lastTopologyClientTimestamp(priorEventO),
-              protocolVersion,
-              warnIfApproximate = priorEventO.nonEmpty,
-              optimistic,
-            )
-            .leftMap(InvalidTimestampOfSigningKey(event.timestamp, signingTs, _))
-          _ <- event.signedEvent
-            .verifySignature(snapshot, sequencerId, HashPurpose.SequencedEventSignature)
-            .leftMap[SequencedEventValidationError[Nothing]](
-              SignatureInvalid(event.timestamp, signingTs, _)
-            )
-            .mapK(FutureUnlessShutdown.outcomeK)
-        } yield ()
-
-      doValidate(optimistic).leftFlatMap { err =>
-        // When optimistic validation fails, retry with the right snapshot
-        if (optimistic) {
-          logger.debug(
-            s"Optimistic event validation failed with $err. Falling back to validation with the proper topology state."
+      val signingTs = event.signedEvent.content.timestampOfSigningKey
+      for {
+        _ <- EitherT.fromEither[FutureUnlessShutdown](checkNoTimestampOfSigningKey(event))
+        snapshot <- SequencedEventValidator
+          .validateTopologyTimestampUS(
+            syncCryptoApi,
+            signingTs,
+            event.timestamp,
+            lastTopologyClientTimestamp(priorEventO),
+            protocolVersion,
+            warnIfApproximate = priorEventO.nonEmpty,
           )
-          doValidate(optimistic = false)
-        } else EitherT.leftT(err)
-      }
+          .leftMap(InvalidTopologyTimestamp(event.timestamp, signingTs, _))
+        _ <- event.signedEvent
+          .verifySignature(snapshot, sequencerId, HashPurpose.SequencedEventSignature)
+          .leftMap[SequencedEventValidationError[Nothing]](
+            SignatureInvalid(event.timestamp, signingTs, _)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
+      } yield ()
     }
   }
 
+  /** The timestamp of signing key is always derived from the timestamps in the [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]],
+    * so it must never be set as [[com.digitalasset.canton.sequencing.protocol.SignedContent.timestampOfSigningKey]]
+    */
   private def checkNoTimestampOfSigningKey(event: OrdinarySerializedEvent): ValidationResult = {
-    event.signedEvent.timestampOfSigningKey.traverse_(tsOfSigningKey =>
-      // Batches addressed to unauthenticated members must not specify a topology timestamp.
-      // As some sequencer implementations in some protocol versions set the timestampOfSigningKey field
-      // always to the sequencing timestamp if no timestamp was requested,
-      // we tolerate equality.
-      Either.cond(
-        tsOfSigningKey == event.timestamp,
-        (),
-        TimestampOfSigningKeyNotAllowed(event.timestamp, tsOfSigningKey),
-      )
-    )
+    event.signedEvent.timestampOfSigningKey
+      .toLeft(())
+      .leftMap(TimestampOfSigningKeyNotAllowed(event.timestamp, _))
   }
 
   override def validatePekko[E: Pretty](
@@ -685,7 +634,7 @@ class SequencedEventValidatorImpl(
                 _.traverse((_: Unit) => None)
               )
             else {
-              val previousEvent = rememberedAndCurrent.head1.unwrap.valueOr { previousErr =>
+              val previousEvent = rememberedAndCurrent.head1.value.valueOr { previousErr =>
                 implicit val traceContext: TraceContext = current.traceContext
                 ErrorUtil.invalidState(
                   s"Subscription for sequencer $sequencerId delivered an event at counter ${current.counter} after having previously signalled the error $previousErr"
@@ -715,7 +664,7 @@ class SequencedEventValidatorImpl(
           FutureUnlessShutdown.pure(failedPreviously -> event.last1.map(_ => None))
         else
           performValidation(event).map { validation =>
-            val failed = validation.unwrap.exists(_.isLeft)
+            val failed = validation.value.exists(_.isLeft)
             failed -> validation
           }
       }

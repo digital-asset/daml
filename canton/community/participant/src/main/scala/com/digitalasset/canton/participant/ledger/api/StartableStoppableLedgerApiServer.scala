@@ -13,7 +13,7 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout}
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain
@@ -42,7 +42,6 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
 import com.digitalasset.canton.platform.config.{IdentityProviderManagementConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
-import com.digitalasset.canton.platform.indexer.IndexerConfig.DefaultIndexerStartupMode
 import com.digitalasset.canton.platform.indexer.{
   IndexerConfig,
   IndexerServiceOwner,
@@ -108,12 +107,8 @@ class StartableStoppableLedgerApiServer(
     *
     * A possible improvement to consider in the future is to abort start upon subsequent call to stop. As is the stop
     * will wait until an inflight start completes.
-    *
-    * @param overrideIndexerStartupMode Allows overriding the indexer startup mode.
-    *                                   This is useful for forcing a custom startup mode for the first initialization
-    *                                   of the participant when it is started as an active replica.
     */
-  def start(overrideIndexerStartupMode: Option[IndexerStartupMode] = None)(implicit
+  def start()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     execQueue.execute(
@@ -126,7 +121,7 @@ class StartableStoppableLedgerApiServer(
             Future.unit
           case None =>
             val ledgerApiServerResource =
-              buildLedgerApiServerOwner(overrideIndexerStartupMode).acquire()(
+              buildLedgerApiServerOwner().acquire()(
                 ResourceContext(executionContext)
               )
             FutureUtil.logOnFailure(
@@ -173,12 +168,16 @@ class StartableStoppableLedgerApiServer(
     }
 
   private def buildLedgerApiServerOwner(
-      overrideIndexerStartupMode: Option[IndexerStartupMode]
   )(implicit traceContext: TraceContext) = {
 
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
 
+    val startupMode: IndexerStartupMode = config.storageConfig match {
+      // ledger api server needs an H2 db to run in memory
+      case _: MemoryStorageConfig => IndexerStartupMode.MigrateAndStart
+      case _ => IndexerStartupMode.JustStart
+    }
     val numIndexer = config.indexerConfig.ingestionParallelism.unwrap
     val numLedgerApi = dbConfig.connectionPool.connectionPoolSize
     logger.info(s"Creating storage, num-indexer: $numIndexer, num-ledger-api: $numLedgerApi")
@@ -228,11 +227,10 @@ class StartableStoppableLedgerApiServer(
         config.metrics,
         inMemoryState,
         inMemoryStateUpdaterFlow,
-        config.serverConfig.additionalMigrationPaths,
         executionContext,
         tracer,
         loggerFactory,
-        startupMode = overrideIndexerStartupMode.getOrElse(DefaultIndexerStartupMode),
+        startupMode = startupMode,
         dataSourceProperties = DbSupport.DataSourceProperties(
           connectionPool = IndexerConfig
             .createConnectionPoolConfig(

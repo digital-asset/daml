@@ -1,0 +1,111 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ChoiceBodyExercise (main) where
+
+import UpgradeTestLib
+import qualified V1.ChoiceBodyExercise as V1
+import qualified V2.ChoiceBodyExercise as V2
+
+{- PACKAGE
+name: choice-body-exercise
+versions: 2
+-}
+
+{- MODULE
+package: choice-body-exercise
+contents: |
+  module ChoiceBodyExercise where
+
+  template ChoiceBodyExerciseTemplate
+    with
+      party: Party
+      newField : Optional Text        -- @V  2
+    where
+      signatory party
+
+      choice NonUpgradedChoice : Text
+        controller party
+        do pure "V1"                  -- @V 1
+        do pure "V2"                  -- @V  2
+
+  template ChoiceBodyExerciseHelper
+    with
+      party: Party
+    where
+      signatory party
+      choice DoNonUpgradedExercise : Text with
+          cid : ContractId ChoiceBodyExerciseTemplate
+        controller party
+        do exercise cid NonUpgradedChoice
+-}
+
+-- Template payload upgrading/downgrading from exercises within choice bodies
+-- The expected behaviour here is that the outer templates have fixed the choice version they wish to call
+-- So the ledger must coerce the real data to match the expected data. Regardless of what the "most recent" version of that package is
+main : Script ()
+main = tests
+  [ ("Call a V1 choice on a V1 contract from within a choice body, expect V1 implementation is used regardless of the possible upgrade.", exerciseV1ChoiceV1ContractSameType)
+  , ("Call a V1 choice on a V2 contract from within a choice body, expect V1 implementation is used, via a downgrade.", exerciseV1ChoiceV2ContractSameType)
+  , ("Call a V1 choice on a V2 contract with Some field from within a choice body, expect V1 implementation to attempt to be used, but fail downgrade", exerciseV1ChoiceV2ContractSameTypeSome)
+  , ("Call a V2 choice on a V1 contract from within a choice body, expect V2 implementation is used, via an upgrade", exerciseV2ChoiceV1ContractSameType)
+  , ("Call a V2 choice on a V2 contract from within a choice body, expect V2 implementation is used, for sanity", exerciseV2ChoiceV2ContractSameType)
+  ]
+
+exerciseV1Util : Choice V1.ChoiceBodyExerciseHelper c r => Party -> c -> Script r
+exerciseV1Util p c = p `submit` createAndExerciseExactCmd (V1.ChoiceBodyExerciseHelper with party = p) c
+
+exerciseV2Util : Choice V2.ChoiceBodyExerciseHelper c r => Party -> c -> Script r
+exerciseV2Util p c = p `submit` createAndExerciseExactCmd (V2.ChoiceBodyExerciseHelper with party = p) c
+
+tryExerciseV1Util : Choice V1.ChoiceBodyExerciseHelper c r => Party -> c -> Script (Either SubmitError r)
+tryExerciseV1Util p c = p `trySubmit` createAndExerciseExactCmd (V1.ChoiceBodyExerciseHelper with party = p) c
+
+tryExerciseV2Util : Choice V2.ChoiceBodyExerciseHelper c r => Party -> c -> Script (Either SubmitError r)
+tryExerciseV2Util p c = p `trySubmit` createAndExerciseExactCmd (V2.ChoiceBodyExerciseHelper with party = p) c
+
+exerciseV1ChoiceV1ContractSameType : Script ()
+exerciseV1ChoiceV1ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd V1.ChoiceBodyExerciseTemplate with party = a
+
+  sameTypeResult <- a `exerciseV1Util` V1.DoNonUpgradedExercise with cid = cid
+  sameTypeResult === "V1"
+
+exerciseV1ChoiceV2ContractSameType : Script ()
+exerciseV1ChoiceV2ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ChoiceBodyExerciseTemplate with party = a, newField = None
+  let cidV1 = coerceContractId @V2.ChoiceBodyExerciseTemplate @V1.ChoiceBodyExerciseTemplate cid
+
+  sameTypeResult <- a `exerciseV1Util` V1.DoNonUpgradedExercise with cid = cidV1
+  sameTypeResult === "V1"
+
+exerciseV1ChoiceV2ContractSameTypeSome : Script ()
+exerciseV1ChoiceV2ContractSameTypeSome = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ChoiceBodyExerciseTemplate with party = a, newField = Some "hi"
+  let cidV1 = coerceContractId @V2.ChoiceBodyExerciseTemplate @V1.ChoiceBodyExerciseTemplate cid
+
+  sameTypeResult <- a `tryExerciseV1Util` V1.DoNonUpgradedExercise with cid = cidV1
+  case sameTypeResult of
+    Left _ -> pure ()
+    Right _ -> assertFail "Wrong"
+
+exerciseV2ChoiceV1ContractSameType : Script ()
+exerciseV2ChoiceV1ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V1.ChoiceBodyExerciseTemplate with party = a
+  let cidV2 = coerceContractId @V1.ChoiceBodyExerciseTemplate @V2.ChoiceBodyExerciseTemplate cid
+
+  sameTypeResult <- a `exerciseV2Util` V2.DoNonUpgradedExercise with cid = cidV2
+  sameTypeResult === "V2"
+
+exerciseV2ChoiceV2ContractSameType : Script ()
+exerciseV2ChoiceV2ContractSameType = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.ChoiceBodyExerciseTemplate with party = a, newField = Some "hi"
+
+  sameTypeResult <- a `exerciseV2Util` V2.DoNonUpgradedExercise with cid = cid
+  sameTypeResult === "V2"
+

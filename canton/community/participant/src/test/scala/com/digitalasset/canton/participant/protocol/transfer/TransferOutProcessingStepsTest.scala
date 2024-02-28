@@ -809,6 +809,7 @@ final class TransferOutProcessingStepsTest
             sourceDomain.unwrap,
             Some(MessageId.tryCreate("msg-0")),
             batch,
+            None,
             testedProtocolVersion,
           )
         }
@@ -842,7 +843,7 @@ final class TransferOutProcessingStepsTest
         _ <- valueOrFail(
           outProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
-              Right(signedContent),
+              NoOpeningErrors(signedContent),
               Right(transferResult),
               pendingOut,
               state.pendingTransferOutSubmissions,

@@ -72,15 +72,15 @@ class SerializationDeserializationTest
 
         testProtocolVersioned(AcsCommitment)
         testProtocolVersioned(Verdict)
-        testProtocolVersioned(MediatorResponse)
+        testProtocolVersioned(ConfirmationResponse)
         testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, version)
         testProtocolVersionedWithCtx(SignedProtocolMessage, version)
 
         testProtocolVersioned(LocalVerdict)
         testProtocolVersioned(TransferResult)
-        testProtocolVersioned(MalformedMediatorRequestResult)
+        testProtocolVersioned(MalformedConfirmationRequestResult)
         testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
-        testMemoizedProtocolVersioned(TransactionResultMessage)
+        testMemoizedProtocolVersioned(ConfirmationResultMessage)
 
         testProtocolVersioned(AcknowledgeRequest)
         testProtocolVersioned(AggregationRule)

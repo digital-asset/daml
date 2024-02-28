@@ -127,6 +127,13 @@ object MonadUtil {
   def sequentialTraverseMonoid[M[_], A, B](
       xs: immutable.Iterable[A]
   )(step: A => M[B])(implicit monad: Monad[M], monoid: Monoid[B]): M[B] =
+    sequentialTraverseMonoid(xs.iterator)(step)
+
+  /** Conceptually equivalent to `sequentialTraverse(xs)(step).map(monoid.combineAll)`.
+    */
+  def sequentialTraverseMonoid[M[_], A, B](
+      xs: Iterator[A]
+  )(step: A => M[B])(implicit monad: Monad[M], monoid: Monoid[B]): M[B] =
     foldLeftM[M, B, A](monoid.empty, xs) { (acc, x) =>
       monad.map(step(x))(monoid.combine(acc, _))
     }

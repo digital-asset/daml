@@ -73,7 +73,6 @@ create table contracts (
     instance bytea not null,
     -- Metadata: signatories, stakeholders, keys
     -- Stored as a Protobuf blob as H2 will only support typed arrays in 1.4.201
-    -- TODO(#3256): change when H2 is upgraded
     metadata bytea not null,
     -- The ledger time when the contract was created.
     ledger_create_time varchar(300) collate "C" not null,
@@ -243,7 +242,7 @@ CREATE TABLE fresh_submitted_transaction_pruning (
 create table response_aggregations (
   -- identified by the sequencer timestamp (UTC timestamp in microseconds relative to EPOCH)
   request_id bigint not null primary key,
-  mediator_request bytea not null,
+  mediator_confirmation_request bytea not null,
   -- UTC timestamp is stored in microseconds relative to EPOCH
   version bigint not null,
   verdict bytea not null,
@@ -828,7 +827,7 @@ create table mediator_deduplication_store (
 create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(expire_after, mediator_id);
 
 CREATE TABLE pruning_schedules(
-    -- node_type is one of "PAR", "MED", or "SEQ"
+    -- node_type is one of "MED", or "SEQ"
     -- since mediator and sequencer sometimes share the same db
     node_type varchar(3) collate "C" not null primary key,
     cron varchar(300) collate "C" not null,
@@ -836,8 +835,6 @@ CREATE TABLE pruning_schedules(
     retention bigint not null -- positive number of seconds
 );
 
-
--- TODO(#15155) Move this to stable when releasing BFT: BEGIN
 CREATE TABLE in_flight_aggregation(
     aggregation_id varchar(300) collate "C" not null primary key,
     -- UTC timestamp in microseconds relative to EPOCH
@@ -859,7 +856,7 @@ CREATE TABLE in_flight_aggregated_sender(
 );
 
 -- stores the topology-x state transactions
-CREATE TABLE topology_transactions_x (
+CREATE TABLE topology_transactions (
     -- serial identifier used to preserve insertion order
     id bigserial not null primary key,
     -- the id of the store
@@ -907,17 +904,10 @@ CREATE TABLE topology_transactions_x (
     -- tx_hash but different signatures
     hash_of_signatures varchar(300) collate "C" not null,
     -- index used for idempotency during crash recovery
-    -- TODO(#12390) should mapping_key_hash rather be tx_hash?
     unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures)
     );
-CREATE INDEX topology_transactions_x_idx ON topology_transactions_x (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
--- TODO(#14061): Decide whether we want additional indices by mapping_key_hash and tx_hash (e.g. for update/removal and lookups)
--- TODO(#14061): Come up with columns/indexing for efficient ParticipantId => Seq[PartyId] lookup
+CREATE INDEX topology_transactions_idx ON topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
 
-
--- TODO(#15155) Move this to stable when releasing BFT: END
-
--- TODO(#13104) Move traffic control to stable release: BEGIN
 -- update the sequencer_state_manager_events to store traffic information per event
 -- this will be needed to re-hydrate the sequencer from a specific point in time deterministically
 -- adds extra traffic remainder at the time of the event
@@ -970,34 +960,37 @@ create table top_up_events (
 );
 
 create index top_up_events_idx ON top_up_events (member);
--- TODO(#13104) Move traffic control to stable release: END
 
 --   BFT Ordering Tables
 
 -- Stores metadata for epochs completed in entirety
 -- Individual blocks/transactions exist in separate table
-create table completed_epochs (
+create table ord_completed_epochs (
     -- strictly-increasing, contiguous epoch number
     epoch_number bigint not null primary key ,
     -- first block sequence number (globally) of the epoch
     start_block_number bigint not null ,
     -- number of total blocks in the epoch
     epoch_length integer not null,
+    -- commit messages of the last block in the epoch
+    last_block_commits bytea not null,
     -- enable idempotent writes: "on conflict, do nothing"
     constraint unique_epoch unique (epoch_number, start_block_number, epoch_length)
 );
 
 -- Stores consensus state for active epoch
-create table active_epoch (
+create table ord_active_epoch (
     -- epoch number that consensus is actively working on
     epoch_number bigint not null,
     -- global sequence number of the ordered block
     block_number bigint not null primary key,
+    -- commit messages of the block
+    commit_messages bytea not null,
     -- enable idempotent writes: "on conflict, do nothing"
     constraint unique_block unique (epoch_number, block_number)
 );
 
-create table availability_batch (
+create table ord_availability_batch (
     id varchar(300) collate "C" not null,
     batch bytea not null,
     primary key (id)

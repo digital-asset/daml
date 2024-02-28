@@ -89,7 +89,7 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
         party1b,
         None,
         threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
+        Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
         groupAddressing = false,
       ),
       key2,
@@ -100,7 +100,7 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
         party1b,
         None,
         threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
+        Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
       ),
       key2,
@@ -112,7 +112,7 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
         party1b,
         None,
         threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
+        Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
       ),
       key6,
@@ -124,7 +124,7 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
         party1b,
         None,
         threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
+        Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
       ),
       NonEmpty(Set, key2, key6),
@@ -136,7 +136,7 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
         party1b,
         Some(domainId1),
         threshold = PositiveInt.one,
-        Seq(HostingParticipant(participant6, ParticipantPermissionX.Submission)),
+        Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
         groupAddressing = false,
       ),
       key3,
@@ -151,7 +151,7 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
     DomainParametersStateX(
       DomainId(uid1a),
       defaultDomainParameters
-        .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
+        .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
     ),
     key1,
   )
@@ -160,7 +160,7 @@ class TopologyTransactionTestFactoryX(loggerFactory: NamedLoggerFactory, initEc:
     DomainParametersStateX(
       DomainId(uid1a),
       defaultDomainParameters
-        .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
+        .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
     ),
     key1,
   )

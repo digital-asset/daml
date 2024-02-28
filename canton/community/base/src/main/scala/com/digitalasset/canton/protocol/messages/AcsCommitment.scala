@@ -5,13 +5,11 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.time.PositiveSeconds
@@ -131,8 +129,8 @@ abstract sealed case class AcsCommitment private (
       domainId = domainId.toProtoPrimitive,
       sendingParticipant = sender.toProtoPrimitive,
       counterParticipant = counterParticipant.toProtoPrimitive,
-      fromExclusive = Some(period.fromExclusive.toProtoPrimitive),
-      toInclusive = Some(period.toInclusive.toProtoPrimitive),
+      fromExclusive = period.fromExclusive.toProtoPrimitive,
+      toInclusive = period.toInclusive.toProtoPrimitive,
       commitment = AcsCommitment.commitmentTypeToProto(commitment),
     )
   }
@@ -145,8 +143,6 @@ abstract sealed case class AcsCommitment private (
     v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.AcsCommitment(
       getCryptographicEvidence
     )
-
-  override def hashPurpose: HashPurpose = HashPurpose.AcsCommitment
 
   override lazy val pretty: Pretty[AcsCommitment] = {
     prettyOfClass(
@@ -204,12 +200,8 @@ object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCom
         protoMsg.counterParticipant,
         "AcsCommitment.counterParticipant",
       )
-      fromExclusive <- ProtoConverter
-        .required("AcsCommitment.period.fromExclusive", protoMsg.fromExclusive)
-        .flatMap(CantonTimestampSecond.fromProtoPrimitive)
-      toInclusive <- ProtoConverter
-        .required("AcsCommitment.period.toInclusive", protoMsg.toInclusive)
-        .flatMap(CantonTimestampSecond.fromProtoPrimitive)
+      fromExclusive <- CantonTimestampSecond.fromProtoPrimitive(protoMsg.fromExclusive)
+      toInclusive <- CantonTimestampSecond.fromProtoPrimitive(protoMsg.toInclusive)
 
       periodLength <- PositiveSeconds
         .between(fromExclusive, toInclusive)

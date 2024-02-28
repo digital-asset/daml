@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
-  MediatorRequest,
+  MediatorConfirmationRequest,
   ProtocolMessage,
   RootHashMessage,
   SerializedRootHashMessagePayload,
@@ -56,9 +56,11 @@ private[mediator] trait MediatorEventDeduplicator {
     MonadUtil
       .sequentialTraverse(envelopesByEvent) { case (tracedProtocolEvent, envelopes) =>
         implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
-        val (event, _) = tracedProtocolEvent.value
-        rejectDuplicates(event.timestamp, envelopes)(traceContext, callerCloseContext).map {
-          case (uniqueEnvelopes, storeF) => (tracedProtocolEvent, uniqueEnvelopes) -> storeF
+        rejectDuplicates(tracedProtocolEvent.value.timestamp, envelopes)(
+          traceContext,
+          callerCloseContext,
+        ).map { case (uniqueEnvelopes, storeF) =>
+          (tracedProtocolEvent, uniqueEnvelopes) -> storeF
         }
       }
       .map(_.separate)
@@ -137,7 +139,7 @@ class DefaultMediatorEventDeduplicator(
     MonadUtil
       .sequentialTraverse(envelopes) { envelope =>
         envelope.protocolMessage match {
-          case request: MediatorRequest =>
+          case request: MediatorConfirmationRequest =>
             processUuid(requestTimestamp, request, envelopes).map { case (hasUniqueUuid, storeF) =>
               Option.when(hasUniqueUuid)(envelope) -> storeF
             }
@@ -151,7 +153,7 @@ class DefaultMediatorEventDeduplicator(
 
   private def processUuid(
       requestTimestamp: CantonTimestamp,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       envelopes: Seq[DefaultOpenEnvelope],
   )(implicit
       traceContext: TraceContext,

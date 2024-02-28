@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.instances.seq.*
 import cats.syntax.foldable.*
+import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -32,7 +33,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMappingXChecks,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
@@ -378,28 +379,30 @@ class TopologyStateProcessorX(
     val (isMerge, tx_deduplicatedAndMerged) =
       mergeSignatures(tx_inStore, tx_mergedProposalSignatures)
     val ret = for {
+      // Run mapping specific semantic checks
+      _ <- topologyMappingXChecks.checkTransaction(effective, tx_deduplicatedAndMerged, tx_inStore)
+      _ <-
+        // we potentially merge the transaction with the currently active if this is just a signature update
+        // now, check if the serial is monotonically increasing
+        if (isMerge) {
+          EitherTUtil.unit[TopologyTransactionRejection]
+        } else {
+          EitherT.fromEither[Future](
+            serialIsMonotonicallyIncreasing(tx_inStore, tx_deduplicatedAndMerged).void
+          )
+        }
       // we check if the transaction is properly authorized given the current topology state
       // if it is a proposal, then we demand that all signatures are appropriate (but
       // not necessarily sufficient)
-      tx_authorized <- transactionIsAuthorized(
+      // !THIS CHECK NEEDS TO BE THE LAST CHECK! because the transaction authorization validator
+      // will update its internal cache. If a transaction then gets rejected afterwards, the cache
+      // is corrupted.
+      fullyValidated <- transactionIsAuthorized(
         effective,
         tx_inStore,
         tx_deduplicatedAndMerged,
         expectFullAuthorization,
       )
-      // Run mapping specific semantic checks
-      _ <- topologyMappingXChecks.checkTransaction(effective, tx_authorized, tx_inStore)
-
-      // we potentially merge the transaction with the currently active if this is just a signature update
-      // now, check if the serial is monotonically increasing
-      fullyValidated <-
-        if (isMerge)
-          EitherT.rightT[Future, TopologyTransactionRejection](tx_authorized)
-        else {
-          EitherT.fromEither[Future](
-            serialIsMonotonicallyIncreasing(tx_inStore, tx_authorized).map(_ => tx_authorized)
-          )
-        }
     } yield fullyValidated
     ret.fold(
       // TODO(#12390) emit appropriate log message and use correct rejection reason

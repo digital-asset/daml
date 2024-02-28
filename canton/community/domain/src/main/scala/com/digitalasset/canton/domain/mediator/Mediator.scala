@@ -306,7 +306,7 @@ private[mediator] class Mediator(
               )
 
               if (rootHashMessages.nonEmpty) {
-                // In this case, we assume it is a Mediator Request message
+                // In this case, we assume it is a Mediator Confirmation Request message
                 sendMalformedRejection(
                   rootHashMessages,
                   closedEvent.timestamp,
@@ -316,9 +316,7 @@ private[mediator] class Mediator(
             }
 
             (
-              Traced(openEvent -> closedSignedEvent.signedEvent.timestampOfSigningKey)(
-                closedSignedEvent.traceContext
-              ),
+              Traced(openEvent)(closedSignedEvent.traceContext),
               rejectionsF,
             )
           }
@@ -394,7 +392,7 @@ private[mediator] object Mediator {
       domainParameters: DynamicDomainParametersWithValidity,
       cleanTs: CantonTimestamp,
   ): PruningSafetyCheck = {
-    lazy val timeout = domainParameters.parameters.participantResponseTimeout
+    lazy val timeout = domainParameters.parameters.confirmationResponseTimeout
     lazy val cappedSafePruningTs = domainParameters.validFrom.max(cleanTs - timeout)
 
     if (cleanTs <= domainParameters.validFrom) // If these parameters apply only to the future

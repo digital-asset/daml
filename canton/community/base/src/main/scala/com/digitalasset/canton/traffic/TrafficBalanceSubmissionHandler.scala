@@ -18,7 +18,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
-import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult, SequencerClient}
+import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member}
@@ -53,7 +53,7 @@ class TrafficBalanceSubmissionHandler(
       protocolVersion: ProtocolVersion,
       serial: NonNegativeLong,
       totalTrafficBalance: NonNegativeLong,
-      sequencerClient: SequencerClient,
+      sequencerClient: SequencerClientSend,
       cryptoApi: DomainSyncCryptoClient,
   )(implicit
       ec: ExecutionContext,
@@ -134,7 +134,7 @@ class TrafficBalanceSubmissionHandler(
   }
 
   private def sendRequest(
-      sequencerClient: SequencerClient,
+      sequencerClient: SequencerClientSend,
       batch: Batch[DefaultOpenEnvelope],
       aggregationRule: AggregationRule,
       maxSequencingTime: CantonTimestamp,

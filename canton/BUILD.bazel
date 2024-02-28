@@ -330,7 +330,10 @@ proto_gen(
         "flat_package",
         "grpc",
     ],
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = [
+        "//daml-lf/validation:__subpackages__",
+        "//daml-script:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -346,6 +349,7 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    visibility = ["//daml-lf/validation:__subpackages__"],
 )
 
 ### community/base ###
@@ -386,6 +390,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//daml-script:__subpackages__"],
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
@@ -787,6 +792,7 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
+        ":community_reference-driver",
         ":community_sequencer-driver",
         ":community_util-external",
         ":community_util-logging",
@@ -938,6 +944,7 @@ scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",

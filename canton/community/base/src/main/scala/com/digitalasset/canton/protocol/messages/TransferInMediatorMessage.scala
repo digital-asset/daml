@@ -33,7 +33,7 @@ import java.util.UUID
 final case class TransferInMediatorMessage(
     tree: TransferInViewTree,
     override val submittingParticipantSignature: Signature,
-) extends MediatorRequest {
+) extends MediatorConfirmationRequest {
 
   require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
   require(tree.view.isBlinded, "The transfer-in view must be blinded")
@@ -64,11 +64,11 @@ final case class TransferInMediatorMessage(
 
   override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
 
-  override def createMediatorResult(
+  override def createConfirmationResult(
       requestId: RequestId,
       verdict: Verdict,
       recipientParties: Set[LfPartyId],
-  ): MediatorResult with SignedProtocolMessageContent = {
+  ): ConfirmationResult with SignedProtocolMessageContent = {
     val informees = commonData.stakeholders
     require(
       recipientParties.subsetOf(informees),

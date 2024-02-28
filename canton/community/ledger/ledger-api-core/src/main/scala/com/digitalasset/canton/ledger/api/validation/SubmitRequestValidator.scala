@@ -4,8 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v2.command_submission_service.SubmitReassignmentRequest
+import com.daml.ledger.api.v2.command_submission_service.{SubmitReassignmentRequest, SubmitRequest}
 import com.daml.ledger.api.v2.reassignment_command.ReassignmentCommand
 import com.daml.lf.data.Time
 import com.digitalasset.canton.ledger.api.messages.command.submission

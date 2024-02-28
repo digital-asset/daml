@@ -593,9 +593,9 @@ object ReferenceDemoScript {
       protocolVersion = ProtocolVersion.latest,
     )
     val mediatorReactionTimeout = defaultDynamicDomainParameters.mediatorReactionTimeout
-    val participantResponseTimeout = defaultDynamicDomainParameters.participantResponseTimeout
+    val confirmationResponseTimeout = defaultDynamicDomainParameters.confirmationResponseTimeout
 
-    mediatorReactionTimeout.unwrap.plus(participantResponseTimeout.unwrap)
+    mediatorReactionTimeout.unwrap.plus(confirmationResponseTimeout.unwrap)
   }
 
   def startup(adjustPath: Boolean, testScript: Boolean)(implicit
@@ -603,20 +603,20 @@ object ReferenceDemoScript {
   ): Unit = {
 
     def getSequencer(str: String): SequencerNodeReference =
-      consoleEnvironment.sequencersX.all
+      consoleEnvironment.sequencers.all
         .find(_.name == str)
         .getOrElse(sys.error(s"can not find domain named ${str}"))
 
-    val bankingSequencers = consoleEnvironment.sequencersX.all.filter(_.name == SequencerBanking)
-    val bankingMediators = consoleEnvironment.mediatorsX.all.filter(_.name == "mediatorBanking")
+    val bankingSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerBanking)
+    val bankingMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorBanking")
     val bankingDomainId = ConsoleMacros.bootstrap.domain(
       domainName = SequencerBanking,
       sequencers = bankingSequencers,
       mediators = bankingMediators,
       domainOwners = bankingSequencers ++ bankingMediators,
     )
-    val medicalSequencers = consoleEnvironment.sequencersX.all.filter(_.name == SequencerMedical)
-    val medicalMediators = consoleEnvironment.mediatorsX.all.filter(_.name == "mediatorMedical")
+    val medicalSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerMedical)
+    val medicalMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorMedical")
     val medicalDomainId = ConsoleMacros.bootstrap.domain(
       domainName = SequencerMedical,
       sequencers = medicalSequencers,
@@ -650,7 +650,7 @@ object ReferenceDemoScript {
     )
 
     val script = new ReferenceDemoScript(
-      consoleEnvironment.participantsX.all,
+      consoleEnvironment.participants.all,
       bankingConnection,
       medicalConnection,
       location,

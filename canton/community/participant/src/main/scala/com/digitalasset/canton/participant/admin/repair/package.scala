@@ -37,8 +37,5 @@ package object repair {
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): Future[Set[LfPartyId]] =
-    snapshot
-      .hostedOn(parties, participantId)
-      .map(_.collect { case (party, attributes) if attributes.permission.isActive => party }.toSet)
-
+    snapshot.hostedOn(parties, participantId).map(_.keySet)
 }

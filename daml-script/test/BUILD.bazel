@@ -189,9 +189,13 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_base",
         "//canton:community_ledger_ledger-common",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
@@ -208,6 +212,8 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -229,7 +235,7 @@ da_scala_library(
         srcs = [":upgrades/coin-v2/Coin.daml"],
         project_name = "coin",
         target = lf_version,
-        upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
         version = "2.0.0",
     )
     for lf_version in LF_DEV_VERSIONS
@@ -241,7 +247,7 @@ da_scala_library(
         srcs = [":upgrades/coin-v2-new-field/Coin.daml"],
         project_name = "coin",
         target = lf_version,
-        upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
+        # upgrades = "//daml-script/test:coin-v1-{}.dar".format(lf_version),
         version = "2.0.0",
     )
     for lf_version in LF_DEV_VERSIONS
@@ -253,7 +259,7 @@ da_scala_library(
         srcs = [":upgrades/coin-v3/Coin.daml"],
         project_name = "coin",
         target = lf_version,
-        upgrades = "//daml-script/test:coin-v2-{}.dar".format(lf_version),
+        # upgrades = "//daml-script/test:coin-v2-{}.dar".format(lf_version),
         version = "3.0.0",
     )
     for lf_version in LF_DEV_VERSIONS
@@ -326,38 +332,14 @@ da_scala_library(
 ]
 
 daml_compile(
-    name = "upgrades-test",
-    srcs = [":daml/upgrades/UpgradesTest.daml"],
-    data_dependencies = [
-        "//daml-script/test:upgrades-my-templates-v1.dar",
-        "//daml-script/test:upgrades-my-templates-v2.dar",
-    ],
+    name = "upgrade-test-lib",
+    srcs = [":daml/UpgradeTestLib.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml3:daml3-script-2.1.dar",
     ],
-    module_prefixes = {
-        "upgrades-my-templates-1.0.0": "V1",
-        "upgrades-my-templates-2.0.0": "V2",
-    },
-    project_name = "upgrades-test",
-    target = "2.dev",
-    version = "0.0.1",
-)
-
-daml_compile(
-    name = "upgrades-my-templates-v1",
-    srcs = [":daml/upgrades/v1/MyTemplates.daml"],
-    project_name = "upgrades-my-templates",
-    target = "2.dev",
+    project_name = "upgrade-test-lib",
+    target = "2.1",
     version = "1.0.0",
-)
-
-daml_compile(
-    name = "upgrades-my-templates-v2",
-    srcs = [":daml/upgrades/v2/MyTemplates.daml"],
-    project_name = "upgrades-my-templates",
-    target = "2.dev",
-    version = "2.0.0",
 )
 
 da_scala_test_suite(
@@ -365,10 +347,14 @@ da_scala_test_suite(
     size = "large",
     srcs = glob(
         ["src/com/**/*.scala"],
-        exclude = ["src/com/**/*Dev*.scala"],
+        exclude = [
+            "src/com/**/*Dev*.scala",
+            "src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+        ],
     ),
     data = [
         ":script-test-no-ledger.dar",
+        "//compiler/damlc",
         "//daml-script/runner:daml-script-binary",
     ] + [
         ":script{scriptVersion}-test-v{major}.dar".format(
@@ -408,6 +394,56 @@ da_scala_test_suite(
     ],
 )
 
+da_scala_test(
+    name = "upgrade-test",
+    size = "large",
+    srcs = ["src/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala"],
+    data = [
+        ":upgrade-test-files",
+        ":upgrade-test-lib.dar",
+        "//compiler/damlc",
+        "//daml-script/daml3:daml3-script-2.1.dar",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml_common",
+        "@maven//:io_circe_circe_yaml",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    tags = [
+        "cpu:4",
+    ],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/scala-utils",
+        "//libs-scala/testing-utils",
+        "//libs-scala/timer-utils",
+        "//test-common/canton/it-lib",
+    ],
+) if not is_windows else None
+# skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
+
+filegroup(
+    name = "upgrade-test-files",
+    srcs = glob(["daml/upgrades/*.daml"]),
+    visibility = ["__pkg__"],
+)
+
 da_scala_test_suite(
     name = "test-dev",
     srcs = glob(
@@ -424,9 +460,6 @@ da_scala_test_suite(
         ":script-test-{}.dar".format(lf),
     ] for lf in LF_DEV_VERSIONS] for dep in deps] + [
         ":script-test-no-ledger.dar",
-        ":upgrades-my-templates-v1.dar",
-        ":upgrades-my-templates-v2.dar",
-        ":upgrades-test.dar",
         "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",
         "//compiler/damlc/tests:try-submit-test.dar",
@@ -446,6 +479,9 @@ da_scala_test_suite(
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_ledger_ledger-common",
+        "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -456,6 +492,9 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/testing-utils",
+        "//observability/metrics",
         "//test-common/canton/it-lib",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

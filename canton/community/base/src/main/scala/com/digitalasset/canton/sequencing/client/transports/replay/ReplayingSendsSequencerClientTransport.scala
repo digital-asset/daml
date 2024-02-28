@@ -331,7 +331,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     private def updateMetrics(event: SequencedEvent[ClosedEnvelope]): Unit =
       withEmptyMetricsContext { implicit metricsContext =>
         val messageIdO: Option[MessageId] = event match {
-          case Deliver(_, _, _, messageId, _) => messageId
+          case Deliver(_, _, _, messageId, _, _) => messageId
           case DeliverError(_, _, _, messageId, _) => Some(messageId)
           case _ => None
         }
@@ -501,7 +501,7 @@ class ReplayingSendsSequencerClientTransportPekko(
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable = {
     val ((killSwitch, _), doneF) = subscribe(request).source
-      .mapAsync(parallelism = 10)(_.unwrap.traverse { event =>
+      .mapAsync(parallelism = 10)(_.value.traverse { event =>
         handler(event)
       })
       .watchTermination()(Keep.both)

@@ -9,7 +9,6 @@ import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 // Messages sent by a participant as part of the transaction protocol
@@ -25,8 +24,8 @@ message ParticipantMetadata {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
-  google.protobuf.Timestamp ledger_time = 2;
-  google.protobuf.Timestamp submission_time = 3;
+  int64 ledger_time = 2; // in microseconds of UTC time since Unix epoch
+  int64 submission_time = 3; // in microseconds of UTC time since Unix epoch
   string workflow_id = 4; // optional
 }
 
@@ -133,7 +132,7 @@ message SubmitterMetadata {
   string submitting_participant = 5;
   string submission_id = 6; // optional; absent if not specified by submitter
   v30.DeduplicationPeriod dedup_period = 7;
-  google.protobuf.Timestamp max_sequencing_time = 8;
+  int64 max_sequencing_time = 8; // in microseconds of UTC time since Unix epoch
 }
 
 // Messages sent by a participant as part of the transaction protocol

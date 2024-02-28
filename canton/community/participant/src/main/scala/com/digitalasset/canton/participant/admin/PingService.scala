@@ -301,7 +301,7 @@ object PingService {
       val res = for {
         domainId <- DomainId.fromProtoPrimitive(scalaTx.domainId, "domainId")
         effectiveP <- ProtoConverter.required("effectiveAt", scalaTx.effectiveAt)
-        effective <- CantonTimestamp.fromProtoPrimitive(effectiveP)
+        effective <- CantonTimestamp.fromProtoTimestamp(effectiveP)
       } yield {
         // process archived
         processArchivedEvents(
@@ -430,7 +430,7 @@ object PingService {
             target <- DomainId.fromProtoPrimitive(event.target, "target")
             created <- ProtoConverter.required("createdEvent", event.createdEvent)
             createdAt <- ProtoConverter.parseRequired(
-              CantonTimestamp.fromProtoPrimitive,
+              CantonTimestamp.fromProtoTimestamp,
               "createdEvent.createdAt",
               created.createdAt,
             )
@@ -460,7 +460,7 @@ object PingService {
           createEvent <- event.createdEvent.toRight(s"Empty created event for ${event}???")
           createdAt <- ProtoConverter
             .parseRequired(
-              CantonTimestamp.fromProtoPrimitive,
+              CantonTimestamp.fromProtoTimestamp,
               "createdAt",
               createEvent.createdAt,
             )

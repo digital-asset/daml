@@ -18,46 +18,46 @@ trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
 
   // helpers for creating participant, sequencer, and mediator references by name
   // unknown names will throw
-  def lpx(name: String): LocalParticipantReference = participantsX.local
+  def lp(name: String): LocalParticipantReference = participants.local
     .find(_.name == name)
     .getOrElse(sys.error(s"participant [$name] not configured"))
 
-  def rpx(name: String): RemoteParticipantReference =
-    participantsX.remote
+  def rp(name: String): RemoteParticipantReference =
+    participants.remote
       .find(_.name == name)
       .getOrElse(sys.error(s"remote participant [$name] not configured"))
 
-  def px(name: String): ParticipantReference = participantsX.all
+  def p(name: String): ParticipantReference = participants.all
     .find(_.name == name)
     .getOrElse(sys.error(s"neither local nor remote participant [$name] is configured"))
 
-  def sx(name: String): SequencerNodeReference =
-    sequencersX.all
+  def s(name: String): SequencerNodeReference =
+    sequencers.all
       .find(_.name == name)
       .getOrElse(sys.error(s"sequencer [$name] not configured"))
 
-  def lsx(name: String): LocalSequencerNodeReference =
-    sequencersX.local
+  def ls(name: String): LocalSequencerNodeReference =
+    sequencers.local
       .find(_.name == name)
       .getOrElse(sys.error(s"local sequencer [$name] not configured"))
 
-  def rsx(name: String): RemoteSequencerNodeReference =
-    sequencersX.remote
+  def rs(name: String): RemoteSequencerNodeReference =
+    sequencers.remote
       .find(_.name == name)
       .getOrElse(sys.error(s"remote sequencer [$name] not configured"))
 
-  def mx(name: String): LocalMediatorReference =
-    mediatorsX.local
+  def m(name: String): LocalMediatorReference =
+    mediators.local
       .find(_.name == name)
       .getOrElse(sys.error(s"mediator [$name] not configured"))
 
-  def lmx(name: String): LocalMediatorReference =
-    mediatorsX.local
+  def lm(name: String): LocalMediatorReference =
+    mediators.local
       .find(_.name == name)
       .getOrElse(sys.error(s"local mediator [$name] not configured"))
 
-  def rmx(name: String): RemoteMediatorReference =
-    mediatorsX.remote
+  def rm(name: String): RemoteMediatorReference =
+    mediators.remote
       .find(_.name == name)
       .getOrElse(sys.error(s"remote mediator [$name] not configured"))
 }

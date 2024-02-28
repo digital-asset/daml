@@ -176,7 +176,7 @@ class ResilientSequencerSubscriberPekko[E](
   )(implicit
       traceContext: TraceContext
   ): (TriageState, Either[TriagedError[E], OrdinarySerializedEvent]) = {
-    val element = elementWithKillSwitch.unwrap
+    val element = elementWithKillSwitch.value
     val TriageState(hasPreviouslyReceivedEvents, lastSequencerCounter) = state
     val hasReceivedEvents = hasPreviouslyReceivedEvents || element.isRight
     // Resolve to healthy when we get a new element again

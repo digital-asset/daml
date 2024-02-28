@@ -82,7 +82,7 @@ main = do
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
               out `outputContainsParty` PartyDetails (Party "Bob") "Bob" True
           ]
-      , testGroup "allocate-parties theb list-parties"
+      , testGroup "allocate-parties then list-parties"
           [ testCase "succeeds against gRPC" $ do
               sandboxPort <- getSandboxPort
               -- allocate parties via gRPC

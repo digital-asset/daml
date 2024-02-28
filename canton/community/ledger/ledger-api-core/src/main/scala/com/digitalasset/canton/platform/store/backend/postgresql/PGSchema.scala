@@ -15,10 +15,10 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 
 private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
-    override def stringArrayOptional[FROM](
-        extractor: StringInterning => FROM => Option[Iterable[String]]
-    ): Field[FROM, Option[Iterable[String]], _] =
-      PGStringArrayOptional(extractor)
+    override def stringArray[FROM](
+        extractor: StringInterning => FROM => Iterable[String]
+    ): Field[FROM, Iterable[String], _] =
+      PGStringArray(extractor)
 
     override def intArray[FROM](
         extractor: StringInterning => FROM => Iterable[Int]

@@ -533,20 +533,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     private[this] def decodeTemplateKey(
         tpl: DottedName,
         key: PLF.DefTemplate.DefKey,
-        tplVar: ExprVarName,
     ): Work[TemplateKey] = {
       assertSinceKeys()
-      bindWork(key.getKeyExprCase match {
-        case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
-          decodeKeyExpr(key.getKey, tplVar)
-        case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
-          decodeExpr(key.getComplexKey, s"${tpl}:key") {
-            Ret(_)
-          }
-        }
-        case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
-          throw Error.Parsing("DefKey.KEYEXPR_NOT_SET")
-      }) { keyExpr =>
+      decodeExpr(key.getKeyExpr, s"${tpl}:key") { keyExpr =>
         decodeType(key.getType) { typ =>
           decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
             Ret(
@@ -557,53 +546,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               )
             )
           }
-        }
-      }
-    }
-
-    private[this] def decodeKeyExpr(expr: PLF.KeyExpr, tplVar: ExprVarName): Work[Expr] = {
-      assertSinceKeys()
-      Work.Delay { () =>
-        expr.getSumCase match {
-
-          case PLF.KeyExpr.SumCase.RECORD =>
-            val recCon = expr.getRecord
-            bindWork(decodeTypeConApp(recCon.getTycon)) { tycon =>
-              sequenceWork(recCon.getFieldsList.asScala.view.map { field =>
-                val name =
-                  handleInternedName(
-                    field.getFieldCase,
-                    PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_STR,
-                    field.getFieldInternedStr,
-                    "KeyExpr.field",
-                  )
-                bindWork(decodeKeyExpr(field.getExpr, tplVar)) { expr =>
-                  Ret(name -> expr)
-                }
-              }) { fields => Ret(ERecCon(tycon, fields = fields.to(ImmArray))) }
-            }
-
-          case PLF.KeyExpr.SumCase.PROJECTIONS =>
-            val lfProjs = expr.getProjections.getProjectionsList.asScala
-            sequenceWork(lfProjs.view.map { lfProj =>
-              bindWork(decodeTypeConApp(lfProj.getTycon)) { tycon =>
-                val name =
-                  handleInternedName(
-                    lfProj.getFieldCase,
-                    PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_STR,
-                    lfProj.getFieldInternedStr,
-                    "KeyExpr.Projection.field",
-                  )
-                Ret((tycon, name))
-              }
-            }) { projs =>
-              Ret(projs.foldLeft(EVar(tplVar): Expr) { case (acc, (tycon, name)) =>
-                ERecProj(tycon, name, acc)
-              })
-            }
-
-          case PLF.KeyExpr.SumCase.SUM_NOT_SET =>
-            throw Error.Parsing("KeyExpr.SUM_NOT_SET")
         }
       }
     }
@@ -627,7 +569,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                 bindWork(
                   if (lfTempl.hasKey) {
                     assertSinceKeys()
-                    bindWork(decodeTemplateKey(tpl, lfTempl.getKey, paramName)) { tk =>
+                    bindWork(decodeTemplateKey(tpl, lfTempl.getKey)) { tk =>
                       Ret(Some(tk))
                     }
                   } else Ret(None)
@@ -1869,7 +1811,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   // TODO(https://github.com/digital-asset/daml/issues/18457): this is a temporary hack. Replace
   //  with a feature flag.
   private[this] def assertSinceKeys(): Unit =
-    if (rejectKeys) throw Error.Parsing("Keys are not supported")
+    if (versionIsOlderThan(LV.Features.contractKeys) && rejectKeys)
+      throw Error.Parsing("Keys are not supported")
 }
 
 private[lf] object DecodeV2 {

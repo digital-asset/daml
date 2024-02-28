@@ -203,9 +203,9 @@ class GrpcTopologyManagerReadService(
 
     new adminProto.BaseResult(
       store = Some(storeProto),
-      sequenced = Some(context.sequenced.value.toProtoPrimitive),
-      validFrom = Some(context.validFrom.value.toProtoPrimitive),
-      validUntil = context.validUntil.map(_.value.toProtoPrimitive),
+      sequenced = Some(context.sequenced.value.toProtoTimestamp),
+      validFrom = Some(context.validFrom.value.toProtoTimestamp),
+      validUntil = context.validUntil.map(_.value.toProtoTimestamp),
       operation = context.operation.toProto,
       transactionHash = context.transactionHash,
       serial = context.serial.unwrap,

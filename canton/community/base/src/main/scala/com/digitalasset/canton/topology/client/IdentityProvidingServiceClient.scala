@@ -239,7 +239,7 @@ trait PartyTopologySnapshotClient {
   /** Returns Right if all parties have at least an active participant passing the check. Otherwise, all parties not passing are passed as Left */
   def allHaveActiveParticipants(
       parties: Set[LfPartyId],
-      check: (ParticipantPermission => Boolean) = _.isActive,
+      check: (ParticipantPermission => Boolean) = _ => true,
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit]
 
   /** Returns the consortium thresholds (how many votes from different participants that host the consortium party
@@ -272,7 +272,7 @@ trait PartyTopologySnapshotClient {
   def allHostedOn(
       partyIds: Set[LfPartyId],
       participantId: ParticipantId,
-      permissionCheck: ParticipantAttributes => Boolean = _.permission.isActive,
+      permissionCheck: ParticipantAttributes => Boolean = _ => true,
   )(implicit traceContext: TraceContext): Future[Boolean]
 
   /** Returns whether a participant can confirm on behalf of a party. */
@@ -414,7 +414,7 @@ trait MediatorDomainStateClient {
       traceContext: TraceContext
   ): Future[Boolean] =
     mediatorGroups().map(_.exists { group =>
-      // Note: mediator in group.passive should still be able to authenticate and process MediatorResponses,
+      // Note: mediator in group.passive should still be able to authenticate and process ConfirmationResponses,
       // only sending the verdicts is disabled and verdicts from a passive mediator should not pass the checks
       group.isActive && (group.active.contains(mediatorId) || group.passive.contains(mediatorId))
     })
@@ -692,14 +692,14 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   override def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
   ): Future[Boolean] =
-    findParticipantState(participantId).map(_.exists(_.permission.isActive))
+    findParticipantState(participantId).map(_.isDefined)
 
   override def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Boolean] =
     findParticipantState(participantId).map { attributesO =>
-      attributesO.exists(attr => attr.permission.isActive && attr.loginAfter.forall(_ <= timestamp))
+      attributesO.exists(_.loginAfter.forall(_ <= timestamp))
     }
 
   final def findParticipantState(participantId: ParticipantId)(implicit
@@ -720,14 +720,14 @@ private[client] trait PartyTopologySnapshotBaseClient {
 
   override def allHaveActiveParticipants(
       parties: Set[LfPartyId],
-      check: (ParticipantPermission => Boolean) = _.isActive,
+      check: (ParticipantPermission => Boolean) = _ => true,
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit] = {
     val fetchedF = activeParticipantsOfPartiesWithAttributes(parties.toSeq)
     EitherT(
       fetchedF
         .map { fetched =>
           fetched.foldLeft(Set.empty[LfPartyId]) { case (acc, (party, relationships)) =>
-            if (relationships.exists(x => check(x._2.permission)))
+            if (relationships.exists { case (_, attributes) => check(attributes.permission) })
               acc
             else acc + party
           }
@@ -763,7 +763,7 @@ private[client] trait PartyTopologySnapshotBaseClient {
   override def allHostedOn(
       partyIds: Set[LfPartyId],
       participantId: ParticipantId,
-      permissionCheck: ParticipantAttributes => Boolean = _.permission.isActive,
+      permissionCheck: ParticipantAttributes => Boolean = _ => true,
   )(implicit traceContext: TraceContext): Future[Boolean] =
     hostedOn(partyIds, participantId).map(partiesWithAttributes =>
       partiesWithAttributes.view

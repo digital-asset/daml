@@ -66,7 +66,7 @@ final case class ClosedEnvelope private (
     NonEmpty.from(signatures) match {
       case None =>
         EnvelopeContent
-          .fromByteStringLegacy(protocolVersion)((hashOps, protocolVersion))(bytes)
+          .fromByteString(hashOps, protocolVersion)(bytes)
           .map { envelopeContent =>
             OpenEnvelope(envelopeContent.message, recipients)(protocolVersion)
           }

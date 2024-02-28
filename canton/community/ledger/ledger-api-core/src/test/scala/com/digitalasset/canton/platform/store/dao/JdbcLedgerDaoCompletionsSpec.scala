@@ -213,7 +213,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
 
   it should "allow arbitrarily large rejection reasons" in {
     val rejection = new state.Update.CommandRejected.FinalReason(
-      RpcStatus.of(Status.Code.ABORTED.value(), (0 to 10000).map(_ => " ").mkString(""), Seq.empty)
+      RpcStatus.of(Status.Code.ABORTED.value(), (0 to 3999).map(_ => " ").mkString(""), Seq.empty)
     )
     for {
       from <- ledgerDao.lookupLedgerEnd()

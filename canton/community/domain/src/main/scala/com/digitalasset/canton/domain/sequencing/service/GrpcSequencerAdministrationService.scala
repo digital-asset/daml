@@ -70,7 +70,7 @@ class GrpcSequencerAdministrationService(
       timestamp <- EitherT
         .fromEither[Future](
           ProtoConverter
-            .parseRequired(CantonTimestamp.fromProtoPrimitive, "timestamp", request.timestamp)
+            .parseRequired(CantonTimestamp.fromProtoTimestamp, "timestamp", request.timestamp)
         )
         .leftMap(_.toString)
       result <- sequencer.snapshot(timestamp)
@@ -126,7 +126,7 @@ class GrpcSequencerAdministrationService(
           .setTrafficBalance(member, serial, totalTrafficBalance, sequencerClient)
           .leftWiden[CantonError]
       } yield SetTrafficBalanceResponse(
-        maxSequencingTimestamp = Some(highestMaxSequencingTimestamp.toProtoPrimitive)
+        maxSequencingTimestamp = Some(highestMaxSequencingTimestamp.toProtoTimestamp)
       )
     }
 

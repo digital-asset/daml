@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -24,8 +23,7 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
   ConfigurationEntry,
-  LedgerId,
-  LedgerOffset,
+  ParticipantOffset,
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -43,8 +41,6 @@ import scala.concurrent.Future
 
 final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends IndexService {
 
-  override def ledgerId: LedgerId = delegate.ledgerId
-
   override def listLfPackages()(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
@@ -56,26 +52,18 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     Timed.future(metrics.services.index.getLfArchive, delegate.getLfArchive(packageId))
 
   override def packageEntries(
-      startExclusive: Option[LedgerOffset.Absolute]
+      startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[domain.PackageEntry, NotUsed] =
     Timed.source(
       metrics.services.index.packageEntries,
       delegate.packageEntries(startExclusive),
     )
 
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[v2.LedgerConfiguration, NotUsed] =
-    Timed.source(
-      metrics.services.index.getLedgerConfiguration,
-      delegate.getLedgerConfiguration(),
-    )
-
-  override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
+  override def currentLedgerEnd(): Future[ParticipantOffset.Absolute] =
     Timed.future(metrics.services.index.currentLedgerEnd, delegate.currentLedgerEnd())
 
   override def getCompletions(
-      begin: domain.LedgerOffset,
+      begin: domain.ParticipantOffset,
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
@@ -85,8 +73,8 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     )
 
   override def transactions(
-      begin: domain.LedgerOffset,
-      endAt: Option[domain.LedgerOffset],
+      begin: domain.ParticipantOffset,
+      endAt: Option[domain.ParticipantOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
@@ -96,8 +84,8 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     )
 
   override def transactionTrees(
-      begin: domain.LedgerOffset,
-      endAt: Option[domain.LedgerOffset],
+      begin: domain.ParticipantOffset,
+      endAt: Option[domain.ParticipantOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
@@ -176,20 +164,20 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     Timed.future(metrics.services.index.listKnownParties, delegate.listKnownParties())
 
   override def partyEntries(
-      startExclusive: Option[LedgerOffset.Absolute]
+      startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Timed.source(metrics.services.index.partyEntries, delegate.partyEntries(startExclusive))
 
   override def lookupConfiguration()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+  ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
     Timed.future(metrics.services.index.lookupConfiguration, delegate.lookupConfiguration())
 
   override def configurationEntries(
-      startExclusive: Option[LedgerOffset.Absolute]
+      startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
+  ): Source[(ParticipantOffset.Absolute, ConfigurationEntry), NotUsed] =
     Timed.source(
       metrics.services.index.configurationEntries,
       delegate.configurationEntries(startExclusive),
@@ -206,8 +194,8 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     )
 
   override def getCompletions(
-      startExclusive: LedgerOffset,
-      endInclusive: LedgerOffset,
+      startExclusive: ParticipantOffset,
+      endInclusive: ParticipantOffset,
       applicationId: Ref.ApplicationId,
       parties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
@@ -240,7 +228,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)] =
+  ): Future[(ParticipantOffset.Absolute, ParticipantOffset.Absolute)] =
     Timed.future(metrics.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
 
   override def getEventsByContractId(
@@ -252,19 +240,20 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       delegate.getEventsByContractId(contractId, requestingParties),
     )
 
-  override def getEventsByContractKey(
-      contractKey: Value,
-      templateId: Ref.Identifier,
-      requestingParties: Set[Ref.Party],
-      endExclusiveSeqId: Option[Long],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
-    Timed.future(
-      metrics.services.index.getEventsByContractKey,
-      delegate.getEventsByContractKey(
-        contractKey,
-        templateId,
-        requestingParties,
-        endExclusiveSeqId,
-      ),
-    )
+  // TODO(i16065): Re-enable getEventsByContractKey tests
+//  override def getEventsByContractKey(
+//      contractKey: Value,
+//      templateId: Ref.Identifier,
+//      requestingParties: Set[Ref.Party],
+//      endExclusiveSeqId: Option[Long],
+//  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
+//    Timed.future(
+//      metrics.services.index.getEventsByContractKey,
+//      delegate.getEventsByContractKey(
+//        contractKey,
+//        templateId,
+//        requestingParties,
+//        endExclusiveSeqId,
+//      ),
+//    )
 }

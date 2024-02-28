@@ -268,9 +268,9 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         // will terminate eagerly. so we actually have to wait until the processes finished
         // in the background
         eventually() {
-          environment.sequencersX.running.toSet shouldBe Set(s1, s2)
-          environment.mediatorsX.running.toSet shouldBe Set(m1, m2)
-          environment.participantsX.running should contain.only(p1)
+          environment.sequencers.running.toSet shouldBe Set(s1, s2)
+          environment.mediators.running.toSet shouldBe Set(m1, m2)
+          environment.participants.running should contain.only(p1)
         }
       }
     }

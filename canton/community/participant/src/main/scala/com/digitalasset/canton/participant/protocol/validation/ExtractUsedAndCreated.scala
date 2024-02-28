@@ -87,7 +87,7 @@ object ExtractUsedAndCreated {
   )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[LfPartyId, Boolean]] = {
     topologySnapshot.hostedOn(parties, participantId).map { partyWithAttributes =>
       parties
-        .map(partyId => partyId -> partyWithAttributes.get(partyId).exists(_.permission.isActive))
+        .map(partyId => partyId -> partyWithAttributes.contains(partyId))
         .toMap
     }
   }

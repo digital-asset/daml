@@ -9,7 +9,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{
   ComponentHealthState,
   CompositeHealthComponent,
@@ -120,10 +119,10 @@ class SequencerAggregatorPekko(
   ): OrdinarySerializedEvent = {
     val (_, someElem) = elems.head1
 
-    // By the definition of `Bucket`, the contents, timestamp of signing key
+    // By the definition of `Bucket`, the contents
     // and the representative protocol version are the same
+    // The SequencedEventValidator ensures that the timestamp of signing key is always None.
     val content = someElem.signedEvent.content
-    val timestampOfSigningKey = someElem.signedEvent.timestampOfSigningKey
     val representativeProtocolVersion = someElem.signedEvent.representativeProtocolVersion
 
     // We don't want to force trace contexts to be propagated identically.
@@ -132,7 +131,7 @@ class SequencerAggregatorPekko(
 
     val mergedSigs = elems.flatMap { case (_, event) => event.signedEvent.signatures }.toSeq
     val mergedSignedEvent = SignedContent
-      .create(content, mergedSigs, timestampOfSigningKey, representativeProtocolVersion)
+      .create(content, mergedSigs, timestampOfSigningKey = None, representativeProtocolVersion)
       .valueOr(err =>
         ErrorUtil.invalidState(s"Failed to aggregate signatures on sequenced event: $err")
       )
@@ -187,7 +186,6 @@ class SequencerAggregatorPekko(
     override def bucketOf(event: OrdinarySerializedEvent): Bucket =
       Bucket(
         event.counter,
-        event.signedEvent.timestampOfSigningKey,
         // keep only the content hash instead of the content itself.
         // This will allow us to eventually request only signatures from some sequencers to save bandwidth
         SignedContent.hashContent(
@@ -241,7 +239,7 @@ class SequencerAggregatorPekko(
         .validatePekko(config.subscriptionFactory.create(exclusiveStart + 1L), prior, sequencerId)
       val source = subscription.source
         .buffer(bufferSize.value, OverflowStrategy.backpressure)
-        .mapConcat(_.unwrap match {
+        .mapConcat(_.value match {
           case Left(err) =>
             // Errors cannot be aggregated because they are specific to a particular sequencer or subscription.
             // So we log them here and do not propagate them.
@@ -282,14 +280,12 @@ object SequencerAggregatorPekko {
 
   private[SequencerAggregatorPekko] final case class Bucket(
       sequencerCounter: SequencerCounter,
-      timestampOfSigningKey: Option[CantonTimestamp],
       contentHash: Hash,
       representativeProtocolVersion: RepresentativeProtocolVersion[SignedContent.type],
   ) extends PrettyPrinting {
     override def pretty: Pretty[Bucket] =
       prettyOfClass(
         param("sequencer counter", _.sequencerCounter),
-        paramIfDefined("timestamp of signing key", _.timestampOfSigningKey),
         param("content hash", _.contentHash),
       )
   }

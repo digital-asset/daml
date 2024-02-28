@@ -6,8 +6,9 @@ package com.digitalasset.canton.http.util
 import java.util.UUID
 
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{CommandId, Party}
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.ledger.api.{v1 => lav1}
+import com.daml.ledger.api.v1.transaction_filter.{Filters}
+import com.daml.ledger.api.v2.transaction_filter.{TransactionFilter}
+import com.daml.ledger.api.{v1 as lav1}
 
 object ClientUtil {
   def uniqueId(): String = UUID.randomUUID.toString

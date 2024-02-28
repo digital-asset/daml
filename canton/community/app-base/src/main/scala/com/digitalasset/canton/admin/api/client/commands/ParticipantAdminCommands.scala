@@ -384,6 +384,7 @@ object ParticipantAdminCommands {
 
     final case class ExportAcs(
         parties: Set[PartyId],
+        partiesOffboarding: Boolean,
         filterDomainId: Option[DomainId],
         timestamp: Option[Instant],
         observer: StreamObserver[ExportAcsResponse],
@@ -415,6 +416,7 @@ object ParticipantAdminCommands {
               (source.toProtoPrimitive, targetDomain)
             },
             force = force,
+            partiesOffboarding = partiesOffboarding,
           )
         )
       }
@@ -734,11 +736,16 @@ object ParticipantAdminCommands {
       }
     }
 
-    final case class RegisterDomain(config: CDomainConnectionConfig)
+    final case class RegisterDomain(config: CDomainConnectionConfig, handshakeOnly: Boolean)
         extends Base[RegisterDomainRequest, RegisterDomainResponse, Unit] {
 
       override def createRequest(): Either[String, RegisterDomainRequest] =
-        Right(RegisterDomainRequest(add = Some(config.toProtoV30)))
+        Right(
+          RegisterDomainRequest(
+            add = Some(config.toProtoV30),
+            handshakeOnly = handshakeOnly,
+          )
+        )
 
       override def submitRequest(
           service: DomainConnectivityServiceStub,
@@ -974,7 +981,7 @@ object ParticipantAdminCommands {
             case Value.Absolute(value) => Right(value)
             case other => Left(s"Unable to convert ledger_end `$other` to absolute value")
           }
-        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoPrimitive), ledgerEnd)
+        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoTimestamp), ledgerEnd)
 
       override def submitRequest(
           service: PruningServiceStub,

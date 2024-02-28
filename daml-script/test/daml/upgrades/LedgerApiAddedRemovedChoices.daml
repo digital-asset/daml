@@ -1,0 +1,90 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module LedgerApiAddedRemovedChoices (main) where
+
+import UpgradeTestLib
+import qualified V1.AddedRemovedChoice as V1
+import qualified V2.AddedRemovedChoice as V2
+import DA.Text
+
+{- PACKAGE
+name: ledger-api-added-removed-choice-upgrades
+versions: 2
+-}
+
+{- MODULE
+package: ledger-api-added-removed-choice-upgrades
+contents: |
+  module AddedRemovedChoice where
+
+  template AddedRemovedChoiceTemplate
+    with
+      party : Party
+      newField : Optional Text       -- @V  2
+    where
+      signatory party
+
+      choice OldRemovedChoice : Text -- @V 1
+        controller party             -- @V 1
+        do pure "V1"                 -- @V 1
+
+      choice NewAddedChoice : Text   -- @V  2
+        controller party             -- @V  2
+        do pure "V2"                 -- @V  2
+-}
+
+main : Script ()
+main = tests
+  [ ("Succeeds explicitly calling a new V2 choice on a V1 contract", explicitNewV2ChoiceV1Contract)
+  , ("Succeeds implicitly calling a new V2 choice on a V1 contract", implicitNewV2ChoiceV1Contract)
+  , -- These cases should not be possible once upload time checks are implemented
+    ("Succeeds explicitly calling a removed V1 choice on a V2 contract", explicitRemovedV1ChoiceV2Contract)
+  , ("Fails implicitly calling a removed V1 choice on a V2 contract, as V2 is selected", implicitRemovedV1ChoiceV2Contract)
+  , ("Fails implicitly calling a removed V1 choice on a V1 contract, as V2 is selected", implicitRemovedV1ChoiceV1Contract)
+  ]
+
+genericUpgradeTest
+  : forall t2 t1 c2 r
+  . (Template t1, HasEnsure t1, Choice t2 c2 r)
+  => (Party -> t1)
+  -> c2
+  -> Bool
+  -> (Either SubmitError r -> Script ())
+  -> Script ()
+genericUpgradeTest makeV1Contract v2Choice explicitPackageIds handleRes = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (makeV1Contract a)
+  let cidV2 = coerceContractId @t1 @t2 cid
+  res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
+  handleRes res
+
+choiceTest : forall t2 t1 c2 r. (Template t1, HasEnsure t1, Choice t2 c2 r, Eq r, Show r) => (Party -> t1) -> c2 -> Bool -> r -> Script ()
+choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = genericUpgradeTest @t2 makeV1Contract v2Choice explicitPackageIds $ \res ->
+  case res of
+    Right returnValue -> returnValue === expectedResult
+    Left err -> assertFail $ "Expected " <> show expectedResult <> " but got " <> show err
+
+explicitNewV2ChoiceV1Contract : Script ()
+explicitNewV2ChoiceV1Contract = choiceTest @V2.AddedRemovedChoiceTemplate V1.AddedRemovedChoiceTemplate V2.NewAddedChoice True "V2"
+
+implicitNewV2ChoiceV1Contract : Script ()
+implicitNewV2ChoiceV1Contract = choiceTest @V2.AddedRemovedChoiceTemplate V1.AddedRemovedChoiceTemplate V2.NewAddedChoice False "V2"
+
+explicitRemovedV1ChoiceV2Contract : Script ()
+explicitRemovedV1ChoiceV2Contract = choiceTest @V1.AddedRemovedChoiceTemplate (`V2.AddedRemovedChoiceTemplate` None) V1.OldRemovedChoice True "V1"
+
+implicitRemovedV1ChoiceV2Contract : Script ()
+implicitRemovedV1ChoiceV2Contract =
+  genericUpgradeTest @V1.AddedRemovedChoiceTemplate (`V2.AddedRemovedChoiceTemplate` None) V1.OldRemovedChoice False $ \case
+    Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()
+    res -> assertFail $ "Expected unknown choice error, got " <> show res
+
+implicitRemovedV1ChoiceV1Contract : Script ()
+implicitRemovedV1ChoiceV1Contract =
+  genericUpgradeTest @V1.AddedRemovedChoiceTemplate V1.AddedRemovedChoiceTemplate V1.OldRemovedChoice False $ \case
+    Left (UnknownError msg) | "unknown choice OldRemovedChoice" `isInfixOf` msg -> pure ()
+    res -> assertFail $ "Expected unknown choice error, got " <> show res
+

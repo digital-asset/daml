@@ -52,12 +52,11 @@ final class ApiCommandSubmissionService(
     extends CommandSubmissionServiceGrpc.CommandSubmissionService
     with AutoCloseable
     with NamedLogging {
-  import ApiConversions.*
 
   private val validator = new SubmitRequestValidator(commandsValidator)
 
   override def submit(request: SubmitRequest): Future[SubmitResponse] = {
-    implicit val traceContext = getAnnotedCommandTraceContextV2(request.commands, telemetry)
+    implicit val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
     submitWithTraceContext(Traced(request))
   }
 
@@ -80,7 +79,7 @@ final class ApiCommandSubmissionService(
         .value(
           metrics.commands.validation,
           validator.validate(
-            req = toV1(requestWithSubmissionId),
+            req = requestWithSubmissionId,
             currentLedgerTime = currentLedgerTime(),
             currentUtcTime = currentUtcTime(),
             maxDeduplicationDuration = maxDeduplicationDuration(),

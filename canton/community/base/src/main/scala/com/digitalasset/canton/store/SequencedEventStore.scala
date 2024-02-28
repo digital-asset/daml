@@ -29,12 +29,7 @@ import com.digitalasset.canton.store.SequencedEventStore.*
 import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbType
 import com.digitalasset.canton.store.db.{DbSequencedEventStore, SequencerClientDiscriminator}
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
-import com.digitalasset.canton.tracing.{
-  HasTraceContext,
-  SerializableTraceContext,
-  TraceContext,
-  Traced,
-}
+import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -179,7 +174,7 @@ object SequencedEventStore {
     def toProtoV30: v30.PossiblyIgnoredSequencedEvent =
       v30.PossiblyIgnoredSequencedEvent(
         counter = counter.toProtoPrimitive,
-        timestamp = Some(timestamp.toProtoPrimitive),
+        timestamp = timestamp.toProtoPrimitive,
         traceContext = Some(SerializableTraceContext(traceContext).toProtoV30),
         isIgnored = isIgnored,
         underlying = underlying.map(_.toProtoV30),
@@ -232,19 +227,14 @@ object SequencedEventStore {
     )(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): Either[
-      Traced[EventWithErrors[SequencedEvent[DefaultOpenEnvelope]]],
-      IgnoredSequencedEvent[DefaultOpenEnvelope],
-    ] = {
+    ): WithOpeningErrors[IgnoredSequencedEvent[DefaultOpenEnvelope]] = {
       event.underlying match {
         case Some(signedEvent) =>
           SignedContent
             .openEnvelopes(signedEvent)(protocolVersion, hashOps)
-            .fold(
-              err => Left(Traced(err.copy(isIgnored = true))(event.traceContext)),
-              evt => Right(event.copy(underlying = Some(evt))(event.traceContext)),
-            )
-        case None => Right(event.asInstanceOf[IgnoredSequencedEvent[DefaultOpenEnvelope]])
+            .map(evt => event.copy(underlying = Some(evt))(event.traceContext))
+        case None =>
+          NoOpeningErrors(event.asInstanceOf[IgnoredSequencedEvent[DefaultOpenEnvelope]])
       }
     }
   }
@@ -284,21 +274,13 @@ object SequencedEventStore {
   }
 
   object OrdinarySequencedEvent {
-    def openEnvelopes(
-        event: OrdinarySequencedEvent[ClosedEnvelope]
-    )(
+    def openEnvelopes(event: OrdinarySequencedEvent[ClosedEnvelope])(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): Either[
-      Traced[EventWithErrors[SequencedEvent[DefaultOpenEnvelope]]],
-      OrdinarySequencedEvent[DefaultOpenEnvelope],
-    ] = {
-      val openSignedEventE =
-        SignedContent.openEnvelopes(event.signedEvent)(protocolVersion, hashOps)
-      openSignedEventE.fold(
-        err => Left(Traced(err)(event.traceContext)),
-        evt => Right(event.copy(signedEvent = evt)(event.traceContext)),
-      )
+    ): WithOpeningErrors[OrdinarySequencedEvent[DefaultOpenEnvelope]] = {
+      SignedContent
+        .openEnvelopes(event.signedEvent)(protocolVersion, hashOps)
+        .map(evt => event.copy(signedEvent = evt)(event.traceContext))
     }
   }
 
@@ -315,7 +297,7 @@ object SequencedEventStore {
     ): ParsingResult[PossiblyIgnoredProtocolEvent] = {
       val v30.PossiblyIgnoredSequencedEvent(
         counter,
-        timestampPO,
+        timestampP,
         traceContextPO,
         isIgnored,
         underlyingPO,
@@ -331,9 +313,7 @@ object SequencedEventStore {
               _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, protocolVersion))
             )
         )
-        timestamp <- ProtoConverter
-          .required("timestamp", timestampPO)
-          .flatMap(CantonTimestamp.fromProtoPrimitive)
+        timestamp <- CantonTimestamp.fromProtoPrimitive(timestampP)
         traceContext <- ProtoConverter
           .required("trace_context", traceContextPO)
           .flatMap(SerializableTraceContext.fromProtoV30)
@@ -356,19 +336,14 @@ object SequencedEventStore {
       } yield possiblyIgnoredSequencedEvent
     }
 
-    def openEnvelopes(
-        event: PossiblyIgnoredSequencedEvent[ClosedEnvelope]
-    )(
+    def openEnvelopes(event: PossiblyIgnoredSequencedEvent[ClosedEnvelope])(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
-    ): Either[
-      Traced[EventWithErrors[SequencedEvent[OpenEnvelope[ProtocolMessage]]]],
-      PossiblyIgnoredSequencedEvent[OpenEnvelope[ProtocolMessage]],
-    ] =
+    ): WithOpeningErrors[PossiblyIgnoredSequencedEvent[OpenEnvelope[ProtocolMessage]]] =
       event match {
-        case evt: OrdinarySequencedEvent[_] =>
+        case evt: OrdinarySequencedEvent[ClosedEnvelope] =>
           OrdinarySequencedEvent.openEnvelopes(evt)(protocolVersion, hashOps)
-        case evt: IgnoredSequencedEvent[_] =>
+        case evt: IgnoredSequencedEvent[ClosedEnvelope] =>
           IgnoredSequencedEvent.openEnvelopes(evt)(protocolVersion, hashOps)
       }
   }

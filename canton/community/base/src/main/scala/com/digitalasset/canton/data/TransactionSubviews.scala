@@ -10,7 +10,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, ViewHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 
 /** Abstraction over the subviews of a [[TransactionView]]
   * Implementation of [[TransactionSubviews]] where the subviews are a merkle tree
@@ -100,10 +100,10 @@ object TransactionSubviews {
       context: (HashOps, ConfirmationPolicy, ProtocolVersion),
       subviewsPO: Option[v30.MerkleSeq],
   ): ParsingResult[TransactionSubviews] = {
-    val (hashOps, _, _) = context
+    val (hashOps, _, expectedProtocolVersion) = context
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
-      tvParser = TransactionView.fromByteStringLegacy(ProtoVersion(30))(context)
+      tvParser = TransactionView.fromByteString(expectedProtocolVersion)(context)
       subviews <- MerkleSeq.fromProtoV30((hashOps, tvParser), subviewsP)
     } yield TransactionSubviews(subviews)
   }

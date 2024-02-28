@@ -7,7 +7,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequired}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 
@@ -24,7 +24,7 @@ final case class SequencerMemberStatus(
   def toProtoV30: v30.SequencerMemberStatus =
     v30.SequencerMemberStatus(
       member.toProtoPrimitive,
-      Some(registeredAt.toProtoPrimitive),
+      registeredAt.toProtoPrimitive,
       lastAcknowledged.map(_.toProtoPrimitive),
       enabled,
     )
@@ -141,8 +141,8 @@ final case class SequencerPruningStatus(
 
   def toProtoV30: v30.SequencerPruningStatus =
     v30.SequencerPruningStatus(
-      earliestEventTimestamp = Some(lowerBound.toProtoPrimitive),
-      now = Some(now.toProtoPrimitive),
+      earliestEventTimestamp = lowerBound.toProtoPrimitive,
+      now = now.toProtoPrimitive,
       members = members.map(_.toProtoV30),
     )
 
@@ -160,11 +160,7 @@ object SequencerMemberStatus {
   ): ParsingResult[SequencerMemberStatus] =
     for {
       member <- Member.fromProtoPrimitive(memberStatusP.member, "member")
-      registeredAt <- parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "registeredAt",
-        memberStatusP.registeredAt,
-      )
+      registeredAt <- CantonTimestamp.fromProtoPrimitive(memberStatusP.registeredAt)
       lastAcknowledgedO <- memberStatusP.lastAcknowledged.traverse(
         CantonTimestamp.fromProtoPrimitive
       )
@@ -181,12 +177,8 @@ object SequencerPruningStatus {
       statusP: v30.SequencerPruningStatus
   ): ParsingResult[SequencerPruningStatus] =
     for {
-      earliestEventTimestamp <- parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "earliestEventTimestamp",
-        statusP.earliestEventTimestamp,
-      )
-      now <- parseRequired(CantonTimestamp.fromProtoPrimitive, "now", statusP.now)
+      earliestEventTimestamp <- CantonTimestamp.fromProtoPrimitive(statusP.earliestEventTimestamp)
+      now <- CantonTimestamp.fromProtoPrimitive(statusP.now)
       members <- statusP.members.traverse(SequencerMemberStatus.fromProtoV30)
     } yield SequencerPruningStatus(earliestEventTimestamp, now, members)
 }

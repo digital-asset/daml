@@ -11,7 +11,6 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.*
-import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.grpc.GrpcHealthService
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -109,7 +108,6 @@ object ApiServices {
   ) extends ResourceOwner[ApiServices]
       with NamedLogging {
 
-    private val identityService: IdentityProvider = indexService
     private val packagesService: IndexPackagesService = indexService
     private val activeContractsService: IndexActiveContractsService = indexService
     private val transactionsService: IndexTransactionsService = indexService
@@ -135,7 +133,7 @@ object ApiServices {
         )
         services <- Resource(
           Future(
-            createServices(identityService.ledgerId, currentLedgerConfiguration, checkOverloaded)(
+            createServices(currentLedgerConfiguration, checkOverloaded)(
               servicesExecutionContext
             )
           )
@@ -151,7 +149,6 @@ object ApiServices {
     }
 
     private def createServices(
-        ledgerId: LedgerId,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         checkOverloaded: TraceContext => Option[state.SubmissionResult],
     )(implicit
@@ -160,8 +157,7 @@ object ApiServices {
 
       val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled)
       val transactionServiceRequestValidator =
-        new TransactionServiceRequestValidator(
-          ledgerId = ledgerId,
+        new UpdateServiceRequestValidator(
           partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties),
           transactionFilterValidator = transactionFilterValidator,
         )
@@ -224,7 +220,6 @@ object ApiServices {
 
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
-          ledgerId,
           ledgerConfigurationSubscription,
           ledgerApiUpdateService,
           checkOverloaded,
@@ -284,7 +279,6 @@ object ApiServices {
     }
 
     private def intitializeWriteServiceBackedApiServices(
-        ledgerId: LedgerId,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         ledgerApiV2Enabled: Option[ApiUpdateService],
         checkOverloaded: TraceContext => Option[state.SubmissionResult],
@@ -317,7 +311,6 @@ object ApiServices {
         val validateUpgradingPackageResolutions =
           ValidateUpgradingPackageResolutions(packageMetadataStore)
         val commandsValidator = CommandsValidator(
-          ledgerId = ledgerId,
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           upgradingEnabled = upgradingEnabled,
         )

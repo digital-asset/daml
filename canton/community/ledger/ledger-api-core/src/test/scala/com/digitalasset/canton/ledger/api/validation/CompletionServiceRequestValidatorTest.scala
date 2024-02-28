@@ -4,11 +4,9 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.command_completion_service.{
-  CompletionStreamRequest as GrpcCompletionStreamRequest
-}
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
@@ -22,16 +20,15 @@ class CompletionServiceRequestValidatorTest
     with MockitoSugar {
   private implicit val noLogging: ContextualizedErrorLogger = NoLogging
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
-    "",
     expectedApplicationId,
     List(party),
-    Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
+    Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
   )
   private val completionReq = CompletionStreamRequest(
     None,
     Ref.ApplicationId.assertFromString(expectedApplicationId),
     List(party).toSet,
-    Some(domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
+    Some(domain.ParticipantOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
   )
 
   private val validator = new CompletionServiceRequestValidator(
@@ -42,9 +39,9 @@ class CompletionServiceRequestValidatorTest
 
     "validating gRPC completion requests" should {
 
-      "accept requests with empty ledger ID" in {
+      "accept plain requests" in {
         inside(
-          validator.validateGrpcCompletionStreamRequest(grpcCompletionReq.withLedgerId(""))
+          validator.validateGrpcCompletionStreamRequest(grpcCompletionReq)
         ) { case Right(req) =>
           req shouldBe completionReq.copy(ledgerId = None)
         }
@@ -65,8 +62,10 @@ class CompletionServiceRequestValidatorTest
       "return the correct error on unknown begin boundary" in {
         requestMustFailWith(
           request = validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withOffset(
-              LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
+            grpcCompletionReq.withBeginExclusive(
+              ParticipantOffset(
+                ParticipantOffset.Value.Boundary(ParticipantBoundary.Unrecognized(7))
+              )
             )
           ),
           code = INVALID_ARGUMENT,
@@ -87,9 +86,9 @@ class CompletionServiceRequestValidatorTest
 
     "validate domain completion requests" should {
 
-      "accept requests with empty ledger ID" in {
+      "accept simple requests" in {
         inside(
-          validator.validateCompletionStreamRequest(completionReq.copy(ledgerId = None), ledgerEnd)
+          validator.validateCompletionStreamRequest(completionReq, ledgerEnd)
         ) { case Right(req) =>
           req shouldBe completionReq.copy(ledgerId = None)
         }
@@ -114,7 +113,7 @@ class CompletionServiceRequestValidatorTest
           request = validator.validateCompletionStreamRequest(
             completionReq.copy(offset =
               Some(
-                domain.LedgerOffset.Absolute(
+                domain.ParticipantOffset.Absolute(
                   Ref.LedgerString.assertFromString((ledgerEnd.value.toInt + 1).toString)
                 )
               )

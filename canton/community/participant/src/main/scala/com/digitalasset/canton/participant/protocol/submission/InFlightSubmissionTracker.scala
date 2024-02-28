@@ -11,6 +11,7 @@ import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
+import com.daml.error.utils.DecodedCantonError
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -27,6 +28,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.TimestampedEvent.TimelyRejectionEventId
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
 import com.digitalasset.canton.protocol.RootHash
+import com.digitalasset.canton.sequencing.protocol.SequencerErrors.AggregateSubmissionAlreadySent
 import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
@@ -187,13 +189,23 @@ class InFlightSubmissionTracker(
     val domainId = deliverError.domainId
     val messageId = deliverError.messageId
 
-    for {
-      inFlightO <- store.value.lookupSomeMessageId(domainId, messageId)
-      toUpdateO = updatedTrackingData(inFlightO)
-      _ <- toUpdateO.traverse_ { case (changeIdHash, newTrackingData) =>
-        store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData)
-      }
-    } yield ()
+    // Ignore already sequenced errors here to deal with submission request amplification
+    val isAlreadySequencedError = DecodedCantonError
+      .fromGrpcStatus(deliverError.reason)
+      .exists(_.code.id == AggregateSubmissionAlreadySent.id)
+    if (isAlreadySequencedError) {
+      logger.debug(
+        s"Ignoring deliver error $deliverError for $domainId and $messageId because the message was already sequenced."
+      )
+      Future.successful(())
+    } else
+      for {
+        inFlightO <- store.value.lookupSomeMessageId(domainId, messageId)
+        toUpdateO = updatedTrackingData(inFlightO)
+        _ <- toUpdateO.traverse_ { case (changeIdHash, newTrackingData) =>
+          store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData)
+        }
+      } yield ()
   }
 
   /** Marks the timestamp as having been observed on the domain. */

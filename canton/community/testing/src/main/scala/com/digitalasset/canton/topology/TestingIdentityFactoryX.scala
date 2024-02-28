@@ -87,7 +87,7 @@ final case class TestingTopologyX(
     mediatorGroups: Set[MediatorGroup] = Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        Seq(DefaultTestIdentities.mediatorIdX),
+        NonEmpty.mk(Seq, DefaultTestIdentities.mediatorIdX),
         Seq(),
         PositiveInt.one,
       )
@@ -233,7 +233,7 @@ class TestingIdentityFactoryX(
     val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
 
     val domainMembers =
-      (topology.sequencerGroup.active.forgetNE ++ topology.sequencerGroup.passive ++ topology.mediators.toSeq)
+      (topology.sequencerGroup.active.forgetNE ++ topology.sequencerGroup.passive ++ topology.mediators)
         .flatMap(m => genKeyCollection(m))
 
     val mediatorOnboarding = topology.mediatorGroups.map(group =>
@@ -366,7 +366,7 @@ class TestingIdentityFactoryX(
             None,
             threshold = PositiveInt.one,
             participantsForParty.map { case (id, permission) =>
-              HostingParticipant(id, permission.tryToX)
+              HostingParticipant(id, permission)
             }.toSeq,
             groupAddressing = false,
           )
@@ -405,7 +405,7 @@ class TestingIdentityFactoryX(
         ParticipantDomainPermissionX(
           domainId,
           participantId,
-          attributes.permission.tryToX,
+          attributes.permission,
           limits = None,
           loginAfter = None,
         )
@@ -520,7 +520,7 @@ class TestingOwnerWithKeysX(
       DomainParametersStateX(
         DomainId(uid),
         defaultDomainParameters
-          .tryUpdate(participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
+          .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
       ),
       namespaceKey,
     )
@@ -529,7 +529,7 @@ class TestingOwnerWithKeysX(
         DomainId(uid),
         defaultDomainParameters
           .tryUpdate(
-            participantResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
+            confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
             topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(100),
           ),
       ),
@@ -571,7 +571,7 @@ class TestingOwnerWithKeysX(
       ParticipantDomainPermissionX(
         domainId,
         participant1,
-        ParticipantPermissionX.Observation,
+        ParticipantPermission.Observation,
         None,
         None,
       )
@@ -581,7 +581,7 @@ class TestingOwnerWithKeysX(
       ParticipantDomainPermissionX(
         domainId,
         participant2,
-        ParticipantPermissionX.Confirmation,
+        ParticipantPermission.Confirmation,
         None,
         None,
       )
@@ -592,7 +592,7 @@ class TestingOwnerWithKeysX(
         PartyId(UniqueIdentifier(Identifier.tryCreate("one"), Namespace(key1.id))),
         None,
         PositiveInt.one,
-        Seq(HostingParticipant(participant1, ParticipantPermissionX.Submission)),
+        Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
         groupAddressing = false,
       )
     )

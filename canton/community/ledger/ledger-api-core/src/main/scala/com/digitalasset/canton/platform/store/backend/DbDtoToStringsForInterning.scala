@@ -18,10 +18,10 @@ object DbDtoToStringsForInterning {
   private def templateIdsOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
       case dbDto: DbDto.EventExercise =>
-        dbDto.template_id.iterator
+        Iterator(dbDto.template_id)
 
       case dbDto: DbDto.EventCreate =>
-        dbDto.template_id.iterator
+        Iterator(dbDto.template_id)
 
       case dbDto: DbDto.EventUnassign =>
         Iterator(dbDto.template_id)
@@ -44,17 +44,17 @@ object DbDtoToStringsForInterning {
       case dbDto: DbDto.EventExercise =>
         dbDto.submitters.getOrElse(Set.empty).iterator ++
           dbDto.tree_event_witnesses.iterator ++
-          dbDto.exercise_actors.getOrElse(Set.empty).iterator ++
+          dbDto.exercise_actors.iterator ++
           dbDto.flat_event_witnesses.iterator
 
       case dbDto: DbDto.EventCreate =>
         dbDto.submitters.getOrElse(Set.empty).iterator ++
           dbDto.tree_event_witnesses.iterator ++
           dbDto.flat_event_witnesses.iterator ++
-          dbDto.create_observers.getOrElse(Set.empty).iterator ++
+          dbDto.create_observers.iterator ++
           // dbDto also contains key_maintainers. We don't internize these
           // as they're already included in the signatories set
-          dbDto.create_signatories.getOrElse(Set.empty).iterator
+          dbDto.create_signatories.iterator
 
       case dbDto: DbDto.EventUnassign =>
         dbDto.submitter.iterator ++

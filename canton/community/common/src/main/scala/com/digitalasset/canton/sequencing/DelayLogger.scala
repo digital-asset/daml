@@ -31,7 +31,7 @@ class DelayLogger(
       implicit val traceContext: TraceContext = event.traceContext
       if (logger.underlying.isDebugEnabled) {
         signedEvent.content match {
-          case Deliver(counter, ts, _, _, _) =>
+          case Deliver(counter, ts, _, _, _, _) =>
             val now = clock.now
             val delta = now.toEpochMilli - ts.toEpochMilli
             gauge.updateValue(delta)

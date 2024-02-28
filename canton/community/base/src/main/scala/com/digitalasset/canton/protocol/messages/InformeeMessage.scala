@@ -34,7 +34,7 @@ case class InformeeMessage(
     override val submittingParticipantSignature: Signature,
 )(
     protocolVersion: ProtocolVersion
-) extends MediatorRequest
+) extends MediatorConfirmationRequest
     // By default, we use ProtoBuf for serialization.
     // Serializable classes that have a corresponding Protobuf message should inherit from this trait to inherit common code and naming conventions.
     // If the corresponding Protobuf message of a class has multiple versions (e.g. `InformeeMessage`),
@@ -61,12 +61,12 @@ case class InformeeMessage(
       : Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
     fullInformeeTree.informeesAndThresholdByViewPosition
 
-  override def createMediatorResult(
+  override def createConfirmationResult(
       requestId: RequestId,
       verdict: Verdict,
       recipientParties: Set[LfPartyId],
-  ): TransactionResultMessage =
-    TransactionResultMessage(
+  ): ConfirmationResultMessage =
+    ConfirmationResultMessage(
       requestId,
       verdict,
       fullInformeeTree.tree.rootHash,

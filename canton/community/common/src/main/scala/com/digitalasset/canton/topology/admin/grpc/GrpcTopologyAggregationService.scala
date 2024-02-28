@@ -42,7 +42,7 @@ abstract class GrpcTopologyAggregationServiceCommon[
       traceContext: TraceContext
   ): EitherT[Future, CantonError, List[(DomainId, TopologySnapshotLoader)]] = {
     for {
-      asOfO <- wrapErr(asOf.traverse(CantonTimestamp.fromProtoPrimitive))
+      asOfO <- wrapErr(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
       stores.collect {
         case store if store.storeId.filterName.startsWith(filterStore) =>
@@ -131,7 +131,7 @@ abstract class GrpcTopologyAggregationServiceCommon[
                 domains = domains.map { case (domainId, permission) =>
                   v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions(
                     domain = domainId.toProtoPrimitive,
-                    permission = permission.toProtoEnum,
+                    permission = permission.toProtoV30,
                   )
                 }.toSeq,
               )

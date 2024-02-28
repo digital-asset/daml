@@ -25,7 +25,7 @@ object DbType {
   // incrementing a value in a row." - from http://www.h2database.com/html/advanced.html
   object H2Database
       extends DbType(
-        "h2database",
+        "h2",
         "org.h2.Driver",
         supportsParallelWrites = false,
         supportsAsynchronousCommits = false,

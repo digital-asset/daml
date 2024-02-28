@@ -91,9 +91,9 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     when(environment.testingConfig).thenReturn(
       TestingConfigInternal(initializeGlobalOpenTelemetry = false)
     )
-    when(environment.participantsX).thenReturn(participants)
-    when(environment.sequencersX).thenReturn(sequencersX)
-    when(environment.mediatorsX).thenReturn(mediatorsX)
+    when(environment.participants).thenReturn(participants)
+    when(environment.sequencers).thenReturn(sequencersX)
+    when(environment.mediators).thenReturn(mediatorsX)
     when(environment.simClock).thenReturn(None)
     when(environment.loggerFactory).thenReturn(loggerFactory)
     when(environment.configuredOpenTelemetry).thenReturn(

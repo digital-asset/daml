@@ -40,7 +40,7 @@ steps:
 
   - bash: ./fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+    condition: and(succeeded(), eq('${{parameters.name}}', 'Linux-intel'))
 
   - bash: |
       set -euo pipefail
@@ -70,8 +70,8 @@ steps:
   - ${{ if ne(parameters.name, 'm1') }}:
     - template: publish-platform-independence-dar.yml
       parameters:
-        platform: '${{parameters.name}}'
-        is_release: '${{parameters.is_release}}'
+        platform: ${{parameters.name}}
+        is_release: ${{parameters.is_release}}
 
   - task: PublishBuildArtifacts@1
     condition: and(succeededOrFailed(),
@@ -107,8 +107,9 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq('${{parameters.scala_version}}', ''),
+                   eq('${{parameters.name}}', 'linux-intel'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'),
-                   in('${{parameters.name}}', 'linux', 'linux-scala-2.12'))
+                   in('${{parameters.name}}', 'linux-intel', 'linux-scala-2.12'))
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib

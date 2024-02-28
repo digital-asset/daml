@@ -1324,7 +1324,10 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
   def sign(str: String): Signature = {
     val hash =
-      pureCryptoApi.build(HashPurpose.TransferResultSignature).addWithoutLengthPrefix(str).finish()
+      pureCryptoApi
+        .build(TestHash.testHashPurpose)
+        .addWithoutLengthPrefix(str)
+        .finish()
     Await.result(
       privateCrypto
         .sign(hash, sequencerKey)
@@ -1414,7 +1417,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       creatingTransactionId: TransactionId = transactionId1,
       contract: SerializableContract = contract,
       transferOutGlobalOffset: Option[GlobalOffset] = None,
-  ) =
+  ): Future[TransferData] =
     mkTransferDataForDomain(
       transferId,
       sourceMediator,
@@ -1431,7 +1434,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
       val mediatorMessage =
         transferData.transferOutRequest.tree.mediatorMessage(Signature.noSignature)
-      val result = mediatorMessage.createMediatorResult(
+      val result = mediatorMessage.createConfirmationResult(
         requestId,
         Verdict.Approve(BaseTest.testedProtocolVersion),
         mediatorMessage.allInformees,
@@ -1444,19 +1447,19 @@ object TransferStoreTest extends EitherValues with NoTracing {
         )
       val batch =
         Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
-      val deliver =
-        Deliver.create(
-          SequencerCounter(1),
-          CantonTimestamp.ofEpochMilli(10),
-          transferData.sourceDomain.unwrap,
-          Some(MessageId.tryCreate("1")),
-          batch,
-          BaseTest.testedProtocolVersion,
-        )
+      val deliver = Deliver.create(
+        SequencerCounter(1),
+        CantonTimestamp.ofEpochMilli(10),
+        transferData.sourceDomain.unwrap,
+        Some(MessageId.tryCreate("1")),
+        batch,
+        Some(transferData.transferOutTimestamp),
+        BaseTest.testedProtocolVersion,
+      )
       SignedContent(
         deliver,
         sign("TransferOutResult-sequencer"),
-        Some(transferData.transferOutTimestamp),
+        None,
         BaseTest.testedProtocolVersion,
       )
     }

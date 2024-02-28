@@ -13,7 +13,7 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestId, RootHash}
+import com.digitalasset.canton.protocol.{Malformed, RequestId, RootHash}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.util.ErrorUtil
@@ -33,7 +33,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
     */
   def requestId: RequestId
 
-  def request: MediatorRequest
+  def request: MediatorConfirmationRequest
 
   /** The sequencer timestamp of the most recent message that affected this [[ResponseAggregator]]
     */
@@ -45,7 +45,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
     */
   def validateAndProgress(
       responseTimestamp: CantonTimestamp,
-      response: MediatorResponse,
+      response: ConfirmationResponse,
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: NamedLoggingContext,
@@ -96,7 +96,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               else {
                 MediatorError.MalformedMessage
                   .Reject(
-                    s"Received a mediator response at $responseTimestamp by $sender for request $requestId with unexpected confirming parties $unexpectedConfirmingParties. Discarding response..."
+                    s"Received a confirmation response at $responseTimestamp by $sender for request $requestId with unexpected confirming parties $unexpectedConfirmingParties. Discarding response..."
                   )
                   .report()
                 OptionT.none[Future, Unit]
@@ -119,7 +119,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               else {
                 MediatorError.MalformedMessage
                   .Reject(
-                    s"Received an unauthorized mediator response at $responseTimestamp by $sender for request $requestId on behalf of $unauthorizedConfirmingParties. Discarding response..."
+                    s"Received an unauthorized confirmation response at $responseTimestamp by $sender for request $requestId on behalf of $unauthorizedConfirmingParties. Discarding response..."
                   )
                   .report()
                 OptionT.none[Future, Unit]
@@ -132,7 +132,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
         if (request.rootHash == rootHash) Some(())
         else {
           val cause =
-            show"Received a mediator response at $responseTimestamp by $sender for request $requestId with an invalid root hash $rootHash instead of ${request.rootHash}. Discarding response..."
+            show"Received a confirmation response at $responseTimestamp by $sender for request $requestId with an invalid root hash $rootHash instead of ${request.rootHash}. Discarding response..."
           val alarm = MediatorError.MalformedMessage.Reject(cause)
           alarm.report()
 
@@ -143,7 +143,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
       viewKeysAndParties <- {
         viewKeyO match {
           case None =>
-            // If no view key is given, the local verdict is Malformed and confirming parties is empty by the invariants of MediatorResponse.
+            // If no view key is given, the local verdict is Malformed and confirming parties is empty by the invariants of ConfirmationResponse.
             // We treat this as a rejection for all parties hosted by the participant.
             localVerdict match {
               case malformed: Malformed =>
@@ -178,7 +178,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               informeesAndThreshold <- OptionT.fromOption[Future](
                 ViewKey[VKEY].informeesAndThresholdByKey(request).get(viewKey).orElse {
                   val cause =
-                    s"Received a mediator response at $responseTimestamp by $sender for request $requestId with an unknown view position $viewKey. Discarding response..."
+                    s"Received a confirmation response at $responseTimestamp by $sender for request $requestId with an unknown view position $viewKey. Discarding response..."
                   val alarm = MediatorError.MalformedMessage.Reject(cause)
                   alarm.report()
 
@@ -202,10 +202,10 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 trait ViewKey[VKEY] extends Pretty[VKEY] with Product with Serializable {
   def name: String
 
-  def keyOfResponse(response: MediatorResponse): Option[VKEY]
+  def keyOfResponse(response: ConfirmationResponse): Option[VKEY]
 
   def informeesAndThresholdByKey(
-      request: MediatorRequest
+      request: MediatorConfirmationRequest
   ): Map[VKEY, (Set[Informee], NonNegativeInt)]
 }
 object ViewKey {
@@ -214,11 +214,11 @@ object ViewKey {
   implicit case object ViewPositionKey extends ViewKey[ViewPosition] {
     override def name: String = "view position"
 
-    override def keyOfResponse(response: MediatorResponse): Option[ViewPosition] =
+    override def keyOfResponse(response: ConfirmationResponse): Option[ViewPosition] =
       response.viewPositionO
 
     override def informeesAndThresholdByKey(
-        request: MediatorRequest
+        request: MediatorConfirmationRequest
     ): Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
       request.informeesAndThresholdByViewPosition
 

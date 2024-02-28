@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
-import com.digitalasset.canton.crypto.{GeneratorsCrypto, HashPurpose, Salt, TestHash}
+import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, TestHash}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
   DeliveredTransferOutResult,
@@ -151,7 +151,10 @@ final class GeneratorsTransferData(
         SignedProtocolMessage.from(
           result,
           protocolVersion,
-          GeneratorsCrypto.sign("TransferOutResult-mediator", HashPurpose.TransferResultSignature),
+          GeneratorsCrypto.sign(
+            "TransferOutResult-mediator",
+            TestHash.testHashPurpose,
+          ),
         )
 
       recipients <- recipientsArb.arbitrary
@@ -163,7 +166,7 @@ final class GeneratorsTransferData(
     } yield DeliveredTransferOutResult {
       SignedContent(
         deliver,
-        sign("TransferOutResult-sequencer", HashPurpose.TransferResultSignature),
+        sign("TransferOutResult-sequencer", TestHash.testHashPurpose),
         Some(transferOutTimestamp),
         protocolVersion,
       )

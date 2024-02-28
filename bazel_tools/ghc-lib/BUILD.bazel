@@ -21,7 +21,7 @@ sh_binaries(
         "@cabal_win//:tools",
         "@dadew_ghc_lib_deps//:tools",
         "@dadew_ghc_lib_deps_python//:tools",
-        "@ghc_865_win//:tools",
+        "@ghc_win//:tools",
     ],
 ) if is_windows else None
 

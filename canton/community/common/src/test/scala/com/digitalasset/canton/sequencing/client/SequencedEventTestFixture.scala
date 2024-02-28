@@ -135,7 +135,6 @@ class SequencedEventTestFixture(
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl = {
     new SequencedEventValidatorImpl(
       unauthenticated = false,
-      optimistic = false,
       defaultDomainId,
       testedProtocolVersion,
       syncCryptoApi,
@@ -150,31 +149,28 @@ class SequencedEventTestFixture(
       serializedOverride: Option[ByteString] = None,
       counter: Long = updatedCounter,
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestamp: Option[CantonTimestamp] = None,
   ): Future[OrdinarySerializedEvent] = {
     import cats.syntax.option.*
     val message = {
       val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
       InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     }
+    val envelope = ClosedEnvelope.create(
+      serializedOverride.getOrElse(
+        EnvelopeContent.tryCreate(message, testedProtocolVersion).toByteString
+      ),
+      Recipients.cc(subscriberId),
+      Seq.empty,
+      testedProtocolVersion,
+    )
     val deliver: Deliver[ClosedEnvelope] = Deliver.create[ClosedEnvelope](
       SequencerCounter(counter),
       timestamp,
       domainId,
       MessageId.tryCreate("test").some,
-      Batch(
-        List(
-          ClosedEnvelope.create(
-            serializedOverride.getOrElse(
-              EnvelopeContent.tryCreate(message, testedProtocolVersion).toByteString
-            ),
-            Recipients.cc(subscriberId),
-            Seq.empty,
-            testedProtocolVersion,
-          )
-        ),
-        testedProtocolVersion,
-      ),
+      Batch(List(envelope), testedProtocolVersion),
+      topologyTimestamp,
       testedProtocolVersion,
     )
 
@@ -183,11 +179,9 @@ class SequencedEventTestFixture(
         .map(Future.successful)
         .getOrElse(sign(deliver.getCryptographicEvidence, deliver.timestamp))
     } yield OrdinarySequencedEvent(
-      SignedContent(deliver, sig, timestampOfSigningKey, testedProtocolVersion),
+      SignedContent(deliver, sig, None, testedProtocolVersion),
       None,
-    )(
-      traceContext
-    )
+    )(traceContext)
   }
 
   def createEventWithCounterAndTs(
@@ -195,7 +189,7 @@ class SequencedEventTestFixture(
       timestamp: CantonTimestamp,
       customSerialization: Option[ByteString] = None,
       messageIdO: Option[MessageId] = None,
-      timestampOfSigningKey: Option[CantonTimestamp] = None,
+      topologyTimestampO: Option[CantonTimestamp] = None,
   )(implicit executionContext: ExecutionContext): Future[OrdinarySerializedEvent] = {
     val event =
       SequencerTestUtils.mockDeliverClosedEnvelope(
@@ -203,6 +197,7 @@ class SequencedEventTestFixture(
         timestamp = timestamp,
         deserializedFrom = customSerialization,
         messageId = messageIdO,
+        topologyTimestampO = topologyTimestampO,
       )
     for {
       signature <- sign(
@@ -210,7 +205,7 @@ class SequencedEventTestFixture(
         event.timestamp,
       )
     } yield OrdinarySequencedEvent(
-      SignedContent(event, signature, timestampOfSigningKey, testedProtocolVersion),
+      SignedContent(event, signature, None, testedProtocolVersion),
       None,
     )(traceContext)
   }

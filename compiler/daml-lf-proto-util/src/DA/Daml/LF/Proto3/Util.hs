@@ -58,8 +58,6 @@ instance EitherLike TL.Text Int32 P.Expr_StructUpdField
 instance EitherLike TL.Text Int32 P.Expr_VariantConVariantCon
 instance EitherLike TL.Text Int32 P.FieldWithExprField
 instance EitherLike TL.Text Int32 P.FieldWithTypeField
-instance EitherLike TL.Text Int32 P.KeyExpr_ProjectionField
-instance EitherLike TL.Text Int32 P.KeyExpr_RecordFieldField
 instance EitherLike TL.Text Int32 P.TemplateChoiceName
 instance EitherLike TL.Text Int32 P.TemplateChoiceSelfBinder
 instance EitherLike TL.Text Int32 P.Type_VarVar

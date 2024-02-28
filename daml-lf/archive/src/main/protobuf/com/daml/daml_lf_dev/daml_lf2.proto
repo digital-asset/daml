@@ -1536,47 +1536,6 @@ message TemplateChoice {
   Location location = 8;
 }
 
-// we restrict key expressions to records of projections, much like SQL
-message KeyExpr {
-  message Projection {
-    Type.Con tycon = 1; // Always fully applied
-
-    oneof field {
-      // *Must be a valid identifier*
-      string field_str = 2; // *Available in version < 1.7*
-
-      // *Must be a valid interned identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.7*
-    }
-  }
-
-  // note that the projection is always referring to the template parameter.
-  message Projections {
-    repeated Projection projections = 2;
-  }
-
-  message RecordField {
-    oneof field {
-      // *Must be a valid identifier*
-      string field_str = 1; // *Available in version < 1.7*
-
-      // *Must be a valid identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.7*
-    }
-    KeyExpr expr = 2;
-  }
-
-  message Record {
-    Type.Con tycon = 1; // Always fully applied
-    repeated RecordField fields = 2;
-  }
-
-  oneof Sum {
-    Projections projections = 1;
-    Record record = 2;
-  }
-}
-
   // Contents of an interface instance.
   // *Available in versions >= 1.15*
 message InterfaceInstanceBody {
@@ -1595,13 +1554,7 @@ message DefTemplate {
 
   message DefKey {
     Type type = 1;
-    // NOTE(MH): The first version of contract keys had syntactic
-    // restrictions that key expression had to be "simple". We lifted these
-    // restrictions later and allowed arbitrarily complext key expressions.
-    oneof key_expr {
-      KeyExpr key = 2;
-      Expr complex_key = 4;
-    }
+    Expr key_expr = 4;
     Expr maintainers = 3; // a function from the key type to [Party]
   }
 

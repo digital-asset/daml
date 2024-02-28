@@ -411,7 +411,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       """This error indicates that the transaction is referring to contracts whose domain is not currently known."""
     )
     @Resolution(
-      "Ensure all transfer operations on contracts used by the transaction have completed."
+      "Ensure all transfer operations on contracts used by the transaction have completed and check connectivity to domains."
     )
     object UnknownContractDomains
         extends ErrorCode(
@@ -422,7 +422,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(contractIds: List[String])
           extends TransactionErrorImpl(
             cause =
-              s"The domains for the contracts $contractIds are currently unknown due to contract transfers."
+              s"The domains for the contracts $contractIds are currently unknown due to ongoing contract transfers or disconnected domains"
           )
           with TransactionRoutingError {
         override def resources: Seq[(ErrorResource, String)] = Seq(

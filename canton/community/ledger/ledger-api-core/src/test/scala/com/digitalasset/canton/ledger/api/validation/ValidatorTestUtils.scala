@@ -20,7 +20,6 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
 
   protected val includedModule = "includedModule"
   protected val includedTemplate = "includedTemplate"
-  protected val expectedLedgerId = "expectedLedgerId"
   protected val expectedApplicationId = "expectedApplicationId"
   protected val packageName = Ref.PackageName.assertFromString("somePackageName")
   protected val packageNameRefEncoded = Ref.PackageRef.Name(packageName).toString
@@ -34,7 +33,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   protected val verbose = false
   protected val eventId = "eventId"
   protected val transactionId = "42"
-  protected val ledgerEnd = domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
+  protected val ledgerEnd =
+    domain.ParticipantOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
   protected val moduleName = Ref.ModuleName.assertFromString(includedModule)
   protected val dottedName = Ref.DottedName.assertFromString(includedTemplate)

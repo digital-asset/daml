@@ -18,7 +18,6 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.{LedgerTransactionId, ProtoDeserializationError}
 import com.google.protobuf.ByteString
-import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 import slick.jdbc.{GetResult, SetParameter}
 
 /** The root hash of a Merkle tree used as an identifier for requests.
@@ -169,7 +168,7 @@ object ViewHash {
 final case class RequestId(private val ts: CantonTimestamp) extends PrettyPrinting {
   def unwrap: CantonTimestamp = ts
 
-  def toProtoPrimitive: ProtoTimestamp = ts.toProtoPrimitive
+  def toProtoPrimitive: Long = ts.toProtoPrimitive
 
   override def pretty: Pretty[RequestId] = prettyOfClass(unnamedParam(_.ts))
 }
@@ -179,7 +178,7 @@ object RequestId {
     Ordering.by[RequestId, CantonTimestamp](_.unwrap)
   implicit val requestIdOrder: Order[RequestId] = Order.fromOrdering[RequestId]
 
-  def fromProtoPrimitive(requestIdP: ProtoTimestamp): ParsingResult[RequestId] =
+  def fromProtoPrimitive(requestIdP: Long): ParsingResult[RequestId] =
     CantonTimestamp.fromProtoPrimitive(requestIdP).map(RequestId(_))
 }
 
@@ -189,13 +188,13 @@ final case class TransferId(sourceDomain: SourceDomainId, transferOutTimestamp: 
   def toProtoV30: v30.TransferId =
     v30.TransferId(
       sourceDomain = sourceDomain.toProtoPrimitive,
-      timestamp = Some(transferOutTimestamp.toProtoPrimitive),
+      timestamp = transferOutTimestamp.toProtoPrimitive,
     )
 
   def toAdminProto: com.digitalasset.canton.admin.participant.v30.TransferId =
     com.digitalasset.canton.admin.participant.v30.TransferId(
       sourceDomain = sourceDomain.toProtoPrimitive,
-      timestamp = Some(transferOutTimestamp.toProtoPrimitive),
+      timestamp = Some(transferOutTimestamp.toProtoTimestamp),
     )
 
   override def pretty: Pretty[TransferId] = prettyOfClass(
@@ -217,9 +216,7 @@ object TransferId {
       case v30.TransferId(originDomainP, requestTimestampP) =>
         for {
           sourceDomain <- DomainId.fromProtoPrimitive(originDomainP, "TransferId.origin_domain")
-          requestTimestamp <- ProtoConverter
-            .required("TransferId.timestamp", requestTimestampP)
-            .flatMap(CantonTimestamp.fromProtoPrimitive)
+          requestTimestamp <- CantonTimestamp.fromProtoPrimitive(requestTimestampP)
         } yield TransferId(SourceDomainId(sourceDomain), requestTimestamp)
     }
 
@@ -232,7 +229,7 @@ object TransferId {
           sourceDomain <- DomainId.fromProtoPrimitive(sourceDomainP, "TransferId.source_domain")
           requestTimestamp <- ProtoConverter
             .required("TransferId.timestamp", requestTsP)
-            .flatMap(CantonTimestamp.fromProtoPrimitive)
+            .flatMap(CantonTimestamp.fromProtoTimestamp)
         } yield TransferId(SourceDomainId(sourceDomain), requestTimestamp)
     }
 }

@@ -311,7 +311,7 @@ decodeDefTemplate LF2.DefTemplate{..} = do
     <*> mayDecode "defTemplateSignatories" defTemplateSignatories decodeExpr
     <*> mayDecode "defTemplateObservers" defTemplateObservers decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
-    <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
+    <*> mapM decodeDefTemplateKey defTemplateKey
     <*> decodeNM DuplicateImplements decodeDefTemplateImplements defTemplateImplements
 
 decodeDefTemplateImplements :: LF2.DefTemplate_Implements -> Decode TemplateImplements
@@ -330,40 +330,12 @@ decodeInterfaceInstanceMethod LF2.InterfaceInstanceBody_InterfaceInstanceMethod{
   <$> decodeMethodName interfaceInstanceBody_InterfaceInstanceMethodMethodInternedName
   <*> mayDecode "interfaceInstanceBody_InterfaceInstanceMethodValue" interfaceInstanceBody_InterfaceInstanceMethodValue decodeExpr
 
-decodeDefTemplateKey :: ExprVarName -> LF2.DefTemplate_DefKey -> Decode TemplateKey
-decodeDefTemplateKey templateParam LF2.DefTemplate_DefKey{..} = do
+decodeDefTemplateKey :: LF2.DefTemplate_DefKey -> Decode TemplateKey
+decodeDefTemplateKey LF2.DefTemplate_DefKey{..} = do
   typ <- mayDecode "defTemplate_DefKeyType" defTemplate_DefKeyType decodeType
-  key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr (decodeKeyExpr templateParam)
+  key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr decodeExpr
   maintainers <- mayDecode "defTemplate_DefKeyMaintainers" defTemplate_DefKeyMaintainers decodeExpr
   return (TemplateKey typ key maintainers)
-
-decodeKeyExpr :: ExprVarName -> LF2.DefTemplate_DefKeyKeyExpr -> Decode Expr
-decodeKeyExpr templateParam = \case
-    LF2.DefTemplate_DefKeyKeyExprKey simpleKeyExpr ->
-        decodeSimpleKeyExpr templateParam simpleKeyExpr
-    LF2.DefTemplate_DefKeyKeyExprComplexKey keyExpr ->
-        decodeExpr keyExpr
-
-decodeSimpleKeyExpr :: ExprVarName -> LF2.KeyExpr -> Decode Expr
-decodeSimpleKeyExpr templateParam LF2.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum $ \case
-  LF2.KeyExprSumProjections LF2.KeyExpr_Projections{..} ->
-    foldM
-      (\rec_ LF2.KeyExpr_Projection{..} ->
-        ERecProj
-          <$> mayDecode "KeyExpr_ProjectionTyCon" keyExpr_ProjectionTycon decodeTypeConApp
-          <*> decodeName FieldName keyExpr_ProjectionField
-          <*> pure rec_)
-      (EVar templateParam) keyExpr_ProjectionsProjections
-  LF2.KeyExprSumRecord LF2.KeyExpr_Record{..} ->
-    ERecCon
-      <$> mayDecode "keyExpr_RecordTycon" keyExpr_RecordTycon decodeTypeConApp
-      <*> mapM (decodeFieldWithSimpleKeyExpr templateParam) (V.toList keyExpr_RecordFields)
-
-decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF2.KeyExpr_RecordField -> Decode (FieldName, Expr)
-decodeFieldWithSimpleKeyExpr templateParam LF2.KeyExpr_RecordField{..} =
-  (,)
-  <$> decodeName FieldName keyExpr_RecordFieldField
-  <*> mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeSimpleKeyExpr templateParam)
 
 decodeChoice :: LF2.TemplateChoice -> Decode TemplateChoice
 decodeChoice LF2.TemplateChoice{..} =

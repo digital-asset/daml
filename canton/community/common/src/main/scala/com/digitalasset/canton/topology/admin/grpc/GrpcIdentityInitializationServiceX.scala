@@ -60,7 +60,7 @@ class GrpcIdentityInitializationServiceX(
   override def currentTime(
       request: adminProto.CurrentTimeRequest
   ): Future[adminProto.CurrentTimeResponse] =
-    Future.successful(adminProto.CurrentTimeResponse(Some(clock.now.toProtoPrimitive)))
+    Future.successful(adminProto.CurrentTimeResponse(Some(clock.now.toProtoTimestamp)))
 }
 
 object GrpcIdentityInitializationServiceX {

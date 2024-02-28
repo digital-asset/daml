@@ -83,21 +83,11 @@ abstract class BlockSequencerFactory(
       snapshot: SequencerInitialState,
       sequencerId: SequencerId,
   )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
-    val members = snapshot.snapshot.status.members.map(_.member)
-    for {
-      _ <- EitherT.cond[Future](
-        members.contains(sequencerId) && snapshot.snapshot.heads.contains(
-          sequencerId
-        ),
-        (),
-        "Given snapshot must contain sequencer member",
-      )
-      initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
-      _ = logger.debug(s"Storing sequencers initial state: $initialBlockState")
-      _ <- EitherT.right(
-        store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
-      )
-    } yield ()
+    val initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
+    logger.debug(s"Storing sequencers initial state: $initialBlockState")
+    EitherT.right(
+      store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
+    )
   }
 
   override final def create(

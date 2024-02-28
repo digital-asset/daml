@@ -108,7 +108,8 @@ private[console] object ParticipantCommands {
         manualConnect: Boolean = false,
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         priority: Int = 0,
-        sequencerTrustThreshold: PositiveInt = PositiveInt.tryCreate(1),
+        sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: PositiveInt = PositiveInt.one,
     ): DomainConnectionConfig = {
       DomainConnectionConfig(
         domainAlias,
@@ -117,6 +118,7 @@ private[console] object ParticipantCommands {
             domain.sequencerConnection.withAlias(alias)
           },
           sequencerTrustThreshold,
+          submissionRequestAmplification,
         ),
         manualConnect = manualConnect,
         None,
@@ -160,10 +162,16 @@ private[console] object ParticipantCommands {
       // architecture-handbook-entry-end: OnboardParticipantToConfig
     }
 
-    def register(runner: AdminCommandRunner, config: DomainConnectionConfig) =
+    def register(
+        runner: AdminCommandRunner,
+        config: DomainConnectionConfig,
+        handshakeOnly: Boolean,
+    ) =
       runner.adminCommand(
-        ParticipantAdminCommands.DomainConnectivity.RegisterDomain(config)
+        ParticipantAdminCommands.DomainConnectivity
+          .RegisterDomain(config, handshakeOnly = handshakeOnly)
       )
+
     def reconnect(runner: AdminCommandRunner, domainAlias: DomainAlias, retry: Boolean) = {
       runner.adminCommand(
         ParticipantAdminCommands.DomainConnectivity.ConnectDomain(domainAlias, retry)
@@ -1034,7 +1042,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           domain - A local domain or sequencer reference
           alias - The name you will be using to refer to this domain. Can not be changed anymore.
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
-          certificatesPath - Path to TLS certificate files to use as a trust anchor.
+          maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
           priority - The priority of the domain. The higher the more likely a domain will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
@@ -1058,6 +1066,67 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       connectFromConfig(config, synchronize)
     }
 
+    @Help.Summary(
+      "Macro to register a locally configured domain given by reference"
+    )
+    @Help.Description("""
+        The arguments are:
+          domain - A local domain or sequencer reference
+          alias - The name you will be using to refer to this domain. Can not be changed anymore.
+          handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
+          priority - The priority of the domain. The higher the more likely a domain will be used.
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def register(
+        domain: SequencerNodeReference,
+        alias: DomainAlias,
+        handshakeOnly: Boolean = false,
+        maxRetryDelayMillis: Option[Long] = None,
+        priority: Int = 0,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): Unit = {
+      val config = ParticipantCommands.domains.reference_to_config(
+        NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
+        alias,
+        manualConnect = false,
+        maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
+        priority,
+      )
+      register_with_config(config, handshakeOnly = handshakeOnly, synchronize)
+    }
+
+    @Help.Summary(
+      "Macro to register a locally configured domain given by reference"
+    )
+    @Help.Description("""
+        The arguments are:
+          config - Config for the domain connection
+          handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def register_with_config(
+        config: DomainConnectionConfig,
+        handshakeOnly: Boolean,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): Unit = {
+      val current = this.config(config.domain)
+      // if the config is not found, then we register the domain
+      if (current.isEmpty) {
+        // register the domain configuration
+        consoleEnvironment.run {
+          ParticipantCommands.domains.register(runner, config, handshakeOnly = handshakeOnly)
+        }
+      }
+      synchronize.foreach { timeout =>
+        ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
+      }
+    }
+
     def connect_local_bft(
         domain: NonEmpty[Map[SequencerAlias, SequencerNodeReference]],
         alias: DomainAlias,
@@ -1067,7 +1136,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        sequencerTrustThreshold: PositiveInt = PositiveInt.tryCreate(1),
+        sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        submissionRequestAmplification: PositiveInt = PositiveInt.one,
     ): Unit = {
       val config = ParticipantCommands.domains.reference_to_config(
         domain,
@@ -1076,6 +1146,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
         sequencerTrustThreshold,
+        submissionRequestAmplification,
       )
       connectFromConfig(config, synchronize)
     }
@@ -1120,12 +1191,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration],
     ): Unit = {
       val current = this.config(config.domain)
-      // if the config did not change, we'll just treat this as idempotent, otherwise, we'll use register to fail
       if (current.isEmpty) {
         // architecture-handbook-entry-begin: OnboardParticipantConnect
         // register the domain configuration
         consoleEnvironment.run {
-          ParticipantCommands.domains.register(runner, config)
+          ParticipantCommands.domains.register(runner, config, handshakeOnly = false)
         }
         if (!config.manualConnect) {
           reconnect(config.domain.unwrap, retry = false).discard
@@ -1134,7 +1204,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         }
         // architecture-handbook-entry-end: OnboardParticipantConnect
       } else if (!config.manualConnect) {
-        val _ = reconnect(config.domain, retry = false)
+        reconnect(config.domain, retry = false).discard
         modify(config.domain.unwrap, _.copy(manualConnect = false))
       }
       synchronize.foreach { timeout =>

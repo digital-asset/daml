@@ -54,7 +54,7 @@ import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
   SendCallback,
   SendType,
-  SequencerClient,
+  SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -122,7 +122,7 @@ class ProtocolProcessorTest
     Set(
       MediatorGroup(
         NonNegativeInt.zero,
-        Seq(DefaultTestIdentities.mediator),
+        NonEmpty.mk(Seq, DefaultTestIdentities.mediator),
         Seq(),
         PositiveInt.one,
       )
@@ -131,7 +131,7 @@ class ProtocolProcessorTest
   private val crypto =
     TestingIdentityFactoryX(topology, loggerFactory, TestDomainParameters.defaultDynamic)
       .forOwnerAndDomain(participant, domain)
-  private val mockSequencerClient = mock[SequencerClient]
+  private val mockSequencerClient = mock[SequencerClientSend]
   when(
     mockSequencerClient.sendAsync(
       any[Batch[DefaultOpenEnvelope]],
@@ -141,6 +141,7 @@ class ProtocolProcessorTest
       any[MessageId],
       any[Option[AggregationRule]],
       any[SendCallback],
+      any[Boolean],
     )(anyTraceContext)
   )
     .thenAnswer(
@@ -162,6 +163,7 @@ class ProtocolProcessorTest
                 domain,
                 Some(messageId),
                 Batch.filterOpenEnvelopesFor(batch, participant, Set.empty),
+                None,
                 testedProtocolVersion,
               )
             )
@@ -179,8 +181,8 @@ class ProtocolProcessorTest
     )(anyTraceContext)
   ).thenAnswer(Future.unit)
 
-  private val trm = mock[TransactionResultMessage]
-  when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[TransactionResultMessage])
+  private val trm = mock[ConfirmationResultMessage]
+  when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[ConfirmationResultMessage])
   when(trm.verdict).thenAnswer(Verdict.Approve(testedProtocolVersion))
   when(trm.rootHash).thenAnswer(rootHash)
   when(trm.domainId).thenAnswer(DefaultTestIdentities.domainId)
@@ -208,7 +210,7 @@ class ProtocolProcessorTest
       Int,
       Unit,
       TestViewType,
-      TransactionResultMessage,
+      ConfirmationResultMessage,
       TestProcessingSteps.TestProcessingError,
     ]
 
@@ -218,7 +220,7 @@ class ProtocolProcessorTest
       overrideConstructedPendingRequestDataO: Option[TestPendingRequestData] = None,
       startingPoints: ProcessingStartingPoints = ProcessingStartingPoints.default,
       pendingSubmissionMap: concurrent.Map[Int, Unit] = TrieMap[Int, Unit](),
-      sequencerClient: SequencerClient = mockSequencerClient,
+      sequencerClient: SequencerClientSend = mockSequencerClient,
       crypto: DomainSyncCryptoClient = crypto,
       overrideInFlightSubmissionTrackerO: Option[InFlightSubmissionTracker] = None,
       submissionDataForTrackerO: Option[SubmissionTracker.SubmissionData] = None,
@@ -333,7 +335,7 @@ class ProtocolProcessorTest
       Int,
       Unit,
       TestViewType,
-      TransactionResultMessage,
+      ConfirmationResultMessage,
       TestProcessingSteps.TestProcessingError,
     ] =
       new ProtocolProcessor(
@@ -348,7 +350,7 @@ class ProtocolProcessorTest
         FutureSupervisor.Noop,
       )(
         directExecutionContext: ExecutionContext,
-        TransactionResultMessage.transactionResultMessageCast,
+        ConfirmationResultMessage.transactionResultMessageCast,
       ) {
         override def participantId: ParticipantId = participant
 
@@ -433,7 +435,7 @@ class ProtocolProcessorTest
 
     "clean up the pending submissions when send request fails" in {
       val submissionMap = TrieMap[Int, Unit]()
-      val failingSequencerClient = mock[SequencerClient]
+      val failingSequencerClient = mock[SequencerClientSend]
       val sendError = SendAsyncClientError.RequestFailed("no thank you")
       when(
         failingSequencerClient.sendAsync(
@@ -444,6 +446,7 @@ class ProtocolProcessorTest
           any[MessageId],
           any[Option[AggregationRule]],
           any[SendCallback],
+          any[Boolean],
         )(anyTraceContext)
       )
         .thenReturn(EitherT.leftT[Future, Unit](sendError))
@@ -923,7 +926,7 @@ class ProtocolProcessorTest
         timestamp: CantonTimestamp,
         sut: TestInstance,
     ): EitherT[Future, sut.steps.ResultError, Unit] = {
-      val mockSignedProtocolMessage = mock[SignedProtocolMessage[TransactionResultMessage]]
+      val mockSignedProtocolMessage = mock[SignedProtocolMessage[ConfirmationResultMessage]]
       when(mockSignedProtocolMessage.message).thenReturn(trm)
       when(
         mockSignedProtocolMessage
@@ -932,10 +935,14 @@ class ProtocolProcessorTest
         .thenReturn(EitherT.rightT(()))
       sut
         .performResultProcessing(
-          mock[Either[
-            EventWithErrors[Deliver[DefaultOpenEnvelope]],
-            SignedContent[Deliver[DefaultOpenEnvelope]],
-          ]],
+          NoOpeningErrors(
+            SignedContent(
+              mock[Deliver[DefaultOpenEnvelope]],
+              Signature.noSignature,
+              None,
+              testedProtocolVersion,
+            )
+          ),
           Right(mockSignedProtocolMessage),
           requestId,
           timestamp,

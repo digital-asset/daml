@@ -9,9 +9,9 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.HandlerResult
 import com.digitalasset.canton.sequencing.protocol.{
   Deliver,
-  EventWithErrors,
   MediatorsOfDomain,
   SignedContent,
+  WithOpeningErrors,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
@@ -36,29 +36,23 @@ trait Phase37Processor[RequestBatch] {
       traceContext: TraceContext
   ): HandlerResult
 
-  def processMalformedMediatorRequestResult(
+  def processMalformedMediatorConfirmationRequestResult(
       timestamp: CantonTimestamp,
       sequencerCounter: SequencerCounter,
-      signedResultBatch: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
+      signedResultBatch: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): HandlerResult
 
   /** Processes a result message, commits the changes or rolls them back and emits events via the
     * [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
     *
-    * @param signedResultBatchE The signed result batch to process. The batch must contain exactly one message.
+    * @param event The signed result batch to process. The batch must contain exactly one message.
     * @return The [[com.digitalasset.canton.sequencing.HandlerResult]] completes when the request has reached the state
     *         [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean]]
     *         and the event has been sent to the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]],
     *         or if the processing aborts with an error.
     */
   def processResult(
-      signedResultBatchE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ]
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit
       traceContext: TraceContext
   ): HandlerResult

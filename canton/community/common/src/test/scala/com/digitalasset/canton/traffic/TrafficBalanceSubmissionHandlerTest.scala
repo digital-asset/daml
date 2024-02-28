@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.client.{
   SendCallback,
   SendResult,
   SendType,
-  SequencerClient,
+  SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.{SequencersOfDomain, *}
 import com.digitalasset.canton.time.SimClock
@@ -49,7 +49,7 @@ class TrafficBalanceSubmissionHandlerTest
     with ProtocolVersionChecksAnyWordSpec {
 
   private val recipient1 = DefaultTestIdentities.participant1.member
-  private val sequencerClient = mock[SequencerClient]
+  private val sequencerClient = mock[SequencerClientSend]
   private val domainId = DomainId.tryFromString("da::default")
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
@@ -91,6 +91,7 @@ class TrafficBalanceSubmissionHandlerTest
         any[MessageId],
         aggregationRuleCapture.capture(),
         callbackCapture.capture(),
+        any[Boolean],
       )(any[TraceContext])
     ).thenReturn(EitherT.pure(()))
 
@@ -172,6 +173,7 @@ class TrafficBalanceSubmissionHandlerTest
         any[MessageId],
         any[Option[AggregationRule]],
         callbackCapture.capture(),
+        any[Boolean],
       )(any[TraceContext])
     ).thenReturn(EitherT.pure(()))
 
@@ -224,6 +226,7 @@ class TrafficBalanceSubmissionHandlerTest
         any[MessageId],
         any[Option[AggregationRule]],
         any[SendCallback],
+        any[Boolean],
       )(any[TraceContext])
     )
       .thenReturn(EitherT.leftT(SendAsyncClientError.RequestFailed("failed")))
@@ -259,6 +262,7 @@ class TrafficBalanceSubmissionHandlerTest
         any[MessageId],
         any[Option[AggregationRule]],
         callbackCapture.capture(),
+        any[Boolean],
       )(any[TraceContext])
     )
       .thenReturn(EitherT.pure(()))
@@ -310,6 +314,7 @@ class TrafficBalanceSubmissionHandlerTest
         any[MessageId],
         any[Option[AggregationRule]],
         callbackCapture.capture(),
+        any[Boolean],
       )(any[TraceContext])
     )
       .thenReturn(EitherT.pure(()))

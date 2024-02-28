@@ -27,6 +27,7 @@ object TimeProofTestUtil {
       targetDomain.unwrap,
       TimeProof.mkTimeProofRequestMessageId.some,
       Batch.empty(protocolVersion),
+      None,
       protocolVersion,
     )
     val signedContent =

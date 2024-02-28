@@ -1,0 +1,64 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module UpgradeTestLib (
+  participant0,
+  participant1,
+  tests,
+  broken,
+  withUnvettedDar,
+  withUnvettedDarOnParticipant,
+  module Daml.Script,
+  module Daml.Script.Internal,
+  module DA.Assert,
+) where
+
+import Daml.Script
+import Daml.Script.Internal
+import DA.Assert
+import DA.Foldable
+import DA.Time
+
+participant0 : ParticipantName
+participant0 = ParticipantName "participant0"
+
+participant1 : ParticipantName
+participant1 = ParticipantName "participant1"
+
+tests : [(Text, Script ())] -> Script ()
+tests cases = forA_ cases $ \(testName, test) -> do
+  debugRaw $ "Testing: " <> testName
+  test
+
+-- | Used to tag a test as failing by erroring in any way, once all this behaviour works, this function can be removed
+brokenScript : Script () -> Script ()
+brokenScript act = do
+  tryToEither (\() -> liftFailedCommandToException act) >>= \case
+    Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
+    Left _ -> pure ()
+
+withUnvettedDarOnParticipant : Text -> ParticipantName -> Script a -> Script a
+withUnvettedDarOnParticipant darName participant act = do
+  unvetDarOnParticipant darName participant
+  res <- tryToEither (\() -> liftFailedCommandToException act)
+  vetDarOnParticipant darName participant
+  case res of
+    Left e -> throwAnyException e
+    Right r -> pure r
+
+withUnvettedDar : Text -> Script a -> Script a
+withUnvettedDar darName act = do
+  unsafeUnvetDarOnParticipant darName (Some participant0)
+  unsafeUnvetDarOnParticipant darName (Some participant1)
+  sleep $ seconds 1
+  res <- tryToEither (\() -> liftFailedCommandToException act)
+  unsafeVetDarOnParticipant darName (Some participant0)
+  unsafeVetDarOnParticipant darName (Some participant1)
+  sleep $ seconds 1
+  case res of
+    Left e -> throwAnyException e
+    Right r -> pure r
+
+broken : (Text, Script ()) -> (Text, Script ())
+broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
+

@@ -78,7 +78,7 @@ class TestProcessingSteps(
       Int,
       Unit,
       TestViewType,
-      TransactionResultMessage,
+      ConfirmationResultMessage,
       TestProcessingError,
     ]
     with BaseTest {
@@ -262,7 +262,7 @@ class TestProcessingSteps(
       ],
   )(implicit
       traceContext: com.digitalasset.canton.tracing.TraceContext
-  ): Seq[com.digitalasset.canton.protocol.messages.MediatorResponse] = Seq.empty
+  ): Seq[com.digitalasset.canton.protocol.messages.ConfirmationResponse] = Seq.empty
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
@@ -281,11 +281,8 @@ class TestProcessingSteps(
     Right(None)
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: Either[
-        EventWithErrors[Deliver[DefaultOpenEnvelope]],
-        SignedContent[Deliver[DefaultOpenEnvelope]],
-      ],
-      resultE: Either[MalformedMediatorRequestResult, TransactionResultMessage],
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      resultE: Either[MalformedConfirmationRequestResult, ConfirmationResultMessage],
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,

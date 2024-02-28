@@ -8,9 +8,9 @@ import com.digitalasset.canton.crypto.{
   CryptoPrivateApi,
   CryptoPureApi,
   Fingerprint,
-  HashPurpose,
   LtHash16,
   Signature,
+  TestHash,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.event.RecordTime
@@ -107,7 +107,7 @@ trait CommitmentStoreBaseTest extends AsyncWordSpec with BaseTest {
     .await("dummy signature")(
       symbolicVault
         .sign(
-          cryptoApi.digest(HashPurpose.AcsCommitment, dummyCommitment),
+          cryptoApi.digest(TestHash.testHashPurpose, dummyCommitment),
           Fingerprint.tryCreate("test"),
         )
         .value

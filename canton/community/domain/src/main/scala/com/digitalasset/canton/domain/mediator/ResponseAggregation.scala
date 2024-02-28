@@ -18,11 +18,11 @@ import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
+  ConfirmationResponse,
   LocalApprove,
   LocalReject,
   LocalVerdict,
-  MediatorRequest,
-  MediatorResponse,
+  MediatorConfirmationRequest,
 }
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -36,18 +36,17 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Aggregates the responses for a request that the mediator has processed so far.
   *
-  * @param state If the [[com.digitalasset.canton.protocol.messages.MediatorRequest]] has been finalized,
-  *              this will be a `Left` otherwise a `Right` which shows which transaction view hashes are not confirmed yet.
-  *
-  * @param requestTraceContext We retain the original trace context from the initial confirmation request
-  * for raising timeouts to help with debugging. this ideally would be the same trace
-  * context throughout all responses could not be in a distributed setup so this is not
-  * validated anywhere. Intentionally supplied in a separate parameter list to avoid being
-  * included in equality checks.
+  * @param state               If the [[com.digitalasset.canton.protocol.messages.MediatorConfirmationRequest]] has been finalized,
+  *                            this will be a `Left` otherwise a `Right` which shows which transaction view hashes are not confirmed yet.
+  * @param requestTraceContext We retain the original trace context from the initial transaction confirmation request
+  *                            for raising timeouts to help with debugging. this ideally would be the same trace
+  *                            context throughout all responses could not be in a distributed setup so this is not
+  *                            validated anywhere. Intentionally supplied in a separate parameter list to avoid being
+  *                            included in equality checks.
   */
 final case class ResponseAggregation[VKEY](
     override val requestId: RequestId,
-    override val request: MediatorRequest,
+    override val request: MediatorConfirmationRequest,
     override val version: CantonTimestamp,
     state: Either[MediatorVerdict, Map[VKEY, ViewState]],
 )(val requestTraceContext: TraceContext)(implicit val viewKeyOps: ViewKey[VKEY])
@@ -71,13 +70,13 @@ final case class ResponseAggregation[VKEY](
   /** Record the additional confirmation response received. */
   override def validateAndProgress(
       responseTimestamp: CantonTimestamp,
-      response: MediatorResponse,
+      response: ConfirmationResponse,
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
   ): Future[Option[ResponseAggregation[VKEY]]] = {
-    val MediatorResponse(
+    val ConfirmationResponse(
       requestId,
       sender,
       _viewPositionO,
@@ -232,7 +231,7 @@ final case class ResponseAggregation[VKEY](
 
   def copy(
       requestId: RequestId = requestId,
-      request: MediatorRequest = request,
+      request: MediatorConfirmationRequest = request,
       version: CantonTimestamp = version,
       state: Either[MediatorVerdict, Map[VKEY, ViewState]] = state,
   ): ResponseAggregation[VKEY] = ResponseAggregation(requestId, request, version, state)(
@@ -333,7 +332,7 @@ object ResponseAggregation {
     */
   def fromRequest(
       requestId: RequestId,
-      request: MediatorRequest,
+      request: MediatorConfirmationRequest,
       topologySnapshot: TopologySnapshot,
   )(implicit
       requestTraceContext: TraceContext,
