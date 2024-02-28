@@ -1,0 +1,46 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module NumericRounding where
+
+import Daml.Script
+import DA.Assert
+import DA.Exception
+import qualified DA.Numeric as N
+
+inputDecimal : [Decimal]
+inputDecimal = [0.055, 0.025, 0.016, 0.011, 0.010, -0.010, -0.011, -0.016, -0.025, -0.055]
+
+inputModes : [N.RoundingMode]
+inputModes =
+  [ N.RoundingUp
+  , N.RoundingDown
+  , N.RoundingCeiling
+  , N.RoundingFloor
+  , N.RoundingHalfUp
+  , N.RoundingHalfDown
+  , N.RoundingHalfEven
+  , N.RoundingUnnecessary
+  ]
+
+expectedOutput : [[Optional Decimal]]
+expectedOutput =
+  [ [ Some $ 0.060, Some $ 0.030, Some $ 0.020, Some $ 0.020, Some $ 0.010, Some $ -0.010, Some $ -0.020, Some $ -0.020, Some $ -0.030, Some $ -0.060 ]
+  , [ Some $ 0.050, Some $ 0.020, Some $ 0.010, Some $ 0.010, Some $ 0.010, Some $ -0.010, Some $ -0.010, Some $ -0.010, Some $ -0.020, Some $ -0.050 ]
+  , [ Some $ 0.060, Some $ 0.030, Some $ 0.020, Some $ 0.020, Some $ 0.010, Some $ -0.010, Some $ -0.010, Some $ -0.010, Some $ -0.020, Some $ -0.050 ]
+  , [ Some $ 0.050, Some $ 0.020, Some $ 0.010, Some $ 0.010, Some $ 0.010, Some $ -0.010, Some $ -0.020, Some $ -0.020, Some $ -0.030, Some $ -0.060 ]
+  , [ Some $ 0.060, Some $ 0.030, Some $ 0.020, Some $ 0.010, Some $ 0.010, Some $ -0.010, Some $ -0.010, Some $ -0.020, Some $ -0.030, Some $ -0.060 ]
+  , [ Some $ 0.050, Some $ 0.020, Some $ 0.020, Some $ 0.010, Some $ 0.010, Some $ -0.010, Some $ -0.010, Some $ -0.020, Some $ -0.020, Some $ -0.050 ]
+  , [ Some $ 0.060, Some $ 0.020, Some $ 0.020, Some $ 0.010, Some $ 0.010, Some $ -0.010, Some $ -0.010, Some $ -0.020, Some $ -0.020, Some $ -0.060 ]
+  , [         None,         None,         None,         None, Some $ 0.010, Some $ -0.010,          None,          None,          None,          None ]
+  ]
+
+safeRound i m x = script do
+    try
+      pure $ Some $ N.roundNumeric i m x
+    catch
+      (_: ArithmeticError) -> pure None
+
+test = script do
+  result <- mapA (\m -> mapA (safeRound 2 m) inputDecimal) inputModes
+  result === expectedOutput
