@@ -1,6 +1,8 @@
 # Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_intel")
+
 def mangle_for_java(name):
     return name.replace(".", "_")
 
@@ -110,7 +112,7 @@ LF_DEV_VERSIONS = [
 ]
 
 # All LF versions
-LF_VERSIONS = [
+LF_VERSIONS = ([
     "1.8",
     "1.11",
     "1.12",
@@ -118,7 +120,7 @@ LF_VERSIONS = [
     "1.14",
     "1.15",
     "2.1",
-] + LF_DEV_VERSIONS
+] if is_intel else ["1.14", "1.15", "2.1"]) + LF_DEV_VERSIONS
 
 def lf_version_is_dev(versionStr):
     return versionStr in LF_DEV_VERSIONS

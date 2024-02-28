@@ -21,6 +21,8 @@ load(
     "mangle_for_damlc",
 )
 
+load("@os_info//:os_info.bzl", "is_intel")
+
 da_scala_library(
     name = "engine",
     srcs = glob(["src/main/**/*.scala"]),
@@ -96,8 +98,7 @@ da_scala_test_suite(
             "//daml-lf/tests:InterfaceRetro",
             "//daml-lf/tests:InterfaceViews",
             "//daml-lf/tests:MultiKeys",
-            "//daml-lf/tests:ReinterpretTests",
-        ]
+        ] + (["//daml-lf/tests:ReinterpretTests"] if is_intel else [])
         for major in LF_MAJOR_VERSIONS
     ] + [
         ":{name}-v{major}.dar".format(
@@ -138,7 +139,7 @@ da_scala_test_suite(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-)
+) if is_intel else None
 
 [
     daml_compile(

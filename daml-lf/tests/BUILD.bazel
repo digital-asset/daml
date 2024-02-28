@@ -11,6 +11,7 @@ load(
     "LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
 )
+load("@os_info//:os_info.bzl", "is_intel")
 
 [
     daml_compile(
@@ -62,7 +63,7 @@ daml_build_test(
     },
     project_dir = "reinterpret-v1",
     visibility = ["//daml-lf:__subpackages__"],
-)
+) if is_intel else None
 
 daml_build_test(
     name = "ReinterpretTests-v2",
@@ -75,7 +76,7 @@ daml_compile(
     srcs = ["reinterpret-v1/AtVersion13.daml"],
     target = "1.13",
     visibility = ["//daml-lf:__subpackages__"],
-)
+) if is_intel else None
 
 daml_compile(
     name = "AtVersion14",

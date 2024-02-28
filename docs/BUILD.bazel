@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")

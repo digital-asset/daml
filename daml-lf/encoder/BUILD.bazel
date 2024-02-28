@@ -18,6 +18,8 @@ load(
     "version_in",
 )
 
+load("@os_info//:os_info.bzl", "is_intel")
+
 da_scala_library(
     name = "encoder",
     srcs = glob(
@@ -67,7 +69,7 @@ da_scala_test_suite(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-)
+) if is_intel else None
 
 da_scala_binary(
     name = "encoder_binary",
