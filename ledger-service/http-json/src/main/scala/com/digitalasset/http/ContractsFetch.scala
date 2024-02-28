@@ -242,8 +242,12 @@ private class ContractsFetch(
             )
             for {
               _ <- fconn.rollback
-              tpids <- surrogateTemplateIds(Set(templateId))
-              _ <- sjd.q.queries.deleteTemplate(tpids(templateId))
+              tpid <- sjd.q.queries.surrogateTemplateId(
+                templateId.packageId,
+                templateId.moduleName,
+                templateId.entityName,
+              )
+              _ <- sjd.q.queries.deleteTemplate(tpid)
               _ <- fconn.commit
               offset <- loop(maxAttempts - 1)
             } yield offset
@@ -350,23 +354,26 @@ private class ContractsFetch(
         )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
       lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause: Exception)
-    } yield DBContract(
-      contractId = ac.contractId.unwrap,
-      templateId = ac.templateId,
-      key = lfKey.cata(lfValueToDbJsValue, JsNull),
-      keyHash = lfKey.map(key =>
-        Hash
-          .assertHashContractKey(
-            templateId = ContractTypeId.toLedgerApiValue(ac.templateId),
-            key = key,
-            packageName = pn,
-          )
-          .toHexString
+    } yield PreInsertContract(
+      packageName = ce.packageName,
+      contract = DBContract(
+        contractId = ac.contractId.unwrap,
+        templateId = ac.templateId,
+        key = lfKey.cata(lfValueToDbJsValue, JsNull),
+        keyHash = lfKey.map(key =>
+          Hash
+            .assertHashContractKey(
+              templateId = ContractTypeId.toLedgerApiValue(ac.templateId),
+              key = key,
+              packageName = pn,
+            )
+            .toHexString
+        ),
+        payload = lfValueToDbJsValue(lfArg),
+        signatories = ac.signatories,
+        observers = ac.observers,
+        agreementText = ac.agreementText,
       ),
-      payload = lfValueToDbJsValue(lfArg),
-      signatories = ac.signatories,
-      observers = ac.observers,
-      agreementText = ac.agreementText,
     )
   }
 
@@ -512,11 +519,15 @@ private class ContractsFetch(
 
 private[http] object ContractsFetch {
 
-  type PreInsertContract =
-    DBContract[ContractTypeId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
+  case class PreInsertContract(
+      packageName: Option[String],
+      contract: DBContract[ContractTypeId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]],
+  )
+
+  implicit val cidOfPIC: InsertDeleteStep.Cid[PreInsertContract] = _.contract.contractId
 
   private def surrogateTemplateIds[K <: ContractTypeId.RequiredPkg](
-      ids: Set[K]
+      ids: Set[(Option[String], K)] // { (package name, template id) }
   )(implicit
       log: doobie.LogHandler,
       sjd: SupportedJdbcDriver.TC,
@@ -526,7 +537,9 @@ private[http] object ContractsFetch {
     cats.syntax.traverse._
     import sjd.q.queries.surrogateTemplateId
     ids.toVector
-      .traverse(k => surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
+      .traverse { case (pkgName, k) =>
+        surrogateTemplateId(pkgName, k.packageId, k.moduleName, k.entityName) tupleLeft k
+      }
       .map(_.toMap)
   }
 
@@ -540,14 +553,14 @@ private[http] object ContractsFetch {
   ): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
     surrogateTemplateIds(
-      (step.inserts.iterator.map(_.templateId) ++ step.deletes.valuesIterator).toSet
+      (step.inserts.iterator.map { case pic =>
+        (pic.packageName, pic.contract.templateId)
+      }).toSet ++ step.deletes.valuesIterator.map(x => (None, x)).toSet
     ).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._
       import json.JsonProtocol._
       import sjd.q.queries
-      // cid -> ctid
-      // we want ctid
-      def mapToId(a: ContractTypeId.RequiredPkg) =
+      def mapToId(a: ContractTypeId.RequiredPkg): SurrogateTpId =
         stidMap.getOrElse(
           a,
           throw new IllegalStateException(
@@ -559,13 +572,14 @@ private[http] object ContractsFetch {
         (mapToId(tid), cids.toSet)
       }) *>
         queries.insertContracts(
-          step.inserts map (dbc =>
+          step.inserts map { case preInsert =>
+            val dbc = preInsert.contract
             dbc.copy(
               templateId = mapToId(dbc.templateId),
               signatories = domain.Party.unsubst(dbc.signatories),
               observers = domain.Party.unsubst(dbc.observers),
             )
-          )
+          }
         ))
     }.void
   }
