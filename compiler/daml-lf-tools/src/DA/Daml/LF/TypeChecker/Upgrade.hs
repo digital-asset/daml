@@ -3,8 +3,6 @@
 
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TypeFamilies #-}
 
 module DA.Daml.LF.TypeChecker.Upgrade (
         module DA.Daml.LF.TypeChecker.Upgrade
@@ -52,9 +50,9 @@ foldU :: (a -> a -> b) -> Upgrading a -> b
 foldU f u = f (_past u) (_present u)
 
 -- Allows us to split the world into upgraded and non-upgraded
-type MonadUpgrade m = MonadGammaF (Upgrading Gamma) m
+type TcUpgradeM = TcMF (Upgrading Gamma)
 
-runGammaUnderUpgrades :: (MonadGamma m1, MonadUpgrade m2) => Upgrading (m1 a) -> m2 (Upgrading a)
+runGammaUnderUpgrades :: Upgrading (TcM a) -> TcUpgradeM (Upgrading a)
 runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } = do
     pastResult <- withReaderT _past pastAction
     presentResult <- withReaderT _present presentAction
@@ -72,7 +70,7 @@ checkUpgrade version package =
       Left err -> [toDiagnostic err]
       Right ((), warnings) -> map toDiagnostic warnings
 
-checkUpgradeM :: MonadUpgrade m => Upgrading LF.Package -> m ()
+checkUpgradeM :: Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeError . MissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
     forM_ upgradedModules checkModule
@@ -88,26 +86,26 @@ extractDelExistNew Upgrading{..} =
     )
 
 checkDeleted
-    :: (Eq k, Hashable k, MonadUpgrade m)
+    :: (Eq k, Hashable k)
     => (a -> Error)
     -> Upgrading (HMS.HashMap k a)
-    -> m (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
+    -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
 checkDeleted handleError upgrade = do
     let (deleted, existing, new) = extractDelExistNew upgrade
     throwIfNonEmpty handleError deleted
     pure (existing, new)
 
 throwIfNonEmpty
-    :: (Eq k, Hashable k, MonadUpgrade m)
+    :: (Eq k, Hashable k)
     => (a -> Error)
     -> HMS.HashMap k a
-    -> m ()
+    -> TcUpgradeM ()
 throwIfNonEmpty handleError hm =
     case HMS.toList hm of
       ((_, first):_) -> throwWithContextF present $ handleError first
       _ -> pure ()
 
-checkModule :: MonadUpgrade m => Upgrading LF.Module -> m ()
+checkModule :: Upgrading LF.Module -> TcUpgradeM ()
 checkModule module_ = do
     (existingTemplates, _new) <- checkDeleted (EUpgradeError . MissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
@@ -165,7 +163,7 @@ checkModule module_ = do
             let (presentOrigin, context) = _present origin
             withContextF present context $ checkDefDataType presentOrigin dt
 
-checkTemplate :: forall m. MonadUpgrade m => Upgrading Module -> Upgrading LF.Template -> m ()
+checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
 checkTemplate module_ template = do
     -- Check that no choices have been removed
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeError . MissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
@@ -244,7 +242,7 @@ checkTemplate module_ template = do
 
         -- Given an extractor from the list below, whenDifferent runs an action
         -- when the relevant expressions differ.
-        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> m () -> m ()
+        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> TcUpgradeM () -> TcUpgradeM ()
         whenDifferent field extractor exprs act =
             let resolvedWithPossibleError = sequence $ extractor <$> exprs <*> module_
             in
@@ -333,7 +331,7 @@ checkTemplate module_ template = do
                 Nothing -> Left ("checkTemplate: Trying to get definition of " ++ T.unpack (unExprValName evn) ++ " but it is not defined!")
                 Just defValue -> Right (dvalBody defValue)
 
-checkDefDataType :: MonadUpgrade m => UpgradedRecordOrigin -> Upgrading LF.DefDataType -> m ()
+checkDefDataType :: UpgradedRecordOrigin -> Upgrading LF.DefDataType -> TcUpgradeM ()
 checkDefDataType origin datatype = do
     case fmap dataCons datatype of
       Upgrading { _past = DataRecord _past, _present = DataRecord _present } ->
@@ -358,7 +356,7 @@ checkDefDataType origin datatype = do
       _ ->
           throwWithContextF present (EUpgradeError (MismatchDataConsVariety (dataTypeCon (_past datatype))))
 
-checkFields :: MonadUpgrade m => UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> m ()
+checkFields :: UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> TcUpgradeM ()
 checkFields origin fields = do
     (existing, new) <- checkDeleted (\_ -> EUpgradeError (RecordFieldsMissing origin)) (fmap HMS.fromList fields)
     -- If a field from the upgraded package has had its type changed
@@ -381,7 +379,7 @@ checkFields origin fields = do
         newFieldOptionalType _ = False
 
 -- Check type upgradability
-checkUpgradeType :: MonadUpgrade m => Upgrading Type -> Error -> m ()
+checkUpgradeType :: Upgrading Type -> Error -> TcUpgradeM ()
 checkUpgradeType type_ err = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     unless (foldU alphaType expandedTypes) (throwWithContextF present err)
