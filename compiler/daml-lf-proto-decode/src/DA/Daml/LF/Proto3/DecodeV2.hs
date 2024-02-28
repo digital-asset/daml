@@ -79,14 +79,6 @@ decodeMangledString t = (decoded, unmangledOrErr)
     where !decoded = decodeString t
           unmangledOrErr = unmangleIdentifier decoded
 
--- | Decode a string that will be interned in Daml-LF 1.7 and onwards.
--- At the protobuf level, we represent internable non-empty lists of strings
--- by a repeatable string and a number. If there's at least one string,
--- then the number must not be set, i.e. zero. If there are no strings,
--- then the number is treated as an index into the interning table.
-decodeInternableStrings :: Int32 -> Decode ([T.Text], Either String [UnmangledIdentifier])
-decodeInternableStrings id = lookupDottedName id
-    
 -- | Decode the name of a syntactic object, e.g., a variable or a data
 -- constructor. These strings are mangled to escape special characters. All
 -- names will be interned in Daml-LF 1.7 and onwards.
@@ -111,8 +103,7 @@ decodeNameString wrapName unmangledOrErr =
         Right (UnmangledIdentifier unmangled) -> pure $ wrapName unmangled
 
 -- | Decode the multi-component name of a syntactic object, e.g., a type
--- constructor. All compononents are mangled. Dotted names will be interned
--- in Daml-LF 1.7 and onwards.
+-- constructor. All compononents are mangled. Dotted names will be interned.
 decodeDottedName :: ([T.Text] -> a) -> Int32 -> Decode a
 decodeDottedName wrapDottedName dNameId = do
     (_, unmangledOrErr) <- lookupDottedName dNameId
@@ -127,11 +118,11 @@ decodeDottedNameId wrapDottedName dnId = do
     Left err -> throwError $ ParseError err
     Right unmangled -> pure $ wrapDottedName (coerce unmangled)
 
--- | Decode the name of a top-level value. The name is mangled and will be
+-- | Decode the name of a top-level value. The name is mangled and Iwill be
 -- interned in Daml-LF 1.7 and onwards.
 decodeValueName :: String -> Int32 -> Decode ExprValName
 decodeValueName ident dnId = do
-    (mangled, unmangledOrErr) <- decodeInternableStrings dnId
+    (mangled, unmangledOrErr) <- lookupDottedName dnId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right [UnmangledIdentifier unmangled] -> pure $ ExprValName unmangled
