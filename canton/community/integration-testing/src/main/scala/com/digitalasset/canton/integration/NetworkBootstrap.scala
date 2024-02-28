@@ -11,9 +11,6 @@ import com.digitalasset.canton.topology.DomainId
   */
 trait NetworkBootstrap {
   def bootstrap(): Unit
-
-  /** bootstrap and manually start nodes */
-  def bootstrapAndManuallyStartNodes(): Unit
 }
 
 /** A data container to hold useful information for initialized domains

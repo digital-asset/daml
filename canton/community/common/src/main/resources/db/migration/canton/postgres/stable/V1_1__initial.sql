@@ -27,6 +27,7 @@ create table dar_packages (
     foreign key (package_id) references daml_packages(package_id) on delete cascade,
 
     primary key (dar_hash_hex, package_id)
+
 );
 
 
@@ -960,6 +961,20 @@ create table top_up_events (
 );
 
 create index top_up_events_idx ON top_up_events (member);
+
+-- Stores the traffic balance updates
+create table sequencer_traffic_control_balance_updates (
+    -- member the traffic balance update is for
+       member varchar(300) collate "C" not null,
+    -- timestamp at which the update was sequenced
+       sequencing_timestamp bigint not null,
+    -- total traffic balance after the update
+       balance bigint not null,
+    -- used to keep balance updates idempotent
+       serial bigint not null,
+    -- traffic states have a unique sequencing_timestamp per member
+       primary key (member, sequencing_timestamp)
+);
 
 --   BFT Ordering Tables
 

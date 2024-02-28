@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.{
   CryptoKeyFormat,
   EncryptionKeyScheme,
   HashAlgorithm,
+  PbkdfScheme,
   SigningKeyScheme,
   SymmetricKeyScheme,
 }
@@ -22,6 +23,7 @@ trait CryptoProvider extends PrettyPrinting {
   def encryption: CryptoProviderScheme[EncryptionKeyScheme]
   def symmetric: CryptoProviderScheme[SymmetricKeyScheme]
   def hash: CryptoProviderScheme[HashAlgorithm]
+  def pbkdf: Option[CryptoProviderScheme[PbkdfScheme]]
 
   def supportedCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]]
 
@@ -64,6 +66,8 @@ object CryptoProvider {
 
     override def hash: CryptoProviderScheme[HashAlgorithm] =
       CryptoProviderScheme(HashAlgorithm.Sha256, NonEmpty.mk(Set, HashAlgorithm.Sha256))
+
+    override def pbkdf: Option[CryptoProviderScheme[PbkdfScheme]] = None
 
     override def supportedCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]] =
       NonEmpty(Set, CryptoKeyFormat.Tink, CryptoKeyFormat.Raw, CryptoKeyFormat.Der)
@@ -108,6 +112,11 @@ object CryptoProvider {
 
     override def hash: CryptoProviderScheme[HashAlgorithm] =
       CryptoProviderScheme(HashAlgorithm.Sha256, NonEmpty.mk(Set, HashAlgorithm.Sha256))
+
+    override def pbkdf: Option[CryptoProviderScheme[PbkdfScheme]] =
+      Some(
+        CryptoProviderScheme(PbkdfScheme.Argon2idMode1, NonEmpty.mk(Set, PbkdfScheme.Argon2idMode1))
+      )
 
     override def supportedCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]] =
       NonEmpty(Set, CryptoKeyFormat.Raw, CryptoKeyFormat.Der, CryptoKeyFormat.Tink)

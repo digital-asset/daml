@@ -88,24 +88,28 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
       newCrypto: => Future[Crypto],
       convertName: String,
   ): Unit = {
-    forAll(supportedSigningKeySchemes) { signingKeyScheme =>
-      javaSigningKeyConvertTest(
-        signingKeyScheme.toString,
-        newCrypto,
-        crypto => getSigningPublicKey(crypto, signingKeyScheme),
-        crypto => crypto.javaKeyConverter.fromJavaSigningKey,
-        convertName,
-      )
-    }
 
-    forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
-      javaEncryptionKeyConvertTest(
-        encryptionKeyScheme.toString,
-        newCrypto,
-        crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
-        crypto => crypto.javaKeyConverter.fromJavaEncryptionKey,
-        convertName,
-      )
+    "convert public keys" should {
+
+      forAll(supportedSigningKeySchemes) { signingKeyScheme =>
+        javaSigningKeyConvertTest(
+          signingKeyScheme.toString,
+          newCrypto,
+          crypto => getSigningPublicKey(crypto, signingKeyScheme),
+          crypto => crypto.javaKeyConverter.fromJavaSigningKey,
+          convertName,
+        )
+      }
+
+      forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
+        javaEncryptionKeyConvertTest(
+          encryptionKeyScheme.toString,
+          newCrypto,
+          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
+          crypto => crypto.javaKeyConverter.fromJavaEncryptionKey,
+          convertName,
+        )
+      }
     }
   }
 
@@ -116,24 +120,27 @@ trait JavaPublicKeyConverterTest extends BaseTest with CryptoTestHelper { this: 
       otherConvertName: String,
       otherKeyConverter: JavaKeyConverter,
   ): Unit = {
-    forAll(supportedSigningKeySchemes) { signingKeyScheme =>
-      javaSigningKeyConvertTest(
-        signingKeyScheme.toString,
-        newCrypto,
-        crypto => getSigningPublicKey(crypto, signingKeyScheme),
-        _ => otherKeyConverter.fromJavaSigningKey,
-        otherConvertName,
-      )
-    }
 
-    forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
-      javaEncryptionKeyConvertTest(
-        encryptionKeyScheme.toString,
-        newCrypto,
-        crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
-        _ => otherKeyConverter.fromJavaEncryptionKey,
-        otherConvertName,
-      )
+    "convert public keys with another crypto provider" should {
+      forAll(supportedSigningKeySchemes) { signingKeyScheme =>
+        javaSigningKeyConvertTest(
+          signingKeyScheme.toString,
+          newCrypto,
+          crypto => getSigningPublicKey(crypto, signingKeyScheme),
+          _ => otherKeyConverter.fromJavaSigningKey,
+          otherConvertName,
+        )
+      }
+
+      forAll(supportedEncryptionKeySchemes) { encryptionKeyScheme =>
+        javaEncryptionKeyConvertTest(
+          encryptionKeyScheme.toString,
+          newCrypto,
+          crypto => getEncryptionPublicKey(crypto, encryptionKeyScheme),
+          _ => otherKeyConverter.fromJavaEncryptionKey,
+          otherConvertName,
+        )
+      }
     }
   }
 }

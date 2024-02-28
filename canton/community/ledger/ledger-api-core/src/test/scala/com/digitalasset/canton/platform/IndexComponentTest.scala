@@ -37,7 +37,6 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   DbConfig,
   ParticipantDataSourceConfig,
 }
-import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import org.apache.pekko.NotUsed
@@ -114,11 +113,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             ),
             loggerFactory = loggerFactory,
           )
-        indexerDbDispatcherOverride = Option.when(
-          dbSupport.storageBackendFactory == H2StorageBackendFactory
-        )(
-          dbSupport.dbDispatcher
-        )
         _indexerHealth <- new IndexerServiceOwner(
           participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),
           participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
@@ -135,7 +129,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             indexerConfig.ingestionParallelism.unwrap
           ),
           highAvailability = HaConfig(),
-          indexerDbDispatcherOverride = indexerDbDispatcherOverride,
+          indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
         )
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(

@@ -212,5 +212,4 @@ class EnterpriseSequencerRateLimitManager(
   override def onClosed(): Unit = {
     Lifecycle.close(trafficLimitsStore)(logger)
   }
-
 }

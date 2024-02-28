@@ -5,7 +5,8 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.pretty.PrettyPrinting
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.protocol.v30.TypedSignedProtocolMessageContent
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -52,6 +53,13 @@ final case class SetTrafficBalanceMessage private (
     v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.SetTrafficBalance(
       getCryptographicEvidence
     )
+
+  override def pretty: Pretty[SetTrafficBalanceMessage] = prettyOfClass(
+    param("member", _.member),
+    param("serial", _.serial),
+    param("totalTrafficBalance", _.totalTrafficBalance),
+    param("domainId", _.domainId),
+  )
 }
 
 object SetTrafficBalanceMessage
@@ -100,4 +108,12 @@ object SetTrafficBalanceMessage
       Some(bytes),
     )
   }
+
+  implicit val setTrafficBalanceCast: SignedMessageContentCast[SetTrafficBalanceMessage] =
+    SignedMessageContentCast.create[SetTrafficBalanceMessage](
+      "SetTrafficBalanceMessage"
+    ) {
+      case m: SetTrafficBalanceMessage => Some(m)
+      case _ => None
+    }
 }

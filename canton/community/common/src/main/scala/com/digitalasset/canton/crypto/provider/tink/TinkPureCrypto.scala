@@ -336,6 +336,21 @@ class TinkPureCrypto private (
   }
 
   override protected def generateRandomBytes(length: Int): Array[Byte] = Random.randBytes(length)
+
+  override protected def defaultPbkdfScheme: PbkdfScheme =
+    throw new UnsupportedOperationException(
+      "Unsupported crypto operation: PBKDF schemes not supported"
+    )
+
+  override def deriveSymmetricKey(
+      password: String,
+      symmetricKeyScheme: SymmetricKeyScheme,
+      scheme: PbkdfScheme,
+      saltO: Option[SecureRandomness],
+  ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey] =
+    throw new UnsupportedOperationException(
+      "Unsupported crypto operation: derive symmetric key from password"
+    )
 }
 
 object TinkPureCrypto {

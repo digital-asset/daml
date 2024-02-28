@@ -242,7 +242,7 @@ object SigningKeyScheme {
   val EdDsaSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, Ed25519)
   val EcDsaSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, EcDsaP256, EcDsaP384)
 
-  val allSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, Ed25519, EcDsaP256, EcDsaP384)
+  val allSchemes: NonEmpty[Set[SigningKeyScheme]] = EdDsaSchemes ++ EcDsaSchemes
 
   def fromProtoEnum(
       field: String,
@@ -541,6 +541,13 @@ object SignatureCheckError {
   final case class InvalidKeyError(message: String) extends SignatureCheckError {
     override def pretty: Pretty[InvalidKeyError] = prettyOfClass(unnamedParam(_.message.unquoted))
   }
+
+  final case class MemberGroupDoesNotExist(message: String) extends SignatureCheckError {
+    override def pretty: Pretty[MemberGroupDoesNotExist] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
+
   final case class GeneralError(error: Exception) extends SignatureCheckError {
     override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
   }
