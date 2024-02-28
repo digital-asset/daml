@@ -63,8 +63,17 @@ jobs:
     - template: clean-up.yml
     - template: build-unix.yml
       parameters:
+        # The syntax required to inline a variable changes based on context
+        # (`$(var)` in strings, `variables.var` in expressions). Template
+        # parameters are inlined before evaluation. This is a bit like lazy
+        # function arguments, but at the syntax level.
+        #
+        # The result is that we need to know what context the parameter will be
+        # used in, which is why `release_tag` and `is_release` use different
+        # syntaxes, and why we need to passe `name` twice.
         release_tag: $(release_tag)
-        name: $(name)
+        name_str: $(name)
+        name_exp: variables.name
         is_release: variables.is_release
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
