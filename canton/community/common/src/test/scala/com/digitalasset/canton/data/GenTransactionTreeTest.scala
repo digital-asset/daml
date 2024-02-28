@@ -770,6 +770,7 @@ class GenTransactionTreeTest
         ExampleTransactionFactory
           .createNode(createdId, ExampleTransactionFactory.contractInstance()),
         Some(ExampleTransactionFactory.lfHash(0)),
+        Set(ExampleTransactionFactory.packageId),
         protocolVersion,
       )
 

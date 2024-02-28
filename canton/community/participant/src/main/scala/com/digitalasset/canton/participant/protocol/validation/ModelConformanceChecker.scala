@@ -10,6 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
 import com.daml.lf.engine
+import com.daml.lf.language.LanguageVersion
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.data.{
@@ -32,6 +33,7 @@ import com.digitalasset.canton.participant.store.{
   StoredContract,
 }
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixes,
   WithSuffixesAndMerged,
@@ -41,8 +43,8 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorRef, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfCommand,
@@ -55,6 +57,7 @@ import com.digitalasset.canton.{
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordered.orderingToOrdered
 
 /** Allows for checking model conformance of a list of transaction view trees.
   * If successful, outputs the received transaction as LfVersionedTransaction along with TransactionMetadata.
@@ -86,6 +89,7 @@ class ModelConformanceChecker(
     val transactionTreeFactory: TransactionTreeFactory,
     participantId: ParticipantId,
     val serializableContractAuthenticator: SerializableContractAuthenticator,
+    val packageResolver: PackageResolver,
     val enableContractUpgrading: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -225,6 +229,38 @@ class ModelConformanceChecker(
       .map(_.toMap)
   }
 
+  private def buildPackageNameMap(
+      packageIds: Set[PackageId]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, Error, Map[PackageName, PackageId]] = {
+
+    EitherT(for {
+      resolvedE <- packageIds.toSeq.parTraverse(pId =>
+        packageResolver(pId)(traceContext)
+          .map({
+            case None => Left(pId)
+            case Some(ast) => Right((pId, ast.languageVersion, ast.metadata.map(_.name)))
+          })
+      )
+    } yield {
+      for {
+        resolved <- resolvedE.separate match {
+          case (Seq(), resolved) => Right(resolved)
+          case (unresolved, _) => Left(PackageNotFound(Map(participantId -> unresolved.toSet)))
+        }
+        resolvedNameBindings = resolved
+          .collect({
+            case (pId, lv, Some(name)) if lv >= LanguageVersion.Features.packageUpgrades =>
+              name -> pId
+          })
+        nameBindings <- MapsUtil.toNonConflictingMap(resolvedNameBindings) leftMap { conflicts =>
+          ConflictingNameBindings(Map(participantId -> conflicts))
+        }
+      } yield nameBindings
+    })
+  }
+
   private def checkView(
       view: TransactionView,
       viewPosition: ViewPosition,
@@ -241,7 +277,7 @@ class ModelConformanceChecker(
       traceContext: TraceContext
   ): EitherT[Future, Error, WithRollbackScope[WellFormedTransaction[WithSuffixes]]] = {
     val viewParticipantData = view.viewParticipantData.tryUnwrap
-    val RootAction(cmd, authorizers, failed) =
+    val RootAction(cmd, authorizers, failed, packageIdPreference) =
       viewParticipantData.rootAction(enableContractUpgrading)
     val rbContext = viewParticipantData.rollbackContext
     val seed = viewParticipantData.actionDescription.seedOption
@@ -257,18 +293,9 @@ class ModelConformanceChecker(
           resolverFromView,
           serializableContractAuthenticator,
         )
-      packageResolution: Map[PackageName, PackageId] =
-        if (enableContractUpgrading) {
-          // TODO Until https://github.com/DACH-NY/canton/issues/16681
-          viewInputContracts.values
-            .flatMap(s => {
-              val u = s.contract.contractInstance.unversioned
-              u.packageName.map(p => p -> u.template.packageId)
-            })
-            .toMap
-        } else {
-          Map.empty
-        }
+
+      packagePreference <- buildPackageNameMap(packageIdPreference)
+
       lfTxAndMetadata <- reinterpret(
         contractLookupAndVerification,
         authorizers,
@@ -279,7 +306,7 @@ class ModelConformanceChecker(
         failed,
         view.viewHash,
         traceContext,
-        packageResolution,
+        packagePreference,
       )
         .leftWiden[Error]
       (lfTx, metadata, resolverFromReinterpretation) = lfTxAndMetadata
@@ -321,6 +348,7 @@ class ModelConformanceChecker(
     } yield WithRollbackScope(rbContext.rollbackScope, suffixedTx)
   }
 
+  // TODO(i17472) Needs to be updated to consider upgraded contracts and package interface resolution
   private def validatePackageVettings(view: TransactionView, snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext
   ): EitherT[Future, Error, Unit] = {
@@ -365,6 +393,7 @@ object ModelConformanceChecker {
       serializableContractAuthenticator: SerializableContractAuthenticator,
       protocolVersion: ProtocolVersion,
       participantId: ParticipantId,
+      packageResolver: PackageResolver,
       enableContractUpgrading: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ModelConformanceChecker = {
@@ -400,6 +429,7 @@ object ModelConformanceChecker {
       transactionTreeFactory,
       participantId,
       serializableContractAuthenticator,
+      packageResolver,
       enableContractUpgrading,
       loggerFactory,
     )
@@ -570,6 +600,34 @@ object ModelConformanceChecker {
         _.unvetted
           .map { case (participant, packageIds) =>
             show"$participant has not vetted $packageIds".unquoted
+          }
+          .mkShow("\n")
+      )
+    )
+  }
+
+  final case class PackageNotFound(
+      missing: Map[ParticipantId, Set[PackageId]]
+  ) extends Error {
+    override def pretty: Pretty[PackageNotFound] = prettyOfClass(
+      unnamedParam(
+        _.missing
+          .map { case (participant, packageIds) =>
+            show"$participant can not find $packageIds".unquoted
+          }
+          .mkShow("\n")
+      )
+    )
+  }
+
+  final case class ConflictingNameBindings(
+      conflicting: Map[ParticipantId, Map[PackageName, Set[PackageId]]]
+  ) extends Error {
+    override def pretty: Pretty[ConflictingNameBindings] = prettyOfClass(
+      unnamedParam(
+        _.conflicting
+          .map { case (participant, conflicts) =>
+            show"$participant has detected conflicting package name resolutions $conflicts".unquoted
           }
           .mkShow("\n")
       )

@@ -32,6 +32,7 @@ import com.digitalasset.canton.{
   LfFetchByKeyCommand,
   LfFetchCommand,
   LfLookupByKeyCommand,
+  LfPackageId,
   LfPartyId,
   ProtoDeserializationError,
   checked,
@@ -170,6 +171,7 @@ final case class ViewParticipantData private (
           ),
           metadata.signatories,
           failed = false,
+          packageIdPreference = Set.empty,
         )
 
       case ExerciseActionDescription(
@@ -177,6 +179,7 @@ final case class ViewParticipantData private (
             commandTemplateId,
             choice,
             interfaceId,
+            packagePreference,
             chosenValue,
             actors,
             byKey,
@@ -220,7 +223,7 @@ final case class ViewParticipantData private (
             argument = chosenValue,
           )
         }
-        RootAction(cmd, actors, failed)
+        RootAction(cmd, actors, failed, packagePreference)
 
       case FetchActionDescription(inputContractId, actors, byKey, _version) =>
         val inputContract = coreInputs.getOrElse(
@@ -242,7 +245,7 @@ final case class ViewParticipantData private (
         } else {
           LfFetchCommand(templateId = templateId, coid = inputContractId)
         }
-        RootAction(cmd, actors, failed = false)
+        RootAction(cmd, actors, failed = false, packageIdPreference = Set.empty)
 
       case LookupByKeyActionDescription(key, _version) =>
         val keyResolution = resolvedKeys.getOrElse(
@@ -260,6 +263,7 @@ final case class ViewParticipantData private (
           LfLookupByKeyCommand(templateId = key.templateId, contractKey = key.key),
           maintainers,
           failed = false,
+          packageIdPreference = Set.empty,
         )
     }
 
@@ -292,6 +296,16 @@ final case class ViewParticipantData private (
     createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
     resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV0 },
     actionDescription = Some(actionDescription.toProtoV2),
+    rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
+    salt = Some(salt.toProtoV0),
+  )
+
+  private[ViewParticipantData] def toProtoV4: v4.ViewParticipantData = v4.ViewParticipantData(
+    coreInputs = coreInputs.values.map(_.toProtoV1).toSeq,
+    createdCore = createdCore.map(_.toProtoV1),
+    createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
+    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV0 },
+    actionDescription = Some(actionDescription.toProtoV3),
     rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
     salt = Some(salt.toProtoV0),
   )
@@ -368,6 +382,10 @@ object ViewParticipantData
     ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v5)(v3.ViewParticipantData)(
       supportedProtoVersionMemoized(_)(fromProtoV3),
       _.toProtoV3.toByteString,
+    ),
+    ProtoVersion(4) -> VersionedProtoConverter(ProtocolVersion.v6)(v4.ViewParticipantData)(
+      supportedProtoVersionMemoized(_)(fromProtoV4),
+      _.toProtoV4.toByteString,
     ),
   )
 
@@ -470,7 +488,7 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3(hashOps, protoVersion)(
+    fromProtoV1V2V3V4(hashOps, protoVersion)(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -497,7 +515,7 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3(hashOps, ProtoVersion(2))(
+    fromProtoV1V2V3V4(hashOps, ProtoVersion(2))(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -524,7 +542,7 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3(hashOps, ProtoVersion(3))(
+    fromProtoV1V2V3V4(hashOps, ProtoVersion(3))(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -538,7 +556,34 @@ object ViewParticipantData
     )(bytes)
   }
 
-  private def fromProtoV1V2V3[ActionDescriptionProto, CreatedContractProto, InputContractProto](
+  private def fromProtoV4(hashOps: HashOps, dataP: v4.ViewParticipantData)(
+      bytes: ByteString
+  ): ParsingResult[ViewParticipantData] = {
+    val v4.ViewParticipantData(
+      saltP,
+      coreInputsP,
+      createdCoreP,
+      createdInSubviewArchivedInCoreP,
+      resolvedKeysP,
+      actionDescriptionP,
+      rbContextP,
+    ) = dataP
+
+    fromProtoV1V2V3V4(hashOps, ProtoVersion(4))(
+      saltP,
+      coreInputsP,
+      createdCoreP,
+      createdInSubviewArchivedInCoreP,
+      resolvedKeysP,
+      actionDescriptionP,
+      ActionDescription.fromProtoV3,
+      CreatedContract.fromProtoV1,
+      InputContract.fromProtoV1,
+      rbContextP,
+    )(bytes)
+  }
+
+  private def fromProtoV1V2V3V4[ActionDescriptionProto, CreatedContractProto, InputContractProto](
       hashOps: HashOps,
       protoVersion: ProtoVersion,
   )(
@@ -591,7 +636,12 @@ object ViewParticipantData
     ).leftMap(ProtoDeserializationError.OtherError)
   } yield viewParticipantData
 
-  final case class RootAction(command: LfCommand, authorizers: Set[LfPartyId], failed: Boolean)
+  final case class RootAction(
+      command: LfCommand,
+      authorizers: Set[LfPartyId],
+      failed: Boolean,
+      packageIdPreference: Set[LfPackageId],
+  )
 
   /** Indicates an attempt to create an invalid [[ViewParticipantData]]. */
   final case class InvalidViewParticipantData(message: String) extends RuntimeException(message)

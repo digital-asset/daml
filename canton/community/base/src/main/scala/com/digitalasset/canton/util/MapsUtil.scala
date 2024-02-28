@@ -240,4 +240,18 @@ object MapsUtil {
     )
     minuend.filter { case (k, v) => !subtrahend.get(k).contains(v) }
   }
+
+  /** @return a map if there are no conflicting key binding
+    *         or a map of key to the set of conflicting bindings
+    */
+  def toNonConflictingMap[K, V](it: Iterable[(K, V)]): Either[Map[K, Set[V]], Map[K, V]] = {
+    val set = it.toSet
+    val map = set.toMap
+    if (map.size == set.size) {
+      Right(map)
+    } else {
+      Left(set.groupBy(_._1).collect({ case (k, v) if v.size > 1 => (k, v.map(_._2)) }))
+    }
+  }
+
 }

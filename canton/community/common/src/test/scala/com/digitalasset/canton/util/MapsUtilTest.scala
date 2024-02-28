@@ -22,5 +22,11 @@ class MapsUtilTest extends AnyWordSpec with BaseTest {
       )
     }
 
+    "build non conflicting maps" in {
+      MapsUtil.toNonConflictingMap(Seq(1 -> 2, 2 -> 3)) shouldBe Right(Map(1 -> 2, 2 -> 3))
+      MapsUtil.toNonConflictingMap(Seq(1 -> 2, 2 -> 3, 1 -> 2)) shouldBe Right(Map(1 -> 2, 2 -> 3))
+      MapsUtil.toNonConflictingMap(Seq(1 -> 2, 1 -> 3)) shouldBe Left(Map(1 -> Set(2, 3)))
+    }
+
   }
 }

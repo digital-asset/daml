@@ -8,6 +8,8 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.daml.lf.engine
+import com.daml.lf.language.Ast.{Expr, GenPackage}
+import com.daml.lf.language.LanguageVersion
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -23,6 +25,7 @@ import com.digitalasset.canton.participant.protocol.{
   TransactionProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.ContractLookup
+import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{lfHash, submitterParticipant}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -136,6 +139,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     mcc.check(rootViewTrees, keyResolvers, RequestCounter(0), ips, commonData)
   }
 
+  val packageName = PackageName.assertFromString("package-name")
+  val genPackage = GenPackage[Expr](Map.empty, Set.empty, LanguageVersion.default, None)
+  val packageResolver: PackageResolver = pkgId =>
+    traceContext => Future.successful(Some(genPackage))
+
   "A model conformance checker" when {
     val relevantExamples = factory.standardHappyCases.filter {
       // If the transaction is empty there is no transaction view message. Therefore, the checker is not invoked.
@@ -153,6 +161,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             transactionTreeFactory,
             submitterParticipant,
             dummyAuthenticator,
+            packageResolver,
             enableContractUpgrading = false,
             loggerFactory,
           )
@@ -203,6 +212,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         transactionTreeFactory,
         submitterParticipant,
         dummyAuthenticator,
+        packageResolver,
         enableContractUpgrading = false,
         loggerFactory,
       )
@@ -240,6 +250,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         transactionTreeFactory,
         submitterParticipant,
         dummyAuthenticator,
+        packageResolver,
         enableContractUpgrading = false,
         loggerFactory,
       )
@@ -279,6 +290,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             transactionTreeFactory,
             submitterParticipant,
             dummyAuthenticator,
+            packageResolver,
             enableContractUpgrading = true,
             loggerFactory,
           )
@@ -313,6 +325,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           transactionTreeFactory,
           submitterParticipant,
           dummyAuthenticator,
+          packageResolver,
           enableContractUpgrading = false,
           loggerFactory,
         )
@@ -391,6 +404,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         transactionTreeFactory = transactionTreeFactory,
         participantId = submitterParticipant,
         serializableContractAuthenticator = dummyAuthenticator,
+        packageResolver = packageResolver,
         enableContractUpgrading = false,
         loggerFactory,
       )

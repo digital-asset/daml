@@ -42,10 +42,13 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
       )
       .value
 
+  private val defaultPackagePreference = Set(ExampleTransactionFactory.packageId)
+
   private val defaultActionDescription: ActionDescription =
     ActionDescription.tryFromLfActionNode(
       ExampleTransactionFactory.createNode(createdId, contractInst),
       Some(ExampleTransactionFactory.lfHash(5)),
+      defaultPackagePreference,
       testedProtocolVersion,
     )
 
@@ -194,6 +197,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
           actionDescription = ActionDescription.tryFromLfActionNode(
             ExampleTransactionFactory.exerciseNodeWithoutChildren(absoluteId),
             Some(nodeSeed),
+            defaultPackagePreference,
             testedProtocolVersion,
           )
         ).left.value should startWith(
@@ -210,6 +214,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
               Set(ExampleTransactionFactory.submitter),
             ),
             None,
+            defaultPackagePreference,
             testedProtocolVersion,
           )
         ).left.value should startWith(
@@ -225,6 +230,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
               maintainers = Set(ExampleTransactionFactory.submitter),
             ),
             None,
+            defaultPackagePreference,
             testedProtocolVersion,
           )
         ).left.value should startWith(

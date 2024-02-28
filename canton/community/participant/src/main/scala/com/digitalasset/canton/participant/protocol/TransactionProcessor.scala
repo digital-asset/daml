@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
 }
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -69,6 +70,7 @@ class TransactionProcessor(
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     skipRecipientsCheck: Boolean,
+    packageResolver: PackageResolver,
     enableContractUpgrading: Boolean,
 )(implicit val ec: ExecutionContext)
     extends ProtocolProcessor[
@@ -94,6 +96,7 @@ class TransactionProcessor(
           buildAuthenticator(crypto),
           staticDomainParameters.protocolVersion,
           participantId,
+          packageResolver,
           enableContractUpgrading,
           loggerFactory,
         ),

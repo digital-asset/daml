@@ -59,6 +59,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcherCommon
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
+import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
@@ -156,9 +157,12 @@ class SyncDomain(
       loggerFactory,
     )
 
+  private val packageResolver: PackageResolver = pkgId =>
+    traceContext => packageService.getPackage(pkgId)(traceContext)
+
   private val damle =
     new DAMLe(
-      pkgId => traceContext => packageService.getPackage(pkgId)(traceContext),
+      packageResolver,
       authorityResolver,
       Some(domainId),
       engine,
@@ -180,6 +184,7 @@ class SyncDomain(
     loggerFactory,
     futureSupervisor,
     skipRecipientsCheck = skipRecipientsCheck,
+    packageResolver = packageResolver,
     enableContractUpgrading = parameters.enableContractUpgrading,
   )
 
