@@ -40,7 +40,7 @@ object LanguageVersion {
       -1
   }
 
-  val AllV1 =  Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+  val AllV1 = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
   val AllV2 = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
 
   val All = AllV1 ++ AllV2
