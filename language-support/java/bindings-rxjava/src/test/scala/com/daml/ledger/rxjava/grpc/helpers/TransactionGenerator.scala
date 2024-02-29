@@ -209,6 +209,7 @@ object TransactionGenerator {
   val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
+    packageName <- nonEmptyId
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaCreatedAtTimestamp, createdAtInstant) <- timestampGen
@@ -220,33 +221,34 @@ object TransactionGenerator {
   } yield (
     Created(
       CreatedEvent(
-        eventId,
-        contractId,
-        Some(scalaTemplateId),
-        contractKey.map(_._1),
-        Some(scalaRecord),
-        createdEventBlob,
-        interfaceViews.map(_._1),
-        signatories ++ observers,
-        signatories,
-        observers,
-        None, // agreementText, to be removed
-        Some(scalaCreatedAtTimestamp),
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        contractKey = contractKey.map(_._1),
+        createArguments = Some(scalaRecord),
+        createdEventBlob = createdEventBlob,
+        interfaceViews = interfaceViews.map(_._1),
+        witnessParties = signatories ++ observers,
+        signatories = signatories,
+        observers = observers,
+        createdAt = Some(scalaCreatedAtTimestamp),
+        packageName = packageName,
       )
     ),
     new data.CreatedEvent(
-      (signatories ++ observers).asJava,
-      eventId,
-      javaTemplateId,
-      contractId,
-      javaRecord,
-      createdEventBlob,
-      interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
-      interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
-      contractKey.map(_._2).toJava,
-      signatories.toSet.asJava,
-      observers.toSet.asJava,
-      createdAtInstant,
+      witnessParties = (signatories ++ observers).asJava,
+      eventId = eventId,
+      templateId = javaTemplateId,
+      packageName = packageName,
+      contractId = contractId,
+      arguments = javaRecord,
+      createdEventBlob = createdEventBlob,
+      interfaceViews = interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
+      failedInterfaceViews = interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
+      contractKey = contractKey.map(_._2).toJava,
+      signatories = signatories.toSet.asJava,
+      observers = observers.toSet.asJava,
+      createdAt = createdAtInstant,
     ),
   )
 

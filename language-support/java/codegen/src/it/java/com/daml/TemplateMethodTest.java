@@ -103,6 +103,7 @@ public class TemplateMethodTest {
           Collections.emptyList(),
           "eventId",
           SimpleTemplate.TEMPLATE_ID,
+          "package-name",
           "cid",
           simpleTemplateRecord,
           ByteString.EMPTY,
