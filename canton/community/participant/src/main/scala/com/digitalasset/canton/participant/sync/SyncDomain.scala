@@ -185,7 +185,6 @@ class SyncDomain(
     futureSupervisor,
     skipRecipientsCheck = skipRecipientsCheck,
     packageResolver = packageResolver,
-    enableContractUpgrading = parameters.enableContractUpgrading,
   )
 
   private val transferOutProcessor: TransferOutProcessor = new TransferOutProcessor(

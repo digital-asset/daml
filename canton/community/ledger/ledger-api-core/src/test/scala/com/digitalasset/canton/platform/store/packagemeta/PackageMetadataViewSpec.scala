@@ -46,8 +46,9 @@ object PackageMetadataViewSpec {
   private val packageMetadataGen = for {
     map <- interfacesImplementedByMap
   } yield PackageMetadata(
-    templates = map.values.flatten.toSet,
     interfaces = map.keySet,
+    templates = map.values.flatten.toSet,
     interfacesImplementedBy = map,
   )
+
 }

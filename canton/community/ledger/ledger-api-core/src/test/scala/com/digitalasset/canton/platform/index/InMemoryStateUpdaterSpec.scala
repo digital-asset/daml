@@ -478,9 +478,6 @@ object InMemoryStateUpdaterSpec {
   private val party1 = Ref.Party.assertFromString("someparty1")
   private val party2 = Ref.Party.assertFromString("someparty2")
 
-  private val templateQualifiedName1 = Ref.QualifiedName.assertFromString("Mod:I")
-  private val templateQualifiedName2 = Ref.QualifiedName.assertFromString("Mod:I2")
-
   private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
   private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
 

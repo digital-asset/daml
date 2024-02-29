@@ -250,7 +250,6 @@ conformance_test(
             ",".join([
                 "dev-mode=yes",
                 "canton.domains.test_domain.init.domain-parameters.protocol-version=dev",
-                "_shared.participant_parameters.enable-contract-upgrading=yes",
             ]),
         ],
         tags = ["dev-canton-test"] + extra_tags,
@@ -299,7 +298,6 @@ conformance_test(
             ",".join([
                 "dev-mode=yes",
                 "canton.domains.test_domain.init.domain-parameters.protocol-version=dev",
-                "_shared.participant_parameters.enable-contract-upgrading=true",
             ]),
         ],
         tags = ["dev-canton-test"] + extra_tags,

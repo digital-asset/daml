@@ -46,7 +46,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
       ): Either[String, Unit] = Right(())
     },
     new AuthenticationValidator(),
-    new AuthorizationValidator(participantId, enableContractUpgrading = false),
+    new AuthorizationValidator(participantId),
     new InternalConsistencyChecker(
       defaultStaticDomainParameters.uniqueContractKeys,
       defaultStaticDomainParameters.protocolVersion,

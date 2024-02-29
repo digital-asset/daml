@@ -438,7 +438,6 @@ trait CantonConfig {
         ledgerApiServerParameters = participantParameters.ledgerApiServerParameters,
         excludeInfrastructureTransactions = participantParameters.excludeInfrastructureTransactions,
         enableEngineStackTrace = participantParameters.enableEngineStackTraces,
-        enableContractUpgrading = participantParameters.enableContractUpgrading,
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
       )
     }

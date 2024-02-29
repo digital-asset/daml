@@ -128,7 +128,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .flatMap { data =>
           // Return error message if root action is not valid
           Either
-            .catchOnly[InvalidViewParticipantData](data.rootAction(false))
+            .catchOnly[InvalidViewParticipantData](data.rootAction())
             .bimap(ex => ex.message, _ => data)
         }
     }

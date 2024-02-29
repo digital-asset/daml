@@ -149,7 +149,7 @@ final case class ViewParticipantData private (
     }
   }
 
-  def rootAction(enableContractUpgrading: Boolean): RootAction =
+  def rootAction(): RootAction =
     actionDescription match {
       case CreateActionDescription(contractId, _seed, _version) =>
         val createdContract = createdCore.headOption.getOrElse(
@@ -195,10 +195,8 @@ final case class ViewParticipantData private (
         )
 
         // commandTemplateId is not populated prior to ProtocolVersion.v5
-        val templateId = commandTemplateId match {
-          case Some(templateId) if enableContractUpgrading => templateId
-          case _ => inputContract.contract.contractInstance.unversioned.template
-        }
+        val contractInstance = inputContract.contract.contractInstance
+        val templateId = commandTemplateId.getOrElse(contractInstance.unversioned.template)
 
         val cmd = if (byKey) {
           val key = inputContract.contract.metadata.maybeKey

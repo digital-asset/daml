@@ -115,8 +115,8 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
         )
       )
 
-      pkgMeta1 |+| pkgMeta2 shouldBe PackageMetadata(
-        packageNameMap = Map(
+      pkgMeta1 |+| pkgMeta2 shouldBe PackageMetadata(packageNameMap =
+        Map(
           pkgName1 -> PackageResolution(
             LocalPackagePreference(pkg1Version2, pkgId2),
             NonEmpty(Set, pkgId1, pkgId2),
@@ -126,13 +126,11 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
     }
 
     "error on mismatching (package-name, version) updates for the same package-id" in new Scope {
-      private val pkgMeta1 = PackageMetadata(
-        packageIdVersionMap = Map(pkgId1 -> (pkgName1, pkg1Version1))
-      )
+      private val pkgMeta1 =
+        PackageMetadata(packageIdVersionMap = Map(pkgId1 -> (pkgName1, pkg1Version1)))
 
-      private val pkgMeta2 = PackageMetadata(
-        packageIdVersionMap = Map(pkgId1 -> (pkgName1, pkg1Version2))
-      )
+      private val pkgMeta2 =
+        PackageMetadata(packageIdVersionMap = Map(pkgId1 -> (pkgName1, pkg1Version2)))
 
       intercept[IllegalStateException] {
         pkgMeta1 |+| pkgMeta2

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.transaction.Util
 import com.daml.lf.value.ValueCoder.CidEncoder as LfDummyCidEncoder
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}

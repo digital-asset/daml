@@ -38,7 +38,6 @@ final class CommandsValidator(
     ledgerId: LedgerId,
     validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions =
       ValidateUpgradingPackageResolutions.UpgradingDisabled,
-    upgradingEnabled: Boolean = false,
     validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts(false),
 ) {
 
@@ -150,7 +149,7 @@ final class CommandsValidator(
       case c: ProtoCreate =>
         for {
           templateId <- requirePresence(c.value.templateId, "template_id")
-          typeConRef <- validateTypeConRef(templateId)(upgradingEnabled)
+          typeConRef <- validateTypeConRef(templateId)
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
           recordId <- createArguments.recordId.traverse(validateIdentifier)
           validatedRecordField <- validateRecordFields(createArguments.fields)
@@ -162,7 +161,7 @@ final class CommandsValidator(
       case e: ProtoExercise =>
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
-          templateRef <- validateTypeConRef(templateId)(upgradingEnabled)
+          templateRef <- validateTypeConRef(templateId)
           contractId <- requireContractId(e.value.contractId, "contract_id")
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
@@ -177,7 +176,7 @@ final class CommandsValidator(
       case ek: ProtoExerciseByKey =>
         for {
           templateId <- requirePresence(ek.value.templateId, "template_id")
-          templateRef <- validateTypeConRef(templateId)(upgradingEnabled)
+          templateRef <- validateTypeConRef(templateId)
           contractKey <- requirePresence(ek.value.contractKey, "contract_key")
           validatedContractKey <- validateValue(contractKey)
           choice <- requireName(ek.value.choice, "choice")
@@ -193,7 +192,7 @@ final class CommandsValidator(
       case ce: ProtoCreateAndExercise =>
         for {
           templateId <- requirePresence(ce.value.templateId, "template_id")
-          templateRef <- validateTypeConRef(templateId)(upgradingEnabled)
+          templateRef <- validateTypeConRef(templateId)
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
           recordId <- createArguments.recordId.traverse(validateIdentifier)
           validatedRecordField <- validateRecordFields(createArguments.fields)
@@ -289,13 +288,11 @@ object CommandsValidator {
   def apply(
       ledgerId: LedgerId,
       validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
-      upgradingEnabled: Boolean,
       enableExplicitDisclosure: Boolean,
   ) =
     new CommandsValidator(
       ledgerId = ledgerId,
       validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
-      upgradingEnabled = upgradingEnabled,
       validateDisclosedContracts = new ValidateDisclosedContracts(enableExplicitDisclosure),
     )
 

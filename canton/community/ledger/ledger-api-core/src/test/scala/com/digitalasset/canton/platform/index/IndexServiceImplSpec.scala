@@ -360,7 +360,7 @@ class IndexServiceImplSpec
           ),
         )
       ),
-      PackageMetadata(templates = Set(template1), interfaces = Set(iface1)),
+      PackageMetadata(interfaces = Set(iface1), templates = Set(template1)),
     ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
       unknownTemplatesOrInterfaces = Seq(Left(template2), Left(template3), Right(iface2))
     )
@@ -461,7 +461,6 @@ object IndexServiceImplSpec {
     val template1: Identifier = Identifier.assertFromString("PackageId:ModuleName:template1")
     val template1Filter: TemplateFilter =
       TemplateFilter(templateId = template1, includeCreatedEventBlob = false)
-
     val packageNameScopedTemplateFilter: TemplateFilter =
       TemplateFilter(
         templateTypeRef = TypeConRef.assertFromString(

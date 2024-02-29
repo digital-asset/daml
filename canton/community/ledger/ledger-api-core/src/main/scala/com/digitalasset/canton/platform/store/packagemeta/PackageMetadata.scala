@@ -8,6 +8,7 @@ import cats.syntax.semigroup.*
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.daml.lf.language.LanguageVersion
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
@@ -21,8 +22,8 @@ final case class PackageMetadata(
     interfaces: Set[Ref.Identifier] = Set.empty,
     templates: Set[Ref.Identifier] = Set.empty,
     interfacesImplementedBy: InterfacesImplementedBy = Map.empty,
-    packageNameMap: Map[Ref.PackageName, PackageResolution] = Map.empty,
-    packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+    packageNameMap: Map[PackageName, PackageResolution] = Map.empty,
+    packageIdVersionMap: Map[PackageId, (PackageName, Ref.PackageVersion)] = Map.empty,
 )
 
 object PackageMetadata {
@@ -41,20 +42,18 @@ object PackageMetadata {
   def from(archive: DamlLf.Archive): PackageMetadata = {
     val ((packageId, pkg), packageInfo) = Decode.assertDecodeInfoPackage(archive)
 
-    val packageLanguageVersion = pkg.languageVersion
     val nonUpgradablePackageMetadata = PackageMetadata(
-      packageNameMap = Map.empty,
       interfaces = packageInfo.definedInterfaces,
       templates = packageInfo.definedTemplates,
       interfacesImplementedBy = packageInfo.interfaceInstances,
+      packageNameMap = Map.empty,
       packageIdVersionMap = Map.empty,
     )
 
     pkg.metadata
       .collect {
         case decodedPackageMeta
-            // TODO(#16362): Replace with own feature
-            if packageLanguageVersion >= LanguageVersion.Features.sharedKeys =>
+            if pkg.languageVersion >= LanguageVersion.Features.packageUpgrades =>
           val packageName = decodedPackageMeta.name
           val packageVersion = decodedPackageMeta.version
 
@@ -80,10 +79,10 @@ object PackageMetadata {
     implicit def packageMetadataSemigroup: Semigroup[PackageMetadata] =
       Semigroup.instance { case (x, y) =>
         PackageMetadata(
-          packageNameMap = x.packageNameMap |+| y.packageNameMap,
           interfaces = x.interfaces |+| y.interfaces,
           templates = x.templates |+| y.templates,
           interfacesImplementedBy = x.interfacesImplementedBy |+| y.interfacesImplementedBy,
+          packageNameMap = x.packageNameMap |+| y.packageNameMap,
           packageIdVersionMap = y.packageIdVersionMap
             .foldLeft(x.packageIdVersionMap) { case (acc, (k, v)) =>
               acc.updatedWith(k) {
