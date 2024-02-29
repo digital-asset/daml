@@ -69,6 +69,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
       override def batching: BatchingConfig = BatchingConfig()
       override def caching: CachingConfigs = CachingConfigs()
+      override def useNewTrafficControl: Boolean = false
     }
   }
 
@@ -88,6 +89,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       devVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
+      override val useNewTrafficControl: Boolean = false,
   ) extends CantonNodeParameters
 
   private val metricsFactory: CantonLabeledMetricsFactory = new InMemoryMetricsFactory

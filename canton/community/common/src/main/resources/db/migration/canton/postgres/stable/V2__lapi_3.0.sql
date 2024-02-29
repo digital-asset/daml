@@ -228,7 +228,6 @@ CREATE TABLE lapi_events_assign (
     create_argument bytea not null,
     create_signatories integer[] default '{}'::integer[] not null,
     create_observers integer[] default '{}'::integer[] not null,
-    create_agreement_text text,
     create_key_value bytea,
     create_key_hash text,
     create_argument_compression smallint,
@@ -344,7 +343,6 @@ CREATE TABLE lapi_events_create (
     create_argument bytea not null,
     create_signatories integer[] not null,
     create_observers integer[] not null,
-    create_agreement_text text,
     create_key_value bytea,
     create_key_hash text,
 

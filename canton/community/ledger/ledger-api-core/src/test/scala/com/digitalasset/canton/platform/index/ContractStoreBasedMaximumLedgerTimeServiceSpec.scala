@@ -243,7 +243,6 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec
       null,
       ledgerEffectiveTime,
       Set.empty,
-      None,
       Set.empty,
       None,
       None,

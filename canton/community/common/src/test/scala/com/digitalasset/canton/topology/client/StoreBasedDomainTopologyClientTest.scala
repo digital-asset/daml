@@ -164,7 +164,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
             SequencedTime(timestamp),
             EffectiveTime(timestamp),
             removeMapping = transactions.map(_.mapping.uniqueKey).toSet,
-            removeTxs = transactions.map(_.transaction.hash).toSet,
+            removeTxs = transactions.map(_.hash).toSet,
             additions = transactions.map(ValidatedTopologyTransactionX(_)),
           )
           _ <- client

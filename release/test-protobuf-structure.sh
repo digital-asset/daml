@@ -35,8 +35,6 @@ export LANG=C
 $DIFF -u <(unzip -Z1 $PROTOS | $SORT | sed 's|^[^/]*/||g') <((cat <<EOF
 com/daml/daml_lf_dev/daml_lf.proto
 com/daml/daml_lf_dev/daml_lf2.proto
-com/daml/ledger/api/v1/active_contracts_service.proto
-com/daml/ledger/api/v1/admin/config_management_service.proto
 com/daml/ledger/api/v1/admin/identity_provider_config_service.proto
 com/daml/ledger/api/v1/admin/metering_report_service.proto
 com/daml/ledger/api/v1/admin/object_meta.proto
@@ -44,25 +42,14 @@ com/daml/ledger/api/v1/admin/package_management_service.proto
 com/daml/ledger/api/v1/admin/participant_pruning_service.proto
 com/daml/ledger/api/v1/admin/party_management_service.proto
 com/daml/ledger/api/v1/admin/user_management_service.proto
-com/daml/ledger/api/v1/command_completion_service.proto
-com/daml/ledger/api/v1/command_service.proto
-com/daml/ledger/api/v1/command_submission_service.proto
 com/daml/ledger/api/v1/commands.proto
-com/daml/ledger/api/v1/completion.proto
 com/daml/ledger/api/v1/event.proto
 com/daml/ledger/api/v1/event_query_service.proto
-com/daml/ledger/api/v1/experimental_features.proto
-com/daml/ledger/api/v1/ledger_configuration_service.proto
-com/daml/ledger/api/v1/ledger_identity_service.proto
-com/daml/ledger/api/v1/ledger_offset.proto
 com/daml/ledger/api/v1/package_service.proto
-com/daml/ledger/api/v1/testing/time_service.proto
 com/daml/ledger/api/v1/trace_context.proto
 com/daml/ledger/api/v1/transaction.proto
 com/daml/ledger/api/v1/transaction_filter.proto
-com/daml/ledger/api/v1/transaction_service.proto
 com/daml/ledger/api/v1/value.proto
-com/daml/ledger/api/v1/version_service.proto
 com/daml/ledger/api/v2/checkpoint.proto
 com/daml/ledger/api/v2/command_completion_service.proto
 com/daml/ledger/api/v2/command_service.proto

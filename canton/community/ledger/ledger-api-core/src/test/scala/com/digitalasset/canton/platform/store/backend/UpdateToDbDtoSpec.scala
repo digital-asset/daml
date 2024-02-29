@@ -269,7 +269,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           observers = Set("observer"),
           key = CreateKey.KeyWithMaintainers(keyValue, Set("signatory2", "signatory3")),
         )
-        .copy(agreementText = "agreement text")
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
       val update = state.Update.TransactionAccepted(
@@ -305,7 +304,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument = emptyArray,
         create_signatories = Set("signatory1", "signatory2", "signatory3"),
         create_observers = Set("observer"),
-        create_agreement_text = Some(createNode.agreementText),
         create_key_value = Some(emptyArray),
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
@@ -999,7 +997,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument = emptyArray,
         create_signatories = Set("signatory"),
         create_observers = Set("observer"),
-        create_agreement_text = None,
         create_key_value = None,
         create_key_maintainers = None,
         create_key_hash = None,
@@ -1203,7 +1200,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument = emptyArray,
         create_signatories = Set("signatory"),
         create_observers = Set("observer"),
-        create_agreement_text = None,
         create_key_value = None,
         create_key_maintainers = None,
         create_key_hash = None,
@@ -1269,7 +1265,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument = emptyArray,
         create_signatories = Set("signatory"),
         create_observers = Set("observer"),
-        create_agreement_text = None,
         create_key_value = None,
         create_key_maintainers = None,
         create_key_hash = None,
@@ -1410,7 +1405,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             create_argument = emptyArray,
             create_signatories = Set("signatory"),
             create_observers = Set("observer"),
-            create_agreement_text = None,
             create_key_value = None,
             create_key_maintainers = None,
             create_key_hash = None,
@@ -1466,7 +1460,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           signatories = Set("signatory"),
           observers = Set("observer", "observer2"),
         )
-        .copy(agreementText = "agreement text")
 
       val update = state.Update.ReassignmentAccepted(
         optCompletionInfo = Some(completionInfo),
@@ -1503,7 +1496,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument = emptyArray,
         create_signatories = Set("signatory"),
         create_observers = Set("observer", "observer2"),
-        create_agreement_text = Some("agreement text"),
         create_key_value = None,
         create_key_maintainers = None,
         create_key_hash = None,
@@ -1563,7 +1555,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           signatories = Set("signatory"),
           observers = Set("observer"),
         )
-        .copy(agreementText = "agreement text")
 
       val update = state.Update.ReassignmentAccepted(
         optCompletionInfo = Some(completionInfo),

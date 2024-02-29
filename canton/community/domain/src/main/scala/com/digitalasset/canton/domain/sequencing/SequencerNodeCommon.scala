@@ -30,7 +30,6 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
@@ -115,7 +114,6 @@ trait SequencerNodeBootstrapCommon[
       staticDomainParameters: StaticDomainParameters,
       storage: Storage,
       crypto: Crypto,
-      indexedStringStore: IndexedStringStore,
       initializationObserver: Future[Unit],
       initializedAtHead: => Future[Boolean],
       arguments: CantonNodeBootstrapCommonArguments[_, SequencerNodeParameters, SequencerMetrics],
@@ -125,22 +123,18 @@ trait SequencerNodeBootstrapCommon[
       rateLimitManager: Option[SequencerRateLimitManager],
       domainLoggerFactory: NamedLoggerFactory,
   ): EitherT[Future, String, SequencerRuntime] = {
+    val syncCrypto = new DomainSyncCryptoClient(
+      sequencerId,
+      domainId,
+      topologyClient,
+      crypto,
+      parameters.cachingConfigs,
+      parameters.processingTimeouts,
+      futureSupervisor,
+      loggerFactory,
+    )
+
     for {
-      clientDiscriminator <- EitherT.right(
-        SequencerClientDiscriminator.fromDomainMember(sequencerId, indexedStringStore)
-      )
-
-      syncCrypto = new DomainSyncCryptoClient(
-        sequencerId,
-        domainId,
-        topologyClient,
-        crypto,
-        parameters.cachingConfigs,
-        parameters.processingTimeouts,
-        futureSupervisor,
-        loggerFactory,
-      )
-
       sequencer <- EitherT.liftF[Future, String, Sequencer](
         sequencerFactory.create(
           domainId,
@@ -182,7 +176,7 @@ trait SequencerNodeBootstrapCommon[
         memberAuthServiceFactory,
         topologyStateForInitializationService,
         maybeDomainOutboxFactory,
-        clientDiscriminator,
+        SequencerClientDiscriminator.UniqueDiscriminator,
         domainLoggerFactory,
       )
       _ <- runtime.initializeAll()

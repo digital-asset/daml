@@ -154,12 +154,9 @@ trait MediatorNodeBootstrapCommon[
       _ <- CryptoHandshakeValidator
         .validate(domainConfig.domainParameters, config.crypto)
         .toEitherT
-      mediatorClient <- EitherT.right(
-        SequencerClientDiscriminator.fromDomainMember(mediatorId, indexedStringStore)
-      )
       sequencedEventStore = SequencedEventStore(
         storage,
-        mediatorClient,
+        SequencerClientDiscriminator.UniqueDiscriminator,
         domainConfig.domainParameters.protocolVersion,
         timeouts,
         domainLoggerFactory,
@@ -167,7 +164,7 @@ trait MediatorNodeBootstrapCommon[
       sendTrackerStore = SendTrackerStore(storage)
       sequencerCounterTrackerStore = SequencerCounterTrackerStore(
         storage,
-        mediatorClient,
+        SequencerClientDiscriminator.UniqueDiscriminator,
         timeouts,
         domainLoggerFactory,
       )

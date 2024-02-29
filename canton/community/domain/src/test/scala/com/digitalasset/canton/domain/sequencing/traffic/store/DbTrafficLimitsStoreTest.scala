@@ -18,7 +18,7 @@ trait DbTrafficLimitsStoreTest extends AsyncWordSpec with BaseTest with TrafficL
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
     if (testedProtocolVersion >= ProtocolVersion.v30)
-      storage.update(DBIO.seq(sqlu"truncate table top_up_events"), functionFullName)
+      storage.update(DBIO.seq(sqlu"truncate table seq_top_up_events"), functionFullName)
     else Future.unit
   }
 

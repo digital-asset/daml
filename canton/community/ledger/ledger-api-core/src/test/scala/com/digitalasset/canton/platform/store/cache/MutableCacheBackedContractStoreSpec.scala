@@ -218,7 +218,6 @@ class MutableCacheBackedContractStoreSpec
       contract = contract4,
       createLedgerEffectiveTime = t4,
       stakeholders = exStakeholders,
-      agreementText = exAgreementText,
       signatories = exSignatories,
       globalKey = Some(someKey),
       keyMaintainers = exMaintainers,
@@ -229,7 +228,6 @@ class MutableCacheBackedContractStoreSpec
       contractInstance = contract4,
       ledgerEffectiveTime = t4,
       stakeholders = exStakeholders,
-      agreementText = exAgreementText,
       signatories = exSignatories,
       globalKey = Some(someKey),
       maintainers = exMaintainers,
@@ -292,7 +290,6 @@ object MutableCacheBackedContractStoreSpec {
 
   private val someKey = globalKey("key1")
 
-  private val exAgreementText = Some("agreement")
   private val exStakeholders = Set(bob)
   private val exSignatories = Set(alice)
   private val exMaintainers = Some(Set(bob))
@@ -354,7 +351,6 @@ object MutableCacheBackedContractStoreSpec {
       contract: Contract,
       stakeholders: Set[Party],
       ledgerEffectiveTime: Timestamp,
-      agreementText: Option[String] = exAgreementText,
       signatories: Set[Party] = exSignatories,
       globalKey: Option[GlobalKey] = Some(someKey),
       maintainers: Option[Set[Party]] = exMaintainers,
@@ -366,7 +362,6 @@ object MutableCacheBackedContractStoreSpec {
           contract = contract,
           stakeholders = stakeholders,
           ledgerEffectiveTime = ledgerEffectiveTime,
-          agreementText = agreementText,
           signatories = signatories,
           globalKey = globalKey,
           keyMaintainers = maintainers,

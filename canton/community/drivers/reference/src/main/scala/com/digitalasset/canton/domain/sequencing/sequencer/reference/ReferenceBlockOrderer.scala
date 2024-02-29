@@ -29,7 +29,6 @@ import io.grpc.BindableService
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -68,8 +67,7 @@ class ReferenceBlockOrderer(
 
   override def subscribe(fromHeight: Long)(implicit
       traceContext: TraceContext
-  ): Source[BlockOrderer.Block, KillSwitch] = {
-    val lastTimestampCell = new AtomicReference(CantonTimestamp.Epoch)
+  ): Source[BlockOrderer.Block, KillSwitch] =
     Source
       .tick(
         initialDelay = 0.milli,
@@ -84,7 +82,8 @@ class ReferenceBlockOrderer(
         for {
           newBlocks <-
             if (currentHeight > lastHeight) {
-              store.queryBlocks(lastHeight + 1L).map { blocks =>
+              store.queryBlocks(lastHeight + 1L).map { timestampedBlocks =>
+                val blocks = timestampedBlocks.map(_.block)
                 if (logger.underlying.isDebugEnabled()) {
                   logger.debug(
                     s"New blocks (${blocks.length}) at heights ${lastHeight + 1} to $currentHeight, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
@@ -103,16 +102,13 @@ class ReferenceBlockOrderer(
             } else {
               Future.successful(Seq.empty[BlockOrderer.Block])
             }
-          timeAdjustedBlocks = adjustTime(lastTimestampCell, newBlocks)
-        } yield (
+        } yield {
           // Setting the "new lastHeight" watermark block height based on the number of new blocks seen
           // assumes that store.queryBlocks returns consecutive blocks with "no gaps". See #13539.
-          lastHeight + timeAdjustedBlocks.length,
-          timeAdjustedBlocks,
-        )
+          (lastHeight + newBlocks.size) -> newBlocks
+        }
       }
       .mapConcat(_._2)
-  }
 
   override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] = {
     val isStorageActive = storage.isActive
@@ -159,30 +155,6 @@ class ReferenceBlockOrderer(
         )
       )
   }
-
-  // The BFT ordering service must assign strictly monotonically increasing timestamps to events,
-  //  thus `BlockUpdateGenerator` process them in "validate-only" mode.
-  //  However, the current reference-based fake doesn't generate strictly monotonically increasing
-  //  timestamps; rather, they are deterministically shifted on the read path by the following
-  //  logic.
-  private def adjustTime(
-      lastTimestampCell: AtomicReference[CantonTimestamp],
-      blocks: Seq[BlockOrderer.Block],
-  ): Seq[BlockOrderer.Block] =
-    blocks.map { block =>
-      block.copy(requests = block.requests.map { request =>
-        val sequencingTimestamp = lastTimestampCell.updateAndGet { lastTimestamp =>
-          val lastTimestampMicros = lastTimestamp.underlying.micros
-          val requestMicros = request.value.microsecondsSinceEpoch
-          if (requestMicros > lastTimestampMicros)
-            CantonTimestamp.assertFromLong(requestMicros)
-          else
-            lastTimestamp.immediateSuccessor
-        }
-        val sequencingMicros = sequencingTimestamp.underlying.micros
-        request.copy(value = request.value.copy(microsecondsSinceEpoch = sequencingMicros))
-      })
-    }
 }
 
 object ReferenceBlockOrderer {

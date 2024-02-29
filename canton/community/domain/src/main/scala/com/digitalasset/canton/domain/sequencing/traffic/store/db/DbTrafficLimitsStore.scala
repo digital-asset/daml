@@ -57,9 +57,9 @@ class DbTrafficLimitsStore(
   ): DbAction.All[Unit] =
     insertVerifyingConflicts(
       storage,
-      "top_up_events (member, serial)",
-      sql"top_up_events (member, effective_timestamp, extra_traffic_limit, serial) values ($member, ${limit.validFromInclusive}, ${limit.limit}, ${limit.serial})",
-      sql"select extra_traffic_limit from top_up_events where member = $member and serial = ${limit.serial}"
+      "seq_top_up_events (member, serial)",
+      sql"seq_top_up_events (member, effective_timestamp, extra_traffic_limit, serial) values ($member, ${limit.validFromInclusive}, ${limit.limit}, ${limit.serial})",
+      sql"select extra_traffic_limit from seq_top_up_events where member = $member and serial = ${limit.serial}"
         .as[PositiveLong]
         .head,
     )(
@@ -74,9 +74,9 @@ class DbTrafficLimitsStore(
   ): Future[Seq[TopUpEvent]] = {
     val query = storage.profile match {
       case _: Profile.H2 | _: Profile.Postgres =>
-        sql"select effective_timestamp, extra_traffic_limit, serial from top_up_events where member = $member order by (effective_timestamp, serial) asc"
+        sql"select effective_timestamp, extra_traffic_limit, serial from seq_top_up_events where member = $member order by (effective_timestamp, serial) asc"
       case Profile.Oracle(_) =>
-        sql"select effective_timestamp, extra_traffic_limit, serial from top_up_events where member = $member order by effective_timestamp asc, serial asc"
+        sql"select effective_timestamp, extra_traffic_limit, serial from seq_top_up_events where member = $member order by effective_timestamp asc, serial asc"
     }
 
     storage.query(query.as[TopUpEvent], functionFullName)
@@ -87,7 +87,7 @@ class DbTrafficLimitsStore(
       tc: TraceContext,
   ): Future[Unit] = {
     storage.update_(
-      sqlu"""delete from top_up_events where member = $member and serial < $upToExclusive""",
+      sqlu"""delete from seq_top_up_events where member = $member and serial < $upToExclusive""",
       functionFullName,
     )
   }

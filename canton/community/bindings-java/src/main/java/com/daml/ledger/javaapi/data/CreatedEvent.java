@@ -21,6 +21,8 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final Identifier templateId;
 
+  private final String packageName;
+
   private final String contractId;
 
   private final DamlRecord arguments;
@@ -46,6 +48,7 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
+      @NonNull String packageName,
       @NonNull String contractId,
       @NonNull DamlRecord arguments,
       @NonNull ByteString createdEventBlob,
@@ -58,6 +61,7 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.witnessParties = List.copyOf(witnessParties);
     this.eventId = eventId;
     this.templateId = templateId;
+    this.packageName = packageName;
     this.contractId = contractId;
     this.arguments = arguments;
     this.createdEventBlob = createdEventBlob;
@@ -85,6 +89,11 @@ public final class CreatedEvent implements Event, TreeEvent {
   @Override
   public Identifier getTemplateId() {
     return templateId;
+  }
+
+  @NonNull
+  public String getPackageName() {
+    return packageName;
   }
 
   @NonNull
@@ -146,6 +155,7 @@ public final class CreatedEvent implements Event, TreeEvent {
     return Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
         && Objects.equals(templateId, that.templateId)
+        && Objects.equals(packageName, that.packageName)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(arguments, that.arguments)
         && Objects.equals(createdEventBlob, that.createdEventBlob)
@@ -163,6 +173,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         witnessParties,
         eventId,
         templateId,
+        packageName,
         contractId,
         arguments,
         createdEventBlob,
@@ -184,6 +195,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         + '\''
         + ", templateId="
         + templateId
+        + ", packageName="
+        + packageName
         + ", contractId='"
         + contractId
         + '\''
@@ -222,6 +235,7 @@ public final class CreatedEvent implements Event, TreeEvent {
                     .collect(Collectors.toUnmodifiableList()))
             .setEventId(this.getEventId())
             .setTemplateId(this.getTemplateId().toProto())
+            .setPackageName(this.getPackageName())
             .addAllWitnessParties(this.getWitnessParties())
             .addAllSignatories(this.getSignatories())
             .addAllObservers(this.getObservers())
@@ -257,6 +271,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         createdEvent.getWitnessPartiesList(),
         createdEvent.getEventId(),
         Identifier.fromProto(createdEvent.getTemplateId()),
+        createdEvent.getPackageName(),
         createdEvent.getContractId(),
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
         createdEvent.getCreatedEventBlob(),

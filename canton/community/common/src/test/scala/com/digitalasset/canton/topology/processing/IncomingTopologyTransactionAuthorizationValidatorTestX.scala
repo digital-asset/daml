@@ -422,7 +422,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           res <- validator.validateAndUpdateHeadAuthState(
             ts(1),
             List(Rns1k1_k1, okm1bk5_k1),
-            Map(Rns1k1_k1.transaction.mapping.uniqueKey -> ns1k1_k1),
+            Map(Rns1k1_k1.mapping.uniqueKey -> ns1k1_k1),
             expectFullAuthorization = true,
           )
         } yield {
@@ -490,7 +490,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             ts(1),
             List(p1p6_k2k6, Rns1k2_k1, id6ak7_k6, p1p6_k2),
             Map(
-              ns1k2_k1.transaction.mapping.uniqueKey -> ns1k2_k1
+              ns1k2_k1.mapping.uniqueKey -> ns1k2_k1
             ),
             expectFullAuthorization = true,
           )
@@ -636,7 +636,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             ts(1),
             List(dns2),
             decentralizedNamespaceWithMultipleOwnerThreshold
-              .map(tx => tx.transaction.mapping.uniqueKey -> tx)
+              .map(tx => tx.mapping.uniqueKey -> tx)
               .toMap,
             expectFullAuthorization = false,
           )
@@ -676,7 +676,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
             // with the same serial, combine the signature of the previous proposal to the current proposal.
             List(dns3.addSignatures(dns2.signatures.toSeq)),
             (decentralizedNamespaceWithMultipleOwnerThreshold ++ proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber)
-              .map(tx => tx.transaction.mapping.uniqueKey -> tx)
+              .map(tx => tx.mapping.uniqueKey -> tx)
               .toMap,
             // Expect to be able to authorize now that we have two signatures as required by
             // decentralizedNamespaceWithMultipleOwnerThreshold (dns1).

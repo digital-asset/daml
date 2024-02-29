@@ -4,11 +4,9 @@
 package com.digitalasset.canton.participant.sync
 
 import cats.syntax.either.*
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.lf.data.{Bytes as LfBytes, Ref}
 import com.digitalasset.canton.participant.{GlobalOffset, LedgerSyncOffset}
-import com.digitalasset.canton.platform.apiserver.services.ApiConversions
 import com.digitalasset.canton.util.ShowUtil.*
 import com.google.protobuf.ByteString
 
@@ -56,17 +54,14 @@ object UpstreamOffsetConvert {
     }
   }
 
-  def toLedgerOffset(offset: GlobalOffset): LedgerOffset =
-    LedgerOffset(LedgerOffset.Value.Absolute(fromGlobalOffset(offset).toHexString))
+  def toParticipantOffset(offset: GlobalOffset): ParticipantOffset =
+    ParticipantOffset(ParticipantOffset.Value.Absolute(fromGlobalOffset(offset).toHexString))
 
-  def toLedgerOffset(offset: String): LedgerOffset = LedgerOffset(
-    LedgerOffset.Value.Absolute(offset)
+  def toParticipantOffset(offset: String): ParticipantOffset = ParticipantOffset(
+    ParticipantOffset.Value.Absolute(offset)
   )
 
-  def toParticipantOffset(offset: String): ParticipantOffset =
-    ApiConversions.toV2(toLedgerOffset(offset))
-
-  def toLedgerSyncOffset(offset: LedgerOffset): Either[String, LedgerSyncOffset] =
+  def toLedgerSyncOffset(offset: ParticipantOffset): Either[String, LedgerSyncOffset] =
     for {
       absoluteOffset <- Either.cond(
         offset.value.isAbsolute,
@@ -76,19 +71,15 @@ object UpstreamOffsetConvert {
       ledgerSyncOffset <- toLedgerSyncOffset(absoluteOffset)
     } yield ledgerSyncOffset
 
-  def tryToLedgerSyncOffset(offset: LedgerOffset): LedgerSyncOffset =
-    toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
-
   def tryToLedgerSyncOffset(offset: ParticipantOffset): LedgerSyncOffset =
-    toLedgerSyncOffset(ApiConversions.toV1(offset)).valueOr(err =>
-      throw new IllegalArgumentException(err)
-    )
+    toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
 
   def toLedgerSyncOffset(offset: String): Either[String, LedgerSyncOffset] =
     Ref.HexString.fromString(offset).map(LedgerSyncOffset.fromHexString)
 
-  def ledgerOffsetToGlobalOffset(ledgerOffset: LedgerOffset): Either[String, GlobalOffset] = for {
-    ledgerSyncOffset <- toLedgerSyncOffset(ledgerOffset)
-    globalOffset <- toGlobalOffset(ledgerSyncOffset)
-  } yield globalOffset
+  def ledgerOffsetToGlobalOffset(ledgerOffset: ParticipantOffset): Either[String, GlobalOffset] =
+    for {
+      ledgerSyncOffset <- toLedgerSyncOffset(ledgerOffset)
+      globalOffset <- toGlobalOffset(ledgerSyncOffset)
+    } yield globalOffset
 }

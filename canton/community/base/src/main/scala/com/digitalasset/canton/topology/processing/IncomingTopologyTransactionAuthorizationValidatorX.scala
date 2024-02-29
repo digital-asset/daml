@@ -156,7 +156,7 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
         case ValidatedTopologyTransactionX(tx, None, _) =>
           processTransaction(
             tx,
-            transactionsInStore.get(tx.transaction.mapping.uniqueKey),
+            transactionsInStore.get(tx.mapping.uniqueKey),
             expectFullAuthorization,
           )
         case v => v
@@ -179,21 +179,21 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
   )(implicit traceContext: TraceContext): GenericValidatedTopologyTransactionX = {
     val processedNs = toValidate.selectMapping[NamespaceDelegationX].forall { sigTx =>
       processNamespaceDelegation(
-        toValidate.transaction.op,
+        toValidate.operation,
         AuthorizedTopologyTransactionX(sigTx),
       )
     }
 
     val processedIdent = toValidate.selectMapping[IdentifierDelegationX].forall { sigTx =>
       processIdentifierDelegation(
-        toValidate.transaction.op,
+        toValidate.operation,
         AuthorizedTopologyTransactionX(sigTx),
       )
     }
 
     val resultDns = toValidate.selectMapping[DecentralizedNamespaceDefinitionX].map { sigTx =>
       processDecentralizedNamespaceDefinition(
-        sigTx.transaction.op,
+        sigTx.operation,
         AuthorizedTopologyTransactionX(sigTx),
       )
     }
@@ -337,7 +337,7 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
       .get(decentralizedNamespace)
       .map { case (_, dnsGraph) => dnsGraph }
       .getOrElse {
-        val serialToValidate = tx.signedTransaction.transaction.serial
+        val serialToValidate = tx.serial
         if (serialToValidate > PositiveInt.one) {
           logger.warn(
             s"decentralizedNamespaceCache did not contain namespace $decentralizedNamespace even though the serial to validate is $serialToValidate"
@@ -404,8 +404,8 @@ class IncomingTopologyTransactionAuthorizationValidatorX(
           _ =>
             (
               UpdateAggregationX().add(
-                toValidate.transaction.mapping,
-                transactionsInStore.get(toValidate.transaction.mapping.uniqueKey),
+                toValidate.mapping,
+                transactionsInStore.get(toValidate.mapping.uniqueKey),
               ),
               Seq(ValidatedTopologyTransactionX(toValidate, None)),
             ),

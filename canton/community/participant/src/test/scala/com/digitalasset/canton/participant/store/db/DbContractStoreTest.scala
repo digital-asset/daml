@@ -31,7 +31,7 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
 
   override def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*
-    storage.update(sqlu"delete from contracts where domain_id = $domainIndex", functionFullName)
+    storage.update(sqlu"delete from par_contracts where domain_id = $domainIndex", functionFullName)
   }
 
   "DbContractStore" should {

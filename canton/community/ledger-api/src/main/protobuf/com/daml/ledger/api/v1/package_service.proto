@@ -9,47 +9,12 @@ option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
-// Allows clients to query the Daml-LF packages that are supported by the server.
-service PackageService {
-
-  // Returns the identifiers of all supported packages.
-  rpc ListPackages (ListPackagesRequest) returns (ListPackagesResponse);
-
-  // Returns the contents of a single package.
-  rpc GetPackage (GetPackageRequest) returns (GetPackageResponse);
-
-  // Returns the status of a single package.
-  rpc GetPackageStatus (GetPackageStatusRequest) returns (GetPackageStatusResponse);
-
-}
-
-message ListPackagesRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-}
-
 message ListPackagesResponse {
 
   // The IDs of all Daml-LF packages supported by the server.
   // Each element must be a valid PackageIdString (as described in ``value.proto``).
   // Required
   repeated string package_ids = 1;
-}
-
-message GetPackageRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-
-  // The ID of the requested package.
-  // Must be a valid PackageIdString (as described in ``value.proto``).
-  // Required
-  string package_id = 2;
 }
 
 message GetPackageResponse {
@@ -66,19 +31,6 @@ message GetPackageResponse {
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required
   string hash = 3;
-}
-
-message GetPackageStatusRequest {
-
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-
-  // The ID of the requested package.
-  // Must be a valid PackageIdString (as described in ``value.proto``).
-  // Required
-  string package_id = 2;
 }
 
 message GetPackageStatusResponse {

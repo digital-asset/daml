@@ -26,9 +26,9 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table active_contracts",
-        sqlu"truncate table active_contract_pruning",
-        sqlu"delete from contracts where domain_id >= $domainIndex and domain_id <= $maxDomainIndex",
+        sqlu"truncate table par_active_contracts",
+        sqlu"truncate table par_active_contract_pruning",
+        sqlu"delete from par_contracts where domain_id >= $domainIndex and domain_id <= $maxDomainIndex",
       ),
       functionFullName,
     )

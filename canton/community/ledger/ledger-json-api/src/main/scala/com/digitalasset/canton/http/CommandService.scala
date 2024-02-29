@@ -90,7 +90,6 @@ class CommandService(
         contract.payload,
         contract.signatories,
         contract.observers,
-        contract.agreementText,
         domain.CompletionOffset(response.completionOffset),
       )
       et.run
@@ -258,6 +257,7 @@ class CommandService(
           submissionId = meta.flatMap(_.submissionId),
           workflowId = meta.flatMap(_.workflowId),
           meta.flatMap(_.disclosedContracts) getOrElse Seq.empty,
+          meta.flatMap(_.domainId),
         )
       }
   }

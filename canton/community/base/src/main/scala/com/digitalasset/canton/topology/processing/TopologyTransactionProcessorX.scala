@@ -194,7 +194,7 @@ class TopologyTransactionProcessorX(
         .filter(
           _.rejectionReason.isEmpty
         )
-        .map(_.transaction.transaction.mapping)
+        .map(_.mapping)
     )
 
     NonEmpty.from(domainParamChanges) match {

@@ -108,9 +108,9 @@ class ValidatingTopologyMappingXChecks(
       isFirst: Boolean,
       toValidate: SignedTopologyTransactionX[TopologyChangeOpX, DomainTrustCertificateX],
   )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] =
-    if (toValidate.transaction.op == TopologyChangeOpX.Remove && isFirst) {
+    if (toValidate.operation == TopologyChangeOpX.Remove && isFirst) {
       EitherT.leftT(TopologyTransactionRejection.Other("Cannot have a remove as the first DTC"))
-    } else if (toValidate.transaction.op == TopologyChangeOpX.Remove) {
+    } else if (toValidate.operation == TopologyChangeOpX.Remove) {
 
       /* Checks that the DTC is not being removed if the participant still hosts a party.
        * This check is potentially quite expensive: we have to fetch all party to participant mappings, because
@@ -143,7 +143,7 @@ class ValidatingTopologyMappingXChecks(
         restrictions = domainParamCandidates.result.view
           .flatMap(_.selectMapping[DomainParametersStateX])
           .collect { case tx =>
-            tx.transaction.mapping.parameters.onboardingRestriction
+            tx.mapping.parameters.onboardingRestriction
           }
           .toList match {
           case Nil =>

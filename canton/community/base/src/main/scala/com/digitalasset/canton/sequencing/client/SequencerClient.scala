@@ -846,13 +846,15 @@ class RichSequencerClientImpl(
             timeTracker.wrapHandler(throttledEventHandler)
           )
         )
-        sequencerTransports.sequencerIdToTransportMap.keySet.foreach { sequencerId =>
-          createSubscription(
-            sequencerId,
-            preSubscriptionEvent,
-            requiresAuthentication,
-            eventHandler,
-          ).discard
+        sequencerTransports.sequencerToTransportMap.foreach {
+          case (sequencerAlias, sequencerTransport) =>
+            createSubscription(
+              sequencerAlias,
+              sequencerTransport.sequencerId,
+              preSubscriptionEvent,
+              requiresAuthentication,
+              eventHandler,
+            ).discard
         }
 
         // periodically acknowledge that we've successfully processed up to the clean counter
@@ -888,6 +890,7 @@ class RichSequencerClientImpl(
   }
 
   private def createSubscription(
+      sequencerAlias: SequencerAlias,
       sequencerId: SequencerId,
       preSubscriptionEvent: Option[PossiblyIgnoredSerializedEvent],
       requiresAuthentication: Boolean,
@@ -899,7 +902,7 @@ class RichSequencerClientImpl(
     val nextCounter = preSubscriptionEvent.fold(initialCounterLowerBound)(_.counter)
     val eventValidator = eventValidatorFactory.create(unauthenticated = !requiresAuthentication)
     logger.info(
-      s"Starting subscription for alias=$sequencerId at timestamp ${preSubscriptionEvent
+      s"Starting subscription for alias=$sequencerAlias, id=$sequencerId at timestamp ${preSubscriptionEvent
           .map(_.timestamp)}; next counter $nextCounter"
     )
 
@@ -925,6 +928,7 @@ class RichSequencerClientImpl(
       eventValidator,
       eventDelay,
       preSubscriptionEvent,
+      sequencerAlias,
       sequencerId,
     )
 
@@ -963,6 +967,7 @@ class RichSequencerClientImpl(
       eventValidator: SequencedEventValidator,
       processingDelay: DelaySequencedEvent,
       initialPriorEvent: Option[PossiblyIgnoredSerializedEvent],
+      sequencerAlias: SequencerAlias,
       sequencerId: SequencerId,
   ) {
 
@@ -998,7 +1003,7 @@ class RichSequencerClientImpl(
             .value
         } else {
           logger.debug(
-            s"Validating sequenced event coming from $sequencerId with counter ${serializedEvent.counter} and timestamp ${serializedEvent.timestamp}"
+            s"Validating sequenced event coming from $sequencerId (alias = $sequencerAlias) with counter ${serializedEvent.counter} and timestamp ${serializedEvent.timestamp}"
           )
           (for {
             _ <- EitherT.liftF(
@@ -1019,6 +1024,10 @@ class RichSequencerClientImpl(
               .leftMap[SequencerClientSubscriptionError](EventAggregationError)
           } yield
             if (toSignalHandler) {
+              // TODO(#17462) Consider to remove excessive debug logging
+              logger.debug(
+                s"Signalling event with counter ${serializedEvent.counter} to the application handler from loop for $sequencerId (alias=$sequencerAlias)"
+              )
               signalHandler(applicationHandler)
             }).value
         }
@@ -1065,9 +1074,19 @@ class RichSequencerClientImpl(
     ): Future[Unit] = {
       val inboxSize = config.eventInboxSize.unwrap
       val javaEventList = new java.util.ArrayList[OrdinarySerializedEvent](inboxSize)
+      // TODO(#17462) Consider to remove excessive debug logging
+      noTracingLogger.debug(
+        s"Draining events in handler loop for $sequencerId (alias=$sequencerAlias)"
+      )
       if (sequencerAggregator.eventQueue.drainTo(javaEventList, inboxSize) > 0) {
         import scala.jdk.CollectionConverters.*
         val handlerEvents = javaEventList.asScala.toSeq
+        // TODO(#17462) Consider to remove excessive debug logging
+        noTracingLogger.debug(
+          s"Drained ${handlerEvents.size} events in handler loop for $sequencerId (alias=$sequencerAlias): sequencerCounters ${handlerEvents
+              .map(_.counter)
+              .minOption} to ${handlerEvents.map(_.counter).maxOption}"
+        )
 
         def stopHandler(): Unit = blocking {
           this.synchronized { val _ = handlerIdle.get().success(()) }
@@ -1099,6 +1118,10 @@ class RichSequencerClientImpl(
         if (stillBusy) {
           handleReceivedEventsUntilEmpty(eventHandler)
         } else {
+          // TODO(#17462) Consider to remove excessive debug logging
+          noTracingLogger.debug(
+            s"Stopping handler loop for $sequencerId (alias=$sequencerAlias) because we ran out of queued events"
+          )
           Future.unit
         }
       }

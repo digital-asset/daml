@@ -369,6 +369,7 @@ final case class ParticipantNodeParameterConfig(
       10000, // 10000 is the default value in the engine configuration
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
+    override val useNewTrafficControl: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

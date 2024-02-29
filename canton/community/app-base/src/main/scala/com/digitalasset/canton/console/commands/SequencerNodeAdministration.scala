@@ -18,7 +18,11 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionsX,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.PositiveSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TopologyMappingX}
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransactionX,
+  TopologyChangeOpX,
+  TopologyMappingX,
+}
 
 class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
 
@@ -48,8 +52,8 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
           StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX](
             genesisState.map(signed =>
               StoredTopologyTransactionX(
-                SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
-                EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
+                SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+                EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
                 None,
                 signed,
               )

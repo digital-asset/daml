@@ -47,7 +47,6 @@ object ContractState {
       contractInstance: VersionedContractInstance,
       ledgerEffectiveTime: Timestamp,
       stakeholders: Set[Party],
-      agreementText: Option[String],
       signatories: Set[Party],
       globalKey: Option[GlobalKey],
       maintainers: Option[Set[Party]],

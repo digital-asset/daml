@@ -113,7 +113,7 @@ trait MkSequencerFactory {
       scheduler: ScheduledExecutorService,
       metrics: SequencerMetrics,
       storage: Storage,
-      topologyClientMember: Member,
+      sequencerId: SequencerId,
       nodeParameters: CantonNodeParameters,
       loggerFactory: NamedLoggerFactory,
   )(
@@ -130,7 +130,7 @@ object CommunitySequencerFactory extends MkSequencerFactory {
       scheduler: ScheduledExecutorService,
       metrics: SequencerMetrics,
       storage: Storage,
-      topologyClientMember: Member,
+      sequencerId: SequencerId,
       nodeParameters: CantonNodeParameters,
       loggerFactory: NamedLoggerFactory,
   )(sequencerConfig: SequencerConfig)(implicit
@@ -142,7 +142,7 @@ object CommunitySequencerFactory extends MkSequencerFactory {
         metrics,
         storage,
         protocolVersion,
-        topologyClientMember,
+        sequencerId,
         nodeParameters,
         loggerFactory,
       )
@@ -155,7 +155,7 @@ object CommunitySequencerFactory extends MkSequencerFactory {
         health,
         storage,
         protocolVersion,
-        topologyClientMember,
+        sequencerId,
         nodeParameters,
         metrics,
         loggerFactory,

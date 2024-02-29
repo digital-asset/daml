@@ -47,7 +47,10 @@ final case class StoredTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
     validFrom: EffectiveTime,
     validUntil: Option[EffectiveTime],
     transaction: SignedTopologyTransactionX[Op, M],
-) extends PrettyPrinting {
+) extends DelegatedTopologyTransactionLike[Op, M]
+    with PrettyPrinting {
+  override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
+
   override def pretty: Pretty[StoredTopologyTransactionX.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
@@ -65,8 +68,6 @@ final case class StoredTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: Topo
   def selectOp[TargetOp <: TopologyChangeOpX: ClassTag] = transaction
     .selectOp[TargetOp]
     .map(_ => this.asInstanceOf[StoredTopologyTransactionX[TargetOp, M]])
-
-  def mapping: M = transaction.transaction.mapping
 }
 
 object StoredTopologyTransactionX {
@@ -78,7 +79,11 @@ final case class ValidatedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: T
     transaction: SignedTopologyTransactionX[Op, M],
     rejectionReason: Option[TopologyTransactionRejection] = None,
     expireImmediately: Boolean = false,
-) extends PrettyPrinting {
+) extends DelegatedTopologyTransactionLike[Op, M]
+    with PrettyPrinting {
+
+  override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
+
   def nonDuplicateRejectionReason: Option[TopologyTransactionRejection] = rejectionReason match {
     case Some(Duplicate(_)) => None
     case otherwise => otherwise
@@ -306,7 +311,7 @@ object TopologyStoreX {
       items: Seq[StoredTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]]
   ): Seq[Change] = {
     items
-      .map(x => (x, x.transaction.transaction.mapping))
+      .map(x => (x, x.mapping))
       .map {
         case (tx, x: DomainParametersStateX) =>
           Change.TopologyDelay(tx.sequenced, tx.validFrom, x.parameters.topologyChangeDelay)

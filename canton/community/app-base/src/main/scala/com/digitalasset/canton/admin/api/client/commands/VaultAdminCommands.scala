@@ -315,15 +315,24 @@ object VaultAdminCommands {
 
   }
 
-  final case class ImportKeyPair(keyPair: ByteString, name: Option[String])
-      extends BaseVaultAdminCommand[
+  final case class ImportKeyPair(
+      keyPair: ByteString,
+      name: Option[String],
+      password: Option[String],
+  ) extends BaseVaultAdminCommand[
         v30.ImportKeyPairRequest,
         v30.ImportKeyPairResponse,
         Unit,
       ] {
 
     override def createRequest(): Either[String, v30.ImportKeyPairRequest] =
-      Right(v30.ImportKeyPairRequest(keyPair = keyPair, name = OptionUtil.noneAsEmptyString(name)))
+      Right(
+        v30.ImportKeyPairRequest(
+          keyPair = keyPair,
+          name = OptionUtil.noneAsEmptyString(name),
+          password = OptionUtil.noneAsEmptyString(password),
+        )
+      )
 
     override def submitRequest(
         service: VaultServiceStub,
@@ -335,8 +344,11 @@ object VaultAdminCommands {
       EitherUtil.unit
   }
 
-  final case class ExportKeyPair(fingerprint: Fingerprint, protocolVersion: ProtocolVersion)
-      extends BaseVaultAdminCommand[
+  final case class ExportKeyPair(
+      fingerprint: Fingerprint,
+      protocolVersion: ProtocolVersion,
+      password: Option[String],
+  ) extends BaseVaultAdminCommand[
         v30.ExportKeyPairRequest,
         v30.ExportKeyPairResponse,
         ByteString,
@@ -347,6 +359,7 @@ object VaultAdminCommands {
         v30.ExportKeyPairRequest(
           fingerprint = fingerprint.toProtoPrimitive,
           protocolVersion = protocolVersion.toProtoPrimitive,
+          password = OptionUtil.noneAsEmptyString(password),
         )
       )
     }

@@ -47,10 +47,10 @@ object TopologyChangeOpX {
 
   def unapply(
       tx: TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
-  ): Option[TopologyChangeOpX] = Some(tx.op)
+  ): Option[TopologyChangeOpX] = Some(tx.operation)
   def unapply(
       tx: SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
-  ): Option[TopologyChangeOpX] = Some(tx.transaction.op)
+  ): Option[TopologyChangeOpX] = Some(tx.operation)
 
   def fromProtoV30(
       protoOp: v30.Enums.TopologyChangeOp
@@ -69,6 +69,22 @@ object TopologyChangeOpX {
 
 }
 
+trait TopologyTransactionLike[+Op <: TopologyChangeOpX, +M <: TopologyMappingX] {
+  def operation: Op
+  def serial: PositiveInt
+  def mapping: M
+  def hash: TxHash
+}
+
+trait DelegatedTopologyTransactionLike[+Op <: TopologyChangeOpX, +M <: TopologyMappingX]
+    extends TopologyTransactionLike[Op, M] {
+  protected def transactionLikeDelegate: TopologyTransactionLike[Op, M]
+  override final def operation: Op = transactionLikeDelegate.operation
+  override final def serial: PositiveInt = transactionLikeDelegate.serial
+  override final def mapping: M = transactionLikeDelegate.mapping
+  override final def hash: TxHash = transactionLikeDelegate.hash
+}
+
 /** Change to the distributed domain topology
   *
   * A topology transaction is a state change to the domain topology. There are different
@@ -83,7 +99,7 @@ object TopologyChangeOpX {
   * An authorized transaction is called a [[SignedTopologyTransactionX]]
   */
 final case class TopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMappingX] private (
-    op: Op,
+    operation: Op,
     serial: PositiveInt,
     mapping: M,
 )(
@@ -91,12 +107,13 @@ final case class TopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
       TopologyTransactionX.type
     ],
     override val deserializedFrom: Option[ByteString] = None,
-) extends ProtocolVersionedMemoizedEvidence
+) extends TopologyTransactionLike[Op, M]
+    with ProtocolVersionedMemoizedEvidence
     with PrettyPrinting
     with HasProtocolVersionedWrapper[TopologyTransactionX[TopologyChangeOpX, TopologyMappingX]] {
 
   def reverse: TopologyTransactionX[TopologyChangeOpX, M] = {
-    val next = (op: TopologyChangeOpX) match {
+    val next = (operation: TopologyChangeOpX) match {
       case TopologyChangeOpX.Replace => TopologyChangeOpX.Remove
       case TopologyChangeOpX.Remove => TopologyChangeOpX.Replace
     }
@@ -114,7 +131,7 @@ final case class TopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def selectOp[TargetOp <: TopologyChangeOpX: ClassTag]: Option[TopologyTransactionX[TargetOp, M]] =
-    op.select[TargetOp].map(_ => this.asInstanceOf[TopologyTransactionX[TargetOp, M]])
+    operation.select[TargetOp].map(_ => this.asInstanceOf[TopologyTransactionX[TargetOp, M]])
 
   /** returns hash of the given transaction */
   lazy val hash: TxHash = {
@@ -131,7 +148,7 @@ final case class TopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
   override def toByteStringUnmemoized: ByteString = super[HasProtocolVersionedWrapper].toByteString
 
   def toProtoV30: v30.TopologyTransaction = v30.TopologyTransaction(
-    operation = op.toProto,
+    operation = operation.toProto,
     serial = serial.value,
     mapping = Some(mapping.toProtoV30),
   )
@@ -139,7 +156,7 @@ final case class TopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
   def asVersion(
       protocolVersion: ProtocolVersion
   ): TopologyTransactionX[Op, M] = {
-    TopologyTransactionX[Op, M](op, serial, mapping)(
+    TopologyTransactionX[Op, M](operation, serial, mapping)(
       TopologyTransactionX.protocolVersionRepresentativeFor(protocolVersion)
     )
   }
@@ -151,7 +168,7 @@ final case class TopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
     prettyOfClass(
       unnamedParam(_.mapping),
       param("serial", _.serial),
-      param("op", _.op),
+      param("operation", _.operation),
     )
 
   @transient override protected lazy val companionObj: TopologyTransactionX.type =

@@ -65,7 +65,7 @@ class DbDomainConnectionConfigStore private[store] (
     EitherT {
       storage
         .query(
-          sql"""select config, status from participant_domain_connection_configs where domain_alias = $domainAlias"""
+          sql"""select config, status from par_domain_connection_configs where domain_alias = $domainAlias"""
             .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
             .headOption
             .map(_.map(StoredDomainConnectionConfig.tupled)),
@@ -78,7 +78,7 @@ class DbDomainConnectionConfigStore private[store] (
       traceContext: TraceContext
   ): Future[Seq[StoredDomainConnectionConfig]] =
     storage.query(
-      sql"""select config, status from participant_domain_connection_configs"""
+      sql"""select config, status from par_domain_connection_configs"""
         .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
         .map(_.map(StoredDomainConnectionConfig.tupled)),
       functionFullName,
@@ -99,12 +99,12 @@ class DbDomainConnectionConfigStore private[store] (
     val insertAction: DbAction.WriteOnly[Int] = storage.profile match {
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
-               /*+ IGNORE_ROW_ON_DUPKEY_INDEX ( PARTICIPANT_DOMAIN_CONNECTION_CONFIGS ( domain_alias ) ) */
-               into participant_domain_connection_configs(domain_alias, config, status)
+               /*+ IGNORE_ROW_ON_DUPKEY_INDEX ( PAR_DOMAIN_CONNECTION_CONFIGS ( domain_alias ) ) */
+               into par_domain_connection_configs(domain_alias, config, status)
                values ($domainAlias, $config, $status)"""
       case _ =>
         sqlu"""insert
-               into participant_domain_connection_configs(domain_alias, config, status)
+               into par_domain_connection_configs(domain_alias, config, status)
                values ($domainAlias, $config, $status)
                on conflict do nothing"""
     }
@@ -143,7 +143,7 @@ class DbDomainConnectionConfigStore private[store] (
       config: DomainConnectionConfig
   )(implicit traceContext: TraceContext): EitherT[Future, MissingConfigForAlias, Unit] = {
     val domainAlias = config.domain
-    val updateAction = sqlu"""update participant_domain_connection_configs
+    val updateAction = sqlu"""update par_domain_connection_configs
                               set config=$config
                               where domain_alias=$domainAlias"""
     for {
@@ -168,7 +168,7 @@ class DbDomainConnectionConfigStore private[store] (
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, MissingConfigForAlias, Unit] = {
-    val updateAction = sqlu"""update participant_domain_connection_configs
+    val updateAction = sqlu"""update par_domain_connection_configs
                               set status=$status
                               where domain_alias=$source"""
     for {

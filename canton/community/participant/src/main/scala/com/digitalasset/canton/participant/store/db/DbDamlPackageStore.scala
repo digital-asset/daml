@@ -45,7 +45,7 @@ class DbDamlPackageStore(
   import storage.converters.*
   import DbStorage.Implicits.*
 
-  // writeQueue is used to protect against concurrent insertions and deletions to/from the `dars` or `daml_packages` tables,
+  // writeQueue is used to protect against concurrent insertions and deletions to/from the `par_dars` or `par_daml_packages` tables,
   // which might otherwise data corruption or constraint violations.
   private val writeQueue = new SimpleExecutionQueue(
     "db-daml-package-store-queue",
@@ -55,7 +55,7 @@ class DbDamlPackageStore(
   )
 
   private def exists(packageId: PackageId): DbAction.ReadOnly[Option[DamlLf.Archive]] =
-    sql"select data from daml_packages where package_id = $packageId"
+    sql"select data from par_daml_packages where package_id = $packageId"
       .as[Array[Byte]]
       .headOption
       .map { mbData =>
@@ -71,14 +71,14 @@ class DbDamlPackageStore(
       val sql = storage.profile match {
         case _: DbStorage.Profile.H2 =>
           """merge
-            |  into daml_packages
+            |  into par_daml_packages
             |  using (
             |    select
             |      cast(? as varchar(300)) as package_id,
             |      cast(? as varchar) as source_description,
             |    from dual
             |  ) as excluded
-            |  on (daml_packages.package_id = excluded.package_id)
+            |  on (par_daml_packages.package_id = excluded.package_id)
             |  when not matched then
             |    insert (package_id, data, source_description)
             |    values (excluded.package_id, ?, excluded.source_description)
@@ -86,15 +86,15 @@ class DbDamlPackageStore(
             |    update set
             |      source_description = excluded.source_description""".stripMargin
         case _: DbStorage.Profile.Oracle =>
-          """merge /*+ INDEX ( daml_packages (package_id) ) */
-            |  into daml_packages
+          """merge /*+ INDEX ( par_daml_packages (package_id) ) */
+            |  into par_daml_packages
             |  using (
             |    select
             |      ? as package_id,
             |      ? as source_description
             |    from dual
             |  ) excluded
-            |  on (daml_packages.package_id = excluded.package_id)
+            |  on (par_daml_packages.package_id = excluded.package_id)
             |  when not matched then
             |    insert (package_id, data, source_description)
             |    values (excluded.package_id, ?, excluded.source_description)
@@ -104,7 +104,7 @@ class DbDamlPackageStore(
             |      where ? = 1""".stripMargin // Strangely (or not), it looks like Oracle does not have a Boolean type...
         case _: DbStorage.Profile.Postgres =>
           """insert
-              |  into daml_packages (package_id, source_description, data)
+              |  into par_daml_packages (package_id, source_description, data)
               |  values (?, ?, ?)
               |  on conflict (package_id) do
               |    update set source_description = excluded.source_description
@@ -125,7 +125,7 @@ class DbDamlPackageStore(
         val sql = storage.profile match {
           case _: DbStorage.Profile.Oracle =>
             """merge /*+ INDEX ( dar_packages (dar_hash_hex package_id) ) */
-            |  into dar_packages
+            |  into par_dar_packages
             |  using (
             |    select
             |      ? as dar_hash_hex,
@@ -137,7 +137,7 @@ class DbDamlPackageStore(
             |    insert (dar_hash_hex, package_id)
             |    values (excluded.dar_hash_hex, excluded.package_id)""".stripMargin
           case _ =>
-            """insert into dar_packages (dar_hash_hex, package_id)
+            """insert into par_dar_packages (dar_hash_hex, package_id)
             |  values (?, ?)
             |  on conflict do
             |    nothing""".stripMargin
@@ -201,7 +201,7 @@ class DbDamlPackageStore(
   ): Future[Option[PackageDescription]] = {
     storage
       .querySingle(
-        sql"select package_id, source_description from daml_packages where package_id = $packageId"
+        sql"select package_id, source_description from par_daml_packages where package_id = $packageId"
           .as[PackageDescription]
           .headOption,
         functionFullName,
@@ -213,7 +213,7 @@ class DbDamlPackageStore(
       limit: Option[Int]
   )(implicit traceContext: TraceContext): Future[Seq[PackageDescription]] =
     storage.query(
-      sql"select package_id, source_description from daml_packages #${limit.fold("")(storage.limit(_))}"
+      sql"select package_id, source_description from par_daml_packages #${limit.fold("")(storage.limit(_))}"
         .as[PackageDescription],
       functionFullName,
     )
@@ -225,7 +225,7 @@ class DbDamlPackageStore(
 
     writeQueue.execute(
       storage.update_(
-        sqlu"""delete from daml_packages where package_id = $packageId """,
+        sqlu"""delete from par_daml_packages where package_id = $packageId """,
         functionFullName,
       ),
       functionFullName,
@@ -251,13 +251,13 @@ class DbDamlPackageStore(
       .map { inStatement =>
         (sql"""
                   select package_id
-                  from dar_packages remove_candidates
+                  from par_dar_packages remove_candidates
                   where
                   """ ++ inStatement ++
           sql"""
                   and not exists (
                     select package_id
-                    from dar_packages other_dars
+                    from par_dar_packages other_dars
                     where
                       remove_candidates.package_id = other_dars.package_id
                       and dar_hash_hex != ${darHash.toLengthLimitedHexString}
@@ -301,29 +301,29 @@ class DbDamlPackageStore(
       limit: Option[Int]
   )(implicit traceContext: TraceContext): Future[Seq[DarDescriptor]] = {
     val query = limit match {
-      case None => sql"select hash, name from dars".as[DarDescriptor]
+      case None => sql"select hash, name from par_dars".as[DarDescriptor]
       case Some(amount) =>
-        sql"select hash, name from dars #${storage.limit(amount)}".as[DarDescriptor]
+        sql"select hash, name from par_dars #${storage.limit(amount)}".as[DarDescriptor]
     }
     storage.query(query, functionFullName)
   }
 
   private def existing(hash: Hash): DbAction.ReadOnly[Option[Dar]] =
-    sql"select hash, name, data from dars where hash_hex = ${hash.toLengthLimitedHexString}"
+    sql"select hash, name, data from par_dars where hash_hex = ${hash.toLengthLimitedHexString}"
       .as[Dar]
       .headOption
 
   private def insertOrUpdateDar(dar: DarRecord): DbAction.WriteOnly[Int] =
     storage.profile match {
       case _: DbStorage.Profile.H2 =>
-        sqlu"merge into dars (hash_hex, hash, data, name) values (${dar.hash.toLengthLimitedHexString}, ${dar.hash}, ${dar.data}, ${dar.name})"
+        sqlu"merge into par_dars (hash_hex, hash, data, name) values (${dar.hash.toLengthLimitedHexString}, ${dar.hash}, ${dar.data}, ${dar.name})"
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into dars (hash_hex, hash, data, name) values (${dar.hash.toLengthLimitedHexString},${dar.hash}, ${dar.data}, ${dar.name})
+        sqlu"""insert into par_dars (hash_hex, hash, data, name) values (${dar.hash.toLengthLimitedHexString},${dar.hash}, ${dar.data}, ${dar.name})
                on conflict (hash_hex) do nothing"""
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
-                /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( dars ( hash_hex ) ) */
-                into dars (hash_hex, hash, data, name)
+                /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( par_dars ( hash_hex ) ) */
+                into par_dars (hash_hex, hash, data, name)
                 values (${dar.hash.toLengthLimitedHexString}, ${dar.hash}, ${dar.data}, ${dar.name})
               """
     }
@@ -333,7 +333,7 @@ class DbDamlPackageStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     writeQueue.execute(
       storage.update_(
-        sqlu"""delete from dars where hash_hex = ${hash.toLengthLimitedHexString}""",
+        sqlu"""delete from par_dars where hash_hex = ${hash.toLengthLimitedHexString}""",
         functionFullName,
       ),
       functionFullName,

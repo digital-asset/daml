@@ -312,7 +312,7 @@ object TopologyTimestampPlusEpsilonTracker {
       )
       .map { txs =>
         txs.result
-          .map(x => (x.transaction.transaction.mapping, x))
+          .map(x => (x.mapping, x))
           .collectFirst { case (change: DomainParametersStateX, tx) =>
             TopologyStoreX.Change.TopologyDelay(
               tx.sequenced,

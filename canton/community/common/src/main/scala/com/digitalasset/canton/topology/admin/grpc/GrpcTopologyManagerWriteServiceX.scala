@@ -169,7 +169,7 @@ class GrpcTopologyManagerWriteService(
 
       extendedTransactions <- signedTxs.parTraverse(tx =>
         signingKeys
-          .parTraverse(key => crypto.privateCrypto.sign(tx.transaction.hash.hash, key))
+          .parTraverse(key => crypto.privateCrypto.sign(tx.hash.hash, key))
           .leftMap(TopologyManagerError.InternalError.TopologySigningError(_): CantonError)
           .map(tx.addSignatures)
           .mapK(FutureUnlessShutdown.outcomeK)

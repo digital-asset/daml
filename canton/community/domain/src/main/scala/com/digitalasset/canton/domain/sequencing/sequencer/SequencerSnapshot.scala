@@ -190,7 +190,10 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
 final case class SequencerInitialState(
     domainId: DomainId,
     snapshot: SequencerSnapshot,
-    latestTopologyClientTimestamp: Option[CantonTimestamp],
+    // TODO(#13883,#14504) Revisit whether this still makes sense: For sequencer onboarding, this timestamp
+    //  will typically differ between sequencers because they may receive envelopes addressed directly to them
+    //  even though this should not happen during a normal protocol run.
+    latestSequencerEventTimestamp: Option[CantonTimestamp],
     initialTopologyEffectiveTimestamp: Option[CantonTimestamp],
 )
 
@@ -200,6 +203,7 @@ object SequencerInitialState {
       snapshot: SequencerSnapshot,
       times: SeqView[(CantonTimestamp, CantonTimestamp)],
   ): SequencerInitialState = {
+    // TODO(#14504) Update since we now also need to look at top-ups
     /* Take the sequencing time of the last topology update for the latest topology client timestamp.
      * There may have been further events addressed to the topology client member after this topology update,
      * but it is safe to ignore them. We assume that the topology snapshot includes all changes that have

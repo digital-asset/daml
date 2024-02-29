@@ -34,6 +34,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlErrors.InvalidTrafficControlBalanceMessage
+import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.traffic.TrafficControlProcessor.TrafficControlSubscriber
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec

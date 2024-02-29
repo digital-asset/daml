@@ -101,7 +101,7 @@ message Commands {
   repeated com.daml.ledger.api.v1.DisclosedContract disclosed_contracts = 12;
 
   // Must be a valid domain ID
-  // Required
+  // Optional
   string domain_id = 13;
 
   // The package-id selection preference of the client for resolving

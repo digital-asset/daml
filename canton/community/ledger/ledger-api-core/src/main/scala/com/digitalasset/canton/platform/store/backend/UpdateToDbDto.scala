@@ -229,7 +229,6 @@ object UpdateToDbDto {
                       compressionStrategy.createArgumentCompression.compress(createArgument),
                     create_signatories = create.signatories.map(_.toString),
                     create_observers = create.stakeholders.diff(create.signatories).map(_.toString),
-                    create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
                     create_key_value = createKeyValue
                       .map(compressionStrategy.createKeyValueCompression.compress),
                     create_key_maintainers = create.keyOpt.map(_.maintainers.map(_.toString)),
@@ -403,7 +402,6 @@ object UpdateToDbDto {
                   create_observers = assign.createNode.stakeholders
                     .diff(assign.createNode.signatories)
                     .map(_.toString),
-                  create_agreement_text = Some(assign.createNode.agreementText).filter(_.nonEmpty),
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
                   create_key_maintainers =

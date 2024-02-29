@@ -176,7 +176,7 @@ class DbTransferStore(
 
     import DbStorage.Implicits.*
     val insert: DBIO[Int] = sqlu"""
-        insert into transfers(target_domain, origin_domain, transfer_out_timestamp, transfer_out_request_counter,
+        insert into par_transfers(target_domain, origin_domain, transfer_out_timestamp, transfer_out_request_counter,
         transfer_out_request, transfer_out_decision_time, contract, creating_transaction_id, transfer_out_result,
         submitter_lf, source_protocol_version, transfer_out_global_offset, transfer_in_global_offset)
         values (
@@ -206,7 +206,7 @@ class DbTransferStore(
         val id = entry.transferData.transferId
         val data = entry.transferData
         sqlu"""
-          update transfers
+          update par_transfers
           set transfer_out_request_counter=${data.transferOutRequestCounter},
             transfer_out_request=${data.transferOutRequest}, transfer_out_decision_time=${data.transferOutDecisionTime},
             contract=${data.contract}, creating_transaction_id=${data.creatingTransactionId},
@@ -245,7 +245,7 @@ class DbTransferStore(
      select source_protocol_version, transfer_out_timestamp, transfer_out_request_counter, transfer_out_request, transfer_out_decision_time,
      contract, creating_transaction_id, transfer_out_result, transfer_out_global_offset, transfer_in_global_offset,
      time_of_completion_request_counter, time_of_completion_timestamp
-     from transfers where target_domain=$domain and origin_domain=${id.sourceDomain} and transfer_out_timestamp=${id.transferOutTimestamp}
+     from par_transfers where target_domain=$domain and origin_domain=${id.sourceDomain} and transfer_out_timestamp=${id.transferOutTimestamp}
     """.as[TransferEntry].headOption
 
   override def addTransferOutResult(
@@ -255,7 +255,7 @@ class DbTransferStore(
 
     val existsRaw: DbAction.ReadOnly[Option[Option[RawDeliveredTransferOutResult]]] = sql"""
        select transfer_out_result, source_protocol_version
-       from transfers
+       from par_transfers
        where
           target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}
         """.as[Option[RawDeliveredTransferOutResult]].headOption
@@ -265,7 +265,7 @@ class DbTransferStore(
     def update(previousResult: Option[DeliveredTransferOutResult]) = {
       previousResult
         .fold[Checked[TransferStoreError, Nothing, Option[DBIO[Int]]]](Checked.result(Some(sqlu"""
-              update transfers
+              update par_transfers
               set transfer_out_result=${transferOutResult}
               where target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}
               """)))(previous =>
@@ -317,12 +317,12 @@ class DbTransferStore(
 
     val select =
       sql"""select origin_domain, transfer_out_timestamp, transfer_out_global_offset, transfer_in_global_offset
-           from transfers
+           from par_transfers
            where
               target_domain=$domain and (""" ++ transferIdsFilter ++ sql")"
 
     val updateQuery =
-      """update transfers
+      """update par_transfers
        set transfer_out_global_offset = ?, transfer_in_global_offset = ?
        where target_domain = ? and origin_domain = ? and transfer_out_timestamp = ?
     """
@@ -377,7 +377,7 @@ class DbTransferStore(
   ): CheckedT[Future, Nothing, TransferStoreError, Unit] = {
 
     val updateSameOrUnset = sqlu"""
-        update transfers
+        update par_transfers
           set time_of_completion_request_counter=${timeOfCompletion.rc}, time_of_completion_timestamp=${timeOfCompletion.timestamp}
         where
           target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}
@@ -409,7 +409,7 @@ class DbTransferStore(
       transferId: TransferId
   )(implicit traceContext: TraceContext): Future[Unit] = {
     storage.update_(
-      sqlu"""delete from transfers
+      sqlu"""delete from par_transfers
                 where target_domain=$domain and origin_domain=${transferId.sourceDomain} and transfer_out_timestamp=${transferId.transferOutTimestamp}""",
       functionFullName,
     )
@@ -419,7 +419,7 @@ class DbTransferStore(
       criterionInclusive: RequestCounter
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val query = sqlu"""
-       update transfers
+       update par_transfers
          set time_of_completion_request_counter=null, time_of_completion_timestamp=null
          where target_domain=$domain and time_of_completion_request_counter >= $criterionInclusive
       """
@@ -442,7 +442,7 @@ class DbTransferStore(
     val base: SQLActionBuilder = sql"""
      select source_protocol_version, transfer_out_timestamp, transfer_out_request_counter, transfer_out_request, transfer_out_decision_time,
      contract, creating_transaction_id, transfer_out_result, transfer_out_global_offset, transfer_in_global_offset
-     from transfers
+     from par_transfers
      where
    """
 
@@ -599,7 +599,7 @@ class DbTransferStore(
             sql"""select min(coalesce(transfer_in_global_offset,${GlobalOffset.MaxValue})),
                   min(coalesce(transfer_out_global_offset,${GlobalOffset.MaxValue})),
                   origin_domain, transfer_out_timestamp
-                  from transfers
+                  from par_transfers
                   where target_domain=$domain and (transfer_out_global_offset is null or transfer_in_global_offset is null)
                   group by origin_domain, transfer_out_timestamp
                   """

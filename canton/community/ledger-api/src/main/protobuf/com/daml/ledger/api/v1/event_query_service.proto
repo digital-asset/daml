@@ -5,28 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
-import "com/daml/ledger/api/v1/event.proto";
-import "com/daml/ledger/api/v1/value.proto";
-
 option java_outer_classname = "EventQueryServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
-
-// Query events by contract id or key.
-service EventQueryService {
-
-  // Get the create and the consuming exercise event for the contract with the provided ID.
-  // No events will be returned for contracts that have been pruned because they
-  // have already been archived before the latest pruning offset.
-  rpc GetEventsByContractId (GetEventsByContractIdRequest) returns (GetEventsByContractIdResponse);
-
-  // Get all create and consuming exercise events for the contracts with the provided contract key.
-  // Only events for unpruned contracts will be returned.
-  // Matching events are delivered in reverse chronological order, i.e.,
-  // the most recent events are delivered first.
-  rpc GetEventsByContractKey (GetEventsByContractKeyRequest) returns (GetEventsByContractKeyResponse);
-
-}
 
 message GetEventsByContractIdRequest {
   // The contract id being queried.
@@ -41,62 +22,3 @@ message GetEventsByContractIdRequest {
   repeated string requesting_parties = 2;
 
 }
-
-message GetEventsByContractIdResponse {
-
-  // The create event for the contract with the ``contract_id`` given in the request
-  // provided it exists and has not yet been pruned.
-  // Optional
-  CreatedEvent create_event = 1;
-
-  // The archive event for the contract with the ``contract_id`` given in the request
-  // provided such an archive event exists and it has not yet been pruned.
-  // Optional
-  ArchivedEvent archive_event = 2;
-
-}
-
-message GetEventsByContractKeyRequest {
-
-  // The contract key to search for.
-  // Required
-  Value contract_key = 1;
-
-  // The template id associated with the contract key
-  // Required
-  Identifier template_id = 2;
-
-  // The parties whose events the client expects to see.
-  // The events associated with the contract key will only be returned if the requesting parties includes
-  // at least one party that is a stakeholder of the event. For a definition of stakeholders see
-  // https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
-  // To gain visibility of all contract key bindings and to ensure consistent performance use a key maintainer as
-  // a requesting party.
-  // Required
-  repeated string requesting_parties = 3;
-
-  // A ``continuation_token`` associated with a previous response.
-  // Optional
-  string continuation_token = 4;
-
-}
-
-message GetEventsByContractKeyResponse {
-
-  // The most recent create event for a contract with the key given in the request, if
-  // no ``continuation_token`` is provided. If a ``continuation_token`` is provided, then
-  // this is the most recent create event preceding the create event whose
-  // ``continuation_token`` was provided.
-  // Optional
-  CreatedEvent create_event = 1;
-
-  // The archive event for the create event provided the created contract is archived.
-  // Optional
-  ArchivedEvent archive_event = 2;
-
-  // If the ``continuation_token`` is populated then there may be additional events available. To retrieve
-  // these events use the ``continuation_token`` in a subsequent request.
-  // Optional
-  string continuation_token = 4;
-}
-

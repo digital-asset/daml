@@ -4,7 +4,6 @@
 package com.digitalasset.canton.store
 
 import cats.data.{EitherT, OptionT}
-import cats.syntax.either.*
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
@@ -12,7 +11,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbIndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.DomainId
 import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{PositionedParameters, SetParameter}
@@ -105,17 +104,6 @@ object IndexedDomain extends IndexedStringFromDb[IndexedDomain, DomainId] {
     // These indices are positive by construction.
     DomainId.fromString(str.unwrap).map(checked(tryCreate(_, index)))
   }
-}
-
-final case class IndexedMember private (member: Member, index: Int)
-    extends IndexedString.Impl[Member](member)
-object IndexedMember extends IndexedStringFromDb[IndexedMember, Member] {
-  override protected def buildIndexed(item: Member, index: Int): IndexedMember =
-    IndexedMember(item, index)
-  override protected def asString(item: Member): String300 = item.toLengthLimitedString
-  override protected def dbTyp: IndexedStringType = IndexedStringType.memberId
-  override protected def fromString(str: String300, index: Int): Either[String, IndexedMember] =
-    Member.fromProtoPrimitive(str.unwrap, "member").leftMap(_.toString).map(IndexedMember(_, index))
 }
 
 final case class IndexedStringType private (source: Int, description: String)

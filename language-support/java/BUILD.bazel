@@ -17,8 +17,8 @@ javadoc_library(
         "com.daml.ledger.rxjava",
         "com.daml.ledger.rxjava.grpc",
         "com.daml.ledger.rxjava.util",
-        "com.daml.ledger.api.v1",
-        "com.daml.ledger.api.v1.testing",
+        "com.daml.ledger.api.v2",
+        "com.daml.ledger.api.v2.testing",
     ],
     visibility = [
         "//visibility:public",
