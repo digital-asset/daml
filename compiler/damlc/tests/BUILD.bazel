@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
@@ -621,7 +621,7 @@ daml_compile(
             ],
         ),
     ]
-]
+] if is_intel else None
 
 [
     [

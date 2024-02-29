@@ -109,7 +109,7 @@ case $1 in
     snapshot)
         if [ -n "${2+x}" ] && [ -n "${3+x}" ]; then
             if ! commit_belongs_to_release_branch $2; then
-                echo "WARNING: Commit does not belong to a release branch."
+                echo "WARNING: Commit does not belong to a release branch." >&2
             fi
             make_snapshot $(git rev-parse $2) $3
         else

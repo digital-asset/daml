@@ -12,7 +12,7 @@ load(
     "lf_version_configuration",
 )
 load("//ledger-test-tool:conformance.bzl", "conformance_test", "testtool_lf_versions")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 
 # we release ledger-api-test-tool-stable as ledger-api-test-tool
 da_scala_binary(
@@ -32,7 +32,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [":tool-default"],
-)
+) if is_intel else None
 
 [
     alias(
@@ -41,7 +41,7 @@ da_scala_binary(
         visibility = ["//visibility:public"],
     )
     for (name, lf_target) in lf_version_configuration.items()
-]
+] if is_intel else None
 
 [
     da_scala_binary(
@@ -76,7 +76,7 @@ da_scala_binary(
         ],
     )
     for lf_version in testtool_lf_versions
-]
+] if is_intel else None
 
 sh_test(
     name = "test-extract",
@@ -92,7 +92,7 @@ sh_test(
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],
-)
+) if is_intel else None
 
 # Disabled on Windows because `coreutils` and `grpcurl` aren't easily available.
 [
@@ -208,7 +208,7 @@ conformance_test(
         "--exclude=" + ",".join(conformance_test_excluded_test),
         "--additional=TLSOnePointThreeIT",
     ],
-) if not is_windows else None
+) if not is_windows and is_intel else None
 
 # this tests TLSAtLeastOnePointTwoIT
 conformance_test(
@@ -227,7 +227,7 @@ conformance_test(
     ],
     tags = ["main-only"],
     test_tool_args = conformance_test_tool_args_base + ["--include=TLSAtLeastOnePointTwoIT"],
-) if not is_windows else None
+) if not is_windows and is_intel else None
 
 # conformance tests for preview and dev
 #  those test the conformance test it-self for preview/dev features
@@ -275,7 +275,7 @@ conformance_test(
             ["main-only"],
         ),
     ]
-    if not is_windows
+    if not is_windows and is_intel
 ]
 
 # Conformance tests with contract upgrading enabled
@@ -326,5 +326,5 @@ conformance_test(
             ["main-only"],
         ),
     ]
-    if not is_windows
+    if not is_windows and is_intel
 ]

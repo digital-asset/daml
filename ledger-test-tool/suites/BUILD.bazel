@@ -4,6 +4,7 @@
 load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_library_suite", "da_scala_test_suite")
 load("//daml-lf/language:daml-lf.bzl", "LF_DEV_VERSIONS", "lf_version_configuration")
 load(":deps.bzl", "deps")
+load("@os_info//:os_info.bzl", "is_intel")
 
 versions = {
     "1.8": {
@@ -98,7 +99,7 @@ versions = {
         deps = deps(lf_version),
     )
     for (lf_version, config) in versions.items()
-]
+] if is_intel else None
 
 da_scala_test_suite(
     name = "tests",
@@ -123,7 +124,7 @@ da_scala_test_suite(
         ":suites-{}".format(version)
         for version in LF_DEV_VERSIONS
     ],
-)
+) if is_intel else None
 
 [
     alias(
@@ -132,10 +133,10 @@ da_scala_test_suite(
         visibility = ["//visibility:public"],
     )
     for (name, lf_target) in lf_version_configuration.items()
-]
+] if is_intel else None
 
 alias(
     name = "suites",
     actual = ":suites-default",
     visibility = ["//visibility:public"],
-)
+) if is_intel else None
