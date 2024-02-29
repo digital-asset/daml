@@ -49,12 +49,10 @@ object Reader {
       lf: DamlLf.ArchivePayload
   ): Either[Error, LanguageMajorVersion] =
     lf.getSumCase match {
-      case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
-        Left(Error.Parsing("Unsupported LF version"))
       case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
         Right(LanguageMajorVersion.V2)
       case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
-        Left(Error.Parsing("Unrecognized LF version"))
+        Left(Error.Parsing("Unrecognized or Unsupported LF version"))
     }
 
   // Validate hash and version of a DamlLf.ArchivePayload

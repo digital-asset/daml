@@ -698,6 +698,8 @@ object CantonConfig {
       deriveEnumerationReader[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmReader: ConfigReader[HashAlgorithm] =
       deriveEnumerationReader[HashAlgorithm]
+    lazy implicit val cryptoPbkdfSchemeReader: ConfigReader[PbkdfScheme] =
+      deriveEnumerationReader[PbkdfScheme]
     lazy implicit val cryptoKeyFormatReader: ConfigReader[CryptoKeyFormat] =
       deriveEnumerationReader[CryptoKeyFormat]
     implicit def cryptoSchemeConfig[S: ConfigReader: Order]: ConfigReader[CryptoSchemeConfig[S]] =
@@ -1075,6 +1077,8 @@ object CantonConfig {
       deriveEnumerationWriter[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmWriter: ConfigWriter[HashAlgorithm] =
       deriveEnumerationWriter[HashAlgorithm]
+    lazy implicit val cryptoPbkdfSchemeWriter: ConfigWriter[PbkdfScheme] =
+      deriveEnumerationWriter[PbkdfScheme]
     lazy implicit val cryptoKeyFormatWriter: ConfigWriter[CryptoKeyFormat] =
       deriveEnumerationWriter[CryptoKeyFormat]
     implicit def cryptoSchemeConfigWriter[S: ConfigWriter]: ConfigWriter[CryptoSchemeConfig[S]] =

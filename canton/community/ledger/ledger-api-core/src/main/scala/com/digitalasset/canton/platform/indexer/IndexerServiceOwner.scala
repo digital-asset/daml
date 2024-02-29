@@ -38,7 +38,7 @@ final class IndexerServiceOwner(
     startupMode: IndexerStartupMode,
     dataSourceProperties: DataSourceProperties,
     highAvailability: HaConfig,
-    indexerDbDispatcherOverride: Option[DbDispatcher],
+    indexServiceDbDispatcher: Option[DbDispatcher],
 )(implicit materializer: Materializer, traceContext: TraceContext)
     extends ResourceOwner[ReportsHealth]
     with NamedLogging {
@@ -62,7 +62,7 @@ final class IndexerServiceOwner(
       loggerFactory,
       dataSourceProperties,
       highAvailability,
-      indexerDbDispatcherOverride,
+      indexServiceDbDispatcher,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

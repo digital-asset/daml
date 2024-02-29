@@ -58,8 +58,6 @@ instance EitherLike TL.Text Int32 P.Expr_StructUpdField
 instance EitherLike TL.Text Int32 P.Expr_VariantConVariantCon
 instance EitherLike TL.Text Int32 P.FieldWithExprField
 instance EitherLike TL.Text Int32 P.FieldWithTypeField
-instance EitherLike TL.Text Int32 P.KeyExpr_ProjectionField
-instance EitherLike TL.Text Int32 P.KeyExpr_RecordFieldField
 instance EitherLike TL.Text Int32 P.TemplateChoiceName
 instance EitherLike TL.Text Int32 P.TemplateChoiceSelfBinder
 instance EitherLike TL.Text Int32 P.Type_VarVar
@@ -67,15 +65,6 @@ instance EitherLike TL.Text Int32 P.TypeVarWithKindVar
 instance EitherLike TL.Text Int32 P.Update_ExerciseChoice
 instance EitherLike TL.Text Int32 P.Update_SoftExerciseChoice
 instance EitherLike TL.Text Int32 P.VarWithTypeVar
-
-instance EitherLike P.DottedName Int32 P.ModuleRefModuleName
-instance EitherLike P.DottedName Int32 P.TypeSynNameName
-instance EitherLike P.DottedName Int32 P.TypeConNameName
-instance EitherLike P.DottedName Int32 P.DefTemplateTycon
-instance EitherLike P.DottedName Int32 P.DefTypeSynName
-instance EitherLike P.DottedName Int32 P.DefDataTypeName
-instance EitherLike P.DottedName Int32 P.ModuleName
-
 
 -- | Encode the hash bytes of the payload in the canonical
 -- lower-case ascii7 hex presentation.

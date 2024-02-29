@@ -8,7 +8,6 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError.CryptoDeserializationError
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
@@ -300,14 +299,10 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         encryptionSchemeP,
       )
       signature <- signatureP.traverse(Signature.fromProtoV30)
-      viewTree <- Encrypted
-        .fromByteString[EncryptedView.CompressedView[viewType.View]](viewTreeP)
-        .leftMap(CryptoDeserializationError)
+      viewTree = Encrypted.fromByteString[EncryptedView.CompressedView[viewType.View]](viewTreeP)
       encryptedView = EncryptedView(viewType)(viewTree)
       viewHash <- ViewHash.fromProtoPrimitive(viewHashP)
-      randomness <- Encrypted
-        .fromByteString[SecureRandomness](randomnessP)
-        .leftMap(CryptoDeserializationError)
+      randomness = Encrypted.fromByteString[SecureRandomness](randomnessP)
       sessionKeyRandomnessNE <- parseRequiredNonEmpty(
         deserializeSessionKeyEntry,
         "session key",

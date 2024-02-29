@@ -29,6 +29,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -49,6 +50,7 @@ class DefaultMessageDispatcher(
         SequencedTime,
         Traced[List[DefaultOpenEnvelope]],
     ) => HandlerResult,
+    override protected val trafficProcessor: TrafficControlProcessor,
     override protected val acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
     override protected val requestCounterAllocator: RequestCounterAllocator,
     override protected val recordOrderPublisher: RecordOrderPublisher,
@@ -84,6 +86,7 @@ class DefaultMessageDispatcher(
     // Explicitly enumerate all cases for type safety
     kind match {
       case TopologyTransaction => runAsyncResult(run)
+      case TrafficControlTransaction => run
       case AcsCommitment => run
       case CausalityMessageKind => run
       case MalformedMessage => run

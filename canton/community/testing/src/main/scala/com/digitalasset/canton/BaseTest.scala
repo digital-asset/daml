@@ -171,13 +171,13 @@ trait BaseTest
   def eventually[T](
       timeUntilSuccess: FiniteDuration = 20.seconds,
       maxPollInterval: FiniteDuration = 5.seconds,
+      retryOnTestFailuresOnly: Boolean = true,
   )(testCode: => T): T =
-    BaseTest.eventually(timeUntilSuccess, maxPollInterval, retryOnTestFailuresOnly = true)(testCode)
-
-  def eventuallyNoException[T](
-      timeUntilSuccess: FiniteDuration = 20.seconds,
-      maxPollInterval: FiniteDuration = 5.seconds,
-  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, false)(testCode)
+    BaseTest.eventually(
+      timeUntilSuccess,
+      maxPollInterval,
+      retryOnTestFailuresOnly = retryOnTestFailuresOnly,
+    )(testCode)
 
   /** Keeps evaluating `testCode` until it fails or a timeout occurs.
     * @return the result the last evaluation of `testCode`
@@ -387,6 +387,11 @@ object BaseTest {
     }
     testCode // try one last time and throw exception, if assertion keeps failing
   }
+
+  def eventuallyNoException[T](
+      timeUntilSuccess: FiniteDuration = 20.seconds,
+      maxPollInterval: FiniteDuration = 5.seconds,
+  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, false)(testCode)
 
   // Uses SymbolicCrypto for the configured crypto schemes
   lazy val defaultStaticDomainParameters: StaticDomainParameters =

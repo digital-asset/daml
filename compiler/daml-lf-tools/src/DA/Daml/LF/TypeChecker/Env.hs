@@ -11,6 +11,8 @@
 module DA.Daml.LF.TypeChecker.Env(
     MonadGamma,
     MonadGammaF,
+    TcM,
+    TcMF,
     throwWithContext, throwWithContextF,
     warnWithContext, warnWithContextF,
     catchAndRethrow,
@@ -63,14 +65,16 @@ getWorld = view world
 -- | Type class constraint capturing the needed monadic effects for the
 -- functions manipulating the type checker environment.
 type MonadGamma m = MonadGammaF Gamma m
-type MonadGammaF gamma m = ReaderT gamma (StateT [Warning] (Either Error)) ~ m
+type MonadGammaF gamma m = (MonadError Error m, MonadReader gamma m, MonadState [Warning] m)
+type TcMF gamma = ReaderT gamma (StateT [Warning] (Either Error))
+type TcM = TcMF Gamma
 
 runGamma
   :: World
   -> Version
   -> ReaderT Gamma (StateT [Warning] (Either Error)) a
   -> Either Error (a, [Warning])
-runGamma world0 version act = runStateT (runReaderT act (emptyGamma world0 version)) []
+runGamma world0 version act = runGammaF (emptyGamma world0 version) act
 
 runGammaF
   :: gamma

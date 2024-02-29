@@ -65,13 +65,22 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
       signatures,
     )
 
-  def verifySignature(
+  def verifyMediatorSignatures(
       snapshot: SyncCryptoApi,
       mediatorGroupIndex: MediatorGroupIndex,
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
-    ClosedEnvelope.verifySignatures(
+    ClosedEnvelope.verifyMediatorSignatures(
       snapshot,
       mediatorGroupIndex,
+      typedMessage.getCryptographicEvidence,
+      signatures,
+    )
+
+  def verifySequencerSignatures(
+      snapshot: SyncCryptoApi
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+    ClosedEnvelope.verifySequencerSignatures(
+      snapshot,
       typedMessage.getCryptographicEvidence,
       signatures,
     )

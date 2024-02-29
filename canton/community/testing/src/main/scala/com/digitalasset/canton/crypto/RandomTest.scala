@@ -12,7 +12,7 @@ trait RandomTest {
   this: AsyncWordSpec with BaseTest =>
 
   def randomnessProvider(providerF: => Future[RandomOps]): Unit = {
-    "Randomness provider" should {
+    "provide randomness" should {
       "generate fresh randomness" in {
 
         providerF.map { provider =>

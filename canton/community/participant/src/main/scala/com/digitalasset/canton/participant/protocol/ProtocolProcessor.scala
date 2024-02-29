@@ -1377,7 +1377,9 @@ abstract class ProtocolProcessor[
     ): Future[Boolean] =
       for {
         snapshot <- crypto.awaitSnapshot(requestId.unwrap)
-        res <- resultE.merge.verifySignature(snapshot, pendingRequestData.mediator.group).value
+        res <- resultE.merge
+          .verifyMediatorSignatures(snapshot, pendingRequestData.mediator.group)
+          .value
       } yield {
         res match {
           case Left(err) =>

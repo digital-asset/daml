@@ -215,7 +215,7 @@ class BlockUpdateGenerator(
             (lastTs, (lastTs, event) +: events)
         }
       }
-    val fixedTsChanges = revFixedTsChanges.reverse
+    val fixedTsChanges: Seq[(CantonTimestamp, Traced[LedgerBlockEvent])] = revFixedTsChanges.reverse
 
     val membersToDisable = fixedTsChanges.collect { case (_, Traced(DisableMember(member))) =>
       member
@@ -348,7 +348,7 @@ class BlockUpdateGenerator(
       )(validateSubmissionRequestAndAddEvents(height, state.latestTopologyClientTimestamp))
     } yield result match {
       case (reversedSignedEvents, inFlightAggregationUpdates, finalEphemeralState) =>
-        val lastTopologyClientEventTs =
+        val lastTopologyClientEventTs: Option[CantonTimestamp] =
           reversedSignedEvents.iterator.collectFirst {
             case memberEvents if memberEvents.contains(topologyClientMember) =>
               checked(memberEvents(topologyClientMember)).timestamp
@@ -688,7 +688,7 @@ class BlockUpdateGenerator(
         submissionRequest,
         sequencingTimestamp,
         SequencerErrors.TopologyTimestampMissing(
-          "SigningSnapshot is not defined for a submission with an `aggregationRule` and signatures on the envelopes present. Please set `topologyTimestamp` for the submission."
+          "`topologyTimestamp` is not defined for a submission with an `aggregationRule` and signatures on the envelopes present. Please set `topologyTimestamp` for the submission."
         ),
         st.tryNextCounter(submissionRequest.sender),
       ),
@@ -833,7 +833,7 @@ class BlockUpdateGenerator(
       ).mapK(FutureUnlessShutdown.outcomeK)
       _ <- checkClosedEnvelopesSignatures(
         signingSnapshotO,
-        signedSubmissionRequest.content,
+        submissionRequest,
         sequencingTimestamp,
       ).mapK(FutureUnlessShutdown.outcomeK)
       groupToMembers <- computeGroupAddressesToMembers(

@@ -79,20 +79,6 @@ decodeMangledString t = (decoded, unmangledOrErr)
     where !decoded = decodeString t
           unmangledOrErr = unmangleIdentifier decoded
 
--- | Decode a string that will be interned in Daml-LF 1.7 and onwards.
--- At the protobuf level, we represent internable non-empty lists of strings
--- by a repeatable string and a number. If there's at least one string,
--- then the number must not be set, i.e. zero. If there are no strings,
--- then the number is treated as an index into the interning table.
-decodeInternableStrings :: V.Vector TL.Text -> Int32 -> Decode ([T.Text], Either String [UnmangledIdentifier])
-decodeInternableStrings strs id
-    | V.null strs = lookupDottedName id
-    | id == 0 =
-      let decodedStrs = map decodeString (V.toList strs)
-          unmangled = mapM unmangleIdentifier decodedStrs
-      in pure (decodedStrs, unmangled)
-    | otherwise = throwError $ ParseError "items and interned id both set for string list"
-
 -- | Decode the name of a syntactic object, e.g., a variable or a data
 -- constructor. These strings are mangled to escape special characters. All
 -- names will be interned in Daml-LF 1.7 and onwards.
@@ -117,14 +103,10 @@ decodeNameString wrapName unmangledOrErr =
         Right (UnmangledIdentifier unmangled) -> pure $ wrapName unmangled
 
 -- | Decode the multi-component name of a syntactic object, e.g., a type
--- constructor. All compononents are mangled. Dotted names will be interned
--- in Daml-LF 1.7 and onwards.
-decodeDottedName :: Util.EitherLike LF2.DottedName Int32 e
-                 => ([T.Text] -> a) -> Maybe e -> Decode a
-decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
-    (_, unmangledOrErr) <- case Util.toEither dottedNameOrId of
-        Left (LF2.DottedName mangledV) -> decodeInternableStrings mangledV 0
-        Right dnId -> lookupDottedName dnId
+-- constructor. All compononents are mangled. Dotted names will be interned.
+decodeDottedName :: ([T.Text] -> a) -> Int32 -> Decode a
+decodeDottedName wrapDottedName dNameId = do
+    (_, unmangledOrErr) <- lookupDottedName dNameId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right unmangled -> pure $ wrapDottedName (coerce unmangled)
@@ -136,24 +118,24 @@ decodeDottedNameId wrapDottedName dnId = do
     Left err -> throwError $ ParseError err
     Right unmangled -> pure $ wrapDottedName (coerce unmangled)
 
--- | Decode the name of a top-level value. The name is mangled and will be
+-- | Decode the name of a top-level value. The name is mangled and Iwill be
 -- interned in Daml-LF 1.7 and onwards.
-decodeValueName :: String -> V.Vector TL.Text -> Int32 -> Decode ExprValName
-decodeValueName ident mangledV dnId = do
-    (mangled, unmangledOrErr) <- decodeInternableStrings mangledV dnId
+decodeValueName :: String -> Int32 -> Decode ExprValName
+decodeValueName ident dnId = do
+    (mangled, unmangledOrErr) <- lookupDottedName dnId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right [UnmangledIdentifier unmangled] -> pure $ ExprValName unmangled
       Right [] -> throwError $ MissingField ident
       Right _ ->
-          throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
+          throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangled
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
 -- interned in Daml-LF 1.7 and onwards.
 decodeValName :: LF2.ValName -> Decode (Qualified ExprValName)
 decodeValName LF2.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
-  name <- decodeValueName "valNameName" valNameNameDname valNameNameInternedDname
+  name <- decodeValueName "valNameName" valNameNameInternedDname
   pure $ Qualified pref mname name
 
 -- | Decode a reference to a package. Package names are not mangled. Package
@@ -251,7 +233,7 @@ decodeDefTypeSyn :: LF2.DefTypeSyn -> Decode DefTypeSyn
 decodeDefTypeSyn LF2.DefTypeSyn{..} =
   DefTypeSyn
     <$> traverse decodeLocation defTypeSynLocation
-    <*> decodeDottedName TypeSynName defTypeSynName
+    <*> decodeDottedName TypeSynName defTypeSynNameInternedDname
     <*> traverse decodeTypeVarWithKind (V.toList defTypeSynParams)
     <*> mayDecode "typeSynType" defTypeSynType decodeType
 
@@ -266,7 +248,7 @@ decodeDefDataType :: LF2.DefDataType -> Decode DefDataType
 decodeDefDataType LF2.DefDataType{..} =
   DefDataType
     <$> traverse decodeLocation defDataTypeLocation
-    <*> decodeDottedName TypeConName defDataTypeName
+    <*> decodeDottedName TypeConName defDataTypeNameInternedDname
     <*> pure (IsSerializable defDataTypeSerializable)
     <*> traverse decodeTypeVarWithKind (V.toList defDataTypeParams)
     <*> mayDecode "dataTypeDataCons" defDataTypeDataCons decodeDataCons
@@ -287,7 +269,7 @@ decodeDataCons = \case
 
 decodeDefValueNameWithType :: LF2.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF2.DefValue_NameWithType{..} = (,)
-  <$> decodeValueName "defValueName" defValue_NameWithTypeNameDname defValue_NameWithTypeNameInternedDname
+  <$> decodeValueName "defValueName" defValue_NameWithTypeNameInternedDname
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF2.DefValue -> Decode DefValue
@@ -305,13 +287,13 @@ decodeDefTemplate LF2.DefTemplate{..} = do
   tplParam <- decodeName ExprVarName defTemplateParam
   Template
     <$> traverse decodeLocation defTemplateLocation
-    <*> decodeDottedName TypeConName defTemplateTycon
+    <*> decodeDottedName TypeConName defTemplateTyconInternedDname
     <*> pure tplParam
     <*> mayDecode "defTemplatePrecond" defTemplatePrecond decodeExpr
     <*> mayDecode "defTemplateSignatories" defTemplateSignatories decodeExpr
     <*> mayDecode "defTemplateObservers" defTemplateObservers decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
-    <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
+    <*> mapM decodeDefTemplateKey defTemplateKey
     <*> decodeNM DuplicateImplements decodeDefTemplateImplements defTemplateImplements
 
 decodeDefTemplateImplements :: LF2.DefTemplate_Implements -> Decode TemplateImplements
@@ -330,40 +312,12 @@ decodeInterfaceInstanceMethod LF2.InterfaceInstanceBody_InterfaceInstanceMethod{
   <$> decodeMethodName interfaceInstanceBody_InterfaceInstanceMethodMethodInternedName
   <*> mayDecode "interfaceInstanceBody_InterfaceInstanceMethodValue" interfaceInstanceBody_InterfaceInstanceMethodValue decodeExpr
 
-decodeDefTemplateKey :: ExprVarName -> LF2.DefTemplate_DefKey -> Decode TemplateKey
-decodeDefTemplateKey templateParam LF2.DefTemplate_DefKey{..} = do
+decodeDefTemplateKey :: LF2.DefTemplate_DefKey -> Decode TemplateKey
+decodeDefTemplateKey LF2.DefTemplate_DefKey{..} = do
   typ <- mayDecode "defTemplate_DefKeyType" defTemplate_DefKeyType decodeType
-  key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr (decodeKeyExpr templateParam)
+  key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr decodeExpr
   maintainers <- mayDecode "defTemplate_DefKeyMaintainers" defTemplate_DefKeyMaintainers decodeExpr
   return (TemplateKey typ key maintainers)
-
-decodeKeyExpr :: ExprVarName -> LF2.DefTemplate_DefKeyKeyExpr -> Decode Expr
-decodeKeyExpr templateParam = \case
-    LF2.DefTemplate_DefKeyKeyExprKey simpleKeyExpr ->
-        decodeSimpleKeyExpr templateParam simpleKeyExpr
-    LF2.DefTemplate_DefKeyKeyExprComplexKey keyExpr ->
-        decodeExpr keyExpr
-
-decodeSimpleKeyExpr :: ExprVarName -> LF2.KeyExpr -> Decode Expr
-decodeSimpleKeyExpr templateParam LF2.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum $ \case
-  LF2.KeyExprSumProjections LF2.KeyExpr_Projections{..} ->
-    foldM
-      (\rec_ LF2.KeyExpr_Projection{..} ->
-        ERecProj
-          <$> mayDecode "KeyExpr_ProjectionTyCon" keyExpr_ProjectionTycon decodeTypeConApp
-          <*> decodeName FieldName keyExpr_ProjectionField
-          <*> pure rec_)
-      (EVar templateParam) keyExpr_ProjectionsProjections
-  LF2.KeyExprSumRecord LF2.KeyExpr_Record{..} ->
-    ERecCon
-      <$> mayDecode "keyExpr_RecordTycon" keyExpr_RecordTycon decodeTypeConApp
-      <*> mapM (decodeFieldWithSimpleKeyExpr templateParam) (V.toList keyExpr_RecordFields)
-
-decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF2.KeyExpr_RecordField -> Decode (FieldName, Expr)
-decodeFieldWithSimpleKeyExpr templateParam LF2.KeyExpr_RecordField{..} =
-  (,)
-  <$> decodeName FieldName keyExpr_RecordFieldField
-  <*> mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeSimpleKeyExpr templateParam)
 
 decodeChoice :: LF2.TemplateChoice -> Decode TemplateChoice
 decodeChoice LF2.TemplateChoice{..} =
@@ -976,20 +930,20 @@ decodeTypeConApp LF2.Type_Con{..} =
 decodeTypeSynName :: LF2.TypeSynName -> Decode (Qualified TypeSynName)
 decodeTypeSynName LF2.TypeSynName{..} = do
   (pref, mname) <- mayDecode "typeSynNameModule" typeSynNameModule decodeModuleRef
-  syn <- decodeDottedName TypeSynName typeSynNameName
+  syn <- decodeDottedName TypeSynName typeSynNameNameInternedDname
   pure $ Qualified pref mname syn
 
 decodeTypeConName :: LF2.TypeConName -> Decode (Qualified TypeConName)
 decodeTypeConName LF2.TypeConName{..} = do
   (pref, mname) <- mayDecode "typeConNameModule" typeConNameModule decodeModuleRef
-  con <- decodeDottedName TypeConName typeConNameName
+  con <- decodeDottedName TypeConName typeConNameNameInternedDname
   pure $ Qualified pref mname con
 
 decodeModuleRef :: LF2.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF2.ModuleRef{..} =
   (,)
     <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
-    <*> decodeDottedName ModuleName moduleRefModuleName
+    <*> decodeDottedName ModuleName moduleRefModuleNameInternedDname
 
 ------------------------------------------------------------------------
 -- Helpers

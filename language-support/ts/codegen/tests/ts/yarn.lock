@@ -362,7 +362,12 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@daml.js/40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7@file:daml2js/40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7":
+"@daml.js/202599a30d109125440918fdd6cd5f35c9e76175ef43fa5c9d6d9fd1eb7b66ff@file:daml2js/202599a30d109125440918fdd6cd5f35c9e76175ef43fa5c9d6d9fd1eb7b66ff":
+  version "0.0.0"
+  dependencies:
+    "@mojotech/json-type-validation" "^3.1.0"
+
+"@daml.js/ace2eb6a9cd13bca35ce7f068b942ab5c47987eed34efea52470b3aa0458a2f5@file:daml2js/ace2eb6a9cd13bca35ce7f068b942ab5c47987eed34efea52470b3aa0458a2f5":
   version "0.0.0"
   dependencies:
     "@mojotech/json-type-validation" "^3.1.0"
@@ -370,13 +375,8 @@
 "@daml.js/build-and-lint-1.0.0@file:daml2js/build-and-lint-1.0.0":
   version "0.0.0"
   dependencies:
-    "@daml.js/40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7" "file:daml2js/40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
-    "@daml.js/d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662" "file:daml2js/d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662"
-    "@mojotech/json-type-validation" "^3.1.0"
-
-"@daml.js/d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662@file:daml2js/d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662":
-  version "0.0.0"
-  dependencies:
+    "@daml.js/202599a30d109125440918fdd6cd5f35c9e76175ef43fa5c9d6d9fd1eb7b66ff" "file:daml2js/202599a30d109125440918fdd6cd5f35c9e76175ef43fa5c9d6d9fd1eb7b66ff"
+    "@daml.js/ace2eb6a9cd13bca35ce7f068b942ab5c47987eed34efea52470b3aa0458a2f5" "file:daml2js/ace2eb6a9cd13bca35ce7f068b942ab5c47987eed34efea52470b3aa0458a2f5"
     "@mojotech/json-type-validation" "^3.1.0"
 
 "@daml/ledger@file:daml-ledger":

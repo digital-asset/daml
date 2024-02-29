@@ -33,8 +33,6 @@ decodeLfVersion major pkgId minorText = do
 decodePayload ::
     PackageId -> PackageRef -> ArchivePayload -> Either Error Package
 decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
-    Just (ArchivePayloadSumDamlLf1 _package) ->
-      Left $ ParseError "Daml-LF v1 is not supported"
     Just (ArchivePayloadSumDamlLf2 package) -> do
         version <- decodeLfVersion LF.V2 pkgId minorText
         DecodeV2.decodePackage version selfPackageRef package
