@@ -28,7 +28,12 @@ jobs:
         var_name: bash-lib
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: linux-release
+        artifactName: linux-intel-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: linux-arm-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - task: DownloadPipelineArtifact@0
