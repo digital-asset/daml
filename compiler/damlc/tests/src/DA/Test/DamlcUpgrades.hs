@@ -702,7 +702,7 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when a top-level variant adds a variant"
+              "Succeeds when a top-level variant adds a variant"
               Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
@@ -753,7 +753,7 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when a top-level variant adds an optional field to a variant's type"
+              "Succeeds when a top-level variant adds an optional field to a variant's type"
               Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
@@ -770,7 +770,7 @@ tests damlc =
                 )
               ]
         , test
-              "Fails when a top-level enum changes"
+              "Succeed when a top-level enum changes"
               Succeed
               [ ( "daml/MyLib.daml"
                 , unlines
