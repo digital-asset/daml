@@ -484,14 +484,14 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumVal val -> EVal <$> decodeValName val
   LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
   LF2.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
-  LF2.ExprSumPrimCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
-    LF2.PrimConCON_UNIT -> BEUnit
-    LF2.PrimConCON_TRUE -> BEBool True
-    LF2.PrimConCON_FALSE -> BEBool False
+  LF2.ExprSumBuiltinCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
+    LF2.BuiltinConCON_UNIT -> BEUnit
+    LF2.BuiltinConCON_TRUE -> BEBool True
+    LF2.BuiltinConCON_FALSE -> BEBool False
 
-  LF2.ExprSumPrimCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumPrimCon" num)
-  LF2.ExprSumPrimLit lit ->
-    EBuiltin <$> decodePrimLit lit
+  LF2.ExprSumBuiltinCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltinCon" num)
+  LF2.ExprSumBuiltinLit lit ->
+    EBuiltin <$> decodeBuiltinLit lit
   LF2.ExprSumRecCon (LF2.Expr_RecCon mbTycon fields) ->
     ERecCon
       <$> mayDecode "Expr_RecConTycon" mbTycon decodeTypeConApp
@@ -759,12 +759,12 @@ decodeCaseAlt LF2.CaseAlt{..} = do
       CPEnum
         <$> mayDecode "caseAlt_DataCon" caseAlt_EnumCon decodeTypeConName
         <*> decodeNameId VariantConName caseAlt_EnumConstructorInternedStr
-    LF2.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
-      LF2.PrimConCON_UNIT -> CPUnit
-      LF2.PrimConCON_TRUE -> CPBool True
-      LF2.PrimConCON_FALSE -> CPBool False
-    LF2.CaseAltSumPrimCon (Proto.Enumerated (Left idx)) ->
-      throwError (UnknownEnum "CaseAltSumPrimCon" idx)
+    LF2.CaseAltSumBuiltinCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
+      LF2.BuiltinConCON_UNIT -> CPUnit
+      LF2.BuiltinConCON_TRUE -> CPBool True
+      LF2.BuiltinConCON_FALSE -> CPBool False
+    LF2.CaseAltSumBuiltinCon (Proto.Enumerated (Left idx)) ->
+      throwError (UnknownEnum "CaseAltSumBuiltinCon" idx)
     LF2.CaseAltSumNil LF2.Unit -> pure CPNil
     LF2.CaseAltSumCons LF2.CaseAlt_Cons{..} ->
       CPCons <$> decodeNameId ExprVarName caseAlt_ConsVarHeadInternedStr <*> decodeNameId ExprVarName caseAlt_ConsVarTailInternedStr
@@ -792,25 +792,24 @@ decodeVarWithType LF2.VarWithType{..} =
     <$> decodeNameId ExprVarName varWithTypeVarInternedStr
     <*> mayDecode "varWithTypeType" varWithTypeType decodeType
 
-decodePrimLit :: LF2.PrimLit -> Decode BuiltinExpr
-decodePrimLit (LF2.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
-  LF2.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
-  LF2.PrimLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit . fst
-  LF2.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
-  LF2.PrimLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
-  LF2.PrimLitSumDate days -> pure $ BEDate days
-  LF2.PrimLitSumRoundingMode enum -> case enum of
+decodeBuiltinLit :: LF2.BuiltinLit -> Decode BuiltinExpr
+decodeBuiltinLit (LF2.BuiltinLit mbSum) = mayDecode "builtinLitSum" mbSum $ \case
+  LF2.BuiltinLitSumInt64 sInt -> pure $ BEInt64 sInt
+  LF2.BuiltinLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit . fst
+  LF2.BuiltinLitSumTimestamp sTime -> pure $ BETimestamp sTime
+  LF2.BuiltinLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
+  LF2.BuiltinLitSumDate days -> pure $ BEDate days
+  LF2.BuiltinLitSumRoundingMode enum -> case enum of
     Proto.Enumerated (Right mode) -> pure $ case mode of
-       LF2.PrimLit_RoundingModeUP -> BERoundingMode LitRoundingUp
-       LF2.PrimLit_RoundingModeDOWN -> BERoundingMode LitRoundingDown
-       LF2.PrimLit_RoundingModeCEILING -> BERoundingMode LitRoundingCeiling
-       LF2.PrimLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
-       LF2.PrimLit_RoundingModeHALF_UP -> BERoundingMode LitRoundingHalfUp
-       LF2.PrimLit_RoundingModeHALF_DOWN -> BERoundingMode LitRoundingHalfDown
-       LF2.PrimLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven
-       LF2.PrimLit_RoundingModeUNNECESSARY -> BERoundingMode LitRoundingUnnecessary
-    Proto.Enumerated (Left idx) -> throwError (UnknownEnum "PrimLitSumRoundingMode" idx)
-  LF2.PrimLitSumDecimalStr _ -> unsupportedDecimal
+       LF2.BuiltinLit_RoundingModeUP -> BERoundingMode LitRoundingUp
+       LF2.BuiltinLit_RoundingModeDOWN -> BERoundingMode LitRoundingDown
+       LF2.BuiltinLit_RoundingModeCEILING -> BERoundingMode LitRoundingCeiling
+       LF2.BuiltinLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
+       LF2.BuiltinLit_RoundingModeHALF_UP -> BERoundingMode LitRoundingHalfUp
+       LF2.BuiltinLit_RoundingModeHALF_DOWN -> BERoundingMode LitRoundingHalfDown
+       LF2.BuiltinLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven
+       LF2.BuiltinLit_RoundingModeUNNECESSARY -> BERoundingMode LitRoundingUnnecessary
+    Proto.Enumerated (Left idx) -> throwError (UnknownEnum "BuiltinLitSumRoundingMode" idx)
 
 decodeNumericLit :: T.Text -> Decode BuiltinExpr
 decodeNumericLit (T.unpack -> str) = case readMaybe str of
@@ -826,30 +825,29 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
 
-decodePrim :: LF2.PrimType -> Decode BuiltinType
-decodePrim = \case
-  LF2.PrimTypeINT64 -> pure BTInt64
-  LF2.PrimTypeNUMERIC -> pure BTNumeric
-  LF2.PrimTypeTEXT    -> pure BTText
-  LF2.PrimTypeTIMESTAMP -> pure BTTimestamp
-  LF2.PrimTypePARTY   -> pure BTParty
-  LF2.PrimTypeUNIT    -> pure BTUnit
-  LF2.PrimTypeBOOL    -> pure BTBool
-  LF2.PrimTypeLIST    -> pure BTList
-  LF2.PrimTypeUPDATE  -> pure BTUpdate
-  LF2.PrimTypeSCENARIO -> pure BTScenario
-  LF2.PrimTypeDATE -> pure BTDate
-  LF2.PrimTypeCONTRACT_ID -> pure BTContractId
-  LF2.PrimTypeOPTIONAL -> pure BTOptional
-  LF2.PrimTypeTEXTMAP -> pure BTTextMap
-  LF2.PrimTypeGENMAP -> pure BTGenMap
-  LF2.PrimTypeARROW -> pure BTArrow
-  LF2.PrimTypeANY -> pure BTAny
-  LF2.PrimTypeTYPE_REP -> pure BTTypeRep
-  LF2.PrimTypeROUNDING_MODE -> pure BTRoundingMode
-  LF2.PrimTypeBIGNUMERIC -> pure BTBigNumeric
-  LF2.PrimTypeANY_EXCEPTION -> pure BTAnyException
-  LF2.PrimTypeDECIMAL -> unsupportedDecimal
+decodeBuiltin :: LF2.BuiltinType -> Decode BuiltinType
+decodeBuiltin = \case
+  LF2.BuiltinTypeINT64 -> pure BTInt64
+  LF2.BuiltinTypeNUMERIC -> pure BTNumeric
+  LF2.BuiltinTypeTEXT    -> pure BTText
+  LF2.BuiltinTypeTIMESTAMP -> pure BTTimestamp
+  LF2.BuiltinTypePARTY   -> pure BTParty
+  LF2.BuiltinTypeUNIT    -> pure BTUnit
+  LF2.BuiltinTypeBOOL    -> pure BTBool
+  LF2.BuiltinTypeLIST    -> pure BTList
+  LF2.BuiltinTypeUPDATE  -> pure BTUpdate
+  LF2.BuiltinTypeSCENARIO -> pure BTScenario
+  LF2.BuiltinTypeDATE -> pure BTDate
+  LF2.BuiltinTypeCONTRACT_ID -> pure BTContractId
+  LF2.BuiltinTypeOPTIONAL -> pure BTOptional
+  LF2.BuiltinTypeTEXTMAP -> pure BTTextMap
+  LF2.BuiltinTypeGENMAP -> pure BTGenMap
+  LF2.BuiltinTypeARROW -> pure BTArrow
+  LF2.BuiltinTypeANY -> pure BTAny
+  LF2.BuiltinTypeTYPE_REP -> pure BTTypeRep
+  LF2.BuiltinTypeROUNDING_MODE -> pure BTRoundingMode
+  LF2.BuiltinTypeBIGNUMERIC -> pure BTBigNumeric
+  LF2.BuiltinTypeANY_EXCEPTION -> pure BTAnyException
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =
@@ -868,10 +866,10 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF2.TypeSumSyn (LF2.Type_Syn mbSyn args) ->
     TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynName <*> traverse decodeType (V.toList args)
-  LF2.TypeSumPrim (LF2.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
-    decodeWithArgs args $ TBuiltin <$> decodePrim prim
-  LF2.TypeSumPrim (LF2.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
-    throwError (UnknownEnum "Prim" idx)
+  LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Right prim)) args) -> do
+    decodeWithArgs args $ TBuiltin <$> decodeBuiltin prim
+  LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Left idx)) _args) ->
+    throwError (UnknownEnum "Builtin" idx)
   LF2.TypeSumForall (LF2.Type_Forall binders mbBody) -> do
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)

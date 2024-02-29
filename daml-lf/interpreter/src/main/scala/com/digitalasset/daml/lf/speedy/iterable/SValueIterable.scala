@@ -22,7 +22,7 @@ private[speedy] object SValueIterable {
     case SValue.SAny(_, value) => Iterator(value)
     case SValue.STypeRep(_) => Iterator.empty
     case SValue.SToken => Iterator.empty
-    case _: SValue.SPrimLit => Iterator.empty
+    case _: SValue.SBuiltinLit => Iterator.empty
   }
 
   private def iterator(p: SValue.Prim): Iterator[SValue] = p match {

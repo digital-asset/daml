@@ -233,7 +233,7 @@ private[lf] final class Compiler(
           env.toSEVar(preConditionCheck),
           List(
             s.SCaseAlt(
-              t.SCPPrimCon(PCTrue),
+              t.SCPBuiltinCon(BCTrue),
               body(env),
             ),
             s.SCaseAlt(

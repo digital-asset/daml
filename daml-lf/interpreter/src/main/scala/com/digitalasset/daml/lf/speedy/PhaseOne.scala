@@ -198,10 +198,10 @@ private[lf] final class PhaseOne(
         Return(SEVal(t.LfDefRef(ref)))
       case EBuiltin(bf) =>
         Return(compileBuiltin(env, bf))
-      case EPrimCon(con) =>
-        Return(compilePrimCon(con))
-      case EPrimLit(lit) =>
-        Return(compilePrimLit(lit))
+      case EBuiltinCon(con) =>
+        Return(compileBuiltinCon(con))
+      case EBuiltinLit(lit) =>
+        Return(compileBuiltinLit(lit))
       case EAbs(_, _, _) | ETyAbs(_, _) =>
         compileAbss(env, exp, arity = 0)
       case EApp(_, _) | ETyApp(_, _) =>
@@ -493,21 +493,21 @@ private[lf] final class PhaseOne(
     }
   }
 
-  private[this] def compilePrimCon(con: PrimCon): SExpr =
+  private[this] def compileBuiltinCon(con: BuiltinCon): SExpr =
     con match {
-      case PCTrue => SEValue.True
-      case PCFalse => SEValue.False
-      case PCUnit => SEValue.Unit
+      case BCTrue => SEValue.True
+      case BCFalse => SEValue.False
+      case BCUnit => SEValue.Unit
     }
 
-  private[this] def compilePrimLit(lit: PrimLit): SExpr =
+  private[this] def compileBuiltinLit(lit: BuiltinLit): SExpr =
     SEValue(lit match {
-      case PLInt64(i) => SInt64(i)
-      case PLNumeric(d) => SNumeric(d)
-      case PLText(t) => SText(t)
-      case PLTimestamp(ts) => STimestamp(ts)
-      case PLDate(d) => SDate(d)
-      case PLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
+      case BLInt64(i) => SInt64(i)
+      case BLNumeric(d) => SNumeric(d)
+      case BLText(t) => SText(t)
+      case BLTimestamp(ts) => STimestamp(ts)
+      case BLDate(d) => SDate(d)
+      case BLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
@@ -615,9 +615,9 @@ private[lf] final class PhaseOne(
         compileExp(env.pushExprVar(head).pushExprVar(tail), rhs) { rhs =>
           k(SCaseAlt(t.SCPCons, rhs))
         }
-      case CPPrimCon(pc) =>
+      case CPBuiltinCon(pc) =>
         compileExp(env, rhs) { rhs =>
-          k(SCaseAlt(t.SCPPrimCon(pc), rhs))
+          k(SCaseAlt(t.SCPBuiltinCon(pc), rhs))
         }
       case CPNone =>
         compileExp(env, rhs) { rhs =>

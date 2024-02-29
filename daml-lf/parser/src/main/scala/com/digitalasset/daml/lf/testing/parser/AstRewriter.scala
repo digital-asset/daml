@@ -64,7 +64,7 @@ private[daml] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) |
+        case EVar(_) | EBuiltin(_) | EBuiltinCon(_) | EBuiltinLit(_) | ETypeRep(_) |
             EExperimental(_, _) =>
           x
         case EVal(ref) =>
@@ -176,7 +176,7 @@ private[daml] class AstRewriter(
   }
 
   def apply(x: CasePat): CasePat = x match {
-    case CPNil | CPNone | CPDefault | CPPrimCon(_) | CPSome(_) | CPCons(_, _) => x
+    case CPNil | CPNone | CPDefault | CPBuiltinCon(_) | CPSome(_) | CPCons(_, _) => x
     case CPVariant(tycon, variant, binder) =>
       CPVariant(apply(tycon), variant, binder)
     case CPEnum(tycon, constructor) =>

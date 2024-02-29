@@ -20,8 +20,8 @@ class TypeOrderingSpec extends AnyWordSpec with Matchers {
         DecodeV2.builtinTypeInfos.iterator.map(info => info.proto -> info.bTyp).toMap
 
       val primTypesInProtoOrder =
-        DamlLf2.PrimType.getDescriptor.getValues.asScala
-          .map(desc => DamlLf2.PrimType.internalGetValueMap().findValueByNumber(desc.getNumber))
+        DamlLf2.BuiltinType.getDescriptor.getValues.asScala
+          .map(desc => DamlLf2.BuiltinType.internalGetValueMap().findValueByNumber(desc.getNumber))
           .sortBy(_.getNumber)
           .collect(protoMapping)
 

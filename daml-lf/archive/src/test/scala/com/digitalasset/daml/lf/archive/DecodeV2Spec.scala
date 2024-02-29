@@ -35,22 +35,19 @@ class DecodeV2Spec
 
   val unitExpr: DamlLf2.Expr = DamlLf2.Expr
     .newBuilder()
-    .setPrimCon(DamlLf2.PrimCon.CON_UNIT)
+    .setBuiltinCon(DamlLf2.BuiltinCon.CON_UNIT)
     .build()
 
   val falseExpr: DamlLf2.Expr = DamlLf2.Expr
     .newBuilder()
-    .setPrimCon(DamlLf2.PrimCon.CON_FALSE)
+    .setBuiltinCon(DamlLf2.BuiltinCon.CON_FALSE)
     .build()
 
-  "The entries of primTypeInfos correspond to Protobuf DamlLf2.PrimType" in {
+  "The entries of primTypeInfos correspond to Protobuf DamlLf2.BuiltinType" in {
 
-    (Set(
-      DamlLf2.PrimType.UNRECOGNIZED,
-      DamlLf2.PrimType.DECIMAL,
-    ) ++
+    (Set(DamlLf2.BuiltinType.UNRECOGNIZED) ++
       DecodeV2.builtinTypeInfos.map(_.proto)) shouldBe
-      DamlLf2.PrimType.values().toSet
+      DamlLf2.BuiltinType.values().toSet
 
   }
 
@@ -166,7 +163,7 @@ class DecodeV2Spec
 
   "uncheckedDecodeType" should {
 
-    import DamlLf2.PrimType._
+    import DamlLf2.BuiltinType._
 
     def buildNat(i: Long) = DamlLf2.Type.newBuilder().setNat(i).build()
 
@@ -191,10 +188,10 @@ class DecodeV2Spec
       }
     }
 
-    def buildPrimType(primType: DamlLf2.PrimType, args: DamlLf2.Type*) =
+    def buildPrimType(primType: DamlLf2.BuiltinType, args: DamlLf2.Type*) =
       DamlLf2.Type
         .newBuilder()
-        .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(primType).addAllArgs(args.asJava))
+        .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(primType).addAllArgs(args.asJava))
         .build()
 
     val numericTestCases = Table(
@@ -253,7 +250,7 @@ class DecodeV2Spec
 
       val unit = DamlLf2.Type
         .newBuilder()
-        .setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.UNIT))
+        .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.UNIT))
         .build
 
       val stringTable = ImmArraySeq("a", "b", "c")
@@ -288,7 +285,7 @@ class DecodeV2Spec
     s"translate exception types iff version >= ${LV.Features.exceptions}" in {
       val exceptionBuiltinTypes = Table(
         "builtin types",
-        DamlLf2.PrimType.ANY_EXCEPTION -> Ast.BTAnyException,
+        DamlLf2.BuiltinType.ANY_EXCEPTION -> Ast.BTAnyException,
       )
 
       forEveryVersion { version =>
@@ -328,7 +325,9 @@ class DecodeV2Spec
         DamlLf2.TypeVarWithKind.newBuilder().setVarInternedStr(1).setKind(star).build()
       val typeVar = newBuilder.setVar(DamlLf2.Type.Var.newBuilder().setVarInternedStr(0)).build()
       val typeBool =
-        newBuilder.setPrim(DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.BOOL)).build()
+        newBuilder
+          .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.BOOL))
+          .build()
       val xWithBool =
         DamlLf2.FieldWithType.newBuilder.setFieldInternedStr(1).setType(typeBool).build()
 
@@ -361,12 +360,12 @@ class DecodeV2Spec
       DamlLf2.Expr.newBuilder().setBuiltin(b).build()
 
     // def toNumericProto(s: String): DamlLf2.Expr =
-    //  DamlLf2.Expr.newBuilder().setPrimLit(DamlLf2.PrimLit.newBuilder().setNumeric(s)).build()
+    //  DamlLf2.Expr.newBuilder().setBuiltinLit(DamlLf2.BuiltinLit.newBuilder().setNumeric(s)).build()
 
     def toNumericProto(id: Int): DamlLf2.Expr =
       DamlLf2.Expr
         .newBuilder()
-        .setPrimLit(DamlLf2.PrimLit.newBuilder().setNumericInternedStr(id))
+        .setBuiltinLit(DamlLf2.BuiltinLit.newBuilder().setNumericInternedStr(id))
         .build()
 
     val numericBuiltinTestCases = Table(
@@ -468,7 +467,7 @@ class DecodeV2Spec
         val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
         forEvery(testCases) { (id, string) =>
           inside(decoder.decodeExprForTest(toNumericProto(id), "test")) {
-            case Ast.EPrimLit(Ast.PLNumeric(num)) =>
+            case Ast.EBuiltinLit(Ast.BLNumeric(num)) =>
               num shouldBe new BigDecimal(string)
           }
         }
@@ -562,18 +561,21 @@ class DecodeV2Spec
 
     val roundingModeTestCases = Table(
       "proto" -> "expected rounding Mode",
-      DamlLf2.PrimLit.RoundingMode.UP -> java.math.RoundingMode.UP,
-      DamlLf2.PrimLit.RoundingMode.DOWN -> java.math.RoundingMode.DOWN,
-      DamlLf2.PrimLit.RoundingMode.CEILING -> java.math.RoundingMode.CEILING,
-      DamlLf2.PrimLit.RoundingMode.FLOOR -> java.math.RoundingMode.FLOOR,
-      DamlLf2.PrimLit.RoundingMode.HALF_UP -> java.math.RoundingMode.HALF_UP,
-      DamlLf2.PrimLit.RoundingMode.HALF_DOWN -> java.math.RoundingMode.HALF_DOWN,
-      DamlLf2.PrimLit.RoundingMode.HALF_EVEN -> java.math.RoundingMode.HALF_EVEN,
-      DamlLf2.PrimLit.RoundingMode.UNNECESSARY -> java.math.RoundingMode.UNNECESSARY,
+      DamlLf2.BuiltinLit.RoundingMode.UP -> java.math.RoundingMode.UP,
+      DamlLf2.BuiltinLit.RoundingMode.DOWN -> java.math.RoundingMode.DOWN,
+      DamlLf2.BuiltinLit.RoundingMode.CEILING -> java.math.RoundingMode.CEILING,
+      DamlLf2.BuiltinLit.RoundingMode.FLOOR -> java.math.RoundingMode.FLOOR,
+      DamlLf2.BuiltinLit.RoundingMode.HALF_UP -> java.math.RoundingMode.HALF_UP,
+      DamlLf2.BuiltinLit.RoundingMode.HALF_DOWN -> java.math.RoundingMode.HALF_DOWN,
+      DamlLf2.BuiltinLit.RoundingMode.HALF_EVEN -> java.math.RoundingMode.HALF_EVEN,
+      DamlLf2.BuiltinLit.RoundingMode.UNNECESSARY -> java.math.RoundingMode.UNNECESSARY,
     )
 
-    def roundingToProtoExpr(s: DamlLf2.PrimLit.RoundingMode): DamlLf2.Expr =
-      DamlLf2.Expr.newBuilder().setPrimLit(DamlLf2.PrimLit.newBuilder().setRoundingMode(s)).build()
+    def roundingToProtoExpr(s: DamlLf2.BuiltinLit.RoundingMode): DamlLf2.Expr =
+      DamlLf2.Expr
+        .newBuilder()
+        .setBuiltinLit(DamlLf2.BuiltinLit.newBuilder().setRoundingMode(s))
+        .build()
 
     s"translate RoundingMode iff version  >= ${LV.Features.bigNumeric}" in {
       forEveryVersion { version =>
@@ -583,7 +585,7 @@ class DecodeV2Spec
             Try(decoder.decodeExprForTest(roundingToProtoExpr(proto), "test"))
 
           if (version >= LV.Features.bigNumeric)
-            result shouldBe Success(Ast.EPrimLit(Ast.PLRoundingMode(scala)))
+            result shouldBe Success(Ast.EBuiltinLit(Ast.BLRoundingMode(scala)))
           else
             inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
         }
@@ -1449,8 +1451,8 @@ class DecodeV2Spec
           .setType(
             DamlLf2.Type
               .newBuilder()
-              .setPrim(
-                DamlLf2.Type.Prim.newBuilder().setPrim(DamlLf2.PrimType.INT64)
+              .setBuiltin(
+                DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.INT64)
               )
           )
       )

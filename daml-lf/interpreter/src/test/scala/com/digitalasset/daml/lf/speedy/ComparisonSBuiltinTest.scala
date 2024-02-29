@@ -115,7 +115,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           t"Text" ->
             // Note that in UTF8  "｡" < "😂" but in UTF16 "｡" > "😂"
             List("a bit of text", "some other text", "some other text again", "｡", "😂")
-              .map(t => Ast.EPrimLit(Ast.PLText(t))),
+              .map(t => Ast.EBuiltinLit(Ast.BLText(t))),
           t"Date" -> List(e"1969-07-21", e"1970-01-01", e"2020-02-02"),
           t"Timestamp" -> List(
             e"1969-07-21T02:56:15.000000Z",
@@ -420,7 +420,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       def etApps(e: Expr, types: Type*) =
         types.foldLeft(e)(ETyApp)
 
-      def text(s: String) = EPrimLit(PLText(s))
+      def text(s: String) = EBuiltinLit(BLText(s))
 
       val eitherT = t"Mod:Either"
       val TTyCon(eitherTyCon) = eitherT

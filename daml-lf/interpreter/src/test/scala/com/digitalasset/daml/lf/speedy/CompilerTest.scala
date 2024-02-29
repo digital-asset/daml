@@ -45,12 +45,12 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     "compile deeply nested lets" in {
       val expr = List
         .range[Long](1, 3000)
-        .foldRight[Expr](EPrimLit(PLInt64(5000)))((i, acc) =>
+        .foldRight[Expr](EBuiltinLit(BLInt64(5000)))((i, acc) =>
           ELet(
             Binding(
               Some(Ref.Name.assertFromString(s"v$i")),
               TBuiltin(BTInt64),
-              EPrimLit(PLInt64(i)),
+              EBuiltinLit(BLInt64(i)),
             ),
             acc,
           )
