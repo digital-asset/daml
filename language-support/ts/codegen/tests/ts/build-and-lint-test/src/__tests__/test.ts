@@ -631,7 +631,10 @@ test("exercise using explicit disclosure", async () => {
     ],
     { encoding: "utf8" },
   );
-  const created = JSON.parse(output).transaction.events[0].created;
+  const transaction = JSON.parse(output).transaction;
+  const domainId = transaction.domain_id;
+  expect(domainId).not.toEqual("");
+  const created = transaction.events[0].created;
   const [result] = await bobLedger.exercise(
     buildAndLint.Main.ReferenceData.ReferenceData_Fetch,
     contract.contractId,
@@ -644,6 +647,7 @@ test("exercise using explicit disclosure", async () => {
           createdEventBlob: created.createdEventBlob,
         },
       ],
+      domainId: domainId,
     },
   );
   expect(result).toEqual(payload);
