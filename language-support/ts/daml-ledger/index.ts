@@ -126,7 +126,6 @@ export type CreateEvent<
   contractId: ContractId<T>;
   signatories: List<Party>;
   observers: List<Party>;
-  agreementText: Text;
   key: K;
   payload: T;
 };
@@ -184,7 +183,6 @@ const decodeCreateEvent = <T extends object, K, I extends string>(
     contractId: ContractId(template).decoder,
     signatories: List(Party).decoder,
     observers: List(Party).decoder,
-    agreementText: Text.decoder,
     key: template.keyDecoder,
     payload: template.decoder,
   });
