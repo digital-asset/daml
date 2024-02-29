@@ -90,7 +90,6 @@ class ModelConformanceChecker(
     participantId: ParticipantId,
     val serializableContractAuthenticator: SerializableContractAuthenticator,
     val packageResolver: PackageResolver,
-    val enableContractUpgrading: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -278,7 +277,7 @@ class ModelConformanceChecker(
   ): EitherT[Future, Error, WithRollbackScope[WellFormedTransaction[WithSuffixes]]] = {
     val viewParticipantData = view.viewParticipantData.tryUnwrap
     val RootAction(cmd, authorizers, failed, packageIdPreference) =
-      viewParticipantData.rootAction(enableContractUpgrading)
+      viewParticipantData.rootAction()
     val rbContext = viewParticipantData.rollbackContext
     val seed = viewParticipantData.actionDescription.seedOption
 
@@ -394,7 +393,6 @@ object ModelConformanceChecker {
       protocolVersion: ProtocolVersion,
       participantId: ParticipantId,
       packageResolver: PackageResolver,
-      enableContractUpgrading: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ModelConformanceChecker = {
     def reinterpret(
@@ -430,7 +428,6 @@ object ModelConformanceChecker {
       participantId,
       serializableContractAuthenticator,
       packageResolver,
-      enableContractUpgrading,
       loggerFactory,
     )
   }

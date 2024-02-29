@@ -479,7 +479,6 @@ object TestingTimeServiceConfig {
   * @param warnIfOverloadedFor If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this interval, the participant will log a warning.
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
   * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
-  * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   */
 final case class ParticipantNodeParameterConfig(
@@ -499,16 +498,13 @@ final case class ParticipantNodeParameterConfig(
     ),
     devVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
-    warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
+    warnIfOverloadedFor: Option[NonNegativeFiniteDuration] = Some(
       config.NonNegativeFiniteDuration.ofSeconds(20)
     ),
-    // TODO(#15221) rename this to ledger-api-server
     ledgerApiServerParameters: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
     excludeInfrastructureTransactions: Boolean = true,
     enableEngineStackTraces: Boolean = false,
-    enableContractUpgrading: Boolean = false,
-    iterationsBetweenInterruptions: Long =
-      10000, // 10000 is the default value in the engine configuration
+    iterationsBetweenInterruptions: Long = 10000,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

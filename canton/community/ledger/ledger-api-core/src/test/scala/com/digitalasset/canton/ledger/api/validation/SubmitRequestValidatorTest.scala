@@ -34,7 +34,6 @@ import scalaz.syntax.tag.*
 
 import java.time.{Duration as JDuration, Instant}
 import scala.annotation.nowarn
-import scala.collection.immutable.Map
 
 @nowarn("msg=deprecated")
 class SubmitRequestValidatorTest
@@ -176,7 +175,6 @@ class SubmitRequestValidatorTest
     new CommandsValidator(
       ledgerId = ledgerId,
       validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
-      upgradingEnabled = false,
       validateDisclosedContracts = validateDisclosedContractsMock,
     )
   }
@@ -383,7 +381,7 @@ class SubmitRequestValidatorTest
               Some(internal.maxDeduplicationDuration),
             )
             inside(result) { case Right(valid) =>
-              valid.deduplicationPeriod shouldBe (expectedDeduplication)
+              valid.deduplicationPeriod shouldBe expectedDeduplication
             }
         }
       }
@@ -480,7 +478,6 @@ class SubmitRequestValidatorTest
 
         val failingDisclosedContractsValidator = new CommandsValidator(
           ledgerId = ledgerId,
-          upgradingEnabled = false,
           validateDisclosedContracts = validateDisclosedContractsMock,
         )
 
@@ -495,22 +492,6 @@ class SubmitRequestValidatorTest
           code = INVALID_ARGUMENT,
           description =
             "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field some failed: some message",
-          metadata = Map.empty,
-        )
-      }
-
-      "not allow missing packageId (if upgrading disabled)" in {
-        requestMustFailWith(
-          request = testedCommandValidator
-            .validateCommands(
-              api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: package-name scoping for requests is only possible when smart contract upgrading feature is enabled",
           metadata = Map.empty,
         )
       }
@@ -556,7 +537,6 @@ class SubmitRequestValidatorTest
 
         val commandsValidatorWithUpgradingEnabled = new CommandsValidator(
           ledgerId = ledgerId,
-          upgradingEnabled = true,
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           validateDisclosedContracts = validateDisclosedContractsMock,
         )

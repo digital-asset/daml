@@ -73,7 +73,6 @@ object ApiServiceOwner {
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       enableExplicitDisclosure: Boolean = false,
       multiDomainEnabled: Boolean,
-      upgradingEnabled: Boolean,
       // immutable configuration parameters
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
@@ -173,7 +172,6 @@ object ApiServiceOwner {
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         multiDomainEnabled = multiDomainEnabled,
-        upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
       )(materializer, executionSequencerFactory, tracer)

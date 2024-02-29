@@ -25,7 +25,6 @@ object TransactionServiceRequestValidator {
 class TransactionServiceRequestValidator(
     ledgerId: LedgerId,
     partyValidator: PartyValidator,
-    transactionFilterValidator: TransactionFilterValidator,
 ) {
 
   import TransactionServiceRequestValidator.Result
@@ -84,7 +83,7 @@ class TransactionServiceRequestValidator(
         partial.end,
         ledgerEnd,
       )
-      convertedFilter <- transactionFilterValidator.validate(partial.transactionFilter)
+      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
         partial.ledgerId,

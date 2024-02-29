@@ -108,7 +108,6 @@ object ApiServices {
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
       multiDomainEnabled: Boolean,
-      upgradingEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
   )(implicit
       materializer: Materializer,
@@ -167,12 +166,10 @@ object ApiServices {
         executionContext: ExecutionContext
     ): List[BindableService] = {
 
-      val transactionFilterValidator = new TransactionFilterValidator(upgradingEnabled)
       val transactionServiceRequestValidator =
         new TransactionServiceRequestValidator(
           ledgerId = ledgerId,
           partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties),
-          transactionFilterValidator = transactionFilterValidator,
         )
 
       val apiTransactionService =
@@ -226,7 +223,6 @@ object ApiServices {
           metrics,
           telemetry,
           loggerFactory,
-          transactionFilterValidator,
         )
 
       val apiTimeServiceOpt =
@@ -271,7 +267,6 @@ object ApiServices {
             metrics = metrics,
             telemetry = telemetry,
             loggerFactory = loggerFactory,
-            transactionFilterValidator = transactionFilterValidator,
           )
         val apiVersionService =
           new ApiVersionServiceV2(
@@ -402,7 +397,6 @@ object ApiServices {
         val commandsValidator = CommandsValidator(
           ledgerId = ledgerId,
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
-          upgradingEnabled = upgradingEnabled,
           enableExplicitDisclosure = enableExplicitDisclosure,
         )
         val (apiSubmissionService, commandSubmissionService) =
