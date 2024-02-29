@@ -568,14 +568,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "TEXT_TO_TEXT" - {
-      "is idempotent" in {
-        forEvery(strings) { s =>
-          eval(e""" TEXT_TO_TEXT "$s" """) shouldBe Right(SText(s))
-        }
-      }
-    }
-
     "Text binary operations computes proper results" in {
 
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
@@ -725,7 +717,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           )
 
         forEvery(testCases) { s =>
-          eval(e"TEXT_TO_TEXT $s") shouldBe Right(SText(s))
+          eval(e"TEXT_TO_TIMESTAMP $s") shouldBe Right(SText(s))
         }
       }
     }

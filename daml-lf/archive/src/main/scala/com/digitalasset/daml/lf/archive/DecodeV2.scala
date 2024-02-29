@@ -712,11 +712,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(TSynApp(decodeTypeSynName(tsyn.getTysyn), types.to(ImmArray)))
           }
         case PLF.Type.SumCase.BUILTIN =>
-          val prim = lfType.getBuiltin
-          val info = builtinTypeInfoMap(prim.getBuiltin)
-          assertSince(info.minVersion, prim.getBuiltin.getValueDescriptor.getFullName)
+          val builtin = lfType.getBuiltin
+          val info = builtinTypeInfoMap(builtin.getBuiltin)
+          assertSince(info.minVersion, builtin.getBuiltin.getValueDescriptor.getFullName)
           val baseType: Type = info.typ
-          sequenceWork(prim.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          sequenceWork(builtin.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft(baseType)(TApp))
           }
         case PLF.Type.SumCase.FORALL =>
@@ -1693,9 +1693,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(NUMERIC_TO_TEXT, BNumericToText),
       BuiltinFunctionInfo(TIMESTAMP_TO_TEXT, BTimestampToText),
       BuiltinFunctionInfo(PARTY_TO_TEXT, BPartyToText),
-      BuiltinFunctionInfo(TEXT_TO_TEXT, BTextToText),
       BuiltinFunctionInfo(CONTRACT_ID_TO_TEXT, BContractIdToText),
-      BuiltinFunctionInfo(PARTY_TO_QUOTED_TEXT, BPartyToQuotedText, maxVersion = Some(exceptions)),
       BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
