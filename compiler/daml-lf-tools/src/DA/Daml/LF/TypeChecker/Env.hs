@@ -4,11 +4,13 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | This module provides the data type for the environment of the Daml-LF type
 -- checker and functions to manipulate it.
 module DA.Daml.LF.TypeChecker.Env(
     MonadGamma,
+    MonadGammaF,
     TcM,
     TcMF,
     throwWithContext, throwWithContextF,

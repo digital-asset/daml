@@ -179,8 +179,10 @@ data UpgradeError
   | VariantRemovedVariant !UpgradedRecordOrigin
   | VariantChangedVariantType !UpgradedRecordOrigin
   | VariantAddedVariantField !UpgradedRecordOrigin
+  | VariantVariantsOrderChanged !UpgradedRecordOrigin
   | EnumAddedVariant !UpgradedRecordOrigin
   | EnumRemovedVariant !UpgradedRecordOrigin
+  | EnumVariantsOrderChanged !UpgradedRecordOrigin
   | RecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
   | TemplateChangedKeyType !TypeConName
   | ChoiceChangedReturnType !ChoiceName
@@ -575,8 +577,10 @@ instance Pretty UpgradeError where
     VariantRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
     VariantChangedVariantType origin -> "The upgraded " <> pPrint origin <> " has changed the type of a variant."
     VariantAddedVariantField origin -> "The upgraded " <> pPrint origin <> " has added a field."
+    VariantVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the variant."
     EnumAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
     EnumRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
+    EnumVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the enum."
     RecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     ChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
     TemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
