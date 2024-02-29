@@ -17,7 +17,6 @@ load(
     "mangle_for_java",
     "version_in",
 )
-
 load("@os_info//:os_info.bzl", "is_intel")
 
 da_scala_library(
