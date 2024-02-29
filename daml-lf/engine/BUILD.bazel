@@ -20,7 +20,6 @@ load(
     "lf_version_default_or_latest",
     "mangle_for_damlc",
 )
-
 load("@os_info//:os_info.bzl", "is_intel")
 
 da_scala_library(
