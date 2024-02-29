@@ -353,7 +353,6 @@ checkDefDataType origin datatype = do
                 (fmap (HMS.fromList . map (,())) upgrade)
           when (not $ and $ foldU (zipWith (==)) upgrade) $
               throwWithContextF present (EUpgradeError (EnumVariantsOrderChanged origin))
-          pure ()
       Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
           pure ()
       _ ->

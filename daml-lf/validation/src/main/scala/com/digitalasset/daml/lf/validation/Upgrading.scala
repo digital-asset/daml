@@ -450,10 +450,16 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
               else Success(())
 
             changedVariantNames: ImmArray[(Ast.VariantConName, Ast.VariantConName)] = {
-              val variantNames: Upgrading[ImmArray[Ast.VariantConName]] = upgrade.map(_.variants.map(_._1))
-              variantNames.past.zip(variantNames.present).filter { case (past, present) => past != present }
+              val variantNames: Upgrading[ImmArray[Ast.VariantConName]] =
+                upgrade.map(_.variants.map(_._1))
+              variantNames.past.zip(variantNames.present).filter { case (past, present) =>
+                past != present
+              }
             }
-            _ <- failIf(changedVariantNames.nonEmpty, UpgradeError.VariantVariantsOrderChanged(origin.present))
+            _ <- failIf(
+              changedVariantNames.nonEmpty,
+              UpgradeError.VariantVariantsOrderChanged(origin.present),
+            )
           } yield ()
         case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
           val upgrade = Upgrading(past, present)
@@ -466,9 +472,14 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
             )
             changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
               val variantNames: Upgrading[ImmArray[Ast.EnumConName]] = upgrade.map(_.constructors)
-              variantNames.past.zip(variantNames.present).filter { case (past, present) => past != present }
+              variantNames.past.zip(variantNames.present).filter { case (past, present) =>
+                past != present
+              }
             }
-            _ <- failIf(changedVariantNames.nonEmpty, UpgradeError.EnumVariantsOrderChanged(origin.present))
+            _ <- failIf(
+              changedVariantNames.nonEmpty,
+              UpgradeError.EnumVariantsOrderChanged(origin.present),
+            )
           } yield ()
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
         case other => fail(UpgradeError.MismatchDataConsVariety(name, other))
