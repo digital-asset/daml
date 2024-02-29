@@ -1,7 +1,7 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_linux")
+load("@os_info//:os_info.bzl", "is_linux_intel")
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 load(":test_evidence.bzl", "test_evidence_binary", "write_scalatest_runpath")
 
@@ -102,4 +102,4 @@ write_scalatest_runpath(
         """,
         tools = ["//bazel_tools/sh:mktgz"],
     ),
-] if is_linux else []
+] if is_linux_intel else []

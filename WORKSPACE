@@ -65,7 +65,7 @@ load(
 
 dadew(name = "dadew")
 
-load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_linux", "is_windows")
 load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
 
 ghc_dwarf(name = "ghc_dwarf")
@@ -98,7 +98,7 @@ damlc_legacy(
         "macos": "63141d7168e883c0b8c212dca6198f5463f82aa82bbbc51d8805ce7e474300e4",
     },
     version = "1.18.0-snapshot.20211117.8399.0.a05a40ae",
-)
+) if is_intel else None
 
 # Use Nix provisioned cc toolchain
 nixpkgs_cc_configure(

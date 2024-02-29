@@ -5,7 +5,7 @@ load(
     "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version")
 load("//daml-lf/language:daml-lf.bzl", "lf_version_configuration", "lf_version_is_dev", "lf_versions_aggregate")
 
@@ -74,4 +74,4 @@ EOF
     )
 
 # versions for which we build a test-tool
-testtool_lf_versions = ["1.8", "1.14", "1.15", "1.dev", "2.dev"]
+testtool_lf_versions = (["1.8", "1.14"] if is_intel else []) + ["1.15", "1.dev", "2.dev"]

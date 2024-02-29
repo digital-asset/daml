@@ -31,7 +31,7 @@ load(
     "jar_jar",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 
 da_scala_binary(
     name = "codegen",
@@ -110,7 +110,7 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
-)
+) if is_intel else None
 
 daml_compile(
     name = "test-daml",
@@ -132,7 +132,7 @@ daml_compile(
     name = "test-daml-with-same-dependencies-but-different-target-version",
     srcs = ["src/test/daml/Foo2.daml"],
     target = "1.13",
-)
+) if is_intel else None
 
 daml_compile(
     name = "test-template",
