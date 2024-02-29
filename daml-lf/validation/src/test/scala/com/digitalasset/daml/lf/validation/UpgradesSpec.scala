@@ -538,6 +538,16 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       )
     }
 
+    "Fail when a top-level variant changes changes the order of its variants"in {
+      testPackagePair(
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant.")
+        )
+      )
+    }
+
     "Fails when a top-level variant adds a field to a variant's type" in {
       testPackagePair(
         "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v1.dar",
@@ -561,6 +571,16 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         "test-common/upgrades-FailsWhenATopLevelEnumChanges-v1.dar",
         "test-common/upgrades-FailsWhenATopLevelEnumChanges-v2.dar",
         assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Fail when a top-level enum changes changes the order of its variants"in {
+      testPackagePair(
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum.")
+        )
       )
     }
 

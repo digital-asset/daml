@@ -129,6 +129,10 @@ da_scala_dar_resources_library(
         "SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd",
         "SucceedsWhenATopLevelTypeSynonymChanges",
         "SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes",
+
+        # More more tests ported from DamlcUpgrades.hs
+        "FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants",
+        "FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants",
     ]
 ]
 

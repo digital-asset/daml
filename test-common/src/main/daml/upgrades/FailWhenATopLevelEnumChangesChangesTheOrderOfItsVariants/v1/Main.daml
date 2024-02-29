@@ -1,0 +1,2 @@
+module Main where
+data A = X | Y | Z

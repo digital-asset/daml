@@ -191,6 +191,12 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
             "//test-common:upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v1.dar",
             "//test-common:upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
+
+            # More more tests ported from DamlcUpgrades.hs
+            "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
+            "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
+            "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
+            "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
         ],
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",

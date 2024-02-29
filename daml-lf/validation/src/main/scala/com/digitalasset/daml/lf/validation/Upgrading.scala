@@ -134,6 +134,11 @@ object UpgradeError {
       s"The upgraded $origin has changed the type of a variant."
   }
 
+  final case class VariantVariantsOrderChanged(origin: UpgradedRecordOrigin) extends Error {
+    override def message: String =
+      s"The upgraded $origin has changed the order of its variants - any new variant must be added at the end of the variant."
+  }
+
   final case class VariantAddedVariantField(origin: UpgradedRecordOrigin) extends Error {
     override def message: String =
       s"The upgraded $origin has added a field."
@@ -147,6 +152,11 @@ object UpgradeError {
   final case class EnumRemovedVariant(origin: UpgradedRecordOrigin) extends Error {
     override def message: String =
       s"The upgraded $origin has removed an existing variant."
+  }
+
+  final case class EnumVariantsOrderChanged(origin: UpgradedRecordOrigin) extends Error {
+    override def message: String =
+      s"The upgraded $origin has changed the order of its variants - any new variant must be added at the end of the enum."
   }
 }
 
@@ -438,6 +448,12 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
               if (changedTypes.nonEmpty)
                 fail(UpgradeError.VariantChangedVariantType(origin.present))
               else Success(())
+
+            changedVariantNames: ImmArray[(Ast.VariantConName, Ast.VariantConName)] = {
+              val variantNames: Upgrading[ImmArray[Ast.VariantConName]] = upgrade.map(_.variants.map(_._1))
+              variantNames.past.zip(variantNames.present).filter { case (past, present) => past != present }
+            }
+            _ <- failIf(changedVariantNames.nonEmpty, UpgradeError.VariantVariantsOrderChanged(origin.present))
           } yield ()
         case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
           val upgrade = Upgrading(past, present)
@@ -448,6 +464,11 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
               enums,
               (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
             )
+            changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
+              val variantNames: Upgrading[ImmArray[Ast.EnumConName]] = upgrade.map(_.constructors)
+              variantNames.past.zip(variantNames.present).filter { case (past, present) => past != present }
+            }
+            _ <- failIf(changedVariantNames.nonEmpty, UpgradeError.EnumVariantsOrderChanged(origin.present))
           } yield ()
         case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
         case other => fail(UpgradeError.MismatchDataConsVariety(name, other))

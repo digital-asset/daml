@@ -341,6 +341,8 @@ checkDefDataType origin datatype = do
       Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
           let upgrade = Upgrading{..}
           (existing, _new) <- checkDeleted (\_ -> EUpgradeError (VariantRemovedVariant origin)) (fmap HMS.fromList upgrade)
+          when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
+              throwWithContextF present (EUpgradeError (VariantVariantsOrderChanged origin))
           when (not (all (foldU alphaType) existing)) $
               throwWithContextF present $ EUpgradeError (VariantChangedVariantType origin)
       Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
@@ -349,6 +351,8 @@ checkDefDataType origin datatype = do
               checkDeleted
                 (\_ -> EUpgradeError (EnumRemovedVariant origin))
                 (fmap (HMS.fromList . map (,())) upgrade)
+          when (not $ and $ foldU (zipWith (==)) upgrade) $
+              throwWithContextF present (EUpgradeError (EnumVariantsOrderChanged origin))
           pure ()
       Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
           pure ()
