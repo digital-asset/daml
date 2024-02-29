@@ -49,7 +49,7 @@ object DAMLe {
           //   here because the engine temporarily accepts version ranges spanning two major LF versions.
           //   Similary, use LanguageVersions.StableVersions(majorVersion).max once such a parameterized StableVersions
           //   is introduced.
-          if (enableLfDev) LanguageVersion.v2_dev else LanguageVersion.StableVersions.max,
+          if (enableLfDev) LanguageVersion.v1_dev else LanguageVersion.StableVersions.max,
         ),
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,

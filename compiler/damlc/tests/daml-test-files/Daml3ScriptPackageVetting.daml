@@ -99,10 +99,10 @@ listPackagesIsCorrect = script do
   assertAllPackages
 
   -- Check default packages count (as packageA and packageB previously disabled)
-  -- 12 packages in daml-prim (11 specific modules + prim itself)
-  -- 14 packages in daml-stdlib (13 specific modules + stdlib itself)
-  -- 2 packages in ghc-stdlib
+  -- 6 packages in daml-prim (11 specific modules + prim itself)
+  -- 6 packages in daml-stdlib (13 specific modules + stdlib itself)
+  -- 1 packages in ghc-stdlib
   -- 1 package for daml3-script
   -- the current package
   packages <- listVettedPackages
-  length packages === 30
+  length packages === 14
