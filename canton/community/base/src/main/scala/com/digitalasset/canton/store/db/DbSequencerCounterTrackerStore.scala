@@ -33,5 +33,5 @@ class DbSequencerCounterTrackerStore(
 }
 
 object DbSequencerCounterTrackerStore {
-  val cursorTable = "head_sequencer_counters"
+  val cursorTable = "common_head_sequencer_counters"
 }

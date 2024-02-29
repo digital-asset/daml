@@ -38,11 +38,11 @@ class DbDomainParameterStore(
     val query = storage.profile match {
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
-                 /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( static_domain_parameters ( domain_id ) ) */
-                 into static_domain_parameters(domain_id, params)
+                 /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( par_static_domain_parameters ( domain_id ) ) */
+                 into par_static_domain_parameters(domain_id, params)
                values ($domainId, $newParameters)"""
       case _ =>
-        sqlu"""insert into static_domain_parameters(domain_id, params)
+        sqlu"""insert into par_static_domain_parameters(domain_id, params)
                values ($domainId, $newParameters)
                on conflict do nothing"""
     }
@@ -73,7 +73,7 @@ class DbDomainParameterStore(
   ): Future[Option[StaticDomainParameters]] =
     storage
       .query(
-        sql"select params from static_domain_parameters where domain_id=$domainId"
+        sql"select params from par_static_domain_parameters where domain_id=$domainId"
           .as[StaticDomainParameters]
           .headOption,
         functionFullName,

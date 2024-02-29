@@ -40,7 +40,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessorX}
@@ -310,11 +309,11 @@ class SequencerNodeBootstrapX(
       snapshot.result
         .flatMap(_.selectMapping[TrafficControlStateX])
         .map { tx =>
-          tx.transaction.transaction.mapping.member ->
+          tx.mapping.member ->
             TopUpEvent(
-              tx.transaction.transaction.mapping.totalExtraTrafficLimit,
+              tx.mapping.totalExtraTrafficLimit,
               tx.validFrom.value,
-              tx.transaction.transaction.serial,
+              tx.serial,
             )
         }
         .toMap
@@ -336,7 +335,7 @@ class SequencerNodeBootstrapX(
           )
           val sequencerFactory = mkFactory(request.domainParameters.protocolVersion)
           val domainIds = request.topologySnapshot.result
-            .map(_.transaction.transaction.mapping)
+            .map(_.mapping)
             .collect { case SequencerDomainStateX(domain, _, _, _) => domain }
             .toSet
           val trafficControlStore = mkTrafficLimitsStore(
@@ -367,7 +366,7 @@ class SequencerNodeBootstrapX(
                   .flatMap { _ =>
                     val topUps = extractTopUpEventsFromTopologySnapshot(
                       request.topologySnapshot,
-                      initialState.latestTopologyClientTimestamp,
+                      initialState.latestSequencerEventTimestamp,
                     )
                     EitherT.liftF[Future, String, Unit](trafficControlStore.initialize(topUps))
                   }
@@ -482,13 +481,6 @@ class SequencerNodeBootstrapX(
       addCloseable(domainOutboxFactory)
 
       performUnlessClosingEitherU("starting up runtime") {
-        val indexedStringStore = IndexedStringStore.create(
-          storage,
-          parameterConfig.cachingConfigs.indexedStrings,
-          timeouts,
-          domainLoggerFactory,
-        )
-        addCloseable(indexedStringStore)
         for {
           processorAndClient <- EitherT.right(
             TopologyTransactionProcessorX.createProcessorAndClientForDomain(
@@ -567,7 +559,6 @@ class SequencerNodeBootstrapX(
             staticDomainParameters,
             storage,
             crypto,
-            indexedStringStore,
             Future.unit, // domain is already initialised
             Future.successful(true),
             arguments,

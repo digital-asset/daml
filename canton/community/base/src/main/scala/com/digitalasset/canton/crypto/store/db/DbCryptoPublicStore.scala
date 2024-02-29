@@ -43,7 +43,7 @@ class DbCryptoPublicStore(
     SigningPublicKey.getVersionedSetParameter(releaseProtocolVersion.v)
 
   private def queryKeys[K: GetResult](purpose: KeyPurpose): DbAction.ReadOnly[Set[K]] =
-    sql"select data, name from crypto_public_keys where purpose = $purpose"
+    sql"select data, name from common_crypto_public_keys where purpose = $purpose"
       .as[K]
       .map(_.toSet)
 
@@ -51,7 +51,7 @@ class DbCryptoPublicStore(
       keyId: Fingerprint,
       purpose: KeyPurpose,
   ): DbAction.ReadOnly[Option[K]] =
-    sql"select data, name from crypto_public_keys where key_id = $keyId and purpose = $purpose"
+    sql"select data, name from common_crypto_public_keys where key_id = $keyId and purpose = $purpose"
       .as[K]
       .headOption
 
@@ -62,11 +62,11 @@ class DbCryptoPublicStore(
     storage.profile match {
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
-               /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( crypto_public_keys ( key_id ) ) */
-               into crypto_public_keys (key_id, purpose, data, name)
+               /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( common_crypto_public_keys ( key_id ) ) */
+               into common_crypto_public_keys (key_id, purpose, data, name)
            values (${key.id}, ${key.purpose}, $key, $name)"""
       case _ =>
-        sqlu"""insert into crypto_public_keys (key_id, purpose, data, name)
+        sqlu"""insert into common_crypto_public_keys (key_id, purpose, data, name)
            values (${key.id}, ${key.purpose}, $key, $name)
            on conflict do nothing"""
     }

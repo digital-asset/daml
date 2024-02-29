@@ -41,7 +41,7 @@ final case class PartialBlockUpdate(
   * the updates in all earlier [[ChunkUpdate]]s. In particular:
   * - [[com.digitalasset.canton.domain.block.data.BlockInfo.lastTs]] must be at least the
   *   one from the last chunk or previous block
-  * - [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]]
+  * - [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]]
   *   must be at least the one from the last chunk or previous block.
   * - [[com.digitalasset.canton.domain.block.data.BlockInfo.height]] must be exactly one higher
   *   than the previous block
@@ -67,7 +67,7 @@ final case class CompleteBlockUpdate(
   * @param inFlightAggregationUpdates The updates to the in-flight aggregation states.
   *                             Does not include the clean-up of expired aggregations.
   * @param pruningRequests Upper bound timestamps to prune the sequencer's local state.
-  * @param lastTopologyClientTimestamp The highest timestamp of an event in `events` addressed to the sequencer's topology client, if any.
+  * @param lastSequencerEventTimestamp The highest timestamp of an event in `events` addressed to the sequencer, if any.
   * @param state Updated ephemeral state to be used for processing subsequent chunks.
   */
 final case class ChunkUpdate(
@@ -78,7 +78,7 @@ final case class ChunkUpdate(
     signedEvents: Seq[SignedEvents] = Seq.empty,
     inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
     pruningRequests: Seq[Traced[CantonTimestamp]] = Seq.empty,
-    lastTopologyClientTimestamp: Option[CantonTimestamp],
+    lastSequencerEventTimestamp: Option[CantonTimestamp],
     state: EphemeralState,
 ) {
   // ensure that all new members appear in the ephemeral state

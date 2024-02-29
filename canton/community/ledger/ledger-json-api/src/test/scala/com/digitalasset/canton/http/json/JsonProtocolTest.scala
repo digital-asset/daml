@@ -6,21 +6,10 @@ package com.digitalasset.canton.http.json
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.daml.lf.data.Ref
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.http.Generators.{
-  OptionalPackageIdGen,
-  contractGen,
-  contractIdGen,
-  contractLocatorGen,
-  exerciseCmdGen,
-  genDomainTemplateId,
-  genDomainTemplateIdO,
-  genServiceWarning,
-  genUnknownParties,
-  genUnknownTemplateIds,
-  genWarningsWrapper,
-}
+import com.digitalasset.canton.http.Generators.{OptionalPackageIdGen, contractGen, contractIdGen, contractLocatorGen, exerciseCmdGen, genDomainTemplateId, genDomainTemplateIdO, genServiceWarning, genUnknownParties, genUnknownTemplateIds, genWarningsWrapper}
 import com.digitalasset.canton.http.domain
 import com.digitalasset.canton.http.json.SprayJson.JsonReaderError
+import com.digitalasset.canton.topology.DomainId
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
@@ -269,13 +258,19 @@ class JsonProtocolTest
   "domain.CommandMeta" - {
     "is entirely optional" in {
       "{}".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
-        domain.CommandMeta(None, None, None, None, None, None, None)
+        domain.CommandMeta(None, None, None, None, None, None, None, None)
       )
     }
 
     "is entirely optional when NoDisclosed" in {
       "{}".parseJson.convertTo[domain.CommandMeta.NoDisclosed] should ===(
-        domain.CommandMeta(None, None, None, None, None, None, None)
+        domain.CommandMeta(None, None, None, None, None, None, None, None)
+      )
+    }
+
+    "successfully parsed with domainId" in {
+      """{"domainId":"x::domain"}""".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
+        domain.CommandMeta(None, None, None, None, None, None, None, Some(DomainId.tryFromString("x::domain")))
       )
     }
   }

@@ -55,7 +55,6 @@ class ContractStateCaches(
                 contract = created.contract,
                 stakeholders = created.stakeholders,
                 createLedgerEffectiveTime = created.ledgerEffectiveTime,
-                agreementText = created.agreementText,
                 signatories = created.signatories,
                 globalKey = created.globalKey,
                 keyMaintainers = created.keyMaintainers,

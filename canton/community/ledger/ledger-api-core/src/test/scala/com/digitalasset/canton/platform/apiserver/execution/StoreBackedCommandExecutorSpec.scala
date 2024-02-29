@@ -219,7 +219,6 @@ class StoreBackedCommandExecutorSpec
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
       signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
-      agreementText = None,
       globalKey = None,
       maintainers = None,
       // Filled below conditionally

@@ -49,13 +49,11 @@ class AuthorizationGraphXTest
         key: SigningPublicKey,
     ): AuthorizedTopologyTransactionX[T] = {
       val signature = factory.cryptoApi.crypto.privateCrypto
-        .sign(authTx.signedTransaction.transaction.hash.hash, key.fingerprint)
+        .sign(authTx.hash.hash, key.fingerprint)
         .value
         .futureValue
         .getOrElse(sys.error(s"Error when signing ${authTx}with $key"))
-      authTx.copy(signedTransaction =
-        authTx.signedTransaction.copy(signatures = NonEmpty(Set, signature))
-      )
+      authTx.copy(transaction = authTx.transaction.copy(signatures = NonEmpty(Set, signature)))
     }
 
   }

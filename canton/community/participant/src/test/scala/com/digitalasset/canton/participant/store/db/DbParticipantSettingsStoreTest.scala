@@ -14,7 +14,7 @@ trait DbParticipantSettingsStoreTest extends ParticipantSettingsStoreTest with D
 
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
-    storage.update_(sqlu"truncate table participant_settings", functionFullName)
+    storage.update_(sqlu"truncate table par_settings", functionFullName)
   }
 
   def mk(s: DbStorage): DbParticipantSettingsStore =

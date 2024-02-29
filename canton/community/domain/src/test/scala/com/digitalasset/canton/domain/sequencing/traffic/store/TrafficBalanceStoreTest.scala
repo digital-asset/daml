@@ -155,6 +155,26 @@ trait TrafficBalanceStoreTest
           aliceEvents should contain theSameElementsInOrderAs List(balanceAlice3)
         }
       }
+
+      "return the correct max timestamp" in {
+        val store = mk()
+        val balance1 =
+          TrafficBalance(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
+        val balance2 =
+          TrafficBalance(bob.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
+
+        for {
+          max0 <- store.maxTsO
+          _ <- store.store(balance1)
+          max1 <- store.maxTsO
+          _ <- store.store(balance2)
+          max2 <- store.maxTsO
+        } yield {
+          max0 shouldBe None
+          max1 shouldBe Some(t1)
+          max2 shouldBe Some(t2)
+        }
+      }
     }
   }
 }

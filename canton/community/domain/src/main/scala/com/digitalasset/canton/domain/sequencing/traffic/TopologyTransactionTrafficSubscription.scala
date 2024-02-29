@@ -37,7 +37,7 @@ class TopologyTransactionTrafficSubscription(
       .flatMap(_.transaction.selectMapping[TrafficControlStateX])
       .toList
       .parTraverse_ { tx =>
-        if (tx.op.select[TopologyChangeOpX.Replace].isEmpty) {
+        if (tx.operation.select[TopologyChangeOpX.Replace].isEmpty) {
           logger.warn("Expected replace operation for traffic top up")
           FutureUnlessShutdown.unit
         } else {

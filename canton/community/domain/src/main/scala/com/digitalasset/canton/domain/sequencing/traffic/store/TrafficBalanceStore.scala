@@ -64,4 +64,6 @@ trait TrafficBalanceStore extends AutoCloseable {
   )(implicit
       traceContext: TraceContext
   ): Future[Unit]
+
+  def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]]
 }

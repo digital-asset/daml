@@ -74,4 +74,12 @@ class InMemoryTrafficBalanceStore(override protected val loggerFactory: NamedLog
       }
       .discard
   }
+
+  override def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+    val maxTsO = trafficBalances.map { case (_, balances) =>
+      balances.max1.sequencingTimestamp
+    }.maxOption
+
+    Future.successful(maxTsO)
+  }
 }

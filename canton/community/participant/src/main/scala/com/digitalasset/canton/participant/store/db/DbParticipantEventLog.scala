@@ -56,7 +56,7 @@ class DbParticipantEventLog(
         val query = storage.profile match {
           case _: DbStorage.Profile.Oracle =>
             sql"""
-        select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from event_log
+        select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from par_event_log
         where (case when log_id = '#${id.index}' then associated_domain end) = $associatedDomainIndex
           and (case when log_id = '#${id.index}' and associated_domain is not null then ts end) >= $atOrAfter
         order by local_offset_effective_time asc, local_offset_discriminator asc, local_offset_tie_breaker asc
@@ -64,7 +64,7 @@ class DbParticipantEventLog(
         """.as[TimestampedEvent]
           case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
             sql"""
-        select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from event_log
+        select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context from par_event_log
         where log_id = '#${id.index}' and associated_domain is not null
           and associated_domain = $associatedDomainIndex and ts >= $atOrAfter
         order by (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) asc

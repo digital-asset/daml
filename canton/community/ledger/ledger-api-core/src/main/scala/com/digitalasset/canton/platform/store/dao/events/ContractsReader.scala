@@ -95,7 +95,6 @@ private[dao] sealed class ContractsReader(
               contract = contract,
               stakeholders = raw.flatEventWitnesses,
               ledgerEffectiveTime = raw.ledgerEffectiveTime,
-              agreementText = raw.agreementText,
               signatories = raw.signatories,
               globalKey = globalKey,
               keyMaintainers = raw.keyMaintainers,

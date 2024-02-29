@@ -274,11 +274,11 @@ class GrpcTopologyManagerReadService(
                   tx.validFrom,
                   tx.validUntil,
                   signedTx.operation,
-                  signedTx.transaction.hash.hash.getCryptographicEvidence,
-                  signedTx.transaction.serial,
+                  signedTx.hash.hash.getCryptographicEvidence,
+                  signedTx.serial,
                   signedTx.signatures.map(_.signedBy),
                 )
-              } yield (result, tx.transaction.transaction.mapping)
+              } yield (result, tx.mapping)
 
               EitherTUtil.toFuture(resultE)
             }

@@ -497,7 +497,6 @@ private[events] object TransactionLogUpdatesConversions {
                 templateId = createdEvent.templateId,
                 packageName = createdEvent.packageName,
                 arg = createdEvent.createArgument.unversioned,
-                agreementText = createdEvent.createAgreementText.getOrElse(""),
                 signatories = createdEvent.createSignatories,
                 stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,
                 keyOpt = createdEvent.createKey.flatMap(k =>
@@ -533,7 +532,6 @@ private[events] object TransactionLogUpdatesConversions {
           witnessParties = requestingParties.view.filter(createdWitnesses(createdEvent)).toSeq,
           signatories = createdEvent.createSignatories.toSeq,
           observers = createdEvent.createObservers.toSeq,
-          agreementText = createdEvent.createAgreementText.orElse(Some("")),
           createdAt = Some(TimestampConversion.fromLf(createdEvent.ledgerEffectiveTime)),
         )
       )

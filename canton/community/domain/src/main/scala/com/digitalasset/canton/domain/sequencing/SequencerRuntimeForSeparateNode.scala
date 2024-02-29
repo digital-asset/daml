@@ -226,8 +226,6 @@ class SequencerRuntimeForSeparateNode(
       }
     }
 
-//  val q = topologyHandler.combineWith()
-
   private val eventHandler = StripSignature(handler(domainId))
 
   private val sequencerAdministrationService =

@@ -26,9 +26,9 @@ trait DbIndexedStringsStoreTest
     import storage.api.*
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-        sqlu"truncate table static_strings restart identity"
+        sqlu"truncate table common_static_strings restart identity"
       case _: DbStorage.Profile.Oracle =>
-        sqlu"truncate table static_strings"
+        sqlu"truncate table common_static_strings"
     }
     storage.update(
       DBIO.seq(query),

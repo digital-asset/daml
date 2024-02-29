@@ -499,6 +499,7 @@ private[config] object CantonNodeParameterConverter {
       node.parameters.batching,
       parent.parameters.nonStandardConfig,
       node.storage.parameters.migrateAndStart,
+      node.parameters.useNewTrafficControl,
     )
   }
 

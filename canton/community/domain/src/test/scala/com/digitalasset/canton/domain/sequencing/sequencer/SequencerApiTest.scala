@@ -79,7 +79,7 @@ abstract class SequencerApiTest
 
   def domainId: DomainId = DefaultTestIdentities.domainId
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorIdX
-  def topologyClientMember: Member = DefaultTestIdentities.sequencerId
+  def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
   def createSequencer(crypto: DomainSyncCryptoClient)(implicit
       materializer: Materializer

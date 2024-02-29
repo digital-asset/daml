@@ -20,7 +20,7 @@ trait DbPruningSchedulerStoreTest
   this: DbTest =>
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
-    storage.update(DBIO.seq(sqlu"truncate table pruning_schedules"), functionFullName)
+    storage.update(DBIO.seq(sqlu"truncate table common_pruning_schedules"), functionFullName)
   }
 
   "DbPruningSchedulerStore" should {

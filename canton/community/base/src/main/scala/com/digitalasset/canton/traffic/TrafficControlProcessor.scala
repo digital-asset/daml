@@ -6,7 +6,6 @@ package com.digitalasset.canton.traffic
 import cats.Monoid
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -61,7 +60,7 @@ class TrafficControlProcessor(
 
     val tsStart = start match {
       case FreshSubscription =>
-        val maxFromStoreO: Option[CantonTimestamp] = None // get from actual store
+        val maxFromStoreO: Option[CantonTimestamp] = None // TODO(i17479): get from actual store
         // Use the max timestamp from the store. If the store is empty, use a minimum value
         maxFromStoreO.getOrElse(CantonTimestamp.MinValue)
 

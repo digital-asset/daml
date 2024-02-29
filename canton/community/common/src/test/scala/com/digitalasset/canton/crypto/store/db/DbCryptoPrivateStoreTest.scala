@@ -20,7 +20,7 @@ trait DbCryptoPrivateStoreTest extends AsyncWordSpec with CryptoPrivateStoreExte
     This conditional delete is to avoid conflicts with the encrypted crypto private store tests. */
     storage.update(
       DBIO.seq(
-        sqlu"delete from crypto_private_keys where wrapper_key_id IS NULL"
+        sqlu"delete from common_crypto_private_keys where wrapper_key_id IS NULL"
       ),
       operationName = s"${this.getClass}: Delete from private crypto table",
     )

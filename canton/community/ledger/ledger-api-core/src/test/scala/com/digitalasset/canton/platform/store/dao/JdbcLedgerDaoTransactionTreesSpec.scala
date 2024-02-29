@@ -69,7 +69,6 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.rootEventIds.loneElement shouldEqual created.eventId
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs*)
-          created.agreementText.getOrElse("") shouldBe createNode.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
           created.signatories should contain theSameElementsAs createNode.signatories
@@ -161,7 +160,6 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
         created.eventId shouldBe EventId(transaction.updateId, createNodeId).toLedgerString
         created.witnessParties should contain only (tx.actAs*)
-        created.agreementText.getOrElse("") shouldBe createNode.agreementText
         created.contractKey shouldBe None
         created.createArguments shouldNot be(None)
         created.signatories should contain theSameElementsAs createNode.signatories

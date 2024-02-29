@@ -32,7 +32,7 @@ class TrafficStateTopUpSubscription(
       .filter(_.mapping.member == trafficStateController.participant)
       .toList
       .foreach { tx =>
-        if (tx.op.select[TopologyChangeOpX.Replace].isEmpty) {
+        if (tx.operation.select[TopologyChangeOpX.Replace].isEmpty) {
           logger.warn("Expected replace operation for traffic top up")
         } else {
           logger.debug(

@@ -283,7 +283,6 @@ object ValidateDisclosedContractsTest {
         templateId = lf.templateId,
         packageName = lf.packageName,
         arg = lf.createArg,
-        agreementText = "",
         signatories = api.signatories,
         stakeholders = api.stakeholders,
         keyOpt = Some(lf.keyWithMaintainers),

@@ -22,7 +22,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace
@@ -35,7 +35,7 @@ abstract class BlockSequencerFactory(
     health: Option[SequencerHealthConfig],
     storage: Storage,
     protocolVersion: ProtocolVersion,
-    topologyClientMember: Member,
+    sequencerId: SequencerId,
     nodeParameters: CantonNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
@@ -47,7 +47,7 @@ abstract class BlockSequencerFactory(
     storage,
     protocolVersion,
     nodeParameters.processingTimeouts,
-    if (nodeParameters.enableAdditionalConsistencyChecks) Some(topologyClientMember) else None,
+    if (nodeParameters.enableAdditionalConsistencyChecks) Some(sequencerId) else None,
     loggerFactory,
   )
 
@@ -58,9 +58,7 @@ abstract class BlockSequencerFactory(
   protected def createBlockSequencer(
       name: String,
       domainId: DomainId,
-      sequencerId: SequencerId,
       cryptoApi: DomainSyncCryptoClient,
-      topologyClientMember: Member,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
       storage: Storage,
@@ -140,9 +138,7 @@ abstract class BlockSequencerFactory(
       val sequencer = createBlockSequencer(
         name,
         domainId,
-        sequencerId,
         domainSyncCryptoApi,
-        topologyClientMember,
         stateManager,
         store,
         storage,

@@ -246,9 +246,9 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
           s"found more than one valid mapping for unique key ${mapping.uniqueKey} of type ${mapping.code}"
         )
       existingTransaction = existingTransactions
-        .sortBy(_.transaction.serial)
+        .sortBy(_.serial)
         .lastOption
-        .map(t => (t.transaction.op, t.transaction.mapping, t.transaction.serial, t.signatures))
+        .map(t => (t.operation, t.mapping, t.serial, t.signatures))
 
       // If the same operation and mapping is proposed repeatedly, insist that
       // new keys are being added. Otherwise reject consistently with daml 2.x-based topology management.
@@ -364,7 +364,7 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
       }): EitherT[Future, TopologyManagerError, Set[Fingerprint]]
       signatures <- keys.toSeq.parTraverse(
         crypto.privateCrypto
-          .sign(transaction.transaction.hash.hash, _)
+          .sign(transaction.hash.hash, _)
           .leftMap(err =>
             TopologyManagerError.InternalError.TopologySigningError(err): TopologyManagerError
           )
@@ -391,14 +391,14 @@ abstract class TopologyManagerX[+StoreID <: TopologyStoreId](
           transactionsInStore <- EitherT.liftF(
             store.findTransactionsByTxHash(
               EffectiveTime.MaxValue,
-              transactions.map(_.transaction.hash).toSet,
+              transactions.map(_.hash).toSet,
             )
           )
           existingHashes = transactionsInStore
-            .map(tx => tx.transaction.hash -> tx.hashOfSignatures)
+            .map(tx => tx.hash -> tx.hashOfSignatures)
             .toMap
           (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition(
-            tx => existingHashes.get(tx.transaction.hash).contains(tx.hashOfSignatures)
+            tx => existingHashes.get(tx.hash).contains(tx.hashOfSignatures)
           )
           _ = logger.debug(
             s"Processing ${newTransactionsOrAdditionalSignatures.size}/${transactions.size} non-duplicate transactions"

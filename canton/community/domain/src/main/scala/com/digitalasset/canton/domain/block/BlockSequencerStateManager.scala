@@ -129,8 +129,7 @@ class BlockSequencerStateManager(
     import TraceContext.Implicits.Empty.*
     val headBlock =
       timeouts.unbounded.await(s"Reading the head of the $domainId sequencer state")(store.readHead)
-    // TODO(#17380) remove excessive debug logs
-    logger.debug(s"Initialized the block sequencer with head state $headBlock")
+    logger.debug(s"Initialized the block sequencer with head block ${headBlock.latestBlock}")
     HeadState.fullyProcessed(headBlock)
   })
 
@@ -359,10 +358,10 @@ class BlockSequencerStateManager(
       s"Events in chunk $chunkNumber have timestamp lower than in the previous chunk or block",
     )
     assert(
-      update.lastTopologyClientTimestamp.forall(last =>
-        priorState.latestTopologyClientTimestamp.forall(_ < last)
+      update.lastSequencerEventTimestamp.forall(last =>
+        priorState.latestSequencerEventTimestamp.forall(_ < last)
       ),
-      s"The last topology client timestamp ${update.lastTopologyClientTimestamp} in chunk $chunkNumber must be later than the previous chunk's or block's latest topology client timestamp at ${priorState.latestTopologyClientTimestamp}",
+      s"The last sequencer's event timestamp ${update.lastSequencerEventTimestamp} in chunk $chunkNumber must be later than the previous chunk's or block's latest sequencer event timestamp at ${priorState.latestSequencerEventTimestamp}",
     )
 
     def checkFirstSequencerCounters: Boolean = {
@@ -390,14 +389,10 @@ class BlockSequencerStateManager(
       chunkNumber,
       update.state,
       lastTs,
-      update.lastTopologyClientTimestamp.orElse(priorState.latestTopologyClientTimestamp),
+      update.lastSequencerEventTimestamp.orElse(priorState.latestSequencerEventTimestamp),
     )
 
     logger.debug(s"Adding block updates for chunk $chunkNumber to store")
-    // TODO(#17380) remove excessive debug logs
-    logger.debug(
-      s"In-flight aggregation updates for chunk $chunkNumber: ${update.inFlightAggregationUpdates}"
-    )
     for {
       _ <- store.partialBlockUpdate(
         newMembers = update.newMembers,
@@ -454,7 +449,7 @@ class BlockSequencerStateManager(
         s"The block's last timestamp must be at least the last timestamp of the last chunk",
       )
       assert(
-        chunkState.latestTopologyClientTimestamp <= newBlock.latestTopologyClientTimestamp,
+        chunkState.latestSequencerEventTimestamp <= newBlock.latestSequencerEventTimestamp,
         s"The block's latest topology client timestamp must be at least the last chunk's latest topology client timestamp",
       )
 
@@ -714,7 +709,7 @@ object BlockSequencerStateManager {
       chunkNumber: Long,
       ephemeral: EphemeralState,
       lastTs: CantonTimestamp,
-      latestTopologyClientTimestamp: Option[CantonTimestamp],
+      latestSequencerEventTimestamp: Option[CantonTimestamp],
   )
 
   object ChunkState {
@@ -725,7 +720,7 @@ object BlockSequencerStateManager {
         initialChunkCounter,
         block.state,
         block.latestBlock.lastTs,
-        block.latestBlock.latestTopologyClientTimestamp,
+        block.latestBlock.latestSequencerEventTimestamp,
       )
   }
 

@@ -226,7 +226,6 @@ object SequentialWriteDaoSpec {
     create_argument = Array.empty,
     create_signatories = Set.empty,
     create_observers = Set.empty,
-    create_agreement_text = None,
     create_key_value = None,
     create_key_maintainers = None,
     create_key_hash = None,

@@ -193,14 +193,14 @@ private[mediator] class DbFinalizedResponseStore(
     val insert = storage.profile match {
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
-                     /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( response_aggregations ( request_id ) ) */
-                     into response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
+                     /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( med_response_aggregations ( request_id ) ) */
+                     into med_response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
                      values (
                        ${finalizedResponse.requestId},${finalizedResponse.request},${finalizedResponse.version},${finalizedResponse.verdict},
                        ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
                      )"""
       case _ =>
-        sqlu"""insert into response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
+        sqlu"""insert into med_response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
                      values (
                        ${finalizedResponse.requestId},${finalizedResponse.request},${finalizedResponse.version},${finalizedResponse.verdict},
                        ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
@@ -224,7 +224,7 @@ private[mediator] class DbFinalizedResponseStore(
       closeContext =>
         storage.querySingle(
           sql"""select request_id, mediator_confirmation_request, version, verdict, request_trace_context
-              from response_aggregations where request_id=${requestId.unwrap}
+              from med_response_aggregations where request_id=${requestId.unwrap}
            """
             .as[
               (
@@ -255,7 +255,7 @@ private[mediator] class DbFinalizedResponseStore(
       closeContext =>
         for {
           removedCount <- storage.update(
-            sqlu"delete from response_aggregations where request_id <= ${timestamp}",
+            sqlu"delete from med_response_aggregations where request_id <= ${timestamp}",
             functionFullName,
           )(traceContext, closeContext)
         } yield logger.debug(s"Removed $removedCount finalized responses")
@@ -268,7 +268,7 @@ private[mediator] class DbFinalizedResponseStore(
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         storage.query(
-          sql"select count(request_id) from response_aggregations".as[Long].head,
+          sql"select count(request_id) from med_response_aggregations".as[Long].head,
           functionFullName,
         )(traceContext, closeContext)
     }
@@ -284,7 +284,7 @@ private[mediator] class DbFinalizedResponseStore(
       closeContext =>
         storage
           .query(
-            sql"select request_id from response_aggregations order by request_id asc #${storage
+            sql"select request_id from med_response_aggregations order by request_id asc #${storage
                 .limit(1, skip.toLong)}"
               .as[CantonTimestamp]
               .headOption,

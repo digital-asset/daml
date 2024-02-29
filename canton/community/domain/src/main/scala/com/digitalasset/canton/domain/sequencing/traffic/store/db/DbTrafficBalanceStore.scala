@@ -96,4 +96,11 @@ class DbTrafficBalanceStore(
       functionFullName,
     )
   }
+
+  override def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+    val query =
+      sql"select max(sequencing_timestamp) from sequencer_traffic_control_balance_updates"
+
+    storage.query(query.as[Option[CantonTimestamp]].headOption, functionFullName).map(_.flatten)
+  }
 }

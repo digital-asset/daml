@@ -159,7 +159,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     ) ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
 
     lazy val updateRemovals =
-      (sql"UPDATE topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
+      (sql"UPDATE common_topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
         transactionRemovals
           .intercalate(
             sql" OR "
@@ -206,7 +206,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     )
 
     val query =
-      sql"SELECT instance, sequenced, valid_from, valid_until, rejection_reason FROM topology_transactions WHERE store_id = $transactionStoreIdName ORDER BY id"
+      sql"SELECT instance, sequenced, valid_from, valid_until, rejection_reason FROM common_topology_transactions WHERE store_id = $transactionStoreIdName ORDER BY id"
 
     val entriesF =
       storage
@@ -346,7 +346,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     )
       .map(
         _.result.toSet
-          .flatMap[PartyId](_.transaction.transaction.mapping match {
+          .flatMap[PartyId](_.mapping match {
             // TODO(#14061): post-filtering for participantId non-columns results in fewer than limit results being returned
             //  - add indexed secondary uid and/or namespace columns for participant-ids - also to support efficient lookup
             //    of "what parties a particular participant hosts" (ParticipantId => Set[PartyId])
@@ -403,11 +403,11 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         .result
         .collect {
           case tx
-              if tx.transaction.transaction.mapping.observers.contains(mediatorId) ||
-                tx.transaction.transaction.mapping.active.contains(mediatorId) =>
+              if tx.mapping.observers.contains(mediatorId) ||
+                tx.mapping.active.contains(mediatorId) =>
             tx
         }
-        .sortBy(_.transaction.transaction.serial)
+        .sortBy(_.serial)
         .headOption
     )
   }
@@ -564,14 +564,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       val validUntil = txEntry.validUntil.map(_.value)
       val sequencedTs = txEntry.sequenced.value
       val operation = signedTx.operation
-      val mapping = signedTx.transaction.mapping
+      val mapping = signedTx.mapping
       val transactionType = mapping.code
       val namespace = mapping.namespace
       val identifier = mapping.maybeUid.map(_.id.toLengthLimitedString).getOrElse(String185.empty)
-      val serial = signedTx.transaction.serial
+      val serial = signedTx.serial
       val mappingHash = mapping.uniqueKey.hash.toLengthLimitedHexString
       val reason = txEntry.rejectionReason.map(_.asString1GB)
-      val txHash = signedTx.transaction.hash.hash.toLengthLimitedHexString
+      val txHash = signedTx.hash.hash.toLengthLimitedHexString
       val isProposal = signedTx.isProposal
       val representativeProtocolVersion = signedTx.transaction.representativeProtocolVersion
       val hashOfSignatures = signedTx.hashOfSignatures.toLengthLimitedHexString
@@ -590,13 +590,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     // TODO(#12390) should mapping_key_hash rather be tx_hash?
     storage.profile match {
       case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-        (sql"""INSERT INTO topology_transactions (store_id, sequenced, valid_from, valid_until, transaction_type, namespace,
+        (sql"""INSERT INTO common_topology_transactions (store_id, sequenced, valid_from, valid_until, transaction_type, namespace,
                   identifier, mapping_key_hash, serial_counter, operation, instance, tx_hash, is_proposal, rejection_reason, representative_protocol_version, hash_of_signatures) VALUES""" ++
           transactions
             .map(sqlTransactionParameters)
             .toList
             .intercalate(sql", ")
-          ++ sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on topology_transactions unique constraint
+          ++ sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on common_topology_transactions unique constraint
         ).asUpdate
       case _: DbStorage.Profile.Oracle =>
         throw new IllegalStateException("Oracle not supported by daml 3.0/X yet")
@@ -703,14 +703,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   ): Future[GenericStoredTopologyTransactionsX] = {
     val mapping = transaction.mapping
     queryForTransactions(
-      // Query for leading fields of `topology_transactions_idx` to enable use of this index
+      // Query for leading fields of `idx_common_topology_transactions` to enable use of this index
       sql" AND transaction_type = ${mapping.code} AND namespace = ${mapping.namespace} AND identifier = ${mapping.maybeUid
           .fold(String185.empty)(_.id.toLengthLimitedString)}"
         ++ sql" AND valid_from < $asOfExclusive"
         ++ sql" AND mapping_key_hash = ${mapping.uniqueKey.hash.toLengthLimitedHexString}"
         ++ sql" AND serial_counter = ${transaction.serial}"
         ++ sql" AND tx_hash = ${transaction.hash.hash.toLengthLimitedHexString}"
-        ++ sql" AND operation = ${transaction.op}"
+        ++ sql" AND operation = ${transaction.operation}"
         ++ subQuery,
       includeRejected = includeRejected,
       operation = "findStored",
@@ -727,7 +727,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactionsX] = {
     val query =
-      sql"SELECT instance, sequenced, valid_from, valid_until FROM topology_transactions WHERE store_id = $transactionStoreIdName" ++
+      sql"SELECT instance, sequenced, valid_from, valid_until FROM common_topology_transactions WHERE store_id = $transactionStoreIdName" ++
         subQuery ++ (if (!includeRejected) sql" AND rejection_reason IS NULL"
                      else sql"") ++ sql" #${orderBy} #${limit}"
     storage
@@ -757,7 +757,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] = {
     val query =
-      sql"SELECT watermark_ts FROM topology_dispatching WHERE store_id =$transactionStoreIdName"
+      sql"SELECT watermark_ts FROM common_topology_dispatching WHERE store_id =$transactionStoreIdName"
         .as[CantonTimestamp]
         .headOption
     storage.query(query, functionFullName)
@@ -769,14 +769,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   ): Future[Unit] = {
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into topology_dispatching (store_id, watermark_ts)
+        sqlu"""insert into common_topology_dispatching (store_id, watermark_ts)
                     VALUES ($transactionStoreIdName, $timestamp)
                  on conflict (store_id) do update
                   set
                     watermark_ts = $timestamp
                  """
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into topology_dispatching
+        sqlu"""merge into common_topology_dispatching
                   using dual
                   on (store_id = $transactionStoreIdName)
                   when matched then

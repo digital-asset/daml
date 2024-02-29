@@ -139,7 +139,7 @@ class TopologyAdministrationGroup(
             .selectMapping[NamespaceDelegationX]
             .orElse(tx.transaction.selectMapping[OwnerToKeyMappingX])
         )
-        .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
+        .filter(_.mapping.namespace == instance.id.uid.namespace)
     }
 
     @Help.Summary("Serializes node's topology identity transactions to a file")
@@ -150,7 +150,7 @@ class TopologyAdministrationGroup(
       instance.topology.transactions
         .list()
         .collectOfMapping(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
-        .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
+        .filter(_.mapping.namespace == instance.id.uid.namespace)
         .writeToFile(file)
     }
 
@@ -234,7 +234,7 @@ class TopologyAdministrationGroup(
     ): Option[StoredTopologyTransactionX[TopologyChangeOpX, M]] = {
       val latestAuthorized = list(filterStore = filterStore)
         .collectOfMapping[M]
-        .filter(_.transaction.mapping.uniqueKey == mappingHash)
+        .filter(_.mapping.uniqueKey == mappingHash)
         .result
       val latestProposal =
         if (includeProposals)
@@ -243,7 +243,7 @@ class TopologyAdministrationGroup(
             .filter(_.mapping.uniqueKey == mappingHash)
             .result
         else Seq.empty
-      (latestAuthorized ++ latestProposal).maxByOption(_.transaction.transaction.serial)
+      (latestAuthorized ++ latestProposal).maxByOption(_.serial)
     }
 
     @Help.Summary("Manage topology transaction purging", FeatureFlag.Preview)

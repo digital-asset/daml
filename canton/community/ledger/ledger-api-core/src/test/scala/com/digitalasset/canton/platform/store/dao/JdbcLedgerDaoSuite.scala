@@ -75,7 +75,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   protected final val defaultAppId = "default-app-id"
   protected final val defaultWorkflowId = "default-workflow-id"
-  protected final val someAgreement = "agreement"
 
   // Note: *identifiers* and *values* defined below MUST correspond to //test-common/src/main/daml/model/Test.daml
   // This is because some tests request values in verbose mode, which requires filling in missing type information,
@@ -225,7 +224,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       templateId = templateId,
       packageName = somePackageName,
       arg = contractArgument,
-      agreementText = someAgreement,
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = key,
@@ -672,7 +670,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         templateId = someTemplateId,
         packageName = somePackageName,
         arg = someContractArgument,
-        agreementText = someAgreement,
         signatories = Set(party),
         stakeholders = Set(party),
         keyOpt = Some(

@@ -47,5 +47,7 @@ object MockedNodeParameters {
     override def initialProtocolVersion: ProtocolVersion = ???
 
     override def dbMigrateAndStart: Boolean = false
+
+    override def useNewTrafficControl: Boolean = false
   }
 }

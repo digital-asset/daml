@@ -15,9 +15,14 @@ import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPubl
 import com.digitalasset.canton.crypto.{v30 as cryptoproto, *}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.{
+  DefaultDeserializationError,
+  DeserializationError,
+  ProtoConverter,
+}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -284,7 +289,30 @@ class GrpcVaultService(
               .asRuntimeException()
           )
       }
-    } yield v30.ExportKeyPairResponse(keyPair = keyPair.toByteString(protocolVersion))
+
+      // Encrypt keypair if password is provided
+      resultE = OptionUtil.emptyStringAsNone(request.password) match {
+        case Some(password) =>
+          for {
+            encryptedKeyPair <- crypto.pureCrypto
+              .encryptWithPassword(
+                keyPair,
+                password,
+                protocolVersion,
+              )
+          } yield v30.ExportKeyPairResponse(keyPair =
+            encryptedKeyPair.toByteString(protocolVersion)
+          )
+        case None =>
+          Right(v30.ExportKeyPairResponse(keyPair = keyPair.toByteString(protocolVersion)))
+      }
+
+      result <- resultE.toFuture { err =>
+        Status.FAILED_PRECONDITION
+          .withDescription(s"Failed to encrypt exported keypair with password: $err")
+          .asRuntimeException()
+      }
+    } yield result
   }
 
   override def importKeyPair(
@@ -294,27 +322,20 @@ class GrpcVaultService(
 
     def parseKeyPair(
         keyPairBytes: ByteString
-    ): Future[CryptoKeyPair[PublicKey, PrivateKey]] = {
-      Future(
-        CryptoKeyPair
-          .fromByteString(keyPairBytes)
-          .leftFlatMap { firstErr =>
-            // Fallback to parse the old protobuf message format
-            ProtoConverter
-              .parse(
-                cryptoproto.CryptoKeyPair.parseFrom,
-                CryptoKeyPair.fromProtoCryptoKeyPairV30,
-                keyPairBytes,
-              )
-              .leftMap(secondErr => s"Failed to parse crypto key pair: $firstErr, $secondErr")
-          }
-          .valueOr(err =>
-            throw ProtoDeserializationFailure
-              .WrapNoLoggingStr(err)
-              .asGrpcError
-          )
-      )
-    }
+    ): Either[DeserializationError, CryptoKeyPair[PublicKey, PrivateKey]] =
+      CryptoKeyPair
+        .fromByteString(keyPairBytes)
+        .leftFlatMap { firstErr =>
+          // Fallback to parse the old protobuf message format
+          ProtoConverter
+            .parse(
+              cryptoproto.CryptoKeyPair.parseFrom,
+              CryptoKeyPair.fromProtoCryptoKeyPairV30,
+              keyPairBytes,
+            )
+            .leftMap(secondErr => s"Failed to parse crypto key pair: $firstErr, $secondErr")
+        }
+        .leftMap(err => DefaultDeserializationError(err))
 
     def loadKeyPair(
         validatedName: Option[KeyName],
@@ -357,7 +378,32 @@ class GrpcVaultService(
           .traverse(KeyName.create)
           .valueOr(err => throw ProtoDeserializationFailure.WrapNoLoggingStr(err).asGrpcError)
       )
-      keyPair <- parseKeyPair(request.keyPair)
+
+      // Decrypt the keypair if a password is provided
+      keyPair <- OptionUtil.emptyStringAsNone(request.password) match {
+        case Some(password) =>
+          val resultE = for {
+            encrypted <- PasswordBasedEncrypted
+              .fromByteString(request.keyPair)
+              .leftMap(err => ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+
+            keyPair <- crypto.pureCrypto
+              .decryptWithPassword(encrypted, password)(parseKeyPair)
+              .leftMap(err =>
+                Status.FAILED_PRECONDITION
+                  .withDescription(s"Failed to decrypt encrypted keypair with password: $err")
+                  .asRuntimeException()
+              )
+          } yield keyPair
+
+          resultE.toFuture(identity)
+
+        case None =>
+          parseKeyPair(request.keyPair).toFuture { err =>
+            ProtoDeserializationFailure.WrapNoLoggingStr(err.message).asGrpcError
+          }
+      }
+
       _ <- loadKeyPair(validatedName, keyPair)
     } yield v30.ImportKeyPairResponse()
   }

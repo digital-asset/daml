@@ -10,6 +10,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -45,9 +46,12 @@ case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
 ) extends HasProtocolVersionedWrapper[
       SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]
     ]
+    with DelegatedTopologyTransactionLike[Op, M]
     with Product
     with Serializable
     with PrettyPrinting {
+
+  override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
 
   lazy val hashOfSignatures: Hash = Hash.digest(
     HashPurpose.TopologyTransactionSignature,
@@ -69,10 +73,6 @@ case class SignedTopologyTransactionX[+Op <: TopologyChangeOpX, +M <: TopologyMa
     NonEmpty
       .from(signatures.filterNot(sig => keys.contains(sig.signedBy)))
       .map(updatedSignatures => copy(signatures = updatedSignatures))
-
-  def operation: Op = transaction.op
-
-  def mapping: M = transaction.mapping
 
   @transient override protected lazy val companionObj: SignedTopologyTransactionX.type =
     SignedTopologyTransactionX
@@ -128,6 +128,9 @@ object SignedTopologyTransactionX
     extends HasProtocolVersionedWithOptionalValidationCompanion[
       SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX],
     ] {
+
+  val InitialTopologySequencingTime: CantonTimestamp = CantonTimestamp.MinValue.immediateSuccessor
+
   override val name: String = "SignedTopologyTransactionX"
 
   type GenericSignedTopologyTransactionX =

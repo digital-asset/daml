@@ -276,7 +276,6 @@ object InMemoryStateUpdaterSpec {
               com.daml.lf.transaction.Versioned(someCreateNode.version, someCreateNode.arg),
             createSignatories = Set(party1),
             createObservers = Set(party2),
-            createAgreementText = None,
             createKeyHash = None,
             createKey = None,
             createKeyMaintainers = None,

@@ -77,7 +77,7 @@ class DbCryptoPrivateStore(
     storage.metrics.loadGaugeM("crypto-private-store-query")
 
   private def queryKeys(purpose: KeyPurpose): DbAction.ReadOnly[Set[StoredPrivateKey]] =
-    sql"select key_id, data, purpose, name, wrapper_key_id from crypto_private_keys where purpose = $purpose"
+    sql"select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys where purpose = $purpose"
       .as[StoredPrivateKey]
       .map(_.toSet)
 
@@ -85,7 +85,7 @@ class DbCryptoPrivateStore(
       keyId: Fingerprint,
       purpose: KeyPurpose,
   ): DbAction.ReadOnly[Option[StoredPrivateKey]] =
-    sql"select key_id, data, purpose, name, wrapper_key_id from crypto_private_keys where key_id = $keyId and purpose = $purpose"
+    sql"select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys where key_id = $keyId and purpose = $purpose"
       .as[StoredPrivateKey]
       .headOption
 
@@ -96,10 +96,10 @@ class DbCryptoPrivateStore(
       case _: DbStorage.Profile.Oracle =>
         sqlu"""insert
                /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( CRYPTO_PRIVATE_KEYS ( key_id ) ) */
-               into crypto_private_keys (key_id, purpose, data, name, wrapper_key_id)
+               into common_crypto_private_keys (key_id, purpose, data, name, wrapper_key_id)
            values (${key.id}, ${key.purpose}, ${key.data}, ${key.name}, ${key.wrapperKeyId})"""
       case _ =>
-        sqlu"""insert into crypto_private_keys (key_id, purpose, data, name, wrapper_key_id)
+        sqlu"""insert into common_crypto_private_keys (key_id, purpose, data, name, wrapper_key_id)
            values (${key.id}, ${key.purpose}, ${key.data}, ${key.name}, ${key.wrapperKeyId})
            on conflict do nothing"""
     }
@@ -189,7 +189,7 @@ class DbCryptoPrivateStore(
       )
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
-    sqlu"delete from crypto_private_keys where key_id = $keyId"
+    sqlu"delete from common_crypto_private_keys where key_id = $keyId"
 
   /** Replaces keys but maintains their id stable, i.e. when the keys remain the same, but the
     * storage format changes (e.g. encrypting a key)
@@ -249,7 +249,7 @@ class DbCryptoPrivateStore(
           .event(
             storage.query(
               {
-                sql"select distinct wrapper_key_id from crypto_private_keys"
+                sql"select distinct wrapper_key_id from common_crypto_private_keys"
                   .as[Option[String300]]
                   .map(_.toSeq)
               },

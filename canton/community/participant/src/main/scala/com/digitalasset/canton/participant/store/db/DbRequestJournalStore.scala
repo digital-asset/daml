@@ -56,7 +56,7 @@ class DbRequestJournalStore(
     new DbCursorPreheadStore[RequestCounterDiscriminator](
       SequencerClientDiscriminator.fromIndexedDomainId(domainId),
       storage,
-      cursorTable = "head_clean_counters",
+      cursorTable = "par_head_clean_counters",
       timeouts,
       loggerFactory,
     )
@@ -111,7 +111,7 @@ class DbRequestJournalStore(
         storage.profile match {
           case _: Profile.Postgres | _: Profile.H2 =>
             val query = """insert into
-                 journal_requests(domain_id, request_counter, request_state_index, request_timestamp, commit_time, repair_context)
+                 par_journal_requests(domain_id, request_counter, request_state_index, request_timestamp, commit_time, repair_context)
                values (?, ?, ?, ?, ?, ?)
                on conflict do nothing"""
             DbStorage.bulkOperation(query, items.map(_.value).toList, storage.profile)(setData)
@@ -119,10 +119,10 @@ class DbRequestJournalStore(
           case _: Profile.Oracle =>
             val query =
               """merge /*+ INDEX (journal_requests pk_journal_requests) */
-                |into journal_requests
+                |into par_journal_requests
                 |using (select ? domain_id, ? request_counter from dual) input
-                |on (journal_requests.request_counter = input.request_counter and
-                |    journal_requests.domain_id = input.domain_id)
+                |on (par_journal_requests.request_counter = input.request_counter and
+                |    par_journal_requests.domain_id = input.domain_id)
                 |when not matched then
                 |  insert (domain_id, request_counter, request_state_index, request_timestamp, commit_time, repair_context)
                 |  values (input.domain_id, input.request_counter, ?, ?, ?, ?)""".stripMargin
@@ -172,7 +172,7 @@ class DbRequestJournalStore(
   )(implicit traceContext: TraceContext): OptionT[Future, RequestData] = {
     val query =
       sql"""select request_counter, request_state_index, request_timestamp, commit_time, repair_context
-              from journal_requests where request_counter = $rc and domain_id = $domainId"""
+              from par_journal_requests where request_counter = $rc and domain_id = $domainId"""
         .as[RequestData]
     OptionT(storage.query(query.headOption, functionFullName))
   }
@@ -184,7 +184,7 @@ class DbRequestJournalStore(
       import DbStorage.Implicits.BuilderChain.*
       val query =
         sql"""select request_counter, request_state_index, request_timestamp, commit_time, repair_context
-              from journal_requests where domain_id = $domainId and """ ++ inClause
+              from par_journal_requests where domain_id = $domainId and """ ++ inClause
       query.as[RequestData]
     }
 
@@ -201,7 +201,7 @@ class DbRequestJournalStore(
             sql"""
                   with committed_after(request_counter) as (
                     select request_counter
-                    from journal_requests
+                    from par_journal_requests
                     where domain_id = $domainId and commit_time > $commitTimeExclusive)
                   select min(request_counter) from committed_after;
               """.as[Option[RequestCounter]].headOption.map(_.flatten),
@@ -212,7 +212,7 @@ class DbRequestJournalStore(
               storage.query(
                 sql"""
                     select request_counter, request_state_index, request_timestamp, commit_time, repair_context
-                    from journal_requests
+                    from par_journal_requests
                     where domain_id = $domainId and request_counter = $rc
                 """.as[RequestData].headOption,
                 functionFullName,
@@ -223,7 +223,7 @@ class DbRequestJournalStore(
         storage.query(
           sql"""
                 select request_counter, request_state_index, request_timestamp, commit_time, repair_context
-                from journal_requests where domain_id = $domainId and commit_time > $commitTimeExclusive
+                from par_journal_requests where domain_id = $domainId and commit_time > $commitTimeExclusive
                 order by request_counter #${storage.limit(1)}
             """.as[RequestData].headOption,
           functionFullName,
@@ -274,7 +274,7 @@ class DbRequestJournalStore(
           batchTraceContext: TraceContext
       ): DBIOAction[Array[Int], NoStream, Effect.All] = {
         val updateQuery =
-          """update /*+ INDEX (journal_requests (request_counter, domain_id)) */ journal_requests
+          """update /*+ INDEX (journal_requests (request_counter, domain_id)) */ par_journal_requests
              set request_state_index = ?, commit_time = coalesce (?, commit_time)
              where domain_id = ? and request_counter = ? and request_timestamp = ?"""
         DbStorage.bulkOperation(updateQuery, items.map(_.value).toList, storage.profile) {
@@ -340,7 +340,7 @@ class DbRequestJournalStore(
   )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
       sqlu"""
-    delete from journal_requests where request_timestamp <= $beforeAndIncluding and domain_id = $domainId
+    delete from par_journal_requests where request_timestamp <= $beforeAndIncluding and domain_id = $domainId
   """,
       functionFullName,
     )
@@ -355,7 +355,7 @@ class DbRequestJournalStore(
           val endFilter = end.fold(sql"")(ts => sql" and request_timestamp <= $ts")
           (sql"""
              select 1
-             from journal_requests where domain_id = $domainId and request_timestamp >= $start
+             from par_journal_requests where domain_id = $domainId and request_timestamp >= $start
             """ ++ endFilter).as[Int]
         },
         functionFullName,
@@ -368,7 +368,7 @@ class DbRequestJournalStore(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val statement =
       sqlu"""
-        delete from journal_requests where domain_id = $domainId and request_counter >= $fromInclusive
+        delete from par_journal_requests where domain_id = $domainId and request_counter >= $fromInclusive
         """
     storage.update_(statement, functionFullName)
   }
@@ -379,7 +379,7 @@ class DbRequestJournalStore(
     val statement =
       sql"""
         select request_counter, request_state_index, request_timestamp, commit_time, repair_context
-        from journal_requests where domain_id = $domainId and request_counter >= $fromInclusive and repair_context is not null
+        from par_journal_requests where domain_id = $domainId and request_counter >= $fromInclusive and repair_context is not null
         order by request_counter
         """.as[RequestData]
     storage.query(statement, functionFullName)

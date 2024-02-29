@@ -43,7 +43,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   User,
   UserManagementServiceGrpc,
 }
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.digitalasset.canton.LfPartyId
@@ -285,7 +285,7 @@ object LedgerApiCommands {
 
     }
 
-    final case class Prune(pruneUpTo: LedgerOffset)
+    final case class Prune(pruneUpTo: ParticipantOffset)
         extends BaseCommand[PruneRequest, PruneResponse, Unit] {
 
       override def timeoutType: TimeoutType =
