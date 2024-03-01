@@ -14,7 +14,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.{MemberTrafficStatus, TopUpEvent, TopUpQueue}
+import com.digitalasset.canton.traffic.{MemberTrafficStatus, TopUpEvent}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.FutureUtil
 import monocle.macros.syntax.lens.*
@@ -30,19 +30,18 @@ class TrafficStateController(
     topologyClient: DomainTopologyClientWithInit,
     metrics: SyncDomainMetrics,
     clock: Clock,
-)(implicit ec: ExecutionContext)
-    extends NamedLogging {
+) extends NamedLogging {
   private val currentTrafficState =
     new AtomicReference[Option[SequencedEventTrafficState]](None)
-  private val topUpQueue = new TopUpQueue(List.empty)
   def addTopUp(topUp: TopUpEvent)(implicit tc: TraceContext): Unit = {
     metrics.trafficControl.topologyTransaction.updateValue(topUp.limit.value)
-    topUpQueue.addOne(topUp)
-
     FutureUtil.doNotAwaitUnlessShutdown(
       // Getting the state will update metrics with the latest top up value
-      clock.scheduleAt(_ => getState.discard, topUp.validFromInclusive),
-      "update local state after top up is effective",
+      clock.scheduleAt(
+        _ => metrics.trafficControl.extraTrafficAvailable.updateValue(topUp.limit.value),
+        topUp.validFromInclusive,
+      ),
+      "update metrics after top up is effective",
     )
   }
 
@@ -77,9 +76,6 @@ class TrafficStateController(
                   // If there is a traffic limit in the topology state, use that to compute the traffic state returned
                   val newRemainder =
                     totalTrafficLimit.totalExtraTrafficLimit.value - trafficState.extraTrafficConsumed.value
-                  // If it changed, update metrics
-                  if (newRemainder != trafficState.extraTrafficRemainder.value)
-                    metrics.trafficControl.extraTrafficAvailable.updateValue(newRemainder)
                   trafficState
                     .focus(_.extraTrafficRemainder)
                     .replace(
@@ -87,7 +83,7 @@ class TrafficStateController(
                     )
                 }
                 .getOrElse(trafficState),
-              topUpQueue.pruneUntilAndGetAllTopUpsFor(currentSnapshot.timestamp),
+              List.empty, // TODO(i17477): Was never used, set to empty for now and remove when we're done with the rework
             )
           }
 

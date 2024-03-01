@@ -132,7 +132,7 @@ trait Sequencer
     */
   def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext
-  ): Future[SequencerTrafficStatus]
+  ): FutureUnlessShutdown[SequencerTrafficStatus]
 
   def setTrafficBalance(
       member: Member,
@@ -147,7 +147,9 @@ trait Sequencer
     * This should not be exposed externally as is as it contains information not relevant to external consumers.
     * Use [[trafficStatus]] instead.
     */
-  def trafficStates: Future[Map[Member, TrafficState]] = Future.successful(Map.empty)
+  def trafficStates(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, TrafficState]]
 }
 
 /** Sequencer pruning interface.

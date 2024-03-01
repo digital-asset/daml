@@ -33,6 +33,12 @@ final case class EphemeralState(
   val registeredMembers: Set[Member] = status.members.map(_.member).toSet
   val heads: Map[Member, SequencerCounter] = checkpoints.fmap(_.counter)
 
+  /** Return true if the head counter for the member is above the genesis counter.
+    * False otherwise
+    */
+  def headCounterAboveGenesis(member: Member): Boolean =
+    heads.get(member).exists(_ > SequencerCounter.Genesis)
+
   assert(
     heads.keys.forall(registeredMembers.contains),
     s"All members with a head counter value must be registered. " +

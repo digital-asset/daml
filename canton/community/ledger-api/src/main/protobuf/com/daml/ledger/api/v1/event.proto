@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/value.proto";
-import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 

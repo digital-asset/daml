@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.parallel.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -32,6 +31,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
@@ -43,10 +43,9 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.TrafficBalanceSubmissionHandler
 import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
+import com.digitalasset.canton.traffic.{MemberTrafficStatus, TrafficBalanceSubmissionHandler}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, OptionUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
@@ -65,6 +64,7 @@ class BlockSequencer(
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
     store: SequencerBlockStore,
+    balanceStore: TrafficBalanceStore,
     storage: Storage,
     futureSupervisor: FutureSupervisor,
     health: Option[SequencerHealthConfig],
@@ -357,20 +357,19 @@ class BlockSequencer(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): EitherT[Future, String, SequencerSnapshot] =
     // TODO(#12676) Make sure that we don't request a snapshot for a state that was already pruned
-    store
-      .readStateForBlockContainingTimestamp(timestamp)
-      .bimap(
-        _ => s"Provided timestamp $timestamp is not linked to a block",
-        blockEphemeralState =>
-          blockEphemeralState
-            .toSequencerSnapshot(protocolVersion)
-            .tap(snapshot =>
-              if (logger.underlying.isDebugEnabled()) {
-                logger.debug(
-                  s"Snapshot for timestamp $timestamp: $snapshot with ephemeral state: $blockEphemeralState"
-                )
-              }
-            ),
+    for {
+      blockEphemeralState <- store
+        .readStateForBlockContainingTimestamp(timestamp)
+        .leftMap(_ => s"Provided timestamp $timestamp is not linked to a block")
+      trafficBalances <- EitherT.right(balanceStore.lookupLatestBeforeInclusive(timestamp))
+    } yield blockEphemeralState
+      .toSequencerSnapshot(protocolVersion, trafficBalances)
+      .tap(snapshot =>
+        if (logger.underlying.isDebugEnabled()) {
+          logger.debug(
+            s"Snapshot for timestamp $timestamp: $snapshot with ephemeral state: $blockEphemeralState"
+          )
+        }
       )
 
   override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
@@ -458,20 +457,64 @@ class BlockSequencer(
     )
   }
 
-  override def trafficStates: Future[Map[Member, TrafficState]] = {
-    import TraceContext.Implicits.Empty.emptyTraceContext
-    val state = stateManager.getHeadState.chunk.ephemeral.trafficState
-    // Here the config is not as important since it's only used to compute the initial base rate amount which
-    // will be removed from the final response anyway below in `getTrafficStatusFor`. So using the head snapshot is fine
+  /** Only used internally for testing. Computes the traffic states for the given members according to the sequencer's clock.
+    */
+  override def trafficStates(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, TrafficState]] = {
+    upToDateTrafficStatesForMembers(
+      stateManager.getHeadState.chunk.ephemeral.status.members.map(_.member),
+      Some(clock.now),
+    )
+  }
+
+  /** Compute traffic states for the specified members at the provided timestamp,
+    * or otherwise at the latest known balance timestamp.
+    * @param requestedMembers members for which to compute traffic states
+    * @param updateTimestamp optionally, timestamp at which to compute the traffic states
+    */
+  private def upToDateTrafficStatesForMembers(
+      requestedMembers: Seq[Member],
+      updateTimestamp: Option[CantonTimestamp] = None,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, TrafficState]] = {
+    // Get the parameters for the traffic control
     OptionUtil.zipWithFDefaultValue(
       rateLimitManager,
-      cryptoApi.headSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion),
-      state,
+      FutureUnlessShutdown.outcomeF(
+        cryptoApi.headSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
+      ),
+      Map.empty[Member, TrafficState],
     ) { case (rlm, parameters) =>
+      // Use the head ephemeral state to get the known traffic states
+      val headEphemeral = stateManager.getHeadState.chunk.ephemeral
+      val requestedMembersSet = requestedMembers.toSet
+
+      // Filter by authenticated, enabled members that have been requested
+      val knownValidMembers = headEphemeral.status.members.collect {
+        case SequencerMemberStatus(m @ (_: ParticipantId | _: MediatorId), _, _, true)
+            if m.isAuthenticated && Option
+              .when(requestedMembersSet.nonEmpty)(requestedMembersSet)
+              .forall(_.contains(m)) =>
+          m
+      }
+      // Log if we're missing any states
+      val missingMembers = requestedMembersSet.diff(knownValidMembers.toSet)
+      if (missingMembers.nonEmpty)
+        logger.info(
+          s"No traffic state found for the following members: ${missingMembers.mkString(", ")}"
+        )
+
+      val knownStates = headEphemeral.trafficState.view.filterKeys(knownValidMembers.contains).toMap
+
+      // Update the sates and return them
       rlm.updateTrafficStates(
-        state,
-        clock.now,
-        parameters,
+        partialTrafficStates = knownStates,
+        updateTimestamp = updateTimestamp,
+        trafficControlParameters = parameters,
+        lastBalanceUpdateTimestamp = None,
+        warnIfApproximate = false,
       )
     }
   }
@@ -497,73 +540,19 @@ class BlockSequencer(
 
   override def trafficStatus(requestedMembers: Seq[Member])(implicit
       traceContext: TraceContext
-  ): Future[SequencerTrafficStatus] = {
-    OptionUtil.zipWithFDefaultValue(
-      rateLimitManager,
-      cryptoApi.headSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion),
-      SequencerTrafficStatus(Seq.empty),
-    ) { case (rlm, parameters) =>
-      val headEphemeral = stateManager.getHeadState.chunk.ephemeral
-      val requestedMembersSet = requestedMembers.toSet
-
-      def filter(member: Member) = member match {
-        case m @ (_: ParticipantId | _: MediatorId) =>
-          m.isAuthenticated && Option
-            .when(requestedMembersSet.nonEmpty)(requestedMembersSet)
-            .forall(_.contains(m))
-        case _ => false
+  ): FutureUnlessShutdown[SequencerTrafficStatus] = {
+    upToDateTrafficStatesForMembers(requestedMembers)
+      .map { updated =>
+        updated.map { case (member, state) =>
+          MemberTrafficStatus(
+            member,
+            state.timestamp,
+            state.toSequencedEventTrafficState,
+            List.empty, // TODO(i17477): Was never used, set to empty for now and remove when we're done with the rework
+          )
+        }.toList
       }
-
-      val headSnapshot = cryptoApi.headSnapshot.ipsSnapshot
-      val headTrafficSnapshot =
-        headSnapshot.trafficControlStatus(requestedMembers)
-
-      headEphemeral.status.members.toList
-        .parFlatTraverse {
-          case memberStatus if filter(memberStatus.member) =>
-            headEphemeral.trafficState
-              .get(memberStatus.member)
-              .map { status =>
-                headTrafficSnapshot
-                  .map {
-                    // Try to find the total extra traffic limit from the head snapshot
-                    _.get(memberStatus.member).flatten.map(_.totalExtraTrafficLimit)
-                  }
-                  .map { topologyTrafficLimitOpt =>
-                    List(
-                      memberStatus.member ->
-                        // If there's one, update the traffic status with it
-                        topologyTrafficLimitOpt
-                          .map(_.toNonNegative)
-                          .map(status.update(_, headSnapshot.timestamp).valueOr { err =>
-                            logger.info(
-                              " Could not update traffic state with head topology snapshot",
-                              err,
-                            )
-                            status
-                          })
-                          .getOrElse(status)
-                    )
-                  }
-              }
-              // If a member was previously registered but has never received a message and isn't in the sequencer initial state,
-              // it won't be in the trafficStatus map, so we create a new state for it
-              .getOrElse(
-                rlm
-                  .createNewTrafficStateAt(
-                    memberStatus.member,
-                    memberStatus.registeredAt,
-                    parameters,
-                  )
-                  .map(memberStatus.member -> _)
-                  .map(List(_))
-              )
-          case _ => Future.successful(List.empty)
-        }
-        .map(_.toMap)
-        .flatMap(rlm.getTrafficStatusFor)
-        .map(SequencerTrafficStatus)
-    }
+      .map(SequencerTrafficStatus)
   }
 }
 

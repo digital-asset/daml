@@ -178,6 +178,7 @@ object PingService {
     TopologyErrors.NoDomainOnWhichAllSubmittersCanSubmit,
     TopologyErrors.InformeesNotActive,
     TopologyErrors.NoCommonDomain,
+    TopologyErrors.UnknownContractDomains, // required for restart tests
     RequestValidationErrors.NotFound.Package,
   ).map(_.id)
 

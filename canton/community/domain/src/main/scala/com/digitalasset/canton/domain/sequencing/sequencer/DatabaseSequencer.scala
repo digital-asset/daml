@@ -31,6 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SendAsyncError,
   SignedContent,
   SubmissionRequest,
+  TrafficState,
 }
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
@@ -387,8 +388,8 @@ class DatabaseSequencer(
 
   override def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext
-  ): Future[SequencerTrafficStatus] =
-    Future.successful(SequencerTrafficStatus(Seq.empty))
+  ): FutureUnlessShutdown[SequencerTrafficStatus] =
+    FutureUnlessShutdown.pure(SequencerTrafficStatus(Seq.empty))
   override def setTrafficBalance(
       member: Member,
       serial: NonNegativeLong,
@@ -405,4 +406,9 @@ class DatabaseSequencer(
       new NotImplementedError("Traffic control is not supported by the database sequencer")
     )
   )
+
+  override def trafficStates(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, TrafficState]] =
+    FutureUnlessShutdown.pure(Map.empty)
 }

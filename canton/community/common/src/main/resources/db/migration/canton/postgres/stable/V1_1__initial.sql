@@ -985,8 +985,6 @@ create table ord_completed_epochs (
     start_block_number bigint not null ,
     -- number of total blocks in the epoch
     epoch_length integer not null,
-    -- commit messages of the last block in the epoch
-    last_block_commits bytea not null,
     -- enable idempotent writes: "on conflict, do nothing"
     constraint unique_epoch unique (epoch_number, start_block_number, epoch_length)
 );
@@ -997,8 +995,6 @@ create table ord_active_epoch (
     epoch_number bigint not null,
     -- global sequence number of the ordered block
     block_number bigint not null primary key,
-    -- commit messages of the block
-    commit_messages bytea not null,
     -- enable idempotent writes: "on conflict, do nothing"
     constraint unique_block unique (epoch_number, block_number)
 );
@@ -1007,4 +1003,24 @@ create table ord_availability_batch (
     id varchar(300) collate "C" not null,
     batch bytea not null,
     primary key (id)
+);
+
+create table ord_pbft_messages(
+    -- global sequence number of the ordered block
+    block_number bigint not null,
+
+    -- pbft message for the block
+    message bytea not null,
+
+    -- pbft message discriminator (0 = pre-prepare, 1 = prepare, 2 = commit)
+    discriminator smallint not null,
+
+    -- sender of the message
+    from_host varchar(300) collate "C" not null,
+    from_port smallint not null,
+
+    -- for each block number, we only expect one message of each kind for the same sender.
+    -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
+    -- we won't differentiate that at the database level.
+    primary key (block_number, from_host, from_port, discriminator)
 );

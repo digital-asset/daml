@@ -11,6 +11,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
   SequencerSnapshot,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.tracing.TraceContext
@@ -64,7 +65,8 @@ final case class BlockEphemeralState(
     state: EphemeralState,
 ) extends HasLoggerName {
   def toSequencerSnapshot(
-      protocolVersion: ProtocolVersion
+      protocolVersion: ProtocolVersion,
+      trafficBalances: Seq[TrafficBalance],
   ): SequencerSnapshot =
     SequencerSnapshot(
       latestBlock.lastTs,
@@ -84,6 +86,7 @@ final case class BlockEphemeralState(
           state = state,
         )
       },
+      trafficBalances = trafficBalances,
     )
 
   /** Checks that the class invariant holds:

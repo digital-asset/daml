@@ -154,7 +154,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       ???
     override def trafficStatus(members: Seq[Member])(implicit
         traceContext: TraceContext
-    ): Future[SequencerTrafficStatus] = ???
+    ): FutureUnlessShutdown[SequencerTrafficStatus] = ???
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
     override def setTrafficBalance(
@@ -169,6 +169,11 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       TrafficControlErrors.TrafficControlError,
       CantonTimestamp,
     ] = ???
+
+    override def trafficStates(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Map[Member, TrafficState]] =
+      FutureUnlessShutdown.pure(Map.empty)
   }
 
   Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>

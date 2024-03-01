@@ -6,12 +6,11 @@ package com.digitalasset.canton.domain.sequencing.traffic
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.traffic.{EventCostCalculator, TopUpEvent}
+import com.digitalasset.canton.traffic.EventCostCalculator
 
 trait SequencerMemberRateLimiterFactory {
   def create(
       member: Member,
-      topUps: Seq[TopUpEvent],
       loggerFactory: NamedLoggerFactory,
       metrics: SequencerMetrics,
       eventCostCalculator: EventCostCalculator,
@@ -21,13 +20,11 @@ trait SequencerMemberRateLimiterFactory {
 object DefaultSequencerMemberRateLimiterFactory extends SequencerMemberRateLimiterFactory {
   override def create(
       member: Member,
-      topUps: Seq[TopUpEvent],
       loggerFactory: NamedLoggerFactory,
       metrics: SequencerMetrics,
       eventCostCalculator: EventCostCalculator,
   ): SequencerMemberRateLimiter = new SequencerMemberRateLimiter(
     member,
-    topUps,
     loggerFactory,
     metrics,
     eventCostCalculator,
