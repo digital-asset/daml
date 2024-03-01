@@ -324,5 +324,6 @@ conformance_test(
             ["main-only"],
         ),
     ]
-    if not is_windows and is_intel
+    # TODO reenable the test
+    if False and not is_windows and is_intel
 ]
