@@ -228,7 +228,6 @@ public final class CreatedEvent implements Event, TreeEvent {
     return Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
         && Objects.equals(templateId, that.templateId)
-        && Objects.equals(packageName, that.packageName)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(arguments, that.arguments)
         && Objects.equals(createdEventBlob, that.createdEventBlob)
@@ -247,7 +246,6 @@ public final class CreatedEvent implements Event, TreeEvent {
         witnessParties,
         eventId,
         templateId,
-        packageName,
         contractId,
         arguments,
         createdEventBlob,
@@ -270,8 +268,6 @@ public final class CreatedEvent implements Event, TreeEvent {
         + '\''
         + ", templateId="
         + templateId
-        + ", packageName="
-        + packageName
         + ", contractId='"
         + contractId
         + '\''
@@ -322,7 +318,6 @@ public final class CreatedEvent implements Event, TreeEvent {
                     .build());
     agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
     contractKey.ifPresent(a -> builder.setContractKey(a.toProto()));
-    packageName.ifPresent(a -> builder.setPackageName(StringValue.of(a)));
     return builder.build();
   }
 
