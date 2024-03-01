@@ -126,18 +126,12 @@ contents: |
 -}
 
 templateEnumDowngradeFromNew : Script ()
-templateEnumDowngradeFromNew = do
-  a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmd V2.EnumAdditional with party = a, nestedData = V2.EnumAdditionalData3
-
-  let cidV1 = coerceContractId @V2.EnumAdditional @V1.EnumAdditional cid
-
-  -- Ensure we can only call the V1 choice
-  res <- a `trySubmit` exerciseExactCmd cidV1 V1.EnumAdditionalCall
-
-  case res of
-    Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
-    _ -> assertFail $ "Expected specific failure but got " <> show res
+templateEnumDowngradeFromNew =
+  templateInvalidChange
+    @V1.EnumAdditional
+    False
+    (`V2.EnumAdditional` V2.EnumAdditionalData3)
+    V1.EnumAdditionalCall
 
 templateEnumUpgradeFromOld : Script ()
 templateEnumUpgradeFromOld =
