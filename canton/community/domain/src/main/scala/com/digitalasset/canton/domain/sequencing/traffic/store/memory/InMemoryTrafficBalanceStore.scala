@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.traffic.store.memory
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager.TrafficBalance
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.Member
@@ -50,6 +50,21 @@ class InMemoryTrafficBalanceStore(override protected val loggerFactory: NamedLog
     TrafficBalance
   ]] = {
     Future.successful(this.trafficBalances.get(member).toList.flatMap(_.toList).sorted)
+  }
+
+  override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[TrafficBalance]] = {
+    import cats.syntax.functorFilter.*
+
+    val latestBalances = trafficBalances.toSeq.mapFilter { case (member, balances) =>
+      val balancesByTs = balances.map(balance => balance.sequencingTimestamp -> balance).toMap
+      val tsBeforeO =
+        balances.forgetNE.map(_.sequencingTimestamp).maxBefore(timestamp.immediateSuccessor)
+      tsBeforeO.map(ts => balancesByTs(ts))
+    }
+
+    Future.successful(latestBalances)
   }
 
   override def pruneBelowExclusive(

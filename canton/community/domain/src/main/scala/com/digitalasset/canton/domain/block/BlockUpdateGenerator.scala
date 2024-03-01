@@ -41,7 +41,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
 }
 import com.digitalasset.canton.error.BaseAlarm
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator
@@ -275,9 +275,7 @@ class BlockUpdateGenerator(
       validatedAcks <- processAcknowledgements(lastBlockTs, state, fixedTsChanges)
       (acksByMember, invalidAcks) = validatedAcks
       // Warn if we use an approximate snapshot but only after we've read at least one
-      warnIfApproximate = state.ephemeral.heads
-        .get(sequencerId)
-        .exists(_ > SequencerCounter.Genesis)
+      warnIfApproximate = state.ephemeral.headCounterAboveGenesis(sequencerId)
       newMembersTraffic <-
         OptionUtil.zipWithFDefaultValue(
           rateLimitManager,
@@ -300,15 +298,13 @@ class BlockUpdateGenerator(
         ) { case (rlm, parameters) =>
           newMembers.toList
             .parTraverse { case (member, timestamp) =>
-              FutureUnlessShutdown.outcomeF(
-                rlm
-                  .createNewTrafficStateAt(
-                    member,
-                    timestamp.immediatePredecessor,
-                    parameters,
-                  )
-                  .map(member -> _)
-              )
+              rlm
+                .createNewTrafficStateAt(
+                  member,
+                  timestamp.immediatePredecessor,
+                  parameters,
+                )
+                .map(member -> _)
             }
             .map(_.toMap)
         }
@@ -605,13 +601,12 @@ class BlockUpdateGenerator(
               // Doing this here ensures that the traffic state persisted for the event is correct
               // It's also important to do this here after group -> Set[member] resolution has been performed so we get
               // the actual member recipients
-              trafficUpdatedState <- FutureUnlessShutdown.outcomeF(
-                updateTrafficStates(
-                  newState,
-                  deliverEventsNE.keySet,
-                  sequencingTimestamp,
-                  sequencingSnapshot,
-                )
+              trafficUpdatedState <- updateTrafficStates(
+                newState,
+                deliverEventsNE.keySet,
+                sequencingTimestamp,
+                sequencingSnapshot,
+                latestSequencerEventTimestamp,
               )
               signedEvents <- signEvents(
                 deliverEventsNE,
@@ -664,7 +659,7 @@ class BlockUpdateGenerator(
         if (!invariant)
           sys.error(
             "BUG: sequencing timestamps are not strictly monotonically increasing," +
-              s"last timestamp $lastTs, provided timestamp: $providedTimestamp"
+              s" last timestamp $lastTs, provided timestamp: $providedTimestamp"
           )
         providedTimestamp
 
@@ -854,6 +849,8 @@ class BlockUpdateGenerator(
           sequencingSnapshot,
           groupToMembers,
           st,
+          latestSequencerEventTimestamp,
+          warnIfApproximate = st.headCounterAboveGenesis(sequencerId),
         )
       }
       _ <- EitherT.cond[FutureUnlessShutdown](
@@ -1489,19 +1486,23 @@ class BlockUpdateGenerator(
       members: Set[Member],
       sequencingTimestamp: CantonTimestamp,
       snapshot: SyncCryptoApi,
+      latestTopologyTimestamp: Option[CantonTimestamp],
   )(implicit ec: ExecutionContext, tc: TraceContext) = {
     OptionUtil.zipWithFDefaultValue(
       rateLimitManager,
-      snapshot.ipsSnapshot.trafficControlParameters(protocolVersion),
+      FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.trafficControlParameters(protocolVersion)),
       ephemeralState,
     ) { case (rlm, parameters) =>
+      val states = members
+        .flatMap(member => ephemeralState.trafficState.get(member).map(member -> _))
+        .toMap
       rlm
         .updateTrafficStates(
-          members
-            .flatMap(member => ephemeralState.trafficState.get(member).map(member -> _))
-            .toMap,
-          sequencingTimestamp,
+          states,
+          Some(sequencingTimestamp),
           parameters,
+          latestTopologyTimestamp,
+          warnIfApproximate = ephemeralState.headCounterAboveGenesis(sequencerId),
         )
         .map { trafficStateUpdates =>
           ephemeralState
@@ -1516,19 +1517,23 @@ class BlockUpdateGenerator(
       sequencingSnapshot: SyncCryptoApi,
       groupToMembers: Map[GroupRecipient, Set[Member]],
       ephemeralState: EphemeralState,
+      lastSeenTopologyTimestamp: Option[CantonTimestamp],
+      warnIfApproximate: Boolean,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): FutureUnlessShutdown[EphemeralState] = {
     val newStateOF = for {
-      rlm <- OptionT.fromOption[Future](rateLimitManager)
+      rlm <- OptionT.fromOption[FutureUnlessShutdown](rateLimitManager)
       parameters <- OptionT(
-        sequencingSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
+        FutureUnlessShutdown.outcomeF(
+          sequencingSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
+        )
       )
       sender = request.sender
       // Get the traffic from the ephemeral state
       trafficState <- OptionT
-        .fromOption[Future](ephemeralState.trafficState.get(sender))
+        .fromOption[FutureUnlessShutdown](ephemeralState.trafficState.get(sender))
         .orElse {
           // If it's not there, see if the member is registered and if so create a new traffic state for it
           val statusO = ephemeralState.status.members.find { status =>
@@ -1545,7 +1550,7 @@ class BlockUpdateGenerator(
           )
         }
         .thereafter {
-          case Success(None) =>
+          case Success(UnlessShutdown.Outcome(None)) =>
             // If there's no trace of this member, log it and let the event through
             logger.warn(
               s"Sender $sender unknown by rate limiter. The message will still be delivered."
@@ -1558,8 +1563,8 @@ class BlockUpdateGenerator(
             s"Trying to consume an event with a sequencing timestamp ($sequencingTimestamp)" +
               s" <= to the current traffic state timestamp ($trafficState)."
           )
-          OptionT.none[Future, Unit]
-        } else OptionT.some[Future](())
+          OptionT.none[FutureUnlessShutdown, Unit]
+        } else OptionT.some[FutureUnlessShutdown](())
       // Consume traffic for the sender
       newSenderTrafficState <- OptionT.liftF(
         rlm
@@ -1570,16 +1575,24 @@ class BlockUpdateGenerator(
             trafficState,
             parameters,
             groupToMembers,
+            lastBalanceUpdateTimestamp = lastSeenTopologyTimestamp,
+            warnIfApproximate = warnIfApproximate,
           )
-          .valueOr { case error: SequencerRateLimitError.AboveTrafficLimit =>
-            logger.info(
-              s"Submission from member ${error.member} with traffic state '${error.trafficState.toString}' was above traffic limit. Submission cost: ${error.trafficCost.value}. The message will still be delivered."
-            )
-            error.trafficState
+          .valueOr {
+            case error: SequencerRateLimitError.AboveTrafficLimit =>
+              logger.info(
+                s"Submission from member ${error.member} with traffic state '${error.trafficState.toString}' was above traffic limit. Submission cost: ${error.trafficCost.value}. The message will still be delivered."
+              )
+              error.trafficState
+            case error: SequencerRateLimitError.UnknownBalance =>
+              logger.warn(
+                s"Could not obtain valid balance at $sequencingTimestamp for member ${error.member} with traffic state '$trafficState'. The message will still be delivered but the traffic state has not been updated."
+              )
+              trafficState
           }
       )
     } yield updateTrafficState(ephemeralState, sender, newSenderTrafficState)
-    FutureUnlessShutdown.outcomeF(newStateOF.getOrElse(ephemeralState))
+    newStateOF.getOrElse(ephemeralState)
   }
 
   private def updateTrafficState(

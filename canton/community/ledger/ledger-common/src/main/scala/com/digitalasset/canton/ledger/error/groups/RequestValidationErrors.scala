@@ -166,6 +166,26 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
                   .mkString(", ")}]."
           )
     }
+
+    @Explanation(
+      "The queried type reference for the specified package name and template qualified-name does not reference any template uploaded on this participant"
+    )
+    @Resolution(
+      "Use a template qualified-name referencing already uploaded template-ids or ask the participant operator to upload the necessary packages."
+    )
+    object NoTemplatesForPackageNameAndQualifiedName
+        extends ErrorCode(
+          id = "NO_TEMPLATES_FOR_PACKAGE_NAME_AND_QUALIFIED_NAME",
+          category = ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class Reject(noKnownReferences: Set[(Ref.PackageName, Ref.QualifiedName)])(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause =
+              s"The following package-name/template qualified-name pairs do not reference any template-id uploaded on this participant: [${noKnownReferences
+                  .mkString(", ")}]."
+          )
+    }
   }
 
   @Explanation("This rejection is given when a read request tries to access pruned data.")

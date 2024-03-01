@@ -169,12 +169,14 @@ object ReferenceBlockOrderer {
         config.NonNegativeFiniteDuration.ofMillis(100),
   )
 
-  private[sequencer] def storeMultipleRequest(
+  final case class TimestampedRequest(tag: String, body: ByteString, timestamp: CantonTimestamp)
+
+  private[sequencer] def storeMultipleRequests(
       blockHeight: Long,
       timestamp: CantonTimestamp,
       sendQueue: SimpleExecutionQueue,
       store: ReferenceBlockOrderingStore,
-      requests: Seq[Traced[(String, ByteString)]],
+      requests: Seq[Traced[TimestampedRequest]],
   )(implicit
       executionContext: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
@@ -182,17 +184,20 @@ object ReferenceBlockOrderer {
   ): Future[Unit] = {
     val (tag, body) = requests.headOption
       .filter(_ => requests.sizeIs == 1)
-      .map { head =>
-        head.value
-      }
+      .map(head => head.value.tag -> head.value.body)
       .getOrElse {
         val body = {
           val traceparent = traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
           TracedBatchedBlockOrderingRequests(
             traceparent,
-            requests.map { case traced @ Traced((tag, body)) =>
+            requests.map { case traced @ Traced(request) =>
               val traceparent = traced.traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
-              TracedBlockOrderingRequest(traceparent, tag, body, microsecondsSinceEpoch = 0)
+              TracedBlockOrderingRequest(
+                traceparent,
+                request.tag,
+                request.body,
+                request.timestamp.toMicros,
+              )
             },
           )
         }.toByteString

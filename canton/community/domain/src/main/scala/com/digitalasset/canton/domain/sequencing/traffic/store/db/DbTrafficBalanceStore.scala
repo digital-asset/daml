@@ -7,7 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager.TrafficBalance
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -82,6 +82,23 @@ class DbTrafficBalanceStore(
   )(implicit traceContext: TraceContext): Future[Seq[TrafficBalance]] = {
     val query =
       sql"select member, sequencing_timestamp, balance, serial from sequencer_traffic_control_balance_updates where member = $member order by sequencing_timestamp asc"
+    storage.query(query.as[TrafficBalance], functionFullName)
+  }
+
+  override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Seq[TrafficBalance]] = {
+    val query =
+      sql"""select member, sequencing_timestamp, balance, serial
+            from
+              (select member, sequencing_timestamp, balance, serial,
+                      rank() over (partition by member order by sequencing_timestamp desc) as pos
+               from sequencer_traffic_control_balance_updates
+               where sequencing_timestamp <= $timestamp
+              ) as with_pos
+            where pos = 1
+           """
+
     storage.query(query.as[TrafficBalance], functionFullName)
   }
 

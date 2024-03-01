@@ -14,6 +14,7 @@ object MockedNodeParameters {
   def cantonNodeParameters(
       _processingTimeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing,
       _cachingConfigs: CachingConfigs = CachingConfigs.testing,
+      _batchingConfig: BatchingConfig = BatchingConfig(),
       _loggingConfig: LoggingConfig = LoggingConfig(),
       _enableAdditionalConsistencyChecks: Boolean = true,
       _nonStandardConfig: Boolean = false,
@@ -34,7 +35,7 @@ object MockedNodeParameters {
 
     override def cachingConfigs: CachingConfigs = _cachingConfigs
 
-    override def batchingConfig: BatchingConfig = ???
+    override def batchingConfig: BatchingConfig = _batchingConfig
 
     override def nonStandardConfig: Boolean = _nonStandardConfig
 

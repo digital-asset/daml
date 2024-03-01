@@ -19,26 +19,15 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.{EventCostCalculator, TopUpEvent, TopUpQueue}
+import com.digitalasset.canton.traffic.EventCostCalculator
 import monocle.macros.syntax.lens.*
 
 class SequencerMemberRateLimiter(
     member: Member,
-    private val topUps: Seq[TopUpEvent],
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
     eventCostCalculator: EventCostCalculator = new EventCostCalculator(),
 ) extends NamedLogging {
-
-  private val topUpQueue = new TopUpQueue(topUps)
-
-  def topUp(topUp: TopUpEvent): Unit = topUpQueue.addOne(topUp)
-
-  def getTrafficLimit(timestamp: CantonTimestamp): NonNegativeLong =
-    topUpQueue.getTrafficLimit(timestamp)
-
-  def pruneUntilAndGetAllTopUpsFor(cantonTimestamp: CantonTimestamp): List[TopUpEvent] =
-    topUpQueue.pruneUntilAndGetAllTopUpsFor(cantonTimestamp)
 
   /** Consume the traffic costs of the event from the sequencer members traffic state.
     *
@@ -50,12 +39,11 @@ class SequencerMemberRateLimiter(
       trafficControlConfig: TrafficControlParameters,
       trafficState: TrafficState,
       groupToMembers: Map[GroupRecipient, Set[Member]],
-      sender: Member,
+      currentBalance: NonNegativeLong,
   )(implicit
       tc: TraceContext
   ): (
-      Either[SequencerRateLimitError.AboveTrafficLimit, TrafficState],
-      Option[TopUpEvent],
+    Either[SequencerRateLimitError.AboveTrafficLimit, TrafficState],
   ) = {
     require(
       sequencingTimestamp > trafficState.timestamp,
@@ -68,13 +56,19 @@ class SequencerMemberRateLimiter(
       groupToMembers,
     )
 
-    val (newTrafficState, accepted, newEffectiveTopUp) =
-      updateTrafficState(sequencingTimestamp, trafficControlConfig, eventCost, trafficState)
+    val (newTrafficState, accepted) =
+      updateTrafficState(
+        sequencingTimestamp,
+        trafficControlConfig,
+        eventCost,
+        trafficState,
+        currentBalance,
+      )
 
     logger.debug(s"Updated traffic status for $member: $newTrafficState")
 
     if (accepted)
-      Right(newTrafficState) -> newEffectiveTopUp
+      Right(newTrafficState)
     else {
       Left(
         SequencerRateLimitError.AboveTrafficLimit(
@@ -82,7 +76,7 @@ class SequencerMemberRateLimiter(
           trafficCost = eventCost,
           newTrafficState,
         )
-      ) -> newEffectiveTopUp
+      )
     }
   }
 
@@ -91,15 +85,14 @@ class SequencerMemberRateLimiter(
       trafficControlConfig: TrafficControlParameters,
       eventCost: NonNegativeLong,
       trafficState: TrafficState,
+      currentBalance: NonNegativeLong,
   )(implicit tc: TraceContext) = {
     // Get the traffic limit for this event and prune the in memory queue until then, since we won't need earlier top ups anymore
-    val (currentTopUp, currentTopUpIsNew) = topUpQueue.pruneUntilAndGetTopUpFor(sequencingTimestamp)
-    val extraTrafficLimit = currentTopUp.map(_.limit.toNonNegative).getOrElse(NonNegativeLong.zero)
     require(
-      extraTrafficLimit >= trafficState.extraTrafficConsumed,
-      s"Extra traffic limit at $sequencingTimestamp (${extraTrafficLimit.value}) is < to extra traffic consumed (${trafficState.extraTrafficConsumed})",
+      currentBalance >= trafficState.extraTrafficConsumed,
+      s"Extra traffic limit at $sequencingTimestamp (${currentBalance.value}) is < to extra traffic consumed (${trafficState.extraTrafficConsumed})",
     )
-    val newExtraTrafficRemainder = extraTrafficLimit.value - trafficState.extraTrafficConsumed.value
+    val newExtraTrafficRemainder = currentBalance.value - trafficState.extraTrafficConsumed.value
 
     // determine the time elapsed since we approved last time
     val deltaMicros = sequencingTimestamp.toMicros - trafficState.timestamp.toMicros
@@ -167,7 +160,6 @@ class SequencerMemberRateLimiter(
     if (accepted) metrics.trafficControl.eventDelivered.mark(eventCost.value)(MetricsContext.Empty)
     else metrics.trafficControl.eventRejected.mark(eventCost.value)(MetricsContext.Empty)
 
-    // If the effective top up is new, return it so that it can be used upstream for pruning
-    (newState, accepted, if (currentTopUpIsNew) currentTopUp else None)
+    (newState, accepted)
   }
 }

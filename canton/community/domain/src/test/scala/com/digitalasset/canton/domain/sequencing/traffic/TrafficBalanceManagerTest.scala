@@ -4,19 +4,14 @@
 package com.digitalasset.canton.domain.sequencing.traffic
 
 import cats.syntax.parallel.*
-import com.daml.metrics.CacheMetrics
-import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager.{
-  TrafficBalance,
-  TrafficBalanceAlreadyPruned,
-}
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager.TrafficBalanceAlreadyPruned
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
+import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -33,7 +28,6 @@ class TrafficBalanceManagerTest
     with BeforeAndAfterEach {
   private val store = new InMemoryTrafficBalanceStore(loggerFactory)
   private val member = DefaultTestIdentities.participant1.member
-  private val pruningWindowSize = NonNegativeFiniteDuration.tryOfSeconds(2)
 
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val timestamp = clock.now
@@ -41,13 +35,8 @@ class TrafficBalanceManagerTest
   private def mkManager = new TrafficBalanceManager(
     store,
     clock,
-    SequencerTrafficConfig(),
-    pruningWindowSize,
+    SequencerTrafficConfig(pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2)),
     futureSupervisor,
-    new CacheMetrics(
-      new MetricName(Vector("traffic-balance-manager")),
-      NoOpMetricsFactory,
-    ),
     SequencerMetrics.noop("traffic-balance-manager"),
     timeouts,
     loggerFactory,

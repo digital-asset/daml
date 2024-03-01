@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.domain.metrics
 
-import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Meter}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerMetrics, GrpcServerMetrics}
+import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
 import com.digitalasset.canton.metrics.{
@@ -86,6 +86,9 @@ class SequencerMetrics(
   // TODO(i14580): add testing
   object trafficControl {
     private val prefix: MetricName = SequencerMetrics.this.prefix :+ "traffic-control"
+
+    val balanceCache: CacheMetrics =
+      new CacheMetrics(prefix :+ "balance-cache", openTelemetryMetricsFactory)
 
     @MetricDoc.Tag(
       summary = "Raw size of an event received in the sequencer.",
