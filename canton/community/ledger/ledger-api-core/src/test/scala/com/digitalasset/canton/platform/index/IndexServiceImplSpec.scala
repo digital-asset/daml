@@ -330,6 +330,37 @@ class IndexServiceImplSpec
     )
   }
 
+  it should "return an unknown type reference for a package name/template qualified name with no known template-ids" in new Scope {
+    val unknownTemplateRefFilter = TemplateFilter(
+      templateTypeRef = TypeConRef.assertFromString(
+        s"${Ref.PackageRef.Name(packageName1).toString}:unknownModule:unknownEntity"
+      ),
+      includeCreatedEventBlob = false,
+    )
+
+    checkUnknownIdentifiers(
+      TransactionFilter(
+        Map(
+          party -> Filters(
+            InclusiveFilters(
+              Set(template1Filter, unknownTemplateRefFilter),
+              Set(iface1Filter),
+            )
+          )
+        )
+      ),
+      PackageMetadata(
+        interfaces = Set(iface1),
+        templates = Set.empty,
+        packageNameMap = Map(packageName1 -> packageResolutionForTemplate1),
+      ),
+    ).left.value shouldBe RequestValidationErrors.NotFound.NoTemplatesForPackageNameAndQualifiedName
+      .Reject(
+        noKnownReferences =
+          Set(packageName1 -> Ref.QualifiedName.assertFromString("unknownModule:unknownEntity"))
+      )
+  }
+
   it should "succeed for all query filter identifiers known" in new Scope {
     checkUnknownIdentifiers(
       TransactionFilter(
@@ -345,7 +376,7 @@ class IndexServiceImplSpec
       PackageMetadata(
         interfaces = Set(iface1),
         templates = Set(template1),
-        packageNameMap = Map(packageName1 -> dummyPackageResolution),
+        packageNameMap = Map(packageName1 -> packageResolutionForTemplate1),
       ),
     ) shouldBe Right(())
   }
@@ -487,12 +518,12 @@ object IndexServiceImplSpec {
       includeCreatedEventBlob = false,
     )
     val view: PackageMetadataView = mock[PackageMetadataView]
-    val dummyPackageResolution: PackageResolution = PackageResolution(
+    val packageResolutionForTemplate1: PackageResolution = PackageResolution(
       preference = LocalPackagePreference(
         Ref.PackageVersion.assertFromString("0.1"),
-        Ref.PackageId.assertFromString("pId"),
+        template1.packageId,
       ),
-      allPackageIdsForName = NonEmpty(Set, Ref.PackageId.assertFromString("pId")),
+      allPackageIdsForName = NonEmpty(Set, template1.packageId),
     )
   }
 }
