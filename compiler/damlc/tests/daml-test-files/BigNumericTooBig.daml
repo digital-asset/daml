@@ -5,6 +5,7 @@
 -- @ERROR Large BigNumeric (larger than Numeric) literals are not currently supported.
 
 module BigNumericTooBig where
+import DA.BigNumeric(BigNumeric)
 
 tooBig : BigNumeric
 tooBig = 123456789012345678901233456789012345678.0

@@ -5,7 +5,7 @@
 module LfDevBigNumeric where
 
 import Daml.Script
-import qualified DA.BigNumeric as BigNumeric
+import qualified DA.BigNumeric as BN
 
 template BigNumericResults
   with
@@ -14,7 +14,7 @@ template BigNumericResults
   where
     signatory party
 
-x : BigNumeric
+x : BN.BigNumeric
 x = 0.5
 
 -- @LEDGER run LfDevBigNumeric.EXPECTED.ledger
@@ -27,8 +27,8 @@ run = script do
               x + x
             , negate x
             , x * x
-            , BigNumeric.round 0 RoundingUp x
-            , BigNumeric.round 0 RoundingDown x
-            , BigNumeric.round 0 RoundingHalfUp x
-            , BigNumeric.round 0 RoundingCeiling (negate x)
+            , BN.round 0 BN.RoundingUp x
+            , BN.round 0 BN.RoundingDown x
+            , BN.round 0 BN.RoundingHalfUp x
+            , BN.round 0 BN.RoundingCeiling (negate x)
           ]
