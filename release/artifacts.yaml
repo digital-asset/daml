@@ -123,10 +123,6 @@
   type: jar-distribute
 - target: //ledger-test-tool/tool:tool-1.dev
   type: jar-distribute
-- target: //ledger-test-tool/tool:tool-2.1
-  type: jar-distribute
-- target: //ledger-test-tool/tool:tool-2.dev
-  type: jar-distribute
 - target: //ledger/participant-local-store:participant-local-store
   type: jar-scala
 - target: //test-common:dar-files-1.14-lib
