@@ -63,10 +63,10 @@ object Ast {
   /** Reference to a builtin function. */
   final case class EBuiltin(value: BuiltinFunction) extends ExprAtomic
 
-  /** Builtinitive constructor, e.g. True, False or Unit. */
+  /** Builtin constructor, e.g. True, False or Unit. */
   final case class EBuiltinCon(value: BuiltinCon) extends ExprAtomic
 
-  /** Builtinitive literal. */
+  /** Builtin literal. */
   final case class EBuiltinLit(value: BuiltinLit) extends ExprAtomic
 
   /** Record construction. */
@@ -408,7 +408,7 @@ object Ast {
   final case class BLRoundingMode(override val value: java.math.RoundingMode) extends BuiltinLit
 
   //
-  // Builtinitive constructors
+  // Builtin constructors
   //
 
   sealed abstract class BuiltinCon extends Product with Serializable

@@ -271,7 +271,7 @@ message Type {
 
 }
 
-// Builtinitive constructors
+// Builtin constructors
 enum BuiltinCon {
   // Unit value '()'
   CON_UNIT = 0;
@@ -842,7 +842,7 @@ message Expr {
     // Builtin function ('ExpBuiltin')
     BuiltinFunction builtin = 3;
 
-    // Builtinitive constructor ('()', 'False' or 'True')
+    // Builtin constructor ('()', 'False' or 'True')
     BuiltinCon builtin_con = 4;
 
     // Builtin literal ('ExpBuiltin')
