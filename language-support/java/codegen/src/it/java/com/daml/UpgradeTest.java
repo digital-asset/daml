@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.upgradetest.*;
+import tests.upgradetest.myvariant.*;
 
 @RunWith(JUnitPlatform.class)
 public class UpgradeTest {
@@ -88,5 +89,53 @@ public class UpgradeTest {
   void upgradeNonOptionalFields() {
     DamlRecord record = new DamlRecord(new DamlRecord.Field(new Text("abc")));
     assertThrows(IllegalArgumentException.class, () -> NoOptional.fromValue(record));
+  }
+
+  @Test
+  void exactMatchVariant() {
+    Variant variant = new Variant("MyVariant1", new Text("abc"));
+    MyVariant actual = MyVariant.fromValue(variant);
+
+    MyVariant expected = new MyVariant1("abc");
+
+    assertEquals(actual, expected);
+  }
+
+  @Test
+  void newMatchVariant() {
+    Variant variant = new Variant("MyVariant3", new Text("abc"));
+    Exception exception =
+        assertThrows(IllegalArgumentException.class, () -> MyVariant.fromValue(variant));
+    assertTrue(
+        exception
+            .getMessage()
+            .contains(
+                "Found unknown constructor MyVariant3 for variant tests.upgradetest.MyVariant,"
+                    + " expected one of [MyVariant1, MyVariant2]. This could be a failed variant"
+                    + " downgrade."));
+  }
+
+  @Test
+  void exactMatchEnum() {
+    DamlEnum damlenum = new DamlEnum("MyEnum1");
+    MyEnum actual = MyEnum.fromValue(damlenum);
+
+    MyEnum expected = MyEnum.MYENUM1;
+
+    assertEquals(actual, expected);
+  }
+
+  @Test
+  void newMatchEnum() {
+    DamlEnum damlenum = new DamlEnum("MyEnum3");
+    Exception exception =
+        assertThrows(IllegalArgumentException.class, () -> MyEnum.fromValue(damlenum));
+    System.out.println(exception);
+    assertTrue(
+        exception
+            .getMessage()
+            .contains(
+                "Found unknown constructor MyEnum3 for enum tests.upgradetest.MyEnum, expected one"
+                    + " of [MyEnum1, MyEnum2]. This could be a failed enum downgrade."));
   }
 }
