@@ -352,6 +352,7 @@ type LedgerError = {
 export type CommandMeta = {
   workflowId?: string;
   disclosedContracts?: DisclosedContract[];
+  domainId?: string;
 };
 
 export type DisclosedContract = {
