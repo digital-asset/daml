@@ -1506,7 +1506,9 @@ class BlockUpdateGenerator(
         )
         .map { trafficStateUpdates =>
           ephemeralState
-            .copy(trafficState = ephemeralState.trafficState ++ trafficStateUpdates)
+            .copy(trafficState =
+              ephemeralState.trafficState ++ trafficStateUpdates.view.mapValues(_.state).toMap
+            )
         }
     }
   }

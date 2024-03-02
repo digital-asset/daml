@@ -43,7 +43,7 @@ import scala.jdk.CollectionConverters.*
 import scala.language.reflectiveCalls
 
 @nowarn("msg=match may not be exhaustive")
-class ConfirmationResponseProcessorTestV5
+class ConfirmationResponseProcessorTest
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
@@ -105,9 +105,6 @@ class ConfirmationResponseProcessorTestV5
 
   protected val initialDomainParameters: DynamicDomainParameters =
     TestDomainParameters.defaultDynamic
-
-  private lazy val localVerdictProtocolVersion =
-    LocalVerdict.protocolVersionRepresentativeFor(testedProtocolVersion)
 
   protected val confirmationResponseTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMillis(100L)
@@ -347,9 +344,10 @@ class ConfirmationResponseProcessorTestV5
         )
       } yield {
         val sentResult = sut.verdictSender.sentResults.loneElement
-        inside(sentResult.verdict.value) { case MediatorReject(status) =>
+        inside(sentResult.verdict.value) { case MediatorReject(status, isMalformed) =>
           status.code shouldBe Code.INVALID_ARGUMENT.value()
           status.message shouldBe s"An error occurred. Please contact the operator and inquire about the request <no-correlation-id> with tid <no-tid>"
+          isMalformed shouldBe true
         }
       }
     }
@@ -652,7 +650,7 @@ class ConfirmationResponseProcessorTestV5
             val results = resultBatch.envelopes.map { envelope =>
               envelope.recipients -> Some(
                 envelope.protocolMessage
-                  .asInstanceOf[SignedProtocolMessage[ConfirmationResult]]
+                  .asInstanceOf[SignedProtocolMessage[ConfirmationResultMessage]]
                   .message
                   .viewType
               )
@@ -972,14 +970,6 @@ class ConfirmationResponseProcessorTestV5
 
       val malformedMsg = "this is a test malformed response"
 
-      def isMalformedWarn(participant: ParticipantId)(logEntry: LogEntry): Assertion = {
-        logEntry.shouldBeCantonError(
-          LocalRejectError.MalformedRejects.Payloads,
-          _ shouldBe s"Rejected transaction due to malformed payload within views $malformedMsg",
-          _ should contain("reportedBy" -> s"$participant"),
-        )
-      }
-
       def malformedResponse(
           participant: ParticipantId
       ): Future[SignedProtocolMessage[ConfirmationResponse]] = {
@@ -988,7 +978,8 @@ class ConfirmationResponseProcessorTestV5
           participant,
           None,
           LocalRejectError.MalformedRejects.Payloads
-            .Reject(malformedMsg)(localVerdictProtocolVersion),
+            .Reject(malformedMsg)
+            .toLocalReject(testedProtocolVersion),
           Some(fullInformeeTree.transactionId.toRootHash),
           Set.empty,
           factory.domainId,
@@ -1040,23 +1031,16 @@ class ConfirmationResponseProcessorTestV5
         )(Predef.identity)
 
         // records the request
-        _ <- loggerFactory.assertLogs(
-          sequentialTraverse_(malformed)(
-            sut.processor.processResponse(
-              ts1,
-              notSignificantCounter,
-              ts1.plusSeconds(60),
-              ts1.plusSeconds(120),
-              _,
-              Some(requestId.unwrap),
-              Recipients.cc(mediatorGroupRecipient),
-            )
-          ),
-          isMalformedWarn(participant1),
-          isMalformedWarn(participant3),
-          isMalformedWarn(participant3),
-          isMalformedWarn(participant2),
-          isMalformedWarn(participant3),
+        _ <- sequentialTraverse_(malformed)(
+          sut.processor.processResponse(
+            ts1,
+            notSignificantCounter,
+            ts1.plusSeconds(60),
+            ts1.plusSeconds(120),
+            _,
+            Some(requestId.unwrap),
+            Recipients.cc(mediatorGroupRecipient),
+          )
         )
 
         finalState <- sut.mediatorState.fetch(requestId).value
@@ -1072,9 +1056,11 @@ class ConfirmationResponseProcessorTestV5
             // TODO(#5337) These are only the rejections for the first view because this view happens to be finalized first.
             reasons.length shouldEqual 2
             reasons.foreach { case (party, reject) =>
-              reject shouldBe LocalRejectError.MalformedRejects.Payloads.Reject(malformedMsg)(
-                localVerdictProtocolVersion
-              )
+              reject shouldBe LocalRejectError.MalformedRejects.Payloads
+                .Reject(malformedMsg)
+                .toLocalReject(
+                  testedProtocolVersion
+                )
               party should (contain(submitter) or contain(signatory))
             }
         }

@@ -33,7 +33,7 @@ message SetTrafficBalanceMessage {
   // Member to update the balance for
   string member = 1;
   // Serial number - must be unique and monotonically increasing for each new balance update
-  int64 serial = 2;
+  uint32 serial = 2;
   // New total traffic balance
   uint64 total_traffic_balance = 4;
   // Domain Id

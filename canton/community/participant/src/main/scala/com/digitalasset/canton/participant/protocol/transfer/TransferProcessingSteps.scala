@@ -59,13 +59,11 @@ trait TransferProcessingSteps[
     SubmissionParam,
     SubmissionResult,
     RequestViewType <: TransferViewType,
-    Result <: SignedProtocolMessageContent,
     PendingTransferType <: PendingTransfer,
 ] extends ProcessingSteps[
       SubmissionParam,
       SubmissionResult,
       RequestViewType,
-      Result,
       TransferProcessorError,
     ]
     with NamedLogging {
@@ -120,7 +118,7 @@ trait TransferProcessingSteps[
       case reject: MediatorReject =>
         reject.reason
       case reasons: ParticipantReject =>
-        reasons.keyEvent.rpcStatus()
+        reasons.keyEvent.reason
     }
     pendingSubmission.transferCompletion.success(status)
   }
@@ -254,7 +252,8 @@ trait TransferProcessingSteps[
     )
 
     rejectionReason.logWithContext(Map("requestId" -> pendingTransfer.requestId.toString))
-    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.rpcStatus())
+    val rejection =
+      LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.reason)
 
     val tse = completionInfoO.map(info =>
       TimestampedEvent(

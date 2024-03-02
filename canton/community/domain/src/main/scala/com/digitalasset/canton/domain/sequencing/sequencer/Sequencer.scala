@@ -136,7 +136,7 @@ trait Sequencer
 
   def setTrafficBalance(
       member: Member,
-      serial: NonNegativeLong,
+      serial: PositiveInt,
       totalTrafficBalance: NonNegativeLong,
       sequencerClient: SequencerClient,
   )(implicit

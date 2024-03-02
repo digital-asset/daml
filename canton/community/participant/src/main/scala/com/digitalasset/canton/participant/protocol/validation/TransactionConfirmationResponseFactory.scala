@@ -28,9 +28,6 @@ class TransactionConfirmationResponseFactory(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
-  private val verdictProtocolVersion =
-    LocalVerdict.protocolVersionRepresentativeFor(protocolVersion)
-
   def createConfirmationResponses(
       requestId: RequestId,
       malformedPayloads: Seq[MalformedPayload],
@@ -83,8 +80,8 @@ class TransactionConfirmationResponseFactory(
           logged(
             requestId,
             LocalRejectError.MalformedRejects.CreatesExistingContracts
-              .Reject(existing.toSeq.map(_.coid))(verdictProtocolVersion),
-          )
+              .Reject(existing.toSeq.map(_.coid)),
+          ).toLocalReject(protocolVersion)
         )
       } else {
         def stakeholderOfUsedContractIsHostedConfirmingParty(coid: LfContractId): Boolean =
@@ -107,14 +104,16 @@ class TransactionConfirmationResponseFactory(
           // The transaction uses an inactive contract. Reject.
           Some(
             LocalRejectError.ConsistencyRejections.InactiveContracts
-              .Reject(inactiveInputs.toSeq.map(_.coid))(verdictProtocolVersion)
+              .Reject(inactiveInputs.toSeq.map(_.coid))
+              .toLocalReject(protocolVersion)
           )
         } else if (lockedInputs.nonEmpty | lockedForActivation.nonEmpty) {
           // The transaction would create / use a locked contract. Reject.
           val allLocked = lockedForActivation ++ lockedInputs
           Some(
             LocalRejectError.ConsistencyRejections.LockedContracts
-              .Reject(allLocked.toSeq.map(_.coid))(verdictProtocolVersion)
+              .Reject(allLocked.toSeq.map(_.coid))
+              .toLocalReject(protocolVersion)
           )
         } else {
           // Everything ok from the perspective of conflict detection.
@@ -138,10 +137,8 @@ class TransactionConfirmationResponseFactory(
                 error.errors.map(cause =>
                   logged(
                     requestId,
-                    LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString)(
-                      verdictProtocolVersion
-                    ),
-                  )
+                    LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString),
+                  ).toLocalReject(protocolVersion)
                 )
               )
 
@@ -150,10 +147,8 @@ class TransactionConfirmationResponseFactory(
               transactionValidationResult.internalConsistencyResultE.swap.toOption.map(cause =>
                 logged(
                   requestId,
-                  LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString)(
-                    verdictProtocolVersion
-                  ),
-                )
+                  LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString),
+                ).toLocalReject(protocolVersion)
               )
 
             // Rejections due to a failed authentication check
@@ -163,10 +158,8 @@ class TransactionConfirmationResponseFactory(
                 .map(err =>
                   logged(
                     requestId,
-                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err)(
-                      verdictProtocolVersion
-                    ),
-                  )
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err),
+                  ).toLocalReject(protocolVersion)
                 )
 
             // Rejections due to a transaction detected as a replay
@@ -178,10 +171,8 @@ class TransactionConfirmationResponseFactory(
                     // TODO(i13513): Check whether a `Malformed` code is appropriate
                     LocalRejectError.MalformedRejects.MalformedRequest.Reject(
                       err.format(viewPosition)
-                    )(
-                      verdictProtocolVersion
                     ),
-                  )
+                  ).toLocalReject(protocolVersion)
                 )
 
             // Rejections due to a failed authorization check
@@ -191,38 +182,40 @@ class TransactionConfirmationResponseFactory(
                 .map(cause =>
                   logged(
                     requestId,
-                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(cause)(
-                      verdictProtocolVersion
-                    ),
-                  )
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(cause),
+                  ).toLocalReject(protocolVersion)
                 )
 
             // Rejections due to a failed time validation
             val timeValidationRejections =
-              transactionValidationResult.timeValidationResultE.swap.toOption.map {
-                case TimeValidator.LedgerTimeRecordTimeDeltaTooLargeError(
-                      ledgerTime,
-                      recordTime,
-                      maxDelta,
-                    ) =>
-                  LocalRejectError.TimeRejects.LedgerTime.Reject(
-                    s"ledgerTime=$ledgerTime, recordTime=$recordTime, maxDelta=$maxDelta"
-                  )(verdictProtocolVersion)
-                case TimeValidator.SubmissionTimeRecordTimeDeltaTooLargeError(
-                      submissionTime,
-                      recordTime,
-                      maxDelta,
-                    ) =>
-                  LocalRejectError.TimeRejects.SubmissionTime.Reject(
-                    s"submissionTime=$submissionTime, recordTime=$recordTime, maxDelta=$maxDelta"
-                  )(verdictProtocolVersion)
-              }
+              transactionValidationResult.timeValidationResultE.swap.toOption
+                .map {
+                  case TimeValidator.LedgerTimeRecordTimeDeltaTooLargeError(
+                        ledgerTime,
+                        recordTime,
+                        maxDelta,
+                      ) =>
+                    LocalRejectError.TimeRejects.LedgerTime.Reject(
+                      s"ledgerTime=$ledgerTime, recordTime=$recordTime, maxDelta=$maxDelta"
+                    )
+                  case TimeValidator.SubmissionTimeRecordTimeDeltaTooLargeError(
+                        submissionTime,
+                        recordTime,
+                        maxDelta,
+                      ) =>
+                    LocalRejectError.TimeRejects.SubmissionTime.Reject(
+                      s"submissionTime=$submissionTime, recordTime=$recordTime, maxDelta=$maxDelta"
+                    )
+                }
+                .map(_.toLocalReject(protocolVersion))
 
             val contractConsistencyRejections =
-              transactionValidationResult.contractConsistencyResultE.swap.toOption.map { err =>
-                LocalRejectError.MalformedRejects.MalformedRequest
-                  .Reject(err.toString, protocolVersion)
-              }
+              transactionValidationResult.contractConsistencyResultE.swap.toOption.map(err =>
+                logged(
+                  requestId,
+                  LocalRejectError.MalformedRejects.MalformedRequest.Reject(err.toString),
+                ).toLocalReject(protocolVersion)
+              )
 
             // Approve if the consistency check succeeded, reject otherwise.
             val consistencyVerdicts = verdictsForView(viewValidationResult, hostedConfirmingParties)
@@ -235,8 +228,8 @@ class TransactionConfirmationResponseFactory(
 
             val localVerdictAndPartiesO = localVerdicts
               .collectFirst[(LocalVerdict, Set[LfPartyId])] {
-                case malformed: Malformed => malformed -> Set.empty
-                case localReject: LocalRejectError if hostedConfirmingParties.nonEmpty =>
+                case malformed: LocalReject if malformed.isMalformed => malformed -> Set.empty
+                case localReject: LocalReject if hostedConfirmingParties.nonEmpty =>
                   localReject -> hostedConfirmingParties
               }
               .orElse(
@@ -300,8 +293,8 @@ class TransactionConfirmationResponseFactory(
           logged(
             requestId,
             LocalRejectError.MalformedRejects.Payloads
-              .Reject(malformedPayloads.toString)(verdictProtocolVersion),
-          ),
+              .Reject(malformedPayloads.toString),
+          ).toLocalReject(protocolVersion),
           None,
           Set.empty,
           domainId,

@@ -101,22 +101,14 @@ object TypedSignedProtocolMessageContent
       message <- (messageBytes match {
         case Sm.ConfirmationResponse(confirmationResponseBytes) =>
           ConfirmationResponse.fromByteString(expectedProtocolVersion)(confirmationResponseBytes)
-        case Sm.TransactionResult(transactionResultMessageBytes) =>
+        case Sm.ConfirmationResult(confirmationResultMessageBytes) =>
           ConfirmationResultMessage.fromByteString(expectedProtocolVersion)(
-            transactionResultMessageBytes
+            confirmationResultMessageBytes
           )
-        case Sm.TransferResult(transferResultBytes) =>
-          TransferResult.fromByteString(expectedProtocolVersion)(transferResultBytes)
         case Sm.AcsCommitment(acsCommitmentBytes) =>
           AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
         case Sm.SetTrafficBalance(setTrafficBalanceBytes) =>
           SetTrafficBalanceMessage.fromByteString(expectedProtocolVersion)(setTrafficBalanceBytes)
-        case Sm.MalformedMediatorConfirmationRequestResult(
-              malformedMediatorConfirmationRequestResultBytes
-            ) =>
-          MalformedConfirmationRequestResult.fromByteString(expectedProtocolVersion)(
-            malformedMediatorConfirmationRequestResultBytes
-          )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]

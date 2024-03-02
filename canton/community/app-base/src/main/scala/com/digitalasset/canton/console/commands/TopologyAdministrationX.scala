@@ -42,6 +42,7 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
   StoredTopologyTransactionsX,
   TimeQuery,
+  TopologyStoreId,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
@@ -1055,12 +1056,13 @@ class TopologyAdministrationGroup(
         store: String = AuthorizedStore.filterName,
     ): SignedTopologyTransactionX[TopologyChangeOpX, PartyToParticipantX] = {
 
-      val currentO = expectAtMostOneResult(
-        list(
-          filterStore = store,
-          filterParty = party.filterString,
-        ).filter(_.item.domainId == domainId)
-      )
+      val currentO = TopologyStoreId(store) match {
+        case TopologyStoreId.DomainStore(domainId, _) =>
+          expectAtMostOneResult(list(domainId, filterParty = party.filterString))
+
+        case TopologyStoreId.AuthorizedStore =>
+          expectAtMostOneResult(list_from_authorized(filterParty = party.filterString))
+      }
 
       val (existingPermissions, newSerial) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOpX.Remove =>
@@ -1158,14 +1160,13 @@ class TopologyAdministrationGroup(
       synchronisation.runAdminCommand(synchronize)(command)
     }
 
-    @Help.Summary("List party to participant mapping transactions")
+    @Help.Summary("List party to participant mapping transactions from domain store")
     @Help.Description(
       """List the party to participant mapping transactions present in the stores. Party to participant mappings
         |are topology transactions used to allocate a party to certain participants. The same party can be allocated
         |on several participants with different privileges.
 
-        filterStore: - "Authorized": Look in the node's authorized store.
-                     - "<domain-id>": Look in the specified domain store.
+        domainId: Domain to be considered
         proposals: Whether to query proposals instead of authorized transactions.
         timeQuery: The time query allows to customize the query by time. The following options are supported:
                    TimeQuery.HeadState (default): The most recent known state.
@@ -1179,7 +1180,7 @@ class TopologyAdministrationGroup(
         |"""
     )
     def list(
-        filterStore: String = "",
+        domain: DomainId,
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
@@ -1191,7 +1192,93 @@ class TopologyAdministrationGroup(
       adminCommand(
         TopologyAdminCommandsX.Read.ListPartyToParticipant(
           BaseQueryX(
-            filterStore,
+            filterStore = domain.filterString,
+            proposals,
+            timeQuery,
+            operation,
+            filterSigningKey,
+            protocolVersion.map(ProtocolVersion.tryCreate),
+          ),
+          filterParty,
+          filterParticipant,
+        )
+      )
+    }
+
+    @Help.Summary("List party to participant mapping transactions from the authorized store")
+    @Help.Description(
+      """List the party to participant mapping transactions present in the stores. Party to participant mappings
+        |are topology transactions used to allocate a party to certain participants. The same party can be allocated
+        |on several participants with different privileges.
+
+        proposals: Whether to query proposals instead of authorized transactions.
+        timeQuery: The time query allows to customize the query by time. The following options are supported:
+                   TimeQuery.HeadState (default): The most recent known state.
+                   TimeQuery.Snapshot(ts): The state at a certain point in time.
+                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
+        operation: Optionally, what type of operation the transaction should have.
+        filterParty: Filter for parties starting with the given filter string.
+        filterParticipant: Filter for participants starting with the given filter string.
+        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
+        protocolVersion: Export the topology transactions in the optional protocol version.
+        |"""
+    )
+    def list_from_authorized(
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOpX] = None,
+        filterParty: String = "",
+        filterParticipant: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): Seq[ListPartyToParticipantResult] = consoleEnvironment.run {
+      adminCommand(
+        TopologyAdminCommandsX.Read.ListPartyToParticipant(
+          BaseQueryX(
+            filterStore = AuthorizedStore.filterName,
+            proposals,
+            timeQuery,
+            operation,
+            filterSigningKey,
+            protocolVersion.map(ProtocolVersion.tryCreate),
+          ),
+          filterParty,
+          filterParticipant,
+        )
+      )
+    }
+
+    @Help.Summary("List party to participant mapping transactions from all stores")
+    @Help.Description(
+      """List the party to participant mapping transactions present in the stores. Party to participant mappings
+        |are topology transactions used to allocate a party to certain participants. The same party can be allocated
+        |on several participants with different privileges.
+
+        proposals: Whether to query proposals instead of authorized transactions.
+        timeQuery: The time query allows to customize the query by time. The following options are supported:
+                   TimeQuery.HeadState (default): The most recent known state.
+                   TimeQuery.Snapshot(ts): The state at a certain point in time.
+                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
+        operation: Optionally, what type of operation the transaction should have.
+        filterParty: Filter for parties starting with the given filter string.
+        filterParticipant: Filter for participants starting with the given filter string.
+        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
+        protocolVersion: Export the topology transactions in the optional protocol version.
+        |"""
+    )
+    def list_from_all(
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOpX] = None,
+        filterParty: String = "",
+        filterParticipant: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): Seq[ListPartyToParticipantResult] = consoleEnvironment.run {
+      adminCommand(
+        TopologyAdminCommandsX.Read.ListPartyToParticipant(
+          BaseQueryX(
+            filterStore = "",
             proposals,
             timeQuery,
             operation,

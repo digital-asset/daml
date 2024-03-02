@@ -55,6 +55,8 @@ class SymbolicCryptoTest
 
     // Symbolic crypto does not satisfy golden tests for HKDF
     // Symbolic crypto does not support Java key conversion, thus not tested
+
+    // Symbolic crypto does not support public key validation, thus not tested
   }
 
 }

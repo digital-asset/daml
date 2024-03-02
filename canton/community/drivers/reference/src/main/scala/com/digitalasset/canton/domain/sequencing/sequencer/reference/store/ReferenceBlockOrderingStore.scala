@@ -16,6 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.Refer
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -55,7 +56,11 @@ object ReferenceBlockOrderingStore {
         new DbReferenceBlockOrderingStore(dbStorage, timeouts, loggerFactory)
     }
 
-  final case class TimestampedBlock(block: BlockOrderer.Block, timestamp: CantonTimestamp)
+  final case class TimestampedBlock(
+      block: BlockOrderer.Block,
+      timestamp: CantonTimestamp,
+      lastTopologyTimestamp: CantonTimestamp,
+  )
 }
 
 class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore {
@@ -117,24 +122,36 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
           // Get the last elements up until initial height
           val iterator = deque.descendingIterator()
           val initial = math.max(initialHeight, 0)
-          val requestsWithTimestamps =
+          val requestsWithTimestampsAndLastTopologyTimestamps =
             (initial until deque.size().toLong)
               .map(_ => iterator.next())
               .reverse
               .map { request =>
                 if (request.value.tag == BatchTag) {
-                  val batchedRequests = proto.TracedBatchedBlockOrderingRequests
+                  val tracedBatchedBlockOrderingRequests = proto.TracedBatchedBlockOrderingRequests
                     .parseFrom(request.value.body.toByteArray)
-                    .requests
+                  val batchedRequests = tracedBatchedBlockOrderingRequests.requests
                     .map(DbReferenceBlockOrderingStore.fromProto)
-                  request.value.microsecondsSinceEpoch -> batchedRequests
-                } else request.value.microsecondsSinceEpoch -> Seq(request)
+                  (
+                    request.value.microsecondsSinceEpoch,
+                    batchedRequests,
+                    CantonTimestamp.ofEpochMicro(
+                      tracedBatchedBlockOrderingRequests.lastTopologyTimestampEpochMicros
+                    ),
+                  )
+                } else
+                  (
+                    request.value.microsecondsSinceEpoch,
+                    Seq(request),
+                    SignedTopologyTransactionX.InitialTopologySequencingTime,
+                  )
               }
-          requestsWithTimestamps.zip(LazyList.from(initial.toInt)).map {
-            case ((blockTimestamp, tracedRequests), blockHeight) =>
+          requestsWithTimestampsAndLastTopologyTimestamps.zip(LazyList.from(initial.toInt)).map {
+            case ((blockTimestamp, tracedRequests, lastTopologyTimestamp), blockHeight) =>
               TimestampedBlock(
                 BlockOrderer.Block(blockHeight.toLong, tracedRequests),
                 CantonTimestamp.ofEpochMicro(blockTimestamp),
+                lastTopologyTimestamp,
               )
           }
         }

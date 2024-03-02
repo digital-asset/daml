@@ -159,7 +159,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
     override def setTrafficBalance(
         member: Member,
-        serial: NonNegativeLong,
+        serial: PositiveInt,
         totalTrafficBalance: NonNegativeLong,
         sequencerClient: SequencerClient,
     )(implicit

@@ -4,14 +4,12 @@
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, TestHash}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
+  ConfirmationResultMessage,
   DeliveredTransferOutResult,
-  SetTrafficBalanceMessage,
   SignedProtocolMessage,
-  TransferResult,
   Verdict,
 }
 import com.digitalasset.canton.sequencing.protocol.{
@@ -21,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   TimeProof,
 }
-import com.digitalasset.canton.topology.{DomainId, Member, ParticipantId}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import magnolify.scalacheck.auto.*
@@ -37,7 +35,6 @@ final class GeneratorsTransferData(
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
-  import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import org.scalatest.EitherValues.*
@@ -136,14 +133,18 @@ final class GeneratorsTransferData(
       sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
 
       requestId <- Arbitrary.arbitrary[RequestId]
+      rootHash <- Arbitrary.arbitrary[RootHash]
       protocolVersion = sourceProtocolVersion.v
 
       verdict = Verdict.Approve(protocolVersion)
-      result = TransferResult.create(
+
+      result = ConfirmationResultMessage.create(
+        sourceDomain.id,
+        ViewType.TransferOutViewType,
         requestId,
-        contract.metadata.stakeholders,
-        sourceDomain,
+        Some(rootHash),
         verdict,
+        contract.metadata.stakeholders,
         protocolVersion,
       )
 
@@ -220,20 +221,4 @@ final class GeneratorsTransferData(
         transferCounter,
       )
   )
-
-  implicit val setTrafficBalanceArb: Arbitrary[SetTrafficBalanceMessage] = Arbitrary(
-    for {
-      member <- Arbitrary.arbitrary[Member]
-      serial <- Arbitrary.arbitrary[NonNegativeLong]
-      trafficBalance <- Arbitrary.arbitrary[NonNegativeLong]
-      domainId <- Arbitrary.arbitrary[DomainId]
-    } yield SetTrafficBalanceMessage.apply(
-      member,
-      serial,
-      trafficBalance,
-      domainId,
-      protocolVersion,
-    )
-  )
-
 }

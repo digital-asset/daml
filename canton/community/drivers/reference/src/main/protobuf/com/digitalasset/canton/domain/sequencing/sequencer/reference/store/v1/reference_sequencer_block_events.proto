@@ -12,7 +12,9 @@ message TracedBlockOrderingRequest {
   int64 microseconds_since_epoch = 4;
 }
 
+// Currently only used by the output module of the BFT sequencer
 message TracedBatchedBlockOrderingRequests {
   string traceparent = 1;
   repeated TracedBlockOrderingRequest requests = 2;
+  int64 last_topology_timestamp_epoch_micros = 3;
 }

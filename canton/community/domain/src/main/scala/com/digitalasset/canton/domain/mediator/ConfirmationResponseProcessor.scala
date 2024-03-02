@@ -18,8 +18,8 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.HandlerResult
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.DomainTimeTracker
@@ -333,8 +333,7 @@ private[mediator] class ConfirmationResponseProcessor(
         .allHaveActiveParticipants(request.allInformees)
         .leftMap { informeesNoParticipant =>
           val reject = MediatorError.InvalidMessage.Reject(
-            show"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: $informeesNoParticipant. Rejecting request...",
-            v30.MediatorRejection.Code.CODE_INFORMEES_NOT_HOSTED_ON_ACTIVE_PARTICIPANT,
+            show"Received a mediator confirmation request with id $requestId with some informees not being hosted by an active participant: $informeesNoParticipant. Rejecting request..."
           )
           reject.log()
           Option(MediatorVerdict.MediatorReject(reject))
@@ -369,8 +368,7 @@ private[mediator] class ConfirmationResponseProcessor(
           !batchAlsoContainsTopologyXTransaction, {
             val rejection = MediatorError.MalformedMessage
               .Reject(
-                s"Received a mediator confirmation request with id $requestId also containing a topology transaction.",
-                v30.MediatorRejection.Code.CODE_UNSPECIFIED,
+                s"Received a mediator confirmation request with id $requestId also containing a topology transaction."
               )
               .reported()
             MediatorVerdict.MediatorReject(rejection)
@@ -393,8 +391,7 @@ private[mediator] class ConfirmationResponseProcessor(
         MediatorVerdict.MediatorReject(
           MediatorError.MalformedMessage
             .Reject(
-              show"Rejecting mediator confirmation request with $requestId, mediator ${request.mediator}, topology at ${topologySnapshot.timestamp} due to $hint",
-              v30.MediatorRejection.Code.CODE_WRONG_DECLARED_MEDIATOR,
+              show"Rejecting mediator confirmation request with $requestId, mediator ${request.mediator}, topology at ${topologySnapshot.timestamp} due to $hint"
             )
             .reported()
         )
@@ -514,8 +511,7 @@ private[mediator] class ConfirmationResponseProcessor(
     unitOrRejectionReason.leftMap { rejectionReason =>
       val rejection = MediatorError.MalformedMessage
         .Reject(
-          s"Received a mediator confirmation request with id $requestId with invalid root hash messages. Rejecting... Reason: $rejectionReason",
-          v30.MediatorRejection.Code.CODE_VIEW_INVALID_ROOT_HASH_MESSAGE,
+          s"Received a mediator confirmation request with id $requestId with invalid root hash messages. Rejecting... Reason: $rejectionReason"
         )
         .reported()(loggingContext)
       MediatorVerdict.MediatorReject(rejection)
@@ -535,8 +531,7 @@ private[mediator] class ConfirmationResponseProcessor(
           MediatorVerdict.MediatorReject(
             MediatorError.MalformedMessage
               .Reject(
-                s"Received a mediator confirmation request with id $requestId having threshold $threshold for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of $minimumThreshold. Rejecting request...",
-                v30.MediatorRejection.Code.CODE_VIEW_THRESHOLD_BELOW_MINIMUM_THRESHOLD,
+                s"Received a mediator confirmation request with id $requestId having threshold $threshold for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of $minimumThreshold. Rejecting request..."
               )
               .reported()
           ),
@@ -589,8 +584,7 @@ private[mediator] class ConfirmationResponseProcessor(
                   s"Received a mediator confirmation request with id $requestId with insufficient authorized confirming parties for transaction view at $viewPosition. " +
                     s"Rejecting request. Threshold: $threshold." +
                     insufficientPermissionHint +
-                    authorizedPartiesHint,
-                  v30.MediatorRejection.Code.CODE_NOT_ENOUGH_CONFIRMING_PARTIES,
+                    authorizedPartiesHint
                 )
                 .reported()
               MediatorVerdict.MediatorReject(rejection)

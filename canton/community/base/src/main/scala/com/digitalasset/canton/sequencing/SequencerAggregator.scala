@@ -169,12 +169,6 @@ class SequencerAggregator(
       val messagesToCombine = nonEmptyMessages.map(_._2).toList
       val (sequencerIdToNotify, _) = nonEmptyMessages.head1
 
-      // TODO(#17462) Consider to remove excessive debug logging
-      implicit val traceContext: TraceContext = nonEmptyMessages.head1._2.traceContext
-      logger.debug(
-        s"Aggregation threshold reached for timestamp $nextMinimumTimestamp. Chosen sequencer loop to notify: $sequencerIdToNotify"
-      )
-
       nextData.promise
         .outcome(
           addEventToQueue(messagesToCombine).map(_ => sequencerIdToNotify)

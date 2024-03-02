@@ -121,7 +121,7 @@ class GrpcSequencerAdministrationService(
     val result = {
       for {
         member <- wrapErrUS(Member.fromProtoPrimitive(requestP.member, "member"))
-        serial <- wrapErrUS(ProtoConverter.parseNonNegativeLong(requestP.serial))
+        serial <- wrapErrUS(ProtoConverter.parsePositiveInt(requestP.serial))
         totalTrafficBalance <- wrapErrUS(
           ProtoConverter.parseNonNegativeLong(requestP.totalTrafficBalance)
         )

@@ -33,11 +33,9 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
 
-class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
+class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
   private implicit val ec: ExecutionContext = directExecutionContext
-  private lazy val localVerdictProtocolVersion =
-    LocalVerdict.protocolVersionRepresentativeFor(testedProtocolVersion)
 
   describe(classOf[ResponseAggregation[?]].getSimpleName) {
     def b[A](i: Int): BlindedNode[A] = BlindedNode(RootHash(TestHash.digest(i)))
@@ -146,9 +144,9 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
     describe("under the Signatory policy") {
       def testReject() =
-        LocalRejectError.ConsistencyRejections.LockedContracts.Reject(Seq())(
-          localVerdictProtocolVersion
-        )
+        LocalRejectError.ConsistencyRejections.LockedContracts
+          .Reject(Seq())
+          .toLocalReject(testedProtocolVersion)
 
       val fullInformeeTree =
         FullInformeeTree.tryCreate(
@@ -430,16 +428,15 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
               mkResponse(
                 view1Position,
                 LocalRejectError.MalformedRejects.Payloads
-                  .Reject("test4")(localVerdictProtocolVersion),
+                  .Reject("test4")
+                  .toLocalReject(testedProtocolVersion),
                 Set.empty,
                 rootHash,
               )
-            lazy val result = loggerFactory.assertLogs(
+            lazy val result =
               step3
                 .validateAndProgress(requestId.unwrap.plusSeconds(2), response4, topologySnapshot)
-                .futureValue,
-              _.shouldBeCantonErrorCode(LocalRejectError.MalformedRejects.Payloads),
-            )
+                .futureValue
             it("should not allow repeated rejection") {
               result shouldBe None
             }
@@ -541,7 +538,9 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
       lazy val changeTs = requestId.unwrap.plusSeconds(1)
 
       def testReject(reason: String) =
-        LocalRejectError.MalformedRejects.Payloads.Reject(reason)(localVerdictProtocolVersion)
+        LocalRejectError.MalformedRejects.Payloads
+          .Reject(reason)
+          .toLocalReject(testedProtocolVersion)
 
       describe("for a single view") {
         it("should update the pending confirming parties set for all hosted parties") {
@@ -555,17 +554,12 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
             domainId,
             testedProtocolVersion,
           )
-          val result = loggerFactory.assertLogs(
+          val result =
             valueOrFail(
               sut.validateAndProgress(changeTs, response, topologySnapshot).futureValue
             )(
               "Malformed response for a view hash"
-            ),
-            _.shouldBeCantonError(
-              LocalRejectError.MalformedRejects.Payloads,
-              _ shouldBe "Rejected transaction due to malformed payload within views malformed view",
-            ),
-          )
+            )
 
           result.version shouldBe changeTs
           result.state shouldBe Right(
@@ -608,20 +602,12 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
               domainId,
               testedProtocolVersion,
             )
-          val result = loggerFactory.assertLogs(
+          val result =
             valueOrFail(
               sut.validateAndProgress(changeTs, response, topologySnapshot).futureValue
             )(
               "Malformed response without view hash"
-            ),
-            _.shouldBeCantonError(
-              LocalRejectError.MalformedRejects.Payloads,
-              _ shouldBe s"Rejected transaction due to malformed payload within views $rejectMsg",
-              _ should (contain("reportedBy" -> s"$solo") and contain(
-                "requestId" -> requestId.toString
-              )),
-            ),
-          )
+            )
           result.version shouldBe changeTs
           result.state shouldBe Right(
             Map(
@@ -709,9 +695,9 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
 
     describe("consortium voting") {
       def testReject() =
-        LocalRejectError.ConsistencyRejections.LockedContracts.Reject(Seq())(
-          localVerdictProtocolVersion
-        )
+        LocalRejectError.ConsistencyRejections.LockedContracts
+          .Reject(Seq())
+          .toLocalReject(testedProtocolVersion)
 
       val fullInformeeTree =
         FullInformeeTree.tryCreate(
@@ -1255,16 +1241,15 @@ class ResponseAggregationTestV5 extends PathAnyFunSpec with BaseTest {
               mkResponse(
                 view1Position,
                 LocalRejectError.MalformedRejects.Payloads
-                  .Reject("test4")(localVerdictProtocolVersion),
+                  .Reject("test4")
+                  .toLocalReject(testedProtocolVersion),
                 Set.empty,
                 rootHash,
               )
-            lazy val result = loggerFactory.assertLogs(
+            lazy val result =
               step3
                 .validateAndProgress(requestId.unwrap.plusSeconds(2), response4, topologySnapshot)
-                .futureValue,
-              _.shouldBeCantonErrorCode(LocalRejectError.MalformedRejects.Payloads),
-            )
+                .futureValue
             it("should not allow repeated rejection") {
               result shouldBe None
             }
