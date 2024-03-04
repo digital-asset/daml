@@ -25,13 +25,12 @@ import utils.{
   Trivial,
 }
 import utils.Value.ContractId
-import utils.Transaction.{
-  KeyCreate,
+import utils.Transaction.{KeyCreate, NegativeKeyLookup, KeyInput}
+import utils.TransactionErrors.{
   KeyInputError,
-  NegativeKeyLookup,
   InconsistentContractKey,
+  InconsistentContractKeyKIError,
   DuplicateContractKey,
-  KeyInput,
 }
 
 import transaction.ContractStateMachine._
@@ -108,6 +107,7 @@ object CSMConversion {
   def toOriginal(s: State): StateOriginal[NodeId] = {
     StateOriginal[NodeId](
       s.locallyCreated,
+      s.inputContractIds,
       globalKeyInputs(s.globalKeys),
       toOriginal(s.activeState),
       s.rollbackStack.map(toOriginal),
@@ -118,6 +118,7 @@ object CSMConversion {
   def toAlt(consumed: Set[ContractId])(s: StateOriginal[NodeId]): State = {
     State(
       s.locallyCreated,
+      s.inputContractIds,
       consumed,
       globalKeys(s.globalKeyInputs),
       toAlt(s.activeState),
@@ -388,9 +389,24 @@ object CSMConversion {
       lc: Set[ContractId],
   ): Unit = {
     require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+
     unfold(addKey(toAlt(consumed)(s), gk, keyInput).visitLookup(gk, keyResolution))
-    resolveKeyToAlt(s, keyInput, gk, consumed, unbound, lc)
-    unfold(addKey(toAlt(consumed)(s), gk, keyInput).activeKeys.getOrElse(gk, KeyInactive))
+    keyInput match {
+      case Some(cid) =>
+        witnessContractIdAddKey(s, cid, Some(gk), consumed, unbound, lc)
+        witnessContractIdToAlt(s, cid, consumed, unbound, lc)
+        resolveKeyToAlt(s.witnessContractId(cid), keyInput, gk, consumed, unbound, lc)
+        unfold(
+          addKey(toAlt(consumed)(s), gk, keyInput)
+            .witnessContractId(cid)
+            .activeKeys
+            .getOrElse(gk, KeyInactive)
+        )
+      case None() =>
+        resolveKeyToAlt(s, keyInput, gk, consumed, unbound, lc)
+        unfold(addKey(toAlt(consumed)(s), gk, keyInput).activeKeys.getOrElse(gk, KeyInactive))
+    }
+
   }.ensuring(
     addKey(toAlt(consumed)(s), gk, keyInput).visitLookup(gk, keyResolution) ==
       toAlt(consumed)(s.visitLookup(gk, keyInput, keyResolution))
@@ -422,6 +438,59 @@ object CSMConversion {
 
   @pure
   @opaque
+  def witnessContractIdToAlt(
+      s: StateOriginal[NodeId],
+      cid: ContractId,
+      consumed: Set[ContractId],
+      unbound: Set[ContractId],
+      lc: Set[ContractId],
+  ): Unit = {
+    require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+    unfold(toAlt(consumed)(s).witnessContractId(cid))
+  }.ensuring(
+    toAlt(consumed)(s).witnessContractId(cid) == toAlt(consumed)(s.witnessContractId(cid))
+  )
+
+  @pure
+  @opaque
+  def witnessContractIdAddKey(
+      s: StateOriginal[NodeId],
+      cid: ContractId,
+      gkey: Option[GlobalKey],
+      consumed: Set[ContractId],
+      unbound: Set[ContractId],
+      lc: Set[ContractId],
+  ): Unit = {
+    require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+    unfold(toAlt(consumed)(s), gkey, Some(cid))
+  }.ensuring(
+    addKey(toAlt(consumed)(s), gkey, Some(cid)).witnessContractId(cid)
+      == addKey(toAlt(consumed)(s).witnessContractId(cid), gkey, Some(cid))
+  )
+
+  @pure
+  @opaque
+  def visitFetchToAlt(
+      s: StateOriginal[NodeId],
+      cid: ContractId,
+      gkey: Option[GlobalKey],
+      consumed: Set[ContractId],
+      unbound: Set[ContractId],
+      lc: Set[ContractId],
+  ): Unit = {
+    require(stateInvariant(toAlt(consumed)(s))(unbound, lc))
+    unfold(addKey(toAlt(consumed)(s), gkey, Some(cid)).visitFetch(cid, gkey))
+    witnessContractIdAddKey(s, cid, gkey, consumed, unbound, lc)
+    witnessContractIdToAlt(s, cid, consumed, unbound, lc)
+    assertKeyMappingToAlt(s.witnessContractId(cid), cid, gkey, consumed, unbound, lc)
+  }.ensuring(
+    addKey(toAlt(consumed)(s), gkey, Some(cid)).visitFetch(cid, gkey) == toAlt(consumed)(
+      s.visitFetch(cid, gkey, true)
+    )
+  )
+
+  @pure
+  @opaque
   def visitExerciseToAlt(
       s: StateOriginal[NodeId],
       nodeId: NodeId,
@@ -438,6 +507,10 @@ object CSMConversion {
     unfold(
       addKey(toAlt(consumed)(s), gk, Some(targetId))
         .visitExercise(nodeId, targetId, gk, byKey, consuming)
+    )
+    unfold(
+      addKey(toAlt(consumed)(s), gk, Some(targetId))
+        .witnessContractId(targetId)
     )
 
     assertKeyMappingToAlt(s, targetId, gk, consumed, unbound, lc)
@@ -496,7 +569,7 @@ object CSMConversion {
     node match {
       case create: Node.Create => visitCreateToAlt(s, create.coid, create.gkeyOpt, consumed)
       case fetch: Node.Fetch =>
-        assertKeyMappingToAlt(s, fetch.coid, fetch.gkeyOpt, consumed, unbound, lc)
+        visitFetchToAlt(s, fetch.coid, fetch.gkeyOpt, consumed, unbound, lc)
       case lookup: Node.LookupByKey =>
         unfold(addKey(toAlt(consumed)(s), node.gkeyOpt, nodeActionKeyMapping(node)))
         visitLookupToAlt(s, lookup.gkey, lookup.result, lookup.result, consumed, unbound, lc)
@@ -564,9 +637,7 @@ object CSMConversion {
       Right[KeyInputError, StateOriginal[NodeId]](s.endRollback())
     } else {
       Left[KeyInputError, StateOriginal[NodeId]](
-        Left[InconsistentContractKey, DuplicateContractKey](
-          InconsistentContractKey(GlobalKey(BigInt(0)))
-        )
+        InconsistentContractKeyKIError(InconsistentContractKey(GlobalKey(BigInt(0))))
       )
     }
   }

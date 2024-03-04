@@ -19,7 +19,7 @@ import stainless.annotation._
 import scala.annotation.targetName
 import stainless.collection._
 import utils.Value.ContractId
-import utils.Transaction.{DuplicateContractKey, InconsistentContractKey, KeyInputError}
+import utils.TransactionErrors.{DuplicateContractKey, InconsistentContractKey, KeyInputError}
 import utils._
 
 import ContractStateMachine._
@@ -64,6 +64,18 @@ object CSMInconsistencyDef {
     k.exists(gk => inconsistencyCheck(s, gk, m))
   }
 
+  @pure
+  def inconsistencyCheck(s: State, contractId: ContractId): Boolean = {
+    s.locallyCreated.union(s.inputContractIds).contains(contractId)
+  }
+
+  @pure
+  def inconsistencyCheck(s: State, node: Node): Boolean = {
+    node match {
+      case create: Node.Create => inconsistencyCheck(s, create.coid)
+      case _ => false
+    }
+  }
 }
 
 object CSMInconsistency {
@@ -86,7 +98,8 @@ object CSMInconsistency {
     }
 
   }.ensuring(
-    (s.visitCreate(contractId, mbKey).isLeft == inconsistencyCheck(s, mbKey, KeyInactive))
+    s.visitCreate(contractId, mbKey).isLeft ==
+      (inconsistencyCheck(s, mbKey, KeyInactive) || inconsistencyCheck(s, contractId))
   )
 
   /** The resulting state after handling a Fetch node is defined if any only if the inconsistencyCondition is not met
@@ -106,6 +119,16 @@ object CSMInconsistency {
     }
 
   }.ensuring(s.assertKeyMapping(cid, gkey).isLeft == inconsistencyCheck(s, gkey, KeyActive(cid)))
+
+  /** The resulting state after handling a Fetch node is defined if any only if the inconsistencyCondition is not met
+    */
+  @pure
+  @opaque
+  def visitFetchUndefined(s: State, cid: ContractId, gkey: Option[GlobalKey]): Unit = {
+    require(containsOptionKey(s)(gkey))
+    unfold(s.visitFetch(cid, gkey))
+    assertKeyMappingUndefined(s, cid, gkey)
+  }.ensuring(s.visitFetch(cid, gkey).isLeft == inconsistencyCheck(s, gkey, KeyActive(cid)))
 
   /** The resulting state after handling an Exercise node is defined if any only if the inconsistencyCondition is not met
     */
@@ -160,7 +183,7 @@ object CSMInconsistency {
 
     node match {
       case create: Node.Create => visitCreateUndefined(s, create.coid, create.gkeyOpt)
-      case fetch: Node.Fetch => assertKeyMappingUndefined(s, fetch.coid, fetch.gkeyOpt)
+      case fetch: Node.Fetch => visitFetchUndefined(s, fetch.coid, fetch.gkeyOpt)
       case lookup: Node.LookupByKey =>
         unfold(containsOptionKey(s)(node.gkeyOpt))
         unfold(inconsistencyCheck(s, node.gkeyOpt, nodeActionKeyMapping(node)))
@@ -169,7 +192,11 @@ object CSMInconsistency {
         visitExerciseUndefined(s, id, exe.targetCoid, exe.gkeyOpt, exe.byKey, exe.consuming)
     }
   }.ensuring(
-    s.handleNode(id, node).isLeft == inconsistencyCheck(s, node.gkeyOpt, nodeActionKeyMapping(node))
+    s.handleNode(id, node).isLeft ==
+      (inconsistencyCheck(s, node.gkeyOpt, nodeActionKeyMapping(node)) || inconsistencyCheck(
+        s,
+        node,
+      ))
   )
 
   /** If two states are defined after handling a node then their activeKeys shared the same entry for the node's key
@@ -363,7 +390,10 @@ object CSMInconsistency {
 
     node match {
       case create: Node.Create => visitCreateActiveKeysGet(s, create.coid, create.gkeyOpt, k2)
-      case fetch: Node.Fetch => assertKeyMappingActiveKeysGet(s, fetch.coid, fetch.gkeyOpt, k2)
+      case fetch: Node.Fetch => {
+        unfold(s.visitFetch(fetch.coid, fetch.gkeyOpt))
+        assertKeyMappingActiveKeysGet(s, fetch.coid, fetch.gkeyOpt, k2)
+      }
       case lookup: Node.LookupByKey => visitLookupActiveKeysGet(s, lookup.gkey, lookup.result, k2)
       case exe: Node.Exercise =>
         unfold(stateNodeCompatibility(s, node, unbound, lc, TraversalDirection.Down))
@@ -535,6 +565,35 @@ object CSMInconsistency {
     )
   )
 
+  /** If two states are defined after handling a Fetch node then they share the same mapping for the node's key entry in
+    * the activeKeys.
+    */
+  @opaque
+  @pure
+  def visitFetchDifferentStatesActiveKeysGet(
+      s1: State,
+      s2: State,
+      cid: ContractId,
+      mbKey: Option[GlobalKey],
+  ): Unit = {
+    require(s1.visitFetch(cid, mbKey).isRight)
+    require(s2.visitFetch(cid, mbKey).isRight)
+
+    unfold(s1.visitFetch(cid, mbKey))
+    unfold(s2.visitFetch(cid, mbKey))
+    assertKeyMappingDifferentStatesActiveKeysGet(s1, s2, cid, mbKey)
+
+  }.ensuring(
+    mbKey.forall(gk =>
+      (s1.visitFetch(cid, mbKey).get.activeKeys.get(gk) == s2
+        .visitFetch(cid, mbKey)
+        .get
+        .activeKeys
+        .get(gk)) &&
+        (s1.visitFetch(cid, mbKey).get.activeKeys.get(gk) == Some(KeyActive(cid)))
+    )
+  )
+
   /** If two states are defined after handling an Exercise node then they share the same mapping for the node's key entry in
     * the activeKeys.
     */
@@ -632,7 +691,7 @@ object CSMInconsistency {
         }
         visitCreateDifferentStatesActiveKeysGet(s1, s2, create.coid, create.gkeyOpt)
       case fetch: Node.Fetch =>
-        assertKeyMappingDifferentStatesActiveKeysGet(s1, s2, fetch.coid, fetch.gkeyOpt)
+        visitFetchDifferentStatesActiveKeysGet(s1, s2, fetch.coid, fetch.gkeyOpt)
       case lookup: Node.LookupByKey =>
         unfold(containsOptionKey(s1)(node.gkeyOpt))
         unfold(containsOptionKey(s2)(node.gkeyOpt))

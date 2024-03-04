@@ -19,7 +19,7 @@ import stainless.annotation._
 import scala.annotation.targetName
 import stainless.collection._
 import utils.Value.ContractId
-import utils.Transaction.{DuplicateContractKey, InconsistentContractKey, KeyInputError}
+import utils.TransactionErrors.{CreateError, InconsistentContractKey, KeyInputError}
 import utils._
 
 import ContractStateMachine._
@@ -68,17 +68,18 @@ object CSMHelpers {
     */
   @pure
   def toKeyInputError(e: Either[InconsistentContractKey, State]): Either[KeyInputError, State] = {
-    sameStateLeftProj(e, Left[InconsistentContractKey, DuplicateContractKey](_))
-    e.left.map(Left[InconsistentContractKey, DuplicateContractKey](_))
+    sameStateLeftProj(e, KeyInputError.inject(_: InconsistentContractKey))
+    e.left.map(KeyInputError.inject)
   }.ensuring(res =>
     propagatesBothError(e, res) &&
       sameState(e, res)
   )
+
   @pure
-  @targetName("toKeyInputErrorDuplicateContractKey")
-  def toKeyInputError(e: Either[DuplicateContractKey, State]): Either[KeyInputError, State] = {
-    sameStateLeftProj(e, Right[InconsistentContractKey, DuplicateContractKey](_))
-    e.left.map(Right[InconsistentContractKey, DuplicateContractKey](_))
+  @targetName("toKeyInputErrorCreateError")
+  def toKeyInputError(e: Either[CreateError, State]): Either[KeyInputError, State] = {
+    sameStateLeftProj(e, KeyInputError.from(_: CreateError))
+    e.left.map(KeyInputError.from)
   }.ensuring(res =>
     propagatesBothError(e, res) &&
       sameState(e, res)
@@ -165,10 +166,13 @@ object CSMHelpers {
   def advanceIsDefined(init: State, substate: State): Unit = {
     require(!substate.withinRollbackScope)
   }.ensuring(
-    init.advance(substate).isRight ==
+    init.advance(substate).isRight == (
       substate.globalKeys.keySet.forall(k =>
         init.activeKeys.get(k).forall(m => Some(m) == substate.globalKeys.get(k))
       )
+        &&
+          !substate.locallyCreated.exists(init.locallyCreated.union(init.inputContractIds).contains)
+    )
   )
 
 }
