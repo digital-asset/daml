@@ -79,7 +79,7 @@ safetyStep :: ExprF Safety -> Safety
 safetyStep = \case
   EVarF _ -> Safe 0
   EValF _ -> Unsafe
-  EBuiltinF b ->
+  EBuiltinFunF b ->
     case b of
       BEInt64 _           -> Safe 0
       BENumeric _         -> Safe 0
@@ -499,7 +499,7 @@ isWorthLifting :: Expr -> Bool
 isWorthLifting = \case
     EVar _ -> False
     EVal _ -> False
-    EBuiltin _ -> False
+    EBuiltinFun _ -> False
     EEnumCon _ _ -> False
     ENil _ -> False
     ENone _ -> False

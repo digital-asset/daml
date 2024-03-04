@@ -13,7 +13,7 @@ import com.daml.lf.value.Value.ContractId
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBUFetchKey, SBULookupKey}
+import com.daml.lf.speedy.SBuiltinFun.{SBFetchAny, SBUFetchKey, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.speedy.Speedy.ContractInfo
 import com.daml.lf.transaction.GlobalKeyWithMaintainers

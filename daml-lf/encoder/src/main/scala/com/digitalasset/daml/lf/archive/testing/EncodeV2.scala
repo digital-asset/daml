@@ -541,7 +541,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           setString(value, builder.setVarInternedStr)
         case EVal(value) =>
           builder.setVal(value)
-        case EBuiltin(value) =>
+        case EBuiltinFun(value) =>
           builder.setBuiltin(value)
         case EBuiltinCon(builtinCon) =>
           builder.setBuiltinCon(builtinCon)
@@ -593,7 +593,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case ETyApps(expr: Expr, typs0) =>
           expr match {
-            case EBuiltin(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
+            case EBuiltinFun(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
               val typs = typs0.toSeq.toList
               builder.setBuiltin(indirectBuiltinFunctionMap(builtin)(typs).proto)
             case _ =>

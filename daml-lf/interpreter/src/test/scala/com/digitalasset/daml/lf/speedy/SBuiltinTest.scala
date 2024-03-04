@@ -10,7 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
-import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
+import com.daml.lf.speedy.SBuiltinFun.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
@@ -1439,7 +1439,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     "throw DamlArithmeticException with proper name and argument" in {
 
-      import SBuiltin._
+      import SBuiltinFun._
       import Numeric.Scale.{MinValue => MinScale, MaxValue => MaxScale}
       import java.math.BigDecimal
 
@@ -1564,7 +1564,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "SBCrash" - {
     "throws an exception" in {
-      inside(eval(SEApp(SEBuiltin(SBCrash("test message")), Array(SUnit)))) {
+      inside(eval(SEApp(SEBuiltinFun(SBCrash("test message")), Array(SUnit)))) {
         case Left(SErrorCrash(_, message)) =>
           message should endWith("test message")
       }
@@ -1673,7 +1673,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           evalOnLedger(
             SELet1(
               contractInfoSExpr,
-              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId, None)), Array(SELocS(1))),
+              SEAppAtomic(
+                SEBuiltinFun(SBCacheDisclosedContract(contractId, None)),
+                Array(SELocS(1)),
+              ),
             ),
             getContract = Map(
               contractId -> Versioned(
@@ -1724,7 +1727,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             SELet1(
               contractInfoSExpr,
               SEAppAtomic(
-                SEBuiltin(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
+                SEBuiltinFun(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
                 Array(SELocS(1)),
               ),
             ),

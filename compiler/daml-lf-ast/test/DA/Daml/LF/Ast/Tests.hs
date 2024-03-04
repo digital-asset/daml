@@ -180,15 +180,15 @@ substitutionTests = testGroup "substitution"
                 in assertBool msg test
 
         -- no binder tests
-        assertExprSubst x (EBuiltin (BEInt64 42))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
             (EVar y)
             (EVar y)
-        assertExprSubst x (EBuiltin (BEInt64 42))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
             (EVar x)
-            (EBuiltin (BEInt64 42))
-        assertExprSubst x (EBuiltin (BEInt64 42))
-            (EBuiltin BEAddInt64 `ETmApp` EVar x `ETmApp` EVar y)
-            (EBuiltin BEAddInt64 `ETmApp` EBuiltin (BEInt64 42) `ETmApp` EVar y)
+            (EBuiltinFun (BEInt64 42))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
+            (EBuiltinFun BEAddInt64 `ETmApp` EVar x `ETmApp` EVar y)
+            (EBuiltinFun BEAddInt64 `ETmApp` EBuiltinFun (BEInt64 42) `ETmApp` EVar y)
         assertTypeSubst a TInt64
             (ENone (TVar b))
             (ENone (TVar b))
@@ -200,7 +200,7 @@ substitutionTests = testGroup "substitution"
             (ENone (TInt64 :-> TVar b))
 
         -- bound variable matches substitution variable
-        assertExprSubst x (EBuiltin (BEInt64 42))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
             (ETmLam (x, TInt64) (EVar x))
             (ETmLam (x, TInt64) (EVar x))
         assertTypeSubst a TInt64
@@ -211,13 +211,13 @@ substitutionTests = testGroup "substitution"
             (ENone (TForall (a, KStar) (TVar a)))
 
         -- bound variable does not match substitution variable nor appears free in substitution body
-        assertExprSubst x (EBuiltin (BEInt64 42))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
             (ETmLam (y, TInt64) (EVar x))
-            (ETmLam (y, TInt64) (EBuiltin (BEInt64 42)))
-        assertExprSubst x (EBuiltin (BEInt64 42))
+            (ETmLam (y, TInt64) (EBuiltinFun (BEInt64 42)))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
             (ETmLam (y, TInt64) (EVar y))
             (ETmLam (y, TInt64) (EVar y))
-        assertExprSubst x (EBuiltin (BEInt64 42))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
             (ETmLam (y, TInt64) (EVar z))
             (ETmLam (y, TInt64) (EVar z))
         assertTypeSubst a TInt64
@@ -240,9 +240,9 @@ substitutionTests = testGroup "substitution"
             (ENone (TForall (b, KStar) (TVar c)))
 
         -- mixture of both cases above
-        assertExprSubst x (EBuiltin (BEInt64 42))
+        assertExprSubst x (EBuiltinFun (BEInt64 42))
             (ETmLam (y, TInt64) (ETmLam (x, TInt64) (EVar x) `ETmApp` EVar x))
-            (ETmLam (y, TInt64) (ETmLam (x, TInt64) (EVar x) `ETmApp` EBuiltin (BEInt64 42)))
+            (ETmLam (y, TInt64) (ETmLam (x, TInt64) (EVar x) `ETmApp` EBuiltinFun (BEInt64 42)))
         assertTypeSubst a TInt64
             (ETyLam (b, KStar) (ETyLam (a, KStar) (ENone (TVar a)) `ETmApp` ENone (TVar a)))
             (ETyLam (b, KStar) (ETyLam (a, KStar) (ENone (TVar a)) `ETmApp` ENone TInt64))
@@ -252,8 +252,8 @@ substitutionTests = testGroup "substitution"
 
         -- bound variable appears in substitution body
         assertExprSubst x (EVar y)
-            (ETmLam (y, TInt64) (EBuiltin (BEInt64 42)))
-            (ETmLam (y, TInt64) (EBuiltin (BEInt64 42)))
+            (ETmLam (y, TInt64) (EBuiltinFun (BEInt64 42)))
+            (ETmLam (y, TInt64) (EBuiltinFun (BEInt64 42)))
         assertExprSubst x (EVar y)
             (ETmLam (y, TInt64) (EVar x))
             (ETmLam (z, TInt64) (EVar y))

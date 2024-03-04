@@ -61,7 +61,7 @@ object Ast {
   final case class EVal(value: ValueRef) extends ExprAtomic
 
   /** Reference to a builtin function. */
-  final case class EBuiltin(value: BuiltinFunction) extends ExprAtomic
+  final case class EBuiltinFun(value: BuiltinFunction) extends ExprAtomic
 
   /** Builtin constructor, e.g. True, False or Unit. */
   final case class EBuiltinCon(value: BuiltinCon) extends ExprAtomic

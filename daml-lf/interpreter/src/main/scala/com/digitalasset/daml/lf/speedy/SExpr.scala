@@ -22,7 +22,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.scalautil.Statement.discard
 
@@ -84,7 +84,7 @@ private[lf] object SExpr {
   }
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltin) extends SExprAtomic {
+  final case class SEBuiltinFun(b: SBuiltinFun) extends SExprAtomic {
     override def lookupValue(machine: Machine[_]): SValue = {
       /* special case for nullary record constructors */
       b match {
@@ -125,7 +125,7 @@ private[lf] object SExpr {
   /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
     * of `args' matches the builtin arity.
     */
-  final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltin, args: Array[SExprAtomic])
+  final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltinFun, args: Array[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
@@ -146,7 +146,7 @@ private[lf] object SExpr {
     // smart constructor (used in Anf.scala): detect special case of saturated builtin application
     def apply(func: SExprAtomic, args: Array[SExprAtomic]): SExpr = {
       func match {
-        case SEBuiltin(builtin) if builtin.arity == args.length =>
+        case SEBuiltinFun(builtin) if builtin.arity == args.length =>
           SEAppAtomicSaturatedBuiltin(builtin, args)
         case _ =>
           SEAppAtomicGeneral(func, args) // general case

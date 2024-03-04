@@ -246,7 +246,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
-        parseExpr(stringToParse) shouldBe Right(EBuiltin(expectedBuiltin))
+        parseExpr(stringToParse) shouldBe Right(EBuiltinFun(expectedBuiltin))
       )
     }
 

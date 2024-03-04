@@ -26,7 +26,7 @@ private[speedy] object SExprIterable {
     case SExpr.SETryCatch(body, handler) => Iterator(body, handler)
     case SExpr.SEScopeExercise(body) => Iterator(body)
     case SExpr.SEPreventCatch(body) => Iterator(body)
-    case SExpr.SEBuiltin(_) => Iterator.empty
+    case SExpr.SEBuiltinFun(_) => Iterator.empty
     case SExpr.SELocA(_) => Iterator.empty
     case SExpr.SELocS(_) => Iterator.empty
     case SExpr.SEValue(v) => iterator(v)

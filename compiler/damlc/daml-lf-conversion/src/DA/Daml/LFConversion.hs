@@ -288,7 +288,7 @@ getDepOrphanModules = dep_orphs . mi_deps
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
-        pure $ EBuiltin $ BEInt64 (fromInteger x)
+        pure $ EBuiltinFun $ BEInt64 (fromInteger x)
     | otherwise =
         unsupported "Int literal out of bounds." (negate x)
 
@@ -301,7 +301,7 @@ convertRationalDecimal env num denom
     -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
     -- upper limit.
     if 10 ^ maxPrecision `mod` denom == 0 && abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 then
-        pure $ EBuiltin $
+        pure $ EBuiltinFun $
           BENumeric $ numericFromDecimal $ fromRational r
     else
         unsupported
@@ -335,7 +335,7 @@ convertRationalNumericMono env scale num denom
             (num, denom)
 
     | otherwise =
-        pure $ EBuiltin $ BENumeric $
+        pure $ EBuiltinFun $ BENumeric $
             numeric (fromIntegral scale)
                     ((num * 10^scale) `div` denom)
 
@@ -351,9 +351,9 @@ convertRationalBigNumeric num denom = case numericFromRational rational of
     Left _ -> invalid
     Right n ->
         let scale = numericScale n
-        in pure (EBuiltin BENumericToBigNumeric
+        in pure (EBuiltinFun BENumericToBigNumeric
             `ETyApp` TNat (typeLevelNat scale)
-            `ETmApp` EBuiltin (BENumeric n))
+            `ETmApp` EBuiltinFun (BENumeric n))
 
     where
         rational = num % denom
@@ -1097,8 +1097,8 @@ convertTemplate env mc tplTypeCon tbinds@TemplateBinds{..}
                     , CaseAlternative (CPBool False)
                         $ EThrow TBool (TCon (preconditionFailedTypeCon majorLfVersion))
                         $ mkPreconditionFailed majorLfVersion
-                        $ EBuiltin BEAppendText
-                            `ETmApp` EBuiltin (BEText "Template precondition violated: " )
+                        $ EBuiltinFun BEAppendText
+                            `ETmApp` EBuiltinFun (BEText "Template precondition violated: " )
                             `ETmApp`
                                 (EStructProj (FieldName "m_show")
                                     (EVal (qualifyLocally env (convVal showDict)))
@@ -1626,15 +1626,15 @@ convertExpr env0 e = do
     go env (VarIn GHC_CString "fromString") (LExpr x : args)
         = fmap (, args) $ convertExpr env x
     go env (VarIn GHC_CString "unpackCString#") (LExpr (Lit (LitString x)) : args)
-        = pure $ (, args) $ EBuiltin $ BEText $ unpackCString x
+        = pure $ (, args) $ EBuiltinFun $ BEText $ unpackCString x
     go env (VarIn GHC_CString "unpackCStringUtf8#") (LExpr (Lit (LitString x)) : args)
-        = pure $ (, args) $ EBuiltin $ BEText $ unpackCStringUtf8 x
+        = pure $ (, args) $ EBuiltinFun $ BEText $ unpackCStringUtf8 x
     go env x@(VarIn Control_Exception_Base _) (LType t1 : LType t2 : LExpr (untick -> Lit (LitString s)) : args)
         = fmap (, args) $ do
         x' <- convertExpr env x
         t1' <- convertType env t1
         t2' <- convertType env t2
-        pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (unpackCStringUtf8 s)))
+        pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltinFun (BEText (unpackCStringUtf8 s)))
     go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
         | not $ envLfVersion env `supports` featureExtendedInterfaces
         = conversionError "Guarded exercises are only available with --target=1.dev"
@@ -1668,7 +1668,7 @@ convertExpr env0 e = do
         pure $ ECase x'
             [ CaseAlternative
                 (mkCasePattern (mkVariantCon (getOccText con)))
-                (EBuiltin $ BEInt64 i)
+                (EBuiltinFun $ BEInt64 i)
             | (con, i) <- zip (tyConDataCons t) [0..]
             ]
     go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
@@ -1682,7 +1682,7 @@ convertExpr env0 e = do
               pure (op1 BTInt64 `ETmApp` x' `ETmApp` y')
     go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr x : args) = fmap (, args) $ do
         x' <- convertExpr env x
-        pure $ mkBuiltinEqual BTInt64 `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
+        pure $ mkBuiltinEqual BTInt64 `ETmApp` EBuiltinFun (BEInt64 1) `ETmApp` x'
     go env (VarIn GHC_Prim "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
         tt' <- convertType env tt
@@ -1696,7 +1696,7 @@ convertExpr env0 e = do
               = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccText con))
               | otherwise
               = EVariantCon (fromTCon tt') (mkVariantCon (getOccText con)) EUnit
-            mkEqInt i = mkBuiltinEqual BTInt64 `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
+            mkEqInt i = mkBuiltinEqual BTInt64 `ETmApp` x' `ETmApp` EBuiltinFun (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
     -- built ins because they are lazy
@@ -1784,7 +1784,7 @@ convertExpr env0 e = do
                 fmap (, allArgs) $ convertExpr env tryCatch
 
     go env (VarIn GHC_Types "[]") (LType (TypeCon (Is "Char") []) : args)
-        = pure $ (, args) $ EBuiltin (BEText T.empty)
+        = pure $ (, args) $ EBuiltinFun (BEText T.empty)
     go env (VarIn GHC_Types "[]") args
         = withTyArg env KStar args $ \env t args -> pure (ENil t, args)
     go env (VarIn GHC_Types ":") args =
@@ -1802,7 +1802,7 @@ convertExpr env0 e = do
     go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
 
     go env (VarIn GHC_Types (RoundingModeName roundingModeLit)) args =
-        pure (EBuiltin (BERoundingMode roundingModeLit), args)
+        pure (EBuiltinFun (BERoundingMode roundingModeLit), args)
 
     go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
     go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
@@ -1952,9 +1952,9 @@ mkCase env scrutineeType resultType scrutinee galts =
         GCBAlts [] ->
             ECase scrutinee
                 [ CaseAlternative CPDefault
-                $ EBuiltin BEError
+                $ EBuiltinFun BEError
                     `ETyApp` resultType
-                    `ETmApp` EBuiltin (BEText "Unreachable") ]
+                    `ETmApp` EBuiltinFun (BEText "Unreachable") ]
                 -- GHC only generates empty case alternatives if it is sure the scrutinee will fail.
                 -- LF doesn't support empty alternatives, so we turn this into a non-empty alternative.
         GCBAlts alts ->
@@ -1970,7 +1970,7 @@ mkCase env scrutineeType resultType scrutinee galts =
 
     mkScrutineeEquality :: LF.Expr -> LF.Expr
     mkScrutineeEquality pattern
-        = EBuiltin BEEqualGeneric `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
+        = EBuiltinFun BEEqualGeneric `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool
@@ -2197,7 +2197,7 @@ convertAlt env ty (DataAlt con, [], x)
     -- Rounding mode constructors do not have built-in LF support for pattern matching,
     -- but we get the same result with equality tests.
     | NameIn GHC_Types (RoundingModeName roundingModeLit) <- con
-    = GCA (GCPEquality (EBuiltin (BERoundingMode roundingModeLit))) <$> convertExpr env x
+    = GCA (GCPEquality (EBuiltinFun (BERoundingMode roundingModeLit))) <$> convertExpr env x
 
 convertAlt env ty (DataAlt con, [a,b], x)
     | NameIn GHC_Types ":" <- con
@@ -2338,7 +2338,7 @@ convertCoercion env co = evalStateT (go env co) 0
     mkListFMap a b f = do
         h <- mkLamBinder
         t <- mkLamBinder
-        pure $ \x -> EBuiltin BEFoldr
+        pure $ \x -> EBuiltinFun BEFoldr
             `ETyApp` a
             `ETyApp` TList b
             `ETmApp` (ETmLam (h, a) $ ETmLam (t, TList b) $ ECons b (f (EVar h)) (EVar t))

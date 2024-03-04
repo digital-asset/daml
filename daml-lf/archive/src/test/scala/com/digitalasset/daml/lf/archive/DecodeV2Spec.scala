@@ -370,62 +370,64 @@ class DecodeV2Spec
 
     val numericBuiltinTestCases = Table(
       "numeric builtins" -> "expected output",
-      DamlLf2.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltin(Ast.BAddNumeric),
-      DamlLf2.BuiltinFunction.SUB_NUMERIC -> Ast.EBuiltin(Ast.BSubNumeric),
-      DamlLf2.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
-      DamlLf2.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltin(Ast.BNumericToText),
-      DamlLf2.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
+      DamlLf2.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltinFun(Ast.BAddNumeric),
+      DamlLf2.BuiltinFunction.SUB_NUMERIC -> Ast.EBuiltinFun(Ast.BSubNumeric),
+      DamlLf2.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltinFun(Ast.BRoundNumeric),
+      DamlLf2.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltinFun(Ast.BNumericToText),
+      DamlLf2.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltinFun(Ast.BNumericToInt64),
     )
 
     val comparisonBuiltinCases = Table(
       "compare builtins" -> "expected output",
-      DamlLf2.BuiltinFunction.EQUAL_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TInt64),
-      DamlLf2.BuiltinFunction.LEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TInt64),
-      DamlLf2.BuiltinFunction.LESS_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TInt64),
-      DamlLf2.BuiltinFunction.GEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TInt64),
-      DamlLf2.BuiltinFunction.GREATER_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TInt64),
-      DamlLf2.BuiltinFunction.EQUAL_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDate),
-      DamlLf2.BuiltinFunction.LEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDate),
-      DamlLf2.BuiltinFunction.LESS_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDate),
-      DamlLf2.BuiltinFunction.GEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDate),
-      DamlLf2.BuiltinFunction.GREATER_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDate),
-      DamlLf2.BuiltinFunction.EQUAL_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TTimestamp),
-      DamlLf2.BuiltinFunction.LEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TTimestamp),
-      DamlLf2.BuiltinFunction.LESS_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TTimestamp),
-      DamlLf2.BuiltinFunction.GEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TTimestamp),
+      DamlLf2.BuiltinFunction.EQUAL_INT64 -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BEqual), TInt64),
+      DamlLf2.BuiltinFunction.LEQ_INT64 -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLessEq), TInt64),
+      DamlLf2.BuiltinFunction.LESS_INT64 -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLess), TInt64),
+      DamlLf2.BuiltinFunction.GEQ_INT64 -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreaterEq), TInt64),
+      DamlLf2.BuiltinFunction.GREATER_INT64 -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreater), TInt64),
+      DamlLf2.BuiltinFunction.EQUAL_DATE -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BEqual), TDate),
+      DamlLf2.BuiltinFunction.LEQ_DATE -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLessEq), TDate),
+      DamlLf2.BuiltinFunction.LESS_DATE -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLess), TDate),
+      DamlLf2.BuiltinFunction.GEQ_DATE -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreaterEq), TDate),
+      DamlLf2.BuiltinFunction.GREATER_DATE -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreater), TDate),
+      DamlLf2.BuiltinFunction.EQUAL_TIMESTAMP -> Ast
+        .ETyApp(Ast.EBuiltinFun(Ast.BEqual), TTimestamp),
+      DamlLf2.BuiltinFunction.LEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLessEq), TTimestamp),
+      DamlLf2.BuiltinFunction.LESS_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLess), TTimestamp),
+      DamlLf2.BuiltinFunction.GEQ_TIMESTAMP -> Ast
+        .ETyApp(Ast.EBuiltinFun(Ast.BGreaterEq), TTimestamp),
       DamlLf2.BuiltinFunction.GREATER_TIMESTAMP -> Ast
-        .ETyApp(Ast.EBuiltin(Ast.BGreater), TTimestamp),
-      DamlLf2.BuiltinFunction.EQUAL_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TText),
-      DamlLf2.BuiltinFunction.LEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TText),
-      DamlLf2.BuiltinFunction.LESS_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TText),
-      DamlLf2.BuiltinFunction.GEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TText),
-      DamlLf2.BuiltinFunction.GREATER_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TText),
-      DamlLf2.BuiltinFunction.EQUAL_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TParty),
-      DamlLf2.BuiltinFunction.LEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TParty),
-      DamlLf2.BuiltinFunction.LESS_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TParty),
-      DamlLf2.BuiltinFunction.GEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TParty),
-      DamlLf2.BuiltinFunction.GREATER_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TParty),
+        .ETyApp(Ast.EBuiltinFun(Ast.BGreater), TTimestamp),
+      DamlLf2.BuiltinFunction.EQUAL_TEXT -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BEqual), TText),
+      DamlLf2.BuiltinFunction.LEQ_TEXT -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLessEq), TText),
+      DamlLf2.BuiltinFunction.LESS_TEXT -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLess), TText),
+      DamlLf2.BuiltinFunction.GEQ_TEXT -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreaterEq), TText),
+      DamlLf2.BuiltinFunction.GREATER_TEXT -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreater), TText),
+      DamlLf2.BuiltinFunction.EQUAL_PARTY -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BEqual), TParty),
+      DamlLf2.BuiltinFunction.LEQ_PARTY -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLessEq), TParty),
+      DamlLf2.BuiltinFunction.LESS_PARTY -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BLess), TParty),
+      DamlLf2.BuiltinFunction.GEQ_PARTY -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreaterEq), TParty),
+      DamlLf2.BuiltinFunction.GREATER_PARTY -> Ast.ETyApp(Ast.EBuiltinFun(Ast.BGreater), TParty),
     )
 
     val genericComparisonBuiltinCases = Table(
       "generic comparison builtins" -> "expected output",
-      DamlLf2.BuiltinFunction.EQUAL -> Ast.EBuiltin(Ast.BEqual),
-      DamlLf2.BuiltinFunction.LESS_EQ -> Ast.EBuiltin(Ast.BLessEq),
-      DamlLf2.BuiltinFunction.LESS -> Ast.EBuiltin(Ast.BLess),
-      DamlLf2.BuiltinFunction.GREATER_EQ -> Ast.EBuiltin(Ast.BGreaterEq),
-      DamlLf2.BuiltinFunction.GREATER -> Ast.EBuiltin(Ast.BGreater),
+      DamlLf2.BuiltinFunction.EQUAL -> Ast.EBuiltinFun(Ast.BEqual),
+      DamlLf2.BuiltinFunction.LESS_EQ -> Ast.EBuiltinFun(Ast.BLessEq),
+      DamlLf2.BuiltinFunction.LESS -> Ast.EBuiltinFun(Ast.BLess),
+      DamlLf2.BuiltinFunction.GREATER_EQ -> Ast.EBuiltinFun(Ast.BGreaterEq),
+      DamlLf2.BuiltinFunction.GREATER -> Ast.EBuiltinFun(Ast.BGreater),
     )
 
     val negativeBuiltinTestCases = Table(
       "other builtins" -> "expected output",
       // We do not need to test all other builtin
-      DamlLf2.BuiltinFunction.ADD_INT64 -> Ast.EBuiltin(Ast.BAddInt64),
-      DamlLf2.BuiltinFunction.APPEND_TEXT -> Ast.EBuiltin(Ast.BAppendText),
+      DamlLf2.BuiltinFunction.ADD_INT64 -> Ast.EBuiltinFun(Ast.BAddInt64),
+      DamlLf2.BuiltinFunction.APPEND_TEXT -> Ast.EBuiltinFun(Ast.BAppendText),
     )
 
     val contractIdTextConversionCases = Table(
       "builtin" -> "expected output",
-      DamlLf2.BuiltinFunction.CONTRACT_ID_TO_TEXT -> Ast.EBuiltin(Ast.BContractIdToText),
+      DamlLf2.BuiltinFunction.CONTRACT_ID_TO_TEXT -> Ast.EBuiltinFun(Ast.BContractIdToText),
     )
 
     "translate non numeric/decimal builtin as is for any version" in {
@@ -529,21 +531,21 @@ class DecodeV2Spec
       val exceptionBuiltinCases = Table(
         "exception builtins" -> "expected output",
         DamlLf2.BuiltinFunction.SCALE_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BScaleBigNumeric),
+          Ast.EBuiltinFun(Ast.BScaleBigNumeric),
         DamlLf2.BuiltinFunction.PRECISION_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BPrecisionBigNumeric),
+          Ast.EBuiltinFun(Ast.BPrecisionBigNumeric),
         DamlLf2.BuiltinFunction.ADD_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BAddBigNumeric),
+          Ast.EBuiltinFun(Ast.BAddBigNumeric),
         DamlLf2.BuiltinFunction.SUB_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BSubBigNumeric),
+          Ast.EBuiltinFun(Ast.BSubBigNumeric),
         DamlLf2.BuiltinFunction.MUL_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BMulBigNumeric),
+          Ast.EBuiltinFun(Ast.BMulBigNumeric),
         DamlLf2.BuiltinFunction.DIV_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BDivBigNumeric),
+          Ast.EBuiltinFun(Ast.BDivBigNumeric),
         DamlLf2.BuiltinFunction.NUMERIC_TO_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BNumericToBigNumeric),
+          Ast.EBuiltinFun(Ast.BNumericToBigNumeric),
         DamlLf2.BuiltinFunction.BIGNUMERIC_TO_TEXT ->
-          Ast.EBuiltin(Ast.BBigNumericToText),
+          Ast.EBuiltinFun(Ast.BBigNumericToText),
       )
 
       forEveryVersion { version =>
@@ -597,7 +599,7 @@ class DecodeV2Spec
       val exceptionBuiltinCases = Table(
         "exception primitive" -> "expected output",
         toProtoExpr(DamlLf2.BuiltinFunction.ANY_EXCEPTION_MESSAGE) ->
-          Ast.EBuiltin(Ast.BAnyExceptionMessage),
+          Ast.EBuiltinFun(Ast.BAnyExceptionMessage),
         DamlLf2.Expr
           .newBuilder()
           .setToAnyException(
@@ -898,7 +900,7 @@ class DecodeV2Spec
 
         Table(
           "input" -> "expected output",
-          typeRepTyConName -> Ast.EBuiltin(Ast.BTypeRepTyConName),
+          typeRepTyConName -> Ast.EBuiltinFun(Ast.BTypeRepTyConName),
         )
       }
 

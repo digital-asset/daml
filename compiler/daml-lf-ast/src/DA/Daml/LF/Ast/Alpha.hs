@@ -112,8 +112,8 @@ alphaExpr' env = \case
     EVal v1 -> \case
         EVal v2 -> v1 == v2
         _ -> False
-    EBuiltin b1 -> \case
-        EBuiltin b2 -> b1 == b2
+    EBuiltinFun b1 -> \case
+        EBuiltinFun b2 -> b1 == b2
         _ -> False
     ERecCon t1 fs1 -> \case
         ERecCon t2 fs2 -> alphaTypeConApp env t1 t2

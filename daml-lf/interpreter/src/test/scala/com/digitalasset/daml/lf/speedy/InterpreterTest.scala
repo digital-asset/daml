@@ -68,7 +68,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                   EApp(
                     EApp(
                       EApp(
-                        EBuiltin(BFoldr),
+                        EBuiltinFun(BFoldr),
                         EAbs(
                           ("x", int64),
                           EAbs(
@@ -88,7 +88,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                 None,
               ),
             ),
-            EApp(EApp(EApp(EBuiltin(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
+            EApp(EApp(EApp(EBuiltinFun(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
           ),
           None,
         )
