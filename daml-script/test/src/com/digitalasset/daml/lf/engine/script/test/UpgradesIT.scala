@@ -25,6 +25,7 @@ import scala.sys.process._
 import scala.util.matching.Regex
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
+import scala.jdk.CollectionConverters._
 
 class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
 
@@ -179,6 +180,8 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
 
   // Ensures no package name is defined twice across all test files
   def getTestCases(testFileDir: Path): Seq[TestCase] = {
+    import java.lang.management.ManagementFactory
+    println(ManagementFactory.getRuntimeMXBean().getInputArguments())
     val cases = getTestCasesUnsafe(testFileDir)
     val packageNameDefiners = mutable.Map[String, Seq[String]]()
     for {
@@ -267,27 +270,40 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           }
       }
 
-    lazy val packagePattern: Regex = "\\{- PACKAGE *\n((?:.|[\r\n])+?)-\\}".r
-    lazy val modulePattern: Regex = "\\{- MODULE *\n((?:.|[\r\n])+?)-\\}".r
+    private def findComments(commentTitle: String, lines: Seq[String]): Seq[String] =
+      lines.foldLeft((None: Option[String], Seq[String]())) {
+        case ((None, cs), line) if line.startsWith(s"{- $commentTitle") =>
+          (Some(""), cs)
+        case ((None, cs), _) =>
+          (None, cs)
+        case ((Some(str), cs), line) if line.startsWith("-}") =>
+          (None, cs :+ str)
+        case ((Some(str), cs), line) =>
+          (Some(str + "\n" + line), cs)
+      } match {
+        case (None, cs) => cs
+        case (Some(str), _) =>
+          throw new IllegalArgumentException(
+            s"Missing \"-}\" to close $commentTitle containing\n$str"
+          )
+      }
 
     def readFromFile(path: Path): Seq[PackageDefinition] = {
-      val fileContents = Files.readString(path)
+      val fileLines = Files.readAllLines(path).asScala.toSeq
       val packageComments =
-        packagePattern.findAllMatchIn(fileContents).toSeq.map { m =>
+        findComments("PACKAGE", fileLines).map { comment =>
           yaml.parser
-            .parse(m.group(1))
+            .parse(comment)
             .left
             .map(err => err: Error)
             .flatMap(_.as[PackageComment])
             .fold(throw _, identity)
         }
       val moduleMap: Map[String, Seq[Seq[VersionedLine]]] =
-        modulePattern
-          .findAllMatchIn(fileContents)
-          .toSeq
-          .map { m =>
+        findComments("MODULE", fileLines)
+          .map { comment =>
             yaml.parser
-              .parse(m.group(1))
+              .parse(comment)
               .left
               .map(err => err: Error)
               .flatMap(_.as[ModuleComment])
