@@ -10,10 +10,24 @@ module DA.BigNumeric where
 
 #else
 
--- | This module exposes operations for working with the `BigNumeric` type.
-module DA.BigNumeric where
+-- | This module exposes `BigNumeric` type and the operations for working with it.
+module DA.BigNumeric (
+     BigNumeric
+   , RoundingMode(..)
+   , scale
+   , precision
+   , div
+   , round
+   , shiftRight
+   , shiftLeft
+   , roundToNumeric
+  ) where
 
-import GHC.Types (primitive)
+import GHC.Types ( 
+      primitive
+    , BigNumeric
+    , RoundingMode(..)
+  )
 import Prelude hiding (round)
 
 -- | Calculate the scale of a `BigNumeric` number. The `BigNumeric` number is
