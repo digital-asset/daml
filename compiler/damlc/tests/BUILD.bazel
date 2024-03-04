@@ -215,7 +215,7 @@ da_haskell_test(
     srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
     args = [
         "--daml-lf-version",
-        "1.dev",  # script2 only supports 2.x
+        "1.dev",
         "--daml-script-v2",
         "true",
     ],
