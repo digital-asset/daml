@@ -32,8 +32,14 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       values = ArrayList(a, b),
     )
 
+  // TODO(https://github.com/digital-asset/daml/issues/18457): delete once test cases using keys
+  //  are split
+  override lazy val devMode = true
+
   lazy val darPath: Path = rlocation(
-    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dar")
+    // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
+    //  non-dev dar
+    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dev.dar")
   )
   lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
 
