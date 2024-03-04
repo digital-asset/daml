@@ -86,6 +86,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       batchingConfig: BatchingConfig = BatchingConfig(),
       nonStandardConfig: Boolean = false,
       dbMigrateAndStart: Boolean = false,
+      disableUpgradeValidation: Boolean = false,
       devVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,

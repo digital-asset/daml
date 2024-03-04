@@ -50,5 +50,7 @@ object MockedNodeParameters {
     override def dbMigrateAndStart: Boolean = false
 
     override def useNewTrafficControl: Boolean = false
+
+    override def disableUpgradeValidation: Boolean = false
   }
 }

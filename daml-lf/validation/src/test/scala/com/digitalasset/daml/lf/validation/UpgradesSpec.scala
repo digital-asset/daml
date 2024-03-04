@@ -24,8 +24,25 @@ import com.daml.lf.archive.DarReader
 import scala.util.{Success, Failure}
 import com.daml.lf.validation.Upgrading
 
-class UpgradesSpecAdminAPI extends UpgradesSpec {
-  override def suffix = "Admin API"
+class UpgradesSpecAdminAPIWithoutValidation extends UpgradesSpecAdminAPI with ShortTests {
+  override def suffix = "Admin API without validation"
+  override val disableUpgradeValidation = true
+}
+
+class UpgradesSpecLedgerAPIWithoutValidation extends UpgradesSpecLedgerAPI with ShortTests {
+  override def suffix = "Ledger API without validation"
+  override val disableUpgradeValidation = true
+}
+
+class UpgradesSpecAdminAPIWithValidation extends UpgradesSpecAdminAPI with LongTests {
+  override def suffix = "Admin API with validation"
+}
+
+class UpgradesSpecLedgerAPIWithValidation extends UpgradesSpecLedgerAPI with LongTests {
+  override def suffix = "Ledger API with validation"
+}
+
+abstract class UpgradesSpecAdminAPI extends UpgradesSpec {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -55,8 +72,7 @@ class UpgradesSpecAdminAPI extends UpgradesSpec {
   }
 }
 
-class UpgradesSpecLedgerAPI extends UpgradesSpec {
-  override def suffix = "Ledger API"
+abstract class UpgradesSpecLedgerAPI extends UpgradesSpec {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -83,147 +99,30 @@ class UpgradesSpecLedgerAPI extends UpgradesSpec {
   }
 }
 
-abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
-  override lazy val devMode = true;
-  override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
-
-  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
-    val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
-    assert(dar != null, s"Unable to load test package resource '$path'")
-
-    val testPackage = Future {
-      val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
-      assert(in != null, s"Unable to load test package resource '$path'")
-      in
+trait ShortTests { this: UpgradesSpec =>
+  s"Upload-time Upgradeability Checks ($suffix)" should {
+    s"report no upgrade errors for valid upgrade ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-ValidUpgrade-v1.dar",
+        "test-common/upgrades-ValidUpgrade-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
     }
-    val bytes = testPackage.map(ByteString.readFrom)
-    bytes.onComplete(_ => testPackage.map(_.close()))
-    bytes.map((dar.main.pkgId, _))
-  }
-
-  def uploadPackagePair(
-      path: Upgrading[String]
-  ): Future[Upgrading[(PackageId, Option[Throwable])]]
-
-  private def assertPackageUpgradeCheck(failureMessage: Option[String])(
-      testPackageV1Id: PackageId,
-      uploadV1Result: Option[Throwable],
-      testPackageV2Id: PackageId,
-      uploadV2Result: Option[Throwable],
-  )(cantonLogSrc: String): Assertion = {
-    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
-    cantonLogSrc should include(
-      s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
-    )
-    uploadV1Result match {
-      case Some(err) =>
-        fail(s"Uploading first package $testPackageV1Id failed with message: $err");
-      case _ => {}
-    }
-
-    failureMessage match {
-      // If a failure message is expected, look for it in the canton logs
-      case Some(additionalInfo) => {
-        cantonLogSrc should include(
-          s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo"
-        )
-        uploadV2Result match {
-          case None =>
-            fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
-          case Some(err) => {
-            val msg = err.toString
-            msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
-            msg should include(
-              "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
-            )
-          }
-        }
-      }
-
-      // If a failure is not expected, look for a success message
-      case None => {
-        cantonLogSrc should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
-        uploadV2Result match {
-          case None => succeed;
-          case Some(err) => {
-            fail(
-              s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
-            );
-          }
-        }
-      }
+    s"report error when module is missing in upgrading package ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-MissingModule-v1.dar",
+        "test-common/upgrades-MissingModule-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
+          )
+        ),
+      )
     }
   }
+}
 
-  private def assertDuplicatePackageUpload()(
-      testPackageV1Id: PackageId,
-      uploadV1Result: Option[Throwable],
-      testPackageV2Id: PackageId,
-      uploadV2Result: Option[Throwable],
-  )(cantonLogSrc: String): Assertion = {
-    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
-    uploadV1Result should be(empty)
-    cantonLogSrc should include(
-      s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
-    )
-    uploadV2Result should be(empty)
-  }
-
-  private def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
-      testPackageV1Id: PackageId,
-      uploadV1Result: Option[Throwable],
-      testPackageV2Id: PackageId,
-      uploadV2Result: Option[Throwable],
-  )(cantonLogSrc: String): Assertion = {
-    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
-    uploadV1Result match {
-      case Some(err) =>
-        fail(s"Uploading first package $testPackageV1Id failed with message: $err");
-      case _ => {}
-    }
-    cantonLogSrc should include regex (
-      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV2Id, location=.+, packageVersion=$packageVersion, uploadedPackage=$testPackageV1Id\\}"
-    )
-    uploadV2Result match {
-      case None =>
-        fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
-      case Some(err) => {
-        val msg = err.toString
-        msg should include("INVALID_ARGUMENT: KNOWN_DAR_VERSION")
-        msg should include(failureMessage)
-      }
-    }
-  }
-
-  private def testPackagePair(
-      upgraded: String,
-      upgrading: String,
-      uploadAssertion: (
-          PackageId,
-          Option[Throwable],
-          PackageId,
-          Option[Throwable],
-      ) => String => Assertion,
-  ): Future[Assertion] = {
-    for {
-      Upgrading(
-        (testPackageV1Id, uploadV1Result),
-        (testPackageV2Id, uploadV2Result),
-      ) <- uploadPackagePair(Upgrading(upgraded, upgrading))
-    } yield {
-      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
-      try {
-        uploadAssertion(testPackageV1Id, uploadV1Result, testPackageV2Id, uploadV2Result)(
-          cantonLog.mkString
-        )
-      } finally {
-        cantonLog.close()
-      }
-    }
-  }
-
-  def suffix: String
-
+trait LongTests { this: UpgradesSpec =>
   s"Upload-time Upgradeability Checks ($suffix)" should {
     s"uploading the same package multiple times succeeds ($suffix)" ignore {
       testPackagePair(
@@ -618,4 +517,153 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       )
     }
   }
+}
+
+abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
+  override lazy val devMode = true;
+  override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
+
+  protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
+    val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
+    assert(dar != null, s"Unable to load test package resource '$path'")
+
+    val testPackage = Future {
+      val in = new FileInputStream(new File(BazelRunfiles.rlocation(path)))
+      assert(in != null, s"Unable to load test package resource '$path'")
+      in
+    }
+    val bytes = testPackage.map(ByteString.readFrom)
+    bytes.onComplete(_ => testPackage.map(_.close()))
+    bytes.map((dar.main.pkgId, _))
+  }
+
+  def uploadPackagePair(
+      path: Upgrading[String]
+  ): Future[Upgrading[(PackageId, Option[Throwable])]]
+
+  def assertPackageUpgradeCheck(failureMessage: Option[String])(
+      testPackageV1Id: PackageId,
+      uploadV1Result: Option[Throwable],
+      testPackageV2Id: PackageId,
+      uploadV2Result: Option[Throwable],
+  )(cantonLogSrc: String): Assertion = {
+    if (disableUpgradeValidation) {
+      cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV1Id")
+      cantonLogSrc should include(s"Skipping upgrade validation for package $testPackageV2Id")
+    } else {
+      uploadV1Result match {
+        case Some(err) =>
+          fail(s"Uploading first package $testPackageV1Id failed with message: $err");
+        case _ => {}
+      }
+
+      cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
+      cantonLogSrc should include(
+        s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
+      )
+
+      failureMessage match {
+        // If a failure message is expected, look for it in the canton logs
+        case Some(additionalInfo) => {
+          cantonLogSrc should include(
+            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:{additionalInfo=$additionalInfo"
+          )
+          uploadV2Result match {
+            case None =>
+              fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
+            case Some(err) => {
+              val msg = err.toString
+              msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
+              msg should include(
+                "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
+              )
+            }
+          }
+        }
+
+        // If a failure is not expected, look for a success message
+        case None => {
+          cantonLogSrc should include(s"Typechecking upgrades for $testPackageV2Id succeeded.")
+          uploadV2Result match {
+            case None => succeed;
+            case Some(err) => {
+              fail(
+                s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  def assertDuplicatePackageUpload()(
+      testPackageV1Id: PackageId,
+      uploadV1Result: Option[Throwable],
+      testPackageV2Id: PackageId,
+      uploadV2Result: Option[Throwable],
+  )(cantonLogSrc: String): Assertion = {
+    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
+    uploadV1Result should be(empty)
+    cantonLogSrc should include(
+      s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
+    )
+    uploadV2Result should be(empty)
+  }
+
+  def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
+      testPackageV1Id: PackageId,
+      uploadV1Result: Option[Throwable],
+      testPackageV2Id: PackageId,
+      uploadV2Result: Option[Throwable],
+  )(cantonLogSrc: String): Assertion = {
+    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
+    uploadV1Result match {
+      case Some(err) =>
+        fail(s"Uploading first package $testPackageV1Id failed with message: $err");
+      case _ => {}
+    }
+    cantonLogSrc should include regex (
+      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV2Id, location=.+, packageVersion=$packageVersion, uploadedPackage=$testPackageV1Id\\}"
+    )
+    uploadV2Result match {
+      case None =>
+        fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
+      case Some(err) => {
+        val msg = err.toString
+        msg should include("INVALID_ARGUMENT: KNOWN_DAR_VERSION")
+        msg should include(failureMessage)
+      }
+    }
+  }
+
+  def testPackagePair(
+      upgraded: String,
+      upgrading: String,
+      uploadAssertion: (
+          PackageId,
+          Option[Throwable],
+          PackageId,
+          Option[Throwable],
+      ) => String => Assertion,
+  ): Future[Assertion] = {
+    for {
+      Upgrading(
+        (testPackageV1Id, uploadV1Result),
+        (testPackageV2Id, uploadV2Result),
+      ) <- uploadPackagePair(Upgrading(upgraded, upgrading))
+    } yield {
+      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log")
+      try {
+        uploadAssertion(testPackageV1Id, uploadV1Result, testPackageV2Id, uploadV2Result)(
+          cantonLog.mkString
+        )
+      } finally {
+        cantonLog.close()
+      }
+    }
+  }
+
+  def suffix: String
+
 }

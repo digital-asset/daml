@@ -340,6 +340,7 @@ object TestingTimeServiceConfig {
   * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
+  * @param disableUpgradeValidation Disable upgrade validation
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -370,6 +371,7 @@ final case class ParticipantNodeParameterConfig(
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     override val useNewTrafficControl: Boolean = false,
+    disableUpgradeValidation: Boolean = true,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores
