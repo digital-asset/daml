@@ -11,13 +11,13 @@ import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.v2.commands.Commands
-import com.daml.ledger.api.v1.commands._
-import com.daml.ledger.api.v1.event.InterfaceView
+import com.daml.ledger.api.v2.commands._
+import com.daml.ledger.api.v2.event.InterfaceView
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
-import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
-import com.daml.ledger.api.v1.transaction_filter.{
+import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,

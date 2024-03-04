@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
-import com.daml.ledger.api.v1.package_service._
+import com.daml.ledger.api.v2.package_service._
 import com.google.protobuf.ByteString
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec

@@ -5,8 +5,8 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.UserManagementServiceAuthorization
-import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
-import com.daml.ledger.api.v1.admin.user_management_service._
+import com.daml.ledger.api.v2.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
+import com.daml.ledger.api.v2.admin.user_management_service._
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.grpc.ServerServiceDefinition
 

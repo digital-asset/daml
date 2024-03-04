@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 package script
 
-import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v2.value
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._

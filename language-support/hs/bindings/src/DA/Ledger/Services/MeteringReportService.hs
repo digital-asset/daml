@@ -19,7 +19,7 @@ import DA.Ledger.LedgerService
 import DA.Ledger.Types
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Daml.Ledger.Api.V1.Admin.MeteringReportService as LL
+import qualified Com.Daml.Ledger.Api.V2.Admin.MeteringReportService as LL
 import Data.Maybe (maybeToList)
 import qualified Data.Time.Clock.System as System
 import qualified Data.Time.Format.ISO8601 as ISO8601

@@ -5,12 +5,12 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import java.util.concurrent.atomic.AtomicReference
 
-import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.{LedgerItem, participantOffsetOrdering}
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
-import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v2.event.Event
+import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.{
   PARTICIPANT_BEGIN,

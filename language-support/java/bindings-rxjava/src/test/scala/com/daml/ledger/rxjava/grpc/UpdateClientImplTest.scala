@@ -11,8 +11,8 @@ import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Absolute
-import com.daml.ledger.api.v1.transaction_filter.TemplateFilter
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
+import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.FiltersByParty
 import io.reactivex.Observable
 import org.scalacheck.Shrink
