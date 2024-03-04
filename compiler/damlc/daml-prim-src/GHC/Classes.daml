@@ -211,8 +211,6 @@ instance Eq (Numeric n) where
 #ifdef DAML_BIGNUMERIC
 instance Eq BigNumeric where
     (==) = primitive @"BEEqual"
-instance Eq RoundingMode where
-    (==) = primitive @"BEEqual"
 #endif
 
 instance Eq Text where
@@ -341,11 +339,6 @@ instance Ord (Numeric n) where
 
 #ifdef DAML_BIGNUMERIC
 instance Ord BigNumeric where
-    (<)  = primitive @"BELess"
-    (<=) = primitive @"BELessEq"
-    (>=) = primitive @"BEGreaterEq"
-    (>)  = primitive @"BEGreater"
-instance Ord RoundingMode where
     (<)  = primitive @"BELess"
     (<=) = primitive @"BELessEq"
     (>=) = primitive @"BEGreaterEq"

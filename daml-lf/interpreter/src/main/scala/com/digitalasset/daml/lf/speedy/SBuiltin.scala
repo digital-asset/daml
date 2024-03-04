@@ -239,6 +239,12 @@ private[lf] object SBuiltin {
       case otherwise => unexpectedType(i, "SRecord", otherwise)
     }
 
+  final protected def getSEnum(args: util.ArrayList[SValue], i: Int): SEnum =
+    args.get(i) match {
+      case enum: SEnum => enum
+      case otherwise => unexpectedType(i, "SRecord", otherwise)
+    }
+
   final protected def getSStruct(args: util.ArrayList[SValue], i: Int): SStruct =
     args.get(i) match {
       case struct: SStruct => struct
@@ -907,12 +913,11 @@ private[lf] object SBuiltin {
   final object SBDivBigNumeric extends SBuiltinArithmetic("DIV_BIGNUMERIC", 4) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
       val unchekedScale = getSInt64(args, 0)
-      val unchekedRoundingMode = getSInt64(args, 1)
+      val roundingModeIndex = getSEnum(args, 1).constructorRank
       val x = getSBigNumeric(args, 2)
       val y = getSBigNumeric(args, 3)
       for {
         scale <- SBigNumeric.checkScale(unchekedScale).toOption
-        roundingModeIndex <- scala.util.Try(Math.toIntExact(unchekedRoundingMode)).toOption
         roundingMode <- java.math.RoundingMode.values().lift(roundingModeIndex)
         uncheckedResult <- handleArithmeticException(x.divide(y, scale, roundingMode))
         result <- SBigNumeric.fromBigDecimal(uncheckedResult).toOption
