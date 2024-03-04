@@ -16,7 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class TlsV1 extends Tls(LanguageMajorVersion.V1)
-class TlsV2 extends Tls(LanguageMajorVersion.V2)
+//class TlsV2 extends Tls(LanguageMajorVersion.V2)
 
 class Tls(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

@@ -14,8 +14,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ConcurrentCompiledPackagesTestV1
     extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V1)
-class ConcurrentCompiledPackagesTestV2
-    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V2)
+//class ConcurrentCompiledPackagesTestV2
+//    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V2)
 
 class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

@@ -313,14 +313,14 @@ daml_compile(
         "//daml-script/test:upgrades-my-templates-v2.dar",
     ],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
     ],
     module_prefixes = {
         "upgrades-my-templates-1.0.0": "V1",
         "upgrades-my-templates-2.0.0": "V2",
     },
     project_name = "upgrades-test",
-    target = "2.dev",
+    target = "1.dev",
     version = "0.0.1",
 )
 
@@ -328,7 +328,7 @@ daml_compile(
     name = "upgrades-my-templates-v1",
     srcs = [":daml/upgrades/v1/MyTemplates.daml"],
     project_name = "upgrades-my-templates",
-    target = "2.dev",
+    target = "1.dev",
     version = "1.0.0",
 )
 
@@ -336,7 +336,7 @@ daml_compile(
     name = "upgrades-my-templates-v2",
     srcs = [":daml/upgrades/v2/MyTemplates.daml"],
     project_name = "upgrades-my-templates",
-    target = "2.dev",
+    target = "1.dev",
     version = "2.0.0",
 )
 

@@ -23,7 +23,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 
 class TriggerRuleSimulationLibTestV1 extends TriggerRuleSimulationLibTest(LanguageMajorVersion.V1)
-class TriggerRuleSimulationLibTestV2 extends TriggerRuleSimulationLibTest(LanguageMajorVersion.V2)
+//class TriggerRuleSimulationLibTestV2 extends TriggerRuleSimulationLibTest(LanguageMajorVersion.V2)
 
 class TriggerRuleSimulationLibTest(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

@@ -40,11 +40,10 @@ object LanguageVersion {
       -1
   }
 
-  val All = {
-    val v1Versions = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
-    val v2Versions = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
-    v1Versions ++ v2Versions
-  }
+  val AllV1 = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+  val AllV2 = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
+
+  val All = AllV1 ++ AllV2
 
   val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev, v2_1, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")

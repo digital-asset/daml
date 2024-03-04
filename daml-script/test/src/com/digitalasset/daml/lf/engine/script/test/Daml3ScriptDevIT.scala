@@ -8,7 +8,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.lf.language.LanguageMajorVersion.V2
+import com.daml.lf.language.LanguageMajorVersion.V1
 import com.daml.lf.speedy.SValue._
 
 import java.nio.file.Paths
@@ -19,8 +19,9 @@ import org.scalatest.wordspec.AsyncWordSpec
 class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
+  final override protected val cantonFixtureDebugMode = true
 
-  override val majorLanguageVersion: LanguageMajorVersion = V2
+  override val majorLanguageVersion: LanguageMajorVersion = V1
 
   lazy val trySubmitConcurrentlyTestDarPath =
     BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/try-submit-concurrently-test.dar"))

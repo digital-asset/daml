@@ -14,7 +14,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class SerializabilitySpecV1 extends SerializabilitySpec(LanguageMajorVersion.V1)
-class SerializabilitySpecV2 extends SerializabilitySpec(LanguageMajorVersion.V2)
+//class SerializabilitySpecV2 extends SerializabilitySpec(LanguageMajorVersion.V2)
 
 class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

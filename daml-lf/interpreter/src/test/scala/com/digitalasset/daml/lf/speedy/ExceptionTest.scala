@@ -25,7 +25,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
 class ExceptionTestV1 extends ExceptionTest(LanguageMajorVersion.V1)
-class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
+//class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
 
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
 class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)

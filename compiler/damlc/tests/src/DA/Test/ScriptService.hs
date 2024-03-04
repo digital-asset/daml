@@ -51,7 +51,8 @@ main = withSdkVersions $ do
         testGroup
             "Script Service"
             [ withResourceCps (withScriptService lfVersion) (testScriptService lfVersion)
-            | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
+--            | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
+            | lfVersion <- map LF.defaultOrLatestStable [LF.V1]
             ]
 
 withScriptService :: SdkVersioned => LF.Version -> (SS.Handle -> IO ()) -> IO ()

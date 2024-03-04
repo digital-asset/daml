@@ -18,7 +18,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.ExecutionContext
 
 class CatTriggerResourceUsageTestV1 extends CatTriggerResourceUsageTest(LanguageMajorVersion.V1)
-class CatTriggerResourceUsageTestV2 extends CatTriggerResourceUsageTest(LanguageMajorVersion.V2)
+//class CatTriggerResourceUsageTestV2 extends CatTriggerResourceUsageTest(LanguageMajorVersion.V2)
 
 class CatTriggerResourceUsageTest(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec

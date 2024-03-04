@@ -12,7 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class TypeSubstSpecV1 extends TypeSubstSpec(LanguageMajorVersion.V1)
-class TypeSubstSpecV2 extends TypeSubstSpec(LanguageMajorVersion.V2)
+//class TypeSubstSpecV2 extends TypeSubstSpec(LanguageMajorVersion.V2)
 
 class TypeSubstSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

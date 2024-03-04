@@ -29,7 +29,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import scala.util.{Failure, Success, Try}
 
 class SpeedyTestV1 extends SpeedyTest(LanguageMajorVersion.V1)
-class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
+//class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
 
 class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

@@ -64,7 +64,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
         triggerStore = Some(expectedJdbcConfig),
         timeProviderType = TimeProviderType.Static,
         compilerConfig = CompilerConfigBuilder.Dev,
-        lfMajorVersion = LanguageMajorVersion.V2,
+        lfMajorVersion = LanguageMajorVersion.V1,
         initDb = true,
         ttl = 60.seconds,
         allowExistingSchema = true,
@@ -109,14 +109,12 @@ class CliSpec extends AsyncWordSpec with Matchers {
           "localhost",
           "--ledger-port",
           "9999",
-          "--lf-major-version",
-          "2",
           "--dev-mode-unsafe",
         ),
         Set(),
       ) shouldBe Some(Cli.Default.copy(ledgerHost = "localhost", ledgerPort = 9999))
       .map(_.loadFromCliArgs)
-      .map(_.copy(compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V2)))
+      .map(_.copy(compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V1)))
   }
 
   "should fail to load config from cli args on missing required params" in {

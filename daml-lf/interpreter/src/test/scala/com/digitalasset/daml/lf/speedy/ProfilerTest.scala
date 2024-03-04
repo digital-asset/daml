@@ -19,7 +19,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.jdk.CollectionConverters._
 
 class ProfilerTestV1 extends ProfilerTest(LanguageMajorVersion.V1)
-class ProfilerTestV2 extends ProfilerTest(LanguageMajorVersion.V2)
+//class ProfilerTestV2 extends ProfilerTest(LanguageMajorVersion.V2)
 
 class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec

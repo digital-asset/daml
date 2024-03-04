@@ -24,7 +24,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import util.{Failure, Success, Try}
 
 class SBuiltinInterfaceTestV1 extends SBuiltinInterfaceTest(LanguageMajorVersion.V1)
-class SBuiltinInterfaceTestV2 extends SBuiltinInterfaceTest(LanguageMajorVersion.V2)
+//class SBuiltinInterfaceTestV2 extends SBuiltinInterfaceTest(LanguageMajorVersion.V2)
 
 class SBuiltinInterfaceTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

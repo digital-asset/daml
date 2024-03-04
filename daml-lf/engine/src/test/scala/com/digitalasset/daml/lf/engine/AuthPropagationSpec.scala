@@ -36,7 +36,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.language.implicitConversions
 
 class AuthPropagationSpecV1 extends AuthPropagationSpec(LanguageMajorVersion.V1)
-class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
+//class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
 
 class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

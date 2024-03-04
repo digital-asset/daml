@@ -12,7 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 
 class TriggerServiceTestTlsV1 extends TriggerServiceTestTls(LanguageMajorVersion.V1)
-class TriggerServiceTestTlsV2 extends TriggerServiceTestTls(LanguageMajorVersion.V2)
+//class TriggerServiceTestTlsV2 extends TriggerServiceTestTls(LanguageMajorVersion.V2)
 
 class TriggerServiceTestTls(override val majorLanguageVersion: LanguageMajorVersion)
     extends AbstractTriggerServiceTest

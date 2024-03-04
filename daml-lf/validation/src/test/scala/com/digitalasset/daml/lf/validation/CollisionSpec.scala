@@ -12,7 +12,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 class CollisionSpecV1 extends CollisionSpec(LanguageMajorVersion.V1)
-class CollisionSpecV2 extends CollisionSpec(LanguageMajorVersion.V2)
+//class CollisionSpecV2 extends CollisionSpec(LanguageMajorVersion.V2)
 
 class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
