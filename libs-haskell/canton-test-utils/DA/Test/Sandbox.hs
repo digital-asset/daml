@@ -193,6 +193,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                                 ] ]
                           | Just secret <- [mbSharedSecret] ]
                           )
+                     , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | Static <- [timeMode]
@@ -208,11 +209,13 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                     , storage
                     , "public-api" Aeson..= port sequencerPublicPort
                     , "admin-api" Aeson..= port sequencerAdminPort
+                    , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
                     ]
                 ]
             , "mediators" Aeson..= Aeson.object
                 [ "mediator1" Aeson..= Aeson.object
                      [ "admin-api" Aeson..= port mediatorAdminPort
+                     , "crypto" Aeson..= Aeson.object [ "provider" Aeson..= ("tink" :: T.Text) ]
                      ]
                 ]
             ]
