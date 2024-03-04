@@ -68,7 +68,5 @@ def dar_to_java(**kwargs):
                 break
 
 test_exclusions = {
-    "1.6": ["src/it/daml/Tests/GenMapTest.daml", "src/it/daml/Tests/NumericTest.daml"],
-    "1.7": ["src/it/daml/Tests/GenMapTest.daml"],
-    "1.8": ["src/it/daml/Tests/GenMapTest.daml"],
+    "2.1": ["src/it/daml/Tests/ContractKeys.daml"],
 }
