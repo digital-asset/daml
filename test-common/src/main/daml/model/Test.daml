@@ -1,6 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 -- file that contains the declarations used in the sandbox tests
 
 module Test where
@@ -117,8 +119,10 @@ template ParameterShowcase
   where
     signatory operator
 
+#ifdef DAML_CONTRACT_KEYS
     key (operator, text) : (Party, Text)
     maintainer key._1
+#endif
 
     -- multiple argument choice
     choice Choice1 : ContractId ParameterShowcase
@@ -313,8 +317,10 @@ template TextKey
     signatory tkParty
     observer tkDisclosedTo
 
+#ifdef DAML_CONTRACT_KEYS
     key (tkParty, tkKey) : (Party, Text)
     maintainer key._1
+#endif
 
     choice TextKeyChoice : ()
       controller tkParty
@@ -333,6 +339,7 @@ template TextKeyOperations
   where
     signatory tkoParty
 
+#ifdef DAML_CONTRACT_KEYS
     nonconsuming choice TKOLookup: ()
       with
         keyToLookup: (Party, Text)
@@ -368,6 +375,7 @@ template TextKeyOperations
          exercise cid TextKeyChoice
          cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
          return ()
+#endif
 
 template LocalKeyVisibilityOperations
   with
@@ -377,6 +385,7 @@ template LocalKeyVisibilityOperations
     signatory sig
     observer obs
 
+#ifdef DAML_CONTRACT_KEYS
     nonconsuming choice LocalLookup : ()
       controller obs
       do cid <- create (TextKey sig "" [])
@@ -388,6 +397,7 @@ template LocalKeyVisibilityOperations
       do cid <- create (TextKey sig "" [])
          _ <- fetchByKey @TextKey (sig, "")
          archive cid
+#endif
 
 -- dummy contract to be divulged out-of-band
 template Divulgence1
@@ -433,8 +443,10 @@ template Delegated
     k : Text
   where
     signatory owner
+#ifdef DAML_CONTRACT_KEYS
     key (owner, k) : (Party, Text)
     maintainer key._1
+#endif
 
     choice Recreate: ()
       controller owner
@@ -463,6 +475,7 @@ template Delegation
       controller delegate
       do fetch delegated
 
+#ifdef DAML_CONTRACT_KEYS
     nonconsuming choice FetchByKeyDelegated: ()
       with
         p: Party
@@ -478,7 +491,7 @@ template Delegation
       controller delegate
       do _ <- lookupByKey @Delegated (p, k)
          pure ()
-
+#endif
 
 template ShowDelegated
   with
@@ -544,8 +557,10 @@ template MaintainerNotSignatory
   where
     signatory p
 
+#ifdef DAML_CONTRACT_KEYS
     key q: Party
     maintainer key
+#endif
 
 template CreateAndFetch
   with
@@ -579,8 +594,10 @@ template Asset
   where
     signatory issuer
     observer owner
+#ifdef DAML_CONTRACT_KEYS
     key issuer: Party
     maintainer key
+#endif
     choice AssetTransfer: ContractId Asset
       with newOwner: Party
       controller owner
@@ -593,8 +610,10 @@ template MultiPartyContract
   where
     signatory parties
 
+#ifdef DAML_CONTRACT_KEYS
     key this: MultiPartyContract
     maintainer key.parties
+#endif
 
     choice MPAddSignatories : ContractId MultiPartyContract
       with
@@ -613,6 +632,7 @@ template MultiPartyContract
         actualContract <- fetch cid
         return ()
 
+#ifdef DAML_CONTRACT_KEYS
     nonconsuming choice MPFetchOtherByKey : ()
       with
         keyToFetch: MultiPartyContract
@@ -631,14 +651,17 @@ template MultiPartyContract
       do
         actualCid <- lookupByKey @MultiPartyContract keyToFetch
         assertMsg "LookupOtherByKey value matches" (expectedCid == actualCid)
+#endif
 
 template WithKey
   with
     p : Party
   where
     signatory p
+#ifdef DAML_CONTRACT_KEYS
     key p : Party
     maintainer key
+#endif
 
     nonconsuming choice WithKey_NoOp: ()
       with divulgee: Party
