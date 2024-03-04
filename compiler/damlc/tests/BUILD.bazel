@@ -1050,6 +1050,7 @@ da_haskell_test(
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script.dar",
         "//daml-script/daml3:daml3-script.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
         ghc_pkg,
     ],
     hackage_deps = [
