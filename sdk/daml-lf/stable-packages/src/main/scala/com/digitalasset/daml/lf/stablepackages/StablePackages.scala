@@ -36,6 +36,15 @@ private[daml] sealed abstract class StablePackages {
   val Tuple2: Ref.TypeConName
   val Tuple3: Ref.TypeConName
   val Either: Ref.TypeConName
+  val RoundingMode: Ref.TypeConName
+  val RoundingUpRank = 0
+  val RoundingDownRank = 1
+  val RoundingCeilingRank = 2
+  val RoundingFloorRank = 3
+  val RoundingHalfUpRank = 4
+  val RoundingHalfDownRank = 5
+  val RoundingHalfEvenRank = 6
+  val RoundingUnnecessaryRank = 7
 }
 
 private[daml] final object StablePackagesV2
@@ -82,12 +91,15 @@ private[daml] sealed class StablePackagesImpl(
   override lazy val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
   override lazy val Tuple3: Ref.TypeConName = DA_Types.assertIdentifier("Tuple3")
   override lazy val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
+  override lazy val RoundingMode: Ref.TypeConName =
+    DA_Types_RoundingMode.assertIdentifier("RoundingMode")
 
   private lazy val DA_Exception_ArithmeticError = allPackagesByName("DA.Exception.ArithmeticError")
   private lazy val DA_Internal_Any = allPackagesByName("DA.Internal.Any")
   private lazy val DA_NonEmpty_Types = allPackagesByName("DA.NonEmpty.Types")
   private lazy val DA_Types = allPackagesByName("DA.Types")
   private lazy val GHC_Tuple = allPackagesByName("GHC.Tuple")
+  private lazy val DA_Types_RoundingMode = allPackagesByName("DA.Types.RoundingMode")
 
   /** All stable packages, indexed by module name. */
   private lazy val allPackagesByName: Map[String, StablePackage] =

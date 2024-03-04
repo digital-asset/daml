@@ -171,7 +171,7 @@ pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
 pattern TAny        = TBuiltin BTAny
 pattern TTypeRep    = TBuiltin BTTypeRep
-pattern TRoundingMode = TBuiltin BTRoundingMode
+pattern TRoundingMode = TCon (Qualified (PRImport (PackageId "46102a82d38452c2c8ff0ce0ec68932a24d9987db316473249a065de870716d1")) (ModuleName ["DA", "Types", "RoundingMode"]) (TypeConName ["RoundingMode"]))
 pattern TBigNumeric  = TBuiltin BTBigNumeric
 pattern TAnyException = TBuiltin BTAnyException
 

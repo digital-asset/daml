@@ -35,6 +35,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/stable-packages",
         "//libs-scala/scala-utils",
     ],
 )

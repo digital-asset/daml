@@ -1,0 +1,25 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.Types.RoundingMode (RoundingMode (..)) where
+
+-- | Rounding modes for `BigNumeric` operations like `div` and `round` from `DA.BigNumeric`.
+data RoundingMode
+  = RoundingUp -- ^ Round away from zero.
+  | RoundingDown -- ^ Round towards zero.
+  | RoundingCeiling -- ^ Round towards positive infinity.
+  | RoundingFloor -- ^ Round towards negative infinity.
+  | RoundingHalfUp
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round away from zero.
+  | RoundingHalfDown
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards zero.
+  | RoundingHalfEven
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards the even neighbor.
+  | RoundingUnnecessary
+      -- ^ Do not round. Raises an error if the result cannot
+      -- be represented without rounding at the targeted scale.
+
+

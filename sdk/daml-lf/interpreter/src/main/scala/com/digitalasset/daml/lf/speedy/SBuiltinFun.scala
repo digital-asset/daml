@@ -239,6 +239,12 @@ private[lf] object SBuiltinFun {
       case otherwise => unexpectedType(i, "SRecord", otherwise)
     }
 
+  final protected def getSEnum(args: util.ArrayList[SValue], i: Int): SEnum =
+    args.get(i) match {
+      case enum: SEnum => enum
+      case otherwise => unexpectedType(i, "SRecord", otherwise)
+    }
+
   final protected def getSStruct(args: util.ArrayList[SValue], i: Int): SStruct =
     args.get(i) match {
       case struct: SStruct => struct
@@ -477,8 +483,9 @@ private[lf] object SBuiltinFun {
       case SDate(date) => date.toString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
-      case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
-          _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
+      case SEnum(_, _, rank) => rank.toString
+      case _: SContractId | SToken | _: SAny | _: SList | _: SMap | _: SOptional | _: SPAP |
+          _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
         throw SErrorCrash(location, s"litToText: unexpected $x")
     }
 
@@ -908,13 +915,12 @@ private[lf] object SBuiltinFun {
   final object SBDivBigNumeric extends SBuiltinArithmetic("DIV_BIGNUMERIC", 4) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
       val unchekedScale = getSInt64(args, 0)
-      val unchekedRoundingMode = getSInt64(args, 1)
+      val uncheckedModeIndex = getSEnum(args, 1).constructorRank
       val x = getSBigNumeric(args, 2)
       val y = getSBigNumeric(args, 3)
       for {
         scale <- SBigNumeric.checkScale(unchekedScale).toOption
-        roundingModeIndex <- scala.util.Try(Math.toIntExact(unchekedRoundingMode)).toOption
-        roundingMode <- java.math.RoundingMode.values().lift(roundingModeIndex)
+        roundingMode <- java.math.RoundingMode.values().lift(uncheckedModeIndex)
         uncheckedResult <- handleArithmeticException(x.divide(y, scale, roundingMode))
         result <- SBigNumeric.fromBigDecimal(uncheckedResult).toOption
       } yield result

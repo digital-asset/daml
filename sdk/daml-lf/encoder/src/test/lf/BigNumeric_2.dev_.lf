@@ -13,7 +13,7 @@ module BigNumericMod {
     SUB_BIGNUMERIC;
   val mulBigNumeric: BigNumeric -> BigNumeric -> BigNumeric =
     MUL_BIGNUMERIC;
-  val divBigNumeric: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric =
+  val divBigNumeric: Int64 -> '46102a82d38452c2c8ff0ce0ec68932a24d9987db316473249a065de870716d1':DA.Types.RoundingMode:RoundingMode -> BigNumeric -> BigNumeric =
     DIV_BIGNUMERIC;
   val shiftRightBigNumeric: Int64 -> BigNumeric -> BigNumeric =
     SHIFT_RIGHT_BIGNUMERIC;
@@ -23,8 +23,5 @@ module BigNumericMod {
     NUMERIC_TO_BIGNUMERIC;
   val toTextBigNumeric: BigNumeric -> Text =
     BIGNUMERIC_TO_TEXT;
-
-  val roundingMode: RoundingMode =
-    ROUNDING_UP;
 
 }

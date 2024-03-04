@@ -503,6 +503,7 @@ baseImports =
           , "DA.Validation.Types"
           , "DA.Date.Types"
           , "DA.Time.Types"
+          , "DA.Types.RoundingMode"
           , "DA.Internal.Interface.AnyView.Types"
           , "DA.Action.State.Type"
           , "DA.Random.Types"

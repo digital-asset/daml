@@ -22,6 +22,7 @@ STABLE_PACKAGES = {
     "DA.Logic.Types": "lf-v{major}/daml-stdlib/DA-Logic-Types.dalf",
     "DA.Validation.Types": "lf-v{major}/daml-stdlib/DA-Validation-Types.dalf",
     "DA.Internal.Down": "lf-v{major}/daml-stdlib/DA-Internal-Down.dalf",
+    "DA.Types.RoundingMode": "lf-v{major}/daml-stdlib/DA-Types-RoundingMode.dalf",
     # These types are not serializable but they leak into typeclass methods so they need to be stable.,
     "DA.Internal.Any": "lf-v{major}/daml-stdlib/DA-Internal-Any.dalf",
     "DA.Internal.Template": "lf-v{major}/daml-stdlib/DA-Internal-Template.dalf",
