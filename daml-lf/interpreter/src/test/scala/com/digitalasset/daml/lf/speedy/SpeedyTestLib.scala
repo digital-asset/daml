@@ -9,18 +9,19 @@ import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
+import com.daml.lf.language.{Ast, PackageInterface, LanguageMajorVersion}
 import com.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
+import transaction.{SubmittedTransaction, GlobalKeyWithMaintainers, GlobalKey}
 import value.Value
 import scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
+@scala.annotation.nowarn("msg=match may not be exhaustive")
 private[speedy] object SpeedyTestLib {
 
   sealed abstract class Error(msg: String) extends RuntimeException("SpeedyTestLib.run:" + msg)
@@ -271,4 +272,55 @@ private[speedy] object SpeedyTestLib {
       }
     }
   }
+
+  val List(
+    roundingUp,
+    roundingDown,
+    roundingCeiling,
+    roundingFloor,
+    roundingHalfUp,
+    roundingHalfDown,
+    roundingHalfEven,
+    roundingUnnecessary,
+  ) = List(
+    "RoundingUp",
+    "RoundingDown",
+    "RoundingCeiling",
+    "RoundingFloor",
+    "RoundingHalfUp",
+    "RoundingHalfDown",
+    "RoundingHalfEven",
+    "RoundingUnnecessary",
+  ).map(cons =>
+    s"('${language.StablePackagesV2.RoundingMode.packageId}':DA.Types.RoundingMode:RoundingMode:$cons)"
+  )
+
+  val roundingModePkgId = language.StablePackagesV2.RoundingMode.packageId
+
+  val roundingModePkg = {
+    import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+
+    implicit val parserParameters: com.daml.lf.testing.parser.ParserParameters[this.type] =
+      ParserParameters(
+        defaultPackageId = roundingModePkgId,
+        languageVersion = language.LanguageVersion.v2_1,
+      )
+
+    p"""
+     metadata ( 'daml-stdlib-DA-Types-RoundingMode' : '1.0.0' )
+
+     module DA.Types.RoundingMode {
+        enum @serializable RoundingMode =
+            RoundingUp
+          | RoundingDown
+          | RoundingCeiling
+          | RoundingFloor
+          | RoundingHalfUp
+          | RoundingHalfDown
+          | RoundingHalfEven
+          | RoundingUnnecessary ;
+     }
+     """
+  }
+
 }

@@ -8,7 +8,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.testing.parser.Implicits.{SyntaxHelper}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -23,6 +23,8 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks {
+
+  import SpeedyTestLib._
 
   val helpers = new SBuiltinBigNumericTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
@@ -73,7 +75,7 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
         ("SUB_BIGNUMERIC", (a, b) => Some(assertFromBigDecimal(a subtract b))),
         ("MUL_BIGNUMERIC ", (a, b) => Some(assertFromBigDecimal(a multiply b))),
         (
-          "DIV_BIGNUMERIC 10 ROUNDING_HALF_EVEN",
+          s"DIV_BIGNUMERIC 10 $roundingHalfEven",
           {
             case (a, b) if b.signum != 0 =>
               Some(assertFromBigDecimal(a.divide(b, 10, java.math.RoundingMode.HALF_EVEN)))
@@ -175,40 +177,40 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
       "throws an exception in case of overflow" in {
         val testCases = Table(
           "arguments" -> "success",
-          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> true,
-          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> false,
-          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:one" -> true,
-          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC 1 BigNumeric:one)" -> false,
-          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:underSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> true,
-          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:overSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> false,
-          s"${MinScale} ROUNDING_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_UP BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_UP BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"-1000 ${roundingDown} (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> true,
+          s"-1000 ${roundingDown} (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> false,
+          s"-1000 ${roundingDown} (SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:one" -> true,
+          s"-1000 ${roundingDown} (SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC 1 BigNumeric:one)" -> false,
+          s"-1000 ${roundingDown} (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:underSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> true,
+          s"-1000 ${roundingDown} (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:overSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> false,
+          s"${MinScale} ${roundingUp} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ${roundingDown} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
+          s"${MinScale} ${roundingCeiling} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ${roundingFloor} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
+          s"${MinScale} ${roundingHalfUp} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ${roundingHalfDown} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
+          s"${MinScale} ${roundingHalfEven} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ${roundingUp} BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ${roundingDown} BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ${roundingCeiling} BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ${roundingFloor} BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ${roundingHalfUp} BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ${roundingHalfDown} BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ${roundingHalfEven} BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ${roundingUp} BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ${roundingDown} BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ${roundingCeiling} BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ${roundingFloor} BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ${roundingHalfUp} BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ${roundingHalfDown} BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ${roundingHalfEven} BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ${roundingUp} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"${MinScale} ${roundingDown} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
+          s"${MinScale} ${roundingCeiling} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
+          s"${MinScale} ${roundingFloor} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"${MinScale} ${roundingHalfUp} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"${MinScale} ${roundingHalfDown} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
+          s"${MinScale} ${roundingHalfEven} BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
         )
         forEvery(testCases)((args, success) =>
           eval(e"DIV_BIGNUMERIC $args") shouldBe (if (success) a[Right[_, _]] else a[Left[_, _]])
@@ -218,11 +220,11 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
       "crash if cannot compute the result without rounding" in {
         val testCases = Table(
           "arguments" -> "success",
-          s"${MaxScale} ROUNDING_UNNECESSARY BigNumeric:one BigNumeric:two" -> true,
-          s"${MaxScale} ROUNDING_UNNECESSARY BigNumeric:one BigNumeric:three" -> false,
-          s"${MaxScale / 2} ROUNDING_UNNECESSARY BigNumeric:one BigNumeric:three" -> false,
-          "1 ROUNDING_UNNECESSARY BigNumeric:one BigNumeric:two" -> true,
-          "0 ROUNDING_UNNECESSARY BigNumeric:one BigNumeric:two" -> false,
+          s"${MaxScale} $roundingUnnecessary BigNumeric:one BigNumeric:two" -> true,
+          s"${MaxScale} $roundingUnnecessary BigNumeric:one BigNumeric:three" -> false,
+          s"${MaxScale / 2} $roundingUnnecessary BigNumeric:one BigNumeric:three" -> false,
+          s"1 $roundingUnnecessary BigNumeric:one BigNumeric:two" -> true,
+          s"0 $roundingUnnecessary BigNumeric:one BigNumeric:two" -> false,
         )
 
         forEvery(testCases)((args, success) =>
@@ -234,34 +236,34 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
 
         val testCases = Table(
           "arguments" -> "success",
-          "0 ROUNDING_UP BigNumeric:nineteen BigNumeric:two" -> "10",
-          "0 ROUNDING_DOWN BigNumeric:nineteen BigNumeric:two" -> "9",
-          "0 ROUNDING_CEILING BigNumeric:nineteen BigNumeric:two" -> "10",
-          "0 ROUNDING_FLOOR BigNumeric:nineteen BigNumeric:two" -> "9",
-          "0 ROUNDING_HALF_UP BigNumeric:nineteen BigNumeric:two" -> "10",
-          "0 ROUNDING_HALF_DOWN BigNumeric:nineteen BigNumeric:two" -> "9",
-          "0 ROUNDING_HALF_EVEN BigNumeric:nineteen BigNumeric:two" -> "10",
-          "1 ROUNDING_UP BigNumeric:twentyEight BigNumeric:three" -> "9.4",
-          "1 ROUNDING_DOWN BigNumeric:twentyEight BigNumeric:three" -> "9.3",
-          "1 ROUNDING_CEILING BigNumeric:twentyEight BigNumeric:three" -> "9.4",
-          "1 ROUNDING_FLOOR BigNumeric:twentyEight BigNumeric:three" -> "9.3",
-          "1 ROUNDING_HALF_UP BigNumeric:twentyEight BigNumeric:three" -> "9.3",
-          "1 ROUNDING_HALF_DOWN BigNumeric:twentyEight BigNumeric:three" -> "9.3",
-          "1 ROUNDING_HALF_EVEN BigNumeric:twentyEight BigNumeric:three" -> "9.3",
-          "2 ROUNDING_UP BigNumeric:twentyNine BigNumeric:three" -> "9.67",
-          "2 ROUNDING_DOWN BigNumeric:twentyNine BigNumeric:three" -> "9.66",
-          "2 ROUNDING_CEILING BigNumeric:twentyNine BigNumeric:three" -> "9.67",
-          "2 ROUNDING_FLOOR BigNumeric:twentyNine BigNumeric:three" -> "9.66",
-          "2 ROUNDING_HALF_UP BigNumeric:twentyNine BigNumeric:three" -> "9.67",
-          "2 ROUNDING_HALF_DOWN BigNumeric:twentyNine BigNumeric:three" -> "9.67",
-          "2 ROUNDING_HALF_EVEN BigNumeric:twentyNine BigNumeric:three" -> "9.67",
-          "0 ROUNDING_UP BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
-          "0 ROUNDING_DOWN BigNumeric:nineteen BigNumeric:minusTwo" -> "-9",
-          "0 ROUNDING_CEILING BigNumeric:nineteen BigNumeric:minusTwo" -> "-9",
-          "0 ROUNDING_FLOOR BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
-          "0 ROUNDING_HALF_UP BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
-          "0 ROUNDING_HALF_DOWN BigNumeric:nineteen BigNumeric:minusTwo" -> "-9",
-          "0 ROUNDING_HALF_EVEN BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
+          s"0 $roundingUp BigNumeric:nineteen BigNumeric:two" -> "10",
+          s"0 $roundingDown BigNumeric:nineteen BigNumeric:two" -> "9",
+          s"0 $roundingCeiling BigNumeric:nineteen BigNumeric:two" -> "10",
+          s"0 $roundingFloor BigNumeric:nineteen BigNumeric:two" -> "9",
+          s"0 $roundingHalfUp BigNumeric:nineteen BigNumeric:two" -> "10",
+          s"0 $roundingHalfDown BigNumeric:nineteen BigNumeric:two" -> "9",
+          s"0 $roundingHalfEven BigNumeric:nineteen BigNumeric:two" -> "10",
+          s"1 $roundingUp BigNumeric:twentyEight BigNumeric:three" -> "9.4",
+          s"1 $roundingDown BigNumeric:twentyEight BigNumeric:three" -> "9.3",
+          s"1 $roundingCeiling BigNumeric:twentyEight BigNumeric:three" -> "9.4",
+          s"1 $roundingFloor BigNumeric:twentyEight BigNumeric:three" -> "9.3",
+          s"1 $roundingHalfUp BigNumeric:twentyEight BigNumeric:three" -> "9.3",
+          s"1 $roundingHalfDown BigNumeric:twentyEight BigNumeric:three" -> "9.3",
+          s"1 $roundingHalfEven BigNumeric:twentyEight BigNumeric:three" -> "9.3",
+          s"2 $roundingUp BigNumeric:twentyNine BigNumeric:three" -> "9.67",
+          s"2 $roundingDown BigNumeric:twentyNine BigNumeric:three" -> "9.66",
+          s"2 $roundingCeiling BigNumeric:twentyNine BigNumeric:three" -> "9.67",
+          s"2 $roundingFloor BigNumeric:twentyNine BigNumeric:three" -> "9.66",
+          s"2 $roundingHalfUp BigNumeric:twentyNine BigNumeric:three" -> "9.67",
+          s"2 $roundingHalfDown BigNumeric:twentyNine BigNumeric:three" -> "9.67",
+          s"2 $roundingHalfEven BigNumeric:twentyNine BigNumeric:three" -> "9.67",
+          s"0 $roundingUp BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
+          s"0 $roundingDown BigNumeric:nineteen BigNumeric:minusTwo" -> "-9",
+          s"0 $roundingCeiling BigNumeric:nineteen BigNumeric:minusTwo" -> "-9",
+          s"0 $roundingFloor BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
+          s"0 $roundingHalfUp BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
+          s"0 $roundingHalfDown BigNumeric:nineteen BigNumeric:minusTwo" -> "-9",
+          s"0 $roundingHalfEven BigNumeric:nineteen BigNumeric:minusTwo" -> "-10",
         )
         forEvery(testCases)((args, result) =>
           inside(eval(e"DIV_BIGNUMERIC $args")) { case Right(SBigNumeric(x)) =>
@@ -339,7 +341,7 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
 
 final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
-  import SpeedyTestLib.loggingContext
+  import SpeedyTestLib._
 
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
@@ -390,7 +392,12 @@ final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVer
 
   val compiledPackages =
     PureCompiledPackages.assertBuild(
-      Map(parserParameters.defaultPackageId -> pkg),
+      Map(
+        parserParameters.defaultPackageId ->
+          pkg,
+        roundingModePkgId ->
+          roundingModePkg,
+      ),
       Compiler.Config.Default(majorLanguageVersion),
     )
 

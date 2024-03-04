@@ -1539,9 +1539,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           PLText(getInternedStr(lfPrimLit.getTextInternedStr))
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
           toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
-        case PLF.PrimLit.SumCase.ROUNDING_MODE =>
-          assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
-          PLRoundingMode(java.math.RoundingMode.valueOf(lfPrimLit.getRoundingModeValue))
         case PLF.PrimLit.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("PrimLit.SUM_NOT_SET")
       }
@@ -1640,7 +1637,6 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(ANY, BTAny),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep),
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
-      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = LV.Features.exceptions),
     )
   }

@@ -42,6 +42,7 @@ private[daml] trait StablePackages {
   val Tuple2: Ref.TypeConName
   val Tuple3: Ref.TypeConName
   val Either: Ref.TypeConName
+  val RoundingMode: Ref.TypeConName
 }
 
 object StablePackages {
@@ -111,6 +112,12 @@ private[daml] object StablePackagesV2 extends StablePackages {
   val DA_Time_Types: StablePackage = new StablePackage(
     "DA.Time.Types",
     "f141230257fa9c6467b03e6ae3cc73a42ff1fdaf14ff172d91ec78cfeb181633",
+    "daml-stdlib",
+    v2_1,
+  )
+  val DA_Types_RoundingMode: StablePackage = new StablePackage(
+    "DA.Types.RoundingMode",
+    "46102a82d38452c2c8ff0ce0ec68932a24d9987db316473249a065de870716d1",
     "daml-stdlib",
     v2_1,
   )
@@ -261,4 +268,5 @@ private[daml] object StablePackagesV2 extends StablePackages {
   override val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
   override val Tuple3: Ref.TypeConName = DA_Types.assertIdentifier("Tuple3")
   override val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
+  override val RoundingMode = DA_Types_RoundingMode.assertIdentifier("RoundingMode")
 }

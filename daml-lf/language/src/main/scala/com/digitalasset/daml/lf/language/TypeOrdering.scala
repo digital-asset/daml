@@ -89,7 +89,6 @@ object TypeOrdering extends Ordering[Type] {
       Ast.BTTypeRep,
       Ast.BTGenMap,
       Ast.BTBigNumeric,
-      Ast.BTRoundingMode,
       Ast.BTAnyException,
     ).zipWithIndex.toMap
 

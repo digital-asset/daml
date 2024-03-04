@@ -168,7 +168,6 @@ class EncodeSpec(languageVersion: LanguageVersion)
              uembed_expr @a x;
            val isZero: Int64 -> Bool = EQUAL @Int64 0;
            val isOne: BigNumeric -> Bool = EQUAL @BigNumeric (NUMERIC_TO_BIGNUMERIC @10 1.0000000000);
-           val defaultRounding: RoundingMode = ROUNDING_UP;
 
            record @serializable MyException = { message: Text } ;
            exception MyException = {

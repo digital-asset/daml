@@ -77,6 +77,7 @@ da_haskell_binary(
             "lf-v{}/daml-stdlib/DA-Action-State-Type.dalf".format(majorLfVersion),
             "lf-v{}/daml-stdlib/DA-Random-Types.dalf".format(majorLfVersion),
             "lf-v{}/daml-stdlib/DA-Stack-Types.dalf".format(majorLfVersion),
+            "lf-v{}/daml-stdlib/DA-Types-RoundingMode.dalf".format(majorLfVersion),
         ],
         cmd = """
       $(location :generate-stable-package) --major-version {major} --module GHC.Types -o $(location lf-v{major}/daml-prim/GHC-Types.dalf)
@@ -107,6 +108,7 @@ da_haskell_binary(
       $(location :generate-stable-package) --major-version {major} --module DA.Action.State.Type -o $(location lf-v{major}/daml-stdlib/DA-Action-State-Type.dalf)
       $(location :generate-stable-package) --major-version {major} --module DA.Random.Types -o $(location lf-v{major}/daml-stdlib/DA-Random-Types.dalf)
       $(location :generate-stable-package) --major-version {major} --module DA.Stack.Types -o $(location lf-v{major}/daml-stdlib/DA-Stack-Types.dalf)
+      $(location :generate-stable-package) --major-version {major} --module DA.Types.RoundingMode -o $(location lf-v{major}/daml-stdlib/DA-Types-RoundingMode.dalf)
     """.format(major = majorLfVersion),
         tools = [":generate-stable-package"],
         visibility = ["//visibility:public"],
@@ -146,6 +148,7 @@ filegroup(
                 "lf-v{}/daml-stdlib/DA-Set-Types.dalf".format(majorLfVersion),
                 "lf-v{}/daml-stdlib/DA-Stack-Types.dalf".format(majorLfVersion),
                 "lf-v{}/daml-stdlib/DA-Time-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Types-RoundingMode.dalf".format(majorLfVersion),
                 "lf-v{}/daml-stdlib/DA-Validation-Types.dalf".format(majorLfVersion),
             ]
             for majorLfVersion in LF_MAJOR_VERSIONS

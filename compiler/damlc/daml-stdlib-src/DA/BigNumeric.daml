@@ -23,11 +23,8 @@ module DA.BigNumeric (
    , roundToNumeric
   ) where
 
-import GHC.Types ( 
-      primitive
-    , BigNumeric
-    , RoundingMode(..)
-  )
+import GHC.Types (primitive, BigNumeric)
+import DA.Types.RoundingMode (RoundingMode(..))
 import Prelude hiding (round)
 
 -- | Calculate the scale of a `BigNumeric` number. The `BigNumeric` number is

@@ -476,8 +476,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setTimestamp(value.micros)
         case PLDate(date) =>
           builder.setDate(date.days)
-        case PLRoundingMode(rounding) =>
-          builder.setRoundingModeValue(rounding.ordinal())
       }
       builder.build()
     }

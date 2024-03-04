@@ -218,10 +218,6 @@ enum PrimType {
   // *Available in versions >= 1.13*
   BIGNUMERIC = 21;
 
-  // Builtin type 'TRoundingMode'
-  // *Available in versions >= 1.13*
-  ROUNDING_MODE = 22;
-
   // Builtin type 'TAnyException'
   // *Available in versions >= 1.14*
   ANY_EXCEPTION = 23;
@@ -484,18 +480,6 @@ enum BuiltinFunction {
 // FixMe: Renamed
 message PrimLit {
 
-  // match java.math.BigDecimal.ROUND_XXX constants
-  enum RoundingMode {
-    UP = 0;
-    DOWN = 1;
-    CEILING = 2;
-    FLOOR = 3;
-    HALF_UP = 4;
-    HALF_DOWN = 5;
-    HALF_EVEN = 6;
-    UNNECESSARY = 7;
-  }
-
   oneof Sum {
 
     //  64-bit integer literal ('LitInt64')
@@ -515,10 +499,6 @@ message PrimLit {
 
     // *Must be a valid date*
     int32 date = 8;
-
-    // rounding mode for arithmetic operation
-    // *Available in versions >= 1.13*
-    RoundingMode rounding_mode = 13;
   }
 
   reserved 3; // This was char.

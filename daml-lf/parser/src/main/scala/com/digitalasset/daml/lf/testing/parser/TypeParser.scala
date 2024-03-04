@@ -32,7 +32,6 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "Any" -> BTAny,
     "TypeRep" -> BTTypeRep,
     "BigNumeric" -> BTBigNumeric,
-    "RoundingMode" -> BTRoundingMode,
     "AnyException" -> BTAnyException,
   )
 
