@@ -136,29 +136,29 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               e"type_rep @Unit",
               e"type_rep @Bool",
               e"type_rep @Int64",
-              e"type_rep @Text",
+              e"type_rep @Date",
               e"type_rep @Timestamp",
               e"type_rep @Party",
-              e"type_rep @Date",
+              e"type_rep @Text",
               e"type_rep @Any",
               e"type_rep @TypeRep",
               e"type_rep @Mod:Template",
             ),
           t"Mod:TypRep" ->
             List(
-              e"type_rep @(List Mod:Template)",
-              e"type_rep @(Update Mod:Template)",
-              e"type_rep @(Scenario Mod:Template)",
+              e"type_rep @(Numeric 0)",
               e"type_rep @(ContractId Mod:Template)",
               e"type_rep @(Option Mod:Template)",
+              e"type_rep @(List Mod:Template)",
               e"type_rep @(TextMap Mod:Template)",
-              e"type_rep @(Numeric 0)",
+              e"type_rep @(Update Mod:Template)",
+              e"type_rep @(Scenario Mod:Template)",
               e"type_rep @(Mod:Box Mod:Template)",
             ),
           t"Mod:TypRep" ->
             List(
-              e"type_rep @(Arrow Mod:Template  Mod:Template)",
               e"type_rep @(GenMap Mod:Template  Mod:Template)",
+              e"type_rep @(Arrow Mod:Template  Mod:Template)",
               e"type_rep @(Mod:Tuple Mod:Template  Mod:Template)",
             ),
           t"Mod:TypeRep" ->
@@ -189,10 +189,10 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             ),
           t"Mod:TypeRep" ->
             List(
-              e"type_rep @(List Unit)",
-              e"type_rep @(List Int64)",
               e"type_rep @(Option Unit)",
               e"type_rep @(Option Int64)",
+              e"type_rep @(List Unit)",
+              e"type_rep @(List Int64)",
             ),
           t"Mod:TypeRep" ->
             List(
