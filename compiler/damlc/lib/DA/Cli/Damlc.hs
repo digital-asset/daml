@@ -181,7 +181,7 @@ import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
@@ -469,34 +469,57 @@ runTestsInProjectOrFiles ::
     -> CoveragePaths
     -> [CoverageFilter]
     -> Command
-runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = do
-          when (getRunAllTests allTests) $ do
-            hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
-            exitFailure
-          case mbInFiles of
-            Just _ -> do
-              hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
-              exitFailure
-            Nothing -> do
-              loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
-runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
-        installDepsAndInitPackageDb cliOptions initPkgDb
-        mbJUnitOutput <- traverse relativize mbJUnitOutput
-        withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
+runTestsInProjectOrFiles
+    projectOpts
+    mbInFiles
+    allTests
+    loadCoverageOnly
+    coverage
+    color
+    mbJUnitOutput
+    cliOptions
+    initPkgDb
+    tableOutputPath
+    transactionsOutputPath
+    coveragePaths
+    coverageFilters
+  = Command Test (Just projectOpts) effect
+  where
+    effect
+      | getLoadCoverageOnly loadCoverageOnly = loadTestCoverageEffect
+      | otherwise = maybe runTestsInProjectEffect runTestsInFilesEffect mbInFiles
+
+    loadTestCoverageEffect = do
+      when (getRunAllTests allTests) $ do
+        hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
+        exitFailure
+      when (isJust mbInFiles) $ do
+        hPutStrLn stderr "Cannot specify --files and --load-coverage-only at the same time."
+        exitFailure
+      loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
+
+    runTestsInProjectEffect =
+      withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
+        withPackageConfig (ProjectPath pPath) $ \pkgConfigFields -> do
             -- TODO: We set up one scenario service context per file that
             -- we pass to execTest and scenario contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
-            files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
-runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = withProjectRoot' projectOpts $ \relativize -> do
-        installDepsAndInitPackageDb cliOptions initPkgDb
-        mbJUnitOutput <- traverse relativize mbJUnitOutput
+            files <- getDamlRootFiles (pSrc pkgConfigFields)
+            execTestsFrom files relativize cliOptions
+              { optMbPackageName = Just (pName pkgConfigFields)
+              , optMbPackageVersion = pVersion pkgConfigFields
+              }
+
+    runTestsInFilesEffect inFiles =
+      withProjectRoot' projectOpts $ \relativize -> do
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+        execTestsFrom inFiles' relativize cliOptions
+
+    execTestsFrom normPaths relativize options = do
+      installDepsAndInitPackageDb options initPkgDb
+      mbJUnitOutput <- traverse relativize mbJUnitOutput
+      execTest normPaths allTests coverage color mbJUnitOutput options tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
