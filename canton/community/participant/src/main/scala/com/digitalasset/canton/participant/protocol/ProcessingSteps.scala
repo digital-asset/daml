@@ -54,14 +54,12 @@ import scala.concurrent.{ExecutionContext, Future}
   * @tparam SubmissionParam  The bundled submission parameters
   * @tparam SubmissionResult The bundled submission results
   * @tparam RequestViewType  The type of view trees used by the request
-  * @tparam Result           The specific type of the result message
   * @tparam SubmissionError  The type of errors that can occur during submission processing
   */
 trait ProcessingSteps[
     SubmissionParam,
     SubmissionResult,
     RequestViewType <: ViewType,
-    Result <: SignedProtocolMessageContent,
     SubmissionError <: WrapsProcessorError,
 ] {
 
@@ -135,7 +133,7 @@ trait ProcessingSteps[
   /** Phase 1, step 1:
     *
     * @param param          The parameter object encapsulating the parameters of the submit method
-    * @param mediatorId     The mediator ID to use for this submission
+    * @param mediator       The mediator ID to use for this submission
     * @param ephemeralState Read-only access to the [[com.digitalasset.canton.participant.store.SyncDomainEphemeralState]]
     * @param recentSnapshot A recent snapshot of the topology state to be used for submission
     */
@@ -447,7 +445,7 @@ trait ProcessingSteps[
     * @param pendingDataAndResponseArgs Implementation-specific data passed from [[decryptViews]]
     * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.TransferCache]]
     * @param activenessResultFuture     Future of the result of the activeness check<
-    * @param mediatorId                 The mediator that handles this request
+    * @param mediator                   The mediator that handles this request
     * @return Returns the `requestType.PendingRequestData` to be stored until Phase 7 and the responses to be sent to the mediator.
     */
   def constructPendingDataAndResponse(
@@ -494,9 +492,9 @@ trait ProcessingSteps[
 
   /** Phase 7, step 2:
     *
-    * @param eventE             The signed [[com.digitalasset.canton.sequencing.protocol.Deliver]] event containing the confirmation result.
-    *                           It is ensured that the `event` contains exactly one [[com.digitalasset.canton.protocol.messages.ConfirmationResult]]
-    * @param resultE            The unpacked confirmation result that is contained in the `event`
+    * @param event             The signed [[com.digitalasset.canton.sequencing.protocol.Deliver]] event containing the confirmation result.
+    *                           It is ensured that the `event` contains exactly one [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]]
+    * @param result            The unpacked confirmation result that is contained in the `event`
     * @param pendingRequestData The `requestType.PendingRequestData` produced in Phase 3
     * @param pendingSubmissions The data stored on submissions in the [[PendingSubmissions]]
     * @return The [[com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet]],
@@ -504,8 +502,8 @@ trait ProcessingSteps[
     *         and the event to be published
     */
   def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[MalformedConfirmationRequestResult, Result],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      result: ConfirmationResultMessage,
       pendingRequestData: requestType.PendingRequestData,
       pendingSubmissions: PendingSubmissions,
       hashOps: HashOps,

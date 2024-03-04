@@ -78,7 +78,6 @@ class TestProcessingSteps(
       Int,
       Unit,
       TestViewType,
-      ConfirmationResultMessage,
       TestProcessingError,
     ]
     with BaseTest {
@@ -255,7 +254,7 @@ class TestProcessingSteps(
     EitherT.rightT(res)
   }
 
-  def constructResponsesForMalformedPayloads(
+  override def constructResponsesForMalformedPayloads(
       requestId: com.digitalasset.canton.protocol.RequestId,
       malformedPayloads: Seq[
         com.digitalasset.canton.participant.protocol.ProtocolProcessor.MalformedPayload
@@ -281,8 +280,8 @@ class TestProcessingSteps(
     Right(None)
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[MalformedConfirmationRequestResult, ConfirmationResultMessage],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      result: ConfirmationResultMessage,
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,

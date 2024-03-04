@@ -27,12 +27,14 @@ trait TransactionRejection {
   def reason(): com.google.rpc.status.Status
 }
 
-/** Verdicts sent from the mediator to the participants inside the [[ConfirmationResult]] message */
+/** Verdicts sent from the mediator to the participants inside the [[ConfirmationResultMessage]] */
 sealed trait Verdict
     extends Product
     with Serializable
     with PrettyPrinting
     with HasProtocolVersionedWrapper[Verdict] {
+
+  def isApprove: Boolean = false
 
   /** Whether the verdict represents a timeout that the mediator has determined. */
   def isTimeoutDeterminedByMediator: Boolean
@@ -57,6 +59,9 @@ object Verdict
   final case class Approve()(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict {
+
+    override def isApprove: Boolean = true
+
     override def isTimeoutDeterminedByMediator: Boolean = false
 
     private[messages] override def toProtoV30: v30.Verdict =
@@ -71,7 +76,10 @@ object Verdict
     )
   }
 
-  final case class MediatorReject private (override val reason: com.google.rpc.status.Status)(
+  final case class MediatorReject private (
+      override val reason: com.google.rpc.status.Status,
+      isMalformed: Boolean,
+  )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict
       with TransactionRejection {
@@ -80,10 +88,12 @@ object Verdict
     private[messages] override def toProtoV30: v30.Verdict =
       v30.Verdict(v30.Verdict.SomeVerdict.MediatorReject(toProtoMediatorRejectV30))
 
-    def toProtoMediatorRejectV30: v30.MediatorReject = v30.MediatorReject(Some(reason))
+    def toProtoMediatorRejectV30: v30.MediatorReject =
+      v30.MediatorReject(reason = Some(reason), isMalformed = isMalformed)
 
     override def pretty: Pretty[MediatorReject.this.type] = prettyOfClass(
-      unnamedParam(_.reason)
+      unnamedParam(_.reason),
+      param("isMalformed", _.isMalformed),
     )
 
     override def logWithContext(extra: Map[String, String])(implicit
@@ -103,18 +113,19 @@ object Verdict
     // TODO(#15628) Make it safe (intercept the exception and return an either)
     def tryCreate(
         status: com.google.rpc.status.Status,
+        isMalformed: Boolean,
         protocolVersion: ProtocolVersion,
     ): MediatorReject =
-      MediatorReject(status)(Verdict.protocolVersionRepresentativeFor(protocolVersion))
+      MediatorReject(status, isMalformed)(Verdict.protocolVersionRepresentativeFor(protocolVersion))
 
     private[messages] def fromProtoV30(
         mediatorRejectP: v30.MediatorReject
     ): ParsingResult[MediatorReject] = {
-      val v30.MediatorReject(statusO) = mediatorRejectP
+      val v30.MediatorReject(statusO, isMalformed) = mediatorRejectP
       for {
         status <- ProtoConverter.required("rejection_reason", statusO)
         rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-      } yield MediatorReject(status)(rpv)
+      } yield MediatorReject(status, isMalformed)(rpv)
     }
   }
 
@@ -127,7 +138,7 @@ object Verdict
 
     private[messages] override def toProtoV30: v30.Verdict = {
       val reasonsP = v30.ParticipantReject(reasons.map { case (parties, message) =>
-        v30.RejectionReason(parties.toSeq, Some(message.toLocalRejectProtoV30))
+        v30.RejectionReason(parties.toSeq, Some(message.toProtoV30))
       })
       v30.Verdict(someVerdict = v30.Verdict.SomeVerdict.ParticipantReject(reasonsP))
     }
@@ -150,7 +161,7 @@ object Verdict
         val message = show"Request was rejected with multiple reasons. $reasons"
         loggingContext.logger.info(message)(loggingContext.traceContext)
       }
-      reasons.map { case (_, localReject) => localReject }.maxBy1(_.code.category)
+      reasons.map { case (_, localReject) => localReject }.head1
     }
 
     override def isTimeoutDeterminedByMediator: Boolean = false
@@ -204,10 +215,15 @@ object Verdict
   private def fromProtoReasonV30(
       protoReason: v30.RejectionReason
   ): ParsingResult[(Set[LfPartyId], LocalReject)] = {
-    val v30.RejectionReason(partiesP, messageP) = protoReason
+    val v30.RejectionReason(partiesP, rejectP) = protoReason
     for {
       parties <- partiesP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
-      message <- ProtoConverter.parseRequired(LocalReject.fromProtoV30, "reject", messageP)
-    } yield (parties, message)
+      localVerdict <- ProtoConverter.parseRequired(LocalVerdict.fromProtoV30, "reject", rejectP)
+      localReject <- localVerdict match {
+        case localReject: LocalReject => Right(localReject)
+        case LocalApprove() =>
+          Left(InvariantViolation("RejectionReason.reject must not be approve."))
+      }
+    } yield (parties, localReject)
   }
 }

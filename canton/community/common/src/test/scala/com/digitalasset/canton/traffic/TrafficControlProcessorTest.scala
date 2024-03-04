@@ -5,7 +5,7 @@ package com.digitalasset.canton.traffic
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -83,7 +83,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   ): SignedProtocolMessage[SetTrafficBalanceMessage] = {
     val setBalance = SetTrafficBalanceMessage(
       participantId,
-      NonNegativeLong.one,
+      PositiveInt.one,
       NonNegativeLong.tryCreate(100),
       domainId,
       testedProtocolVersion,

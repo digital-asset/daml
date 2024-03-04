@@ -6,7 +6,6 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.Generators.nonEmptyListGen
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.version.ProtocolVersion
-import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 final case class GeneratorsVerdict(
@@ -15,17 +14,13 @@ final case class GeneratorsVerdict(
 ) {
   import generatorsLocalVerdict.*
 
-  // TODO(#14515): move elsewhere?
-  implicit val protoMediatorRejectionCodeArb
-      : Arbitrary[com.digitalasset.canton.protocol.v30.MediatorRejection.Code] = genArbitrary
-
   // TODO(#14515) Check that the generator is exhaustive
   implicit val mediatorRejectArb: Arbitrary[Verdict.MediatorReject] =
     Arbitrary(
       // TODO(#14515): do we want randomness here?
       Gen.const {
         val status = com.google.rpc.status.Status(com.google.rpc.Code.CANCELLED_VALUE)
-        Verdict.MediatorReject.tryCreate(status, protocolVersion)
+        Verdict.MediatorReject.tryCreate(status, isMalformed = false, protocolVersion)
       }
     )
 

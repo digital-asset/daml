@@ -58,7 +58,7 @@ class BadRootHashMessagesRequestProcessor(
             requestId = requestId,
             sender = participantId,
             viewPositionO = None,
-            localVerdict = reject,
+            localVerdict = reject.toLocalReject(protocolVersion),
             rootHash = Some(rootHash),
             confirmingParties = Set.empty,
             domainId = domainId,

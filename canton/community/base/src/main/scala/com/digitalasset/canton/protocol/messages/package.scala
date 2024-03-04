@@ -12,12 +12,6 @@ import com.digitalasset.canton.sequencing.protocol.{AllMembersOfDomain, OpenEnve
   */
 package object messages {
 
-  type TransferOutResult = TransferResult[SourceDomainId]
-  val TransferOutResult: TransferResult.type = TransferResult
-
-  type TransferInResult = TransferResult[TargetDomainId]
-  val TransferInResult: TransferResult.type = TransferResult
-
   type TransactionViewMessage = EncryptedViewMessage[TransactionViewType]
 
   type DefaultOpenEnvelope = OpenEnvelope[ProtocolMessage]

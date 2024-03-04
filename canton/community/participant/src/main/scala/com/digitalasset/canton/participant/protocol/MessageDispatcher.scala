@@ -152,18 +152,11 @@ trait MessageDispatcher { this: NamedLogging =>
     *     meet the precondition of [[com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor]]'s `processBatch`
     *     method.
     *   </li>
-    *   <li>A [[com.digitalasset.canton.protocol.messages.ConfirmationResult]] message should be sent only by the trusted mediator of the domain.
-    *     The mediator should never include further messages with a [[com.digitalasset.canton.protocol.messages.ConfirmationResult]].
-    *     So a participant accepts a [[com.digitalasset.canton.protocol.messages.ConfirmationResult]]
+    *   <li>A [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] message should be sent only by the trusted mediator of the domain.
+    *     The mediator should never include further messages with a [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]].
+    *     So a participant accepts a [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]]
     *     only if there are no other messages (except topology transactions and ACS commitments) in the batch.
-    *     Otherwise, the participant ignores the [[com.digitalasset.canton.protocol.messages.ConfirmationResult]] and raises an alarm.
-    *     <br/>
-    *     The same applies to a [[com.digitalasset.canton.protocol.messages.MalformedConfirmationRequestResult]] message
-    *     that is triggered by root hash messages.
-    *     The mediator uses the [[com.digitalasset.canton.data.ViewType]] from the [[com.digitalasset.canton.protocol.messages.RootHashMessage]],
-    *     which the participants also used to choose the processor for the request.
-    *     So it suffices to forward the [[com.digitalasset.canton.protocol.messages.MalformedConfirmationRequestResult]]
-    *     to the appropriate processor.
+    *     Otherwise, the participant ignores the [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] and raises an alarm.
     *   </li>
     *   <li>
     *     Request messages originate from untrusted participants.
@@ -276,45 +269,28 @@ trait MessageDispatcher { this: NamedLogging =>
 
     // Extract the participant relevant messages from the batch. All other messages are ignored.
     val encryptedViews = envelopes.mapFilter(select[EncryptedViewMessage[ViewType]])
-    val regularMediatorResults =
-      envelopes.mapFilter(select[SignedProtocolMessage[RegularConfirmationResult]])
-    val MalformedMediatorConfirmationRequestResults =
-      envelopes.mapFilter(select[SignedProtocolMessage[MalformedConfirmationRequestResult]])
     val rootHashMessages =
       envelopes.mapFilter(select[RootHashMessage[SerializedRootHashMessagePayload]])
+    val confirmationResults =
+      envelopes.mapFilter(select[SignedProtocolMessage[ConfirmationResultMessage]])
 
     (
       encryptedViews,
       rootHashMessages,
-      regularMediatorResults,
-      MalformedMediatorConfirmationRequestResults,
+      confirmationResults,
     ) match {
       // Regular confirmation result
-      case (Seq(), Seq(), Seq(msg), Seq()) =>
+      case (Seq(), Seq(), Seq(msg)) =>
         val viewType = msg.protocolMessage.message.viewType
         val processor = tryProtocolProcessor(viewType)
 
         doProcess(ResultKind(viewType), processor.processResult(eventE))
 
-      // Confirmation result indicating a malformed confirmation request
-      case (Seq(), Seq(), Seq(), Seq(msg)) =>
-        val viewType = msg.protocolMessage.message.viewType
-        val processor = tryProtocolProcessor(viewType)
-
-        doProcess(
-          MalformedMediatorConfirmationRequestMessage,
-          processor.processMalformedMediatorConfirmationRequestResult(ts, sc, eventE),
-        )
-
       case _ =>
         // Alarm about invalid confirmation result messages
-        regularMediatorResults.groupBy(_.protocolMessage.message.viewType).foreach {
+        confirmationResults.groupBy(_.protocolMessage.message.viewType).foreach {
           case (viewType, messages) => alarmIfNonEmptySigned(ResultKind(viewType), messages)
         }
-        alarmIfNonEmptySigned(
-          MalformedMediatorConfirmationRequestMessage,
-          MalformedMediatorConfirmationRequestResults,
-        )
 
         val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
 
@@ -403,7 +379,7 @@ trait MessageDispatcher { this: NamedLogging =>
               ts,
               rootHash,
               mediator,
-              LocalRejectError.MalformedRejects.BadRootHashMessages.Reject(reason, protocolVersion),
+              LocalRejectError.MalformedRejects.BadRootHashMessages.Reject(reason),
             ),
           )
       }
@@ -781,13 +757,12 @@ private[participant] object MessageDispatcher {
   case object TopologyTransaction extends MessageKind[AsyncResult]
   case object TrafficControlTransaction extends MessageKind[Unit]
   final case class RequestKind(viewType: ViewType) extends MessageKind[AsyncResult] {
-    override def pretty: Pretty[RequestKind] = prettyOfParam(unnamedParam(_.viewType))
+    override def pretty: Pretty[RequestKind] = prettyOfParam(_.viewType)
   }
   final case class ResultKind(viewType: ViewType) extends MessageKind[AsyncResult] {
-    override def pretty: Pretty[ResultKind] = prettyOfParam(unnamedParam(_.viewType))
+    override def pretty: Pretty[ResultKind] = prettyOfParam(_.viewType)
   }
   case object AcsCommitment extends MessageKind[Unit]
-  case object MalformedMediatorConfirmationRequestMessage extends MessageKind[AsyncResult]
   case object MalformedMessage extends MessageKind[Unit]
   case object UnspecifiedMessageKind extends MessageKind[Unit]
   case object CausalityMessageKind extends MessageKind[Unit]

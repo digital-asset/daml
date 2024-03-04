@@ -80,6 +80,15 @@ trait CryptoPureApi
     with RandomOps
     with PasswordBasedEncryptionOps
 
+sealed trait CryptoPureApiError extends Product with Serializable with PrettyPrinting
+object CryptoPureApiError {
+  final case class KeyParseAndValidateError(error: String) extends CryptoPureApiError {
+    override def pretty: Pretty[KeyParseAndValidateError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
+  }
+}
+
 trait CryptoPrivateApi extends EncryptionPrivateOps with SigningPrivateOps
 trait CryptoPrivateStoreApi
     extends CryptoPrivateApi

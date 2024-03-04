@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.traffic
 import cats.data.EitherT
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.{
@@ -76,7 +77,7 @@ trait SequencerRateLimitManager {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): FutureUnlessShutdown[Map[Member, TrafficState]]
+  ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]]
 }
 
 sealed trait SequencerRateLimitError

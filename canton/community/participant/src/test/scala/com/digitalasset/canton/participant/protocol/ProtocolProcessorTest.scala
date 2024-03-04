@@ -184,7 +184,7 @@ class ProtocolProcessorTest
   private val trm = mock[ConfirmationResultMessage]
   when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[ConfirmationResultMessage])
   when(trm.verdict).thenAnswer(Verdict.Approve(testedProtocolVersion))
-  when(trm.rootHash).thenAnswer(rootHash)
+  when(trm.rootHashO).thenAnswer(Some(rootHash))
   when(trm.domainId).thenAnswer(DefaultTestIdentities.domainId)
 
   private val requestId = RequestId(CantonTimestamp.Epoch)
@@ -210,7 +210,6 @@ class ProtocolProcessorTest
       Int,
       Unit,
       TestViewType,
-      ConfirmationResultMessage,
       TestProcessingSteps.TestProcessingError,
     ]
 
@@ -335,7 +334,6 @@ class ProtocolProcessorTest
       Int,
       Unit,
       TestViewType,
-      ConfirmationResultMessage,
       TestProcessingSteps.TestProcessingError,
     ] =
       new ProtocolProcessor(
@@ -349,8 +347,7 @@ class ProtocolProcessorTest
         loggerFactory,
         FutureSupervisor.Noop,
       )(
-        directExecutionContext: ExecutionContext,
-        ConfirmationResultMessage.transactionResultMessageCast,
+        directExecutionContext: ExecutionContext
       ) {
         override def participantId: ParticipantId = participant
 
@@ -942,7 +939,7 @@ class ProtocolProcessorTest
               testedProtocolVersion,
             )
           ),
-          Right(mockSignedProtocolMessage),
+          mockSignedProtocolMessage,
           requestId,
           timestamp,
           resultSc,

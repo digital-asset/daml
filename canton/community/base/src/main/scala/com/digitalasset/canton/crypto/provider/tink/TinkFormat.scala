@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto.provider.tink
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.{Fingerprint, HashAlgorithm}
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, DeserializationError}
-import com.google.crypto.tink.{proto, *}
+import com.google.crypto.tink.*
 import com.google.protobuf.ByteString
 
 class TinkKeyFingerprintException(message: String) extends RuntimeException(message)

@@ -27,7 +27,9 @@ message MemberTrafficStatus {
   // Total extra traffic consumed
   uint64 total_extra_traffic_consumed = 3;
   // Current and future top up events that have been registered but are not necessarily active yet
-  repeated TopUpEvent top_up_events = 4;
+  repeated TopUpEvent top_up_events = 4; // TODO(i17477): Was never used, remove when we're done with the rework
   // Timestamp at which the status is valid
   google.protobuf.Timestamp ts = 5;
+  // Serial number of the balance (total_extra_traffic_limit) of this status
+  google.protobuf.UInt32Value balance_serial = 6;
 }

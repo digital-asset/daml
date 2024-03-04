@@ -171,9 +171,10 @@ object ReferenceBlockOrderer {
 
   final case class TimestampedRequest(tag: String, body: ByteString, timestamp: CantonTimestamp)
 
-  private[sequencer] def storeMultipleRequests(
+  private[sequencer] def storeBatch(
       blockHeight: Long,
       timestamp: CantonTimestamp,
+      lastTopologyTimestamp: CantonTimestamp,
       sendQueue: SimpleExecutionQueue,
       store: ReferenceBlockOrderingStore,
       requests: Seq[Traced[TimestampedRequest]],
@@ -182,33 +183,30 @@ object ReferenceBlockOrderer {
       errorLoggingContext: ErrorLoggingContext,
       traceContext: TraceContext,
   ): Future[Unit] = {
-    val (tag, body) = requests.headOption
-      .filter(_ => requests.sizeIs == 1)
-      .map(head => head.value.tag -> head.value.body)
-      .getOrElse {
-        val body = {
-          val traceparent = traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
-          TracedBatchedBlockOrderingRequests(
-            traceparent,
-            requests.map { case traced @ Traced(request) =>
-              val traceparent = traced.traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
-              TracedBlockOrderingRequest(
-                traceparent,
-                request.tag,
-                request.body,
-                request.timestamp.toMicros,
-              )
-            },
-          )
-        }.toByteString
-        (BatchTag, body)
-      }
+    val batchTraceparent = traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
+    val body =
+      TracedBatchedBlockOrderingRequests
+        .of(
+          batchTraceparent,
+          requests.map { case traced @ Traced(request) =>
+            val requestTraceparent =
+              traced.traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
+            TracedBlockOrderingRequest(
+              requestTraceparent,
+              request.tag,
+              request.body,
+              request.timestamp.toMicros,
+            )
+          },
+          lastTopologyTimestamp.toMicros,
+        )
+        .toByteString
 
     sendQueue
       .execute(
         store.insertRequestWithHeight(
           blockHeight,
-          BlockOrderer.OrderedRequest(timestamp.toMicros, tag, body),
+          BlockOrderer.OrderedRequest(timestamp.toMicros, BatchTag, body),
         ),
         s"send request at $timestamp",
       )

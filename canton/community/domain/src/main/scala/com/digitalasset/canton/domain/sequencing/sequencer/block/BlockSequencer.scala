@@ -31,6 +31,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.*
@@ -465,7 +466,7 @@ class BlockSequencer(
     upToDateTrafficStatesForMembers(
       stateManager.getHeadState.chunk.ephemeral.status.members.map(_.member),
       Some(clock.now),
-    )
+    ).map(_.view.mapValues(_.state).toMap)
   }
 
   /** Compute traffic states for the specified members at the provided timestamp,
@@ -478,14 +479,14 @@ class BlockSequencer(
       updateTimestamp: Option[CantonTimestamp] = None,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Member, TrafficState]] = {
+  ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]] = {
     // Get the parameters for the traffic control
     OptionUtil.zipWithFDefaultValue(
       rateLimitManager,
       FutureUnlessShutdown.outcomeF(
         cryptoApi.headSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
       ),
-      Map.empty[Member, TrafficState],
+      Map.empty[Member, TrafficStateUpdateResult],
     ) { case (rlm, parameters) =>
       // Use the head ephemeral state to get the known traffic states
       val headEphemeral = stateManager.getHeadState.chunk.ephemeral
@@ -521,7 +522,7 @@ class BlockSequencer(
 
   override def setTrafficBalance(
       member: Member,
-      serial: NonNegativeLong,
+      serial: PositiveInt,
       totalTrafficBalance: NonNegativeLong,
       sequencerClient: SequencerClient,
   )(implicit
@@ -543,12 +544,12 @@ class BlockSequencer(
   ): FutureUnlessShutdown[SequencerTrafficStatus] = {
     upToDateTrafficStatesForMembers(requestedMembers)
       .map { updated =>
-        updated.map { case (member, state) =>
+        updated.map { case (member, TrafficStateUpdateResult(state, balanceUpdateSerial)) =>
           MemberTrafficStatus(
             member,
             state.timestamp,
             state.toSequencedEventTrafficState,
-            List.empty, // TODO(i17477): Was never used, set to empty for now and remove when we're done with the rework
+            balanceUpdateSerial,
           )
         }.toList
       }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.traffic
 
 import cats.instances.option.*
 import cats.syntax.parallel.*
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEventTrafficState}
@@ -83,7 +83,8 @@ class TrafficStateController(
                     )
                 }
                 .getOrElse(trafficState),
-              List.empty, // TODO(i17477): Was never used, set to empty for now and remove when we're done with the rework
+              // TODO(i17538): We don't have the serial of the traffic balance in the participant yet
+              Option.empty[PositiveInt],
             )
           }
 

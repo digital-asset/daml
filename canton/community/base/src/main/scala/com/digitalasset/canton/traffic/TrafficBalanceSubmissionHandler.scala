@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -51,7 +51,7 @@ class TrafficBalanceSubmissionHandler(
       member: Member,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      serial: NonNegativeLong,
+      serial: PositiveInt,
       totalTrafficBalance: NonNegativeLong,
       sequencerClient: SequencerClientSend,
       cryptoApi: DomainSyncCryptoClient,
