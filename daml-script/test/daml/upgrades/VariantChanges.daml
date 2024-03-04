@@ -43,7 +43,7 @@ main = tests
   , ("Downgrade succeeds if variant has optional fields added as None", downgradeFromNoneNewOptField)
   , ("Downgrade succeeds if variant has optional nested fields added as None", downgradeFromNoneNewOptNestedField)
   , ("Downgrade fails if variant is a new constructor", downgradeFromNewCon)
-    ("Downgrade fails if variant has optional fields added as Some", downgradeFromSomeNewOptField)
+  , ("Downgrade fails if variant has optional fields added as Some", downgradeFromSomeNewOptField)
   , ("Downgrade fails if variant has optional nested fields added as Some", downgradeFromSomeNewOptNestedField)
   , broken ("Fails if upgrading a variant with a new case in the middle, from a case with unchanged rank", templateVariantUpgradeNonLastSameRank)
   , broken ("Fails if upgrading a variant with a new case in the middle, from a case with changed rank", templateVariantUpgradeNonLastDifferentRank)
