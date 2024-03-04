@@ -97,6 +97,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   protected[this] def bigIntType: Fragment // must match bigserial
   protected[this] def bigSerialType: Fragment
   protected[this] def packageIdType: Fragment
+  protected[this] def packageNameType = packageIdType
   protected[this] def partyOffsetContractIdType: Fragment
   protected[this] final def partyType = partyOffsetContractIdType
   private[this] def offsetType = partyOffsetContractIdType
@@ -116,6 +117,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       CREATE TABLE
         $templateIdTableName
         (tpid $bigSerialType NOT NULL CONSTRAINT ${tablePrefixFr}template_id_k PRIMARY KEY
+        ,package_name $packageNameType
         ,package_id $packageIdType NOT NULL
         ,template_module_name $nameType NOT NULL
         ,template_entity_name $nameType NOT NULL
@@ -168,6 +170,16 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   final def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(implicit
       log: LogHandler,
       lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[SurrogateTpId] = surrogateTemplateId(None, packageId, moduleName, entityName)
+
+  final def surrogateTemplateId(
+      packageName: Option[String],
+      packageId: String,
+      moduleName: String,
+      entityName: String,
+  )(implicit
+      log: LogHandler,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[SurrogateTpId] = {
     surrogateTpIdCache
       .getCacheValue(packageId, moduleName, entityName)
@@ -176,7 +188,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       }
       .getOrElse {
         for {
-          tpId <- surrogateTemplateIdFromDb(packageId, moduleName, entityName)
+          tpId <- surrogateTemplateIdFromDb(packageName, packageId, moduleName, entityName)
           _ <- connection.commit
         } yield {
           surrogateTpIdCache.setCacheValue(packageId, moduleName, entityName, tpId)
@@ -185,10 +197,15 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       }
   }
 
-  private def surrogateTemplateIdFromDb(packageId: String, moduleName: String, entityName: String)(
-      implicit log: LogHandler
+  private def surrogateTemplateIdFromDb(
+      packageName: Option[String],
+      packageId: String,
+      moduleName: String,
+      entityName: String,
+  )(implicit
+      log: LogHandler
   ): ConnectionIO[SurrogateTpId] = for {
-    _ <- insertTemplateIdIfNotExists(packageId, moduleName, entityName).update.run
+    _ <- insertTemplateIdIfNotExists(packageName, packageId, moduleName, entityName).update.run
     tpid <- sql"""SELECT tpid FROM $templateIdTableName
                   WHERE (package_id = $packageId AND template_module_name = $moduleName
                       AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
@@ -218,6 +235,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   }
 
   protected def insertTemplateIdIfNotExists(
+      packageName: Option[String],
       packageId: String,
       moduleName: String,
       entityName: String,
@@ -878,12 +896,13 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
   }
 
   protected override def insertTemplateIdIfNotExists(
+      packageName: Option[String],
       packageId: String,
       moduleName: String,
       entityName: String,
   ): Fragment =
-    sql"""INSERT INTO $templateIdTableName (package_id, template_module_name, template_entity_name)
-          VALUES ($packageId, $moduleName, $entityName)
+    sql"""INSERT INTO $templateIdTableName (package_name, package_id, template_module_name, template_entity_name)
+          VALUES ($packageName, $packageId, $moduleName, $entityName)
           ON CONFLICT (package_id, template_module_name, template_entity_name) DO NOTHING"""
 
 }
@@ -1194,13 +1213,14 @@ private final class OracleQueries(
   }
 
   protected override def insertTemplateIdIfNotExists(
+      packageName: Option[String],
       packageId: String,
       moduleName: String,
       entityName: String,
   ): Fragment =
     sql"""INSERT /*+ ignore_row_on_dupkey_index($templateIdTableName(package_id, template_module_name, template_entity_name)) */
-	  INTO $templateIdTableName (package_id, template_module_name, template_entity_name)
-          VALUES ($packageId, $moduleName, $entityName)"""
+	  INTO $templateIdTableName (package_name, package_id, template_module_name, template_entity_name)
+          VALUES ($packageName, $packageId, $moduleName, $entityName)"""
 }
 
 private[http] object OracleQueries {
