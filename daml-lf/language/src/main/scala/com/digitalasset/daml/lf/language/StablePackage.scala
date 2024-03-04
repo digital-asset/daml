@@ -43,14 +43,6 @@ private[daml] trait StablePackages {
   val Tuple3: Ref.TypeConName
   val Either: Ref.TypeConName
   val RoundingMode: Ref.TypeConName
-  val RoundingUpRank = 0
-  val RoundingDownRank = 1
-  val RoundingCeilingRank = 2
-  val RoundingFloorRank= 3
-  val RoundingHalfUpRank = 4
-  val RoundingHalfDownRank =5
-  val RoundingHalfEvenRank = 6
-  val RoundingUnnecessaryRank = 7
 }
 
 object StablePackages {

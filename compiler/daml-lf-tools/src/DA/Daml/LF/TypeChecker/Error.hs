@@ -82,7 +82,6 @@ data UnserializabilityReason
   | URNumericOutOfRange !Natural
   | URTypeLevelNat
   | URAny -- ^ It contains a value of type Any.
-  | URRoundingMode -- ^ It contains a value of type RoundingMode
   | URBigNumeric -- ^ It contains a value of type BigBumeric
   | URAnyException -- ^ It contains a value of type AnyException.
   | URTypeRep -- ^ It contains a value of type TypeRep.
@@ -304,7 +303,6 @@ instance Pretty UnserializabilityReason where
     URAnyException -> "AnyException"
     URTypeRep -> "TypeRep"
     URTypeSyn -> "type synonym"
-    URRoundingMode -> "RoundingMode"
     URBigNumeric -> "BigNumeric"
     URExperimental -> "experimental type"
     URInterface -> "interface"

@@ -84,8 +84,6 @@ private[validation] object Serializability {
             unserializable(URAny)
           case BTTypeRep =>
             unserializable(URTypeRep)
-          case BTRoundingMode =>
-            unserializable(URRoundingMode)
           case BTBigNumeric =>
             unserializable(URBigNumeric)
         }

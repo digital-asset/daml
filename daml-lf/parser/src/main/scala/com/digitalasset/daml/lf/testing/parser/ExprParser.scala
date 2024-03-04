@@ -62,27 +62,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
 
-  private[this] val roundingModes = {
-    import java.math.RoundingMode._
-    Map(
-      "ROUNDING_UP" -> UP,
-      "ROUNDING_DOWN" -> DOWN,
-      "ROUNDING_CEILING" -> CEILING,
-      "ROUNDING_FLOOR" -> FLOOR,
-      "ROUNDING_HALF_UP" -> HALF_UP,
-      "ROUNDING_HALF_DOWN" -> HALF_DOWN,
-      "ROUNDING_HALF_EVEN" -> HALF_EVEN,
-      "ROUNDING_UNNECESSARY" -> UNNECESSARY,
-    )
-  }
-
   private lazy val literal: Parsers.Parser[PrimLit] =
     acceptMatch[PrimLit]("Number", { case Number(l) => PLInt64(l) }) |
       acceptMatch("Numeric", { case Numeric(d) => PLNumeric(d) }) |
       acceptMatch("Text", { case Text(s) => PLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
-      acceptMatch("Date", { case Date(l) => PLDate(l) }) |
-      (id ^? roundingModes) ^^ PLRoundingMode
+      acceptMatch("Date", { case Date(l) => PLDate(l) })
 
   private lazy val primCon =
     Id("True") ^^^ PCTrue |

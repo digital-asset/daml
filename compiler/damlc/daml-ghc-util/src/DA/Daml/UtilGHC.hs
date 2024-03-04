@@ -30,7 +30,6 @@ import GHC.Ptr(Ptr(..))
 import System.IO.Unsafe
 import Text.Read (readMaybe)
 import Control.Monad (guard)
-import qualified Data.Map.Strict as MS
 import qualified DA.Daml.LF.Ast as LF
 
 ----------------------------------------------------------------------
@@ -213,9 +212,6 @@ pattern ConstraintTupleProjection :: Int -> Int -> GHC.Expr Var
 pattern ConstraintTupleProjection index arity <-
     Var (ConstraintTupleProjectionName index arity)
 
-pattern RoundingModeName :: LF.RoundingModeLiteral -> FastString
-pattern RoundingModeName lit <- (toRoundingModeLiteral . fsToText -> Just lit)
-
 -- GHC tuples
 pattern IsTuple :: NamedThing a => Int -> a
 pattern IsTuple n <- NameIn GHC_Tuple (deconstructTupleName . unpackFS -> Just n)
@@ -230,21 +226,6 @@ deconstructTupleName name
   = Just (if arity == 0 then 0 else arity + 1)
   | otherwise
   = Nothing
-
-toRoundingModeLiteral :: T.Text -> Maybe LF.RoundingModeLiteral
-toRoundingModeLiteral x = MS.lookup x roundingModeLiteralMap
-
-roundingModeLiteralMap :: MS.Map T.Text LF.RoundingModeLiteral
-roundingModeLiteralMap = MS.fromList
-    [ ("RoundingUp", LF.LitRoundingUp)
-    , ("RoundingDown", LF.LitRoundingDown)
-    , ("RoundingCeiling", LF.LitRoundingCeiling)
-    , ("RoundingFloor", LF.LitRoundingFloor)
-    , ("RoundingHalfUp", LF.LitRoundingHalfUp)
-    , ("RoundingHalfDown", LF.LitRoundingHalfDown)
-    , ("RoundingHalfEven", LF.LitRoundingHalfEven)
-    , ("RoundingUnnecessary", LF.LitRoundingUnnecessary)
-    ]
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->

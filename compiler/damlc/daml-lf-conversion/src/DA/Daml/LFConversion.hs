@@ -1801,9 +1801,6 @@ convertExpr env0 e = do
 
     go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
 
-    go env (VarIn GHC_Types (RoundingModeName roundingModeLit)) args =
-        pure (EBuiltin (BERoundingMode roundingModeLit), args)
-
     go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
     go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
@@ -2194,11 +2191,6 @@ convertAlt env ty (DataAlt con, [], x)
     | NameIn DA_Internal_Prelude "None" <- con
     = GCA (GCPNormal CPNone) <$> convertExpr env x
 
-    -- Rounding mode constructors do not have built-in LF support for pattern matching,
-    -- but we get the same result with equality tests.
-    | NameIn GHC_Types (RoundingModeName roundingModeLit) <- con
-    = GCA (GCPEquality (EBuiltin (BERoundingMode roundingModeLit))) <$> convertExpr env x
-
 convertAlt env ty (DataAlt con, [a,b], x)
     | NameIn GHC_Types ":" <- con
     = GCA (GCPNormal (CPCons (convVar a) (convVar b))) <$> convertExpr env x
@@ -2484,7 +2476,6 @@ convertTyCon env t
             "Numeric" -> pure (TBuiltin BTNumeric)
             "Decimal" -> pure TNumeric10
             "BigNumeric" -> pure TBigNumeric
-            "RoundingMode" -> pure TRoundingMode
             _ -> defaultTyCon
     | NameIn DA_Internal_LF n <- t =
         case n of

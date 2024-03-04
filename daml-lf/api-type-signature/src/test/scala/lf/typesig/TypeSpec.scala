@@ -85,7 +85,6 @@ class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec w
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
           case Pkg.BTAny => sys.error("cannot use any in interface type")
           case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
-          case Pkg.BTRoundingMode => sys.error("cannot use rounding mode in interface type")
           case Pkg.BTBigNumeric => sys.error("cannot use big numeric in interface type")
           case Pkg.BTAnyException =>
             sys.error("exception not supported")

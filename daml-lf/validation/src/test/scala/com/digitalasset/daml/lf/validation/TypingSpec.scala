@@ -87,7 +87,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
         BTAny -> k"*",
-        BTRoundingMode -> k"*",
         BTBigNumeric -> k"*",
         BTAnyException -> k"*",
       )
@@ -256,9 +255,6 @@ class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           T"TypeRep",
         E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
           T"TypeRep",
-        // ExpRoundingMode,
-        E"""ROUNDING_UP""" ->
-          T"RoundingMode",
         // ExpThrow
         E"Λ (σ : ⋆). λ (e : Mod:E) →  (( throw @σ @Mod:E e ))" ->
           T"∀ (σ : ⋆). Mod:E → (( σ ))",

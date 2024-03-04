@@ -156,7 +156,6 @@ instance Pretty BuiltinType where
     BTArrow -> parens docFunArrow
     BTAny -> "Any"
     BTTypeRep -> "TypeRep"
-    BTRoundingMode -> "RoundingMode"
     BTBigNumeric -> "BigNumeric"
     BTAnyException -> "AnyException"
 
@@ -205,17 +204,6 @@ docTmLambdaDot = "."
 docTyLambdaDot = "."
 docAltArrow = "->"
 
-prettyRounding :: RoundingModeLiteral -> String
-prettyRounding = \case
-  LitRoundingUp -> "ROUNDING_UP"
-  LitRoundingDown -> "ROUNDING_DOWN"
-  LitRoundingCeiling -> "ROUNDING_CEILING"
-  LitRoundingFloor -> "ROUNDING_FLOOR"
-  LitRoundingHalfUp -> "ROUNDING_HALF_UP"
-  LitRoundingHalfDown -> "ROUNDING_HALF_DOWN"
-  LitRoundingHalfEven -> "ROUNDING_HALF_EVEN"
-  LitRoundingUnnecessary -> "ROUNDING_UNNECESSARY"
-
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> integer (toInteger n)
@@ -223,7 +211,6 @@ instance Pretty BuiltinExpr where
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
-    BERoundingMode r -> keyword_ $ prettyRounding r
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
     BEEqualGeneric -> "EQUAL"

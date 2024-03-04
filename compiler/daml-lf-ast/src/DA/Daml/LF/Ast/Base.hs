@@ -180,7 +180,6 @@ data BuiltinType
   | BTArrow
   | BTAny
   | BTTypeRep
-  | BTRoundingMode
   | BTBigNumeric
   | BTAnyException
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -221,17 +220,6 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-data RoundingModeLiteral =
-      LitRoundingUp
-    | LitRoundingDown
-    | LitRoundingCeiling
-    | LitRoundingFloor
-    | LitRoundingHalfUp
-    | LitRoundingHalfDown
-    | LitRoundingHalfEven
-    | LitRoundingUnnecessary
-    deriving (Eq, Data, Generic, NFData, Ord, Show)
-
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
@@ -242,7 +230,6 @@ data BuiltinExpr
   | BEDate       !Int32          -- :: Date, days since unix epoch
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
-  | BERoundingMode !RoundingModeLiteral -- :: RoundingMode
 
   -- Exceptions
   | BEError                          -- :: ∀a. Text -> a

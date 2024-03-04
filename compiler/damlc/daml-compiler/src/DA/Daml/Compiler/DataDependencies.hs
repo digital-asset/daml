@@ -1073,7 +1073,6 @@ convBuiltInTy env =
         LF.BTNumeric -> mkGhcType env "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
-        LF.BTRoundingMode -> mkGhcType env "RoundingMode"
         LF.BTBigNumeric -> mkGhcType env "BigNumeric"
         LF.BTAnyException -> mkLfInternalType env "AnyException"
 

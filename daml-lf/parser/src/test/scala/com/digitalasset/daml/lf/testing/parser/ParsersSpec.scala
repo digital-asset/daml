@@ -77,7 +77,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "Option" -> BTOptional,
         "TextMap" -> BTTextMap,
         "BigNumeric" -> BTBigNumeric,
-        "RoundingMode" -> BTRoundingMode,
         "AnyException" -> BTAnyException,
         "TypeRep" -> BTTypeRep,
       )
@@ -162,7 +161,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "1970-01-02" -> PLDate(Time.Date.assertFromDaysSinceEpoch(1)),
         "1970-01-01T00:00:00.000001Z" -> PLTimestamp(Time.Timestamp.assertFromLong(1)),
         "1970-01-01T00:00:01Z" -> PLTimestamp(Time.Timestamp.assertFromLong(1000000)),
-        "ROUNDING_UP" -> PLRoundingMode(java.math.RoundingMode.UP),
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
@@ -434,27 +432,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           "enum type does not take type parameters at line 1, column 1"
         )
       }
-    }
-
-    "parse properly rounding Mode" in {
-      import java.math.RoundingMode._
-
-      val testCases = Table(
-        "string" -> "rounding mode",
-        "ROUNDING_UP" -> UP,
-        "ROUNDING_DOWN" -> DOWN,
-        "ROUNDING_CEILING" -> CEILING,
-        "ROUNDING_FLOOR" -> FLOOR,
-        "ROUNDING_HALF_UP" -> HALF_UP,
-        "ROUNDING_HALF_DOWN" -> HALF_DOWN,
-        "ROUNDING_HALF_EVEN" -> HALF_EVEN,
-        "ROUNDING_UNNECESSARY" -> UNNECESSARY,
-      )
-
-      forEvery(testCases)((stringToParse, expectedMode) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimLit(PLRoundingMode(expectedMode)))
-      )
-
     }
 
     "parses properly experiment" in {

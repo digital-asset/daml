@@ -147,8 +147,8 @@ filegroup(
                 "lf-v{}/daml-stdlib/DA-Semigroup-Types.dalf".format(majorLfVersion),
                 "lf-v{}/daml-stdlib/DA-Set-Types.dalf".format(majorLfVersion),
                 "lf-v{}/daml-stdlib/DA-Stack-Types.dalf".format(majorLfVersion),
-                "lf-v{}/daml-stdlib/DA-Types-RoundingMode.dalf".format(majorLfVersion),
                 "lf-v{}/daml-stdlib/DA-Time-Types.dalf".format(majorLfVersion),
+                "lf-v{}/daml-stdlib/DA-Types-RoundingMode.dalf".format(majorLfVersion),
                 "lf-v{}/daml-stdlib/DA-Validation-Types.dalf".format(majorLfVersion),
             ]
             for majorLfVersion in LF_MAJOR_VERSIONS

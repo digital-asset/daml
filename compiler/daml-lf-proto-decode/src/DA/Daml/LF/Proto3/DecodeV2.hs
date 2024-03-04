@@ -799,17 +799,6 @@ decodePrimLit (LF2.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF2.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF2.PrimLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
   LF2.PrimLitSumDate days -> pure $ BEDate days
-  LF2.PrimLitSumRoundingMode enum -> case enum of
-    Proto.Enumerated (Right mode) -> pure $ case mode of
-       LF2.PrimLit_RoundingModeUP -> BERoundingMode LitRoundingUp
-       LF2.PrimLit_RoundingModeDOWN -> BERoundingMode LitRoundingDown
-       LF2.PrimLit_RoundingModeCEILING -> BERoundingMode LitRoundingCeiling
-       LF2.PrimLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
-       LF2.PrimLit_RoundingModeHALF_UP -> BERoundingMode LitRoundingHalfUp
-       LF2.PrimLit_RoundingModeHALF_DOWN -> BERoundingMode LitRoundingHalfDown
-       LF2.PrimLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven
-       LF2.PrimLit_RoundingModeUNNECESSARY -> BERoundingMode LitRoundingUnnecessary
-    Proto.Enumerated (Left idx) -> throwError (UnknownEnum "PrimLitSumRoundingMode" idx)
   LF2.PrimLitSumDecimalStr _ -> unsupportedDecimal
 
 decodeNumericLit :: T.Text -> Decode BuiltinExpr
@@ -846,7 +835,6 @@ decodePrim = \case
   LF2.PrimTypeARROW -> pure BTArrow
   LF2.PrimTypeANY -> pure BTAny
   LF2.PrimTypeTYPE_REP -> pure BTTypeRep
-  LF2.PrimTypeROUNDING_MODE -> pure BTRoundingMode
   LF2.PrimTypeBIGNUMERIC -> pure BTBigNumeric
   LF2.PrimTypeANY_EXCEPTION -> pure BTAnyException
   LF2.PrimTypeDECIMAL -> unsupportedDecimal

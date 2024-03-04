@@ -507,7 +507,6 @@ private[lf] final class PhaseOne(
       case PLText(t) => SText(t)
       case PLTimestamp(ts) => STimestamp(ts)
       case PLDate(d) => SDate(d)
-      case PLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])

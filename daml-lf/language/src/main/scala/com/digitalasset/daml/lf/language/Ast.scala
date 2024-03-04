@@ -388,7 +388,6 @@ object Ast {
   case object BTAny extends BuiltinType
   case object BTTypeRep extends BuiltinType
   case object BTAnyException extends BuiltinType
-  case object BTRoundingMode extends BuiltinType
   case object BTBigNumeric extends BuiltinType
 
   //
@@ -405,7 +404,6 @@ object Ast {
   final case class PLText(override val value: String) extends PrimLit
   final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
   final case class PLDate(override val value: Time.Date) extends PrimLit
-  final case class PLRoundingMode(override val value: java.math.RoundingMode) extends PrimLit
 
   //
   // Primitive constructors
