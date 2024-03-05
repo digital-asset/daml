@@ -21,6 +21,7 @@ import com.daml.lf.transaction.Transaction.{
   NegativeKeyLookup,
 }
 import com.daml.lf.transaction.TransactionErrors.{
+  ContractNotActive,
   DuplicateContractId,
   DuplicateContractKey,
   InconsistentContractKey,
@@ -151,14 +152,19 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       version = txVersion,
     )
 
-  def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
+  def inconsistentContractKey[X](key: GlobalKey): Left[KeyInputError[Unit], X] =
     Left(KeyInputError.inject(InconsistentContractKey(key)))
 
-  def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError, X] =
+  def duplicateContractKey[X](key: GlobalKey): Left[KeyInputError[Unit], X] =
     Left(KeyInputError.inject(DuplicateContractKey(key)))
 
-  def duplicateContractId[X](contractId: ContractId): Left[KeyInputError, X] =
+  def duplicateContractId[X](contractId: ContractId): Left[KeyInputError[Unit], X] =
     Left(KeyInputError.inject(DuplicateContractId(contractId)))
+
+  def contractNotActive[X](
+      contractId: ContractId
+  ): Left[KeyInputError[Unit], X] =
+    Left(KeyInputError.inject(ContractNotActive(contractId, ())))
 
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
@@ -266,7 +272,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     //   ]
     val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1))
-    builder.add(mkExercise(1))
     builder.add(mkExercise(2, consuming = true, "key", byKey = false), exerciseNid)
     val rollbackNid = builder.add(builder.rollback(), exerciseNid)
     builder.add(mkLookupByKey("key", None), rollbackNid)
@@ -411,6 +416,82 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val expected = duplicateContractId(1)
     TestCase(
       "CreateAfterNonConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def consumingExerciseAfterConsumingExercise: TestCase = {
+    // [ Exercise c1, Exercise c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkExercise(1, consuming = true))
+    val _ = builder.add(mkExercise(1, consuming = true))
+    val tx = builder.build()
+    val expected = contractNotActive(1)
+    TestCase(
+      "ConsumingExerciseAfterConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def nonConsumingExerciseAfterConsumingExercise: TestCase = {
+    // [ Exercise c1, Exercise c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkExercise(1))
+    val _ = builder.add(mkExercise(1, consuming = false))
+    val tx = builder.build()
+    val expected = contractNotActive(1)
+    TestCase(
+      "NonConsumingExerciseAfterConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def fetchAfterConsumingExercise: TestCase = {
+    // [ Exercise c1, Fetch c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkExercise(1))
+    val _ = builder.add(mkFetch(1))
+    val tx = builder.build()
+    val expected = contractNotActive(1)
+    TestCase(
+      "FetchAfterConsumingExercise",
+      tx,
+      Map(
+        ContractKeyUniquenessMode.Strict -> expected,
+        ContractKeyUniquenessMode.Off -> expected,
+      ),
+    )
+  }
+
+  def createRbExEx: TestCase = {
+    // [ Create c1, Rollback [ Exe c1 ], Exe c1 ]
+    val builder = new TxBuilder()
+    val _ = builder.add(mkCreate(1))
+    val rollbackNid = builder.add(builder.rollback())
+    val _ = builder.add(mkExercise(1), rollbackNid)
+    val _ = builder.add(mkExercise(1))
+    val tx = builder.build()
+    val expected = Right(
+      (
+        Map.empty[GlobalKey, KeyInput],
+        ActiveLedgerState[Unit](Set(1), Map(cid(1) -> ()), Map.empty),
+        Set.empty[ContractId],
+      )
+    )
+    TestCase(
+      "Create|Rb-Ex|Ex",
       tx,
       Map(
         ContractKeyUniquenessMode.Strict -> expected,
@@ -686,6 +767,10 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     createAfterLookupByKey,
     createAfterConsumingExercise,
     createAfterNonConsumingExercise,
+    consumingExerciseAfterConsumingExercise,
+    nonConsumingExerciseAfterConsumingExercise,
+    fetchAfterConsumingExercise,
+    createRbExEx,
     doubleCreate,
     doubleCreateWithKey,
     divulgedLookup,
@@ -727,7 +812,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
                   state.inputContractIds shouldBe contractsI
                 }
                 state.rollbackStack shouldBe List.empty
-              case _ => fail(s"$result was not equal to $expectedResult")
+              case _ =>
+                fail(s"advance result $result was not equal to expected result $expectedResult")
             }
           }
         }
@@ -808,7 +894,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       root: NodeId,
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError[Unit], ContractStateMachine.State[Unit]] = {
     val node = nodes(root)
     for {
       next <- node match {
@@ -838,7 +924,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       roots: Seq[NodeId],
       resolver: KeyResolver,
       state: ContractStateMachine.State[Unit],
-  ): Either[KeyInputError, ContractStateMachine.State[Unit]] = {
+  ): Either[KeyInputError[Unit], ContractStateMachine.State[Unit]] = {
     roots match {
       case Seq() => Right(state)
       case root +: tail =>
@@ -863,7 +949,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
             case (Left(_), Left(_)) =>
             // We can't really make sure that we get the same errors.
             // There may be multiple key conflicts and advancing non-deterministically picks one of them
-            case _ => fail(s"$directVisit was not equal to $advanced")
+            case _ =>
+              fail(s"direct visit result $directVisit was not equal to advanced result $advanced")
           }
         }
         directVisit.flatMap(next => visitSubtrees(nodes, tail, resolver, next))
@@ -873,7 +960,9 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
 object ContractStateMachineSpec {
   type TestResult =
-    Either[KeyInputError, (Map[GlobalKey, KeyInput], ActiveLedgerState[Unit], Set[ContractId])]
+    Either[KeyInputError[
+      Unit
+    ], (Map[GlobalKey, KeyInput], ActiveLedgerState[Unit], Set[ContractId])]
   case class TestCase(
       name: String,
       transaction: HasTxNodes,

@@ -489,8 +489,8 @@ sealed abstract class HasTxNodes {
   @throws[IllegalArgumentException](
     "If a contract key contains a contract id"
   )
-  def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    foldInExecutionOrder[Either[KeyInputError, ContractStateMachine.State[NodeId]]](
+  def contractKeyInputs: Either[KeyInputError[_], Map[GlobalKey, KeyInput]] = {
+    foldInExecutionOrder[Either[KeyInputError[_], ContractStateMachine.State[NodeId]]](
       Right(ContractStateMachine.initial[NodeId](ContractKeyUniquenessMode.Strict))
     )(
       exerciseBegin = (acc, nid, exe) =>

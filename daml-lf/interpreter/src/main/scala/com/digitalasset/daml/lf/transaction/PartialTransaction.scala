@@ -195,11 +195,49 @@ private[lf] object PartialTransaction {
   )
 
   @throws[SError.SErrorDamlException]
-  private def assertRightKey[X](either: Either[TxErr.InconsistentContractKey, X]): X =
+  private def assertRightExercise[X](
+      templateId: TypeConName,
+      either: Either[TxErr.ExerciseError[NodeId], X],
+  ): X =
     either match {
       case Right(value) =>
         value
-      case Left(TxErr.InconsistentContractKey(key)) =>
+      case Left(TxErr.InconsistentContractKeyExerciseError(TxErr.InconsistentContractKey(key))) =>
+        throw SError.SErrorDamlException(interpretation.Error.InconsistentContractKey(key))
+      case Left(
+            TxErr.ContractNotActiveExerciseError(TxErr.ContractNotActive(contractId, consumedBy))
+          ) =>
+        throw SError.SErrorDamlException(
+          interpretation.Error.ContractNotActive(contractId, templateId, consumedBy)
+        )
+    }
+
+  @throws[SError.SErrorDamlException]
+  private def assertRightFetch[X](
+      templateId: TypeConName,
+      either: Either[TxErr.FetchError[NodeId], X],
+  ): X =
+    either match {
+      case Right(value) =>
+        value
+      case Left(TxErr.InconsistentContractKeyFetchError(TxErr.InconsistentContractKey(key))) =>
+        throw SError.SErrorDamlException(interpretation.Error.InconsistentContractKey(key))
+      case Left(
+            TxErr.ContractNotActiveFetchError(TxErr.ContractNotActive(contractId, consumedBy))
+          ) =>
+        throw SError.SErrorDamlException(
+          interpretation.Error.ContractNotActive(contractId, templateId, consumedBy)
+        )
+    }
+
+  @throws[SError.SErrorDamlException]
+  private def assertRightLookup[X](
+      either: Either[TxErr.LookupError, X]
+  ): X =
+    either match {
+      case Right(value) =>
+        value
+      case Left(TxErr.InconsistentContractKeyLookupError(TxErr.InconsistentContractKey(key))) =>
         throw SError.SErrorDamlException(interpretation.Error.InconsistentContractKey(key))
     }
 
@@ -400,13 +438,14 @@ private[speedy] case class PartialTransaction(
         version = version,
       )
 
-      val newContractState = assertRightKey(
+      val newContractState = assertRightFetch(
+        contract.templateId,
         // evaluation order tests require visitFetch proceeds authorizeFetch
         contractState.visitFetch(
           coid,
           contract.gkeyOpt,
           byKey,
-        )
+        ),
       )
       authorizationChecker.authorizeFetch(optLocation, node)(auth) match {
         case fa :: _ =>
@@ -436,7 +475,7 @@ private[speedy] case class PartialTransaction(
       // so the current state's global key inputs must resolve the key.
       val keyInput = contractState.globalKeyInputs(key.globalKey)
       val newContractState =
-        assertRightKey(contractState.visitLookup(key.globalKey, keyInput.toKeyMapping, result))
+        assertRightLookup(contractState.visitLookup(key.globalKey, keyInput.toKeyMapping, result))
       authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
         case fa :: _ =>
           Left(TxErr.TransactionError.inject(TxErr.AuthFailureDuringExecution(nid, fa)))
@@ -491,14 +530,15 @@ private[speedy] case class PartialTransaction(
         )
       // important: the semantics of Daml dictate that contracts are immediately
       // inactive as soon as you exercise it. therefore, mark it as consumed now.
-      val newContractState = assertRightKey(
+      val newContractState = assertRightExercise(
+        templateId,
         contractState.visitExercise(
           nid,
           targetId,
           contract.gkeyOpt,
           byKey,
           consuming,
-        )
+        ),
       )
       authorizationChecker.authorizeExercise(optLocation, makeExNode(ec))(auth) match {
         case fa :: _ =>

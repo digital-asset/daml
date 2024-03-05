@@ -14,7 +14,10 @@ import com.daml.lf.value.Value.ContractId
   *  - [[AuthFailureDuringExecution]]
   * , and classifies them into three overlapping categories:
   *  - [[CreateError]]
-  *  - [[KeyInputError]]
+  *  - [[ExerciseError]]
+  *  - [[FetchError]]
+  *  - [[LookupError]]
+  *  - [[KeyInputError[Nid]]]
   *  - [[TransactionError]]
   */
 object TransactionErrors {
@@ -47,6 +50,14 @@ object TransactionErrors {
   final case class DuplicateContractKey(
       key: GlobalKey
   ) extends Serializable
+      with Product
+
+  /** Signals that within the transaction we got to a point where
+    * we tried to exercise or fetch a contract that is known
+    * to have been archived.
+    */
+  final case class ContractNotActive[Nid](contractId: ContractId, consumedBy: Nid)
+      extends Serializable
       with Product
 
   /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
@@ -102,34 +113,56 @@ object TransactionErrors {
     *   - [[DuplicateContractId]]
     *   - [[DuplicateContractKey]]
     *   - [[InconsistentContractKey]]
+    *   - [[ContractNotActive]]
     */
-  sealed trait KeyInputError extends Serializable with Product
+  sealed trait KeyInputError[Nid] extends Serializable with Product
 
-  final case class DuplicateContractIdKIError(
+  final case class DuplicateContractIdKIError[Nid](
       duplicateContractId: DuplicateContractId
-  ) extends KeyInputError
+  ) extends KeyInputError[Nid]
 
-  final case class DuplicateContractKeyKIError(
+  final case class DuplicateContractKeyKIError[Nid](
       duplicateContractKey: DuplicateContractKey
-  ) extends KeyInputError
+  ) extends KeyInputError[Nid]
 
-  final case class InconsistentContractKeyKIError(
+  final case class InconsistentContractKeyKIError[Nid](
       inconsistentContractKey: InconsistentContractKey
-  ) extends KeyInputError
+  ) extends KeyInputError[Nid]
+
+  final case class ContractNotActiveKeyKIError[Nid](
+      contractNotActive: ContractNotActive[Nid]
+  ) extends KeyInputError[Nid]
 
   object KeyInputError {
-    def inject(error: DuplicateContractId): KeyInputError =
+    def inject[Nid](error: DuplicateContractId): KeyInputError[Nid] =
       DuplicateContractIdKIError(error)
 
-    def inject(error: DuplicateContractKey): KeyInputError =
+    def inject[Nid](error: DuplicateContractKey): KeyInputError[Nid] =
       DuplicateContractKeyKIError(error)
 
-    def inject(error: InconsistentContractKey): KeyInputError =
+    def inject[Nid](error: InconsistentContractKey): KeyInputError[Nid] =
       InconsistentContractKeyKIError(error)
 
-    def from(error: CreateError): KeyInputError = error match {
+    def inject[Nid](error: ContractNotActive[Nid]): KeyInputError[Nid] =
+      ContractNotActiveKeyKIError(error)
+
+    def from[Nid](error: CreateError): KeyInputError[Nid] = error match {
       case DuplicateContractIdCreateError(e) => inject(e)
       case DuplicateContractKeyCreateError(e) => inject(e)
+    }
+
+    def from[Nid](error: ExerciseError[Nid]): KeyInputError[Nid] = error match {
+      case InconsistentContractKeyExerciseError(e) => inject(e)
+      case ContractNotActiveExerciseError(e) => inject(e)
+    }
+
+    def from[Nid](error: FetchError[Nid]): KeyInputError[Nid] = error match {
+      case InconsistentContractKeyFetchError(e) => inject(e)
+      case ContractNotActiveFetchError(e) => inject(e)
+    }
+
+    def from[Nid](error: LookupError): KeyInputError[Nid] = error match {
+      case InconsistentContractKeyLookupError(e) => inject(e)
     }
   }
 
@@ -153,5 +186,63 @@ object TransactionErrors {
 
     def inject(error: DuplicateContractKey): CreateError =
       DuplicateContractKeyCreateError(error)
+  }
+
+  /** The errors returned by [[ContractStateMachine.State.visitExercise()]]:
+    *   - [[InconsistentContractKey]]
+    *   - [[ContractNotActive]]
+    */
+  sealed trait ExerciseError[Nid] extends Serializable with Product
+
+  final case class InconsistentContractKeyExerciseError[Nid](
+      inconsistentContractKey: InconsistentContractKey
+  ) extends ExerciseError[Nid]
+
+  final case class ContractNotActiveExerciseError[Nid](
+      contractNotActive: ContractNotActive[Nid]
+  ) extends ExerciseError[Nid]
+
+  object ExerciseError {
+    def inject[Nid](error: InconsistentContractKey): ExerciseError[Nid] =
+      InconsistentContractKeyExerciseError(error)
+
+    def inject[Nid](error: ContractNotActive[Nid]): ExerciseError[Nid] =
+      ContractNotActiveExerciseError(error)
+  }
+
+  /** The errors returned by [[ContractStateMachine.State.visitFetch()]]:
+    *   - [[InconsistentContractKey]]
+    *   - [[ContractNotActive]]
+    */
+  sealed trait FetchError[Nid] extends Serializable with Product
+
+  final case class InconsistentContractKeyFetchError[Nid](
+      inconsistentContractKey: InconsistentContractKey
+  ) extends FetchError[Nid]
+
+  final case class ContractNotActiveFetchError[Nid](
+      contractNotActive: ContractNotActive[Nid]
+  ) extends FetchError[Nid]
+
+  object FetchError {
+    def inject[Nid](error: InconsistentContractKey): FetchError[Nid] =
+      InconsistentContractKeyFetchError(error)
+
+    def inject[Nid](error: ContractNotActive[Nid]): FetchError[Nid] =
+      ContractNotActiveFetchError(error)
+  }
+
+  /** The errors returned by [[ContractStateMachine.State.visitLookup()]]:
+    *   - [[InconsistentContractKey]]
+    */
+  sealed trait LookupError extends Serializable with Product
+
+  final case class InconsistentContractKeyLookupError(
+      inconsistentContractKey: InconsistentContractKey
+  ) extends LookupError
+
+  object LookupError {
+    def inject(error: InconsistentContractKey): LookupError =
+      InconsistentContractKeyLookupError(error)
   }
 }
