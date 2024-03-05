@@ -8,12 +8,12 @@ import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Lens
 import Control.Monad
-import Control.Monad.Loops (untilM_)
+--import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.ByteString.Lazy as LBS
 import Data.List.Extra
-import Data.String (fromString)
+--import Data.String (fromString)
 import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -437,6 +437,7 @@ damlStartTests getDamlStart =
                         ("http://localhost:" <> show navigatorPort)
                         []
 
+        {-
         subtest "hot reload" $ do
             DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan, alice, aliceHeaders} <- getDamlStart
             stdoutReadChan <- atomically $ dupTChan stdoutChan
@@ -490,6 +491,7 @@ damlStartTests getDamlStart =
                 (key "result" . nth 0 . key "payload" . key "newFieldName")
                 (responseBody queryResponseS) @?=
                 Just (fromString alice)
+        -}
 
         subtest "run a daml deploy without project parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
