@@ -22,7 +22,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
-import io.grpc.{Status, StatusException}
+import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -96,14 +96,16 @@ class GrpcSequencerAdministrationService(
       requestP: v30.DisableMemberRequest
   ): Future[v30.DisableMemberResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    EitherTUtil.toFuture[StatusException, v30.DisableMemberResponse] {
+    EitherTUtil.toFuture[StatusRuntimeException, v30.DisableMemberResponse] {
       for {
         member <- EitherT.fromEither[Future](
           Member
             .fromProtoPrimitive(requestP.member, "member")
-            .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString).asException())
+            .leftMap(err =>
+              new StatusRuntimeException(Status.INVALID_ARGUMENT.withDescription(err.toString))
+            )
         )
-        _ <- EitherT.right(sequencer.disableMember(member))
+        _ <- sequencer.disableMember(member).leftMap(_.asGrpcError)
       } yield v30.DisableMemberResponse()
     }
   }

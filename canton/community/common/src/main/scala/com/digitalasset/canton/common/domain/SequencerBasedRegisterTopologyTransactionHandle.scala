@@ -6,7 +6,7 @@ package com.digitalasset.canton.common.domain
 import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.{ProcessingTimeout, TopologyXConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -40,7 +40,7 @@ class SequencerBasedRegisterTopologyTransactionHandleX(
     val domainId: DomainId,
     val member: Member,
     clock: Clock,
-    topologyXConfig: TopologyXConfig,
+    topologyXConfig: TopologyConfig,
     protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -88,7 +88,7 @@ class SequencerBasedRegisterTopologyTransactionHandleX(
 class DomainTopologyServiceX(
     sequencerClient: SequencerClient,
     clock: Clock,
-    topologyXConfig: TopologyXConfig,
+    topologyXConfig: TopologyConfig,
     protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,

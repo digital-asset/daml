@@ -215,7 +215,7 @@ abstract class CantonNodeBootstrapX[
         clock,
         crypto,
         authorizedStore,
-        config.topologyX.enableTopologyTransactionValidation,
+        config.topology.enableTopologyTransactionValidation,
         timeouts,
         futureSupervisor,
         loggerFactory,
