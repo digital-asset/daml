@@ -124,7 +124,6 @@ in rec {
 
     yapf = pkgs.python38Packages.yapf;
 
-    pex = pkgs.python38Packages.pex;
     pipenv = pkgs.pipenv;
 
     pre-commit = pkgs.pre-commit;
