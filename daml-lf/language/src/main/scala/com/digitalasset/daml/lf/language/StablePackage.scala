@@ -62,37 +62,37 @@ object StablePackages {
 private[daml] object StablePackagesV2 extends StablePackages {
   val DA_Internal_Down: StablePackage = new StablePackage(
     "DA.Internal.Down",
-    "dcbdacc42764d3887610f44ffe5134f09a500ffcfea5b0696a0693e82b104cda",
+    "54abeb11f0eed3da544d37cbad04d8f866d83acba977bb014b3e346f2eb9e551",
     "daml-stdlib",
     v2_1,
   )
   val DA_Logic_Types: StablePackage = new StablePackage(
     "DA.Logic.Types",
-    "3f28b0de0e1a9f71e5d8e1e6c2dc0625aefd32672fb29c9fdd8145a07bedd5f1",
+    "edb5aeef08a062be44018bcd548d8141951fcadc6705e483fa7e62d908d84dea",
     "daml-stdlib",
     v2_1,
   )
   val DA_Stack_Types: StablePackage = new StablePackage(
     "DA.Stack.Types",
-    "baf3f887f97419ebd2b87e25b6b7ab8b66145c9813ef15851249a9eff75efb79",
+    "5ba9b13b8f42b1d5d0cdbea93247c8816bfabd2101a9c5972b6852a3151f7100",
     "daml-stdlib",
     v2_1,
   )
   val DA_Monoid_Types: StablePackage = new StablePackage(
     "DA.Monoid.Types",
-    "db242b5ad988328f01188f72988552a89bfbe630b8157e1e11f60758499a2ce5",
+    "c6ac07a6623e57d226f3289e934c22cd251dda95eb1d82108374023a7e032254",
     "daml-stdlib",
     v2_1,
   )
   val DA_Set_Types: StablePackage = new StablePackage(
     "DA.Set.Types",
-    "eb6c6231bdfb99f78b09c2241af1774a96ee2d557f8269deba92c3ce6340e90e",
+    "9511092860971d9c6ba81c73fed994a3670e5279d5bf193e4bbb02063281dab7",
     "daml-stdlib",
     v2_1,
   )
   val DA_Validation_Types: StablePackage = new StablePackage(
     "DA.Validation.Types",
-    "4ad518a6e60589d5bd7f0e20196f89cb017b5e193160841ab36e39e9a35b3118",
+    "7851ba55b61ff1efd2dc04e55093ba273843501d3cb792c5be6e983e94530dd2",
     "daml-stdlib",
     v2_1,
   )
@@ -104,37 +104,37 @@ private[daml] object StablePackagesV2 extends StablePackages {
   )
   val DA_Semigroup_Types: StablePackage = new StablePackage(
     "DA.Semigroup.Types",
-    "1b912db5849106a731884f56cfdf8414a573a535ecc9422d95410e6b52aae93c",
+    "8bf075ed0f9b502294940d256cadace47e71b7adfa7cce854c1829c2bddf241f",
     "daml-stdlib",
     v2_1,
   )
   val DA_Time_Types: StablePackage = new StablePackage(
     "DA.Time.Types",
-    "f141230257fa9c6467b03e6ae3cc73a42ff1fdaf14ff172d91ec78cfeb181633",
+    "13f71afbf5d73853a854c2ad9269e47acf5a94c2f533141b5522542f66e86526",
     "daml-stdlib",
     v2_1,
   )
   val DA_NonEmpty_Types: StablePackage = new StablePackage(
     "DA.NonEmpty.Types",
-    "a997b91f62098e8ed20659cc42265ece0c2edc3bde2fbc082bfb0a5bb6ead7e5",
+    "d6ae362400b05ec4ed649cc313f5e5bb06a1fed92cce72589ec8ee45573962dc",
     "daml-stdlib",
     v2_1,
   )
   val DA_Random_Types: StablePackage = new StablePackage(
     "DA.Random.Types",
-    "840302f70e3557d06c98e73282c84542b705a81d5fa4ba669b5750acae42d15d",
+    "c8463c6500cba09d1f52d6851f94882ebfe8b0d9c782291e98f483f8c21e7ae2",
     "daml-stdlib",
     v2_1,
   )
   val DA_Internal_Interface_AnyView_Types: StablePackage = new StablePackage(
     "DA.Internal.Interface.AnyView.Types",
-    "5e93adc04d625458acbfc898bc92665d1d1947c10ff0a42661cd44b9f8b84d57",
+    "2513dbd49a110892bfbfdad4bd0b5aef82e34979d59529c1f7e74b425e561977",
     "daml-stdlib",
     v2_1,
   )
   val DA_Internal_Any: StablePackage = new StablePackage(
     "DA.Internal.Any",
-    "34b23589825aee625d6e4fb70d56404cfd999083a2ec4abf612757d48f7c14df",
+    "053b10c09112715e460733385963e120a75768abf5a5539428a6437017792e65",
     "daml-stdlib",
     v2_1,
   )
@@ -146,7 +146,7 @@ private[daml] object StablePackagesV2 extends StablePackages {
   )
   val DA_Action_State_Type: StablePackage = new StablePackage(
     "DA.Action.State.Type",
-    "d6da817f1d703324619eaae87be5a80c16eb0a1da0cdae48d1dd5111aee5be30",
+    "1bf85ad08ef3be26f2d8a864b4bf907f38f65051ddaa18bf1ec5872756010276",
     "daml-stdlib",
     v2_1,
   )
@@ -176,19 +176,19 @@ private[daml] object StablePackagesV2 extends StablePackages {
   )
   val DA_Exception_AssertionFailed: StablePackage = new StablePackage(
     "DA.Exception.AssertionFailed",
-    "f3ae1c80664957609d28f76e8f0bf8a5aaec25d93c786501b785ab5a49b2a8f7",
+    "5548421c4a31fac59b22505f2216177920df47059071a34da3f8d8c07dfeb7f6",
     "daml-prim",
     v2_1,
   )
   val GHC_Tuple: StablePackage = new StablePackage(
     "GHC.Tuple",
-    "91c8a48444c590867fe71f4da1c3001516b45ecaf2fdad381ad60d179224cd9b",
+    "9c1f8a2f36dfdbf1f30087c75e654fa39cb5fc614503979485b263f70a2e5422",
     "daml-prim",
     v2_1,
   )
   val DA_Exception_ArithmeticError: StablePackage = new StablePackage(
     "DA.Exception.ArithmeticError",
-    "e1713757215a2462915fed49bbe47c3e459dfabb3fb9521a832cc7bb32499bae",
+    "ded2974feb90808a03199cad3355a505bf930a717456a85cd7ac6b03ace303c9",
     "daml-prim",
     v2_1,
   )
@@ -200,20 +200,20 @@ private[daml] object StablePackagesV2 extends StablePackages {
   )
   val DA_Exception_GeneralError: StablePackage = new StablePackage(
     "DA.Exception.GeneralError",
-    "7e1ea9e0fbef673f4ee6c0059c7ede41dfd893a6736a23e263ad9b4395d89ff1",
+    "449a5a5c62a70ef892325acbd396b77eab3fd5e1e8cb780df40c856bb22a23ea",
     "daml-prim",
     v2_1,
   )
   val DA_Exception_PreconditionFailed: StablePackage = new StablePackage(
     "DA.Exception.PreconditionFailed",
-    "4c290f7b9fe25f59a2d0ad07ee506d5e0a3ecfdb413e5c32e60dafa1052fdd6a",
+    "9c64df81897c6b98c86063b3a2a4503d756bb7994f06c290ea3d6ad719b76c72",
     "daml-prim",
     v2_1,
   )
 
   override val DA_Types: StablePackage = new StablePackage(
     "DA.Types",
-    "202599a30d109125440918fdd6cd5f35c9e76175ef43fa5c9d6d9fd1eb7b66ff",
+    "26b14ad5a8a2ed45d75e3c774aeb1c41a918ef2f4a7d2bd40f9716f26c46bfdf",
     "daml-prim",
     v2_1,
   )

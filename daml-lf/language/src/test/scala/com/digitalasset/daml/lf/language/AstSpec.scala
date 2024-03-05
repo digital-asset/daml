@@ -431,14 +431,14 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   private val modName2 = DottedName.assertFromString("Mod2")
 
   private val eParties = ENil(TBuiltin(BTParty))
-  private val eText = EPrimLit(PLText("some text"))
+  private val eText = EBuiltinLit(BLText("some text"))
   private val ifaceImpl1 = TemplateImplements(
     interfaceId = TypeConName.assertFromString("pkgId:Mod:I1"),
     InterfaceInstanceBody(
       methods = Map.empty,
       view = EAbs(
         (Name.assertFromString("this"), TUnit),
-        EPrimCon(PCUnit),
+        EBuiltinCon(BCUnit),
         None,
       ),
     ),
@@ -449,7 +449,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       methods = Map.empty,
       view = EAbs(
         (Name.assertFromString("this"), TUnit),
-        EPrimCon(PCUnit),
+        EBuiltinCon(BCUnit),
         None,
       ),
     ),

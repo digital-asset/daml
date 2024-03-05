@@ -544,11 +544,11 @@ private[lf] object Pretty {
           (text("var") + char('(') + str(v) + char(')'), index + 1)
         case SCPEnum(_, v, _) =>
           (text("enum") + char('(') + str(v) + char(')'), index)
-        case SCPPrimCon(pc) =>
+        case SCPBuiltinCon(pc) =>
           pc match {
-            case PCTrue => (text("true"), index)
-            case PCFalse => (text("false"), index)
-            case PCUnit => (text("()"), index)
+            case BCTrue => (text("true"), index)
+            case BCFalse => (text("false"), index)
+            case BCUnit => (text("()"), index)
           }
         case SCPNone => (text("none"), index)
         case SCPSome => (text("some"), index + 1)

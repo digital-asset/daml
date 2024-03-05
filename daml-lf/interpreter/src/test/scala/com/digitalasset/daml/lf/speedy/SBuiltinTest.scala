@@ -1357,7 +1357,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val builtin = e"""TEXT_TO_INT64"""
 
         forEvery(testCases) { (input, output) =>
-          eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(
+          eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(
             SOptional(output)
           )
         }
@@ -1429,7 +1429,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       val builtin = e"""TEXT_TO_NUMERIC @10 ${w(10)}"""
 
       forEvery(testCases) { (input, output) =>
-        eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(SOptional(output))
+        eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(SOptional(output))
       }
     }
 

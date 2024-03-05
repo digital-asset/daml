@@ -97,17 +97,17 @@ object Util {
 
   val TAnyException = TBuiltin(BTAnyException)
 
-  val EUnit = EPrimCon(PCUnit)
-  val ETrue = EPrimCon(PCTrue)
-  val EFalse = EPrimCon(PCFalse)
+  val EUnit = EBuiltinCon(BCUnit)
+  val ETrue = EBuiltinCon(BCTrue)
+  val EFalse = EBuiltinCon(BCFalse)
 
-  val EEmptyString = EPrimLit(PLText(""))
+  val EEmptyString = EBuiltinLit(BLText(""))
 
-  def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
+  def EBool(b: Boolean): EBuiltinCon = if (b) ETrue else EFalse
 
-  val CPUnit = CPPrimCon(PCUnit)
-  val CPTrue = CPPrimCon(PCTrue)
-  val CPFalse = CPPrimCon(PCFalse)
+  val CPUnit = CPBuiltinCon(BCUnit)
+  val CPTrue = CPBuiltinCon(BCTrue)
+  val CPFalse = CPBuiltinCon(BCFalse)
 
   @tailrec
   def destructETyApp(e: Expr, targs: List[Type] = List.empty): (Expr, List[Type]) =

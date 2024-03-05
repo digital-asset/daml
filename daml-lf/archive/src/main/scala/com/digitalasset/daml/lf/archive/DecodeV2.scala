@@ -711,16 +711,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           sequenceWork(tsyn.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
             Ret(TSynApp(decodeTypeSynName(tsyn.getTysyn), types.to(ImmArray)))
           }
-        case PLF.Type.SumCase.PRIM =>
-          val prim = lfType.getPrim
-          val baseType: Type =
-            if (prim.getPrim == PLF.PrimType.DECIMAL) {
-              throw notSupportedError("PrimType.DECIMAL")
-            } else {
-              val info = builtinTypeInfoMap(prim.getPrim)
-              assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
-              info.typ
-            }
+        case PLF.Type.SumCase.BUILTIN =>
+          val prim = lfType.getBuiltin
+          val info = builtinTypeInfoMap(prim.getBuiltin)
+          assertSince(info.minVersion, prim.getBuiltin.getValueDescriptor.getFullName)
+          val baseType: Type = info.typ
           sequenceWork(prim.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft(baseType)(TApp))
           }
@@ -814,16 +809,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Expr.SumCase.VAL =>
           Ret(EVal(decodeValName(lfExpr.getVal)))
 
-        case PLF.Expr.SumCase.PRIM_LIT =>
-          Ret(EPrimLit(decodePrimLit(lfExpr.getPrimLit)))
+        case PLF.Expr.SumCase.BUILTIN_LIT =>
+          Ret(EBuiltinLit(decodeBuiltinLit(lfExpr.getBuiltinLit)))
 
-        case PLF.Expr.SumCase.PRIM_CON =>
-          Ret(lfExpr.getPrimCon match {
-            case PLF.PrimCon.CON_UNIT => EUnit
-            case PLF.PrimCon.CON_FALSE => EFalse
-            case PLF.PrimCon.CON_TRUE => ETrue
-            case PLF.PrimCon.UNRECOGNIZED =>
-              throw Error.Parsing("PrimCon.UNRECOGNIZED")
+        case PLF.Expr.SumCase.BUILTIN_CON =>
+          Ret(lfExpr.getBuiltinCon match {
+            case PLF.BuiltinCon.CON_UNIT => EUnit
+            case PLF.BuiltinCon.CON_FALSE => EFalse
+            case PLF.BuiltinCon.CON_TRUE => ETrue
+            case PLF.BuiltinCon.UNRECOGNIZED =>
+              throw Error.Parsing("BuiltinCon.UNRECOGNIZED")
           })
 
         case PLF.Expr.SumCase.BUILTIN =>
@@ -1216,8 +1211,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             tycon = decodeTypeConName(enumeration.getCon),
             constructor = internedName(enumeration.getConstructorInternedStr),
           )
-        case PLF.CaseAlt.SumCase.PRIM_CON =>
-          decodePrimCon(lfCaseAlt.getPrimCon)
+        case PLF.CaseAlt.SumCase.BUILTIN_CON =>
+          decodeBuiltinCon(lfCaseAlt.getBuiltinCon)
         case PLF.CaseAlt.SumCase.NIL =>
           CPNil
         case PLF.CaseAlt.SumCase.CONS =>
@@ -1512,38 +1507,36 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private[this] def decodePrimCon(lfPrimCon: PLF.PrimCon): CPPrimCon =
-      lfPrimCon match {
-        case PLF.PrimCon.CON_UNIT =>
+    private[this] def decodeBuiltinCon(lfBuiltinCon: PLF.BuiltinCon): CPBuiltinCon =
+      lfBuiltinCon match {
+        case PLF.BuiltinCon.CON_UNIT =>
           CPUnit
-        case PLF.PrimCon.CON_FALSE =>
+        case PLF.BuiltinCon.CON_FALSE =>
           CPFalse
-        case PLF.PrimCon.CON_TRUE =>
+        case PLF.BuiltinCon.CON_TRUE =>
           CPTrue
-        case _ => throw Error.Parsing("Unknown PrimCon: " + lfPrimCon.toString)
+        case _ => throw Error.Parsing("Unknown BuiltinCon: " + lfBuiltinCon.toString)
       }
 
-    private[this] def decodePrimLit(lfPrimLit: PLF.PrimLit): PrimLit =
-      lfPrimLit.getSumCase match {
-        case PLF.PrimLit.SumCase.INT64 =>
-          PLInt64(lfPrimLit.getInt64)
-        case PLF.PrimLit.SumCase.DECIMAL_STR =>
-          throw notSupportedError("PrimLit.decimal_str")
-        case PLF.PrimLit.SumCase.TIMESTAMP =>
-          val t = Time.Timestamp.fromLong(lfPrimLit.getTimestamp)
-          t.fold(e => throw Error.Parsing("error decoding timestamp: " + e), PLTimestamp)
-        case PLF.PrimLit.SumCase.DATE =>
-          val d = Time.Date.fromDaysSinceEpoch(lfPrimLit.getDate)
-          d.fold(e => throw Error.Parsing("error decoding date: " + e), PLDate)
-        case PLF.PrimLit.SumCase.TEXT_INTERNED_STR =>
-          PLText(getInternedStr(lfPrimLit.getTextInternedStr))
-        case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
-          toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
-        case PLF.PrimLit.SumCase.ROUNDING_MODE =>
+    private[this] def decodeBuiltinLit(lfBuiltinLit: PLF.BuiltinLit): BuiltinLit =
+      lfBuiltinLit.getSumCase match {
+        case PLF.BuiltinLit.SumCase.INT64 =>
+          BLInt64(lfBuiltinLit.getInt64)
+        case PLF.BuiltinLit.SumCase.TIMESTAMP =>
+          val t = Time.Timestamp.fromLong(lfBuiltinLit.getTimestamp)
+          t.fold(e => throw Error.Parsing("error decoding timestamp: " + e), BLTimestamp)
+        case PLF.BuiltinLit.SumCase.DATE =>
+          val d = Time.Date.fromDaysSinceEpoch(lfBuiltinLit.getDate)
+          d.fold(e => throw Error.Parsing("error decoding date: " + e), BLDate)
+        case PLF.BuiltinLit.SumCase.TEXT_INTERNED_STR =>
+          BLText(getInternedStr(lfBuiltinLit.getTextInternedStr))
+        case PLF.BuiltinLit.SumCase.NUMERIC_INTERNED_STR =>
+          toBLNumeric(getInternedStr(lfBuiltinLit.getNumericInternedStr))
+        case PLF.BuiltinLit.SumCase.ROUNDING_MODE =>
           assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
-          PLRoundingMode(java.math.RoundingMode.valueOf(lfPrimLit.getRoundingModeValue))
-        case PLF.PrimLit.SumCase.SUM_NOT_SET =>
-          throw Error.Parsing("PrimLit.SUM_NOT_SET")
+          BLRoundingMode(java.math.RoundingMode.valueOf(lfBuiltinLit.getRoundingModeValue))
+        case PLF.BuiltinLit.SumCase.SUM_NOT_SET =>
+          throw Error.Parsing("BuiltinLit.SUM_NOT_SET")
       }
   }
 
@@ -1561,8 +1554,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     eitherToParseError(PackageVersion.fromString(s))
   }
 
-  private[this] def toPLNumeric(s: String) =
-    PLNumeric(eitherToParseError(Numeric.fromString(s)))
+  private[this] def toBLNumeric(s: String) =
+    BLNumeric(eitherToParseError(Numeric.fromString(s)))
 
   private[this] def notSupportedError(description: String): Error.Parsing =
     Error.Parsing(s"$description is not supported by Daml-LF 2.$minor")
@@ -1611,7 +1604,7 @@ private[lf] object DecodeV2 {
     x.fold(err => throw Error.Parsing(err), identity)
 
   case class BuiltinTypeInfo(
-      proto: PLF.PrimType,
+      proto: PLF.BuiltinType,
       bTyp: BuiltinType,
       minVersion: LV = LV.Features.default,
   ) {
@@ -1619,7 +1612,7 @@ private[lf] object DecodeV2 {
   }
 
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
-    import PLF.PrimType._
+    import PLF.BuiltinType._
     List(
       BuiltinTypeInfo(UNIT, BTUnit),
       BuiltinTypeInfo(BOOL, BTBool),

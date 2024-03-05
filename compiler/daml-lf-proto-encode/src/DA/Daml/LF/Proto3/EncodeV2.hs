@@ -254,29 +254,29 @@ encodeKind = fmap (P.Kind . Just) . \case
 -- Encoding of types
 ------------------------------------------------------------------------
 
-encodeBuiltinType :: BuiltinType -> P.Enumerated P.PrimType
+encodeBuiltinType :: BuiltinType -> P.Enumerated P.BuiltinType
 encodeBuiltinType = P.Enumerated . Right . \case
-    BTInt64 -> P.PrimTypeINT64
-    BTText -> P.PrimTypeTEXT
-    BTTimestamp -> P.PrimTypeTIMESTAMP
-    BTParty -> P.PrimTypePARTY
-    BTUnit -> P.PrimTypeUNIT
-    BTBool -> P.PrimTypeBOOL
-    BTList -> P.PrimTypeLIST
-    BTUpdate -> P.PrimTypeUPDATE
-    BTScenario -> P.PrimTypeSCENARIO
-    BTDate -> P.PrimTypeDATE
-    BTContractId -> P.PrimTypeCONTRACT_ID
-    BTOptional -> P.PrimTypeOPTIONAL
-    BTTextMap -> P.PrimTypeTEXTMAP
-    BTGenMap -> P.PrimTypeGENMAP
-    BTArrow -> P.PrimTypeARROW
-    BTNumeric -> P.PrimTypeNUMERIC
-    BTAny -> P.PrimTypeANY
-    BTTypeRep -> P.PrimTypeTYPE_REP
-    BTRoundingMode -> P.PrimTypeROUNDING_MODE
-    BTBigNumeric -> P.PrimTypeBIGNUMERIC
-    BTAnyException -> P.PrimTypeANY_EXCEPTION
+    BTInt64 -> P.BuiltinTypeINT64
+    BTText -> P.BuiltinTypeTEXT
+    BTTimestamp -> P.BuiltinTypeTIMESTAMP
+    BTParty -> P.BuiltinTypePARTY
+    BTUnit -> P.BuiltinTypeUNIT
+    BTBool -> P.BuiltinTypeBOOL
+    BTList -> P.BuiltinTypeLIST
+    BTUpdate -> P.BuiltinTypeUPDATE
+    BTScenario -> P.BuiltinTypeSCENARIO
+    BTDate -> P.BuiltinTypeDATE
+    BTContractId -> P.BuiltinTypeCONTRACT_ID
+    BTOptional -> P.BuiltinTypeOPTIONAL
+    BTTextMap -> P.BuiltinTypeTEXTMAP
+    BTGenMap -> P.BuiltinTypeGENMAP
+    BTArrow -> P.BuiltinTypeARROW
+    BTNumeric -> P.BuiltinTypeNUMERIC
+    BTAny -> P.BuiltinTypeANY
+    BTTypeRep -> P.BuiltinTypeTYPE_REP
+    BTRoundingMode -> P.BuiltinTypeROUNDING_MODE
+    BTBigNumeric -> P.BuiltinTypeBIGNUMERIC
+    BTAnyException -> P.BuiltinTypeANY_EXCEPTION
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
@@ -294,9 +294,9 @@ encodeType' typ = do
         type_SynArgs <- encodeList encodeType' args
         pure $ P.TypeSumSyn P.Type_Syn{..}
     (TBuiltin bltn, args) -> do
-        let type_PrimPrim = encodeBuiltinType bltn
-        type_PrimArgs <- encodeList encodeType' args
-        pure $ P.TypeSumPrim P.Type_Prim{..}
+        let type_BuiltinBuiltin = encodeBuiltinType bltn
+        type_BuiltinArgs <- encodeList encodeType' args
+        pure $ P.TypeSumBuiltin P.Type_Builtin{..}
     (t@TForall{}, []) -> do
         let (binders, body) = t ^. _TForalls
         type_ForallVars <- encodeTypeVarsWithKinds binders
@@ -347,28 +347,28 @@ encodeTypeConApp (TypeConApp tycon args) = do
 
 encodeBuiltinExpr :: BuiltinExpr -> Encode P.ExprSum
 encodeBuiltinExpr = \case
-    BEInt64 x -> pureLit $ P.PrimLitSumInt64 x
+    BEInt64 x -> pureLit $ P.BuiltinLitSumInt64 x
     BENumeric num ->
-        lit . P.PrimLitSumNumericInternedStr <$> allocString (T.pack (show num))
+        lit . P.BuiltinLitSumNumericInternedStr <$> allocString (T.pack (show num))
     BEText x ->
-        lit . P.PrimLitSumTextInternedStr <$> encodeInternableString x
-    BETimestamp x -> pureLit $ P.PrimLitSumTimestamp x
-    BEDate x -> pureLit $ P.PrimLitSumDate x
+        lit . P.BuiltinLitSumTextInternedStr <$> encodeInternableString x
+    BETimestamp x -> pureLit $ P.BuiltinLitSumTimestamp x
+    BEDate x -> pureLit $ P.BuiltinLitSumDate x
 
-    BEUnit -> pure $ P.ExprSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
-    BEBool b -> pure $ P.ExprSumPrimCon $ P.Enumerated $ Right $ case b of
-        False -> P.PrimConCON_FALSE
-        True -> P.PrimConCON_TRUE
+    BEUnit -> pure $ P.ExprSumBuiltinCon $ P.Enumerated $ Right P.BuiltinConCON_UNIT
+    BEBool b -> pure $ P.ExprSumBuiltinCon $ P.Enumerated $ Right $ case b of
+        False -> P.BuiltinConCON_FALSE
+        True -> P.BuiltinConCON_TRUE
 
     BERoundingMode r -> case r of
-      LitRoundingUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUP
-      LitRoundingDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeDOWN
-      LitRoundingCeiling -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeCEILING
-      LitRoundingFloor -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeFLOOR
-      LitRoundingHalfUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_UP
-      LitRoundingHalfDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_DOWN
-      LitRoundingHalfEven -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_EVEN
-      LitRoundingUnnecessary -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUNNECESSARY
+      LitRoundingUp -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUP
+      LitRoundingDown -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeDOWN
+      LitRoundingCeiling -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeCEILING
+      LitRoundingFloor -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeFLOOR
+      LitRoundingHalfUp -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_UP
+      LitRoundingHalfDown -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_DOWN
+      LitRoundingHalfEven -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_EVEN
+      LitRoundingUnnecessary -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUNNECESSARY
 
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
     BELessGeneric -> builtin P.BuiltinFunctionLESS
@@ -509,7 +509,7 @@ encodeBuiltinExpr = \case
 
     where
       builtin = pure . P.ExprSumBuiltin . P.Enumerated . Right
-      lit = P.ExprSumPrimLit . P.PrimLit . Just
+      lit = P.ExprSumBuiltinLit . P.BuiltinLit . Just
       pureLit = pure . lit
 
 encodeExpr' :: Expr -> Encode P.Expr
@@ -835,10 +835,10 @@ encodeCaseAlternative CaseAlternative{..} = do
             caseAlt_EnumCon <- encodeQualTypeConName patTypeCon
             caseAlt_EnumConstructorInternedStr <- encodeNameId unVariantConName patDataCon
             pure $ P.CaseAltSumEnum P.CaseAlt_Enum{..}
-        CPUnit -> pure $ P.CaseAltSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
-        CPBool b -> pure $ P.CaseAltSumPrimCon $ P.Enumerated $ Right $ case b of
-            False -> P.PrimConCON_FALSE
-            True -> P.PrimConCON_TRUE
+        CPUnit -> pure $ P.CaseAltSumBuiltinCon $ P.Enumerated $ Right P.BuiltinConCON_UNIT
+        CPBool b -> pure $ P.CaseAltSumBuiltinCon $ P.Enumerated $ Right $ case b of
+            False -> P.BuiltinConCON_FALSE
+            True -> P.BuiltinConCON_TRUE
         CPNil -> pure $ P.CaseAltSumNil P.Unit
         CPCons{..} -> do
             caseAlt_ConsVarHeadInternedStr <- encodeNameId unExprVarName patHeadBinder

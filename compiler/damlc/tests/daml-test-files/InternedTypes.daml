@@ -17,7 +17,7 @@
 -- $$imports: $-1 (last entry in the type interning table)
 
 -- @SINCE-LF 2.1
--- @QUERY-LF $pkg.interned_types | (length >= 4) and (.[0] | .var.var_interned_str | isnormal) and (.[1] | .var.var_interned_str | isnormal) and (.[2].prim | (.args | map(.interned) == [0, 1]) and (.prim == "ARROW")) and (.[3].prim | (.args | map(.interned) == [2, 2]) and (.prim == "ARROW")) and (.[4].forall.body.interned == 3)
+-- @QUERY-LF $pkg.interned_types | (length >= 4) and (.[0] | .var.var_interned_str | isnormal) and (.[1] | .var.var_interned_str | isnormal) and (.[2].builtin | (.args | map(.interned) == [0, 1]) and (.builtin == "ARROW")) and (.[3].builtin | (.args | map(.interned) == [2, 2]) and (.builtin == "ARROW")) and (.[4].forall.body.interned == 3)
 -- @QUERY-LF [$pkg.modules[].values[]] | .[0:2] | all(.name_with_type.type.interned == 4)
 -- @QUERY-LF [$pkg.modules[].values[]][-1].name_with_type.type.interned == ($pkg.interned_types | length - 1)
 
