@@ -557,14 +557,10 @@ expandSdkPackages logger lfVersion dars = do
     mapM (expand mbSdkPath) (nubOrd $ concatMap addDep dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-    isInvalidDaml3Script = \case
-      "daml3-script" | LF.versionMajor lfVersion /= LF.V2 -> True
-      _ -> False
     sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
-            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used with LF v2, and is unstable."
             Just sdkPath -> do
               when (fp == "daml3-script")
                 $ Logger.logWarning logger
