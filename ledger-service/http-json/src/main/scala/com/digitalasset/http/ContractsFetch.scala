@@ -169,7 +169,15 @@ private class ContractsFetch(
     // re-traverse any that != the max returned bookmark (overriding lastOffset)
     // fetch cannot go "too far" the second time
     templateIds
-      .traverse({ case (t, lv) => fetchAndPersist(fetchContext, false, absEnd, t, lv) })
+      .traverse({ case (t, lv) =>
+        ContractDao.hasVisibleContracts(fetchContext.parties, t).flatMap { case visibleContracts =>
+          // If there are pre-existing contracts visible to these parties, we cannot load the cache
+          // from ACS. We need to initialise from transactions instead to ensure we don't miss any
+          // archivals which might have happened before this fetch.
+          val disableAcs = visibleContracts
+          fetchAndPersist(fetchContext, disableAcs, absEnd, t, lv)
+        }
+      })
       .flatMap { actualAbsEnds =>
         val newAbsEndTarget = {
           import scalaz.std.list._, scalaz.syntax.foldable._, domain.Offset.`Offset ordering`

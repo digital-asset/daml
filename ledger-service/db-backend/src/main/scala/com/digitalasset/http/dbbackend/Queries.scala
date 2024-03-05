@@ -253,6 +253,8 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       .map(_.toMap)
   }
 
+  def hasVisibleContracts(parties: PartySet, tpid: SurrogateTpId): ConnectionIO[Boolean]
+
   /** Template IDs, parties, and offsets that don't match expected offset values for
     * a particular `tpid`.
     */
@@ -905,6 +907,20 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
           VALUES ($packageName, $packageId, $moduleName, $entityName)
           ON CONFLICT (package_id, template_module_name, template_entity_name) DO NOTHING"""
 
+  override def hasVisibleContracts(
+      parties: PartySet,
+      tpid: SurrogateTpId,
+  ): ConnectionIO[Boolean] = {
+    import ipol.pas
+    val partyVector: Vector[String] = parties.toVector
+    sql"""SELECT EXISTS(
+            SELECT 1 FROM $contractTableName AS c
+            WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                  AND ($tpid = tpid)
+          )"""
+      .query[Boolean]
+      .unique
+  }
 }
 
 import OracleQueries.DisableContractPayloadIndexing
@@ -1221,6 +1237,23 @@ private final class OracleQueries(
     sql"""INSERT /*+ ignore_row_on_dupkey_index($templateIdTableName(package_id, template_module_name, template_entity_name)) */
 	  INTO $templateIdTableName (package_name, package_id, template_module_name, template_entity_name)
           VALUES ($packageName, $packageId, $moduleName, $entityName)"""
+
+  override def hasVisibleContracts(
+      parties: PartySet,
+      tpid: SurrogateTpId,
+  ): ConnectionIO[Boolean] = {
+    import Queries.CompatImplicits.catsReducibleFromFoldable1
+    sql"""SELECT 1
+          FROM $contractTableName c
+            JOIN $contractStakeholdersViewName cst
+              ON (c.contract_id = cst.contract_id AND c.tpid = cst.tpid)
+          WHERE (${Fragments.in(fr"cst.stakeholder", parties.toNEF)})
+            AND c.tpid = $tpid
+          FETCH NEXT 1 ROWS ONLY"""
+      .query[Int]
+      .option
+      .map(_.isDefined)
+  }
 }
 
 private[http] object OracleQueries {
