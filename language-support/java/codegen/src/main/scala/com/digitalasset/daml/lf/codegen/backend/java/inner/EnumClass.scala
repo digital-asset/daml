@@ -117,19 +117,20 @@ private[inner] object EnumClass extends StrictLogging {
       enumeration: typesig.Enum,
   ): MethodSpec = {
     logger.debug(s"Generating valueDecoder static method for $enumeration")
-
+    val constructorsAsString = enumeration.constructors.mkString("[", ", ", "]")
     val valueDecoderCode = CodeBlock
       .builder()
       .addStatement(
         "$T constructor$$ = value$$.asEnum().orElseThrow(() -> new $T($S)).getConstructor()",
         classOf[String],
         classOf[IllegalArgumentException],
-        s"Expected DamlEnum to build an instance of the Enum ${className.simpleName()}",
+        s"Expected DamlEnum to build an instance of the Enum $className",
       )
       .addStatement(
-        "if (!__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$)",
+        "if (!__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$ + $S)",
         classOf[IllegalArgumentException],
-        s"Expected a DamlEnum with ${className.simpleName()} constructor, found ",
+        "Found unknown constructor ",
+        s" for enum $className, expected one of $constructorsAsString. This could be a failed enum downgrade.",
       )
       .addStatement("return __enums$$.get(constructor$$)")
 

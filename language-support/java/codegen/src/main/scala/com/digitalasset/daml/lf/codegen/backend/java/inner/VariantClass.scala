@@ -111,8 +111,9 @@ private[inner] object VariantClass extends StrictLogging {
     }
     builder
       .addStatement(
-        "throw new IllegalArgumentException($S)",
-        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of $constructorsAsString",
+        "throw new IllegalArgumentException($S + variant$$.getConstructor() + $S)",
+        "Found unknown constructor ",
+        s" for variant $variant, expected one of $constructorsAsString. This could be a failed variant downgrade.",
       )
   }
 
