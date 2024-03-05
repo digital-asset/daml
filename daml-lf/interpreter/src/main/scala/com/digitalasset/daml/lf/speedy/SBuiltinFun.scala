@@ -49,7 +49,7 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   *
   *  Most builtins are pure, and so they extend `SBuiltinPure`
   */
-private[speedy] sealed abstract class SBuiltin(val arity: Int) {
+private[speedy] sealed abstract class SBuiltinFun(val arity: Int) {
 
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
@@ -61,7 +61,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   // TODO: avoid constructing application expression at run time
   // This helper is used (only?) by TransactinVersionTest.
   private[lf] def apply(args: runTime.SExprAtomic*): runTime.SExpr =
-    runTime.SEAppAtomic(runTime.SEBuiltin(this), args.toArray)
+    runTime.SEAppAtomic(runTime.SEBuiltinFun(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
@@ -69,7 +69,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   private[speedy] def execute[Q](args: util.ArrayList[SValue], machine: Machine[Q]): Control[Q]
 }
 
-private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(arity) {
+private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinFun(arity) {
 
   /** Pure builtins do not modify the machine state and do not ask questions of the ledger. As a result, pure builtin
     * execution is immediate.
@@ -88,7 +88,7 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(
 }
 
 private[speedy] sealed abstract class UpdateBuiltin(arity: Int)
-    extends SBuiltin(arity)
+    extends SBuiltinFun(arity)
     with Product {
 
   /** On ledger builtins may reference the Speedy machine's ledger state.
@@ -110,7 +110,7 @@ private[speedy] sealed abstract class UpdateBuiltin(arity: Int)
 }
 
 private[speedy] sealed abstract class ScenarioBuiltin(arity: Int)
-    extends SBuiltin(arity)
+    extends SBuiltinFun(arity)
     with Product {
 
   /** On ledger builtins may reference the Speedy machine's ledger state.
@@ -131,7 +131,7 @@ private[speedy] sealed abstract class ScenarioBuiltin(arity: Int)
     machine.asScenarioMachine(productPrefix)(executeScenario(args, _))
 }
 
-private[lf] object SBuiltin {
+private[lf] object SBuiltinFun {
 
   def executeExpression[Q](machine: Machine[Q], expr: SExpr)(
       f: SValue => Control[Q]
@@ -337,7 +337,8 @@ private[lf] object SBuiltin {
         Math.multiplyExact(x, y)
       }
 
-  sealed abstract class SBuiltinArithmetic(val name: String, arity: Int) extends SBuiltin(arity) {
+  sealed abstract class SBuiltinArithmetic(val name: String, arity: Int)
+      extends SBuiltinFun(arity) {
     private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue]
 
     private[speedy] def buildException[Q](machine: Machine[Q], args: util.ArrayList[SValue]) =
@@ -486,7 +487,7 @@ private[lf] object SBuiltin {
       SText(litToText(NameOf.qualifiedNameOfCurrentFunc, args.get(0)))
   }
 
-  final case object SBContractIdToText extends SBuiltin(1) {
+  final case object SBContractIdToText extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -594,7 +595,7 @@ private[lf] object SBuiltin {
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
-  final case object SBFoldl extends SBuiltin(3) {
+  final case object SBFoldl extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -635,7 +636,7 @@ private[lf] object SBuiltin {
   // ```
   // However, this would be a breaking change compared to the aforementioned
   // implementation of `foldr`.
-  final case object SBFoldr extends SBuiltin(3) {
+  final case object SBFoldr extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1096,7 +1097,7 @@ private[lf] object SBuiltin {
   }
 
   // SBCastAnyContract: ContractId templateId -> Any -> templateId
-  final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBCastAnyContract(templateId: TypeConName) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1130,7 +1131,7 @@ private[lf] object SBuiltin {
   ): Boolean =
     getInterfaceInstance(machine, interfaceId, templateId).nonEmpty
 
-  final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltin(2) {
+  final case class SBCastAnyInterface(ifaceId: TypeConName) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1205,7 +1206,7 @@ private[lf] object SBuiltin {
   final case class SBGuardRequiredInterfaceId(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
-  ) extends SBuiltin(2) {
+  ) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1233,12 +1234,12 @@ private[lf] object SBuiltin {
       consuming: Boolean,
       byKey: Boolean,
       explicitChoiceAuthority: Boolean,
-  ) extends SBuiltin(1) {
+  ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val e = SEBuiltin(
+      val e = SEBuiltinFun(
         SBUBeginExercise(
           templateId = getSAnyContract(args, 0)._1,
           interfaceId = Some(interfaceId),
@@ -1252,13 +1253,13 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBResolveSBUInsertFetchNode extends SBuiltin(1) {
+  final case object SBResolveSBUInsertFetchNode extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
       val optTargetTemplateId: Option[TypeConName] = None // no upgrading
-      val e = SEBuiltin(
+      val e = SEBuiltinFun(
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
           optTargetTemplateId,
@@ -1270,7 +1271,7 @@ private[lf] object SBuiltin {
   }
 
   // Return a definition matching the templateId of a given payload
-  sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
+  sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1318,7 +1319,7 @@ private[lf] object SBuiltin {
   // matches the template type, and then return the SAny internal value.
   final case class SBUnsafeFromInterface(
       tplId: TypeConName
-  ) extends SBuiltin(2) {
+  ) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1337,7 +1338,7 @@ private[lf] object SBuiltin {
   // the underlying template implements `requiringIfaceId`. Else return `None`.
   final case class SBFromRequiredInterface(
       requiringIfaceId: TypeConName
-  ) extends SBuiltin(1) {
+  ) extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1359,7 +1360,7 @@ private[lf] object SBuiltin {
   final case class SBUnsafeFromRequiredInterface(
       requiredIfaceId: TypeConName,
       requiringIfaceId: TypeConName,
-  ) extends SBuiltin(2) {
+  ) extends SBuiltinFun(2) {
 
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1385,7 +1386,7 @@ private[lf] object SBuiltin {
   final case class SBCallInterface(
       ifaceId: TypeConName,
       methodName: MethodName,
-  ) extends SBuiltin(1) {
+  ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1404,7 +1405,7 @@ private[lf] object SBuiltin {
 
   final case class SBViewInterface(
       ifaceId: TypeConName
-  ) extends SBuiltin(1) {
+  ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1677,7 +1678,7 @@ private[lf] object SBuiltin {
   }
 
   /** $pure :: a -> Token -> a */
-  final case object SBPure extends SBuiltin(2) {
+  final case object SBPure extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1724,7 +1725,7 @@ private[lf] object SBuiltin {
   }
 
   /** $trace :: Text -> a -> a */
-  final case object SBTrace extends SBuiltin(2) {
+  final case object SBTrace extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1736,7 +1737,7 @@ private[lf] object SBuiltin {
   }
 
   /** $userError :: Text -> Error */
-  final case object SBUserError extends SBuiltin(1) {
+  final case object SBUserError extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1747,7 +1748,7 @@ private[lf] object SBuiltin {
   }
 
   /** $templatePreconditionViolated[T] :: T -> Error */
-  final case class SBTemplatePreconditionViolated(templateId: Identifier) extends SBuiltin(1) {
+  final case class SBTemplatePreconditionViolated(templateId: Identifier) extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1760,7 +1761,7 @@ private[lf] object SBuiltin {
   }
 
   /** $throw :: AnyException -> a */
-  final case object SBThrow extends SBuiltin(1) {
+  final case object SBThrow extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1771,7 +1772,7 @@ private[lf] object SBuiltin {
   }
 
   /** $crash :: Text -> Unit -> Nothing */
-  private[speedy] final case class SBCrash(reason: String) extends SBuiltin(1) {
+  private[speedy] final case class SBCrash(reason: String) extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1784,7 +1785,7 @@ private[lf] object SBuiltin {
   }
 
   /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
-  final case object SBTryHandler extends SBuiltin(3) {
+  final case object SBTryHandler extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1802,7 +1803,7 @@ private[lf] object SBuiltin {
   }
 
   /** $any-exception-message :: AnyException -> Text */
-  final case object SBAnyExceptionMessage extends SBuiltin(1) {
+  final case object SBAnyExceptionMessage extends SBuiltinFun(1) {
     val field = Ref.Name.assertFromString("message")
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1864,7 +1865,7 @@ private[lf] object SBuiltin {
   }
 
   /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
-  final case object SBEqualList extends SBuiltin(3) {
+  final case object SBEqualList extends SBuiltinFun(3) {
 
     private val equalListBody: SExpr =
       SECaseAtomic( // case xs of
@@ -1902,7 +1903,7 @@ private[lf] object SBuiltin {
                         SCaseAlt(
                           SCPBuiltinCon(Ast.BCTrue), // True ->
                           SEAppAtomicGeneral(
-                            SEBuiltin(SBEqualList), // single recursive occurrence
+                            SEBuiltinFun(SBEqualList), // single recursive occurrence
                             Array(
                               SELocA(0), // f
                               SELocS(2), // yss
@@ -1944,7 +1945,7 @@ private[lf] object SBuiltin {
 
   object SBExperimental {
 
-    private object SBExperimentalAnswer extends SBuiltin(1) {
+    private object SBExperimentalAnswer extends SBuiltinFun(1) {
       override private[speedy] def execute[Q](
           args: util.ArrayList[SValue],
           machine: Machine[Q],
@@ -2101,7 +2102,7 @@ private[lf] object SBuiltin {
   )
 
   private[speedy] val SBuildContractInfoStruct =
-    SBuiltin.SBStructCon(contractInfoPositionStruct)
+    SBuiltinFun.SBStructCon(contractInfoPositionStruct)
 
   private def extractContractInfo(
       tmplId2TxVersion: TypeConName => TransactionVersion,
@@ -2163,7 +2164,7 @@ private[lf] object SBuiltin {
       // This is because the contract got up/down-graded when imported by importValue.
 
       val castExp: SExpr = SEApp(
-        SEBuiltin(SBCastAnyContract(templateId)),
+        SEBuiltinFun(SBCastAnyContract(templateId)),
         Array(
           SContractId(coid),
           fetched,

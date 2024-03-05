@@ -482,16 +482,16 @@ decodeExprSum :: Maybe LF2.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumVarInternedStr strId -> EVar <$> decodeNameId ExprVarName strId
   LF2.ExprSumVal val -> EVal <$> decodeValName val
-  LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
+  LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltinFun <$> decodeBuiltinFunction bi
   LF2.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
-  LF2.ExprSumBuiltinCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
+  LF2.ExprSumBuiltinCon (Proto.Enumerated (Right con)) -> pure $ EBuiltinFun $ case con of
     LF2.BuiltinConCON_UNIT -> BEUnit
     LF2.BuiltinConCON_TRUE -> BEBool True
     LF2.BuiltinConCON_FALSE -> BEBool False
 
   LF2.ExprSumBuiltinCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltinCon" num)
   LF2.ExprSumBuiltinLit lit ->
-    EBuiltin <$> decodeBuiltinLit lit
+    EBuiltinFun <$> decodeBuiltinLit lit
   LF2.ExprSumRecCon (LF2.Expr_RecCon mbTycon fields) ->
     ERecCon
       <$> mayDecode "Expr_RecConTycon" mbTycon decodeTypeConApp

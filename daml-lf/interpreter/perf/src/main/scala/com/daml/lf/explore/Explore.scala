@@ -8,7 +8,7 @@ package explore
 import com.daml.lf.language.{LanguageMajorVersion, PackageInterface}
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
 import scopt.OptionParser

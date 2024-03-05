@@ -27,7 +27,7 @@ import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.language.{Ast, LanguageVersion, StablePackagesV2}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
-import com.daml.lf.speedy.SBuiltin.SBVariantCon
+import com.daml.lf.speedy.SBuiltinFun.SBVariantCon
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
@@ -39,16 +39,16 @@ import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.script.converter.Converter.{toContractId, toText}
 import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.speedy.SBuiltin.SBToAny
+import com.daml.lf.speedy.SBuiltinFun.SBToAny
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object ScriptF {
-  val left = SEBuiltin(
+  val left = SEBuiltinFun(
     SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Left"), 0)
   )
-  val right = SEBuiltin(
+  val right = SEBuiltinFun(
     SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Right"), 1)
   )
 
@@ -144,7 +144,7 @@ object ScriptF {
               // Consider using env.translateValue to reduce what we're building here
               SEImportValue(typ, value),
               SELet1(
-                SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
+                SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SELocS(1))),
                 SEAppAtomic(left, Array(SELocS(1))),
               ),
             )

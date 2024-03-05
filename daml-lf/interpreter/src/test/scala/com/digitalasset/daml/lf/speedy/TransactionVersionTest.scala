@@ -8,7 +8,7 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
 import com.daml.lf.language.LanguageMajorVersion.V2
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.speedy.SBuiltin.{SBCastAnyContract, SBFetchAny}
+import com.daml.lf.speedy.SBuiltinFun.{SBCastAnyContract, SBFetchAny}
 import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
 import com.daml.lf.testing.parser
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
@@ -292,7 +292,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
                 SExpr.SELocS(1), // result of SBFetchAny
               ),
               SExpr.SEScopeExercise(
-                SBuiltin.SBUBeginExercise(
+                SBuiltinFun.SBUBeginExercise(
                   templateId,
                   interfaceId,
                   choiceName,

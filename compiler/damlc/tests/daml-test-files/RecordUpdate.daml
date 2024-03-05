@@ -62,10 +62,10 @@ data Point = Point with
 origin = Point with x = 0; y = 0
 
 -- NOTE(MH): We expect this to become
--- `ERecUpd _ "x" (EVal ["origin"]) (EBuiltin (BEInt64 1))`
+-- `ERecUpd _ "x" (EVal ["origin"]) (EBuiltinFun (BEInt64 1))`
 -- modulo location information.
 p_1_0 = origin with x = 1
 -- NOTE(MH): We expect this to become
--- `ERecUpd _ "y" (ERecUpd _ "x" (EVal ["origin"]) (EBuiltin (BEInt64 1))) (EBuiltin (BEInt64 2))`
+-- `ERecUpd _ "y" (ERecUpd _ "x" (EVal ["origin"]) (EBuiltinFun (BEInt64 1))) (EBuiltinFun (BEInt64 2))`
 -- modulo location information.
 p_1_2 = origin with x = 1; y = 2

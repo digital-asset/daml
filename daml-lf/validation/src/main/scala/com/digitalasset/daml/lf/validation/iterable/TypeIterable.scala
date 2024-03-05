@@ -110,7 +110,7 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(tpl)) ++
           iterator(contract) ++
           iterator(choiceArg)
-      case EVar(_) | EVal(_) | EBuiltin(_) | EBuiltinCon(_) | EBuiltinLit(_) | EApp(_, _) |
+      case EVar(_) | EVal(_) | EBuiltinFun(_) | EBuiltinCon(_) | EBuiltinLit(_) | EApp(_, _) |
           ECase(_, _) | ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) |
           ETyAbs(_, _) | EExperimental(_, _) =>
         ExprIterable.iterator(expr0).flatMap(iterator(_))

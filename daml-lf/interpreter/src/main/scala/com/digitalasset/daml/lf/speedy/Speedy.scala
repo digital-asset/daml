@@ -1651,7 +1651,7 @@ private[lf] object Speedy {
   private[speedy] final case class KBuiltin[Q] private (
       machine: Machine[Q],
       savedBase: Int,
-      builtin: SBuiltin,
+      builtin: SBuiltinFun,
       actuals: util.ArrayList[SValue],
   ) extends Kont[Q]
       with SomeArrayEquals
@@ -1668,7 +1668,7 @@ private[lf] object Speedy {
   object KBuiltin {
     def apply[Q](
         machine: Machine[Q],
-        builtin: SBuiltin,
+        builtin: SBuiltinFun,
         actuals: util.ArrayList[SValue],
     ): KBuiltin[Q] =
       KBuiltin(machine, machine.markBase(), builtin, actuals)

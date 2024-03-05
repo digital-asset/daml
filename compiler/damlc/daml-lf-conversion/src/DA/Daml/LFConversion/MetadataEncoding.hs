@@ -533,7 +533,7 @@ mkMetadataStub :: LF.ExprValName -> LF.Type -> LF.DefValue
 mkMetadataStub n t = LF.DefValue
     { dvalLocation = Nothing
     , dvalBinder = (n,t)
-    , dvalBody = LF.EBuiltin LF.BEError `LF.ETyApp` t
-        `LF.ETmApp` LF.EBuiltin (LF.BEText "undefined")
+    , dvalBody = LF.EBuiltinFun LF.BEError `LF.ETyApp` t
+        `LF.ETmApp` LF.EBuiltinFun (LF.BEText "undefined")
     , dvalIsTest = LF.IsTest False
     }

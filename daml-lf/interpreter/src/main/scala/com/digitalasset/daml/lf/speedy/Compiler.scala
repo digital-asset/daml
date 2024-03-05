@@ -18,7 +18,7 @@ import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
 import com.daml.lf.speedy.{SExpr0 => s}

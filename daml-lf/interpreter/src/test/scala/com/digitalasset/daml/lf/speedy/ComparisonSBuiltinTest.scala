@@ -448,13 +448,13 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         if (es.isEmpty) ENil(t) else ECons(t, es.to(ImmArray), ENil(t))
 
       def textMap(T: Type)(entries: (String, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) { case ((key, value), acc) =>
-          eApps(etApps(EBuiltin(BTextMapInsert), T), text(key), value, acc)
+        entries.foldRight(etApps(EBuiltinFun(BTextMapEmpty), T)) { case ((key, value), acc) =>
+          eApps(etApps(EBuiltinFun(BTextMapInsert), T), text(key), value, acc)
         }
 
       def genMap(kT: Type, vT: Type)(entries: (Expr, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BGenMapEmpty), kT, vT)) { case ((key, value), acc) =>
-          eApps(etApps(EBuiltin(BGenMapInsert), kT, vT), key, value, acc)
+        entries.foldRight(etApps(EBuiltinFun(BGenMapEmpty), kT, vT)) { case ((key, value), acc) =>
+          eApps(etApps(EBuiltinFun(BGenMapInsert), kT, vT), key, value, acc)
         }
 
       def tupleS(fst: Expr, snd: Expr) =
@@ -678,7 +678,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 cidBinder2,
                 Ast.EAbs(
                   cidBinder3,
-                  Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltin(bi), t), x), y),
+                  Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltinFun(bi), t), x), y),
                   None,
                 ),
                 None,

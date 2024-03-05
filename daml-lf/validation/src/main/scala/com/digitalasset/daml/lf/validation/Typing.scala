@@ -1420,7 +1420,7 @@ private[validation] object Typing {
         Ret(lookupExpVar(name))
       case EVal(ref) =>
         Ret(handleLookup(ctx, pkgInterface.lookupValue(ref)).typ)
-      case EBuiltin(fun) =>
+      case EBuiltinFun(fun) =>
         Ret(typeOfBuiltinFunction(fun))
       case EBuiltinCon(con) =>
         Ret(typeOfPRimCon(con))

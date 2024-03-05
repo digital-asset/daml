@@ -519,7 +519,7 @@ encodeExpr' = \case
         valNameModule <- encodeModuleRef pkgRef modName
         valNameNameInternedDname <- encodeValueName val
         pureExpr $ P.ExprSumVal P.ValName{..}
-    EBuiltin bi -> expr <$> encodeBuiltinExpr bi
+    EBuiltinFun bi -> expr <$> encodeBuiltinExpr bi
     ERecCon{..} -> do
         expr_RecConTycon <- encodeTypeConApp recTypeCon
         expr_RecConFields <- encodeFieldsWithExprs unFieldName recFields

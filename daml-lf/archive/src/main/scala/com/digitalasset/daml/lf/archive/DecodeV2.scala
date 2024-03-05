@@ -1650,7 +1650,7 @@ private[lf] object DecodeV2 {
       maxVersion: Option[LV] = None, // first version that does not support the builtin
       implicitParameters: List[Type] = List.empty,
   ) {
-    val expr: Expr = implicitParameters.foldLeft[Expr](EBuiltin(builtin))(ETyApp)
+    val expr: Expr = implicitParameters.foldLeft[Expr](EBuiltinFun(builtin))(ETyApp)
   }
 
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
