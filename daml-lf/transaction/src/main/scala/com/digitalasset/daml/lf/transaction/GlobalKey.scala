@@ -16,6 +16,7 @@ import com.daml.lf.value.Value
 final class GlobalKey private (
     val templateId: Ref.TypeConName,
     val key: Value,
+    val packageName: Option[Ref.PackageName],
     val hash: crypto.Hash,
 ) extends data.NoCopy {
   override def equals(obj: Any): Boolean = obj match {
@@ -48,7 +49,7 @@ object GlobalKey {
       )
     }
 
-    new GlobalKey(key.templateId, value, key.hash)
+    new GlobalKey(key.templateId, value, packageName.toOption, key.hash)
 
   }
 
@@ -60,7 +61,7 @@ object GlobalKey {
   ): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash
       .hashContractKey(templateId, key, packageName)
-      .map(new GlobalKey(templateId, key, _))
+      .map(new GlobalKey(templateId, key, packageName.toOption, _))
 
   // TODO(#18599) remove/deprecate non package based construction
   def build(
@@ -70,7 +71,7 @@ object GlobalKey {
   ): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash
       .hashContractKey(templateId, key, shared)
-      .map(new GlobalKey(templateId, key, _))
+      .map(new GlobalKey(templateId, key, None, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
   // TODO(#18599) remove/deprecate non package based construction

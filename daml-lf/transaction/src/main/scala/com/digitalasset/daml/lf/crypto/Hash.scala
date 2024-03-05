@@ -453,25 +453,43 @@ object Hash {
     override val toOption: Option[PackageName] = None
   }
   object KeyPackageName {
-    def apply(packageName: Option[PackageName], version: TransactionVersion): KeyPackageName =
+
+    def build(
+        packageName: Option[PackageName],
+        version: TransactionVersion,
+    ): Either[String, KeyPackageName] =
       packageName match {
-        case Some(name) if version >= TransactionVersion.minUpgrade => UsePackageName(name)
-        case _ if version < TransactionVersion.minUpgrade => NoPackageName
+        case Some(name) if version >= TransactionVersion.minUpgrade => Right(UsePackageName(name))
+        case _ if version < TransactionVersion.minUpgrade => Right(NoPackageName)
         case _ =>
-          throw new IllegalArgumentException(
-            s"Invalid combination of package name and transaction version"
+          Left(
+            s"Invalid KeyPackageName combination, package name [$packageName] and transaction version [$version]"
           )
       }
-    def apply(packageName: Option[PackageName], version: LanguageVersion): KeyPackageName =
+
+    def build(
+        packageName: Option[PackageName],
+        version: LanguageVersion,
+    ): Either[String, KeyPackageName] =
       packageName match {
         case Some(name) if version >= LanguageVersion.Features.packageUpgrades =>
-          UsePackageName(name)
-        case _ if version < LanguageVersion.Features.packageUpgrades => NoPackageName
+          Right(UsePackageName(name))
+        case _ if version < LanguageVersion.Features.packageUpgrades => Right(NoPackageName)
         case _ =>
-          throw new IllegalArgumentException(
-            s"Invalid combination of package name and language version"
+          Left(
+            s"Invalid KeyPackageName combination, package name [$packageName] and language version [$version]"
           )
       }
+
+    def assertBuild(packageName: Option[PackageName], version: TransactionVersion): KeyPackageName =
+      data.assertRight(build(packageName, version))
+    def assertBuild(packageName: Option[PackageName], version: LanguageVersion): KeyPackageName =
+      data.assertRight(build(packageName, version))
+
+    def apply(packageName: Option[PackageName], version: TransactionVersion): KeyPackageName =
+      assertBuild(packageName, version)
+    def apply(packageName: Option[PackageName], version: LanguageVersion): KeyPackageName =
+      assertBuild(packageName, version)
   }
 
 }
