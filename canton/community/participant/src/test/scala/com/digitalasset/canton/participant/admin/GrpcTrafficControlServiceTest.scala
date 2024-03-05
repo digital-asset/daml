@@ -4,13 +4,13 @@
 package com.digitalasset.canton.participant.admin
 
 import com.digitalasset.canton.admin.participant.v30.TrafficControlStateRequest
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.grpc.GrpcTrafficControlService
 import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncDomain}
 import com.digitalasset.canton.sequencing.protocol.SequencedEventTrafficState
 import com.digitalasset.canton.topology.DefaultTestIdentities
-import com.digitalasset.canton.traffic.{MemberTrafficStatus, TopUpEvent}
+import com.digitalasset.canton.traffic.MemberTrafficStatus
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.StatusRuntimeException
 import org.scalatest.BeforeAndAfterEach
@@ -42,7 +42,7 @@ class GrpcTrafficControlServiceTest
         DefaultTestIdentities.participant1,
         CantonTimestamp.now(),
         SequencedEventTrafficState(NonNegativeLong.tryCreate(3), NonNegativeLong.tryCreate(7)),
-        List(TopUpEvent(PositiveLong.tryCreate(9), CantonTimestamp.now(), PositiveInt.tryCreate(5))),
+        Some(PositiveInt.one),
       )
       when(syncDomain.getTrafficControlState).thenReturn(Future.successful(Some(status)))
       val response = timeouts.default.await("wait_for_response") {

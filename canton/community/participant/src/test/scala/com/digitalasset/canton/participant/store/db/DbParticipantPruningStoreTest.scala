@@ -16,7 +16,7 @@ import scala.concurrent.Future
 trait DbParticipantPruningStoreTest extends ParticipantPruningStoreTest { this: DbTest =>
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
-    storage.update_(sqlu"delete from pruning_operation where name = $name", functionFullName)
+    storage.update_(sqlu"delete from par_pruning_operation where name = $name", functionFullName)
   }
 
   override def mk(): ParticipantPruningStore =

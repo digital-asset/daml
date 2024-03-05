@@ -235,6 +235,10 @@ message ExportKeyPairRequest {
 
   // The protocol version that defines the serialization of the keypair
   int32 protocol_version = 2;
+
+  // Optional password to use for encrypting the exported keypair
+  // NOTE: The request should be made over a TLS connection to this service
+  string password = 3;
 }
 
 message ExportKeyPairResponse {
@@ -243,7 +247,12 @@ message ExportKeyPairResponse {
 
 message ImportKeyPairRequest {
   bytes key_pair = 1;
+
   string name = 2;
+
+  // Optional password to use for decrypting the exported keypair
+  // NOTE: The request should be made over a TLS connection to this service
+  string password = 3;
 }
 
 message ImportKeyPairResponse {}

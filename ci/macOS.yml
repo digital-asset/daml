@@ -44,7 +44,9 @@ jobs:
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
-        name: ${{parameters.name}}
+        name_str: ${{parameters.name}}
+        # Yes, these quotes are needed. Yes, I know.
+        name_exp: "'${{parameters.name}}'"
         is_release: variables.is_release
         test_mode: ${{parameters.test_mode}}
     # Do not upload metrics for m1

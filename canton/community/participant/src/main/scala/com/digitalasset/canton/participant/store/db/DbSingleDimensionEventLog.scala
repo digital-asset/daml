@@ -125,7 +125,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
         val dbio = storage.profile match {
           case _: DbStorage.Profile.Oracle =>
             val query =
-              """merge into event_log e
+              """merge into par_event_log e
                  using dual on ( (e.event_id = ?) or (e.log_id = ? and e.local_offset_effective_time = ? and e.local_offset_discriminator = ? and e.local_offset_tie_breaker = ?))
                  when not matched then
                  insert (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
@@ -151,7 +151,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
             }
           case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
             val query =
-              """insert into event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
+              """insert into par_event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, ts, request_sequencer_counter, event_id, associated_domain, content, trace_context)
                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                on conflict do nothing"""
             DbStorage.bulkOperation(query, eventsWithAssociatedDomainId, storage.profile) {
@@ -189,7 +189,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     val query = storage.profile match {
       case _: Profile.H2 | _: Profile.Postgres =>
         sqlu"""
-            delete from event_log
+            delete from par_event_log
             where
               log_id = $log_id
               and (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) <= (${beforeAndIncluding.effectiveTime}, ${beforeAndIncluding.discriminator}, ${beforeAndIncluding.tieBreaker})"""
@@ -200,7 +200,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
         val tie = beforeAndIncluding.tieBreaker
 
         sqlu"""
-            delete from event_log
+            delete from par_event_log
             where
               log_id = $log_id
               and ((local_offset_effective_time<$t) or (local_offset_effective_time=$t and local_offset_discriminator<$disc) or (local_offset_effective_time=$t and local_offset_discriminator=$disc and local_offset_tie_breaker<=$tie))"""
@@ -237,12 +237,12 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     val query = storage.profile match {
       case _: Profile.H2 | _: Profile.Postgres =>
         sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
-              from event_log
+              from par_event_log
               where log_id = $log_id and (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker)=(${offset.effectiveTime}, ${offset.discriminator}, ${offset.tieBreaker})"""
       case _: Profile.Oracle =>
-        sql"""select /*+ INDEX (event_log pk_event_log) */
+        sql"""select /*+ INDEX (par_event_log pk_par_event_log) */
               local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
-              from event_log
+              from par_event_log
               where log_id = $log_id and local_offset_effective_time=${offset.effectiveTime} and local_offset_discriminator=${offset.discriminator} and local_offset_tie_breaker=${offset.tieBreaker}"""
     }
 
@@ -255,7 +255,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
 
   override def lastOffset(implicit traceContext: TraceContext): OptionT[Future, LocalOffset] = {
     storage.querySingle(
-      sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker from event_log where log_id = $log_id
+      sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker from par_event_log where log_id = $log_id
               order by local_offset_effective_time desc, local_offset_discriminator desc, local_offset_tie_breaker desc #${storage
           .limit(1)}"""
         .as[LocalOffset]
@@ -270,7 +270,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     storage
       .querySingle(
         sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
-              from event_log
+              from par_event_log
               where log_id = $log_id and event_id = $eventId"""
           .as[TimestampedEvent]
           .headOption,
@@ -289,7 +289,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
         DbSingleDimensionEventLog.localOffsetComparison(storage)("<=", localOffsetInclusive)
 
       val query = sql"""
-        select 1 from event_log where
+        select 1 from par_event_log where
           log_id = $log_id
           """ ++ queryLocalOffset ++ sql" and ts >= $timestampInclusive #${storage.limit(1)}"
 
@@ -304,7 +304,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     val query = storage.profile match {
       case _: Profile.H2 | _: Profile.Postgres =>
         sqlu"""
-          delete from event_log
+          delete from par_event_log
           where
             log_id = $log_id
             and (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) > (${exclusive.effectiveTime}, ${exclusive.discriminator}, ${exclusive.tieBreaker})"""
@@ -315,7 +315,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
         val tie = exclusive.tieBreaker
 
         sqlu"""
-          delete from event_log
+          delete from par_event_log
           where
             log_id = $log_id
             and ((local_offset_effective_time>$t) or (local_offset_effective_time=$t and local_offset_discriminator>$disc) or (local_offset_effective_time=$t and local_offset_discriminator=$disc and local_offset_tie_breaker>$tie))"""
@@ -379,7 +379,7 @@ object DbSingleDimensionEventLog {
     for {
       eventsVector <- storage.query(
         (sql"""select local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker, request_sequencer_counter, event_id, content, trace_context
-                 from event_log
+                 from par_event_log
                  where log_id = ${eventLogId.index}""" ++ filters ++
           sql""" order by local_offset_effective_time asc, local_offset_discriminator asc, local_offset_tie_breaker asc #${storage
               .limit(limit.getOrElse(Int.MaxValue))}""")

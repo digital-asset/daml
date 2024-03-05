@@ -19,6 +19,7 @@ message SequencerSnapshot {
   ImplementationSpecificInfo additional = 4;
   repeated InFlightAggregationWithId in_flight_aggregations = 5;
   repeated MemberTrafficSnapshot traffic_snapshots = 6;
+  repeated TrafficBalance traffic_balances = 7;
 
   message MemberCounter {
     string member = 1;
@@ -48,6 +49,13 @@ message SequencerSnapshot {
     uint64 extra_traffic_consumed = 3;
     uint64 base_traffic_remainder = 4;
     int64 sequencing_timestamp = 5; // in microseconds of UTC time since Unix epoch
+  }
+
+  message TrafficBalance {
+    string member = 1;
+    uint32 serial = 2;
+    uint64 balance = 3;
+    int64 sequencing_timestamp = 4; // // in microseconds of UTC time since Unix epoch
   }
 }
 

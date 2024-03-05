@@ -5,9 +5,10 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
+import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.TransferId
 import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult.InvalidTransferOutResult
+import com.digitalasset.canton.protocol.{SourceDomainId, TransferId}
 import com.digitalasset.canton.sequencing.RawProtocolEvent
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
@@ -19,10 +20,16 @@ import com.digitalasset.canton.sequencing.protocol.{
 final case class DeliveredTransferOutResult(result: SignedContent[Deliver[DefaultOpenEnvelope]])
     extends PrettyPrinting {
 
-  val unwrap: TransferOutResult = result.content match {
+  val unwrap: ConfirmationResultMessage = result.content match {
     case Deliver(_, _, _, _, Batch(envelopes), _) =>
       val transferOutResults =
-        envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[TransferOutResult]])
+        envelopes
+          .mapFilter(env =>
+            ProtocolMessage.select[SignedProtocolMessage[ConfirmationResultMessage]](env)
+          )
+          .filter { env =>
+            env.protocolMessage.message.viewType == ViewType.TransferOutViewType
+          }
       val size = transferOutResults.size
       if (size != 1)
         throw InvalidTransferOutResult(
@@ -38,7 +45,7 @@ final case class DeliveredTransferOutResult(result: SignedContent[Deliver[Defaul
       throw InvalidTransferOutResult(result.content, "The transfer-out result must be approving.")
   }
 
-  def transferId: TransferId = TransferId(unwrap.domain, unwrap.requestId.unwrap)
+  def transferId: TransferId = TransferId(SourceDomainId(unwrap.domainId), unwrap.requestId.unwrap)
 
   override def pretty: Pretty[DeliveredTransferOutResult] = prettyOfParam(_.unwrap)
 }

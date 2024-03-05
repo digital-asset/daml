@@ -17,7 +17,6 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.TargetDomainId
-import com.digitalasset.canton.protocol.messages.TransferInResult
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
@@ -43,7 +42,6 @@ class TransferInProcessor(
       TransferInProcessingSteps.SubmissionParam,
       TransferInProcessingSteps.SubmissionResult,
       TransferInViewType,
-      TransferInResult,
       TransferProcessorError,
     ](
       new TransferInProcessingSteps(

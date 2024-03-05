@@ -1,6 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE TypeFamilies #-}
+
 -- | This module provides functions to perform the Daml-LF constraint checks on
 -- types in certain positions. In fact, we also need to do some form of
 -- "constraint inference". To perform this inference in an incremental fashion,

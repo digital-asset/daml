@@ -11,28 +11,18 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoError}
-import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.sequencing.client.{
   SendCallback,
   SendResult,
   SendType,
   SequencerClientSend,
 }
-import com.digitalasset.canton.sequencing.protocol.{
-  AggregationRule,
-  Batch,
-  MediatorsOfDomain,
-  MemberRecipient,
-  OpenEnvelope,
-  ParticipantsOfParty,
-  Recipient,
-  Recipients,
-  SequencerErrors,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -203,7 +193,15 @@ private[mediator] class DefaultVerdictSender(
       )
       (informeesMap, informeesWithGroupAddressing) = result
       envelopes <- {
-        val result = request.createConfirmationResult(requestId, verdict, request.allInformees)
+        val result = ConfirmationResultMessage.create(
+          crypto.domainId,
+          request.viewType,
+          requestId,
+          Some(request.rootHash),
+          verdict,
+          if (request.informeesArePublic) request.allInformees else Set.empty,
+          protocolVersion,
+        )
         val recipientSeq =
           informeesMap.keys.toSeq.map(MemberRecipient) ++ informeesWithGroupAddressing.toSeq
             .map(p => ParticipantsOfParty(PartyId.tryFromLfParty(p)))
@@ -324,55 +322,15 @@ private[mediator] class DefaultVerdictSender(
         snapshot <- crypto.awaitSnapshot(requestId.unwrap)
         envs <- recipientsByViewType.toSeq
           .parTraverse { case (viewType, flatRecipients) =>
-            // This is currently a bit messy. We need to a TransactionResultMessage or TransferXResult whenever possible,
-            // because that allows us to easily intercept and change the verdict in tests.
-            // However, in some cases, the required information is not available, so we fall back to MalformedMediatorConfirmationRequestResult.
-            // TODO(i11326): Remove unnecessary fields from the result message types, so we can get rid of MalformedMediatorConfirmationRequestResult and simplify this code.
-            val rejection = (viewType match {
-              case ViewType.TransactionViewType =>
-                requestO match {
-                  case Some(request @ InformeeMessage(_, _)) =>
-                    request.createConfirmationResult(
-                      requestId,
-                      rejectionReason,
-                      Set.empty,
-                    )
-                  // For other kinds of request, or if the request is unknown, we send a generic result
-                  case _ =>
-                    MalformedConfirmationRequestResult.tryCreate(
-                      requestId,
-                      crypto.domainId,
-                      viewType,
-                      rejectionReason,
-                      protocolVersion,
-                    )
-                }
-
-              case ViewType.TransferInViewType =>
-                TransferInResult.create(
-                  requestId,
-                  Set.empty,
-                  TargetDomainId(crypto.domainId),
-                  rejectionReason,
-                  protocolVersion,
-                )
-              case ViewType.TransferOutViewType =>
-                TransferOutResult.create(
-                  requestId,
-                  Set.empty,
-                  SourceDomainId(crypto.domainId),
-                  rejectionReason,
-                  protocolVersion,
-                )
-              case _: ViewType =>
-                MalformedConfirmationRequestResult.tryCreate(
-                  requestId,
-                  crypto.domainId,
-                  viewType,
-                  rejectionReason,
-                  protocolVersion,
-                )
-            }): ConfirmationResult
+            val rejection = ConfirmationResultMessage.create(
+              crypto.domainId,
+              viewType,
+              requestId,
+              rootHashO = None,
+              rejectionReason,
+              Set.empty,
+              protocolVersion,
+            )
 
             val recipients = Recipients.recipientGroups(flatRecipients.map(r => NonEmpty(Set, r)))
 

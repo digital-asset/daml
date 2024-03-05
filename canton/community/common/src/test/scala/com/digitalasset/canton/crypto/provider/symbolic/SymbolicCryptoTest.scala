@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.provider.symbolic
 import com.digitalasset.canton.crypto.{
   Crypto,
   EncryptionTest,
+  PasswordBasedEncryptionTest,
   PrivateKeySerializationTest,
   RandomTest,
   SigningTest,
@@ -19,6 +20,7 @@ class SymbolicCryptoTest
     with SigningTest
     with EncryptionTest
     with PrivateKeySerializationTest
+    with PasswordBasedEncryptionTest
     with RandomTest {
 
   "SymbolicCrypto" can {
@@ -45,7 +47,16 @@ class SymbolicCryptoTest
     )
     behave like randomnessProvider(symbolicCrypto().map(_.pureCrypto))
 
+    behave like pbeProvider(
+      SymbolicCryptoProvider.supportedPbkdfSchemes,
+      SymbolicCryptoProvider.supportedSymmetricKeySchemes,
+      symbolicCrypto().map(_.pureCrypto),
+    )
+
+    // Symbolic crypto does not satisfy golden tests for HKDF
     // Symbolic crypto does not support Java key conversion, thus not tested
+
+    // Symbolic crypto does not support public key validation, thus not tested
   }
 
 }

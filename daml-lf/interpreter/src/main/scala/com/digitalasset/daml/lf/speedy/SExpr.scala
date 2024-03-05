@@ -347,7 +347,7 @@ private[lf] object SExpr {
   sealed abstract class SCasePat extends Product with Serializable {
 
     private[speedy] def numArgs: Int = this match {
-      case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
+      case _: SCPEnum | _: SCPBuiltinCon | SCPNil | SCPDefault | SCPNone => 0
       case _: SCPVariant | SCPSome => 1
       case SCPCons => 2
     }
@@ -360,7 +360,7 @@ private[lf] object SExpr {
   final case class SCPEnum(id: Identifier, constructor: Name, constructorRank: Int) extends SCasePat
 
   /** Match on a primitive constructor, that is on true, false or unit. */
-  final case class SCPPrimCon(pc: PrimCon) extends SCasePat
+  final case class SCPBuiltinCon(pc: BuiltinCon) extends SCasePat
 
   /** Match on an empty list. */
   final case object SCPNil extends SCasePat

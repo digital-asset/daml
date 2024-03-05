@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.sequencing.protocol.{AggregationId, AggregationRule}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -20,13 +21,14 @@ import com.google.protobuf.ByteString
 
 import scala.collection.SeqView
 
-final case class SequencerSnapshot(
+final case class SequencerSnapshot private (
     lastTs: CantonTimestamp,
     heads: Map[Member, SequencerCounter],
     status: SequencerPruningStatus,
     inFlightAggregations: InFlightAggregations,
     additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
     trafficSnapshots: Map[Member, MemberTrafficSnapshot],
+    trafficBalances: Seq[TrafficBalance],
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[SequencerSnapshot.type])
     extends HasProtocolVersionedWrapper[SequencerSnapshot] {
 
@@ -66,9 +68,10 @@ final case class SequencerSnapshot(
       inFlightAggregations = inFlightAggregations.toSeq.map(serializeInFlightAggregation),
       additional =
         additional.map(a => v30.ImplementationSpecificInfo(a.implementationName, a.info)),
-      trafficSnapshots = trafficSnapshots.toList.map { case (member, snapshot) =>
+      trafficSnapshots = trafficSnapshots.toList.map { case (_member, snapshot) =>
         snapshot.toProtoV30
       },
+      trafficBalances = trafficBalances.map(_.toProtoV30),
     )
   }
 }
@@ -91,8 +94,17 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
       protocolVersion: ProtocolVersion,
       trafficState: Map[Member, MemberTrafficSnapshot],
+      trafficBalances: Seq[TrafficBalance],
   ): SequencerSnapshot =
-    SequencerSnapshot(lastTs, heads, status, inFlightAggregations, additional, trafficState)(
+    SequencerSnapshot(
+      lastTs,
+      heads,
+      status,
+      inFlightAggregations,
+      additional,
+      trafficState,
+      trafficBalances,
+    )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
@@ -103,6 +115,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
     Map.empty,
     None,
     Map.empty,
+    Seq.empty,
   )(protocolVersionRepresentativeFor(protocolVersion))
 
   final case class ImplementationSpecificInfo(implementationName: String, info: ByteString)
@@ -175,6 +188,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
         .traverse(parseInFlightAggregationWithId)
         .map(_.toMap)
       trafficSnapshots <- request.trafficSnapshots.traverse(MemberTrafficSnapshot.fromProtoV30)
+      trafficBalances <- request.trafficBalances.traverse(TrafficBalance.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SequencerSnapshot(
       lastTs,
@@ -183,6 +197,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       inFlightAggregations,
       request.additional.map(a => ImplementationSpecificInfo(a.implementationName, a.info)),
       trafficSnapshots = trafficSnapshots.map(s => s.member -> s).toMap,
+      trafficBalances = trafficBalances,
     )(rpv)
   }
 }
@@ -190,7 +205,10 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
 final case class SequencerInitialState(
     domainId: DomainId,
     snapshot: SequencerSnapshot,
-    latestTopologyClientTimestamp: Option[CantonTimestamp],
+    // TODO(#13883,#14504) Revisit whether this still makes sense: For sequencer onboarding, this timestamp
+    //  will typically differ between sequencers because they may receive envelopes addressed directly to them
+    //  even though this should not happen during a normal protocol run.
+    latestSequencerEventTimestamp: Option[CantonTimestamp],
     initialTopologyEffectiveTimestamp: Option[CantonTimestamp],
 )
 
@@ -200,6 +218,7 @@ object SequencerInitialState {
       snapshot: SequencerSnapshot,
       times: SeqView[(CantonTimestamp, CantonTimestamp)],
   ): SequencerInitialState = {
+    // TODO(#14504) Update since we now also need to look at top-ups
     /* Take the sequencing time of the last topology update for the latest topology client timestamp.
      * There may have been further events addressed to the topology client member after this topology update,
      * but it is safe to ignore them. We assume that the topology snapshot includes all changes that have

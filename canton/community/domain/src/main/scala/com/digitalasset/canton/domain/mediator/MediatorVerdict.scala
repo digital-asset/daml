@@ -25,8 +25,9 @@ object MediatorVerdict {
   }
   type MediatorApprove = MediatorApprove.type
 
-  final case class ParticipantReject(reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]])
-      extends MediatorVerdict {
+  final case class ParticipantReject(
+      reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]]
+  ) extends MediatorVerdict {
     override def toVerdict(protocolVersion: ProtocolVersion): Verdict =
       Verdict.ParticipantReject(reasons, protocolVersion)
 
@@ -50,7 +51,11 @@ object MediatorVerdict {
         case invalid: InvalidMessage.Reject => invalid
         case malformed: MalformedMessage.Reject => malformed
       }
-      Verdict.MediatorReject.tryCreate(error.rpcStatusWithoutLoggingContext(), protocolVersion)
+      Verdict.MediatorReject.tryCreate(
+        error.rpcStatusWithoutLoggingContext(),
+        reason.isMalformed,
+        protocolVersion,
+      )
     }
 
     override def pretty: Pretty[MediatorReject] = prettyOfClass(

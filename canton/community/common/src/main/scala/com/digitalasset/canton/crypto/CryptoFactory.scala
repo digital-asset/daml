@@ -78,8 +78,17 @@ trait CryptoFactory {
           val cryptoKeyConverter = new CryptoKeyConverter(new TinkJavaConverter, jceJavaConverter)
           TinkPureCrypto.create(cryptoKeyConverter, symmetricKeyScheme, hashAlgorithm)
         case _: CryptoProvider.JceCryptoProvider =>
-          Right(
-            new JcePureCrypto(jceJavaConverter, symmetricKeyScheme, hashAlgorithm, loggerFactory)
+          for {
+            pbkdfSchemes <- config.provider.pbkdf.toRight(
+              "PBKDF schemes must be set for JCE provider"
+            )
+            pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default)
+          } yield new JcePureCrypto(
+            jceJavaConverter,
+            symmetricKeyScheme,
+            hashAlgorithm,
+            pbkdfScheme,
+            loggerFactory,
           )
         case prov =>
           Left(s"Unsupported crypto provider: $prov")
@@ -295,11 +304,16 @@ object JceCrypto {
         requiredSigningKeySchemes,
         requiredEncryptionKeySchemes,
       )
+      pbkdfSchemes <- config.provider.pbkdf
+        .toRight("PBKDF schemes must be set for JCE provider")
+        .toEitherT[Future]
+      pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default).toEitherT[Future]
       pureCrypto =
         new JcePureCrypto(
           javaKeyConverter,
           storesAndSchemes.symmetricKeyScheme,
           storesAndSchemes.hashAlgorithm,
+          pbkdfScheme,
           loggerFactory,
         )
       privateCrypto =

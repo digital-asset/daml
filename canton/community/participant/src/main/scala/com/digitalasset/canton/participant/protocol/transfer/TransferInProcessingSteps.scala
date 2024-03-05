@@ -74,7 +74,6 @@ private[transfer] class TransferInProcessingSteps(
       SubmissionParam,
       SubmissionResult,
       TransferInViewType,
-      TransferInResult,
       PendingTransferIn,
     ]
     with NamedLogging {
@@ -418,23 +417,21 @@ private[transfer] class TransferInProcessingSteps(
           EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](Seq.empty)
         case Some(validationResult) =>
           val contractResult = activenessResult.contracts
-          lazy val localVerdictProtocolVersion =
-            LocalVerdict.protocolVersionRepresentativeFor(targetProtocolVersion.v)
 
-          val localVerdict =
+          val localRejectErrorO =
             if (activenessResult.isSuccessful)
-              LocalApprove(targetProtocolVersion.v)
+              None
             else if (contractResult.notFree.nonEmpty) {
               contractResult.notFree.toSeq match {
                 case Seq((coid, Archived)) =>
-                  LocalRejectError.TransferInRejects.ContractAlreadyArchived.Reject(
-                    show"coid=$coid"
-                  )(
-                    localVerdictProtocolVersion
+                  Some(
+                    LocalRejectError.TransferInRejects.ContractAlreadyArchived
+                      .Reject(show"coid=$coid")
                   )
                 case Seq((coid, _state)) =>
-                  LocalRejectError.TransferInRejects.ContractAlreadyActive.Reject(show"coid=$coid")(
-                    localVerdictProtocolVersion
+                  Some(
+                    LocalRejectError.TransferInRejects.ContractAlreadyActive
+                      .Reject(show"coid=$coid")
                   )
                 case coids =>
                   throw new RuntimeException(
@@ -442,17 +439,24 @@ private[transfer] class TransferInProcessingSteps(
                   )
               }
             } else if (contractResult.alreadyLocked.nonEmpty)
-              LocalRejectError.TransferInRejects.ContractIsLocked.Reject("")(
-                localVerdictProtocolVersion
+              Some(
+                LocalRejectError.TransferInRejects.ContractIsLocked
+                  .Reject("")
               )
             else if (activenessResult.inactiveTransfers.nonEmpty)
-              LocalRejectError.TransferInRejects.AlreadyCompleted.Reject("")(
-                localVerdictProtocolVersion
+              Some(
+                LocalRejectError.TransferInRejects.AlreadyCompleted
+                  .Reject("")
               )
             else
               throw new RuntimeException(
                 withRequestId(requestId, s"Unexpected activeness result $activenessResult")
               )
+
+          val localVerdict =
+            localRejectErrorO.fold[LocalVerdict](LocalApprove(targetProtocolVersion.v)) { err =>
+              err.toLocalReject(targetProtocolVersion.v)
+            }
 
           EitherT
             .fromEither[FutureUnlessShutdown](
@@ -477,7 +481,7 @@ private[transfer] class TransferInProcessingSteps(
         responses,
         RejectionArgs(
           entry,
-          LocalRejectError.TimeRejects.LocalTimeout.Reject(targetProtocolVersion.v),
+          LocalRejectError.TimeRejects.LocalTimeout.Reject().toLocalReject(targetProtocolVersion.v),
         ),
       )
     }
@@ -487,8 +491,8 @@ private[transfer] class TransferInProcessingSteps(
     s"Transfer-in $requestId: $message"
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      messageE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[MalformedConfirmationRequestResult, TransferInResult],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      result: ConfirmationResultMessage,
       pendingRequestData: PendingTransferIn,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -510,8 +514,7 @@ private[transfer] class TransferInProcessingSteps(
       _,
     ) = pendingRequestData
 
-    import scala.util.Either.MergeableEither
-    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
+    result.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,

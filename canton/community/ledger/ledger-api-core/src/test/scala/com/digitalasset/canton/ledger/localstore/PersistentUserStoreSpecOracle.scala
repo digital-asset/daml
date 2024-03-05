@@ -9,4 +9,5 @@ import org.scalatest.freespec.AsyncFreeSpec
 class PersistentUserStoreSpecOracle
     extends AsyncFreeSpec
     with PersistentUserStoreTests
+    with ConcurrentPersistentUserStoreTests
     with StorageBackendProviderOracle

@@ -70,9 +70,9 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
 
     val cleanupF = theStorage.update(
       DBIO.seq(
-        sqlu"truncate table linearized_event_log", // table guarded by DbMultiDomainEventLogTest.acquireLinearizedEventLogLock
-        sqlu"delete from event_log where ${indexedStringStore.minIndex} <= log_id and log_id <= ${indexedStringStore.maxIndex}", // table shared with other tests
-        sqlu"delete from event_log where log_id = $participantEventLogId", // table shared with other tests
+        sqlu"truncate table par_linearized_event_log", // table guarded by DbMultiDomainEventLogTest.acquireLinearizedEventLogLock
+        sqlu"delete from par_event_log where ${indexedStringStore.minIndex} <= log_id and log_id <= ${indexedStringStore.maxIndex}", // table shared with other tests
+        sqlu"delete from par_event_log where log_id = $participantEventLogId", // table shared with other tests
       ),
       functionFullName,
     )
@@ -102,8 +102,8 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
 
         IdempotentInsert.insertIgnoringConflicts(
           storage,
-          "event_log pk_event_log",
-          sql"""event_log (log_id, local_offset_effective_time, local_offset_tie_breaker, local_offset_discriminator, ts, request_sequencer_counter, event_id, content, trace_context)
+          "par_event_log pk_par_event_log",
+          sql"""par_event_log (log_id, local_offset_effective_time, local_offset_tie_breaker, local_offset_discriminator, ts, request_sequencer_counter, event_id, content, trace_context)
                values (${id.index}, ${localOffset.effectiveTime}, ${localOffset.tieBreaker}, ${localOffset.discriminator},
                ${tsEvent.timestamp}, $requestSequencerCounter, $eventId, $serializableLedgerSyncEvent,
                  ${SerializableTraceContext(tsEvent.traceContext)})""",
@@ -140,7 +140,7 @@ trait DbMultiDomainEventLogTest extends MultiDomainEventLogTest with DbTest {
 
 private object DbMultiDomainEventLogTest {
 
-  /** Synchronize access to the linearized_event_log so that tests do not interfere */
+  /** Synchronize access to the par_linearized_event_log so that tests do not interfere */
   private val accessLinearizedEventLog: Semaphore = new Semaphore(1)
 
   def acquireLinearizedEventLogLock(elc: ErrorLoggingContext): Unit = {

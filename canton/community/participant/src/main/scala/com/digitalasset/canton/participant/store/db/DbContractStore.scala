@@ -116,7 +116,7 @@ class DbContractStore(
 
   private val contractsBaseQuery =
     sql"""select contract_id, instance, metadata, ledger_create_time, request_counter, creating_transaction_id, contract_salt
-          from contracts"""
+          from par_contracts"""
 
   private def lookupQueries(
       ids: NonEmpty[Seq[LfContractId]]
@@ -292,7 +292,7 @@ class DbContractStore(
         val query =
           profile match {
             case _: DbStorage.Profile.Postgres =>
-              """insert into contracts as c (
+              """insert into par_contracts as c (
                    domain_id, contract_id, metadata,
                    ledger_create_time, request_counter, creating_transaction_id, package_id, template_id, contract_salt, instance)
                  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -303,7 +303,7 @@ class DbContractStore(
                    where (c.creating_transaction_id is null and (excluded.creating_transaction_id is not null or c.request_counter < excluded.request_counter)) or
                          (c.creating_transaction_id is not null and excluded.creating_transaction_id is not null and c.request_counter < excluded.request_counter)"""
             case _: DbStorage.Profile.H2 =>
-              """merge into contracts c
+              """merge into par_contracts c
                  using (select cast(? as integer) domain_id,
                                cast(? as varchar(300)) contract_id,
                                cast(? as binary large object) metadata,
@@ -329,7 +329,7 @@ class DbContractStore(
                   values (input.domain_id, input.contract_id, input.instance, input.metadata, input.ledger_create_time,
                     input.request_counter, input.creating_transaction_id, input.package_id, input.template_id, input.contract_salt)"""
             case _: DbStorage.Profile.Oracle =>
-              """merge into contracts c
+              """merge into par_contracts c
                  using (select ? domain_id,
                                ? contract_id,
                                ? metadata,
@@ -445,7 +445,7 @@ class DbContractStore(
       .flatMap { _ =>
         EitherT.right[UnknownContract](
           storage.update_(
-            sqlu"delete from contracts where contract_id = $id and domain_id = $domainId",
+            sqlu"delete from par_contracts where contract_id = $id and domain_id = $domainId",
             functionFullName,
           )
         )
@@ -467,7 +467,7 @@ class DbContractStore(
             .map(value => sql"$value")
             .intercalate(sql", ") ++ sql")"
         storage.update_(
-          (sql"""delete from contracts where domain_id = $domainId and """ ++ inClause).asUpdate,
+          (sql"""delete from par_contracts where domain_id = $domainId and """ ++ inClause).asUpdate,
           functionFullName,
         )
       }
@@ -479,12 +479,12 @@ class DbContractStore(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val query = profile match {
       case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-        sqlu"""delete from contracts
+        sqlu"""delete from par_contracts
                  where domain_id = $domainId and request_counter <= $upTo and creating_transaction_id is null"""
       case _: DbStorage.Profile.Oracle =>
         // Here we use exactly the same expression as in idx_contracts_request_counter
         // to make sure the index is used.
-        sqlu"""delete from contracts
+        sqlu"""delete from par_contracts
                  where (case when creating_transaction_id is null then domain_id end) = $domainId and
                        (case when creating_transaction_id is null then request_counter end) <= $upTo"""
     }
@@ -517,7 +517,7 @@ class DbContractStore(
     }
 
   override def contractCount()(implicit traceContext: TraceContext): Future[Int] = {
-    storage.query(sql"select count(*) from contracts".as[Int].head, functionFullName)
+    storage.query(sql"select count(*) from par_contracts".as[Int].head, functionFullName)
   }
 }
 

@@ -19,7 +19,7 @@ trait DbTransferStoreTest extends AsyncWordSpec with BaseTest with TransferStore
 
   override def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*
-    storage.update(sqlu"truncate table transfers", functionFullName)
+    storage.update(sqlu"truncate table par_transfers", functionFullName)
   }
 
   "DbTransferStore" should {

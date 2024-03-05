@@ -31,6 +31,7 @@ trait LocalNodeParametersConfig {
 
   /** Various cache sizes */
   def caching: CachingConfigs
+  def useNewTrafficControl: Boolean
 }
 
 trait CommunityLocalNodeConfig extends LocalNodeConfig {

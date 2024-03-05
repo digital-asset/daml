@@ -255,7 +255,7 @@ object TransactionCoder {
       _ = node.choiceObservers.foreach(builder.addObservers)
       _ <- node.choiceAuthorizers match {
         case Some(authorizers) =>
-          if (node.version <= TransactionVersion.minChoiceAuthorizers)
+          if (node.version < TransactionVersion.minChoiceAuthorizers)
             Left(
               EncodeError(s"choice authorizers are not supported by ${node.version.protoValue}")
             )

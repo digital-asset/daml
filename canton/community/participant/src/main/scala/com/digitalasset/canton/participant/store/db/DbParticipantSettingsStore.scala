@@ -62,7 +62,7 @@ class DbParticipantSettingsStore(
       {
         for {
           settingsO <- storage.query(
-            sql"select max_dirty_requests, max_rate, max_deduplication_duration, max_burst_factor from participant_settings"
+            sql"select max_dirty_requests, max_rate, max_deduplication_duration, max_burst_factor from par_settings"
               .as[Settings]
               .headOption,
             functionFullName,
@@ -76,12 +76,12 @@ class DbParticipantSettingsStore(
               val ResourceLimits(maxDirtyRequests, maxRate, maxBurstFactor) = ResourceLimits.default
               val query = storage.profile match {
                 case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-                  sqlu"""insert into participant_settings(client, max_dirty_requests, max_rate, max_burst_factor)
+                  sqlu"""insert into par_settings(client, max_dirty_requests, max_rate, max_burst_factor)
                            values($client, $maxDirtyRequests, $maxRate, $maxBurstFactor)
                            on conflict do nothing"""
 
                 case _: DbStorage.Profile.Oracle =>
-                  sqlu"""merge into participant_settings using dual on (1 = 1)
+                  sqlu"""merge into par_settings using dual on (1 = 1)
                            when not matched then
                              insert(client, max_dirty_requests, max_rate, max_burst_factor)
                              values($client, $maxDirtyRequests, $maxRate, $maxBurstFactor)"""
@@ -106,11 +106,11 @@ class DbParticipantSettingsStore(
 
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into participant_settings(max_dirty_requests, max_rate, max_burst_factor, client) values($maxDirtyRequests, $maxRate, $maxBurstFactor, $client)
+        sqlu"""insert into par_settings(max_dirty_requests, max_rate, max_burst_factor, client) values($maxDirtyRequests, $maxRate, $maxBurstFactor, $client)
                    on conflict(client) do update set max_dirty_requests = $maxDirtyRequests, max_rate = $maxRate, max_burst_factor = $maxBurstFactor"""
 
       case _: DbStorage.Profile.Oracle | _: DbStorage.Profile.H2 =>
-        sqlu"""merge into participant_settings using dual on (1 = 1)
+        sqlu"""merge into par_settings using dual on (1 = 1)
                  when matched then
                    update set max_dirty_requests = $maxDirtyRequests, max_rate = $maxRate, max_burst_factor = $maxBurstFactor
                  when not matched then
@@ -129,18 +129,18 @@ class DbParticipantSettingsStore(
   ): FutureUnlessShutdown[Unit] = {
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into participant_settings(#$columnName, client) values ($newValue, $client)
+        sqlu"""insert into par_settings(#$columnName, client) values ($newValue, $client)
                on conflict(client) do
-                 update set #$columnName = $newValue where participant_settings.#$columnName is null
+                 update set #$columnName = $newValue where par_settings.#$columnName is null
               """
       case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into participant_settings using dual on (1 = 1)
+        sqlu"""merge into par_settings using dual on (1 = 1)
                when matched and #$columnName is null then
                  update set #$columnName = $newValue
                when not matched then
                  insert (#$columnName, client) values ($newValue, $client)"""
       case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into participant_settings using dual on (1 = 1)
+        sqlu"""merge into par_settings using dual on (1 = 1)
                when matched then
                  update set #$columnName = $newValue where #$columnName is null
                when not matched then

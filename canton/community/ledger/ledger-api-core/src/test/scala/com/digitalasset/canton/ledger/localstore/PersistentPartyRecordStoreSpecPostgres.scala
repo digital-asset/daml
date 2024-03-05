@@ -9,4 +9,5 @@ import org.scalatest.freespec.AsyncFreeSpec
 class PersistentPartyRecordStoreSpecPostgres
     extends AsyncFreeSpec
     with PersistentPartyRecordStoreTests
+    with ConcurrentPersistentPartyRecordStoreTests
     with StorageBackendProviderPostgres

@@ -21,7 +21,6 @@ object ContractStateEvent {
       stakeholders: Set[Party],
       eventOffset: Offset,
       eventSequentialId: Long,
-      agreementText: Option[String],
       signatories: Set[Party],
       keyMaintainers: Option[Set[Party]],
       driverMetadata: Option[Array[Byte]],

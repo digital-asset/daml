@@ -13,9 +13,10 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{Malformed, RequestId, RootHash}
+import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -64,13 +65,13 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
       ec: ExecutionContext,
       loggingContext: NamedLoggingContext,
   ): OptionT[Future, List[(VKEY, Set[LfPartyId])]] = {
-    implicit val tc = loggingContext.traceContext
+    implicit val tc: TraceContext = loggingContext.traceContext
     def authorizedPartiesOfSender(
         viewKey: VKEY,
         declaredConfirmingParties: Set[ConfirmingParty],
-    ): OptionT[Future, Set[LfPartyId]] =
+    ): OptionT[Future, Set[LfPartyId]] = {
       localVerdict match {
-        case malformed: Malformed =>
+        case malformed: LocalReject if malformed.isMalformed =>
           malformed.logWithContext(
             Map("requestId" -> requestId.toString, "reportedBy" -> show"$sender")
           )
@@ -86,8 +87,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             Some(hostedConfirmingParties): Option[Set[LfPartyId]]
           }
           OptionT(res)
-
-        case _: LocalApprove | _: LocalReject =>
+        case _: LocalVerdict =>
           val unexpectedConfirmingParties =
             confirmingParties -- declaredConfirmingParties.map(_.party)
           for {
@@ -126,6 +126,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               }
           } yield confirmingParties
       }
+    }
 
     for {
       _ <- OptionT.fromOption[Future](rootHashO.traverse_ { rootHash =>
@@ -146,7 +147,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             // If no view key is given, the local verdict is Malformed and confirming parties is empty by the invariants of ConfirmationResponse.
             // We treat this as a rejection for all parties hosted by the participant.
             localVerdict match {
-              case malformed: Malformed =>
+              case malformed @ LocalReject(_, true) =>
                 malformed.logWithContext(
                   Map("requestId" -> requestId.toString, "reportedBy" -> show"$sender")
                 )

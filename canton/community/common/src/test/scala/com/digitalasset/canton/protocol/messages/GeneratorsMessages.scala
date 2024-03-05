@@ -6,13 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestampSecond, GeneratorsData, ViewPosition, ViewType}
-import com.digitalasset.canton.protocol.{
-  GeneratorsProtocol,
-  Malformed,
-  RequestId,
-  RootHash,
-  TransferDomainId,
-}
+import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId, RootHash}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -66,38 +60,26 @@ final class GeneratorsMessages(
     )
   )
 
-  implicit val transferResultArb: Arbitrary[TransferResult[TransferDomainId]] = Arbitrary(for {
-    requestId <- Arbitrary.arbitrary[RequestId]
-    informees <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-    domain <- Arbitrary.arbitrary[TransferDomainId]
-    verdict <- verdictArb.arbitrary
-  } yield TransferResult.create(requestId, informees, domain, verdict, protocolVersion))
+  implicit val confirmationResultMessageArb: Arbitrary[ConfirmationResultMessage] = Arbitrary(
+    for {
+      domainId <- Arbitrary.arbitrary[DomainId]
+      viewType <- Arbitrary.arbitrary[ViewType]
+      requestId <- Arbitrary.arbitrary[RequestId]
+      rootHash <- Arbitrary.arbitrary[RootHash]
+      verdict <- verdictArb.arbitrary
+      informees <- Arbitrary.arbitrary[Set[LfPartyId]]
 
-  implicit val MalformedMediatorConfirmationRequestResultArb
-      : Arbitrary[MalformedConfirmationRequestResult] =
-    Arbitrary(
-      for {
-        requestId <- Arbitrary.arbitrary[RequestId]
-        domainId <- Arbitrary.arbitrary[DomainId]
-        viewType <- Arbitrary.arbitrary[ViewType]
-        mediatorReject <- mediatorRejectArb.arbitrary
-      } yield MalformedConfirmationRequestResult.tryCreate(
-        requestId,
-        domainId,
-        viewType,
-        mediatorReject,
-        protocolVersion,
-      )
+      // TODO(#14241) Also generate instance that makes pv above cover all the values
+    } yield ConfirmationResultMessage.create(
+      domainId,
+      viewType,
+      requestId,
+      Some(rootHash),
+      verdict,
+      informees,
+      protocolVersion,
     )
-
-  implicit val transactionResultMessageArb: Arbitrary[ConfirmationResultMessage] = Arbitrary(for {
-    verdict <- verdictArb.arbitrary
-    rootHash <- Arbitrary.arbitrary[RootHash]
-    requestId <- Arbitrary.arbitrary[RequestId]
-    domainId <- Arbitrary.arbitrary[DomainId]
-
-    // TODO(#14241) Also generate instance that contains InformeeTree + make pv above cover all the values
-  } yield ConfirmationResultMessage(requestId, verdict, rootHash, domainId, protocolVersion))
+  )
 
   implicit val confirmationResponseArb: Arbitrary[ConfirmationResponse] = Arbitrary(
     for {
@@ -107,18 +89,11 @@ final class GeneratorsMessages(
 
       domainId <- Arbitrary.arbitrary[DomainId]
 
-      confirmingParties <- localVerdict match {
-        case _: Malformed =>
-          Gen.const(Set.empty[LfPartyId])
-        case _: LocalApprove | _: LocalReject =>
-          nonEmptySet(implicitly[Arbitrary[LfPartyId]]).arbitrary.map(_.forgetNE)
-        case _ => Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      }
+      confirmingParties <-
+        if (localVerdict.isMalformed) Gen.const(Set.empty[LfPartyId])
+        else nonEmptySet(implicitly[Arbitrary[LfPartyId]]).arbitrary.map(_.forgetNE)
 
-      rootHash <- localVerdict match {
-        case _: LocalApprove | _: LocalReject => Gen.some(Arbitrary.arbitrary[RootHash])
-        case _ => Gen.option(Arbitrary.arbitrary[RootHash])
-      }
+      rootHash <- Arbitrary.arbitrary[RootHash]
 
       viewPositionO <- localVerdict match {
         case _: LocalApprove | _: LocalReject =>
@@ -131,7 +106,7 @@ final class GeneratorsMessages(
       sender,
       viewPositionO,
       localVerdict,
-      rootHash,
+      Some(rootHash),
       confirmingParties,
       domainId,
       protocolVersion,
@@ -139,21 +114,11 @@ final class GeneratorsMessages(
   )
 
   // TODO(#14515) Check that the generator is exhaustive
-  implicit val mediatorResultArb: Arbitrary[ConfirmationResult] = Arbitrary(
-    Gen.oneOf[ConfirmationResult](
-      Arbitrary.arbitrary[MalformedConfirmationRequestResult],
-      Arbitrary.arbitrary[ConfirmationResultMessage],
-      Arbitrary.arbitrary[TransferResult[TransferDomainId]],
-    )
-  )
-
-  // TODO(#14515) Check that the generator is exhaustive
   implicit val signedProtocolMessageContentArb: Arbitrary[SignedProtocolMessageContent] = Arbitrary(
-    Gen.oneOf(
+    Gen.oneOf[SignedProtocolMessageContent](
       Arbitrary.arbitrary[AcsCommitment],
-      Arbitrary.arbitrary[MalformedConfirmationRequestResult],
       Arbitrary.arbitrary[ConfirmationResponse],
-      Arbitrary.arbitrary[ConfirmationResult],
+      Arbitrary.arbitrary[ConfirmationResultMessage],
     )
   )
 

@@ -128,7 +128,7 @@ class LedgerServerPartyNotifier(
     if (transaction.operation != TopologyChangeOpX.Replace || transaction.isProposal) {
       Seq.empty
     } else {
-      transaction.transaction.mapping match {
+      transaction.mapping match {
         case PartyToParticipantX(partyId, _, _, participants, _) =>
           participants
             .map { hostingParticipant =>

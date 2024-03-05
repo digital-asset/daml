@@ -59,7 +59,7 @@ class DbCommandDeduplicationStore(
         select application_id, command_id, act_as,
           offset_definite_answer, publication_time_definite_answer, submission_id_definite_answer, trace_context_definite_answer,
           offset_acceptance, publication_time_acceptance, submission_id_acceptance, trace_context_acceptance
-        from command_deduplication
+        from par_command_deduplication
         where change_id_hash = $changeIdHash
         """.as[CommandDeduplicationData].headOption
     storage.querySingle(query, functionFullName)
@@ -71,7 +71,7 @@ class DbCommandDeduplicationStore(
     val update = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
         """
-          insert into command_deduplication(
+          insert into par_command_deduplication(
             change_id_hash,
             application_id, command_id, act_as,
             offset_definite_answer, publication_time_definite_answer, submission_id_definite_answer, trace_context_definite_answer,
@@ -89,15 +89,15 @@ class DbCommandDeduplicationStore(
               publication_time_definite_answer = excluded.publication_time_definite_answer,
               submission_id_definite_answer = excluded.submission_id_definite_answer,
               trace_context_definite_answer = excluded.trace_context_definite_answer,
-              offset_acceptance = (case when ? = '1' then excluded.offset_acceptance else command_deduplication.offset_acceptance end),
-              publication_time_acceptance = (case when ? = '1' then excluded.publication_time_acceptance else command_deduplication.publication_time_acceptance end),
-              submission_id_acceptance = (case when ? = '1' then excluded.submission_id_acceptance else command_deduplication.submission_id_acceptance end),
-              trace_context_acceptance = (case when ? = '1' then excluded.trace_context_acceptance else command_deduplication.trace_context_acceptance end)
-            where command_deduplication.offset_definite_answer < excluded.offset_definite_answer
+              offset_acceptance = (case when ? = '1' then excluded.offset_acceptance else par_command_deduplication.offset_acceptance end),
+              publication_time_acceptance = (case when ? = '1' then excluded.publication_time_acceptance else par_command_deduplication.publication_time_acceptance end),
+              submission_id_acceptance = (case when ? = '1' then excluded.submission_id_acceptance else par_command_deduplication.submission_id_acceptance end),
+              trace_context_acceptance = (case when ? = '1' then excluded.trace_context_acceptance else par_command_deduplication.trace_context_acceptance end)
+            where par_command_deduplication.offset_definite_answer < excluded.offset_definite_answer
             """
       case _: DbStorage.Profile.Oracle =>
         """
-          merge into command_deduplication using
+          merge into par_command_deduplication using
              (select
                 ? as change_id_hash,
                 ? as application_id,
@@ -112,18 +112,18 @@ class DbCommandDeduplicationStore(
                 cast(? as nvarchar2(300)) as submission_id_acceptance,
                 to_blob(?) as trace_context_acceptance
               from dual) excluded
-            on (command_deduplication.change_id_hash = excluded.change_id_hash)
+            on (par_command_deduplication.change_id_hash = excluded.change_id_hash)
             when matched then
               update set
                 offset_definite_answer = excluded.offset_definite_answer,
                 publication_time_definite_answer = excluded.publication_time_definite_answer,
                 submission_id_definite_answer = excluded.submission_id_definite_answer,
                 trace_context_definite_answer = excluded.trace_context_definite_answer,
-                offset_acceptance = (case when ? = '1' then excluded.offset_acceptance else command_deduplication.offset_acceptance end),
-                publication_time_acceptance = (case when ? = '1' then excluded.publication_time_acceptance else command_deduplication.publication_time_acceptance end),
-                submission_id_acceptance = (case when ? = '1' then excluded.submission_id_acceptance else command_deduplication.submission_id_acceptance end),
-                trace_context_acceptance = (case when ? = '1' then excluded.trace_context_acceptance else command_deduplication.trace_context_acceptance end)
-              where command_deduplication.offset_definite_answer < excluded.offset_definite_answer
+                offset_acceptance = (case when ? = '1' then excluded.offset_acceptance else par_command_deduplication.offset_acceptance end),
+                publication_time_acceptance = (case when ? = '1' then excluded.publication_time_acceptance else par_command_deduplication.publication_time_acceptance end),
+                submission_id_acceptance = (case when ? = '1' then excluded.submission_id_acceptance else par_command_deduplication.submission_id_acceptance end),
+                trace_context_acceptance = (case when ? = '1' then excluded.trace_context_acceptance else par_command_deduplication.trace_context_acceptance end)
+              where par_command_deduplication.offset_definite_answer < excluded.offset_definite_answer
             when not matched then
               insert (
                 change_id_hash,
@@ -144,7 +144,7 @@ class DbCommandDeduplicationStore(
             """
       case _: DbStorage.Profile.H2 =>
         """
-          merge into command_deduplication using
+          merge into par_command_deduplication using
              (select
                 cast(? as varchar(300)) as change_id_hash,
                 cast(? as varchar(300)) as application_id,
@@ -159,17 +159,17 @@ class DbCommandDeduplicationStore(
                 cast(? as varchar(300)) as submission_id_acceptance,
                 cast(? as bytea) as trace_context_acceptance
               from dual) as excluded
-            on (command_deduplication.change_id_hash = excluded.change_id_hash)
-            when matched and command_deduplication.offset_definite_answer < excluded.offset_definite_answer then
+            on (par_command_deduplication.change_id_hash = excluded.change_id_hash)
+            when matched and par_command_deduplication.offset_definite_answer < excluded.offset_definite_answer then
               update set
                 offset_definite_answer = excluded.offset_definite_answer,
                 publication_time_definite_answer = excluded.publication_time_definite_answer,
                 submission_id_definite_answer = excluded.submission_id_definite_answer,
                 trace_context_definite_answer = excluded.trace_context_definite_answer,
-                offset_acceptance = (case when ? = '1' then excluded.offset_acceptance else command_deduplication.offset_acceptance end),
-                publication_time_acceptance = (case when ? = '1' then excluded.publication_time_acceptance else command_deduplication.publication_time_acceptance end),
-                submission_id_acceptance = (case when ? = '1' then excluded.submission_id_acceptance else command_deduplication.submission_id_acceptance end),
-                trace_context_acceptance = (case when ? = '1' then excluded.trace_context_acceptance else command_deduplication.trace_context_acceptance end)
+                offset_acceptance = (case when ? = '1' then excluded.offset_acceptance else par_command_deduplication.offset_acceptance end),
+                publication_time_acceptance = (case when ? = '1' then excluded.publication_time_acceptance else par_command_deduplication.publication_time_acceptance end),
+                submission_id_acceptance = (case when ? = '1' then excluded.submission_id_acceptance else par_command_deduplication.submission_id_acceptance end),
+                trace_context_acceptance = (case when ? = '1' then excluded.trace_context_acceptance else par_command_deduplication.trace_context_acceptance end)
             when not matched then
               insert (
                 change_id_hash,
@@ -342,28 +342,28 @@ class DbCommandDeduplicationStore(
       val updatePruneOffset = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
           sqlu"""
-          insert into command_deduplication_pruning(client, pruning_offset, publication_time)
+          insert into par_command_deduplication_pruning(client, pruning_offset, publication_time)
           values (0, $upToInclusive, $prunedPublicationTime)
           on conflict (client) do
             update set
-              pruning_offset = (case when command_deduplication_pruning.pruning_offset < excluded.pruning_offset then excluded.pruning_offset else command_deduplication_pruning.pruning_offset end),
-              publication_time = (case when command_deduplication_pruning.publication_time < excluded.publication_time then excluded.publication_time else command_deduplication_pruning.publication_time end)
+              pruning_offset = (case when par_command_deduplication_pruning.pruning_offset < excluded.pruning_offset then excluded.pruning_offset else par_command_deduplication_pruning.pruning_offset end),
+              publication_time = (case when par_command_deduplication_pruning.publication_time < excluded.publication_time then excluded.publication_time else par_command_deduplication_pruning.publication_time end)
             """
         case _: DbStorage.Profile.Oracle | _: DbStorage.Profile.H2 =>
           sqlu"""
-            merge into command_deduplication_pruning using dual
+            merge into par_command_deduplication_pruning using dual
               on (client = 0)
               when matched then
                 update set
-                  pruning_offset = (case when command_deduplication_pruning.pruning_offset < $upToInclusive then $upToInclusive else command_deduplication_pruning.pruning_offset end),
-                  publication_time = (case when command_deduplication_pruning.publication_time < $prunedPublicationTime then $prunedPublicationTime else command_deduplication_pruning.publication_time end)
+                  pruning_offset = (case when par_command_deduplication_pruning.pruning_offset < $upToInclusive then $upToInclusive else par_command_deduplication_pruning.pruning_offset end),
+                  publication_time = (case when par_command_deduplication_pruning.publication_time < $prunedPublicationTime then $prunedPublicationTime else par_command_deduplication_pruning.publication_time end)
               when not matched then
                 insert (client, pruning_offset, publication_time)
                 values (0, $upToInclusive, $prunedPublicationTime)
             """
       }
       val doPrune =
-        sqlu"""delete from command_deduplication where offset_definite_answer <= $upToInclusive"""
+        sqlu"""delete from par_command_deduplication where offset_definite_answer <= $upToInclusive"""
       storage.update_(updatePruneOffset.andThen(doPrune), functionFullName)
     }
   }
@@ -377,7 +377,7 @@ class DbCommandDeduplicationStore(
           val query =
             sql"""
           select pruning_offset, publication_time
-          from command_deduplication_pruning
+          from par_command_deduplication_pruning
              """.as[OffsetAndPublicationTime].headOption
           storage.querySingle(query, functionFullName)
         }

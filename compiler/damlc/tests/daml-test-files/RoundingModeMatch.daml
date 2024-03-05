@@ -8,6 +8,7 @@ module RoundingModeMatch where
 
 import Daml.Script
 import DA.Assert ((===))
+import DA.BigNumeric
 
 foo : RoundingMode -> Int
 foo = \case

@@ -13,8 +13,18 @@ import com.digitalasset.canton.domain.sequencing.config.{
   SequencerNodeConfigCommon,
   SequencerNodeParameters,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitManager,
+  SequencerTrafficConfig,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerFactory}
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.{
+  BalanceUpdateClientImpl,
+  BalanceUpdateClientTopologyImpl,
+  EnterpriseSequencerRateLimitManager,
+  TrafficBalanceManager,
+}
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, SequencerNodeStatus}
@@ -30,7 +40,6 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.{DomainParametersLookup, StaticDomainParameters}
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
@@ -115,32 +124,70 @@ trait SequencerNodeBootstrapCommon[
       staticDomainParameters: StaticDomainParameters,
       storage: Storage,
       crypto: Crypto,
-      indexedStringStore: IndexedStringStore,
       initializationObserver: Future[Unit],
       initializedAtHead: => Future[Boolean],
       arguments: CantonNodeBootstrapCommonArguments[_, SequencerNodeParameters, SequencerMetrics],
       topologyStateForInitializationService: Option[TopologyStateForInitializationService],
       maybeDomainOutboxFactory: Option[DomainOutboxXFactorySingleCreate],
       memberAuthServiceFactory: MemberAuthenticationServiceFactory,
-      rateLimitManager: Option[SequencerRateLimitManager],
       domainLoggerFactory: NamedLoggerFactory,
+      trafficConfig: SequencerTrafficConfig,
   ): EitherT[Future, String, SequencerRuntime] = {
+    val syncCrypto = new DomainSyncCryptoClient(
+      sequencerId,
+      domainId,
+      topologyClient,
+      crypto,
+      parameters.cachingConfigs,
+      parameters.processingTimeouts,
+      futureSupervisor,
+      loggerFactory,
+    )
+
+    def mkRateLimitManager(balanceStore: TrafficBalanceStore): Option[SequencerRateLimitManager] = {
+      // Use this client for the new top ups
+      def newTrafficBalanceClient = {
+        val manager = new TrafficBalanceManager(
+          balanceStore,
+          clock,
+          trafficConfig,
+          futureSupervisor,
+          arguments.metrics,
+          timeouts,
+          loggerFactory,
+        )
+
+        new BalanceUpdateClientImpl(manager, loggerFactory)
+      }
+
+      // Old balance client from topology
+      def topologyTrafficBalanceClient = {
+        new BalanceUpdateClientTopologyImpl(
+          syncCrypto,
+          staticDomainParameters.protocolVersion,
+          loggerFactory,
+        )
+      }
+
+      val balanceUpdateClient =
+        if (arguments.parameterConfig.useNewTrafficControl) newTrafficBalanceClient
+        else topologyTrafficBalanceClient
+
+      val rateLimitManager = {
+        val rateLimiter = new EnterpriseSequencerRateLimitManager(
+          balanceUpdateClient,
+          loggerFactory,
+          futureSupervisor,
+          timeouts,
+          arguments.metrics,
+        )
+        Some(rateLimiter)
+      }
+
+      rateLimitManager
+    }
+
     for {
-      clientDiscriminator <- EitherT.right(
-        SequencerClientDiscriminator.fromDomainMember(sequencerId, indexedStringStore)
-      )
-
-      syncCrypto = new DomainSyncCryptoClient(
-        sequencerId,
-        domainId,
-        topologyClient,
-        crypto,
-        parameters.cachingConfigs,
-        parameters.processingTimeouts,
-        futureSupervisor,
-        loggerFactory,
-      )
-
       sequencer <- EitherT.liftF[Future, String, Sequencer](
         sequencerFactory.create(
           domainId,
@@ -149,7 +196,7 @@ trait SequencerNodeBootstrapCommon[
           clock,
           syncCrypto,
           futureSupervisor,
-          rateLimitManager,
+          mkRateLimitManager,
         )
       )
 
@@ -182,7 +229,7 @@ trait SequencerNodeBootstrapCommon[
         memberAuthServiceFactory,
         topologyStateForInitializationService,
         maybeDomainOutboxFactory,
-        clientDiscriminator,
+        SequencerClientDiscriminator.UniqueDiscriminator,
         domainLoggerFactory,
       )
       _ <- runtime.initializeAll()

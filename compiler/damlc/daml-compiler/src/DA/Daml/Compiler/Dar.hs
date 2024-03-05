@@ -154,7 +154,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                      case mbUpgradedPackage of
                         Just (_, upgradedPackage) ->
                           MaybeT $ do
-                            let upgradePair = Upgrading { past = upgradedPackage, present = pkg }
+                            let upgradePair = Upgrading { _past = upgradedPackage, _present = pkg }
                             runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $ TypeChecker.Upgrade.checkUpgrade lfVersion upgradePair
                         _ -> pure ()
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg

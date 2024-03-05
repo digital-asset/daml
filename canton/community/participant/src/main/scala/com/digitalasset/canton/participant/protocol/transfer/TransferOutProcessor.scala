@@ -17,7 +17,6 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingS
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.SourceDomainId
-import com.digitalasset.canton.protocol.messages.TransferOutResult
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
@@ -43,7 +42,6 @@ class TransferOutProcessor(
       TransferOutProcessingSteps.SubmissionParam,
       TransferOutProcessingSteps.SubmissionResult,
       TransferOutViewType,
-      TransferOutResult,
       TransferProcessorError,
     ](
       new TransferOutProcessingSteps(

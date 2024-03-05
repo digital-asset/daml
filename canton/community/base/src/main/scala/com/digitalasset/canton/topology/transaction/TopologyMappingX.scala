@@ -398,9 +398,9 @@ object NamespaceDelegationX {
 
   /** Returns true if the given transaction is a self-signed root certificate */
   def isRootCertificate(sit: GenericSignedTopologyTransactionX): Boolean = {
-    ((sit.transaction.op == TopologyChangeOpX.Replace && sit.transaction.serial == PositiveInt.one) ||
-      (sit.transaction.op == TopologyChangeOpX.Remove && sit.transaction.serial != PositiveInt.one)) &&
-    sit.transaction.mapping
+    ((sit.operation == TopologyChangeOpX.Replace && sit.serial == PositiveInt.one) ||
+      (sit.operation == TopologyChangeOpX.Remove && sit.serial != PositiveInt.one)) &&
+    sit.mapping
       .select[transaction.NamespaceDelegationX]
       .exists(ns =>
         sit.signatures.size == 1 &&
@@ -413,8 +413,8 @@ object NamespaceDelegationX {
   /** Returns true if the given transaction is a root delegation */
   def isRootDelegation(sit: GenericSignedTopologyTransactionX): Boolean = {
     isRootCertificate(sit) || (
-      sit.transaction.op == TopologyChangeOpX.Replace &&
-        sit.transaction.mapping
+      sit.operation == TopologyChangeOpX.Replace &&
+        sit.mapping
           .select[transaction.NamespaceDelegationX]
           .exists(ns => ns.isRootDelegation)
     )

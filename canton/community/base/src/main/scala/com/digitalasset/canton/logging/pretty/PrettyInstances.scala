@@ -4,8 +4,8 @@
 package com.digitalasset.canton.logging.pretty
 
 import cats.Show.Shown
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.ledger.javaapi.data.Party
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Ref
@@ -153,18 +153,18 @@ trait PrettyInstances {
 
   implicit def prettyLedgerString: Pretty[Ref.LedgerString] = prettyOfString(id => id: String)
 
-  implicit val prettyLedgerBoundary: Pretty[LedgerBoundary] = {
-    case LedgerBoundary.LEDGER_BEGIN => Tree.Literal("LEDGER_BEGIN")
-    case LedgerBoundary.LEDGER_END => Tree.Literal("LEDGER_END")
-    case LedgerBoundary.Unrecognized(value) => Tree.Literal(s"Unrecognized($value)")
+  implicit val prettyLedgerBoundary: Pretty[ParticipantBoundary] = {
+    case ParticipantBoundary.PARTICIPANT_BEGIN => Tree.Literal("PARTICIPANT_BEGIN")
+    case ParticipantBoundary.PARTICIPANT_END => Tree.Literal("PARTICIPANT_END")
+    case ParticipantBoundary.Unrecognized(value) => Tree.Literal(s"Unrecognized($value)")
   }
 
-  implicit val prettyLedgerOffset: Pretty[LedgerOffset] = {
-    case LedgerOffset(LedgerOffset.Value.Absolute(absolute)) =>
+  implicit val prettyLedgerOffset: Pretty[ParticipantOffset] = {
+    case ParticipantOffset(ParticipantOffset.Value.Absolute(absolute)) =>
       Tree.Apply("AbsoluteOffset", Iterator(Tree.Literal(absolute)))
-    case LedgerOffset(LedgerOffset.Value.Boundary(boundary)) =>
+    case ParticipantOffset(ParticipantOffset.Value.Boundary(boundary)) =>
       Tree.Apply("Boundary", Iterator(boundary.toTree))
-    case LedgerOffset(LedgerOffset.Value.Empty) => Tree.Literal("Empty")
+    case ParticipantOffset(ParticipantOffset.Value.Empty) => Tree.Literal("Empty")
   }
 
   implicit val prettyReadServiceOffset: Pretty[offset.Offset] = prettyOfString(

@@ -50,7 +50,6 @@ object LedgerDaoContractsReader {
       contract: Contract,
       stakeholders: Set[Party],
       ledgerEffectiveTime: Timestamp,
-      agreementText: Option[String],
       signatories: Set[Party],
       globalKey: Option[GlobalKey],
       keyMaintainers: Option[Set[Party]],

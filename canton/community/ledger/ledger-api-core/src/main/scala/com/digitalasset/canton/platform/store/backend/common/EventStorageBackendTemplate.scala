@@ -53,7 +53,6 @@ object EventStorageBackendTemplate {
       "create_argument_compression",
       "create_signatories",
       "create_observers",
-      "create_agreement_text",
       "create_key_value",
       "create_key_hash",
       "create_key_value_compression",
@@ -81,7 +80,6 @@ object EventStorageBackendTemplate {
       "NULL as create_argument_compression",
       "NULL as create_signatories",
       "NULL as create_observers",
-      "NULL as create_agreement_text",
       "create_key_value",
       "NULL as create_key_hash",
       "create_key_value_compression",
@@ -121,7 +119,7 @@ object EventStorageBackendTemplate {
       timestampFromMicros("record_time")
 
   private type CreatedEventRow =
-    SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
+    SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~
       Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~
       Option[Array[Byte]] ~ Int
 
@@ -131,7 +129,6 @@ object EventStorageBackendTemplate {
       int("create_argument_compression").? ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
-      str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
@@ -167,7 +164,7 @@ object EventStorageBackendTemplate {
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ recordTime ~ createArgument ~ createArgumentCompression ~
-          createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata ~ packageName =>
+          createSignatories ~ createObservers ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata ~ packageName =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -195,7 +192,6 @@ object EventStorageBackendTemplate {
             createObservers = ArraySeq.unsafeWrapArray(
               createObservers.map(stringInterning.party.unsafe.externalize)
             ),
-            createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             createKeyHash = createKeyHash,
             createKeyValueCompression = createKeyValueCompression,
@@ -271,7 +267,7 @@ object EventStorageBackendTemplate {
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ recordTime ~
-          createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~
+          createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~
           createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata ~ packageName =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
@@ -300,7 +296,6 @@ object EventStorageBackendTemplate {
             createObservers = ArraySeq.unsafeWrapArray(
               createObservers.map(stringInterning.party.unsafe.externalize)
             ),
-            createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
@@ -396,7 +391,6 @@ object EventStorageBackendTemplate {
     "create_argument_compression",
     "create_signatories",
     "create_observers",
-    "create_agreement_text",
     "create_key_value",
     "create_key_hash",
     "create_key_value_compression",
@@ -430,7 +424,6 @@ object EventStorageBackendTemplate {
     "NULL as create_argument_compression",
     "NULL as create_signatories",
     "NULL as create_observers",
-    "NULL as create_agreement_text",
     "create_key_value",
     "NULL as create_key_hash",
     "create_key_value_compression",
@@ -471,7 +464,6 @@ object EventStorageBackendTemplate {
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
-      str("create_agreement_text").? ~
       byteArray("create_argument") ~
       int("create_argument_compression").? ~
       byteArray("create_key_value").? ~
@@ -503,7 +495,6 @@ object EventStorageBackendTemplate {
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
-          createAgreementText ~
           createArgument ~
           createArgumentCompression ~
           createKeyValue ~
@@ -535,7 +526,6 @@ object EventStorageBackendTemplate {
             signatories =
               createSignatories.view.map(stringInterning.party.unsafe.externalize).toSet,
             observers = createObservers.view.map(stringInterning.party.unsafe.externalize).toSet,
-            agreementText = createAgreementText,
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createKeyMaintainers = createKeyMaintainers
@@ -622,7 +612,6 @@ object EventStorageBackendTemplate {
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
-      str("create_agreement_text").? ~
       byteArray("create_argument") ~
       int("create_argument_compression").? ~
       byteArray("create_key_value").? ~
@@ -648,7 +637,6 @@ object EventStorageBackendTemplate {
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
-          createAgreementText ~
           createArgument ~
           createArgumentCompression ~
           createKeyValue ~
@@ -674,7 +662,6 @@ object EventStorageBackendTemplate {
             signatories =
               createSignatories.view.map(stringInterning.party.unsafe.externalize).toSet,
             observers = createObservers.view.map(stringInterning.party.unsafe.externalize).toSet,
-            agreementText = createAgreementText,
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createKeyValue = createKeyValue,
@@ -700,7 +687,6 @@ object EventStorageBackendTemplate {
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
-      str("create_agreement_text").? ~
       byteArray("create_argument") ~
       int("create_argument_compression").? ~
       byteArray("create_key_value").? ~
@@ -725,7 +711,6 @@ object EventStorageBackendTemplate {
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
-          createAgreementText ~
           createArgument ~
           createArgumentCompression ~
           createKeyValue ~
@@ -751,7 +736,6 @@ object EventStorageBackendTemplate {
             signatories =
               createSignatories.view.map(stringInterning.party.unsafe.externalize).toSet,
             observers = createObservers.view.map(stringInterning.party.unsafe.externalize).toSet,
-            agreementText = createAgreementText,
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createKeyMaintainers = createKeyMaintainers

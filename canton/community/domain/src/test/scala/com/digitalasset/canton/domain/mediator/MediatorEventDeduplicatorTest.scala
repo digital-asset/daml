@@ -17,8 +17,8 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestId, v30}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -123,8 +123,7 @@ class MediatorEventDeduplicatorTest
     val request = envelope.protocolMessage
     val reject = MediatorVerdict.MediatorReject(
       MediatorError.MalformedMessage.Reject(
-        s"The request uuid (${request.requestUuid}) must not be used until $expireAfter.",
-        v30.MediatorRejection.Code.CODE_NON_UNIQUE_REQUEST_UUID,
+        s"The request uuid (${request.requestUuid}) must not be used until $expireAfter."
       )
     )
 

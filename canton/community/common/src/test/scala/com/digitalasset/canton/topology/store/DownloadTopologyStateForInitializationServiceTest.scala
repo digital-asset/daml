@@ -77,7 +77,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         for {
           store <- initializeStore(bootstrapTransactions)
           service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
-          storedTxs <- service.initialSnapshot(tx5_DTC.transaction.mapping.participantId)
+          storedTxs <- service.initialSnapshot(tx5_DTC.mapping.participantId)
         } yield {
           import storedTxs.result
           // all transactions should be valid and not expired
@@ -90,7 +90,7 @@ trait DownloadTopologyStateForInitializationServiceTest
       for {
         store <- initializeStore(bootstrapTransactionsWithUpdates)
         service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
-        storedTxs <- service.initialSnapshot(tx5_DTC.transaction.mapping.participantId)
+        storedTxs <- service.initialSnapshot(tx5_DTC.mapping.participantId)
       } yield {
         import storedTxs.result
         // all transactions should be valid and not expired

@@ -29,7 +29,6 @@ import           Data.Int
 import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
-import qualified DA.Daml.LF.Proto3.Util as Util
 import qualified Com.Daml.DamlLfDev.DamlLf2 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
@@ -112,22 +111,6 @@ encodeInternableString = coerce (encodeInternableStrings @Identity)
 encodeInternableStrings :: Traversable t => t T.Text -> Encode (t Int32)
 encodeInternableStrings strs = mapM allocString strs
 
--- TODO(https://github.com/digital-asset/daml/issues/18240): change the proto
---  to only use interned names. Then we don't need this EitherLike variant of
---  encodeName anymore.
--- | Encode the name of a syntactic object, e.g., a variable or a data
--- constructor. These strings are mangled to escape special characters. All
--- names are interned.
-encodeName
-    :: Util.EitherLike TL.Text Int32 e
-    => (a -> T.Text) -> a -> Encode (Just e)
-encodeName unwrapName obj =
-    Just
-        . Util.fromEither @TL.Text @Int32
-        . Right
-        <$> encodeNameId unwrapName obj
-
-
 encodeNameId :: (a -> T.Text) -> a -> Encode Int32
 encodeNameId unwrapName (unwrapName -> unmangled) =
     coerce (encodeNames @Identity) unmangled
@@ -146,12 +129,8 @@ encodeNames = encodeInternableStrings . fmap mangleName
 --  encodeDottedName anymore.
 -- | Encode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names are interned.
-encodeDottedName :: Util.EitherLike P.DottedName Int32 e
-                 => (a -> [T.Text]) -> a -> Encode (Just e)
+encodeDottedName :: (a -> [T.Text]) -> a -> Encode Int32
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
-    Just .
-      Util.fromEither @P.DottedName @Int32 .
-      Right <$>
       encodeDottedName' unmangled
 
 encodeDottedName' :: [T.Text] -> Encode Int32
@@ -172,10 +151,9 @@ encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) =
 -- because currently GenDALF generates weird names like `.` that we'd
 -- have to handle separatedly. So for now, considering that we do not
 -- use values in codegen, just mangle the entire thing.
-encodeValueName :: ExprValName -> Encode (V.Vector TL.Text, Int32)
+encodeValueName :: ExprValName -> Encode Int32
 encodeValueName valName = do
-    id <- encodeDottedName' [unExprValName valName]
-    pure (V.empty, id)
+    encodeDottedName' [unExprValName valName]
 
 -- | Encode a reference to a package. Package names are not mangled. Package
 -- names are interned.
@@ -206,7 +184,7 @@ encodeSet encodeElem = fmap V.fromList . mapM encodeElem . S.toList
 encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
     typeSynNameModule <- encodeModuleRef pref mname
-    typeSynNameName <- encodeDottedName unTypeSynName syn
+    typeSynNameNameInternedDname <- encodeDottedName unTypeSynName syn
     pure $ P.TypeSynName{..}
 
 encodeQualTypeSynName :: Qualified TypeSynName -> Encode (Just P.TypeSynName)
@@ -215,7 +193,7 @@ encodeQualTypeSynName tysyn = Just <$> encodeQualTypeSynName' tysyn
 encodeQualTypeConName' :: Qualified TypeConName -> Encode P.TypeConName
 encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
-    typeConNameName <- encodeDottedName unTypeConName con
+    typeConNameNameInternedDname <- encodeDottedName unTypeConName con
     pure $ P.TypeConName{..}
 
 encodeQualTypeConName :: Qualified TypeConName -> Encode (Just P.TypeConName)
@@ -237,24 +215,24 @@ encodeSourceLoc SourceLoc{..} = do
 encodeModuleRef :: PackageRef -> ModuleName -> Encode (Just P.ModuleRef)
 encodeModuleRef pkgRef modName = do
     moduleRefPackageRef <- encodePackageRef pkgRef
-    moduleRefModuleName <- encodeDottedName unModuleName modName
+    moduleRefModuleNameInternedDname <- encodeDottedName unModuleName modName
     pure $ Just P.ModuleRef{..}
 
 encodeFieldsWithTypes :: (a -> T.Text) -> [(a, Type)] -> Encode (V.Vector P.FieldWithType)
 encodeFieldsWithTypes unwrapName =
-    encodeList $ \(name, typ) -> P.FieldWithType <$> encodeName unwrapName name <*> encodeType typ
+    encodeList $ \(name, typ) -> P.FieldWithType <$> encodeNameId unwrapName name <*> encodeType typ
 
 encodeFieldsWithExprs :: (a -> T.Text) -> [(a, Expr)] -> Encode (V.Vector P.FieldWithExpr)
 encodeFieldsWithExprs unwrapName =
-    encodeList $ \(name, expr) -> P.FieldWithExpr <$> encodeName unwrapName name <*> encodeExpr expr
+    encodeList $ \(name, expr) -> P.FieldWithExpr <$> encodeNameId unwrapName name <*> encodeExpr expr
 
 encodeTypeVarsWithKinds :: [(TypeVarName, Kind)] -> Encode (V.Vector P.TypeVarWithKind)
 encodeTypeVarsWithKinds =
-    encodeList $ \(name, kind) -> P.TypeVarWithKind <$> encodeName unTypeVarName name <*> (Just <$> encodeKind kind)
+    encodeList $ \(name, kind) -> P.TypeVarWithKind <$> encodeNameId unTypeVarName name <*> (Just <$> encodeKind kind)
 
 encodeExprVarWithType :: (ExprVarName, Type) -> Encode P.VarWithType
 encodeExprVarWithType (name, typ) = do
-    varWithTypeVar <- encodeName unExprVarName name
+    varWithTypeVarInternedStr <- encodeNameId unExprVarName name
     varWithTypeType <- encodeType typ
     pure P.VarWithType{..}
 
@@ -276,35 +254,35 @@ encodeKind = fmap (P.Kind . Just) . \case
 -- Encoding of types
 ------------------------------------------------------------------------
 
-encodeBuiltinType :: BuiltinType -> P.Enumerated P.PrimType
+encodeBuiltinType :: BuiltinType -> P.Enumerated P.BuiltinType
 encodeBuiltinType = P.Enumerated . Right . \case
-    BTInt64 -> P.PrimTypeINT64
-    BTText -> P.PrimTypeTEXT
-    BTTimestamp -> P.PrimTypeTIMESTAMP
-    BTParty -> P.PrimTypePARTY
-    BTUnit -> P.PrimTypeUNIT
-    BTBool -> P.PrimTypeBOOL
-    BTList -> P.PrimTypeLIST
-    BTUpdate -> P.PrimTypeUPDATE
-    BTScenario -> P.PrimTypeSCENARIO
-    BTDate -> P.PrimTypeDATE
-    BTContractId -> P.PrimTypeCONTRACT_ID
-    BTOptional -> P.PrimTypeOPTIONAL
-    BTTextMap -> P.PrimTypeTEXTMAP
-    BTGenMap -> P.PrimTypeGENMAP
-    BTArrow -> P.PrimTypeARROW
-    BTNumeric -> P.PrimTypeNUMERIC
-    BTAny -> P.PrimTypeANY
-    BTTypeRep -> P.PrimTypeTYPE_REP
-    BTRoundingMode -> P.PrimTypeROUNDING_MODE
-    BTBigNumeric -> P.PrimTypeBIGNUMERIC
-    BTAnyException -> P.PrimTypeANY_EXCEPTION
+    BTInt64 -> P.BuiltinTypeINT64
+    BTText -> P.BuiltinTypeTEXT
+    BTTimestamp -> P.BuiltinTypeTIMESTAMP
+    BTParty -> P.BuiltinTypePARTY
+    BTUnit -> P.BuiltinTypeUNIT
+    BTBool -> P.BuiltinTypeBOOL
+    BTList -> P.BuiltinTypeLIST
+    BTUpdate -> P.BuiltinTypeUPDATE
+    BTScenario -> P.BuiltinTypeSCENARIO
+    BTDate -> P.BuiltinTypeDATE
+    BTContractId -> P.BuiltinTypeCONTRACT_ID
+    BTOptional -> P.BuiltinTypeOPTIONAL
+    BTTextMap -> P.BuiltinTypeTEXTMAP
+    BTGenMap -> P.BuiltinTypeGENMAP
+    BTArrow -> P.BuiltinTypeARROW
+    BTNumeric -> P.BuiltinTypeNUMERIC
+    BTAny -> P.BuiltinTypeANY
+    BTTypeRep -> P.BuiltinTypeTYPE_REP
+    BTRoundingMode -> P.BuiltinTypeROUNDING_MODE
+    BTBigNumeric -> P.BuiltinTypeBIGNUMERIC
+    BTAnyException -> P.BuiltinTypeANY_EXCEPTION
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
   ptyp <- case typ ^. _TApps of
     (TVar var, args) -> do
-        type_VarVar <- encodeName unTypeVarName var
+        type_VarVarInternedStr <- encodeNameId unTypeVarName var
         type_VarArgs <- encodeList encodeType' args
         pure $ P.TypeSumVar P.Type_Var{..}
     (TCon con, args) -> do
@@ -316,9 +294,9 @@ encodeType' typ = do
         type_SynArgs <- encodeList encodeType' args
         pure $ P.TypeSumSyn P.Type_Syn{..}
     (TBuiltin bltn, args) -> do
-        let type_PrimPrim = encodeBuiltinType bltn
-        type_PrimArgs <- encodeList encodeType' args
-        pure $ P.TypeSumPrim P.Type_Prim{..}
+        let type_BuiltinBuiltin = encodeBuiltinType bltn
+        type_BuiltinArgs <- encodeList encodeType' args
+        pure $ P.TypeSumBuiltin P.Type_Builtin{..}
     (t@TForall{}, []) -> do
         let (binders, body) = t ^. _TForalls
         type_ForallVars <- encodeTypeVarsWithKinds binders
@@ -369,28 +347,28 @@ encodeTypeConApp (TypeConApp tycon args) = do
 
 encodeBuiltinExpr :: BuiltinExpr -> Encode P.ExprSum
 encodeBuiltinExpr = \case
-    BEInt64 x -> pureLit $ P.PrimLitSumInt64 x
+    BEInt64 x -> pureLit $ P.BuiltinLitSumInt64 x
     BENumeric num ->
-        lit . P.PrimLitSumNumericInternedStr <$> allocString (T.pack (show num))
+        lit . P.BuiltinLitSumNumericInternedStr <$> allocString (T.pack (show num))
     BEText x ->
-        lit . P.PrimLitSumTextInternedStr <$> encodeInternableString x
-    BETimestamp x -> pureLit $ P.PrimLitSumTimestamp x
-    BEDate x -> pureLit $ P.PrimLitSumDate x
+        lit . P.BuiltinLitSumTextInternedStr <$> encodeInternableString x
+    BETimestamp x -> pureLit $ P.BuiltinLitSumTimestamp x
+    BEDate x -> pureLit $ P.BuiltinLitSumDate x
 
-    BEUnit -> pure $ P.ExprSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
-    BEBool b -> pure $ P.ExprSumPrimCon $ P.Enumerated $ Right $ case b of
-        False -> P.PrimConCON_FALSE
-        True -> P.PrimConCON_TRUE
+    BEUnit -> pure $ P.ExprSumBuiltinCon $ P.Enumerated $ Right P.BuiltinConCON_UNIT
+    BEBool b -> pure $ P.ExprSumBuiltinCon $ P.Enumerated $ Right $ case b of
+        False -> P.BuiltinConCON_FALSE
+        True -> P.BuiltinConCON_TRUE
 
     BERoundingMode r -> case r of
-      LitRoundingUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUP
-      LitRoundingDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeDOWN
-      LitRoundingCeiling -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeCEILING
-      LitRoundingFloor -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeFLOOR
-      LitRoundingHalfUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_UP
-      LitRoundingHalfDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_DOWN
-      LitRoundingHalfEven -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_EVEN
-      LitRoundingUnnecessary -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUNNECESSARY
+      LitRoundingUp -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUP
+      LitRoundingDown -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeDOWN
+      LitRoundingCeiling -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeCEILING
+      LitRoundingFloor -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeFLOOR
+      LitRoundingHalfUp -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_UP
+      LitRoundingHalfDown -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_DOWN
+      LitRoundingHalfEven -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_EVEN
+      LitRoundingUnnecessary -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUNNECESSARY
 
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
     BELessGeneric -> builtin P.BuiltinFunctionLESS
@@ -531,7 +509,7 @@ encodeBuiltinExpr = \case
 
     where
       builtin = pure . P.ExprSumBuiltin . P.Enumerated . Right
-      lit = P.ExprSumPrimLit . P.PrimLit . Just
+      lit = P.ExprSumBuiltinLit . P.BuiltinLit . Just
       pureLit = pure . lit
 
 encodeExpr' :: Expr -> Encode P.Expr
@@ -539,7 +517,7 @@ encodeExpr' = \case
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
         valNameModule <- encodeModuleRef pkgRef modName
-        (valNameNameDname, valNameNameInternedDname) <- encodeValueName val
+        valNameNameInternedDname <- encodeValueName val
         pureExpr $ P.ExprSumVal P.ValName{..}
     EBuiltin bi -> expr <$> encodeBuiltinExpr bi
     ERecCon{..} -> do
@@ -548,33 +526,33 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumRecCon P.Expr_RecCon{..}
     ERecProj{..} -> do
         expr_RecProjTycon <- encodeTypeConApp recTypeCon
-        expr_RecProjField <- encodeName unFieldName recField
+        expr_RecProjFieldInternedStr <- encodeNameId unFieldName recField
         expr_RecProjRecord <- encodeExpr recExpr
         pureExpr $ P.ExprSumRecProj P.Expr_RecProj{..}
     ERecUpd{..} -> do
         expr_RecUpdTycon <- encodeTypeConApp recTypeCon
-        expr_RecUpdField <- encodeName unFieldName recField
+        expr_RecUpdFieldInternedStr <- encodeNameId unFieldName recField
         expr_RecUpdRecord <- encodeExpr recExpr
         expr_RecUpdUpdate <- encodeExpr recUpdate
         pureExpr $ P.ExprSumRecUpd P.Expr_RecUpd{..}
     EVariantCon{..} -> do
         expr_VariantConTycon <- encodeTypeConApp varTypeCon
-        expr_VariantConVariantCon <- encodeName unVariantConName varVariant
+        expr_VariantConVariantConInternedStr <- encodeNameId unVariantConName varVariant
         expr_VariantConVariantArg <- encodeExpr varArg
         pureExpr $ P.ExprSumVariantCon P.Expr_VariantCon{..}
     EEnumCon{..} -> do
         expr_EnumConTycon <- encodeQualTypeConName enumTypeCon
-        expr_EnumConEnumCon <- encodeName unVariantConName enumDataCon
+        expr_EnumConEnumConInternedStr <- encodeNameId unVariantConName enumDataCon
         pureExpr $ P.ExprSumEnumCon P.Expr_EnumCon{..}
     EStructCon{..} -> do
         expr_StructConFields <- encodeFieldsWithExprs unFieldName structFields
         pureExpr $ P.ExprSumStructCon P.Expr_StructCon{..}
     EStructProj{..} -> do
-        expr_StructProjField <- encodeName unFieldName structField
+        expr_StructProjFieldInternedStr <- encodeNameId unFieldName structField
         expr_StructProjStruct <- encodeExpr structExpr
         pureExpr $ P.ExprSumStructProj P.Expr_StructProj{..}
     EStructUpd{..} -> do
-        expr_StructUpdField <- encodeName unFieldName structField
+        expr_StructUpdFieldInternedStr <- encodeNameId unFieldName structField
         expr_StructUpdStruct <- encodeExpr structExpr
         expr_StructUpdUpdate <- encodeExpr structUpdate
         pureExpr $ P.ExprSumStructUpd P.Expr_StructUpd{..}
@@ -750,7 +728,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
         pure $ P.UpdateSumCreateInterface P.Update_CreateInterface{..}
     UExercise{..} -> do
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
-        update_ExerciseChoice <- encodeName unChoiceName exeChoice
+        update_ExerciseChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseCid <- encodeExpr exeContractId
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
@@ -850,32 +828,32 @@ encodeCaseAlternative CaseAlternative{..} = do
         CPDefault -> pure $ P.CaseAltSumDefault P.Unit
         CPVariant{..} -> do
             caseAlt_VariantCon <- encodeQualTypeConName patTypeCon
-            caseAlt_VariantVariant <- encodeName unVariantConName patVariant
-            caseAlt_VariantBinder <- encodeName unExprVarName patBinder
+            caseAlt_VariantVariantInternedStr <- encodeNameId unVariantConName patVariant
+            caseAlt_VariantBinderInternedStr <- encodeNameId unExprVarName patBinder
             pure $ P.CaseAltSumVariant P.CaseAlt_Variant{..}
         CPEnum{..} -> do
             caseAlt_EnumCon <- encodeQualTypeConName patTypeCon
-            caseAlt_EnumConstructor <- encodeName unVariantConName patDataCon
+            caseAlt_EnumConstructorInternedStr <- encodeNameId unVariantConName patDataCon
             pure $ P.CaseAltSumEnum P.CaseAlt_Enum{..}
-        CPUnit -> pure $ P.CaseAltSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
-        CPBool b -> pure $ P.CaseAltSumPrimCon $ P.Enumerated $ Right $ case b of
-            False -> P.PrimConCON_FALSE
-            True -> P.PrimConCON_TRUE
+        CPUnit -> pure $ P.CaseAltSumBuiltinCon $ P.Enumerated $ Right P.BuiltinConCON_UNIT
+        CPBool b -> pure $ P.CaseAltSumBuiltinCon $ P.Enumerated $ Right $ case b of
+            False -> P.BuiltinConCON_FALSE
+            True -> P.BuiltinConCON_TRUE
         CPNil -> pure $ P.CaseAltSumNil P.Unit
         CPCons{..} -> do
-            caseAlt_ConsVarHead <- encodeName unExprVarName patHeadBinder
-            caseAlt_ConsVarTail <- encodeName unExprVarName patTailBinder
+            caseAlt_ConsVarHeadInternedStr <- encodeNameId unExprVarName patHeadBinder
+            caseAlt_ConsVarTailInternedStr <- encodeNameId unExprVarName patTailBinder
             pure $ P.CaseAltSumCons P.CaseAlt_Cons{..}
         CPNone -> pure $ P.CaseAltSumOptionalNone P.Unit
         CPSome{..} -> do
-            caseAlt_OptionalSomeVarBody <- encodeName unExprVarName patBodyBinder
+            caseAlt_OptionalSomeVarBodyInternedStr <- encodeNameId unExprVarName patBodyBinder
             pure $ P.CaseAltSumOptionalSome P.CaseAlt_OptionalSome{..}
     caseAltBody <- encodeExpr altExpr
     pure P.CaseAlt{..}
 
 encodeDefTypeSyn :: DefTypeSyn -> Encode P.DefTypeSyn
 encodeDefTypeSyn DefTypeSyn{..} = do
-    defTypeSynName <- encodeDottedName unTypeSynName synName
+    defTypeSynNameInternedDname <- encodeDottedName unTypeSynName synName
     defTypeSynParams <- encodeTypeVarsWithKinds synParams
     defTypeSynType <- encodeType synType
     defTypeSynLocation <- traverse encodeSourceLoc synLocation
@@ -883,7 +861,7 @@ encodeDefTypeSyn DefTypeSyn{..} = do
 
 encodeDefDataType :: DefDataType -> Encode P.DefDataType
 encodeDefDataType DefDataType{..} = do
-    defDataTypeName <- encodeDottedName unTypeConName dataTypeCon
+    defDataTypeNameInternedDname <- encodeDottedName unTypeConName dataTypeCon
     defDataTypeParams <- encodeTypeVarsWithKinds dataParams
     defDataTypeDataCons <- fmap Just $ case dataCons of
         DataRecord fs -> do
@@ -896,7 +874,6 @@ encodeDefDataType DefDataType{..} = do
             mangledIds <- encodeNames (map unVariantConName cs)
             -- TODO(https://github.com/digital-asset/daml/issues/18240): remove
             -- the constructors_str field from the proto definition.
-            let defDataType_EnumConstructorsConstructorsStr = V.empty
             let defDataType_EnumConstructorsConstructorsInternedStr = V.fromList mangledIds
             pure $ P.DefDataTypeDataConsEnum P.DefDataType_EnumConstructors{..}
         DataInterface -> pure $ P.DefDataTypeDataConsInterface P.Unit
@@ -906,7 +883,7 @@ encodeDefDataType DefDataType{..} = do
 
 encodeDefValue :: DefValue -> Encode P.DefValue
 encodeDefValue DefValue{..} = do
-    (defValue_NameWithTypeNameDname, defValue_NameWithTypeNameInternedDname) <- encodeValueName (fst dvalBinder)
+    defValue_NameWithTypeNameInternedDname <- encodeValueName (fst dvalBinder)
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody
@@ -925,8 +902,8 @@ encodeDefException DefException{..} = do
 
 encodeTemplate :: Template -> Encode P.DefTemplate
 encodeTemplate Template{..} = do
-    defTemplateTycon <- encodeDottedName unTypeConName tplTypeCon
-    defTemplateParam <- encodeName unExprVarName tplParam
+    defTemplateTyconInternedDname <- encodeDottedName unTypeConName tplTypeCon
+    defTemplateParamInternedStr <- encodeNameId unExprVarName tplParam
     defTemplatePrecond <- encodeExpr tplPrecondition
     defTemplateSignatories <- encodeExpr tplSignatories
     defTemplateObservers <- encodeExpr tplObservers
@@ -960,7 +937,7 @@ encodeTemplateKey :: TemplateKey -> Encode P.DefTemplate_DefKey
 encodeTemplateKey TemplateKey{..} = do
     defTemplate_DefKeyType <- encodeType tplKeyType
     defTemplate_DefKeyKeyExpr <-
-        Just . P.DefTemplate_DefKeyKeyExprComplexKey <$> encodeExpr' tplKeyBody
+        Just <$> encodeExpr' tplKeyBody
     defTemplate_DefKeyMaintainers <- encodeExpr tplKeyMaintainers
     pure P.DefTemplate_DefKey{..}
 
@@ -975,12 +952,12 @@ encodeChoiceAuthorizers = \case
 
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
-    templateChoiceName <- encodeName unChoiceName chcName
+    templateChoiceNameInternedStr <- encodeNameId unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
     templateChoiceObservers <- encodeChoiceObservers chcObservers
     templateChoiceAuthorizers <- encodeChoiceAuthorizers chcAuthorizers
-    templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
+    templateChoiceSelfBinderInternedStr <- encodeNameId unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType
     templateChoiceUpdate <- encodeExpr chcUpdate
@@ -1007,7 +984,7 @@ encodeScenarioModule version mod =
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
-    moduleName <- encodeDottedName unModuleName moduleName
+    moduleNameInternedDname <- encodeDottedName unModuleName moduleName
     let moduleFlags = encodeFeatureFlags moduleFeatureFlags
     moduleSynonyms <- encodeNameMap encodeDefTypeSyn moduleSynonyms
     moduleDataTypes <- encodeNameMap encodeDefDataType moduleDataTypes

@@ -80,7 +80,6 @@ package domain {
       payload: LfV,
       signatories: Seq[Party],
       observers: Seq[Party],
-      agreementText: String,
   )
 
   object ActiveContract {
@@ -125,7 +124,6 @@ package domain {
         payload = boxedRecord(payload),
         signatories = Party.subst(in.signatories),
         observers = Party.subst(in.observers),
-        agreementText = in.agreementText getOrElse "",
       )
     }
 

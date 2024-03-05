@@ -664,7 +664,7 @@ object TopologyAdminCommandsX {
             .flatMap(tx =>
               tx.selectMapping[M]
                 .toRight(
-                  s"Expected mapping ${ClassTag[M].getClass.getSimpleName}, but received: ${tx.transaction.mapping.getClass.getSimpleName}"
+                  s"Expected mapping ${ClassTag[M].getClass.getSimpleName}, but received: ${tx.mapping.getClass.getSimpleName}"
                 )
             )
         )
@@ -720,7 +720,7 @@ object TopologyAdminCommandsX {
             .flatMap(tx =>
               tx.selectMapping[M]
                 .toRight(
-                  s"Expected mapping ${ClassTag[M].getClass.getSimpleName}, but received: ${tx.transaction.mapping.getClass.getSimpleName}"
+                  s"Expected mapping ${ClassTag[M].getClass.getSimpleName}, but received: ${tx.mapping.getClass.getSimpleName}"
                 )
             )
         )

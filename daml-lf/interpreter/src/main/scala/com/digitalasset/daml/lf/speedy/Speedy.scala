@@ -1698,8 +1698,8 @@ private[lf] object Speedy {
       case SValue.SBool(b) =>
         alts.find { alt =>
           alt.pattern match {
-            case SCPPrimCon(PCTrue) => b
-            case SCPPrimCon(PCFalse) => !b
+            case SCPBuiltinCon(BCTrue) => b
+            case SCPBuiltinCon(BCFalse) => !b
             case SCPDefault => true
             case _ => false
           }
@@ -1742,7 +1742,7 @@ private[lf] object Speedy {
       case SValue.SUnit =>
         alts.find { alt =>
           alt.pattern match {
-            case SCPPrimCon(PCUnit) => true
+            case SCPBuiltinCon(BCUnit) => true
             case SCPDefault => true
             case _ => false
           }

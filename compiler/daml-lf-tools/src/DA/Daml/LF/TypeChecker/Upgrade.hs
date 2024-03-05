@@ -2,17 +2,21 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
-module DA.Daml.LF.TypeChecker.Upgrade (checkUpgrade, Upgrading(..)) where
+{-# LANGUAGE TemplateHaskell #-}
+
+module DA.Daml.LF.TypeChecker.Upgrade (
+        module DA.Daml.LF.TypeChecker.Upgrade
+    ) where
 
 import           Control.DeepSeq
 import           Control.Monad (unless, forM_, when)
+import           Control.Monad.Reader (withReaderT)
+import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Alpha (alphaExpr, alphaType)
+import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
-import           DA.Daml.LF.Ast.Recursive (TypeF(..))
-import           Data.Functor.Foldable (cata)
-import           Data.Foldable (fold)
 import           Data.Data
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
@@ -22,40 +26,51 @@ import           Development.IDE.Types.Diagnostics
 import           GHC.Generics (Generic)
 
 data Upgrading a = Upgrading
-    { past :: a
-    , present :: a
+    { _past :: a
+    , _present :: a
     }
     deriving (Eq, Data, Generic, NFData, Show)
 
+makeLenses ''Upgrading
+
 instance Functor Upgrading where
-    fmap f Upgrading{..} = Upgrading (f past) (f present)
+    fmap f Upgrading{..} = Upgrading (f _past) (f _present)
 
 instance Foldable Upgrading where
-    foldMap f Upgrading{..} = f past <> f present
+    foldMap f Upgrading{..} = f _past <> f _present
 
 instance Traversable Upgrading where
-    traverse f Upgrading{..} = Upgrading <$> f past <*> f present
+    traverse f Upgrading{..} = Upgrading <$> f _past <*> f _present
 
 instance Applicative Upgrading where
     pure a = Upgrading a a
-    (<*>) f a = Upgrading { past = past f (past a), present = present f (present a) }
+    (<*>) f a = Upgrading { _past = _past f (_past a), _present = _present f (_present a) }
 
 foldU :: (a -> a -> b) -> Upgrading a -> b
-foldU f u = f (past u) (present u)
+foldU f u = f (_past u) (_present u)
+
+-- Allows us to split the world into upgraded and non-upgraded
+type TcUpgradeM = TcMF (Upgrading Gamma)
+
+runGammaUnderUpgrades :: Upgrading (TcM a) -> TcUpgradeM (Upgrading a)
+runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } = do
+    pastResult <- withReaderT _past pastAction
+    presentResult <- withReaderT _present presentAction
+    pure Upgrading { _past = pastResult, _present = presentResult }
 
 checkUpgrade :: Version -> Upgrading LF.Package -> [Diagnostic]
 checkUpgrade version package =
-    let result =
-            runGamma
-                (initWorldSelf [] (present package))
-                version
+    let upgradingWorld = fmap (\package -> emptyGamma (initWorldSelf [] package) version) package
+        result =
+            runGammaF
+                upgradingWorld
                 (checkUpgradeM package)
     in
     case result of
       Left err -> [toDiagnostic err]
       Right ((), warnings) -> map toDiagnostic warnings
 
-checkUpgradeM :: MonadGamma m => Upgrading LF.Package -> m ()
+checkUpgradeM :: Upgrading LF.Package -> TcUpgradeM ()
 checkUpgradeM package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeError . MissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
     forM_ upgradedModules checkModule
@@ -65,37 +80,38 @@ extractDelExistNew
     => Upgrading (HMS.HashMap k a)
     -> (HMS.HashMap k a, HMS.HashMap k (Upgrading a), HMS.HashMap k a)
 extractDelExistNew Upgrading{..} =
-    ( past `HMS.difference` present
-    , HMS.intersectionWith Upgrading past present
-    , present `HMS.difference` past
+    ( _past `HMS.difference` _present
+    , HMS.intersectionWith Upgrading _past _present
+    , _present `HMS.difference` _past
     )
 
 checkDeleted
-    :: (Eq k, Hashable k, MonadGamma m)
+    :: (Eq k, Hashable k)
     => (a -> Error)
     -> Upgrading (HMS.HashMap k a)
-    -> m (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
+    -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
 checkDeleted handleError upgrade = do
     let (deleted, existing, new) = extractDelExistNew upgrade
     throwIfNonEmpty handleError deleted
     pure (existing, new)
 
 throwIfNonEmpty
-    :: (Eq k, Hashable k, MonadGamma m)
+    :: (Eq k, Hashable k)
     => (a -> Error)
     -> HMS.HashMap k a
-    -> m ()
+    -> TcUpgradeM ()
 throwIfNonEmpty handleError hm =
     case HMS.toList hm of
-      ((_, first):_) -> throwWithContext $ handleError first
+      ((_, first):_) -> throwWithContextF present $ handleError first
       _ -> pure ()
 
-checkModule :: MonadGamma m => Upgrading LF.Module -> m ()
+checkModule :: Upgrading LF.Module -> TcUpgradeM ()
 checkModule module_ = do
     (existingTemplates, _new) <- checkDeleted (EUpgradeError . MissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
-        withContext
-            (ContextTemplate (present module_) (present template) TPWhole)
+        withContextF
+            present
+            (ContextTemplate (_present module_) (_present template) TPWhole)
             (checkTemplate module_ template)
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices, which we checked above
@@ -108,124 +124,114 @@ checkModule module_ = do
             choice <- NM.toList (tplChoices template)
             TCon dtName <- [snd (chcArgBinder choice)] -- Choice inputs should always be type constructors
             pure (qualObject dtName, (template, choice))
-        allChoiceReturnTCons :: LF.Module -> HMS.HashMap LF.TypeConName (LF.Template, LF.TemplateChoice)
-        allChoiceReturnTCons module_ = HMS.fromList $ do
-            template <- NM.toList (moduleTemplates module_)
-            choice <- NM.toList (tplChoices template)
-            dtName <- flip cata (chcReturnType choice) $ \case
-                TConF dtName -> [dtName]
-                rest -> fold rest
-            pure (qualObject dtName, (template, choice))
+        deriveVariantInfo :: LF.Module -> HMS.HashMap LF.TypeConName (LF.DefDataType, LF.VariantConName)
+        deriveVariantInfo module_ = HMS.fromList $ do
+            dataType <- NM.toList (moduleDataTypes module_)
+            DataVariant variants <- pure $ dataCons dataType
+            (variantName, TConApp recordName _) <- variants
+            pure (qualObject recordName, (dataType, variantName))
         dataTypeOrigin
             :: DefDataType -> Module
-            -> (UpgradedRecordOrigin, (Context, Bool))
+            -> (UpgradedRecordOrigin, Context)
         dataTypeOrigin dt module_
             | Just template <- NM.name dt `NM.lookup` moduleTemplates module_ =
                 ( TemplateBody (NM.name dt)
-                , ( ContextTemplate module_ template TPWhole
-                  , True
-                  )
+                , ContextTemplate module_ template TPWhole
                 )
             | Just (template, choice) <- NM.name dt `HMS.lookup` deriveChoiceInfo module_ =
                 ( TemplateChoiceInput (NM.name template) (NM.name choice)
-                , ( ContextTemplate module_ template (TPChoice choice)
-                  , True
-                  )
+                , ContextTemplate module_ template (TPChoice choice)
+                )
+            | Just (variant, variantName) <- NM.name dt `HMS.lookup` deriveVariantInfo module_ =
+                ( VariantConstructor (dataTypeCon variant) variantName
+                , ContextDefDataType module_ variant
                 )
             | otherwise =
-                ( TopLevel
-                , (ContextDefDataType module_ dt
-                  , NM.name dt `HMS.member` allChoiceReturnTCons module_
-                  )
+                ( TopLevel (dataTypeCon dt)
+                , ContextDefDataType module_ dt
                 )
 
     forM_ dtExisting $ \dt ->
-        -- Get origin/context for each datatype in both past and present
+        -- Get origin/context for each datatype in both _past and _present
         let origin = dataTypeOrigin <$> dt <*> module_
         in
         -- If origins don't match, record has changed origin
         if foldU (/=) (fst <$> origin) then
-            withContext (ContextDefDataType (present module_) (present dt)) $
-                throwWithContext (EUpgradeError (RecordChangedOrigin (dataTypeCon (present dt)) (fst (past origin)) (fst (present origin))))
-        else
-            let (presentOrigin, (context, shouldCheck)) = present origin
-            in
-            when shouldCheck $
-                case checkDefDataType presentOrigin dt of
-                  Nothing -> pure ()
-                  Just e -> withContext context $ throwWithContext e
+            withContextF present (ContextDefDataType (_present module_) (_present dt)) $
+                throwWithContextF present (EUpgradeError (RecordChangedOrigin (dataTypeCon (_present dt)) (fst (_past origin)) (fst (_present origin))))
+        else do
+            let (presentOrigin, context) = _present origin
+            withContextF present context $ checkDefDataType presentOrigin dt
 
-checkTemplate :: forall m. MonadGamma m => Upgrading Module -> Upgrading LF.Template -> m ()
+checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
 checkTemplate module_ template = do
     -- Check that no choices have been removed
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeError . MissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
-        withContext (ContextTemplate (present module_) (present template) (TPChoice (present choice))) $ do
-            let returnTypesMatch = foldU alphaType (fmap chcReturnType choice)
-            unless returnTypesMatch $
-                throwWithContext (EUpgradeError (ChoiceChangedReturnType (NM.name (present choice))))
+        withContextF present (ContextTemplate (_present module_) (_present template) (TPChoice (_present choice))) $ do
+            checkUpgradeType (fmap chcReturnType choice)
+                (EUpgradeError (ChoiceChangedReturnType (NM.name (_present choice))))
 
             whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
-                warnWithContext $ WChoiceChangedControllers $ NM.name $ present choice
+                warnWithContextF present $ WChoiceChangedControllers $ NM.name $ _present choice
 
-            let observersErr = WChoiceChangedObservers $ NM.name $ present choice
+            let observersErr = WChoiceChangedObservers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcObservers) choice of
-               Upgrading { past = Nothing, present = Nothing } -> do
+               Upgrading { _past = Nothing, _present = Nothing } -> do
                    pure ()
-               Upgrading { past = Just past, present = Just present } -> do
+               Upgrading { _past = Just _past, _present = Just _present } -> do
                    whenDifferent "observers"
-                       extractFuncFromFuncThisArg (Upgrading past present)
-                       (warnWithContext observersErr)
+                       extractFuncFromFuncThisArg (Upgrading _past _present)
+                       (warnWithContextF present observersErr)
                _ -> do
-                   warnWithContext observersErr
+                   warnWithContextF present observersErr
 
-            let authorizersErr = WChoiceChangedAuthorizers $ NM.name $ present choice
+            let authorizersErr = WChoiceChangedAuthorizers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcAuthorizers) choice of
-               Upgrading { past = Nothing, present = Nothing } -> pure ()
-               Upgrading { past = Just past, present = Just present } ->
+               Upgrading { _past = Nothing, _present = Nothing } -> pure ()
+               Upgrading { _past = Just _past, _present = Just _present } ->
                    whenDifferent "authorizers"
-                       extractFuncFromFuncThisArg (Upgrading past present)
-                       (warnWithContext authorizersErr)
-               _ -> warnWithContext authorizersErr
+                       extractFuncFromFuncThisArg (Upgrading _past _present)
+                       (warnWithContextF present authorizersErr)
+               _ -> warnWithContextF present authorizersErr
         pure choice
 
     -- This check assumes that we encode signatories etc. on a template as
     -- $<uniquename> this, where $<uniquename> is a function that contains the
     -- actual definition. We resolve this function and check that it is
     -- identical.
-    withContext (ContextTemplate (present module_) (present template) TPPrecondition) $
+    withContextF present (ContextTemplate (_present module_) (_present template) TPPrecondition) $
         whenDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition) template $
-            warnWithContext $ WTemplateChangedPrecondition $ NM.name $ present template
-    withContext (ContextTemplate (present module_) (present template) TPSignatories) $
+            warnWithContextF present $ WTemplateChangedPrecondition $ NM.name $ _present template
+    withContextF present (ContextTemplate (_present module_) (_present template) TPSignatories) $
         whenDifferent "signatories" (extractFuncFromFuncThis . tplSignatories) template $
-            warnWithContext $ WTemplateChangedSignatories $ NM.name $ present template
-    withContext (ContextTemplate (present module_) (present template) TPObservers) $
+            warnWithContextF present $ WTemplateChangedSignatories $ NM.name $ _present template
+    withContextF present (ContextTemplate (_present module_) (_present template) TPObservers) $
         whenDifferent "observers" (extractFuncFromFuncThis . tplObservers) template $
-            warnWithContext $ WTemplateChangedObservers $ NM.name $ present template
+            warnWithContextF present $ WTemplateChangedObservers $ NM.name $ _present template
 
-    withContext (ContextTemplate (present module_) (present template) TPKey) $ do
+    withContextF present (ContextTemplate (_present module_) (_present template) TPKey) $ do
         case fmap tplKey template of
-           Upgrading { past = Nothing, present = Nothing } -> do
+           Upgrading { _past = Nothing, _present = Nothing } -> do
                pure ()
-           Upgrading { past = Just pastKey, present = Just presentKey } -> do
+           Upgrading { _past = Just pastKey, _present = Just presentKey } -> do
                let tplKey = Upgrading pastKey presentKey
 
                -- Key type musn't change
-               let keyTypesMatch = foldU alphaType (fmap tplKeyType tplKey)
-               unless keyTypesMatch $
-                   throwWithContext (EUpgradeError (TemplateChangedKeyType (NM.name (present template))))
+               checkUpgradeType (fmap tplKeyType tplKey)
+                   (EUpgradeError (TemplateChangedKeyType (NM.name (_present template))))
 
                -- But expression for computing it may
                whenDifferent "key expression"
                    (extractFuncFromFuncThis . tplKeyBody) tplKey
-                   (warnWithContext $ WTemplateChangedKeyExpression $ NM.name $ present template)
+                   (warnWithContextF present $ WTemplateChangedKeyExpression $ NM.name $ _present template)
                whenDifferent "key maintainers"
                    (extractFuncFromTyAppNil . tplKeyMaintainers) tplKey
-                   (warnWithContext $ WTemplateChangedKeyMaintainers $ NM.name $ present template)
-           Upgrading { past = Just pastKey, present = Nothing } ->
-               throwWithContext $ EUpgradeError $ TemplateRemovedKey (NM.name (present template)) pastKey
-           Upgrading { past = Nothing, present = Just presentKey } ->
-               warnWithContext $ WTemplateAddedKeyDefinition (NM.name (present template)) presentKey
+                   (warnWithContextF present $ WTemplateChangedKeyMaintainers $ NM.name $ _present template)
+           Upgrading { _past = Just pastKey, _present = Nothing } ->
+               throwWithContextF present $ EUpgradeError $ TemplateRemovedKey (NM.name (_present template)) pastKey
+           Upgrading { _past = Nothing, _present = Just presentKey } ->
+               throwWithContextF present $ EUpgradeError $ TemplateAddedKey (NM.name (_present template)) presentKey
 
     -- TODO: Check that return type of a choice is compatible
     pure ()
@@ -236,13 +242,13 @@ checkTemplate module_ template = do
 
         -- Given an extractor from the list below, whenDifferent runs an action
         -- when the relevant expressions differ.
-        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> m () -> m ()
+        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> TcUpgradeM () -> TcUpgradeM ()
         whenDifferent field extractor exprs act =
             let resolvedWithPossibleError = sequence $ extractor <$> exprs <*> module_
             in
             case resolvedWithPossibleError of
                 Left err ->
-                    warnWithContext (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
+                    warnWithContextF present (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
                 Right resolvedExprs ->
                     let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
                     in
@@ -325,30 +331,54 @@ checkTemplate module_ template = do
                 Nothing -> Left ("checkTemplate: Trying to get definition of " ++ T.unpack (unExprValName evn) ++ " but it is not defined!")
                 Just defValue -> Right (dvalBody defValue)
 
-checkDefDataType :: UpgradedRecordOrigin -> Upgrading LF.DefDataType -> Maybe Error
+checkDefDataType :: UpgradedRecordOrigin -> Upgrading LF.DefDataType -> TcUpgradeM ()
 checkDefDataType origin datatype = do
     case fmap dataCons datatype of
-      Upgrading { past = DataRecord past, present = DataRecord present } -> checkFields origin (Upgrading {..})
-      Upgrading { past = DataVariant {}, present = DataVariant {} } -> Nothing
-      Upgrading { past = DataEnum {}, present = DataEnum {} } -> Nothing
-      Upgrading { past = DataInterface {}, present = DataInterface {} } -> Nothing
-      _ -> Just (EUpgradeError (MismatchDataConsVariety (dataTypeCon (past datatype))))
+      Upgrading { _past = DataRecord _past, _present = DataRecord _present } ->
+          checkFields origin (Upgrading {..})
+      Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
+          let upgrade = Upgrading{..}
+          (existing, _new) <- checkDeleted (\_ -> EUpgradeError (VariantRemovedVariant origin)) (fmap HMS.fromList upgrade)
+          when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
+              throwWithContextF present (EUpgradeError (VariantVariantsOrderChanged origin))
+          when (not (all (foldU alphaType) existing)) $
+              throwWithContextF present $ EUpgradeError (VariantChangedVariantType origin)
+      Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
+          let upgrade = Upgrading{..}
+          (_, _new) <-
+              checkDeleted
+                (\_ -> EUpgradeError (EnumRemovedVariant origin))
+                (fmap (HMS.fromList . map (,())) upgrade)
+          when (not $ and $ foldU (zipWith (==)) upgrade) $
+              throwWithContextF present (EUpgradeError (EnumVariantsOrderChanged origin))
+      Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
+          pure ()
+      _ ->
+          throwWithContextF present (EUpgradeError (MismatchDataConsVariety (dataTypeCon (_past datatype))))
 
-checkFields :: UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> Maybe Error
-checkFields origin fields =
-    let (deleted, existing, new) = extractDelExistNew $ HMS.fromList <$> fields
-    in
-    if not (HMS.null deleted) then
-        Just (EUpgradeError (RecordFieldsMissing origin))
+checkFields :: UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> TcUpgradeM ()
+checkFields origin fields = do
+    (existing, new) <- checkDeleted (\_ -> EUpgradeError (RecordFieldsMissing origin)) (fmap HMS.fromList fields)
     -- If a field from the upgraded package has had its type changed
-    else if any matchingFieldDifferentType existing then
-        Just (EUpgradeError (RecordFieldsExistingChanged origin))
-    -- If a new field has a non-optional type
-    else if not (all newFieldOptionalType new) then
-        Just (EUpgradeError (RecordFieldsNewNonOptional origin))
-    else
-        Nothing
+    when (any matchingFieldDifferentType existing) $
+        throwWithContextF present (EUpgradeError (RecordFieldsExistingChanged origin))
+    when (not (all newFieldOptionalType new)) $
+        case origin of
+          VariantConstructor{} ->
+            throwWithContextF present (EUpgradeError (VariantAddedVariantField origin))
+          _ ->
+            throwWithContextF present (EUpgradeError (RecordFieldsNewNonOptional origin))
+        -- If a new field has a non-optional type
+    -- If the order of fields changed
+    when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) fields) $
+        throwWithContextF present (EUpgradeError (RecordFieldsOrderChanged origin))
     where
-        matchingFieldDifferentType Upgrading{..} = past /= present
+        matchingFieldDifferentType Upgrading{..} = _past /= _present
         newFieldOptionalType (TOptional _) = True
         newFieldOptionalType _ = False
+
+-- Check type upgradability
+checkUpgradeType :: Upgrading Type -> Error -> TcUpgradeM ()
+checkUpgradeType type_ err = do
+    expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
+    unless (foldU alphaType expandedTypes) (throwWithContextF present err)

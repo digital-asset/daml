@@ -170,9 +170,9 @@ class PackageOpsX(
         )
       )
       currentPackages = currentMapping
-        .map(_.transaction.transaction.mapping.packageIds)
+        .map(_.mapping.packageIds)
         .getOrElse(Seq.empty)
-      nextSerial = currentMapping.map(_.transaction.transaction.serial.increment)
+      nextSerial = currentMapping.map(_.serial.increment)
       newVettedPackagesState = action(currentPackages)
       _ <- EitherTUtil.ifThenET(newVettedPackagesState != currentPackages) {
         performUnlessClosingEitherUSF(functionFullName)(

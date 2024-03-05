@@ -43,8 +43,8 @@ main = tests
   , ("Downgrade succeeds if variant has optional fields added as None", downgradeFromNoneNewOptField)
   , ("Downgrade succeeds if variant has optional nested fields added as None", downgradeFromNoneNewOptNestedField)
   , ("Downgrade fails if variant is a new constructor", downgradeFromNewCon)
-  , broken ("Downgrade fails if variant has optional fields added as Some", downgradeFromSomeNewOptField)
-  , broken ("Downgrade fails if variant has optional nested fields added as Some", downgradeFromSomeNewOptNestedField)
+  , ("Downgrade fails if variant has optional fields added as Some", downgradeFromSomeNewOptField)
+  , ("Downgrade fails if variant has optional nested fields added as Some", downgradeFromSomeNewOptNestedField)
   , broken ("Fails if upgrading a variant with a new case in the middle, from a case with unchanged rank", templateVariantUpgradeNonLastSameRank)
   , broken ("Fails if upgrading a variant with a new case in the middle, from a case with changed rank", templateVariantUpgradeNonLastDifferentRank)
   , ("Fails if downgrading a variant from a new case in the middle", templateVariantDowngradeNonLastDifferentRank)
@@ -60,6 +60,7 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice = do
   case (res, shouldSucceed) of
     (Right "V1", True) -> pure ()
     (Right "V2", True) -> pure ()
+    (Left (DevError Upgrade _), False) -> pure ()
     (Left (WronglyTypedContract {}), False) -> pure ()
     (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
     _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "specific failure") <> " but got " <> show res
@@ -152,22 +153,12 @@ contents: |
 -}
 
 downgradeFromNewCon : Script ()
-downgradeFromNewCon = do
-  a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmd V2.VariantAddCon with
-    party = a
-    varData = V2.VariantAddConData3 with
-      vad_field_3_1 = True
-      vad_field_3_2 = "hello"
-
-  let cidV1 = coerceContractId @V2.VariantAddCon @V1.VariantAddCon cid
-
-  -- Ensure we can only call the V1 choice
-  res <- a `trySubmit` exerciseExactCmd cidV1 V1.VariantAddConCall
-
-  case res of
-    Left (UnknownError msg) | "An error occurred." `isInfixOf` msg -> pure ()
-    _ -> assertFail $ "Expected specific failure but got " <> show res
+downgradeFromNewCon =
+  templateInvalidChange
+    @V1.VariantAddCon
+    False
+    (`V2.VariantAddCon` V2.VariantAddConData3 { vad_field_3_1 = True, vad_field_3_2 = "hello" })
+    V1.VariantAddConCall
 
 upgradeFromExistingCon : Script ()
 upgradeFromExistingCon =

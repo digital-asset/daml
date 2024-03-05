@@ -35,8 +35,9 @@ class SymbolicPureCrypto() extends CryptoPureApi {
   // iv to pre-append to the asymmetric ciphertext
   private val ivForAsymmetricEncryptInBytes = 16
 
-  // NOTE: The scheme is not really used by Symbolic crypto
+  // NOTE: The following schemes are not really used by Symbolic crypto, but we pretend to support them
   override val defaultSymmetricKeyScheme: SymmetricKeyScheme = SymmetricKeyScheme.Aes128Gcm
+  override val defaultPbkdfScheme: PbkdfScheme = PbkdfScheme.Argon2idMode1
 
   override protected[crypto] def sign(
       bytes: ByteString,
@@ -298,6 +299,28 @@ class SymbolicPureCrypto() extends CryptoPureApi {
       random.concat(new Array[Byte](length - random.length))
     else
       random
+  }
+
+  override def deriveSymmetricKey(
+      password: String,
+      symmetricKeyScheme: SymmetricKeyScheme,
+      pbkdfScheme: PbkdfScheme,
+      saltO: Option[SecureRandomness],
+  ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey] = {
+    val salt =
+      saltO
+        .getOrElse(generateSecureRandomness(pbkdfScheme.defaultSaltLengthInBytes))
+
+    // We just hash the salt and password, then truncate/pad to desired length
+    val hash = TestHash.build.addWithoutLengthPrefix(salt.unwrap).add(password).finish()
+    val keyBytes =
+      ByteStringUtil.padOrTruncate(
+        hash.unwrap,
+        NonNegativeInt.tryCreate(symmetricKeyScheme.keySizeInBytes),
+      )
+    val key = SymmetricKey(CryptoKeyFormat.Symbolic, keyBytes, symmetricKeyScheme)
+
+    Right(PasswordBasedEncryptionKey(key, salt))
   }
 }
 

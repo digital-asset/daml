@@ -3,12 +3,10 @@
 
 package com.digitalasset.canton.store.db
 
-import com.digitalasset.canton.store.{IndexedDomain, IndexedMember, IndexedStringStore}
-import com.digitalasset.canton.topology.{DomainId, DomainMember}
+import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.NoCopy
 import slick.jdbc.SetParameter
-
-import scala.concurrent.{ExecutionContext, Future}
 
 /** We typically have a database per node but there can be many owners of a SequencerClient within that node.
   *
@@ -31,20 +29,13 @@ object SequencerClientDiscriminator {
   final case class DomainDiscriminator(domainId: DomainId, override val index: Int)
       extends NoCopy
       with SequencerClientDiscriminator
-  final case class DomainMemberDiscriminator(member: DomainMember, override val index: Int)
-      extends NoCopy
-      with SequencerClientDiscriminator
+
+  object UniqueDiscriminator extends SequencerClientDiscriminator {
+    override def index: Int = 1
+  }
 
   implicit val setClientDiscriminatorParameter: SetParameter[SequencerClientDiscriminator] =
     (v, pp) => pp.setInt(v.index)
-
-  def fromDomainMember(member: DomainMember, indexedStringStore: IndexedStringStore)(implicit
-      ec: ExecutionContext
-  ): Future[SequencerClientDiscriminator] = {
-    IndexedMember.indexed(indexedStringStore)(member).map { mb =>
-      DomainMemberDiscriminator(member, mb.index)
-    }
-  }
 
   def fromIndexedDomainId(domainId: IndexedDomain): DomainDiscriminator =
     DomainDiscriminator(domainId.item, domainId.index)

@@ -1900,7 +1900,7 @@ private[lf] object SBuiltin {
                       SELocS(1),
                       Array(
                         SCaseAlt(
-                          SCPPrimCon(Ast.PCTrue), // True ->
+                          SCPBuiltinCon(Ast.BCTrue), // True ->
                           SEAppAtomicGeneral(
                             SEBuiltin(SBEqualList), // single recursive occurrence
                             Array(
@@ -1910,7 +1910,7 @@ private[lf] object SBuiltin {
                             ),
                           ), // xss
                         ),
-                        SCaseAlt(SCPPrimCon(Ast.PCFalse), SEValue.False), // False -> False
+                        SCaseAlt(SCPBuiltinCon(Ast.BCFalse), SEValue.False), // False -> False
                       ),
                     ),
                   ),

@@ -21,11 +21,12 @@ class TinkCryptoTest
     with PrivateKeySerializationTest
     with HkdfTest
     with RandomTest
-    with JavaPublicKeyConverterTest {
+    with JavaPublicKeyConverterTest
+    with PublicKeyValidationTest {
 
   "TinkCrypto" can {
 
-    def tinkCrypto(): Future[Crypto] = {
+    def tinkCrypto(): Future[Crypto] =
       new CommunityCryptoFactory()
         .create(
           CommunityCryptoConfig(provider = Tink),
@@ -37,7 +38,6 @@ class TinkCryptoTest
           NoReportingTracerProvider,
         )
         .valueOrFail("create crypto")
-    }
 
     behave like signingProvider(Tink.signing.supported, tinkCrypto())
     behave like encryptionProvider(
@@ -67,6 +67,14 @@ class TinkCryptoTest
       "JCE",
       new JceJavaConverter(Jce.signing.supported, Jce.encryption.supported),
     )
+
+    behave like publicKeyValidationProvider(
+      Tink.signing.supported,
+      Tink.encryption.supported,
+      Tink.supportedCryptoKeyFormats,
+      tinkCrypto(),
+    )
+
   }
 
 }

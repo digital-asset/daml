@@ -126,7 +126,6 @@ class TransactionProcessingSteps(
       SubmissionParam,
       TransactionSubmitted,
       TransactionViewType,
-      ConfirmationResultMessage,
       TransactionSubmissionError,
     ]
     with NamedLogging {
@@ -1024,7 +1023,7 @@ class TransactionProcessingSteps(
           responses.map(_ -> mediatorRecipients),
           RejectionArgs(
             pendingTransaction,
-            LocalRejectError.TimeRejects.LocalTimeout.Reject(protocolVersion),
+            LocalRejectError.TimeRejects.LocalTimeout.Reject(),
           ),
         )
       }
@@ -1349,16 +1348,15 @@ class TransactionProcessingSteps(
   }
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[MalformedConfirmationRequestResult, ConfirmationResultMessage],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      result: ConfirmationResultMessage,
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-    val content = eventE.event.content
-    val Deliver(_, ts, _, _, _, _) = content
+    val ts = event.event.content.timestamp
     val submitterMetaO = pendingRequestData.transactionValidationResult.submitterMetadataO
     val completionInfoO = submitterMetaO.flatMap(
       completionInfoFromSubmitterMetadataO(_, pendingRequestData.freshOwnTimelyTx)
@@ -1367,9 +1365,8 @@ class TransactionProcessingSteps(
     def getCommitSetAndContractsToBeStoredAndEvent(
         topologySnapshot: TopologySnapshot
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
-      import scala.util.Either.MergeableEither
       (
-        MergeableEither[ConfirmationResult](resultE).merge.verdict,
+        result.verdict,
         pendingRequestData.modelConformanceResultE,
       ) match {
         case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)
@@ -1416,9 +1413,9 @@ class TransactionProcessingSteps(
 
     def rejectedWithModelConformanceError(error: ErrorWithSubTransaction) =
       rejected(
-        LocalRejectError.MalformedRejects.ModelConformance.Reject(error.errors.head1.toString)(
-          LocalVerdict.protocolVersionRepresentativeFor(protocolVersion)
-        )
+        LocalRejectError.MalformedRejects.ModelConformance
+          .Reject(error.errors.head1.toString)
+          .toLocalReject(protocolVersion)
       )
 
     def rejected(rejection: TransactionRejection) = {
@@ -1456,10 +1453,11 @@ class TransactionProcessingSteps(
           // Activeness of the mediator already gets checked in Phase 3,
           // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
           rejected(
-            LocalRejectError.MalformedRejects.MalformedRequest.Reject(
-              s"The mediator ${pendingRequestData.mediator} has been deactivated while processing the request. Rolling back.",
-              protocolVersion,
-            )
+            LocalRejectError.MalformedRejects.MalformedRequest
+              .Reject(
+                s"The mediator ${pendingRequestData.mediator} has been deactivated while processing the request. Rolling back."
+              )
+              .toLocalReject(protocolVersion)
           )
         }
     } yield res

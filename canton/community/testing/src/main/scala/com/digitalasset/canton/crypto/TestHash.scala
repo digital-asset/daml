@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
+import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.google.protobuf.ByteString
 
@@ -22,4 +23,5 @@ object TestHash extends HashOps {
 
   def build: HashBuilder = build(testHashPurpose)
 
+  lazy val dummyRootHash: RootHash = RootHash(digest(0))
 }

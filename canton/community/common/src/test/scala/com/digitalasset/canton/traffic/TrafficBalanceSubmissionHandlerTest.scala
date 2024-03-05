@@ -5,7 +5,7 @@ package com.digitalasset.canton.traffic
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.protocol.messages.{
@@ -100,7 +100,7 @@ class TrafficBalanceSubmissionHandlerTest
         recipient1,
         domainId,
         testedProtocolVersion,
-        NonNegativeLong.tryCreate(5),
+        PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
         crypto,
@@ -182,7 +182,7 @@ class TrafficBalanceSubmissionHandlerTest
         recipient1,
         domainId,
         testedProtocolVersion,
-        NonNegativeLong.tryCreate(5),
+        PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
         crypto,
@@ -236,7 +236,7 @@ class TrafficBalanceSubmissionHandlerTest
         recipient1,
         domainId,
         testedProtocolVersion,
-        NonNegativeLong.tryCreate(5),
+        PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
         crypto,
@@ -272,7 +272,7 @@ class TrafficBalanceSubmissionHandlerTest
         recipient1,
         domainId,
         testedProtocolVersion,
-        NonNegativeLong.tryCreate(5),
+        PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
         crypto,
@@ -324,7 +324,7 @@ class TrafficBalanceSubmissionHandlerTest
         recipient1,
         domainId,
         testedProtocolVersion,
-        NonNegativeLong.tryCreate(5),
+        PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
         crypto,

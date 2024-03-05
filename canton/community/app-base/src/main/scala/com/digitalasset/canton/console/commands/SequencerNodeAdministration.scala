@@ -17,8 +17,12 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
   StoredTopologyTransactionsX,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.PositiveSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TopologyMappingX}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransactionX,
+  TopologyChangeOpX,
+  TopologyMappingX,
+}
 
 class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
 
@@ -39,17 +43,17 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
       "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
   )
   def assign_from_beginning(
-      genesisState: Seq[PositiveSignedTopologyTransactionX],
+      genesisState: Seq[GenericSignedTopologyTransactionX],
       domainParameters: StaticDomainParameters,
   ): InitializeSequencerResponseX =
     consoleEnvironment.run {
       runner.adminCommand(
         InitializeX(
-          StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX](
+          StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
             genesisState.map(signed =>
               StoredTopologyTransactionX(
-                SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
-                EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
+                SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+                EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
                 None,
                 signed,
               )
@@ -63,7 +67,7 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
 
   @Help.Summary(
     "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
-      "This is called as part of the domain.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
+      "This is called as part of the sequencer.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
   )
   def assign_from_snapshot(
       topologySnapshot: GenericStoredTopologyTransactionsX,

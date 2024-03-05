@@ -73,7 +73,6 @@ object DisclosedContractCreator {
         templateId = lf.templateId,
         packageName = packageName,
         arg = lf.createArg,
-        agreementText = "",
         signatories = api.signatories,
         stakeholders = api.stakeholders,
         keyOpt = Some(lf.keyWithMaintainers),

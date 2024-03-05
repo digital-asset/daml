@@ -428,6 +428,7 @@ scala_library(
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",
@@ -743,6 +744,7 @@ scala_library(
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_13",
     ],
 )
 
@@ -833,6 +835,7 @@ scala_library(
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_postgresql_postgresql",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_13",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
