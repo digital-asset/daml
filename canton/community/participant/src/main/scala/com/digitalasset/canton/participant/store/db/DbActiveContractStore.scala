@@ -560,7 +560,8 @@ class DbActiveContractStore(
               )
               totalEntriesPruned <-
                 performUnlessClosingF("Delete ACS entries batch")(
-                  NonEmpty.from(acsEntriesToPrune).fold(Future.successful(0)) { acsEntries =>
+                  if (acsEntriesToPrune.isEmpty) Future.successful(0)
+                  else {
                     val deleteStatement =
                       s"delete from par_active_contracts where domain_id = ? and contract_id = ? and ts = ?"
                         + " and request_counter = ? and change = CAST(? as change_type);"

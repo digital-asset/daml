@@ -160,23 +160,8 @@ class BlockSequencer(
     case Failure(ex) => noTracingLogger.error("Sequencer flow has failed", ex)
   }
 
-  private object TopologyTimestampCheck
-
-  private def ensureTopologyTimestampPresentForAggregationRuleAndSignatures(
-      submission: SubmissionRequest
-  ): EitherT[Future, SendAsyncError, TopologyTimestampCheck.type] =
-    EitherT.cond[Future](
-      submission.aggregationRule.isEmpty || submission.topologyTimestamp.isDefined ||
-        submission.batch.envelopes.forall(_.signatures.isEmpty),
-      TopologyTimestampCheck,
-      SendAsyncError.RequestInvalid(
-        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `topologyTimestamp` is not defined. Please set the `topologyTimestamp` for the submission."
-      ): SendAsyncError,
-    )
-
   private def validateMaxSequencingTime(
-      _topologyTimestampCheck: TopologyTimestampCheck.type,
-      submission: SubmissionRequest,
+      submission: SubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     val estimatedSequencingTimestamp = clock.now
     submission.aggregationRule match {
@@ -242,9 +227,9 @@ class BlockSequencer(
     )
 
     for {
-      topologyTimestampCheck <-
-        ensureTopologyTimestampPresentForAggregationRuleAndSignatures(submission)
-      _ <- validateMaxSequencingTime(topologyTimestampCheck, submission)
+      // TODO(i17584): revisit the consequences of no longer enforcing that
+      //  aggregated submissions with signed envelopes define a topology snapshot
+      _ <- validateMaxSequencingTime(submission)
       memberCheck <- EitherT.right[SendAsyncError](
         cryptoApi.currentSnapshotApproximation.ipsSnapshot
           .allMembers()
@@ -315,7 +300,9 @@ class BlockSequencer(
     * purely local operations that do not affect other block sequencers that share the same source of
     * events.
     */
-  override def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] = {
+  protected def disableMemberInternal(
+      member: Member
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     if (!stateManager.isMemberRegistered(member)) {
       logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
       Future.unit
@@ -333,6 +320,8 @@ class BlockSequencer(
       } yield ()
     }
   }
+
+  override protected def localSequencerMember: DomainMember = sequencerId
 
   override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

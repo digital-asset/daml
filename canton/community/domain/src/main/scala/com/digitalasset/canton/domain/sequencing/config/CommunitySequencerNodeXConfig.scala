@@ -28,7 +28,7 @@ final case class CommunitySequencerNodeXConfig(
     override val parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
     override val health: SequencerHealthConfig = SequencerHealthConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
-    override val topologyX: TopologyXConfig = TopologyXConfig(),
+    override val topology: TopologyConfig = TopologyConfig(),
     override val trafficConfig: SequencerTrafficConfig = SequencerTrafficConfig(),
 ) extends SequencerNodeConfigCommon(
       init,

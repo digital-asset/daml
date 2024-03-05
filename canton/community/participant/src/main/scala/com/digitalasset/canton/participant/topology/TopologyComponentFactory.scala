@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
   ProcessingTimeout,
-  TopologyXConfig,
+  TopologyConfig,
 }
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -91,7 +91,7 @@ class TopologyComponentFactoryX(
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
     batching: BatchingConfig,
-    topologyXConfig: TopologyXConfig,
+    topologyXConfig: TopologyConfig,
     topologyStore: TopologyStoreX[DomainStore],
     loggerFactory: NamedLoggerFactory,
 ) extends TopologyComponentFactory {

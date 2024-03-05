@@ -116,7 +116,7 @@ final case class CommunityParticipantConfig(
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
-    override val topologyX: TopologyXConfig = TopologyXConfig(),
+    override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalParticipantConfig
     with CommunityLocalNodeConfig
     with ConfigDefaults[DefaultPorts, CommunityParticipantConfig] {

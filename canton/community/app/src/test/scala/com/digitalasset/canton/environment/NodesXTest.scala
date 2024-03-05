@@ -65,7 +65,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
     override def clientAdminApi = adminApi.clientConfig
     override def withDefaults(ports: DefaultPorts): TestNodeConfig = this
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
-    override val topologyX: TopologyXConfig = TopologyXConfig.NotUsed
+    override val topology: TopologyConfig = TopologyConfig.NotUsed
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
       override def batching: BatchingConfig = BatchingConfig()
       override def caching: CachingConfigs = CachingConfigs()

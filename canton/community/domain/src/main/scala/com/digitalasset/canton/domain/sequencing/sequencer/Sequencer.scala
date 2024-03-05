@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
   RegisterMemberError,
+  SequencerAdministrationError,
   SequencerWriteError,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
@@ -116,7 +117,9 @@ trait Sequencer
     * Their unread data can also be pruned.
     * Effectively disables all instances of this member.
     */
-  def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit]
+  def disableMember(member: Member)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SequencerAdministrationError, Unit]
 
   /** The first [[com.digitalasset.canton.SequencerCounter]] that this sequencer can serve for its sequencer client
     * when the sequencer topology processor's [[com.digitalasset.canton.store.SequencedEventStore]] is empty.

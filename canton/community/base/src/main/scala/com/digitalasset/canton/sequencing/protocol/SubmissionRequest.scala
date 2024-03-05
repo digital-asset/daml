@@ -17,7 +17,6 @@ import com.digitalasset.canton.serialization.{
   ProtocolVersionedMemoizedEvidence,
 }
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.{
   HasMemoizedProtocolVersionedWithContextCompanion,
   HasProtocolVersionedWrapper,
@@ -167,20 +166,10 @@ object SubmissionRequest
 
   override def name: String = "submission request"
 
+  // TODO(i17584): revisit the consequences of no longer enforcing that
+  //  aggregated submissions with signed envelopes define a topology snapshot
   override lazy val invariants: Seq[protocol.SubmissionRequest.Invariant] =
-    Seq(topologyTimestampInvariant)
-
-  lazy val topologyTimestampInvariant = new Invariant {
-    override def validateInstance(
-        v: SubmissionRequest,
-        rpv: SubmissionRequest.ThisRepresentativeProtocolVersion,
-    ): Either[String, Unit] =
-      EitherUtil.condUnitE(
-        v.aggregationRule.isEmpty || v.topologyTimestamp.isDefined || v.batch.envelopes
-          .forall(_.signatures.isEmpty),
-        s"Submission request with signed envelopes has `aggregationRule` set, but `topologyTimestamp` is not defined. Please check that `topologyTimestamp` has been set for the submission.",
-      )
-  }
+    Seq.empty
 
   def create(
       sender: Member,

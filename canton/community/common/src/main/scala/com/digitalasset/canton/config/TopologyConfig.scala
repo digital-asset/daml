@@ -3,22 +3,22 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.TopologyXConfig.*
+import com.digitalasset.canton.config.TopologyConfig.*
 
 import scala.concurrent.duration.Duration
 
-final case class TopologyXConfig(
+final case class TopologyConfig(
     topologyTransactionRegistrationTimeout: NonNegativeDuration =
       defaultTopologyTransactionRegistrationTimeout,
     // temporary flag to ease migration to topology validation being turned on
     enableTopologyTransactionValidation: Boolean = true,
 )
 
-object TopologyXConfig {
-  private[TopologyXConfig] val defaultTopologyTransactionRegistrationTimeout =
+object TopologyConfig {
+  private[TopologyConfig] val defaultTopologyTransactionRegistrationTimeout =
     NonNegativeDuration.ofSeconds(20)
 
-  def NotUsed: TopologyXConfig = TopologyXConfig(topologyTransactionRegistrationTimeout =
+  def NotUsed: TopologyConfig = TopologyConfig(topologyTransactionRegistrationTimeout =
     NonNegativeDuration.tryFromDuration(Duration.Inf)
   )
 }
