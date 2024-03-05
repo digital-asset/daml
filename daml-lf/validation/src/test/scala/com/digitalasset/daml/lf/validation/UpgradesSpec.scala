@@ -24,8 +24,7 @@ import com.daml.lf.archive.DarReader
 import scala.util.{Success, Failure}
 import com.daml.lf.validation.Upgrading
 
-class UpgradesSpecAdminAPI extends UpgradesSpec {
-  override def suffix = "Admin API"
+class UpgradesSpecAdminAPI extends UpgradesSpec("Admin API") {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -55,8 +54,7 @@ class UpgradesSpecAdminAPI extends UpgradesSpec {
   }
 }
 
-class UpgradesSpecLedgerAPI extends UpgradesSpec {
-  override def suffix = "Ledger API"
+class UpgradesSpecLedgerAPI extends UpgradesSpec("Ledger API") {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -83,7 +81,11 @@ class UpgradesSpecLedgerAPI extends UpgradesSpec {
   }
 }
 
-abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
+abstract class UpgradesSpec(suffix: String)
+    extends AsyncWordSpec
+    with Matchers
+    with Inside
+    with CantonFixture {
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
 
@@ -221,8 +223,6 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       }
     }
   }
-
-  def suffix: String
 
   s"Upload-time Upgradeability Checks ($suffix)" should {
     s"uploading the same package multiple times succeeds ($suffix)" in {
