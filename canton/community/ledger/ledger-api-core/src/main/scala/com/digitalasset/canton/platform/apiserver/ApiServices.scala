@@ -343,7 +343,6 @@ object ApiServices {
         val apiPackageManagementService = ApiPackageManagementService.createApiService(
           indexService,
           transactionsService,
-          packageMetadataStore,
           writeService,
           managementServiceTimeout,
           engine,
