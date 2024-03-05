@@ -149,8 +149,8 @@ class QueueBasedDomainOutboxXTest
                   additions = List(ValidatedTopologyTransactionX(x, rejections.next())),
                   // dumbed down version of how to "append" ValidatedTopologyTransactionXs:
                   removeMapping = Option
-                    .when(x.transaction.op == TopologyChangeOpX.Remove)(
-                      x.transaction.mapping.uniqueKey
+                    .when(x.operation == TopologyChangeOpX.Remove)(
+                      x.mapping.uniqueKey
                     )
                     .toList
                     .toSet,
@@ -200,7 +200,7 @@ class QueueBasedDomainOutboxXTest
     MonadUtil
       .sequentialTraverse(transactions)(tx =>
         manager.proposeAndAuthorize(
-          tx.op,
+          tx.operation,
           tx.mapping,
           tx.serial.some,
           signingKeys = Seq(publicKey.fingerprint),

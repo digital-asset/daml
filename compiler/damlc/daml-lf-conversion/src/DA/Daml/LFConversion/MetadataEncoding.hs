@@ -459,7 +459,7 @@ natSynTCon = LF.Qualified
     , qualObject = LF.TypeConName [tconName]
     }
     where
-        packageId = "eb6926e50bb83fbc8f3e154c7c88b1219b31a3c0b812f26b276d46e212c2dd71"
+        packageId = "ce33df2997d69e8ac89f00951c322753e60abccdfdd92d47d804518a2029748f"
         moduleName = ["DA", "Internal", "NatSyn"]
         tconName = "NatSyn"
 

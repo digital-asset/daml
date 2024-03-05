@@ -31,7 +31,7 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   )
 
   def toTopologyState: List[M] =
-    result.map(_.transaction.transaction.mapping).toList
+    result.map(_.mapping).toList
 
   def toProtoV30: v30.TopologyTransactions = v30.TopologyTransactions(
     items = result.map { item =>
@@ -60,7 +60,7 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
     val codeSet = codes.toSet
     StoredTopologyTransactionsX(
-      result.filter(tx => codeSet(tx.transaction.mapping.code))
+      result.filter(tx => codeSet(tx.mapping.code))
     )
   }
 
@@ -72,7 +72,7 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   def collectLatestByUniqueKey: StoredTopologyTransactionsX[Op, M] =
     StoredTopologyTransactionsX(
       result
-        .groupBy1(_.transaction.transaction.mapping.uniqueKey)
+        .groupBy1(_.mapping.uniqueKey)
         .view
         .mapValues(_.last1)
         .values
@@ -82,23 +82,6 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
   def signedTransactions: SignedTopologyTransactionsX[Op, M] = SignedTopologyTransactionsX(
     result.map(_.transaction)
   )
-
-  /** Split transactions into certificates and everything else (used when uploading to a participant) */
-  def splitCertsAndRest: StoredTopologyTransactionsX.CertsAndRest = {
-    val certTypes = Set(
-      TopologyMappingX.Code.NamespaceDelegationX,
-      TopologyMappingX.Code.DecentralizedNamespaceDefinitionX,
-      TopologyMappingX.Code.IdentifierDelegationX,
-    )
-    val empty = Seq.empty[GenericStoredTopologyTransactionX]
-    val (certs, rest) = result.foldLeft((empty, empty)) { case ((certs, rest), tx) =>
-      if (certTypes.contains(tx.transaction.transaction.mapping.code))
-        (certs :+ tx, rest)
-      else
-        (certs, rest :+ tx)
-    }
-    StoredTopologyTransactionsX.CertsAndRest(certs, rest)
-  }
 
   /** The timestamp of the last topology transaction (if there is at least one)
     * adjusted by topology change delay
@@ -220,7 +203,7 @@ object SignedTopologyTransactionsX {
       txs: Seq[GenericSignedTopologyTransactionX]
   ): Seq[GenericSignedTopologyTransactionX] = {
     val byHash = txs
-      .groupBy(_.transaction.hash)
+      .groupBy(_.hash)
       .view
       .mapValues(_.reduceLeftOption((tx1, tx2) => tx1.addSignatures(tx2.signatures.toSeq)))
       .collect { case (k, Some(v)) => k -> v }
@@ -229,8 +212,8 @@ object SignedTopologyTransactionsX {
     val (compacted, _) = {
       txs.foldLeft((Vector.empty[GenericSignedTopologyTransactionX], byHash)) {
         case ((result, byHash), tx) =>
-          val newResult = byHash.get(tx.transaction.hash).map(result :+ _).getOrElse(result)
-          val txHashRemoved = byHash.removed(tx.transaction.hash)
+          val newResult = byHash.get(tx.hash).map(result :+ _).getOrElse(result)
+          val txHashRemoved = byHash.removed(tx.hash)
           (newResult, txHashRemoved)
       }
     }

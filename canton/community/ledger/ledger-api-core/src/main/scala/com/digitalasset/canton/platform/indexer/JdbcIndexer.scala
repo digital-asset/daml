@@ -21,6 +21,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   ParticipantDataSourceConfig,
 }
 import com.digitalasset.canton.platform.store.DbType
+import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.backend.{
   ParameterStorageBackend,
   StorageBackendFactory,
@@ -50,7 +51,7 @@ object JdbcIndexer {
       loggerFactory: NamedLoggerFactory,
       dataSourceProperties: DataSourceProperties,
       highAvailability: HaConfig,
-      indexerDbDispatcherOverride: Option[DbDispatcher] = None,
+      indexSericeDbDispatcher: Option[DbDispatcher],
   )(implicit materializer: Materializer) {
 
     def initialized(
@@ -68,6 +69,12 @@ object JdbcIndexer {
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val dbConfig = dataSourceProperties
+      // in case H2 backend, we share a single connection between indexer and index service
+      // to prevent H2 synchronization bug to materialize
+      // the ingestion parallelism is also limited to 1 in this case
+      val (ingestionParallelism, indexerDbDispatcherOverride) =
+        if (factory == H2StorageBackendFactory) 1 -> indexSericeDbDispatcher
+        else config.ingestionParallelism.unwrap -> None
       val indexer = ParallelIndexerFactory(
         inputMappingParallelism = config.inputMappingParallelism.unwrap,
         batchingParallelism = config.batchingParallelism.unwrap,
@@ -100,10 +107,7 @@ object JdbcIndexer {
           maxInputBufferSize = config.maxInputBufferSize.unwrap,
           inputMappingParallelism = config.inputMappingParallelism.unwrap,
           batchingParallelism = config.batchingParallelism.unwrap,
-          ingestionParallelism =
-            // override is just there for H2
-            if (indexerDbDispatcherOverride.isDefined) 1
-            else config.ingestionParallelism.unwrap,
+          ingestionParallelism = ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
           maxTailerBatchSize = config.maxTailerBatchSize,
           maxOutputBatchedBufferSize = config.maxOutputBatchedBufferSize,

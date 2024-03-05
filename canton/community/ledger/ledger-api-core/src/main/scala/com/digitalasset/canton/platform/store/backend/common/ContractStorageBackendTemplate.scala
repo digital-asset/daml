@@ -97,14 +97,13 @@ class ContractStorageBackendTemplate(
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?
       ~ timestampFromMicros("ledger_effective_time")
-      ~ str("create_agreement_text").?
       ~ array[Int]("create_signatories")
       ~ byteArray("create_key_value").?
       ~ int("create_key_value_compression").?
       ~ array[Int]("create_key_maintainers").?
       ~ byteArray("driver_metadata").?)
       .map {
-        case coid ~ internedTemplateId ~ internedPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ agreementText ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
+        case coid ~ internedTemplateId ~ internedPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
           ContractId.assertFromString(coid) -> RawCreatedContract(
             templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
             packageName = stringInterning.packageName.unsafe.externalize(internedPackageName),
@@ -113,7 +112,6 @@ class ContractStorageBackendTemplate(
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             ledgerEffectiveTime = ledgerEffectiveTime,
-            agreementText = agreementText,
             signatories = signatories.view.map(i => stringInterning.party.externalize(i)).toSet,
             createKey = createKey,
             createKeyCompression = createKeyCompression,
@@ -138,7 +136,6 @@ class ContractStorageBackendTemplate(
            create_argument,
            create_argument_compression,
            ledger_effective_time,
-           create_agreement_text,
            create_signatories,
            create_key_value,
            create_key_value_compression,
@@ -176,7 +173,6 @@ class ContractStorageBackendTemplate(
            create_argument,
            create_argument_compression,
            ledger_effective_time,
-           create_agreement_text,
            create_signatories,
            create_key_value,
            create_key_value_compression,

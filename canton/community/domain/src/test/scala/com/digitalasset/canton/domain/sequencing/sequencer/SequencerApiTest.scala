@@ -79,7 +79,7 @@ abstract class SequencerApiTest
 
   def domainId: DomainId = DefaultTestIdentities.domainId
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorIdX
-  def topologyClientMember: Member = DefaultTestIdentities.sequencerId
+  def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
   def createSequencer(crypto: DomainSyncCryptoClient)(implicit
       materializer: Materializer
@@ -810,7 +810,7 @@ trait SequencerApiTestUtils
       val event = message.signedEvent.content
 
       event match {
-        case Deliver(_, _, _, _, batch) =>
+        case Deliver(_, _, _, _, batch, _) =>
           withClue(s"Received the wrong number of envelopes for recipient $member") {
             batch.envelopes.length shouldBe expectedMessage.envs.length
           }

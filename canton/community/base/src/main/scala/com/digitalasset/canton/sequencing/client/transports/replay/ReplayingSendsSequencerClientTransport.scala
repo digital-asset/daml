@@ -331,7 +331,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     private def updateMetrics(event: SequencedEvent[ClosedEnvelope]): Unit =
       withEmptyMetricsContext { implicit metricsContext =>
         val messageIdO: Option[MessageId] = event match {
-          case Deliver(_, _, _, messageId, _) => messageId
+          case Deliver(_, _, _, messageId, _, _) => messageId
           case DeliverError(_, _, _, messageId, _) => Some(messageId)
           case _ => None
         }

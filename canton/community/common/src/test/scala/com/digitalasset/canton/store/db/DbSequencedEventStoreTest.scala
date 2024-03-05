@@ -20,8 +20,8 @@ trait DbSequencedEventStoreTest extends AsyncWordSpec with BaseTest with Sequenc
 
     storage.update(
       DBIO.seq(
-        sqlu"truncate table sequenced_events",
-        sqlu"truncate table sequenced_event_store_pruning",
+        sqlu"truncate table common_sequenced_events",
+        sqlu"truncate table common_sequenced_event_store_pruning",
       ),
       operationName = s"${this.getClass}: truncate table sequenced_events tables",
     )

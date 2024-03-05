@@ -178,7 +178,7 @@ trait DbFinalizedResponseStoreTest
 
   def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*
-    storage.update(sqlu"truncate table response_aggregations", functionFullName)
+    storage.update(sqlu"truncate table med_response_aggregations", functionFullName)
   }
   "DbFinalizedResponseStore" should {
     behave like finalizedResponseStore(() =>

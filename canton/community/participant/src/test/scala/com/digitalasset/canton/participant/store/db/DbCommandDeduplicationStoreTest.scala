@@ -21,8 +21,8 @@ trait DbCommandDeduplicationStoreTest
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table command_deduplication",
-        sqlu"truncate table command_deduplication_pruning",
+        sqlu"truncate table par_command_deduplication",
+        sqlu"truncate table par_command_deduplication_pruning",
       ),
       functionFullName,
     )

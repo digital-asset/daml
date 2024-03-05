@@ -45,7 +45,7 @@ class DbPartyMetadataStore(
   ): DbAction.ReadOnly[Seq[PartyMetadata]] = {
 
     val query =
-      sql"select party_id, display_name, participant_id, submission_id, effective_at, notified from party_metadata where " ++ where
+      sql"select party_id, display_name, participant_id, submission_id, effective_at, notified from common_party_metadata where " ++ where
 
     for {
       data <- query
@@ -81,7 +81,7 @@ class DbPartyMetadataStore(
     val participantS = dbValue(participantId)
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into party_metadata (party_id, display_name, participant_id, submission_id, effective_at)
+        sqlu"""insert into common_party_metadata (party_id, display_name, participant_id, submission_id, effective_at)
                     VALUES ($partyId, $displayName, $participantS, $submissionId, $effectiveTimestamp)
                  on conflict (party_id) do update
                   set
@@ -92,7 +92,7 @@ class DbPartyMetadataStore(
                     notified = false
                  """
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into party_metadata
+        sqlu"""merge into common_party_metadata
                   using dual
                   on (party_id = $partyId)
                   when matched then
@@ -120,7 +120,7 @@ class DbPartyMetadataStore(
     val partyId = metadata.partyId
     val effectiveAt = metadata.effectiveTimestamp
     val query =
-      sqlu"UPDATE party_metadata SET notified = ${true} WHERE party_id = $partyId and effective_at = $effectiveAt"
+      sqlu"UPDATE common_party_metadata SET notified = ${true} WHERE party_id = $partyId and effective_at = $effectiveAt"
     storage.update_(query, functionFullName)
   }
 

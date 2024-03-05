@@ -66,6 +66,7 @@ object ParticipantNodeParameters {
       ),
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
+      useNewTrafficControl = false,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(

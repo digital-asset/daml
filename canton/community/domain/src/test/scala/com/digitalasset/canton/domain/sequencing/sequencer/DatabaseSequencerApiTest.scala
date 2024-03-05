@@ -39,7 +39,7 @@ abstract class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
       new MemoryStorage(loggerFactory, timeouts),
       clock,
       domainId,
-      topologyClientMember,
+      sequencerId,
       testedProtocolVersion,
       crypto,
       metrics,

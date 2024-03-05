@@ -22,7 +22,7 @@ trait DbSingleDimensionEventLogTest
     import storage.api.*
     storage.update_(
       DBIO.seq(
-        sqlu"delete from event_log where log_id = $id" // table shared with other tests
+        sqlu"delete from par_event_log where log_id = $id" // table shared with other tests
       ),
       operationName = s"${this.getClass}: clean db",
     )

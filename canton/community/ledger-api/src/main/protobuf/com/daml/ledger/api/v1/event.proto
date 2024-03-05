@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/value.proto";
-import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
@@ -54,7 +53,7 @@ message CreatedEvent {
   // The key of the created contract.
   // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
   // Optional
-  Value contract_key = 7;
+  Value contract_key = 4;
 
   // The arguments that have been used to create the contract.
   // Set either:
@@ -65,15 +64,13 @@ message CreatedEvent {
   //     and for which a wildcard filter exists (``Filters`` without ``InclusiveFilters``,
   //     or with an ``InclusiveFilters`` with empty ``template_filters`` and empty ``interface_filters``).
   // Optional
-  Record create_arguments = 4;
-
-  reserved 12; // removed create_arguments_blob
+  Record create_arguments = 5;
 
   // Opaque representation of contract create event payload intended for forwarding
   // to an API server as a contract disclosed as part of a command
   // submission.
   // Optional
-  bytes created_event_blob = 13;
+  bytes created_event_blob = 6;
 
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
@@ -81,7 +78,7 @@ message CreatedEvent {
   //   - and which is implemented by the template of this event,
   //   - and which has ``include_interface_view`` set.
   // Optional
-  repeated InterfaceView interface_views = 11;
+  repeated InterfaceView interface_views = 7;
 
   // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
@@ -95,34 +92,24 @@ message CreatedEvent {
   //   an assignment or unassignment): this will include all parties of the
   //   ``TransactionFilter`` that are stakeholders of the contract.
   // Required
-  repeated string witness_parties = 5;
+  repeated string witness_parties = 8;
 
   // The signatories for this contract as specified by the template.
   // Required
-  repeated string signatories = 8;
+  repeated string signatories = 9;
 
   // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
   // This field never contains parties that are signatories.
   // Required
-  repeated string observers = 9;
-
-  // The agreement text of the contract.
-  // We use StringValue to properly reflect optionality on the wire for backwards compatibility.
-  // This is necessary since the empty string is an acceptable (and in fact the default) agreement
-  // text, but also the default string in protobuf.
-  // This means a newer client works with an older sandbox seamlessly.
-  // Optional
-  google.protobuf.StringValue agreement_text = 6;
-
-  reserved 10; // removed metadata
+  repeated string observers = 10;
 
   // Ledger effective time of the transaction that created the contract.
   // Required
-  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp created_at = 11;
 
   // The package name of the created contract.
   // Required
-  string package_name = 15;
+  string package_name = 12;
 }
 
 // View of a create event matched by an interface filter.

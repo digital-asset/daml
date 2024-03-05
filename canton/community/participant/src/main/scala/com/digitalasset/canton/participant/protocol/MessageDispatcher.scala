@@ -46,6 +46,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.traffic.TrafficControlProcessor
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -82,6 +83,7 @@ trait MessageDispatcher { this: NamedLogging =>
 
   protected def topologyProcessor
       : (SequencerCounter, SequencedTime, Traced[List[DefaultOpenEnvelope]]) => HandlerResult
+  protected def trafficProcessor: TrafficControlProcessor
   protected def acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType
   protected def requestCounterAllocator: RequestCounterAllocator
   protected def recordOrderPublisher: RecordOrderPublisher
@@ -150,18 +152,11 @@ trait MessageDispatcher { this: NamedLogging =>
     *     meet the precondition of [[com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor]]'s `processBatch`
     *     method.
     *   </li>
-    *   <li>A [[com.digitalasset.canton.protocol.messages.ConfirmationResult]] message should be sent only by the trusted mediator of the domain.
-    *     The mediator should never include further messages with a [[com.digitalasset.canton.protocol.messages.ConfirmationResult]].
-    *     So a participant accepts a [[com.digitalasset.canton.protocol.messages.ConfirmationResult]]
+    *   <li>A [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] message should be sent only by the trusted mediator of the domain.
+    *     The mediator should never include further messages with a [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]].
+    *     So a participant accepts a [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]]
     *     only if there are no other messages (except topology transactions and ACS commitments) in the batch.
-    *     Otherwise, the participant ignores the [[com.digitalasset.canton.protocol.messages.ConfirmationResult]] and raises an alarm.
-    *     <br/>
-    *     The same applies to a [[com.digitalasset.canton.protocol.messages.MalformedConfirmationRequestResult]] message
-    *     that is triggered by root hash messages.
-    *     The mediator uses the [[com.digitalasset.canton.data.ViewType]] from the [[com.digitalasset.canton.protocol.messages.RootHashMessage]],
-    *     which the participants also used to choose the processor for the request.
-    *     So it suffices to forward the [[com.digitalasset.canton.protocol.messages.MalformedConfirmationRequestResult]]
-    *     to the appropriate processor.
+    *     Otherwise, the participant ignores the [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] and raises an alarm.
     *   </li>
     *   <li>
     *     Request messages originate from untrusted participants.
@@ -186,7 +181,9 @@ trait MessageDispatcher { this: NamedLogging =>
       eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     val deliver = eventE.event.content
-    val Deliver(sc, ts, _, _, batch) = deliver
+    // TODO(#13883) Validate the topology timestamp
+    // TODO(#13883) Centralize the topology timestamp constraints in a single place so that they are well-documented
+    val Deliver(sc, ts, _, _, batch, topologyTimestampO) = deliver
 
     val envelopesWithCorrectDomainId = filterBatchForDomainId(batch, sc, ts)
 
@@ -204,6 +201,7 @@ trait MessageDispatcher { this: NamedLogging =>
         SequencedTime(ts),
         envelopesWithCorrectDomainId,
       )
+      trafficResult <- processTraffic(ts, topologyTimestampO, envelopesWithCorrectDomainId)
       acsCommitmentResult <- processAcsCommitmentEnvelope(envelopesWithCorrectDomainId, sc, ts)
       // Make room for the repair requests that have been inserted before the current timestamp.
       //
@@ -222,6 +220,7 @@ trait MessageDispatcher { this: NamedLogging =>
     } yield Foldable[List].fold(
       List(
         identityResult,
+        trafficResult,
         acsCommitmentResult,
         repairProcessorResult,
         transactionTransferResult,
@@ -237,6 +236,18 @@ trait MessageDispatcher { this: NamedLogging =>
     doProcess(
       TopologyTransaction,
       topologyProcessor(sc, ts, Traced(envelopes)),
+    )
+
+  protected def processTraffic(
+      ts: CantonTimestamp,
+      timestampOfSigningKeyO: Option[CantonTimestamp],
+      envelopes: List[DefaultOpenEnvelope],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ProcessingResult] =
+    doProcess(
+      TrafficControlTransaction,
+      trafficProcessor.processSetTrafficBalanceEnvelopes(ts, timestampOfSigningKeyO, envelopes),
     )
 
   private def processTransactionAndTransferMessages(
@@ -258,45 +269,28 @@ trait MessageDispatcher { this: NamedLogging =>
 
     // Extract the participant relevant messages from the batch. All other messages are ignored.
     val encryptedViews = envelopes.mapFilter(select[EncryptedViewMessage[ViewType]])
-    val regularMediatorResults =
-      envelopes.mapFilter(select[SignedProtocolMessage[RegularConfirmationResult]])
-    val MalformedMediatorConfirmationRequestResults =
-      envelopes.mapFilter(select[SignedProtocolMessage[MalformedConfirmationRequestResult]])
     val rootHashMessages =
       envelopes.mapFilter(select[RootHashMessage[SerializedRootHashMessagePayload]])
+    val confirmationResults =
+      envelopes.mapFilter(select[SignedProtocolMessage[ConfirmationResultMessage]])
 
     (
       encryptedViews,
       rootHashMessages,
-      regularMediatorResults,
-      MalformedMediatorConfirmationRequestResults,
+      confirmationResults,
     ) match {
       // Regular confirmation result
-      case (Seq(), Seq(), Seq(msg), Seq()) =>
+      case (Seq(), Seq(), Seq(msg)) =>
         val viewType = msg.protocolMessage.message.viewType
         val processor = tryProtocolProcessor(viewType)
 
         doProcess(ResultKind(viewType), processor.processResult(eventE))
 
-      // Confirmation result indicating a malformed confirmation request
-      case (Seq(), Seq(), Seq(), Seq(msg)) =>
-        val viewType = msg.protocolMessage.message.viewType
-        val processor = tryProtocolProcessor(viewType)
-
-        doProcess(
-          MalformedMediatorConfirmationRequestMessage,
-          processor.processMalformedMediatorConfirmationRequestResult(ts, sc, eventE),
-        )
-
       case _ =>
         // Alarm about invalid confirmation result messages
-        regularMediatorResults.groupBy(_.protocolMessage.message.viewType).foreach {
+        confirmationResults.groupBy(_.protocolMessage.message.viewType).foreach {
           case (viewType, messages) => alarmIfNonEmptySigned(ResultKind(viewType), messages)
         }
-        alarmIfNonEmptySigned(
-          MalformedMediatorConfirmationRequestMessage,
-          MalformedMediatorConfirmationRequestResults,
-        )
 
         val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
 
@@ -385,7 +379,7 @@ trait MessageDispatcher { this: NamedLogging =>
               ts,
               rootHash,
               mediator,
-              LocalRejectError.MalformedRejects.BadRootHashMessages.Reject(reason, protocolVersion),
+              LocalRejectError.MalformedRejects.BadRootHashMessages.Reject(reason),
             ),
           )
       }
@@ -599,7 +593,7 @@ trait MessageDispatcher { this: NamedLogging =>
       events: Seq[RawProtocolEvent]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     val receipts = events.mapFilter {
-      case Deliver(counter, timestamp, _domainId, messageIdO, batch) =>
+      case Deliver(counter, timestamp, _domainId, messageIdO, batch, _) =>
         // The event was submitted by the current participant iff the message ID is set.
         messageIdO.foreach(_ => recordEventDelivered())
         messageIdO.map(_ -> SequencedSubmission(counter, timestamp))
@@ -761,14 +755,14 @@ private[participant] object MessageDispatcher {
   }
 
   case object TopologyTransaction extends MessageKind[AsyncResult]
+  case object TrafficControlTransaction extends MessageKind[Unit]
   final case class RequestKind(viewType: ViewType) extends MessageKind[AsyncResult] {
-    override def pretty: Pretty[RequestKind] = prettyOfParam(unnamedParam(_.viewType))
+    override def pretty: Pretty[RequestKind] = prettyOfParam(_.viewType)
   }
   final case class ResultKind(viewType: ViewType) extends MessageKind[AsyncResult] {
-    override def pretty: Pretty[ResultKind] = prettyOfParam(unnamedParam(_.viewType))
+    override def pretty: Pretty[ResultKind] = prettyOfParam(_.viewType)
   }
   case object AcsCommitment extends MessageKind[Unit]
-  case object MalformedMediatorConfirmationRequestMessage extends MessageKind[AsyncResult]
   case object MalformedMessage extends MessageKind[Unit]
   case object UnspecifiedMessageKind extends MessageKind[Unit]
   case object CausalityMessageKind extends MessageKind[Unit]
@@ -800,6 +794,7 @@ private[participant] object MessageDispatcher {
             SequencedTime,
             Traced[List[DefaultOpenEnvelope]],
         ) => HandlerResult,
+        trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
@@ -820,6 +815,7 @@ private[participant] object MessageDispatcher {
         transferInProcessor: TransferInProcessor,
         registerTopologyTransactionResponseProcessor: EnvelopeHandler,
         topologyProcessor: TopologyTransactionProcessorCommon,
+        trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
@@ -860,6 +856,7 @@ private[participant] object MessageDispatcher {
         requestTracker,
         requestProcessors,
         identityProcessor,
+        trafficProcessor,
         acsCommitmentProcessor,
         requestCounterAllocator,
         recordOrderPublisher,
@@ -884,6 +881,7 @@ private[participant] object MessageDispatcher {
             SequencedTime,
             Traced[List[DefaultOpenEnvelope]],
         ) => HandlerResult,
+        trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
@@ -900,6 +898,7 @@ private[participant] object MessageDispatcher {
         requestTracker,
         requestProcessors,
         topologyProcessor,
+        trafficProcessor,
         acsCommitmentProcessor,
         requestCounterAllocator,
         recordOrderPublisher,

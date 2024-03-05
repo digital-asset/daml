@@ -260,7 +260,7 @@ class SendTracker(
       event: SequencedEvent[_]
   )(implicit traceContext: TraceContext): Option[(MessageId, SendResult)] = {
     Option(event) collect {
-      case deliver @ Deliver(_, _, _, Some(messageId), _) =>
+      case deliver @ Deliver(_, _, _, Some(messageId), _, _) =>
         logger.trace(s"Send [$messageId] was successful")
         (messageId, SendResult.Success(deliver))
 

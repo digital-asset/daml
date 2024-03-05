@@ -64,6 +64,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           domainId,
           Some(MessageId.tryCreate("deliver")),
           mkBatch(closedEnvelope),
+          None,
           testedProtocolVersion,
         ),
         sign("deliver signature"),
@@ -85,10 +86,11 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           domainId,
           Some(MessageId.tryCreate("single-max-positive-deliver")),
           mkBatch(closedEnvelope),
+          Some(CantonTimestamp.MaxValue),
           testedProtocolVersion,
         ),
         sign("single deliver signature"),
-        Some(CantonTimestamp.MaxValue),
+        None,
         testedProtocolVersion,
       ),
       nonEmptyTraceContext2,
@@ -103,10 +105,11 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           domainId,
           Some(MessageId.tryCreate("single-min-deliver")),
           mkBatch(closedEnvelope),
+          Some(CantonTimestamp.MinValue),
           testedProtocolVersion,
         ),
         sign("single deliver signature"),
-        Some(CantonTimestamp.MinValue),
+        None,
         testedProtocolVersion,
       ),
       nonEmptyTraceContext2,
@@ -121,6 +124,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           domainId,
           Some(MessageId.tryCreate("single-deliver")),
           mkBatch(closedEnvelope),
+          None,
           testedProtocolVersion,
         ),
         singleDeliver.signedEvent.signature,
@@ -152,6 +156,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           domainId,
           Some(MessageId.tryCreate("empty-deliver")),
           mkBatch(),
+          None,
           testedProtocolVersion,
         ),
         sign("Deliver signature"),
@@ -516,15 +521,15 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       val deliver1 =
         mkOrdinaryEvent(
           signDeliver(
-            Deliver
-              .create(
-                SequencerCounter(102),
-                CantonTimestamp.ofEpochSecond(2),
-                domainId,
-                Some(MessageId.tryCreate("deliver1")),
-                emptyBatch,
-                testedProtocolVersion,
-              )
+            Deliver.create(
+              SequencerCounter(102),
+              CantonTimestamp.ofEpochSecond(2),
+              domainId,
+              Some(MessageId.tryCreate("deliver1")),
+              emptyBatch,
+              None,
+              testedProtocolVersion,
+            )
           )
         )
       val deliver2 = mkOrdinaryEvent(
@@ -535,6 +540,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
             domainId,
             Some(MessageId.tryCreate("deliver2")),
             emptyBatch,
+            None,
             testedProtocolVersion,
           )
         )
@@ -587,6 +593,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
               domainId,
               Some(MessageId.tryCreate("deliver1")),
               emptyBatch,
+              None,
               testedProtocolVersion,
             )
           )
@@ -600,6 +607,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
               domainId,
               Some(MessageId.tryCreate("deliver2")),
               emptyBatch,
+              None,
               testedProtocolVersion,
             )
           )

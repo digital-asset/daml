@@ -8,8 +8,8 @@ import cats.implicits.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
-import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, TestHash}
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -59,7 +59,6 @@ import com.digitalasset.canton.{
   HasExecutorService,
   LedgerApplicationId,
   LedgerCommandId,
-  LedgerTransactionId,
   LfPackageId,
   LfPartyId,
   RequestCounter,
@@ -776,14 +775,15 @@ final class TransferOutProcessingStepsTest
       val state = mkState
       val contractHash = ExampleTransactionFactory.lfHash(0)
       val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
-      val rootHash = mock[RootHash]
-      when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
+      val rootHash = TestHash.dummyRootHash
       val transferResult =
-        TransferResult.create(
+        ConfirmationResultMessage.create(
+          sourceDomain.id,
+          TransferOutViewType,
           RequestId(CantonTimestamp.Epoch),
-          Set(),
-          sourceDomain,
+          Some(rootHash),
           Verdict.Approve(testedProtocolVersion),
+          Set(),
           testedProtocolVersion,
         )
 
@@ -800,8 +800,8 @@ final class TransferOutProcessingStepsTest
           cryptoSnapshot,
           testedProtocolVersion,
         )
-        deliver: Deliver[OpenEnvelope[SignedProtocolMessage[TransferOutResult]]] = {
-          val batch: Batch[OpenEnvelope[SignedProtocolMessage[TransferOutResult]]] =
+        deliver: Deliver[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] = {
+          val batch: Batch[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
             Batch.of(testedProtocolVersion, (signedResult, Recipients.cc(submittingParticipant)))
           Deliver.create(
             SequencerCounter(0),
@@ -809,6 +809,7 @@ final class TransferOutProcessingStepsTest
             sourceDomain.unwrap,
             Some(MessageId.tryCreate("msg-0")),
             batch,
+            None,
             testedProtocolVersion,
           )
         }
@@ -843,7 +844,7 @@ final class TransferOutProcessingStepsTest
           outProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(signedContent),
-              Right(transferResult),
+              transferResult,
               pendingOut,
               state.pendingTransferOutSubmissions,
               crypto.pureCrypto,

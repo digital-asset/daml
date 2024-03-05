@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
@@ -100,10 +99,10 @@ package object sequencing {
     */
   type RawProtocolEvent = BoxedEnvelope[SequencedEvent, DefaultOpenEnvelope]
 
-  /** Deserialized event with a trace context and the sequencer's timestamp of signing key for the event
+  /** Deserialized event with a trace context.
     * Use this when you are really sure that a signature will never be needed.
     */
-  type TracedProtocolEvent = Traced[(RawProtocolEvent, Option[CantonTimestamp])]
+  type TracedProtocolEvent = Traced[RawProtocolEvent]
 
   //////////////////////////////
   // Non-standard event handlers

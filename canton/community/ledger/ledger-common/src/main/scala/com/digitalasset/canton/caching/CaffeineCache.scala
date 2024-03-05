@@ -4,8 +4,8 @@
 package com.digitalasset.canton.caching
 
 import com.daml.metrics.CacheMetrics
-import com.github.benmanes.caffeine.cache.AsyncCacheLoader
-import com.github.benmanes.caffeine.{cache as caffeine}
+import com.github.benmanes.caffeine.cache.{AsyncCacheLoader, AsyncLoadingCache}
+import com.github.benmanes.caffeine.cache as caffeine
 
 import java.util.concurrent.{CompletableFuture, Executor}
 import scala.concurrent.{ExecutionContext, Future}
@@ -55,6 +55,8 @@ object CaffeineCache {
     def invalidate(key: Key): Unit = cache.synchronous().invalidate(key)
 
     def invalidateAll(): Unit = cache.synchronous().invalidateAll()
+
+    val underlying: AsyncLoadingCache[Key, Value] = cache
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](

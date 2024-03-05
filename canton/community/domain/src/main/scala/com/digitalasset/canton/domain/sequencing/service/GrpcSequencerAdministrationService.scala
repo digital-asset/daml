@@ -15,6 +15,7 @@ import com.digitalasset.canton.domain.admin.v30.{
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -54,7 +55,7 @@ class GrpcSequencerAdministrationService(
 
     val members = request.members.flatMap(deserializeMember)
 
-    sequencer
+    val response = sequencer
       .trafficStatus(members)
       .map {
         _.members.map(_.toProtoV30)
@@ -62,6 +63,8 @@ class GrpcSequencerAdministrationService(
       .map(
         v30.TrafficControlStateResponse(_)
       )
+
+    CantonGrpcUtil.mapErrNewEUS(EitherT.liftF(response))
   }
 
   override def snapshot(request: v30.SnapshotRequest): Future[v30.SnapshotResponse] = {
@@ -70,7 +73,7 @@ class GrpcSequencerAdministrationService(
       timestamp <- EitherT
         .fromEither[Future](
           ProtoConverter
-            .parseRequired(CantonTimestamp.fromProtoPrimitive, "timestamp", request.timestamp)
+            .parseRequired(CantonTimestamp.fromProtoTimestamp, "timestamp", request.timestamp)
         )
         .leftMap(_.toString)
       result <- sequencer.snapshot(timestamp)
@@ -118,7 +121,7 @@ class GrpcSequencerAdministrationService(
     val result = {
       for {
         member <- wrapErrUS(Member.fromProtoPrimitive(requestP.member, "member"))
-        serial <- wrapErrUS(ProtoConverter.parseNonNegativeLong(requestP.serial))
+        serial <- wrapErrUS(ProtoConverter.parsePositiveInt(requestP.serial))
         totalTrafficBalance <- wrapErrUS(
           ProtoConverter.parseNonNegativeLong(requestP.totalTrafficBalance)
         )
@@ -126,7 +129,7 @@ class GrpcSequencerAdministrationService(
           .setTrafficBalance(member, serial, totalTrafficBalance, sequencerClient)
           .leftWiden[CantonError]
       } yield SetTrafficBalanceResponse(
-        maxSequencingTimestamp = Some(highestMaxSequencingTimestamp.toProtoPrimitive)
+        maxSequencingTimestamp = Some(highestMaxSequencingTimestamp.toProtoTimestamp)
       )
     }
 

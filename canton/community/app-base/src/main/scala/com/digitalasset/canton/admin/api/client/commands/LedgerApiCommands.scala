@@ -43,7 +43,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   User,
   UserManagementServiceGrpc,
 }
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.digitalasset.canton.LfPartyId
@@ -285,7 +285,7 @@ object LedgerApiCommands {
 
     }
 
-    final case class Prune(pruneUpTo: LedgerOffset)
+    final case class Prune(pruneUpTo: ParticipantOffset)
         extends BaseCommand[PruneRequest, PruneResponse, Unit] {
 
       override def timeoutType: TimeoutType =
@@ -787,8 +787,8 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, GetMeteringReportRequest] =
         Right(
           GetMeteringReportRequest(
-            from = Some(from.toProtoPrimitive),
-            to = to.map(_.toProtoPrimitive),
+            from = Some(from.toProtoTimestamp),
+            to = to.map(_.toProtoTimestamp),
             applicationId = applicationId.getOrElse(""),
           )
         )
@@ -823,7 +823,7 @@ object LedgerApiCommands {
         service.getTime(request).map {
           _.currentTime
             .toRight("Empty timestamp received from ledger Api server")
-            .flatMap(CantonTimestamp.fromProtoPrimitive(_).leftMap(_.message))
+            .flatMap(CantonTimestamp.fromProtoTimestamp(_).leftMap(_.message))
         }
 
       /** Create the request from configured options
@@ -850,8 +850,8 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, SetTimeRequest] =
         Right(
           SetTimeRequest(
-            currentTime = Some(currentTime.toProtoPrimitive),
-            newTime = Some(newTime.toProtoPrimitive),
+            currentTime = Some(currentTime.toProtoTimestamp),
+            newTime = Some(newTime.toProtoTimestamp),
           )
         )
 

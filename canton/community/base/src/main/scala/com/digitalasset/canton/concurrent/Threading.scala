@@ -129,7 +129,6 @@ object Threading {
   /** Yields an `ExecutionContext` like `scala.concurrent.ExecutionContext.global`,
     * except that it has its own thread pool.
     *
-    * @param maybeMetrics whether to capture execution context metrics (don't do this for performance sensitive stuff)
     * @param exitOnFatal terminate the JVM on fatal errors. Enable this in production to prevent data corruption by
     *                    termination of specific threads.
     */

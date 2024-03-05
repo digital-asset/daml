@@ -88,6 +88,17 @@ fi
 
 # Copy the binary, patch it, and create a wrapper script if necessary.
 if [ "$(uname -s)" == "Linux" ]; then
+  case $(uname -m) in
+    x86_64)
+      ld_name=ld-linux-x86-64.so.2
+      ;;
+    aarch64)
+      ld_name=ld-linux-aarch64.so.1
+      ;;
+    *)
+      exit 1
+      ;;
+  esac
   binary="$WORKDIR/$NAME/lib/$NAME"
   cp $SRC $binary
   chmod u+w $binary
@@ -108,7 +119,7 @@ if [ "$(uname -s)" == "Linux" ]; then
             libOK=1
             cp "$rpath/$lib" "$target/$lib"
             chmod u+w "$target/$lib"
-            if [ "$lib" != "ld-linux-x86-64.so.2" ]; then
+            if [ "$lib" != "$ld_name" ]; then
               # clear the old rpaths (silence stderr as it always warns
               # with "working around a Linux kernel bug".
               $patchelf --set-rpath '$ORIGIN' "$target/$lib" 2> /dev/null
@@ -156,7 +167,7 @@ if [ -z "\${LOCALE_ARCHIVE}" -a -f "/usr/lib/locale/locale-archive" ]; then
   export LOCALE_ARCHIVE="/usr/lib/locale/locale-archive"
 fi
 # Execute the wrapped application through the provided dynamic linker
-exec \$LIB_DIR/ld-linux-x86-64.so.2 --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
+exec \$LIB_DIR/$ld_name --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF
   chmod a+x "$wrapper"
 elif [[ "$(uname -s)" == "Darwin" ]]; then

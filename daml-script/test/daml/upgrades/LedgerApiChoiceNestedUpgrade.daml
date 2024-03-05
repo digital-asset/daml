@@ -1,0 +1,131 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module LedgerApiChoiceNestedUpgrade (main) where
+
+import UpgradeTestLib
+import qualified V1.UpgradedChoiceNested as V1
+import qualified V2.UpgradedChoiceNested as V2
+
+{- PACKAGE
+name: ledger-api-choice-nested-upgrades
+versions: 2
+-}
+
+{- MODULE
+package: ledger-api-choice-nested-upgrades
+contents: |
+  module UpgradedChoiceNested where
+
+  data UpgradedChoiceReturn = UpgradedChoiceReturn with
+      someData : Text
+      someOtherData : Optional Text                                      -- @V  2
+    deriving (Eq, Show)
+
+  data UpgradedChoiceReturnWrapper = UpgradedChoiceReturnWrapper with
+      unwrap : UpgradedChoiceReturn
+    deriving (Eq, Show)
+
+  data UpgradedChoiceData = UpgradedChoiceData with
+      firstArg : Text
+      secondArg : Optional Text                                          -- @V  2
+    deriving (Eq, Show)
+
+  template UpgradedChoiceNestedTemplate
+    with
+      party : Party
+      newField : Optional Text                                           -- @V  2
+    where
+      signatory party
+
+      choice UpgradedChoiceNested : UpgradedChoiceReturnWrapper with
+          choiceData : UpgradedChoiceData
+        controller party
+        do
+          pure $ UpgradedChoiceReturnWrapper $ UpgradedChoiceReturn
+            (choiceData.firstArg <> ":V1")                               -- @V 1
+            (choiceData.firstArg <> ":V2:" <> show choiceData.secondArg) -- @V  2
+            choiceData.secondArg                                         -- @V  2
+-}
+
+main : Script ()
+main = tests
+  [ ("Explicitly call a V1 choice on a V1 contract over the ledger-api, expect V1 implementation used. (Nested)", explicitV1ChoiceV1ContractNested)
+  , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", explicitV2ChoiceV1ContractNested)
+  , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type. (Nested)", inferredV1ChoiceV1ContractNested)
+  , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", inferredV2ChoiceV1ContractNested)
+  , broken ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
+  , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded. (Nested)", explicitV1ChoiceV2ContractNested)
+  , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used. (Nested)", explicitV2ChoiceV2ContractNested)
+  ]
+
+choiceTest
+  : forall t2 t1 c2 r
+  . (Template t1, HasEnsure t1, Choice t2 c2 r, Eq r, Show r)
+  => (Party -> t1)
+  -> c2
+  -> Bool
+  -> r
+  -> Script ()
+choiceTest makeV1Contract v2Choice explicitPackageIds expectedResult = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd (makeV1Contract a)
+  let cidV2 = coerceContractId @t1 @t2 cid
+  res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
+  case res of
+    Right returnValue -> returnValue === expectedResult
+    Left err -> assertFail $ "Expected " <> show expectedResult <> " but got " <> show err
+
+
+-- Convenience wrappers for the nested varients of these tests
+v1ChoiceNested : Text -> V1.UpgradedChoiceNested
+v1ChoiceNested = V1.UpgradedChoiceNested . V1.UpgradedChoiceData
+
+v1ChoiceReturnNested : Text -> V1.UpgradedChoiceReturnWrapper
+v1ChoiceReturnNested = V1.UpgradedChoiceReturnWrapper . V1.UpgradedChoiceReturn
+
+v2ChoiceNested : Text -> Optional Text -> V2.UpgradedChoiceNested
+v2ChoiceNested t = V2.UpgradedChoiceNested . V2.UpgradedChoiceData t
+
+v2ChoiceReturnNested : Text -> Optional Text -> V2.UpgradedChoiceReturnWrapper
+v2ChoiceReturnNested t = V2.UpgradedChoiceReturnWrapper . V2.UpgradedChoiceReturn t
+
+explicitV1ChoiceV1ContractNested : Script ()
+explicitV1ChoiceV1ContractNested =
+  choiceTest @V1.UpgradedChoiceNestedTemplate V1.UpgradedChoiceNestedTemplate (v1ChoiceNested "v1 to v1") True (v1ChoiceReturnNested "v1 to v1:V1")
+
+explicitV2ChoiceV1ContractNested : Script ()
+explicitV2ChoiceV1ContractNested =
+  choiceTest @V2.UpgradedChoiceNestedTemplate V1.UpgradedChoiceNestedTemplate (v2ChoiceNested "v2 to v1" $ Some "extra") True (v2ChoiceReturnNested "v2 to v1:V2:Some \"extra\"" $ Some "extra")
+
+-- When inferring, the V1 contract and choice argument is upgraded, and the return type is downgraded directly by daml script.
+-- As such, we get the v2 implementation called, with the additional field set to None (as shown in the choice return)
+-- and since the extra data in the return will also be none, the downgrade can succeed.
+inferredV1ChoiceV1ContractNested : Script ()
+inferredV1ChoiceV1ContractNested =
+  choiceTest @V1.UpgradedChoiceNestedTemplate V1.UpgradedChoiceNestedTemplate (v1ChoiceNested "v1 to v1") False (v1ChoiceReturnNested "v1 to v1:V2:None")
+
+inferredV2ChoiceV1ContractNested : Script ()
+inferredV2ChoiceV1ContractNested =
+  choiceTest @V2.UpgradedChoiceNestedTemplate V1.UpgradedChoiceNestedTemplate (v2ChoiceNested "v2 to v1" $ Some "extra") False (v2ChoiceReturnNested "v2 to v1:V2:Some \"extra\"" $ Some "extra")
+
+-- If v2 isn't vetted, then omitting a package id and giving v1 arguments should use the v1 implementation
+-- TODO: This test fails for several reason:
+--   first it tries to use v2 even through its unvetted <- this is not correct behaviour
+--   second it doesn't hit a NO_DOMAIN_FOR_SUBMISSION error before attempting to directly upgrade the data type <- this is also not correct behaviour
+--   lastly, it hits the same error as inferredV1ChoiceV1Contract, which is that choice argument upgrading isn't supported
+inferredV1ChoiceV1ContractWithoutV2Nested : Script ()
+inferredV1ChoiceV1ContractWithoutV2Nested =
+  withUnvettedDar "ledger-api-choice-nested-upgrades-2.0.0" $
+    choiceTest @V1.UpgradedChoiceNestedTemplate V1.UpgradedChoiceNestedTemplate (v1ChoiceNested "v1 to v1") False (v1ChoiceReturnNested "v1 to v1:V1")
+
+explicitV1ChoiceV2ContractNested : Script ()
+explicitV1ChoiceV2ContractNested =
+  choiceTest @V1.UpgradedChoiceNestedTemplate (`V2.UpgradedChoiceNestedTemplate` None) (v1ChoiceNested "v1 to v2") True (v1ChoiceReturnNested "v1 to v2:V1")
+
+explicitV2ChoiceV2ContractNested : Script ()
+explicitV2ChoiceV2ContractNested =
+  choiceTest @V2.UpgradedChoiceNestedTemplate (`V2.UpgradedChoiceNestedTemplate` Some "text") (v2ChoiceNested "v2 to v2" $ Some "extra") True (v2ChoiceReturnNested "v2 to v2:V2:Some \"extra\"" $ Some "extra")
+

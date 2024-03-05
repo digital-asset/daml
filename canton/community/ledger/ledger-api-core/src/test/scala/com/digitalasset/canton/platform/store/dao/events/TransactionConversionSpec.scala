@@ -27,7 +27,6 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
             witnessParties = Seq.empty,
             signatories = Seq.empty,
             observers = Seq.empty,
-            agreementText = None,
           )
         )
       )

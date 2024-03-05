@@ -252,11 +252,13 @@ object Generators {
     }
 
   val eventIdGen: Gen[String] = Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
+  val packageNameGen: Gen[String] = Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
 
   val createdEventGen: Gen[v1.EventOuterClass.CreatedEvent] =
     for {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
+      packageName <- packageNameGen
       createArgument <- recordGen
       createEventBlob <- byteStringGen
       interfaceViews <- Gen.listOf(interfaceViewGen)
@@ -268,6 +270,7 @@ object Generators {
       .newBuilder()
       .setContractId(contractId)
       .setTemplateId(templateId)
+      .setPackageName(packageName)
       .setCreateArguments(createArgument)
       .setCreatedEventBlob(createEventBlob)
       .addAllInterfaceViews(interfaceViews.asJava)

@@ -118,7 +118,6 @@ private[backend] object AppendOnlySchema {
         "create_observers" -> fieldStrategy.intArray(stringInterning =>
           _.create_observers.map(stringInterning.party.unsafe.internalize)
         ),
-        "create_agreement_text" -> fieldStrategy.stringOptional(_ => _.create_agreement_text),
         "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
         "create_key_maintainers" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.create_key_maintainers.map(_.map(stringInterning.party.unsafe.internalize))
@@ -252,7 +251,6 @@ private[backend] object AppendOnlySchema {
         "create_observers" -> fieldStrategy.intArray(stringInterning =>
           _.create_observers.map(stringInterning.party.unsafe.internalize)
         ),
-        "create_agreement_text" -> fieldStrategy.stringOptional(_ => _.create_agreement_text),
         "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
         "create_key_maintainers" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.create_key_maintainers.map(_.map(stringInterning.party.unsafe.internalize))

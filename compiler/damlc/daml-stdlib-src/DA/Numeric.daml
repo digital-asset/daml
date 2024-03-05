@@ -1,11 +1,26 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 
-module DA.Numeric where
+module DA.Numeric
+ ( mul
+ , div
+ , cast
+ , castAndRound
+ , shift
+ , pi
+ , RoundingMode(..)
+ , roundNumeric
+) where
 
 import GHC.Types (primitive)
+import qualified DA.Map as M
+import qualified DA.Optional as O
+#ifdef DAML_BIGNUMERIC
+import Prelude hiding (RoundingMode(..))
+#endif
 
 -- | Multiply two numerics. Both inputs and the output may have
 -- different scales, unlike `(*)` which forces all numeric scales
@@ -38,3 +53,170 @@ shift = primitive @"BEShiftNumeric" (numericOne @n2)
 -- | The number pi.
 pi : forall n. NumericScale n => Numeric n
 pi = castAndRound (3.14159_26535_89793_23846_26433_83279_50288_41 : Numeric 37)
+
+zero37 : Numeric 37
+zero37 = 0.0
+
+one0 : Numeric 0
+one0 = 1.0
+
+delta37 : Numeric 37
+delta37 = shift one0
+
+roundHalfEven : forall n. NumericScale n => Numeric 37 -> Numeric n
+roundHalfEven x = castAndRound @n x
+
+roundCeiling : NumericScale n => Numeric 37 -> Numeric n
+roundCeiling x =
+   if (x <= cast r) then
+    r
+  else
+    r + shift one0
+  where
+    r = roundHalfEven x
+
+roundFloor : NumericScale n => Numeric 37 -> Numeric n
+roundFloor x =
+    if (cast r <= x) then
+      r
+    else
+      r - shift one0
+    where
+      r = roundHalfEven x
+
+roundUp : NumericScale n => Numeric 37 -> Numeric n
+roundUp x =
+    if (zero37 <= x) then
+      roundCeiling x
+    else
+      roundFloor x
+
+roundDown : NumericScale n => Numeric 37 -> Numeric n
+roundDown x =
+    if (zero37 <= x) then
+      roundFloor x
+    else
+      roundCeiling x
+
+roundHalfCeiling : NumericScale n => Numeric 37 -> Numeric n
+roundHalfCeiling x =
+    if (x <= cast r) then
+      r
+    else
+      roundHalfEven (x + delta37)
+    where
+      r = roundHalfEven x
+
+roundHalfFloor : NumericScale n => Numeric 37 -> Numeric n
+roundHalfFloor x =
+    if (cast r <= x) then
+      r
+    else
+      roundHalfEven (x - delta37)
+    where
+      r = roundHalfEven x
+
+roundHalfUp : NumericScale n => Numeric 37 -> Numeric n
+roundHalfUp x =
+    if (zero37 <= x) then
+     roundHalfCeiling x
+    else
+      roundHalfFloor x
+
+roundHalfDown : NumericScale n => Numeric 37 -> Numeric n
+roundHalfDown x =
+  if (zero37 <= x) then
+    roundHalfFloor x
+  else
+    roundHalfCeiling x
+
+roundUnnecessary : NumericScale n => Numeric 37 -> Numeric n
+roundUnnecessary = cast
+
+-- | Rounding modes.
+data RoundingMode
+  = RoundingUp -- ^ Round away from zero37.
+  | RoundingDown -- ^ Round towards zero37.
+  | RoundingCeiling -- ^ Round towards positive infinity.
+  | RoundingFloor -- ^ Round towards negative infinity.
+  | RoundingHalfUp
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round away from zero37.
+  | RoundingHalfDown
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards zero37.
+  | RoundingHalfEven
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards the even neighbor.
+  | RoundingUnnecessary
+      -- ^ Do not round. Raises an error if the result cannot
+      -- be represented without rounding at the targeted scale.
+
+round' : forall n. NumericScale n => RoundingMode -> Numeric 37 -> Numeric 37
+round' RoundingUp x = cast $ roundUp @n x
+round' RoundingDown x = cast $ roundDown @n x
+round' RoundingCeiling x = cast $ roundCeiling @n x
+round' RoundingFloor x = cast $ roundFloor @n x
+round' RoundingHalfUp x = cast $ roundHalfUp @n x
+round' RoundingHalfDown x = cast $ roundHalfDown @n x
+round' RoundingHalfEven x = cast $ roundHalfEven @n x
+round' RoundingUnnecessary x = cast $ roundUnnecessary @n x
+
+roundMapEntry: forall n. NumericScale n => (Int, RoundingMode -> Numeric 37 -> Numeric 37)
+roundMapEntry = (numericScale @n, round' @n)
+
+roundMap : M.Map  Int (RoundingMode -> Numeric 37 -> Numeric 37)
+roundMap = M.fromList
+    [ roundMapEntry @0
+    , roundMapEntry @1
+    , roundMapEntry @2
+    , roundMapEntry @3
+    , roundMapEntry @4
+    , roundMapEntry @5
+    , roundMapEntry @6
+    , roundMapEntry @7
+    , roundMapEntry @8
+    , roundMapEntry @9
+    , roundMapEntry @10
+    , roundMapEntry @11
+    , roundMapEntry @12
+    , roundMapEntry @13
+    , roundMapEntry @14
+    , roundMapEntry @15
+    , roundMapEntry @16
+    , roundMapEntry @17
+    , roundMapEntry @18
+    , roundMapEntry @19
+    , roundMapEntry @20
+    , roundMapEntry @21
+    , roundMapEntry @22
+    , roundMapEntry @23
+    , roundMapEntry @24
+    , roundMapEntry @25
+    , roundMapEntry @26
+    , roundMapEntry @27
+    , roundMapEntry @28
+    , roundMapEntry @29
+    , roundMapEntry @30
+    , roundMapEntry @31
+    , roundMapEntry @32
+    , roundMapEntry @33
+    , roundMapEntry @34
+    , roundMapEntry @35
+    , roundMapEntry @36
+    , (37, const identity)
+    ]
+  where
+
+-- | Round a `Numeric` number. The value of `round n r a` is the value
+-- of `a` rounded to `n` decimal places (i.e. scale), according to the rounding
+-- mode `r`.
+--
+-- This will fail when using the `RoundingUnnecessary` mode for a number that cannot
+-- be represented exactly with at most `n` decimal places.
+roundNumeric: forall n. NumericScale n => Int -> RoundingMode -> Numeric n -> Numeric n
+roundNumeric i m x =
+    shift $ (O.fromSome $ M.lookup (37 - scale + i) roundMap) m (shift x)
+  where 
+    scale = numericScale @n
+      

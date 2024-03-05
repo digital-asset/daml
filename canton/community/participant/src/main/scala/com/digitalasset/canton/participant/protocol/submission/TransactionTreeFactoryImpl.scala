@@ -55,7 +55,7 @@ abstract class TransactionTreeFactoryImpl(
     with NamedLogging {
 
   private val unicumGenerator = new UnicumGenerator(cryptoOps)
-  private val cantonContractIdVersion = AuthenticatedContractIdVersionV2
+  private val cantonContractIdVersion = AuthenticatedContractIdVersionV10
   private val transactionViewDecompositionFactory: TransactionViewDecompositionFactory =
     TransactionViewDecompositionFactory()
   private val contractEnrichmentFactory = ContractEnrichmentFactory()

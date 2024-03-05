@@ -20,7 +20,7 @@ trait DbRegisteredDomainsStoreTest
 
   override def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*
-    storage.update(sqlu"truncate table participant_domains", functionFullName)
+    storage.update(sqlu"truncate table par_domains", functionFullName)
   }
 
   "DbRegisteredDomainsStore" should {

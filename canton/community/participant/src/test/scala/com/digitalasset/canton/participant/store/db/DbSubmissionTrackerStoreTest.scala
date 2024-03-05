@@ -18,8 +18,8 @@ trait DbSubmissionTrackerStoreTest extends SubmissionTrackerStoreTest {
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table fresh_submitted_transaction",
-        sqlu"truncate table fresh_submitted_transaction_pruning",
+        sqlu"truncate table par_fresh_submitted_transaction",
+        sqlu"truncate table par_fresh_submitted_transaction_pruning",
       ),
       "clean-up SubmissionTrackerStore tables for test",
     )

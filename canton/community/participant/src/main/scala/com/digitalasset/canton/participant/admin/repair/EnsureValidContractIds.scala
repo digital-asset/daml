@@ -34,6 +34,11 @@ sealed abstract class EnsureValidContractIds(
       tc: TraceContext,
   ): EitherT[Future, String, (Seq[ActiveContract], Map[LfContractId, LfContractId])]
 
+  /*
+    In the context of a migration combining ACS import and domain change (such as the one we perform
+    as part a major upgrade for early mainnet), the `contract.protocolVersion` and the protocol
+    version of the domain will be different. Hence, we need to query it using the getter.
+   */
   protected def getExpectedContractIdVersion(
       contract: ActiveContract
   )(implicit tc: TraceContext): Either[String, CantonContractIdVersion] =

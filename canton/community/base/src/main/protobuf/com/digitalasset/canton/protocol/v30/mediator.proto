@@ -9,24 +9,10 @@ import "com/digitalasset/canton/protocol/v30/common.proto";
 import "com/digitalasset/canton/protocol/v30/confirmation_response.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 import "scalapb/scalapb.proto";
 
 // Messages related to the transaction or transfer protocol sent by a mediator
-
-message MediatorRejection {
-  enum Code {
-    CODE_UNSPECIFIED = 0;
-    CODE_INFORMEES_NOT_HOSTED_ON_ACTIVE_PARTICIPANT = 1;
-    CODE_NOT_ENOUGH_CONFIRMING_PARTIES = 2;
-    CODE_VIEW_THRESHOLD_BELOW_MINIMUM_THRESHOLD = 3;
-    CODE_VIEW_INVALID_ROOT_HASH_MESSAGE = 4;
-    CODE_TIMEOUT = 5;
-    CODE_WRONG_DECLARED_MEDIATOR = 6;
-    CODE_NON_UNIQUE_REQUEST_UUID = 7;
-  }
-}
 
 message InformeeTree {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
@@ -40,20 +26,12 @@ message ParticipantReject {
 
 message RejectionReason {
   repeated string parties = 1;
-  com.digitalasset.canton.protocol.v30.LocalReject reject = 2;
+  com.digitalasset.canton.protocol.v30.LocalVerdict reject = 2;
 }
 
 message MediatorReject {
   google.rpc.Status reason = 1; // Must not be OK
-}
-
-message MalformedMediatorConfirmationRequestResult {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
-  google.protobuf.Timestamp request_id = 1;
-  string domain_id = 2;
-  com.digitalasset.canton.protocol.v30.ViewType view_type = 3;
-  MediatorReject rejection = 4;
+  bool is_malformed = 2; // True if the request has been recognized as malformed.
 }
 
 message Verdict {
@@ -66,23 +44,14 @@ message Verdict {
   }
 }
 
-message TransactionResultMessage {
+// This covers transactions and transfers
+message ConfirmationResultMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
-  google.protobuf.Timestamp request_id = 1;
-  Verdict verdict = 2;
-  bytes root_hash = 3;
-  string domain_id = 4;
-}
-
-message TransferResult {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
-  google.protobuf.Timestamp request_id = 1;
-  oneof domain {
-    string source_domain = 2; // result for transfer-out request
-    string target_domain = 3; // result for transfer-in request
-  }
-  repeated string informees = 4;
+  string domain_id = 1;
+  com.digitalasset.canton.protocol.v30.ViewType view_type = 2;
+  int64 request_id = 3;
+  bytes root_hash = 4;
   Verdict verdict = 5;
+  repeated string informees = 6; // empty for transactions
 }

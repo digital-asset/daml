@@ -863,7 +863,7 @@ object LedgerApiV2Commands {
       ): Either[String, CantonTimestamp] =
         for {
           prototTimestamp <- response.currentTime.map(Right(_)).getOrElse(Left("currentTime empty"))
-          result <- CantonTimestamp.fromProtoPrimitive(prototTimestamp).left.map(_.message)
+          result <- CantonTimestamp.fromProtoTimestamp(prototTimestamp).left.map(_.message)
         } yield result
     }
 
@@ -880,8 +880,8 @@ object LedgerApiV2Commands {
       override def createRequest(): Either[String, SetTimeRequest] =
         Right(
           SetTimeRequest(
-            currentTime = Some(currentTime.toProtoPrimitive),
-            newTime = Some(newTime.toProtoPrimitive),
+            currentTime = Some(currentTime.toProtoTimestamp),
+            newTime = Some(newTime.toProtoTimestamp),
           )
         )
 

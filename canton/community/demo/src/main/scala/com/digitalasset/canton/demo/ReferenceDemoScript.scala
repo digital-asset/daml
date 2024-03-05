@@ -19,7 +19,6 @@ import com.digitalasset.canton.demo.model.ai.java as ME
 import com.digitalasset.canton.demo.model.doctor.java as M
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
-import com.digitalasset.canton.platform.apiserver.services.ApiConversions
 import com.digitalasset.canton.protocol.DynamicDomainParameters
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -472,7 +471,7 @@ class ReferenceDemoScript(
                 // give the ACS commitment processor some time to catchup
                 Threading.sleep(5.seconds.toMillis)
                 logger.info(s"Pruning ledger up to offset $offset inclusively")
-                participant5.pruning.prune(ApiConversions.toV1(offset))
+                participant5.pruning.prune(offset)
                 logger.info(s"Pruned ledger up to offset $offset inclusively.")
                 offset
               }

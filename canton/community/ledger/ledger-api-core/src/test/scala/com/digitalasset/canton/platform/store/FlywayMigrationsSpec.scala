@@ -50,16 +50,20 @@ object FlywayMigrationsSpec {
     val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
     resources.size should be >= minMigrationCount
 
-    resources.foreach { res =>
-      val fileName = res.getFilename
-      val expectedDigest =
-        getExpectedDigest(fileName, fileName.dropRight(4) + ".sha256", resourceScanner)
-      val currentDigest = getCurrentDigest(res, config.getEncoding)
+    resources.collect {
+      case res
+          if !res.getFilename.contains(
+            "V1_1__initial"
+          ) => // TODO(#16458) Remove exception for V1_1__initial.sql
+        val fileName = res.getFilename
+        val expectedDigest =
+          getExpectedDigest(fileName, fileName.dropRight(4) + ".sha256", resourceScanner)
+        val currentDigest = getCurrentDigest(res, config.getEncoding)
 
-      assert(
-        currentDigest == expectedDigest,
-        s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!",
-      )
+        assert(
+          currentDigest == expectedDigest,
+          s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!",
+        )
     }
   }
 

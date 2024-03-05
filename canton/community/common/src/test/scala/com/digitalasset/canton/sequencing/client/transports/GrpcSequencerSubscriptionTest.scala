@@ -15,7 +15,6 @@ import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
-import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Context.CancellableContext
 import io.grpc.Status.Code.*
 import io.grpc.{Context, Status, StatusRuntimeException}
@@ -36,7 +35,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
           Some(
             v30
               .SequencedEvent(
-                timestamp = Some(Timestamp()),
+                timestamp = 0,
                 batch = Some(
                   v30.CompressedBatch(
                     algorithm =
@@ -60,6 +59,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
                 counter = 0L,
                 messageId = None,
                 deliverErrorReason = None,
+                topologyTimestamp = None,
               )
               .toByteString
           ),

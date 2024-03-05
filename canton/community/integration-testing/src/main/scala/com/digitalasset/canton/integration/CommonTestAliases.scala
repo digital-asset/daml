@@ -39,6 +39,8 @@ trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   lazy val mediator2: LocalMediatorReference = lm("mediator2")
   lazy val mediator3: LocalMediatorReference = lm("mediator3")
   lazy val mediator4: LocalMediatorReference = lm("mediator4")
+  lazy val mediator5: LocalMediatorReference = lm("mediator5")
+  lazy val mediator6: LocalMediatorReference = lm("mediator6")
 
   // Remote
   lazy val remoteSequencer1: RemoteSequencerNodeReference = rs("sequencer1")

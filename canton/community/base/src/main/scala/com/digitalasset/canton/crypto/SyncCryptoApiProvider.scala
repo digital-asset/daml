@@ -14,6 +14,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CacheConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SignatureCheckError.{
   SignatureWithWrongKey,
@@ -558,29 +559,44 @@ class DomainSnapshotSyncCryptoApi(
     } yield res
   }
 
-  override def verifySignatures(
+  override def verifyMediatorSignatures(
       hash: Hash,
       mediatorGroupIndex: MediatorGroupIndex,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
     for {
       mediatorGroup <- EitherT(
         ipsSnapshot.mediatorGroups().map { groups =>
           groups
             .find(_.index == mediatorGroupIndex)
             .toRight(
-              SignatureCheckError.GeneralError(
-                new RuntimeException(
-                  s"Mediator confirmation request for unknown mediator group with index $mediatorGroupIndex"
-                )
+              SignatureCheckError.MemberGroupDoesNotExist(
+                s"Unknown mediator group with index $mediatorGroupIndex"
               )
             )
         }
       )
+      _ <- verifyGroupSignatures(
+        hash,
+        mediatorGroup.active,
+        mediatorGroup.threshold,
+        mediatorGroup.toString,
+        signatures,
+      )
+    } yield ()
+
+  private def verifyGroupSignatures(
+      hash: Hash,
+      members: NonEmpty[Seq[Member]],
+      threshold: PositiveInt,
+      groupName: String,
+      signatures: NonEmpty[Seq[Signature]],
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+    for {
       validKeysWithMember <-
         EitherT.right(
           ipsSnapshot
-            .signingKeys(mediatorGroup.active)
+            .signingKeys(members)
             .map(memberToKeysMap =>
               memberToKeysMap.flatMap { case (mediatorId, keys) =>
                 keys.map(key => (key.id, (mediatorId, key)))
@@ -596,7 +612,7 @@ class DomainSnapshotSyncCryptoApi(
               hash,
               validKeys,
               signature,
-              mediatorGroup.toString,
+              groupName,
             )
           )
           .fold(
@@ -607,24 +623,49 @@ class DomainSnapshotSyncCryptoApi(
       _ <- {
         val (signatureCheckErrors, validSigners) = validated.separate
         EitherT.cond[Future](
-          validSigners.distinct.sizeIs >= mediatorGroup.threshold.value, {
+          validSigners.distinct.sizeIs >= threshold.value, {
             if (signatureCheckErrors.nonEmpty) {
               val errors = SignatureCheckError.MultipleErrors(signatureCheckErrors)
               // TODO(i13206): Replace with an Alarm
               logger.warn(
-                s"Signature check passed for $mediatorGroup, although there were errors: $errors"
+                s"Signature check passed for $groupName, although there were errors: $errors"
               )
             }
             ()
           },
           SignatureCheckError.MultipleErrors(
             signatureCheckErrors,
-            Some("Mediator group signature threshold not reached"),
+            Some(s"$groupName signature threshold not reached"),
           ): SignatureCheckError,
         )
       }
     } yield ()
   }
+
+  override def verifySequencerSignatures(
+      hash: Hash,
+      signatures: NonEmpty[Seq[Signature]],
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+    for {
+      sequencerGroup <- EitherT(
+        ipsSnapshot
+          .sequencerGroup()
+          .map(
+            _.toRight(
+              SignatureCheckError.MemberGroupDoesNotExist(
+                "Sequencer group not found"
+              )
+            )
+          )
+      )
+      _ <- verifyGroupSignatures(
+        hash,
+        sequencerGroup.active,
+        sequencerGroup.threshold,
+        sequencerGroup.toString,
+        signatures,
+      )
+    } yield ()
 
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]

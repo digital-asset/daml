@@ -277,7 +277,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         "test-common/upgrades-MissingDataCon-v2.dar",
         assertPackageUpgradeCheck(
           Some(
-            "Datatype U appears in package that is being upgraded, but does not appear in the upgrading package."
+            "Data type U appears in package that is being upgraded, but does not appear in the upgrading package."
           )
         ),
       )
@@ -306,7 +306,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
         assertPackageUpgradeCheck(
           Some(
-            "The upgraded datatype Struct has added new fields, but those fields are not Optional."
+            "The upgraded data type Struct has added new fields, but those fields are not Optional."
           )
         ),
       )
@@ -482,6 +482,138 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar",
         assertPackageUpgradeCheck(
           Some("The upgraded template T has added new fields, but those fields are not Optional.")
+        ),
+      )
+    }
+
+    "Fails when a top-level record adds a non-optional field" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type A has added new fields, but those fields are not Optional.")
+        ),
+      )
+    }
+
+    "Succeeds when a top-level record adds an optional field at the end" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when a top-level record adds an optional field before the end" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record."
+          )
+        ),
+      )
+    }
+
+    "Succeeds when a top-level variant adds a variant" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAVariant-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAVariant-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Fails when a top-level variant removes a variant" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package."
+          )
+        ),
+      )
+    }
+
+    "Fail when a top-level variant changes changes the order of its variants" in {
+      testPackagePair(
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant."
+          )
+        ),
+      )
+    }
+
+    "Fails when a top-level variant adds a field to a variant's type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded variant constructor A.Y from variant A has added a field.")
+        ),
+      )
+    }
+
+    "Succeeds when a top-level variant adds an optional field to a variant's type" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Succeeds when a top-level enum changes" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Fail when a top-level enum changes changes the order of its variants" in {
+      testPackagePair(
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum."
+          )
+        ),
+      )
+    }
+
+    "Succeeds when a top-level type synonym changes" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when two deeply nested type synonyms resolve to the same datatypes" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v1.dar",
+        "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when two deeply nested type synonyms resolve to different datatypes" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v1.dar",
+        "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded template A has changed the types of some of its original fields.")
         ),
       )
     }

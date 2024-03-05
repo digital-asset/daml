@@ -16,7 +16,7 @@ sealed abstract class TransactionVersion private (
   */
 object TransactionVersion {
 
-  case object V31 extends TransactionVersion("3.1", 1)
+  case object V31 extends TransactionVersion("2.1", 1)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
   val All = List(V31, VDev)
@@ -44,7 +44,7 @@ object TransactionVersion {
   def maxVersion: TransactionVersion = VDev
 
   // TODO(https://github.com/digital-asset/daml/issues/18240) move this feature flag to VDev.
-  private[lf] val minByKey = V31
+  private[lf] val minContractKeys = V31
 
   private[lf] val minSharedKeys = V31
   private[lf] val minChoiceAuthorizers = VDev

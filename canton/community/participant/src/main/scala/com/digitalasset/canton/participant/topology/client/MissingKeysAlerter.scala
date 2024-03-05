@@ -59,7 +59,7 @@ class MissingKeysAlerter(
     // scan state and alarm if the domain suggest that I use a key which I don't have
     transactions.view
       .filter(tx => tx.operation == TopologyChangeOpX.Replace && !tx.isProposal)
-      .map(_.transaction.mapping)
+      .map(_.mapping)
       .foreach {
         case ParticipantDomainPermissionX(
               `domainId`,

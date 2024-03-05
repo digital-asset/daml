@@ -8,12 +8,12 @@
 -- It includes id to track the submissions and their resulting statuses
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_configuration_entries (
-    ledger_offset text collate "C" primary key not null,
+    ledger_offset varchar(4000) collate "C" primary key not null,
     recorded_at bigint not null, -- with time zone
 
-    submission_id text collate "C" not null,
+    submission_id varchar(1000) collate "C" not null,
     -- The type of entry, one of 'accept' or 'reject'.
-    typ text collate "C" not null,
+    typ varchar(1000) collate "C" not null,
 
     -- The configuration that was proposed and either accepted or rejected depending on the type.
     -- Encoded according to participant-state/protobuf/ledger_configuration.proto.
@@ -21,7 +21,7 @@ CREATE TABLE lapi_configuration_entries (
 
     -- If the type is 'rejection', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
-    rejection_reason text collate "C",
+    rejection_reason varchar(1000) collate "C",
 
     -- Check that fields are correctly set based on the type.
     constraint check_entry
@@ -40,7 +40,7 @@ CREATE INDEX lapi_configuration_submission_idx ON lapi_configuration_entries USI
 -- This table is meant to have a single row storing the current metering parameters.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_metering_parameters (
-    ledger_metering_end text collate "C",
+    ledger_metering_end text,
     ledger_metering_timestamp bigint not null
 );
 
@@ -50,11 +50,11 @@ CREATE TABLE lapi_metering_parameters (
 -- This table is written periodically to store partial sums of transaction metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_participant_metering (
-    application_id text collate "C" not null,
+    application_id text not null,
     from_timestamp bigint not null,
     to_timestamp bigint not null,
     action_count integer not null,
-    ledger_offset text collate "C" not null
+    ledger_offset text not null
 );
 
 CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_participant_metering(from_timestamp, to_timestamp, application_id);
@@ -65,10 +65,10 @@ CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_pa
 -- This table is written for every transaction and stores its metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_metering (
-    application_id text collate "C" not null,
+    application_id text not null,
     action_count integer not null,
     metering_timestamp bigint not null,
-    ledger_offset text collate "C" not null
+    ledger_offset text not null
 );
 
 CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_metering USING btree (ledger_offset);
@@ -80,15 +80,15 @@ CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_met
 -- It includes id to track the package submission and status
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_package_entries (
-    ledger_offset text collate "C" primary key not null,
+    ledger_offset varchar(4000) collate "C" primary key not null,
     recorded_at bigint not null, --with timezone
     -- SubmissionId for package to be uploaded
-    submission_id text collate "C",
+    submission_id varchar(1000) collate "C",
     -- The type of entry, one of 'accept' or 'reject'
-    typ text collate "C" not null,
+    typ varchar(1000) collate "C" not null,
     -- If the type is 'reject', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
-    rejection_reason text collate "C",
+    rejection_reason varchar(1000) collate "C",
     constraint check_package_entry_type
         check (
                 (typ = 'accept' and rejection_reason is null) or
@@ -106,18 +106,18 @@ CREATE INDEX lapi_package_entries_idx ON lapi_package_entries USING btree (submi
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_packages (
     -- The unique identifier of the package (the hash of its content)
-    package_id text collate "C" primary key not null,
+    package_id varchar(4000) collate "C" primary key not null,
     -- Packages are uploaded as DAR files (i.e., in groups)
     -- This field can be used to find out which packages were uploaded together
-    upload_id text collate "C" not null,
+    upload_id varchar(1000) collate "C" not null,
     -- A human readable description of the package source
-    source_description text collate "C",
+    source_description varchar(1000) collate "C",
     -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
     package_size bigint not null,
     -- The time when the package was added
     known_since bigint not null,
     -- The ledger end at the time when the package was added
-    ledger_offset text collate "C" not null,
+    ledger_offset varchar(4000) collate "C" not null,
     -- The DAML-LF archive, serialized using the protobuf message `daml_lf.Archive`.
     --  See also `daml-lf/archive/da/daml_lf.proto`.
     package bytea not null
@@ -142,14 +142,14 @@ CREATE INDEX lapi_packages_ledger_offset_idx ON lapi_packages USING btree (ledge
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_parameters (
     -- stores the head offset, meant to change with every new ledger entry
-    ledger_end text collate "C" not null,
-    participant_id text collate "C" not null,
+    ledger_end varchar(4000) collate "C" not null,
+    participant_id varchar(1000) collate "C" not null,
     -- Add the column for most recent pruning offset to parameters.
     -- A value of NULL means that the participant has not been pruned so far.
-    participant_pruned_up_to_inclusive text collate "C",
+    participant_pruned_up_to_inclusive varchar(4000) collate "C",
     -- the sequential_event_id up to which all events have been ingested
     ledger_end_sequential_id bigint not null,
-    participant_all_divulged_contracts_pruned_up_to_inclusive text collate "C",
+    participant_all_divulged_contracts_pruned_up_to_inclusive varchar(4000) collate "C",
     -- lapi_string_interning ledger-end tracking
     ledger_end_string_interning_id integer not null
 );
@@ -159,22 +159,22 @@ CREATE TABLE lapi_parameters (
 -- Completions
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_command_completions (
-    completion_offset text collate "C" not null,
+    completion_offset varchar(4000) collate "C" not null,
     record_time bigint not null,
-    application_id text collate "C" not null,
+    application_id varchar(4000) collate "C" not null,
     submitters integer[] not null,
-    command_id text collate "C" not null,
+    command_id varchar(4000) collate "C" not null,
     -- The transaction ID is `NULL` for rejected transactions.
-    transaction_id text collate "C",
+    transaction_id varchar(4000) collate "C",
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     -- Nullable to support historical data.
-    submission_id text collate "C",
+    submission_id text,
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
     -- interval could have specified by the application as one of:
     -- 1. an initial offset
     -- 2. an initial timestamp
     -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
-    deduplication_offset text collate "C",
+    deduplication_offset text,
     deduplication_duration_seconds bigint,
     deduplication_duration_nanos integer,
     deduplication_start bigint,
@@ -184,7 +184,7 @@ CREATE TABLE lapi_command_completions (
     -- `daml.platform.index.StatusDetails`, containing the code, message, and further details
     -- (decided by the ledger driver), and may be `NULL` even if the other two columns are set.
     rejection_status_code integer,
-    rejection_status_message text collate "C",
+    rejection_status_message varchar(4000) collate "C",
     rejection_status_details bytea,
 
     domain_id integer not null,
@@ -201,19 +201,19 @@ CREATE TABLE lapi_events_assign (
     event_sequential_id bigint not null,    -- event identification: same ordering as event_offset
 
     -- * event identification
-    event_offset text collate "C" not null,
+    event_offset text not null,
 
     -- * transaction metadata
-    update_id text collate "C" not null,
-    workflow_id text collate "C",
+    update_id text not null,
+    workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text collate "C",
+    command_id text,
 
     submitter integer,
 
     -- * shared event information
-    contract_id text collate "C" not null,
+    contract_id text not null,
     template_id integer not null,
     package_name integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
@@ -221,16 +221,15 @@ CREATE TABLE lapi_events_assign (
     -- * common reassignment
     source_domain_id integer not null,
     target_domain_id integer not null,
-    unassign_id text collate "C" not null,
+    unassign_id text not null,
     reassignment_counter bigint not null,
 
     -- * assigned specific
     create_argument bytea not null,
     create_signatories integer[] default '{}'::integer[] not null,
     create_observers integer[] default '{}'::integer[] not null,
-    create_agreement_text text collate "C",
     create_key_value bytea,
-    create_key_hash text collate "C",
+    create_key_hash text,
     create_argument_compression smallint,
     create_key_value_compression smallint,
     ledger_effective_time bigint not null,
@@ -260,22 +259,22 @@ CREATE TABLE lapi_events_consuming_exercise (
     node_index integer not null,            -- event metadata
 
     -- * event identification
-    event_offset text collate "C" not null,
+    event_offset text not null,
 
     -- * transaction metadata
-    transaction_id text collate "C" not null,
-    workflow_id text collate "C",
+    transaction_id text not null,
+    workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text collate "C",
-    application_id text collate "C",
+    command_id text,
+    application_id text,
     submitters integer[],
 
     -- * event metadata
-    event_id text collate "C" not null,     -- string representation of (transaction_id, node_index)
+    event_id text not null,     -- string representation of (transaction_id, node_index)
 
     -- * shared event information
-    contract_id text collate "C" not null,
+    contract_id text not null,
     template_id integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
@@ -284,11 +283,11 @@ CREATE TABLE lapi_events_consuming_exercise (
     create_key_value bytea,          -- used for the mutable state cache
 
     -- * choice data
-    exercise_choice text collate "C" not null,
+    exercise_choice text not null,
     exercise_argument bytea not null,
     exercise_result bytea,
     exercise_actors integer[] not null,
-    exercise_child_event_ids text[] collate "C" not null,
+    exercise_child_event_ids text[] not null,
 
     -- * compression flags
     create_key_value_compression smallint,
@@ -319,22 +318,22 @@ CREATE TABLE lapi_events_create (
     node_index integer not null,            -- event metadata
 
     -- * event identification
-    event_offset text collate "C" not null,
+    event_offset text not null,
 
     -- * transaction metadata
-    transaction_id text collate "C" not null,
-    workflow_id text collate "C",
+    transaction_id text not null,
+    workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text collate "C",
-    application_id text collate "C",
+    command_id text,
+    application_id text,
     submitters integer[],
 
     -- * event metadata
-    event_id text collate "C" not null,     -- string representation of (transaction_id, node_index)
+    event_id text not null,     -- string representation of (transaction_id, node_index)
 
     -- * shared event information
-    contract_id text collate "C" not null,
+    contract_id text not null,
     template_id integer not null,
     package_name integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
@@ -344,9 +343,8 @@ CREATE TABLE lapi_events_create (
     create_argument bytea not null,
     create_signatories integer[] not null,
     create_observers integer[] not null,
-    create_agreement_text text collate "C",
     create_key_value bytea,
-    create_key_hash text collate "C",
+    create_key_hash text,
 
     -- * compression flags
     create_argument_compression smallint,
@@ -380,22 +378,22 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     node_index integer not null,            -- event metadata
 
     -- * event identification
-    event_offset text collate "C" not null,
+    event_offset text not null,
 
     -- * transaction metadata
-    transaction_id text collate "C" not null,
-    workflow_id text collate "C",
+    transaction_id text not null,
+    workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text collate "C",
-    application_id text collate "C",
+    command_id text,
+    application_id text,
     submitters integer[],
 
     -- * event metadata
-    event_id text collate "C" not null,         -- string representation of (transaction_id, node_index)
+    event_id text not null,         -- string representation of (transaction_id, node_index)
 
     -- * shared event information
-    contract_id text collate "C" not null,
+    contract_id text not null,
     template_id integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
@@ -404,11 +402,11 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     create_key_value bytea,     -- used for the mutable state cache
 
     -- * choice data
-    exercise_choice text collate "C" not null,
+    exercise_choice text not null,
     exercise_argument bytea not null,
     exercise_result bytea,
     exercise_actors integer[] not null,
-    exercise_child_event_ids text[] collate "C" not null,
+    exercise_child_event_ids text[] not null,
 
     -- * compression flags
     create_key_value_compression smallint,
@@ -434,26 +432,26 @@ CREATE TABLE lapi_events_unassign (
     event_sequential_id bigint not null,    -- event identification: same ordering as event_offset
 
     -- * event identification
-    event_offset text collate "C" not null,
+    event_offset text not null,
 
     -- * transaction metadata
-    update_id text collate "C" not null,
-    workflow_id text collate "C",
+    update_id text not null,
+    workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text collate "C",
+    command_id text,
 
     submitter integer,
 
     -- * shared event information
-    contract_id text collate "C" not null,
+    contract_id text not null,
     template_id integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
 
     -- * common reassignment
     source_domain_id integer not null,
     target_domain_id integer not null,
-    unassign_id text collate "C" not null,
+    unassign_id text not null,
     reassignment_counter bigint not null,
 
     -- * unassigned specific
@@ -480,10 +478,10 @@ CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassig
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_identity_provider_config (
     identity_provider_id varchar(255) collate "C" primary key not null,
-    issuer text collate "C" not null unique,
-    jwks_url text collate "C" not null,
+    issuer varchar(4000) collate "C" not null unique,
+    jwks_url varchar(4000) collate "C" not null,
     is_deactivated boolean not null,
-    audience text collate "C"
+    audience varchar(4000) collate "C"
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -507,7 +505,7 @@ CREATE TABLE lapi_party_records (
 CREATE TABLE lapi_party_record_annotations (
     internal_id integer not null references lapi_party_records (internal_id) on delete cascade,
     name varchar(512) collate "C" not null,
-    val text collate "C",
+    val text,
     updated_at bigint not null,
     unique (internal_id, name)
 );
@@ -518,8 +516,8 @@ CREATE TABLE lapi_party_record_annotations (
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_meta (
-    transaction_id text collate "C" not null,
-    event_offset text collate "C" not null,
+    transaction_id text not null,
+    event_offset text not null,
     event_sequential_id_first bigint not null,
     event_sequential_id_last bigint not null
 );
@@ -573,7 +571,7 @@ WHERE user_id = 'participant_admin';
 CREATE TABLE lapi_user_annotations (
     internal_id integer not null references lapi_users (internal_id) on delete cascade,
     name varchar(512) collate "C" not null,
-    val text collate "C",
+    val text,
     updated_at bigint not null,
     unique (internal_id, name)
 );
@@ -585,24 +583,24 @@ CREATE TABLE lapi_user_annotations (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_party_entries (
     -- The ledger end at the time when the party allocation was added
-    ledger_offset text collate "C" primary key not null,
+    ledger_offset varchar(4000) collate "C" primary key not null,
     recorded_at bigint not null, --with timezone
 
     -- SubmissionId for the party allocation
-    submission_id text collate "C",
+    submission_id varchar(1000) collate "C",
 
     -- party
-    party text collate "C",
+    party varchar(512) collate "C",
 
     -- displayName
-    display_name text collate "C",
+    display_name varchar(1000) collate "C",
 
     -- The type of entry, 'accept' or 'reject'
-    typ text collate "C" not null,
+    typ varchar(1000) collate "C" not null,
 
     -- If the type is 'reject', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
-    rejection_reason text collate "C",
+    rejection_reason varchar(1000) collate "C",
 
     -- true if the party was added on participantId node that owns the party
     is_local boolean,
@@ -691,7 +689,7 @@ CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_s_idx ON lapi_pe_unassign_id
 
 CREATE TABLE lapi_string_interning (
     internal_id integer primary key not null,
-    external_string text collate "C"
+    external_string text
 );
 
 

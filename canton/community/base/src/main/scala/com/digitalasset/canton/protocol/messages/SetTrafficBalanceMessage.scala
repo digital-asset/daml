@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.pretty.PrettyPrinting
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.protocol.v30.TypedSignedProtocolMessageContent
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -16,7 +17,7 @@ import com.google.protobuf.ByteString
 
 final case class SetTrafficBalanceMessage private (
     member: Member,
-    serial: NonNegativeLong,
+    serial: PositiveInt,
     totalTrafficBalance: NonNegativeLong,
     domainId: DomainId,
 )(
@@ -52,6 +53,13 @@ final case class SetTrafficBalanceMessage private (
     v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage.SetTrafficBalance(
       getCryptographicEvidence
     )
+
+  override def pretty: Pretty[SetTrafficBalanceMessage] = prettyOfClass(
+    param("member", _.member),
+    param("serial", _.serial),
+    param("totalTrafficBalance", _.totalTrafficBalance),
+    param("domainId", _.domainId),
+  )
 }
 
 object SetTrafficBalanceMessage
@@ -71,7 +79,7 @@ object SetTrafficBalanceMessage
 
   def apply(
       member: Member,
-      serial: NonNegativeLong,
+      serial: PositiveInt,
       totalTrafficBalance: NonNegativeLong,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
@@ -86,7 +94,7 @@ object SetTrafficBalanceMessage
   )(bytes: ByteString): ParsingResult[SetTrafficBalanceMessage] = {
     for {
       member <- Member.fromProtoPrimitive(proto.member, "member")
-      serial <- ProtoConverter.parseNonNegativeLong(proto.serial)
+      serial <- ProtoConverter.parsePositiveInt(proto.serial)
       totalTrafficBalance <- ProtoConverter.parseNonNegativeLong(proto.totalTrafficBalance)
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
@@ -100,4 +108,12 @@ object SetTrafficBalanceMessage
       Some(bytes),
     )
   }
+
+  implicit val setTrafficBalanceCast: SignedMessageContentCast[SetTrafficBalanceMessage] =
+    SignedMessageContentCast.create[SetTrafficBalanceMessage](
+      "SetTrafficBalanceMessage"
+    ) {
+      case m: SetTrafficBalanceMessage => Some(m)
+      case _ => None
+    }
 }

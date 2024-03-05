@@ -66,8 +66,8 @@ trait DbInitializationStoreTest extends InitializationStoreTest {
   def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*
     storage.update(
-      sqlu"truncate table node_id",
-      operationName = s"${this.getClass}: truncate table node_id",
+      sqlu"truncate table common_node_id",
+      operationName = s"${this.getClass}: truncate table common_node_id",
     )
   }
 

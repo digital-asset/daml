@@ -21,11 +21,11 @@ trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table computed_acs_commitments",
-        sqlu"truncate table received_acs_commitments",
-        sqlu"truncate table outstanding_acs_commitments",
-        sqlu"truncate table last_computed_acs_commitments",
-        sqlu"truncate table commitment_pruning",
+        sqlu"truncate table par_computed_acs_commitments",
+        sqlu"truncate table par_received_acs_commitments",
+        sqlu"truncate table par_outstanding_acs_commitments",
+        sqlu"truncate table par_last_computed_acs_commitments",
+        sqlu"truncate table par_commitment_pruning",
       ),
       functionFullName,
     )
@@ -51,8 +51,8 @@ trait DbIncrementalCommitmentStoreTest extends IncrementalCommitmentStoreTest { 
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table commitment_snapshot",
-        sqlu"truncate table commitment_snapshot_time",
+        sqlu"truncate table par_commitment_snapshot",
+        sqlu"truncate table par_commitment_snapshot_time",
       ),
       functionFullName,
     )
@@ -76,7 +76,7 @@ trait DbCommitmentQueueTest extends CommitmentQueueTest { this: DbTest =>
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table commitment_queue"
+        sqlu"truncate table par_commitment_queue"
       ),
       functionFullName,
     )

@@ -9,7 +9,6 @@ import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
 import "scalapb/scalapb.proto";
@@ -17,7 +16,7 @@ import "scalapb/scalapb.proto";
 // Messages for sequencing
 message PossiblyIgnoredSequencedEvent {
   int64 counter = 1;
-  google.protobuf.Timestamp timestamp = 2;
+  int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
   com.digitalasset.canton.v30.TraceContext trace_context = 3;
   bool is_ignored = 4;
   v30.SignedContent underlying = 5; // Optional if is_ignored == true, required otherwise
@@ -117,11 +116,12 @@ message SequencedEvent {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
 
   int64 counter = 1;
-  google.protobuf.Timestamp timestamp = 2;
+  int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
   string domain_id = 3;
   google.protobuf.StringValue message_id = 4; // Optional: Present for DeliverError, present for the sender of a Deliver.
   CompressedBatch batch = 5; // Optional: Present for Deliver, absent for DeliverError
   google.rpc.Status deliver_error_reason = 6; // Optional: Present for DeliverError, absent for other events
+  google.protobuf.Int64Value topology_timestamp = 7; // Optional: Present for Deliver events when it is different from timestamp, absent for other events
 }
 
 // Messages used for synchronization between sequencer nodes
@@ -132,7 +132,7 @@ message SubmissionRequest {
   string message_id = 2;
   bool is_request = 3;
   CompressedBatch batch = 4;
-  google.protobuf.Timestamp max_sequencing_time = 5;
-  google.protobuf.Timestamp topology_timestamp = 6;
+  int64 max_sequencing_time = 5; // in microseconds of UTC time since Unix epoch
+  google.protobuf.Int64Value topology_timestamp = 6; // in microseconds of UTC time since Unix epoch
   v30.AggregationRule aggregation_rule = 7; // optional
 }

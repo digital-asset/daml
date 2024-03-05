@@ -194,3 +194,24 @@ enum CryptoKeyFormat {
   // Symbolic crypto, must only be used for testing
   CRYPTO_KEY_FORMAT_SYMBOLIC = 10000;
 }
+
+enum PbkdfScheme {
+  PBKDF_SCHEME_UNSPECIFIED = 0;
+
+  // Argon2id with m=12288 (12 MiB), t=3, p=1
+  PBKDF_SCHEME_ARGON2ID_MODE1 = 1;
+}
+
+// A password-based encrypted message
+message PasswordBasedEncrypted {
+  bytes ciphertext = 1;
+
+  // The symmetric encryption scheme that was used to encrypt the plaintext
+  SymmetricKeyScheme symmetric_key_scheme = 2;
+
+  // The password-based KDF that was used to derive the symmetric encryption key from the password
+  PbkdfScheme pbkdf_scheme = 3;
+
+  // The random salt that was used to derive the symmetric encryption key from the password
+  bytes salt = 4;
+}

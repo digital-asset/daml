@@ -16,7 +16,7 @@ import io.grpc.stub.AbstractStub
 import java.io.Closeable
 import scala.concurrent.{ExecutionContext, Future}
 
-final class AdminLedgerClient private (
+class AdminLedgerClient private[grpcLedgerClient] (
     val channel: Channel,
     token: Option[String],
 )(implicit ec: ExecutionContext)
@@ -27,7 +27,7 @@ final class AdminLedgerClient private (
   // Try filtering for just Adds, assuming a Remove cancels an Add.
   // If it doesn't, change the filter to all and fold them
 
-  private val packageServiceStub =
+  private[grpcLedgerClient] val packageServiceStub =
     AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)
 
   def vetDarByHash(darHash: String): Future[Unit] =

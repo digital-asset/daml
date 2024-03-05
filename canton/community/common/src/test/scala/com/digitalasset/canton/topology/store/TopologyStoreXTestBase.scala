@@ -99,9 +99,9 @@ private[store] trait TopologyStoreXTestBase extends BaseTest with HasExecutionCo
     logger.info(s"Actual: ${actual.result.map(_.transaction).mkString(",")}")
     logger.info(s"Expected: ${expected.mkString(",")}")
     // run more readable assert first since mapping codes are easier to identify than hashes ;-)
-    actual.result.map(_.transaction.transaction.mapping.code.code) shouldBe expected.map(
-      _.transaction.mapping.code.code
+    actual.result.map(_.mapping.code.code) shouldBe expected.map(
+      _.mapping.code.code
     )
-    actual.result.map(_.transaction.transaction.hash) shouldBe expected.map(_.transaction.hash)
+    actual.result.map(_.hash) shouldBe expected.map(_.hash)
   }
 }

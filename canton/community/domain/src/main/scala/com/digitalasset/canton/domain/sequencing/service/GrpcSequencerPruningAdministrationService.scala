@@ -40,7 +40,7 @@ class GrpcSequencerPruningAdministrationService(
         requestedTimestamp <- EitherT
           .fromEither[Future](
             ProtoConverter
-              .parseRequired(CantonTimestamp.fromProtoPrimitive, "timestamp", req.timestamp)
+              .parseRequired(CantonTimestamp.fromProtoTimestamp, "timestamp", req.timestamp)
           )
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString).asException())
         details <- sequencer
@@ -73,7 +73,7 @@ class GrpcSequencerPruningAdministrationService(
           .leftMap(e => Status.UNIMPLEMENTED.withDescription(e.message).asException())
         // If we just fetched the oldest event, take the opportunity to report the max-event-age metric
         _ = if (index.value == 1) sequencer.reportMaxEventAgeMetric(ts)
-      } yield LocatePruningTimestamp.Response(ts.map(_.toProtoPrimitive))
+      } yield LocatePruningTimestamp.Response(ts.map(_.toProtoTimestamp))
     }
   }
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.data
 
 import cats.kernel.Order
+import cats.syntax.either.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.PositiveSeconds
@@ -77,7 +78,7 @@ object CantonTimestampSecond {
 
   def MinValue = CantonTimestampSecond(LfTimestamp.MinValue)
 
-  def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[CantonTimestampSecond] = {
+  def fromProtoTimestamp(ts: ProtoTimestamp): ParsingResult[CantonTimestampSecond] = {
     for {
       instant <- ProtoConverter.InstantConverter.fromProtoPrimitive(ts)
       ts <- CantonTimestampSecond
@@ -85,6 +86,15 @@ object CantonTimestampSecond {
         .left
         .map(ProtoDeserializationError.InvariantViolation(_))
     } yield ts
+  }
+
+  def fromProtoPrimitive(ts: Long): ParsingResult[CantonTimestampSecond] = {
+    for {
+      timestamp <- CantonTimestamp.fromProtoPrimitive(ts)
+      seconds <- CantonTimestampSecond
+        .fromCantonTimestamp(timestamp)
+        .leftMap(ProtoDeserializationError.InvariantViolation(_))
+    } yield seconds
   }
 
   def ofEpochSecond(seconds: Long): CantonTimestampSecond =

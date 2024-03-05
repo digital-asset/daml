@@ -5092,7 +5092,7 @@ is achieved as follows:
 
 On the one hand, in case of Daml-LF 1.6 archive:
 
-- The ``decimal`` field of the ``PrimLit`` message must match the
+- The ``decimal`` field of the ``BuiltinLit`` message must match the
   regexp::
 
     ``[+-]?\d{1,28}(.[0-9]\d{1-10})?``
@@ -5123,7 +5123,7 @@ On the one hand, in case of Daml-LF 1.6 archive:
   + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)``
 
 - Numeric types, literals and builtins cannot be referred directly.
-  In other words ``numeric`` fields in ``PrimLit`` and ``PrimType``
+  In other words ``numeric`` fields in ``BuiltinLit`` and ``PrimType``
   messages must remain unset and Numeric ``BuiltinFunction`` (those
   containing ``NUMERIC`` in their name) are forbidden. The
   deserialization process will reject any Daml-LF 1.6 (or earlier)
@@ -5131,7 +5131,7 @@ On the one hand, in case of Daml-LF 1.6 archive:
 
 On the other hand, starting from Daml-LF 1.7:
 
-- The ``numeric`` field of the ``PrimLit`` message must match the
+- The ``numeric`` field of the ``BuiltinLit`` message must match the
   regexp:
 
   ``[-]?([1-9]\d*|0).\d*``
@@ -5143,7 +5143,7 @@ On the other hand, starting from Daml-LF 1.7:
   deserialization process will reject any non-compliant program.
 
 - Decimal types, literals and builtins cannot be referred directly.
-  In other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
+  In other words ``decimal`` fields in ``BuiltinLit`` and ``PrimType``
   messages must remain unset and Decimal ``BuiltinFunction`` (those
   containing ``DECIMAL`` in their name are forbidden). The
   deserialization process will reject any Daml-LF 1.7 (or later)

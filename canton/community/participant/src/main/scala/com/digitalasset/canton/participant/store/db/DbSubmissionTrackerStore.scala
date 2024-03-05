@@ -45,7 +45,7 @@ class DbSubmissionTrackerStore(
 
     val insertQuery = storage.profile match {
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into fresh_submitted_transaction(
+        sqlu"""insert into par_fresh_submitted_transaction(
                  domain_id,
                  root_hash_hex,
                  request_id,
@@ -54,7 +54,7 @@ class DbSubmissionTrackerStore(
                on conflict do nothing"""
 
       case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into fresh_submitted_transaction
+        sqlu"""merge into par_fresh_submitted_transaction
                  using (
                    select
                      $domainId domain_id,
@@ -64,7 +64,7 @@ class DbSubmissionTrackerStore(
                    from dual
                  ) to_insert
                  on (fresh_submitted_transaction.domain_id = to_insert.domain_id
-                     and fresh_submitted_transaction.root_hash_hex = to_insert.root_hash_hex)
+                     and par_fresh_submitted_transaction.root_hash_hex = to_insert.root_hash_hex)
                  when not matched then
                    insert (
                      domain_id,
@@ -82,7 +82,7 @@ class DbSubmissionTrackerStore(
 
     val selectQuery =
       sql"""select count(*)
-              from fresh_submitted_transaction
+              from par_fresh_submitted_transaction
               where domain_id=$domainId and root_hash_hex=$rootHash and request_id=$dbRequestId"""
         .as[Int]
         .headOption
@@ -95,17 +95,18 @@ class DbSubmissionTrackerStore(
     FutureUnlessShutdown.outcomeF(f)
   }
 
-  override protected[this] def pruning_status_table: String = "fresh_submitted_transaction_pruning"
+  override protected[this] def pruning_status_table: String =
+    "par_fresh_submitted_transaction_pruning"
 
   override protected[canton] def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Int] = {
     val deleteQuery =
-      sqlu"""delete from fresh_submitted_transaction
+      sqlu"""delete from par_fresh_submitted_transaction
            where domain_id = $domainId and max_sequencing_time <= $beforeAndIncluding"""
 
-    storage.queryAndUpdate(deleteQuery, "prune fresh_submitted_transaction")
+    storage.queryAndUpdate(deleteQuery, "prune par_fresh_submitted_transaction")
   }
 
   override def size(implicit
@@ -113,7 +114,7 @@ class DbSubmissionTrackerStore(
   ): FutureUnlessShutdown[Int] = {
     val selectQuery =
       sql"""select count(*)
-          from fresh_submitted_transaction"""
+          from par_fresh_submitted_transaction"""
         .as[Int]
         .headOption
 
@@ -128,9 +129,9 @@ class DbSubmissionTrackerStore(
       including: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val deleteQuery =
-      sqlu"""delete from fresh_submitted_transaction
+      sqlu"""delete from par_fresh_submitted_transaction
          where domain_id = $domainId and request_id >= $including"""
 
-    storage.update_(deleteQuery, "cleanup fresh_submitted_transaction")
+    storage.update_(deleteQuery, "cleanup par_fresh_submitted_transaction")
   }
 }

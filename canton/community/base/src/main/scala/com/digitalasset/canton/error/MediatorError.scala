@@ -6,10 +6,11 @@ package com.digitalasset.canton.error
 import com.daml.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.MediatorErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.v30
 import org.slf4j.event.Level
 
-sealed trait MediatorError extends Product with Serializable with PrettyPrinting
+sealed trait MediatorError extends Product with Serializable with PrettyPrinting {
+  def isMalformed: Boolean
+}
 
 object MediatorError extends MediatorErrorGroup {
 
@@ -30,6 +31,9 @@ object MediatorError extends MediatorErrorGroup {
         unresponsiveParties: String = "",
     ) extends BaseCantonError.Impl(cause)
         with MediatorError {
+
+      override def isMalformed: Boolean = false
+
       override def pretty: Pretty[Reject] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),
@@ -62,10 +66,12 @@ object MediatorError extends MediatorErrorGroup {
     override def logLevel: Level = Level.WARN
 
     final case class Reject(
-        override val cause: String,
-        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.CODE_TIMEOUT,
+        override val cause: String
     ) extends BaseCantonError.Impl(cause)
         with MediatorError {
+
+      override def isMalformed: Boolean = false
+
       override def pretty: Pretty[Reject] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),
@@ -82,11 +88,13 @@ object MediatorError extends MediatorErrorGroup {
   object MalformedMessage extends AlarmErrorCode("MEDIATOR_RECEIVED_MALFORMED_MESSAGE") {
 
     final case class Reject(
-        override val cause: String,
-        _v0CodeP: v30.MediatorRejection.Code = v30.MediatorRejection.Code.CODE_TIMEOUT,
+        override val cause: String
     ) extends Alarm(cause)
         with MediatorError
         with BaseCantonError {
+
+      override def isMalformed: Boolean = true
+
       override def pretty: Pretty[Reject] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),

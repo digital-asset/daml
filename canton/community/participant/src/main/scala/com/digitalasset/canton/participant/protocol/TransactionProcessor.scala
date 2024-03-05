@@ -44,7 +44,6 @@ import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -75,7 +74,6 @@ class TransactionProcessor(
       TransactionProcessingSteps.SubmissionParam,
       TransactionSubmitted,
       TransactionViewType,
-      ConfirmationResultMessage,
       TransactionProcessor.TransactionSubmissionError,
     ](
       new TransactionProcessingSteps(

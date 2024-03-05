@@ -11,6 +11,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
   SequencerSnapshot,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.tracing.TraceContext
@@ -23,25 +24,23 @@ import slick.jdbc.GetResult
   *
   * @param height The height of the block
   * @param lastTs The latest timestamp used by an event or member registration in blocks up to `height`
-  * @param latestTopologyClientTimestamp
-  *               The sequencing timestamp of an event addressed to the sequencer's topology client such that
-  *               there is no topology update (by sequencing time)
+  * @param latestSequencerEventTimestamp
+  *               The sequencing timestamp of an event addressed to the sequencer such that
+  *               there is no event addressed to the sequencer (by sequencing time)
   *               between this timestamp (exclusive) and the last event in the block with height `height`.
   *               Must not be after `lastTs`.
   *
   *               [[scala.None$]] if no such timestamp is known.
-  *               In that case, it is not guaranteed that the correct topology state will be used for validating the events in the block.
-  *
-  *               External sequencer's topology clients typically listen to events addressed to the domain manager.
+  *               In that case, it is not guaranteed that the correct topology and traffic states will be used for validating the events in the block.
   */
 final case class BlockInfo(
     height: Long,
     lastTs: CantonTimestamp,
-    latestTopologyClientTimestamp: Option[CantonTimestamp],
+    latestSequencerEventTimestamp: Option[CantonTimestamp],
 ) {
   require(
-    latestTopologyClientTimestamp.forall(lastTs >= _),
-    s"The latest topology client timestamp $latestTopologyClientTimestamp must not be after the last known event at ${lastTs}",
+    latestSequencerEventTimestamp.forall(lastTs >= _),
+    s"The latest sequencer event timestamp $latestSequencerEventTimestamp must not be after the last known event at ${lastTs}",
   )
 }
 
@@ -52,8 +51,8 @@ object BlockInfo {
   implicit val getResultBlockInfo: GetResult[BlockInfo] = GetResult { r =>
     val height = r.<<[Long]
     val lastTs = r.<<[CantonTimestamp]
-    val latestTopologyClientTs = r.<<[Option[CantonTimestamp]]
-    BlockInfo(height, lastTs, latestTopologyClientTs)
+    val latestSequencerEventTs = r.<<[Option[CantonTimestamp]]
+    BlockInfo(height, lastTs, latestSequencerEventTs)
   }
 }
 
@@ -66,7 +65,8 @@ final case class BlockEphemeralState(
     state: EphemeralState,
 ) extends HasLoggerName {
   def toSequencerSnapshot(
-      protocolVersion: ProtocolVersion
+      protocolVersion: ProtocolVersion,
+      trafficBalances: Seq[TrafficBalance],
   ): SequencerSnapshot =
     SequencerSnapshot(
       latestBlock.lastTs,
@@ -86,6 +86,7 @@ final case class BlockEphemeralState(
           state = state,
         )
       },
+      trafficBalances = trafficBalances,
     )
 
   /** Checks that the class invariant holds:
@@ -125,7 +126,7 @@ object BlockEphemeralState {
     val block = BlockInfo(
       initialHeight,
       initialState.snapshot.lastTs,
-      initialState.latestTopologyClientTimestamp,
+      initialState.latestSequencerEventTimestamp,
     )
     BlockEphemeralState(
       block,

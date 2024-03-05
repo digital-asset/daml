@@ -30,7 +30,7 @@ import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.{ErrorUtil, RangeUtil, SeqUtil}
+import com.digitalasset.canton.util.{ErrorUtil, RangeUtil}
 import com.digitalasset.canton.version.*
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -72,7 +72,7 @@ class DbSequencerStateManagerStore(
       timestamp: CantonTimestamp
   ): DBIOAction[EphemeralState, NoStream, Effect.Read with Effect.Transactional] = {
     val membersQ =
-      sql"select member, added_at, enabled, latest_acknowledgement from sequencer_state_manager_members where added_at <= $timestamp order by added_at asc, member asc"
+      sql"select member, added_at, enabled, latest_acknowledgement from seq_state_manager_members where added_at <= $timestamp order by added_at asc, member asc"
         .as[(Member, CantonTimestamp, Boolean, Option[CantonTimestamp])]
 
     /* We have an index on (storeId, member, counter) so fetching the max counter for each member in this fashion
@@ -82,22 +82,22 @@ class DbSequencerStateManagerStore(
       (sql"""select latest_counters.member, latest_counters.counter, latest_counters.extra_traffic_remainder, latest_counters.extra_traffic_consumed, latest_counters.base_traffic_remainder, latest_counters.ts
              from (
                 select members.member,
-                       (select counter from sequencer_state_manager_events
+                       (select counter from seq_state_manager_events
                         where member = members.member and ts <= $timestamp
                         order by counter desc #${storage.limit(1)}) counter,
-                        (select extra_traffic_remainder from sequencer_state_manager_events
+                        (select extra_traffic_remainder from seq_state_manager_events
                         where member = members.member and ts <= $timestamp
                         order by counter desc #${storage.limit(1)}) extra_traffic_remainder,
-                        (select extra_traffic_consumed from sequencer_state_manager_events
+                        (select extra_traffic_consumed from seq_state_manager_events
                         where member = members.member and ts <= $timestamp
                         order by counter desc #${storage.limit(1)}) extra_traffic_consumed,
-                        (select base_traffic_remainder from sequencer_state_manager_events
+                        (select base_traffic_remainder from seq_state_manager_events
                         where member = members.member and ts <= $timestamp
                         order by counter desc #${storage.limit(1)}) base_traffic_remainder,
-                        (select ts from sequencer_state_manager_events
+                        (select ts from seq_state_manager_events
                         where member = members.member and ts <= $timestamp
                         order by counter desc #${storage.limit(1)}) ts
-                from sequencer_state_manager_members members
+                from seq_state_manager_members members
              ) latest_counters
              where latest_counters.counter is not null
           """)
@@ -135,14 +135,14 @@ class DbSequencerStateManagerStore(
   ): DbAction.ReadOnly[InFlightAggregations] = {
     val aggregationsQ =
       sql"""
-            select in_flight_aggregation.aggregation_id,
-                   in_flight_aggregation.max_sequencing_time,
-                   in_flight_aggregation.aggregation_rule,
-                   in_flight_aggregated_sender.sender,
-                   in_flight_aggregated_sender.sequencing_timestamp,
-                   in_flight_aggregated_sender.signatures
-            from in_flight_aggregation inner join in_flight_aggregated_sender on in_flight_aggregation.aggregation_id = in_flight_aggregated_sender.aggregation_id
-            where in_flight_aggregation.max_sequencing_time > $timestamp and in_flight_aggregated_sender.sequencing_timestamp <= $timestamp
+            select seq_in_flight_aggregation.aggregation_id,
+                   seq_in_flight_aggregation.max_sequencing_time,
+                   seq_in_flight_aggregation.aggregation_rule,
+                   seq_in_flight_aggregated_sender.sender,
+                   seq_in_flight_aggregated_sender.sequencing_timestamp,
+                   seq_in_flight_aggregated_sender.signatures
+            from seq_in_flight_aggregation inner join seq_in_flight_aggregated_sender on seq_in_flight_aggregation.aggregation_id = seq_in_flight_aggregated_sender.aggregation_id
+            where seq_in_flight_aggregation.max_sequencing_time > $timestamp and seq_in_flight_aggregated_sender.sequencing_timestamp <= $timestamp
           """.as[
         (
             AggregationId,
@@ -154,21 +154,21 @@ class DbSequencerStateManagerStore(
         )
       ]
     aggregationsQ.map { aggregations =>
-      val byAggregationId = SeqUtil.clusterBy(aggregations) { case (aggregationId, _, _, _, _, _) =>
+      val byAggregationId = aggregations.groupBy { case (aggregationId, _, _, _, _, _) =>
         aggregationId
       }
-      byAggregationId.map { aggregationsNE =>
-        val (aggregationId, maxSequencingTimestamp, aggregationRule, _, _, _) =
+      byAggregationId.fmap { aggregationsForId =>
+        val aggregationsNE = NonEmptyUtil.fromUnsafe(aggregationsForId)
+        val (_, maxSequencingTimestamp, aggregationRule, _, _, _) =
           aggregationsNE.head1
         val aggregatedSenders = aggregationsNE.map {
           case (_, _, _, sender, sequencingTimestamp, signatures) =>
             sender -> AggregationBySender(sequencingTimestamp, signatures.signaturesByEnvelope)
         }.toMap
-        aggregationId ->
-          InFlightAggregation
-            .create(aggregatedSenders, maxSequencingTimestamp, aggregationRule)
-            .valueOr(err => throw new DbDeserializationException(err))
-      }.toMap
+        InFlightAggregation
+          .create(aggregatedSenders, maxSequencingTimestamp, aggregationRule)
+          .valueOr(err => throw new DbDeserializationException(err))
+      }
     }
   }
 
@@ -189,7 +189,7 @@ class DbSequencerStateManagerStore(
         storage.query(
           sql"""
             select counter, ts, content, trace_context, extra_traffic_remainder, extra_traffic_consumed
-            from sequencer_state_manager_events
+            from seq_state_manager_events
             where member = $member and counter >= $batchStartInclusive and counter < $batchEndExclusive
             order by counter asc"""
             .as[
@@ -250,7 +250,7 @@ class DbSequencerStateManagerStore(
     val query =
       sql"""
             select member, content, trace_context
-            from sequencer_state_manager_events
+            from seq_state_manager_events
             where ts > $startTsExclusive and ts <= $endTsInclusive
         """.as[(Member, Array[Byte], SerializableTraceContext)]
     for {
@@ -271,7 +271,7 @@ class DbSequencerStateManagerStore(
   )(implicit traceContext: TraceContext): Future[Seq[(Member, CantonTimestamp)]] = {
     val query =
       sql"""
-            select member, added_at from sequencer_state_manager_members
+            select member, added_at from seq_state_manager_members
             where added_at > $startTsExclusive and added_at <= $endTsInclusive
            """.as[(Member, CantonTimestamp)]
     (storage.query(query, functionFullName))
@@ -288,9 +288,9 @@ class DbSequencerStateManagerStore(
   ): DbAction.All[Unit] =
     insertVerifyingConflicts(
       storage,
-      "sequencer_state_manager_members ( member )",
-      sql"sequencer_state_manager_members (member, added_at) values ($member, $addedAt)",
-      sql"select added_at from sequencer_state_manager_members where member = $member"
+      "seq_state_manager_members ( member )",
+      sql"seq_state_manager_members (member, added_at) values ($member, $addedAt)",
+      sql"select added_at from seq_state_manager_members where member = $member"
         .as[CantonTimestamp]
         .head,
     )(
@@ -321,7 +321,7 @@ class DbSequencerStateManagerStore(
 
     def insertBuilder(member: Member, storedEvent: StoredEvent) = {
       val state = trafficState.get(member)
-      sql"""sequencer_state_manager_events (member, counter, ts, content, trace_context, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder)
+      sql"""seq_state_manager_events (member, counter, ts, content, trace_context, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder)
               values (
                 $member, ${storedEvent.counter}, ${storedEvent.timestamp}, ${storedEvent.content},
                 ${SerializableTraceContext(storedEvent.traceContext)},
@@ -334,10 +334,10 @@ class DbSequencerStateManagerStore(
     val inserts = events.fmap(StoredEvent.create).map { case (member, storedEvent) =>
       insertVerifyingConflicts(
         storage,
-        "sequencer_state_manager_events ( member, counter )",
+        "seq_state_manager_events ( member, counter )",
         insertBuilder(member, storedEvent),
         sql"""select ts
-              from sequencer_state_manager_events
+              from seq_state_manager_events
               where  member = $member and counter = ${storedEvent.counter}"""
           .as[CantonTimestamp]
           .head,
@@ -362,7 +362,7 @@ class DbSequencerStateManagerStore(
     for {
       _ <-
         sqlu"""
-         update sequencer_state_manager_members set latest_acknowledgement = $timestamp
+         update seq_state_manager_members set latest_acknowledgement = $timestamp
          where member = $member and (latest_acknowledgement < $timestamp or latest_acknowledgement is null)
          """
     } yield ()
@@ -374,22 +374,22 @@ class DbSequencerStateManagerStore(
     )
 
   def disableMemberDBIO(member: Member): DbAction.WriteOnly[Unit] = for {
-    _ <- sqlu"update sequencer_state_manager_members set enabled = ${false} where member = $member"
+    _ <- sqlu"update seq_state_manager_members set enabled = ${false} where member = $member"
   } yield ()
 
   def unregisterUnauthenticatedMember(
       member: UnauthenticatedMemberId
   ): DbAction.WriteOnly[Unit] = for {
     _ <-
-      sqlu"delete from sequencer_state_manager_events where member = $member"
+      sqlu"delete from seq_state_manager_events where member = $member"
     _ <-
-      sqlu"delete from sequencer_state_manager_members where member = $member"
+      sqlu"delete from seq_state_manager_members where member = $member"
   } yield ()
 
   override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
     storage
       .query(
-        sql"select enabled from sequencer_state_manager_members where member = $member"
+        sql"select enabled from seq_state_manager_members where member = $member"
           .as[Boolean]
           .headOption,
         s"$functionFullName:isMemberEnabled",
@@ -402,7 +402,7 @@ class DbSequencerStateManagerStore(
     .query(
       sql"""
                   select member, latest_acknowledgement
-                  from sequencer_state_manager_members
+                  from seq_state_manager_members
            """.as[(Member, Option[CantonTimestamp])],
       functionFullName,
     )
@@ -410,7 +410,7 @@ class DbSequencerStateManagerStore(
     .map(_.toMap)
 
   private def fetchLowerBoundDBIO(): ReadOnly[Option[CantonTimestamp]] =
-    sql"select ts from sequencer_state_manager_lower_bound".as[CantonTimestamp].headOption
+    sql"select ts from seq_state_manager_lower_bound".as[CantonTimestamp].headOption
 
   override def fetchLowerBound()(implicit
       traceContext: TraceContext
@@ -446,9 +446,9 @@ class DbSequencerStateManagerStore(
           // The maybeOnboardingTopologyTimestamp is only ever inserted and never updated.
           // If we ever support onboarding the exact same sequencer multiple times, we may
           // want to also update the value, but until/unless that happens prize safety higher.
-          sqlu"""insert into sequencer_state_manager_lower_bound (ts, ts_initial_topology)
+          sqlu"""insert into seq_state_manager_lower_bound (ts, ts_initial_topology)
                  values ($eventsReadableStartingAt, ${maybeOnboardingTopologyTimestamp})"""
-        )(_ => sqlu"update sequencer_state_manager_lower_bound set ts = $eventsReadableStartingAt")
+        )(_ => sqlu"update seq_state_manager_lower_bound set ts = $eventsReadableStartingAt")
       )
     } yield ()).value.transactionally
       .withTransactionIsolation(TransactionIsolation.Serializable)
@@ -463,7 +463,7 @@ class DbSequencerStateManagerStore(
     lowerBoundO <- fetchLowerBoundDBIO()
     members <-
       sql"""
-      select member, added_at, enabled, latest_acknowledgement from sequencer_state_manager_members"""
+      select member, added_at, enabled, latest_acknowledgement from seq_state_manager_members"""
         .as[(Member, CantonTimestamp, Boolean, Option[CantonTimestamp])]
   } yield InternalSequencerPruningStatus(
     lowerBound = lowerBoundO.getOrElse(CantonTimestamp.Epoch),
@@ -497,7 +497,7 @@ class DbSequencerStateManagerStore(
       traceContext: TraceContext
   ): Future[Long] =
     storage.query(
-      sql"select count(*) from sequencer_state_manager_events".as[Long].head,
+      sql"select count(*) from seq_state_manager_events".as[Long].head,
       functionFullName,
     )
 
@@ -517,13 +517,13 @@ class DbSequencerStateManagerStore(
 
     val addAggregationIdsQ = storage.profile match {
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-        """insert into in_flight_aggregation(aggregation_id, max_sequencing_time, aggregation_rule)
+        """insert into seq_in_flight_aggregation(aggregation_id, max_sequencing_time, aggregation_rule)
            values (?, ?, ?)
            on conflict do nothing
            """
       case _: DbStorage.Profile.Oracle =>
-        """merge /*+ INDEX ( in_flight_aggregation ( aggregation_id ) ) */
-          into in_flight_aggregation ifa
+        """merge /*+ INDEX ( seq_in_flight_aggregation ( aggregation_id ) ) */
+          into seq_in_flight_aggregation ifa
           using (select ? aggregation_id, ? max_sequencing_time, ? aggregation_rule from dual) input
           on (ifa.aggregation_id = input.aggregation_id)
           when not matched then
@@ -549,12 +549,12 @@ class DbSequencerStateManagerStore(
 
     val addSendersQ = storage.profile match {
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-        """insert into in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, signatures)
+        """insert into seq_in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, signatures)
            values (?, ?, ?, ?)
            on conflict do nothing"""
       case _: DbStorage.Profile.Oracle =>
-        """merge /*+ INDEX ( in_flight_aggregated_sender ( aggregation_id, sender ) ) */
-           into in_flight_aggregated_sender ifas
+        """merge /*+ INDEX ( seq_in_flight_aggregated_sender ( aggregation_id, sender ) ) */
+           into seq_in_flight_aggregated_sender ifas
            using (select ? aggregation_id, ? sender, ? sequencing_timestamp, ? signatures from dual) input
            on (ifas.aggregation_id = input.aggregation_id and ifas.sender = input.sender)
            when not matched then
@@ -591,7 +591,7 @@ class DbSequencerStateManagerStore(
   ): Future[Unit] =
     // It's enough to delete from `in_flight_aggregation` because deletion cascades to `in_flight_aggregated_sender`
     storage.update_(
-      sqlu"delete from in_flight_aggregation where max_sequencing_time <= $upToInclusive",
+      sqlu"delete from seq_in_flight_aggregation where max_sequencing_time <= $upToInclusive",
       functionFullName,
     )
 
@@ -600,7 +600,7 @@ class DbSequencerStateManagerStore(
   ): Future[Unit] = storage
     .queryAndUpdate(
       for {
-        _ <- sqlu"delete from sequencer_state_manager_events where ts < $requestedTimestamp"
+        _ <- sqlu"delete from seq_state_manager_events where ts < $requestedTimestamp"
         _ <- saveLowerBoundDBIO(requestedTimestamp)
       } yield (),
       functionFullName,
@@ -613,7 +613,7 @@ class DbSequencerStateManagerStore(
     .query(
       sql"""
                   select member, min(counter)
-                  from sequencer_state_manager_events
+                  from seq_state_manager_events
                   group by member
            """.as[(Member, SequencerCounter)],
       functionFullName,
@@ -627,7 +627,7 @@ class DbSequencerStateManagerStore(
   ): Future[Option[CantonTimestamp]] =
     storage
       .querySingle(
-        sql"select ts_initial_topology from sequencer_state_manager_lower_bound where ts_initial_topology is not null"
+        sql"select ts_initial_topology from seq_state_manager_lower_bound where ts_initial_topology is not null"
           .as[CantonTimestamp]
           .headOption,
         functionFullName,

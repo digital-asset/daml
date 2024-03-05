@@ -2159,4 +2159,13 @@ object SyncServiceError extends SyncServiceErrorGroup {
           cause = show"Cannot allocate a party without being connected to a domain"
         )
   }
+
+  object InvalidArgument
+      extends ErrorCode(
+        id = "INVALID_ARGUMENT_SYNC_SERVICE",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(reason)
+  }
 }

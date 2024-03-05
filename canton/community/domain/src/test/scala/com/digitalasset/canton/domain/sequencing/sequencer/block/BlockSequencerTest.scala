@@ -33,6 +33,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
@@ -148,6 +149,8 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       1.second,
     )
 
+    private val balanceStore = new InMemoryTrafficBalanceStore(loggerFactory)
+
     val fakeBlockSequencerOps = new FakeBlockSequencerOps(N)
     private val fakeBlockSequencerStateManager = new FakeBlockSequencerStateManager
     private val storage = new MemoryStorage(loggerFactory, timeouts)
@@ -156,11 +159,11 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
         fakeBlockSequencerOps,
         name = "test",
         domainId,
-        initialBlockHeight = None,
         cryptoApi,
-        topologyClientMember = sequencer1,
+        sequencerId = sequencer1,
         fakeBlockSequencerStateManager,
         store,
+        balanceStore,
         storage,
         FutureSupervisor.Noop,
         health = None,

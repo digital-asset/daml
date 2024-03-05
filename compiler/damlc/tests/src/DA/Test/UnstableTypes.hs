@@ -61,4 +61,6 @@ damlPrimTypes = map (bimap LF.ModuleName LF.TypeConName)
 -- | This tests that daml-stdlib introduces no serializable datatypes
 -- (any serializable datatypes exposed by it are actually from stable packages)
 damlStdlibTypes :: [(LF.ModuleName, LF.TypeConName)]
-damlStdlibTypes = []
+damlStdlibTypes = map (bimap LF.ModuleName LF.TypeConName)
+    [ (["DA", "Numeric"], ["RoundingMode"])
+    ]

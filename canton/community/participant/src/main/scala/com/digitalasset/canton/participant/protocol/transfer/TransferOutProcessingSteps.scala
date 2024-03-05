@@ -70,7 +70,6 @@ class TransferOutProcessingSteps(
       SubmissionParam,
       SubmissionResult,
       TransferOutViewType,
-      TransferOutResult,
       PendingTransferOut,
     ]
     with NamedLogging {
@@ -505,7 +504,9 @@ class TransferOutProcessingSteps(
       responseOpt.map(_ -> Recipients.cc(mediator)).toList,
       RejectionArgs(
         entry,
-        LocalRejectError.TimeRejects.LocalTimeout.Reject(sourceDomainProtocolVersion.v),
+        LocalRejectError.TimeRejects.LocalTimeout
+          .Reject()
+          .toLocalReject(sourceDomainProtocolVersion.v),
       ),
     )
   }
@@ -525,8 +526,8 @@ class TransferOutProcessingSteps(
     )
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
-      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[MalformedConfirmationRequestResult, TransferOutResult],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      result: ConfirmationResultMessage,
       pendingRequestData: PendingTransferOut,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -554,8 +555,7 @@ class TransferOutProcessingSteps(
 
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
 
-    import scala.util.Either.MergeableEither
-    MergeableEither[ConfirmationResult](resultE).merge.verdict match {
+    result.verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -572,7 +572,7 @@ class TransferOutProcessingSteps(
         for {
           _ <- ifThenET(transferringParticipant) {
             EitherT
-              .fromEither[Future](DeliveredTransferOutResult.create(eventE))
+              .fromEither[Future](DeliveredTransferOutResult.create(event))
               .leftMap(err => TransferOutProcessorError.InvalidResult(transferId, err))
               .flatMap(deliveredResult =>
                 transferCoordination.addTransferOutResult(targetDomain, deliveredResult)
@@ -727,9 +727,9 @@ class TransferOutProcessingSteps(
       val localVerdict =
         if (successful) LocalApprove(sourceDomainProtocolVersion.v)
         else
-          LocalRejectError.TransferOutRejects.ActivenessCheckFailed.Reject(s"$activenessResult")(
-            LocalVerdict.protocolVersionRepresentativeFor(sourceDomainProtocolVersion.v)
-          )
+          LocalRejectError.TransferOutRejects.ActivenessCheckFailed
+            .Reject(s"$activenessResult")
+            .toLocalReject(sourceDomainProtocolVersion.v)
       val response = checked(
         ConfirmationResponse.tryCreate(
           requestId,

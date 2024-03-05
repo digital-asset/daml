@@ -19,10 +19,11 @@ import scala.math.Ordering.Implicits.*
 
 /** An authorized topology transaction */
 final case class AuthorizedTopologyTransactionX[T <: TopologyMappingX](
-    signedTransaction: SignedTopologyTransactionX[TopologyChangeOpX, T]
-) {
-  def mapping: T = signedTransaction.transaction.mapping
-  def signingKeys: NonEmpty[Set[Fingerprint]] = signedTransaction.signatures.map(_.signedBy)
+    transaction: SignedTopologyTransactionX[TopologyChangeOpX, T]
+) extends DelegatedTopologyTransactionLike[TopologyChangeOpX, T] {
+  override protected def transactionLikeDelegate: TopologyTransactionLike[TopologyChangeOpX, T] =
+    transaction
+  def signingKeys: NonEmpty[Set[Fingerprint]] = transaction.signatures.map(_.signedBy)
 }
 
 object AuthorizedTopologyTransactionX {
@@ -38,7 +39,7 @@ object AuthorizedTopologyTransactionX {
     * key f to act on namespace spanned by f, authorized by f.
     */
   def isRootCertificate(namespaceDelegation: AuthorizedNamespaceDelegationX): Boolean = {
-    NamespaceDelegationX.isRootCertificate(namespaceDelegation.signedTransaction)
+    NamespaceDelegationX.isRootCertificate(namespaceDelegation.transaction)
   }
 
   /** Returns true if the namespace delegation is a root certificate or a root delegation
@@ -50,7 +51,7 @@ object AuthorizedTopologyTransactionX {
     * key g to act on namespace spanned by f.
     */
   def isRootDelegation(namespaceDelegation: AuthorizedNamespaceDelegationX): Boolean = {
-    NamespaceDelegationX.isRootDelegation(namespaceDelegation.signedTransaction)
+    NamespaceDelegationX.isRootDelegation(namespaceDelegation.transaction)
   }
 
 }

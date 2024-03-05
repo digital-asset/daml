@@ -12,14 +12,8 @@ import com.digitalasset.canton.domain.mediator.store.MediatorDeduplicationStore
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.messages.{
-  DefaultOpenEnvelope,
-  MediatorConfirmationRequest,
-  ProtocolMessage,
-  RootHashMessage,
-  SerializedRootHashMessagePayload,
-}
-import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, RequestId, v30}
+import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, RequestId}
 import com.digitalasset.canton.sequencing.TracedProtocolEvent
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -56,9 +50,11 @@ private[mediator] trait MediatorEventDeduplicator {
     MonadUtil
       .sequentialTraverse(envelopesByEvent) { case (tracedProtocolEvent, envelopes) =>
         implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
-        val (event, _) = tracedProtocolEvent.value
-        rejectDuplicates(event.timestamp, envelopes)(traceContext, callerCloseContext).map {
-          case (uniqueEnvelopes, storeF) => (tracedProtocolEvent, uniqueEnvelopes) -> storeF
+        rejectDuplicates(tracedProtocolEvent.value.timestamp, envelopes)(
+          traceContext,
+          callerCloseContext,
+        ).map { case (uniqueEnvelopes, storeF) =>
+          (tracedProtocolEvent, uniqueEnvelopes) -> storeF
         }
       }
       .map(_.separate)
@@ -174,8 +170,7 @@ class DefaultMediatorEventDeduplicator(
       case Some(previousUsagesNE) =>
         val expireAfter = previousUsagesNE.map(_.expireAfter).max1
         val rejection = MediatorError.MalformedMessage.Reject(
-          s"The request uuid ($uuid) must not be used until $expireAfter.",
-          v30.MediatorRejection.Code.CODE_NON_UNIQUE_REQUEST_UUID,
+          s"The request uuid ($uuid) must not be used until $expireAfter."
         )
         rejection.report()
 

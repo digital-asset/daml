@@ -116,6 +116,95 @@ da_scala_dar_resources_library(
         "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice",
         "SucceedsWhenTemplateChoiceInputArgumentHasChanged",
         "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged",
+
+        # More tests ported from DamlcUpgrades.hs
+        "FailsWhenATopLevelEnumChanges",
+        "FailsWhenATopLevelRecordAddsANonOptionalField",
+        "FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd",
+        "FailsWhenATopLevelVariantAddsAFieldToAVariantsType",
+        "FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType",
+        "FailsWhenATopLevelVariantAddsAVariant",
+        "FailsWhenATopLevelVariantRemovesAVariant",
+        "FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes",
+        "SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd",
+        "SucceedsWhenATopLevelTypeSynonymChanges",
+        "SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes",
+
+        # More more tests ported from DamlcUpgrades.hs
+        "FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants",
+        "FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants",
+    ]
+]
+
+[
+    [
+        daml_compile(
+            name = "upgrades-{}-v1a".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1a/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v1b".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1b/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "CommonVersionFailure",
+    ]
+]
+
+[
+    [
+        daml_compile(
+            name = "upgrades-{}-v1".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v2".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v3".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v3/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
+            version = "3.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "SuccessUpgradingV2ThenV3",
+        "SuccessUpgradingV3ThenV2",
+        "FailsWhenUpgradingV2ThenV3",
+        "FailsWhenUpgradingV3ThenV2",
     ]
 ]
 

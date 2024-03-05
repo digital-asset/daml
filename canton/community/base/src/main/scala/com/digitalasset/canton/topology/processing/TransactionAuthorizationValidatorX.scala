@@ -53,7 +53,7 @@ trait TransactionAuthorizationValidatorX {
     (GenericSignedTopologyTransactionX, RequiredAuthXAuthorizations),
   ] = {
     // first determine all possible namespaces and uids that need to sign the transaction
-    val requiredAuth = toValidate.transaction.mapping.requiredAuth(inStore.map(_.transaction))
+    val requiredAuth = toValidate.mapping.requiredAuth(inStore.map(_.transaction))
 
     logger.debug(s"Required authorizations: $requiredAuth")
 
@@ -159,7 +159,7 @@ trait TransactionAuthorizationValidatorX {
             .flatMap(key =>
               pureCrypto
                 .verifySignature(
-                  txWithValidSignatures.transaction.hash.hash,
+                  txWithValidSignatures.hash.hash,
                   key,
                   sig,
                 )
@@ -269,7 +269,7 @@ trait TransactionAuthorizationValidatorX {
         _.transaction.selectMapping[DecentralizedNamespaceDefinitionX]
       )
       decentralizedNamespaceOwnersToLoad = decentralizedNamespaces
-        .flatMap(_.transaction.mapping.owners)
+        .flatMap(_.mapping.owners)
         .toSet -- namespaceCache.keySet
       namespacesToLoad = uncachedNamespaces ++ decentralizedNamespaceOwnersToLoad
 
@@ -286,12 +286,12 @@ trait TransactionAuthorizationValidatorX {
       )
     } yield {
       val missingNSDs =
-        namespacesToLoad -- namespaceDelegations.map(_.transaction.mapping.namespace).toSet
+        namespacesToLoad -- namespaceDelegations.map(_.mapping.namespace).toSet
       if (missingNSDs.nonEmpty)
         logger.debug(s"Didn't find a namespace delegations for $missingNSDs at $timestamp")
 
       val namespaceToTx = namespaceDelegations
-        .groupBy(_.transaction.mapping.namespace)
+        .groupBy(_.mapping.namespace)
       namespaceToTx
         .foreach { case (namespace, transactions) =>
           ErrorUtil.requireArgument(
@@ -314,12 +314,12 @@ trait TransactionAuthorizationValidatorX {
         }
 
       decentralizedNamespaces.foreach { dns =>
-        import dns.transaction.mapping.namespace
+        val namespace = dns.mapping.namespace
         ErrorUtil.requireArgument(
           !decentralizedNamespaceCache.isDefinedAt(namespace),
           s"decentralized namespace shouldn't already be cached before loading $namespace vs ${decentralizedNamespaceCache.keySet}",
         )
-        val graphs = dns.transaction.mapping.owners.forgetNE.toSeq.map(ns =>
+        val graphs = dns.mapping.owners.forgetNE.toSeq.map(ns =>
           namespaceCache.getOrElseUpdate(
             ns,
             new AuthorizationGraphX(
@@ -341,9 +341,9 @@ trait TransactionAuthorizationValidatorX {
           .put(
             namespace,
             (
-              dns.transaction.mapping,
+              dns.mapping,
               DecentralizedNamespaceAuthorizationGraphX(
-                dns.transaction.mapping,
+                dns.mapping,
                 directDecentralizedNamespaceGraph,
                 graphs,
               ),

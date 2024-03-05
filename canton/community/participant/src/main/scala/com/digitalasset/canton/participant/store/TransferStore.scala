@@ -39,10 +39,10 @@ trait TransferStore extends TransferLookup {
       traceContext: TraceContext
   ): EitherT[Future, TransferStoreError, Unit]
 
-  /** Adds the given [[com.digitalasset.canton.protocol.messages.TransferOutResult]] to the transfer data in the store,
+  /** Adds the given [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] to the transfer data in the store,
     * provided that the transfer data has previously been stored.
     *
-    * The same [[com.digitalasset.canton.protocol.messages.TransferOutResult]] can be added any number of times.
+    * The same [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] can be added any number of times.
     * This includes transfer-out results that are in the [[protocol.transfer.TransferData!.transferOutResult]]
     * added with [[addTransfer]].
     *

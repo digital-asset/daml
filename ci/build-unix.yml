@@ -3,7 +3,8 @@
 
 parameters:
   is_release: ''
-  name: ''
+  name_str: ''
+  name_exp: ''
   release_tag: ''
   scala_version: ''
   test_mode: ''
@@ -13,7 +14,7 @@ steps:
     displayName: 'Build/Install the Developer Environment'
     condition: and(succeeded(),
                    or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
+                      ne(${{parameters.name_exp}}, 'm1')))
 
   - bash: |
       source dev-env/lib/ensure-nix
@@ -22,7 +23,7 @@ steps:
     condition: and(succeeded(),
                    eq(variables['System.PullRequest.IsFork'], 'False'),
                    or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
+                      ne(${{parameters.name_exp}}, 'm1')))
     env:
       # to upload to the Nix cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
@@ -36,11 +37,11 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     condition: and(succeeded(),
                    or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
+                      ne(${{parameters.name_exp}}, 'm1')))
 
   - bash: ./fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+    condition: and(succeeded(), eq(${{parameters.name_exp}}, 'linux-intel'))
 
   - bash: |
       set -euo pipefail
@@ -51,7 +52,7 @@ steps:
 
   - bash: |
       set -euo pipefail
-      p="_${{parameters.name}}"
+      p="_${{parameters.name_str}}"
       a="_$(Build.BuildNumber)_$(System.JobAttempt)"
       t="${{parameters.test_mode}}"
       ./build.sh $p $a $t
@@ -64,19 +65,19 @@ steps:
       IS_FORK: $(System.PullRequest.IsFork)
     condition: and(succeeded(),
                    or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
+                      ne(${{parameters.name_exp}}, 'm1')))
 
   # Do not publish dar from m1
-  - ${{ if ne(parameters.name, 'm1') }}:
+  - ${{ if ne(parameters.name_exp, 'm1') }}:
     - template: publish-platform-independence-dar.yml
       parameters:
-        platform: '${{parameters.name}}'
-        is_release: '${{parameters.is_release}}'
+        platform: ${{parameters.name_str}}
+        is_release: ${{parameters.is_release}}
 
   - task: PublishBuildArtifacts@1
     condition: and(succeededOrFailed(),
                    or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
+                      ne(${{parameters.name_exp}}, 'm1')))
     continueOnError: true
     inputs:
       pathtoPublish: '$(Build.StagingDirectory)/logs'
@@ -85,11 +86,11 @@ steps:
   - task: PublishBuildArtifacts@1
     condition: and(failed(),
                    or(eq(${{parameters.is_release}}, 'false'),
-                      ne('${{parameters.name}}', 'm1')))
+                      ne(${{parameters.name_exp}}, 'm1')))
     displayName: 'Publish the bazel test logs'
     inputs:
       pathtoPublish: 'bazel-testlogs/'
-      artifactName: 'Test logs ${{parameters.name}}'
+      artifactName: 'Test logs ${{parameters.name_str}}'
 
   - bash: |
       set -euo pipefail
@@ -106,32 +107,31 @@ steps:
     name: publish_npm_mvn
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq('${{parameters.scala_version}}', ''),
-                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x'),
-                   in('${{parameters.name}}', 'linux', 'linux-scala-2.12'))
+                   eq(${{parameters.name_exp}}, 'linux-intel'),
+                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib
       condition: and(succeeded(),
                      or(eq(${{parameters.is_release}}, 'false'),
-                        ne('${{parameters.name}}', 'm1')))
+                        ne(${{parameters.name_exp}}, 'm1')))
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
       mkdir -p $(Build.StagingDirectory)/release
-      ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name}} $(Build.StagingDirectory)/release
+      ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name_str}} $(Build.StagingDirectory)/release
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
     condition: and(succeeded(),
-                   ne('${{parameters.name}}', 'm1'),
+                   ne(${{parameters.name_exp}}, 'm1'),
                    eq(${{parameters.is_release}}, 'true'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/release
-      artifactName: ${{parameters.name}}-release
+      artifactName: ${{parameters.name_str}}-release
     condition: and(succeeded(),
-                   ne('${{parameters.name}}', 'm1'),
+                   ne(${{parameters.name_exp}}, 'm1'),
                    eq(${{parameters.is_release}}, 'true'),
                    in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))

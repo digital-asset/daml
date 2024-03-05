@@ -97,7 +97,7 @@ object FetchTimeRequest {
 
 final case class FetchTimeResponse(timestamp: CantonTimestamp) {
   def toProtoV30: v30.FetchTimeResponse =
-    v30.FetchTimeResponse(timestamp.toProtoPrimitive.some)
+    v30.FetchTimeResponse(timestamp.toProtoTimestamp.some)
 }
 
 object FetchTimeResponse {
@@ -106,7 +106,7 @@ object FetchTimeResponse {
   ): ParsingResult[FetchTimeResponse] =
     for {
       timestamp <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
+        CantonTimestamp.fromProtoTimestamp,
         "timestamp",
         requestP.timestamp,
       )
@@ -115,7 +115,7 @@ object FetchTimeResponse {
 
 final case class AwaitTimeRequest(domainIdO: Option[DomainId], timestamp: CantonTimestamp) {
   def toProtoV30: v30.AwaitTimeRequest =
-    v30.AwaitTimeRequest(domainIdO.map(_.toProtoPrimitive), timestamp.toProtoPrimitive.some)
+    v30.AwaitTimeRequest(domainIdO.map(_.toProtoPrimitive), timestamp.toProtoTimestamp.some)
 }
 
 object AwaitTimeRequest {
@@ -125,7 +125,7 @@ object AwaitTimeRequest {
     for {
       domainIdO <- requestP.domainId.traverse(DomainId.fromProtoPrimitive(_, "domainId"))
       timestamp <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
+        CantonTimestamp.fromProtoTimestamp,
         "timestamp",
         requestP.timestamp,
       )

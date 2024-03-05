@@ -19,7 +19,7 @@ object CantonContractIdVersion {
   def fromProtocolVersion(
       protocolVersion: ProtocolVersion
   ): Either[String, CantonContractIdVersion] =
-    if (protocolVersion >= ProtocolVersion.v30) Right(AuthenticatedContractIdVersionV2)
+    if (protocolVersion >= ProtocolVersion.v30) Right(AuthenticatedContractIdVersionV10)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
   def ensureCantonContractId(
@@ -40,12 +40,12 @@ object CantonContractIdVersion {
   }
 
   def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] = {
-    if (contractSuffix.startsWith(AuthenticatedContractIdVersionV2.versionPrefixBytes)) {
-      Right(AuthenticatedContractIdVersionV2)
+    if (contractSuffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes)) {
+      Right(AuthenticatedContractIdVersionV10)
     } else {
       Left(
         s"""Suffix ${contractSuffix.toHexString} does not start with one of the supported prefixes:
-            | ${AuthenticatedContractIdVersionV2.versionPrefixBytes}
+            | ${AuthenticatedContractIdVersionV10.versionPrefixBytes}
             |""".stripMargin.replaceAll("\r|\n", "")
       )
     }
@@ -72,10 +72,10 @@ sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)
 
 }
 
-case object AuthenticatedContractIdVersionV2
-    extends CantonContractIdVersion(NonNegativeInt.tryCreate(2)) {
-  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V5+)
-  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x02.toByte))
+case object AuthenticatedContractIdVersionV10
+    extends CantonContractIdVersion(NonNegativeInt.tryCreate(10)) {
+  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V30+)
+  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x10.toByte))
 
   val isAuthenticated: Boolean = true
 }

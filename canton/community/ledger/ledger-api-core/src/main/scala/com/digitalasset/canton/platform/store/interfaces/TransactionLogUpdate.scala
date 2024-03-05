@@ -122,7 +122,6 @@ object TransactionLogUpdate {
       createArgument: LfValue.VersionedValue,
       createSignatories: Set[Party],
       createObservers: Set[Party],
-      createAgreementText: Option[String],
       createKeyHash: Option[Hash],
       createKey: Option[GlobalKey],
       createKeyMaintainers: Option[Set[Party]],

@@ -36,7 +36,7 @@ message TrafficControlStateResponse {
 
 message SetTrafficBalanceRequest {
   string member = 1; // Member to top up
-  int64 serial = 2; // Serial number of the request, will be used for idempotency
+  uint32 serial = 2; // Serial number of the request, will be used for idempotency
   int64 total_traffic_balance = 3; // Amount of traffic to top up
 }
 

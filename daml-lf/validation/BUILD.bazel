@@ -79,7 +79,7 @@ upgrade_test_file = "src/test/scala/com/digitalasset/daml/lf/validation/Upgrades
 
 da_scala_test_suite(
     name = "tests",
-    size = "small",
+    size = "large",
     srcs = glob(
         ["src/test/**/*.scala"],
         exclude = [
@@ -167,6 +167,36 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
             "//test-common:upgrades-FailsWhenUpgradingV3ThenV2-v3.dar",
+
+            # More tests ported from DamlcUpgrades.hs
+            "//test-common:upgrades-FailsWhenATopLevelEnumChanges-v1.dar",
+            "//test-common:upgrades-FailsWhenATopLevelEnumChanges-v2.dar",
+            "//test-common:upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v1.dar",
+            "//test-common:upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v2.dar",
+            "//test-common:upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v1.dar",
+            "//test-common:upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v2.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v1.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v2.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantAddsAVariant-v1.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantAddsAVariant-v2.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantRemovesAVariant-v1.dar",
+            "//test-common:upgrades-FailsWhenATopLevelVariantRemovesAVariant-v2.dar",
+            "//test-common:upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v1.dar",
+            "//test-common:upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v2.dar",
+            "//test-common:upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar",
+            "//test-common:upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar",
+            "//test-common:upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v1.dar",
+            "//test-common:upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
+            "//test-common:upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v1.dar",
+            "//test-common:upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
+
+            # More more tests ported from DamlcUpgrades.hs
+            "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
+            "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
+            "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
+            "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
         ],
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",

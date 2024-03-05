@@ -246,7 +246,7 @@ class SequencedEventValidatorTest
       result shouldBe a[SignatureInvalid]
     }
 
-    "validate correctly with explicit signing timestamp" in { fixture =>
+    "validate correctly with explicit topology timestamp" in { fixture =>
       import fixture.*
       val syncCrypto = mock[DomainSyncCryptoClient]
       when(syncCrypto.pureCrypto).thenReturn(subscriberCryptoApi.pureCrypto)
@@ -256,7 +256,7 @@ class SequencedEventValidatorTest
       val validator = mkValidator(syncCryptoApi = syncCrypto)
       val priorEvent = IgnoredSequencedEvent(ts(0), SequencerCounter(41), None)(fixtureTraceContext)
       val deliver =
-        createEventWithCounterAndTs(42, ts(2), timestampOfSigningKey = Some(ts(1))).futureValue
+        createEventWithCounterAndTs(42, ts(2), topologyTimestampO = Some(ts(1))).futureValue
 
       valueOrFail(
         validator.validate(Some(priorEvent), deliver, DefaultTestIdentities.sequencerIdX)

@@ -91,6 +91,7 @@ package domain {
   import com.daml.ledger.api.v2.commands.Commands
   import com.daml.lf.data.Ref.HexString
   import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
+  import com.digitalasset.canton.topology.DomainId
 
   sealed trait SubmissionIdTag
 
@@ -317,6 +318,7 @@ package domain {
       workflowId: Option[WorkflowId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
       disclosedContracts: Option[List[DisclosedContract[TmplId]]],
+      domainId: Option[DomainId],
   )
 
   object CommandMeta {
@@ -371,7 +373,6 @@ package domain {
       payload: LfV,
       signatories: Seq[Party],
       observers: Seq[Party],
-      agreementText: String,
       completionOffset: CompletionOffset,
   )
 

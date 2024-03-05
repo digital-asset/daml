@@ -155,10 +155,10 @@ trait SequencerBlockStore extends AutoCloseable {
     * If there are neither events nor registrations in the current block, the two are equal.
     * </li>
     * <li>If the previous block is defined,
-    * the [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]] of the
+    * the [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]] of the
     * its [[com.digitalasset.canton.domain.block.data.BlockEphemeralState]]
     * is no later than the one of the current block. In particular,
-    * if [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]]
+    * if [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]]
     * is defined in the previous block, then so is it in the successor block.
     * If it is defined in the successor block, then it is the same as in the predecessor block
     * unless the block contains events addressed to the sequencer's topology client.
@@ -170,7 +170,7 @@ trait SequencerBlockStore extends AutoCloseable {
     * and the block contains member registrations.
     * </li>
     * <li>All events in the block addressed to the `topologyClientMember` have timestamps of at most
-    * [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]] of the current block.
+    * [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]] of the current block.
     * </li>
     * </ul>
     *
@@ -202,7 +202,7 @@ trait SequencerBlockStore extends AutoCloseable {
         s"The last event timestamp ${currentBlock.lastTs} in the current block ${currentBlock.height} is before the last event timestamp ${prevBlock.lastTs} of the previous block",
       )
 
-      (prevBlock.latestTopologyClientTimestamp, currentBlock.latestTopologyClientTimestamp) match {
+      (prevBlock.latestSequencerEventTimestamp, currentBlock.latestSequencerEventTimestamp) match {
         case (Some(prevTs), Some(currTs)) =>
           ErrorUtil.requireState(
             prevTs <= currTs,
@@ -261,15 +261,15 @@ trait SequencerBlockStore extends AutoCloseable {
         // may be set even though the block does not contain events and we don't know the previous block any more
         prevBlockO.foreach { prevBlock =>
           ErrorUtil.requireState(
-            prevBlock.latestTopologyClientTimestamp == currentBlock.latestTopologyClientTimestamp,
-            s"The latest topology client timestamp for block ${currentBlock.height} changed from ${prevBlock.latestTopologyClientTimestamp} to ${currentBlock.latestTopologyClientTimestamp}, but the block contains no events for $topologyClientMember",
+            prevBlock.latestSequencerEventTimestamp == currentBlock.latestSequencerEventTimestamp,
+            s"The latest topology client timestamp for block ${currentBlock.height} changed from ${prevBlock.latestSequencerEventTimestamp} to ${currentBlock.latestSequencerEventTimestamp}, but the block contains no events for $topologyClientMember",
           )
         }
       case Some(topologyEvents) =>
         val lastEvent = topologyEvents.toNEF.maximumBy(_.timestamp)
         ErrorUtil.requireState(
-          currentBlock.latestTopologyClientTimestamp.contains(lastEvent.timestamp),
-          s"The latest topology client timestamp for block ${currentBlock.height} is ${currentBlock.latestTopologyClientTimestamp}, but the last event in the block to $topologyClientMember is at ${lastEvent.timestamp}",
+          currentBlock.latestSequencerEventTimestamp.contains(lastEvent.timestamp),
+          s"The latest topology client timestamp for block ${currentBlock.height} is ${currentBlock.latestSequencerEventTimestamp}, but the last event in the block to $topologyClientMember is at ${lastEvent.timestamp}",
         )
     }
 

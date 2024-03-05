@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
+import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.block.data.{BlockEphemeralState, SequencerBlockStore}
@@ -17,13 +18,15 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerHealthConfig,
   SequencerInitialState,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace
 import io.opentelemetry.api.trace.Tracer
@@ -35,7 +38,7 @@ abstract class BlockSequencerFactory(
     health: Option[SequencerHealthConfig],
     storage: Storage,
     protocolVersion: ProtocolVersion,
-    topologyClientMember: Member,
+    sequencerId: SequencerId,
     nodeParameters: CantonNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
@@ -47,8 +50,15 @@ abstract class BlockSequencerFactory(
     storage,
     protocolVersion,
     nodeParameters.processingTimeouts,
-    if (nodeParameters.enableAdditionalConsistencyChecks) Some(topologyClientMember) else None,
+    if (nodeParameters.enableAdditionalConsistencyChecks) Some(sequencerId) else None,
     loggerFactory,
+  )
+
+  private val balanceStore = TrafficBalanceStore(
+    storage,
+    nodeParameters.processingTimeouts,
+    loggerFactory,
+    nodeParameters.batchingConfig.aggregator,
   )
 
   protected val name: String
@@ -58,11 +68,10 @@ abstract class BlockSequencerFactory(
   protected def createBlockSequencer(
       name: String,
       domainId: DomainId,
-      sequencerId: SequencerId,
       cryptoApi: DomainSyncCryptoClient,
-      topologyClientMember: Member,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
+      balanceStore: TrafficBalanceStore,
       storage: Storage,
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
@@ -85,9 +94,12 @@ abstract class BlockSequencerFactory(
   )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
     val initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
     logger.debug(s"Storing sequencers initial state: $initialBlockState")
-    EitherT.right(
-      store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
-    )
+    val result = for {
+      _ <- store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
+      _ <- snapshot.snapshot.trafficBalances.parTraverse_(balanceStore.store)
+    } yield ()
+
+    EitherT.right(result)
   }
 
   override final def create(
@@ -97,7 +109,7 @@ abstract class BlockSequencerFactory(
       driverClock: Clock,
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      rateLimitManager: Option[SequencerRateLimitManager],
+      mkRateLimitManager: TrafficBalanceStore => Option[SequencerRateLimitManager],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -140,18 +152,17 @@ abstract class BlockSequencerFactory(
       val sequencer = createBlockSequencer(
         name,
         domainId,
-        sequencerId,
         domainSyncCryptoApi,
-        topologyClientMember,
         stateManager,
         store,
+        balanceStore,
         storage,
         futureSupervisor,
         health,
         clock,
         driverClock,
         protocolVersion,
-        rateLimitManager,
+        mkRateLimitManager(balanceStore),
         orderingTimeFixMode,
         initialBlockHeight,
         domainLoggerFactory,

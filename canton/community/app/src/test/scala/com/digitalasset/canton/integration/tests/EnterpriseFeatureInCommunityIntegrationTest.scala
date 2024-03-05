@@ -17,7 +17,6 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError.PruningNotSupportedInCommunityEdition
-import com.digitalasset.canton.platform.apiserver.services.ApiConversions
 
 sealed trait EnterpriseFeatureInCommunityXIntegrationTest
     extends CommunityIntegrationTest
@@ -95,7 +94,7 @@ sealed trait EnterpriseFeatureInCommunityXIntegrationTest
       alias = DomainAlias.tryCreate(domainAlias),
     )
 
-    val startOffset = ApiConversions.toV1(participant1.ledger_api.state.end())
+    val startOffset = participant1.ledger_api.state.end()
     // Generate some data after the pruning point
     participant1.health.ping(participant1)
 

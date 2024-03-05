@@ -48,7 +48,6 @@ private[platform] class MutableCacheBackedContractStore(
             contractInstance = active.contract,
             ledgerEffectiveTime = active.createLedgerEffectiveTime,
             stakeholders = active.stakeholders,
-            agreementText = active.agreementText,
             signatories = active.signatories,
             globalKey = active.globalKey,
             maintainers = active.keyMaintainers,
@@ -97,7 +96,7 @@ private[platform] class MutableCacheBackedContractStore(
       value: ContractStateValue
   ): Future[Option[Contract]] =
     value match {
-      case Active(contract, stakeholders, _, _, _, _, _, _)
+      case Active(contract, stakeholders, _, _, _, _, _)
           if nonEmptyIntersection(stakeholders, readers) =>
         Future.successful(Some(contract))
       case _ =>
@@ -110,7 +109,6 @@ private[platform] class MutableCacheBackedContractStore(
         contract = active.contract,
         stakeholders = active.stakeholders,
         createLedgerEffectiveTime = active.ledgerEffectiveTime,
-        agreementText = active.agreementText,
         signatories = active.signatories,
         globalKey = active.globalKey,
         keyMaintainers = active.keyMaintainers,

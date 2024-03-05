@@ -117,7 +117,9 @@ class CommandSubmitterWithRetry(
                 }
               }
               .getOrElse {
-                logger.info(s"Command with id = $commandId failed non-retryable with ${status}.")
+                logger.info(
+                  s"Command with id = $commandId failed non-retryable with ${status}. Giving up."
+                )
                 if (status.code == com.google.rpc.Code.DEADLINE_EXCEEDED.getNumber) {
                   FutureUnlessShutdown.pure(CommandResult.TimeoutReached(commandId, status))
                 } else {

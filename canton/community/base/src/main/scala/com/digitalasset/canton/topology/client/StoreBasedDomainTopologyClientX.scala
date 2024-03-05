@@ -177,7 +177,7 @@ class StoreBasedTopologySnapshotX(
         ).toRight(s"Unable to fetch domain parameters at $timestamp")
 
         domainParameters = {
-          val mapping = storedTx.transaction.transaction.mapping
+          val mapping = storedTx.mapping
           DynamicDomainParametersWithValidity(
             mapping.parameters,
             storedTx.validFrom.value,
@@ -204,7 +204,7 @@ class StoreBasedTopologySnapshotX(
     .map {
       _.collectOfMapping[DomainParametersStateX].result
         .map { storedTx =>
-          val dps = storedTx.transaction.transaction.mapping
+          val dps = storedTx.mapping
           DynamicDomainParametersWithValidity(
             dps.parameters,
             storedTx.validFrom.value,
@@ -237,7 +237,7 @@ class StoreBasedTopologySnapshotX(
       storedTransactions
         .collectOfMapping[M]
         .result
-        .groupBy(_.transaction.transaction.mapping.uniqueKey)
+        .groupBy(_.mapping.uniqueKey)
         .map { case (_, seq) =>
           collectLatestMapping[M](
             code,
@@ -358,7 +358,7 @@ class StoreBasedTopologySnapshotX(
       filterNamespace = None,
     ).map(
       _.collectOfMapping[MediatorDomainStateX].result
-        .groupBy(_.transaction.transaction.mapping.group)
+        .groupBy(_.mapping.group)
         .map { case (groupId, seq) =>
           val mds = collectLatestMapping(
             TopologyMappingX.Code.MediatorDomainStateX,
@@ -401,14 +401,21 @@ class StoreBasedTopologySnapshotX(
       val membersWithState = txs
         .collectOfMapping[TrafficControlStateX]
         .result
-        .groupBy(_.transaction.transaction.mapping.member)
+        .groupBy(_.mapping.member)
         .flatMap { case (member, mappings) =>
-          collectLatestMapping(
+          collectLatestTransaction(
             TopologyMappingX.Code.TrafficControlStateX,
             mappings.sortBy(_.validFrom),
-          ).map(mapping =>
-            Some(MemberTrafficControlState(totalExtraTrafficLimit = mapping.totalExtraTrafficLimit))
-          ).map(member -> _)
+          ).map { tx =>
+            val mapping = tx.mapping
+            Some(
+              MemberTrafficControlState(
+                totalExtraTrafficLimit = mapping.totalExtraTrafficLimit,
+                tx.serial,
+                tx.validFrom.value,
+              )
+            )
+          }.map(member -> _)
         }
 
       val membersWithoutState = members.toSet.diff(membersWithState.keySet).map(_ -> None).toMap
@@ -437,7 +444,7 @@ class StoreBasedTopologySnapshotX(
       transactions
         .collectOfMapping[AuthorityOfX]
         .result
-        .groupBy(_.transaction.transaction.mapping.partyId)
+        .groupBy(_.mapping.partyId)
         .collect {
           case (partyId, seq) if parties.contains(partyId.toLf) =>
             val authorityOf = collectLatestMapping(
@@ -480,7 +487,7 @@ class StoreBasedTopologySnapshotX(
         _.collectOfMapping[OwnerToKeyMappingX]
           .collectOfType[TopologyChangeOpX.Replace]
           .result
-          .groupBy(_.transaction.transaction.mapping.member)
+          .groupBy(_.mapping.member)
           .collect {
             case (owner, seq)
                 if owner.filterString.startsWith(filterOwner)
@@ -506,7 +513,7 @@ class StoreBasedTopologySnapshotX(
   )(implicit traceContext: TraceContext): Set[ParticipantId] = storedTxs
     .collectOfMapping[DomainTrustCertificateX]
     .result
-    .groupBy(_.transaction.transaction.mapping.participantId)
+    .groupBy(_.mapping.participantId)
     .collect { case (pid, seq) =>
       // invoke collectLatestMapping only to warn in case a participantId's domain trust certificate is not unique
       collectLatestMapping(
@@ -524,7 +531,7 @@ class StoreBasedTopologySnapshotX(
     storedTxs
       .collectOfMapping[OwnerToKeyMappingX]
       .result
-      .groupBy(_.transaction.transaction.mapping.member)
+      .groupBy(_.mapping.member)
       .collect {
         case (pid: ParticipantId, seq)
             if participantsWithCertificates(pid) && collectLatestMapping(
@@ -545,7 +552,7 @@ class StoreBasedTopologySnapshotX(
     storedTxs
       .collectOfMapping[ParticipantDomainPermissionX]
       .result
-      .groupBy(_.transaction.transaction.mapping.participantId)
+      .groupBy(_.mapping.participantId)
       .collect {
         case (pid, seq) if participantsWithCertAndKeys(pid) =>
           val mapping =
@@ -678,7 +685,7 @@ class StoreBasedTopologySnapshotX(
       filterNamespace = None,
     ).map(
       _.result.view
-        .map(_.transaction.transaction.mapping)
+        .map(_.mapping)
         .flatMap {
           case dtc: DomainTrustCertificateX => Seq(dtc.participantId)
           case mds: MediatorDomainStateX => mds.active ++ mds.observers
@@ -708,7 +715,7 @@ class StoreBasedTopologySnapshotX(
           filterNamespace = None,
         ).map(
           _.collectOfMapping[MediatorDomainStateX].result
-            .exists(_.transaction.transaction.mapping.allMediatorsInGroup.contains(mediatorId))
+            .exists(_.mapping.allMediatorsInGroup.contains(mediatorId))
         )
       case sequencerId @ SequencerId(_) =>
         findTransactions(
@@ -718,7 +725,7 @@ class StoreBasedTopologySnapshotX(
           filterNamespace = None,
         ).map(
           _.collectOfMapping[SequencerDomainStateX].result
-            .exists(_.transaction.transaction.mapping.allSequencers.contains(sequencerId))
+            .exists(_.mapping.allSequencers.contains(sequencerId))
         )
       case _ =>
         Future.failed(
@@ -733,7 +740,7 @@ class StoreBasedTopologySnapshotX(
       typ: TopologyMappingX.Code,
       transactions: Seq[StoredTopologyTransactionX[TopologyChangeOpX.Replace, T]],
   )(implicit traceContext: TraceContext): Option[T] =
-    collectLatestTransaction(typ, transactions).map(_.transaction.transaction.mapping)
+    collectLatestTransaction(typ, transactions).map(_.mapping)
 
   private def collectLatestTransaction[T <: TopologyMappingX](
       typ: TopologyMappingX.Code,
@@ -750,7 +757,7 @@ class StoreBasedTopologySnapshotX(
           val validFrom = tx.validFrom.value
           if (previous >= validFrom) {
             logger.warn(
-              s"Instance of \"${typ.code}\" with hash \"${tx.transaction.transaction.hash.hash.toHexString}\" with non-monotonically growing valid-from effective time: previous $previous, new: $validFrom"
+              s"Instance of \"${typ.code}\" with hash \"${tx.hash.hash.toHexString}\" with non-monotonically growing valid-from effective time: previous $previous, new: $validFrom"
             )
           }
           validFrom

@@ -5,7 +5,7 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.domain.admin
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerPruningStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
@@ -73,7 +73,7 @@ object SequencerAdminCommands {
   final case class SetTrafficControlBalance(
       member: Member,
       newTrafficBalance: NonNegativeLong,
-      serial: NonNegativeLong,
+      serial: PositiveInt,
   ) extends BaseSequencerAdministrationCommands[
         admin.v30.SetTrafficBalanceRequest,
         admin.v30.SetTrafficBalanceResponse,

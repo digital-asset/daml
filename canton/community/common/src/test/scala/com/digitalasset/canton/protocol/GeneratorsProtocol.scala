@@ -116,13 +116,13 @@ final class GeneratorsProtocol(
   {
     // If this pattern match is not exhaustive anymore, update the method below
     ((_: CantonContractIdVersion) match {
-      case AuthenticatedContractIdVersionV2 => ()
+      case AuthenticatedContractIdVersionV10 => ()
     }).discard
   }
   def serializableContractArb(
       canHaveEmptyKey: Boolean
   ): Arbitrary[SerializableContract] = {
-    val contractIdVersion = AuthenticatedContractIdVersionV2
+    val contractIdVersion = AuthenticatedContractIdVersionV10
 
     Arbitrary(
       for {

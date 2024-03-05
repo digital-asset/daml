@@ -147,7 +147,7 @@ private[lf] object Anf {
   }
 
   private def patternNArgs(pat: target.SCasePat): Int = pat match {
-    case _: target.SCPEnum | _: target.SCPPrimCon | target.SCPNil | target.SCPDefault |
+    case _: target.SCPEnum | _: target.SCPBuiltinCon | target.SCPNil | target.SCPDefault |
         target.SCPNone =>
       0
     case _: target.SCPVariant | target.SCPSome => 1

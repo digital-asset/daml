@@ -82,7 +82,6 @@ private[backend] trait StorageBackendTestsContracts
       raw.createArgumentCompression shouldBe Some(123)
       raw.flatEventWitnesses shouldBe Set(signatory, observer)
       raw.signatories shouldBe Set(signatory)
-      raw.agreementText shouldBe Some("agreement")
     }
     assignedContracts.get(contractId2).isDefined shouldBe true
     assignedContracts.get(contractId2).foreach { raw =>
@@ -90,7 +89,6 @@ private[backend] trait StorageBackendTestsContracts
       raw.createArgumentCompression shouldBe Some(123)
       raw.flatEventWitnesses shouldBe Set(signatory, observer)
       raw.signatories shouldBe Set(signatory)
-      raw.agreementText shouldBe Some("agreement")
     }
   }
 

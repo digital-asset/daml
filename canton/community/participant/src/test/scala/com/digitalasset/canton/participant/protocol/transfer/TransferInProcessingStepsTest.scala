@@ -662,7 +662,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
                 testedProtocolVersion,
               )
             ),
-            Right(inRes),
+            inRes,
             pendingRequestData,
             state.pendingTransferInSubmissions,
             crypto.pureCrypto,

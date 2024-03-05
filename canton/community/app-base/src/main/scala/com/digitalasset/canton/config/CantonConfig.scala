@@ -50,6 +50,7 @@ import com.digitalasset.canton.domain.sequencing.config.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpApiConfig, StaticContentConfig, WebsocketConfig}
 import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secure.{
@@ -482,7 +483,7 @@ trait CantonConfig {
   }
 }
 
-private[config] object CantonNodeParameterConverter {
+private[canton] object CantonNodeParameterConverter {
   import com.digitalasset.canton.time.EnrichedDurations.*
 
   def general(parent: CantonConfig, node: LocalNodeConfig): CantonNodeParameters.General = {
@@ -499,6 +500,7 @@ private[config] object CantonNodeParameterConverter {
       node.parameters.batching,
       parent.parameters.nonStandardConfig,
       node.storage.parameters.migrateAndStart,
+      node.parameters.useNewTrafficControl,
     )
   }
 
@@ -698,6 +700,8 @@ object CantonConfig {
       deriveEnumerationReader[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmReader: ConfigReader[HashAlgorithm] =
       deriveEnumerationReader[HashAlgorithm]
+    lazy implicit val cryptoPbkdfSchemeReader: ConfigReader[PbkdfScheme] =
+      deriveEnumerationReader[PbkdfScheme]
     lazy implicit val cryptoKeyFormatReader: ConfigReader[CryptoKeyFormat] =
       deriveEnumerationReader[CryptoKeyFormat]
     implicit def cryptoSchemeConfig[S: ConfigReader: Order]: ConfigReader[CryptoSchemeConfig[S]] =
@@ -872,7 +876,8 @@ object CantonConfig {
       deriveReader[AcsCommitmentsCatchUpConfig]
     lazy implicit val deadlockDetectionConfigReader: ConfigReader[DeadlockDetectionConfig] =
       deriveReader[DeadlockDetectionConfig]
-
+    lazy implicit val sequencerTrafficConfigReader: ConfigReader[SequencerTrafficConfig] =
+      deriveReader[SequencerTrafficConfig]
     lazy implicit val metricsFilterConfigReader: ConfigReader[MetricsConfig.MetricsFilterConfig] =
       deriveReader[MetricsConfig.MetricsFilterConfig]
     lazy implicit val metricsConfigPrometheusReader
@@ -1075,6 +1080,8 @@ object CantonConfig {
       deriveEnumerationWriter[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmWriter: ConfigWriter[HashAlgorithm] =
       deriveEnumerationWriter[HashAlgorithm]
+    lazy implicit val cryptoPbkdfSchemeWriter: ConfigWriter[PbkdfScheme] =
+      deriveEnumerationWriter[PbkdfScheme]
     lazy implicit val cryptoKeyFormatWriter: ConfigWriter[CryptoKeyFormat] =
       deriveEnumerationWriter[CryptoKeyFormat]
     implicit def cryptoSchemeConfigWriter[S: ConfigWriter]: ConfigWriter[CryptoSchemeConfig[S]] =
@@ -1152,7 +1159,8 @@ object CantonConfig {
       deriveWriter[RateLimitingConfig]
     lazy implicit val ledgerApiServerConfigWriter: ConfigWriter[LedgerApiServerConfig] =
       deriveWriter[LedgerApiServerConfig]
-
+    lazy implicit val sequencerTrafficConfigWriter: ConfigWriter[SequencerTrafficConfig] =
+      deriveWriter[SequencerTrafficConfig]
     implicit val throttleModeCfgWriter: ConfigWriter[ThrottleMode] =
       ConfigWriter.toString[ThrottleMode] {
         case ThrottleMode.Shaping => "shaping"

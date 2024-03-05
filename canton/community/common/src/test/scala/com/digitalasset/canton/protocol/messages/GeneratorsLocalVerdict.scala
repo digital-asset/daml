@@ -11,6 +11,7 @@ import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.{
 import com.digitalasset.canton.protocol.LocalRejectError.MalformedRejects.{
   BadRootHashMessages,
   CreatesExistingContracts,
+  MalformedRequest,
   ModelConformance,
   Payloads,
 }
@@ -27,7 +28,7 @@ import com.digitalasset.canton.protocol.LocalRejectError.TransferInRejects.{
 }
 import com.digitalasset.canton.protocol.LocalRejectError.TransferOutRejects.ActivenessCheckFailed
 import com.digitalasset.canton.protocol.{LocalRejectErrorImpl, Malformed}
-import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.{Arbitrary, Gen}
 
 final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
@@ -35,56 +36,49 @@ final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
   import com.digitalasset.canton.GeneratorsLf.lfPartyIdArb
 
   // TODO(#14515) Check that the generator is exhaustive
-  private def localRejectErrorImplGen: Gen[LocalRejectErrorImpl] = {
+  private def localVerdictRejectGen: Gen[LocalReject] = {
     val resources = List("resource1", "resource2")
     val details = "details"
 
-    val builders: Seq[RepresentativeProtocolVersion[LocalVerdict.type] => LocalRejectErrorImpl] =
-      Seq(
-        LockedContracts.Reject(resources),
-        InactiveContracts.Reject(resources),
-        LedgerTime.Reject(details),
-        SubmissionTime.Reject(details),
-        LocalTimeout.Reject(),
-        ActivenessCheckFailed.Reject(details),
-        ContractAlreadyArchived.Reject(details),
-        ContractAlreadyActive.Reject(details),
-        ContractIsLocked.Reject(details),
-        AlreadyCompleted.Reject(details),
-        /*
-       GenericReject is intentionally excluded
-       Reason: it should not be serialized.
-         */
-        // GenericReject("cause", details, resources, "SOME_ID", ErrorCategory.TransientServerFailure),
-      )
+    val builders = Seq[LocalRejectErrorImpl](
+      LockedContracts.Reject(resources),
+      InactiveContracts.Reject(resources),
+      LedgerTime.Reject(details),
+      SubmissionTime.Reject(details),
+      LocalTimeout.Reject(),
+      ActivenessCheckFailed.Reject(details),
+      ContractAlreadyArchived.Reject(details),
+      ContractAlreadyActive.Reject(details),
+      ContractIsLocked.Reject(details),
+      AlreadyCompleted.Reject(details),
+    )
 
-    Gen.oneOf(builders).map(_(LocalVerdict.protocolVersionRepresentativeFor(protocolVersion)))
+    Gen
+      .oneOf(builders)
+      .map(_.toLocalReject(protocolVersion))
   }
 
   // TODO(#14515) Check that the generator is exhaustive
-  private def localVerdictMalformedGen: Gen[Malformed] = {
+  private def localVerdictMalformedGen: Gen[LocalReject] = {
     val resources = List("resource1", "resource2")
     val details = "details"
 
-    val builders: Seq[RepresentativeProtocolVersion[LocalVerdict.type] => Malformed] = Seq(
-      /*
-        MalformedRequest.Reject is intentionally excluded
-        The reason is for backward compatibility reason, its `v0.LocalReject.Code` does not correspond to the id
-        (`v0.LocalReject.Code.MalformedPayloads` vs "LOCAL_VERDICT_MALFORMED_REQUEST")
-       */
-      // MalformedRequest.Reject(details),
+    val builders = Seq[Malformed](
+      MalformedRequest.Reject(details),
       Payloads.Reject(details),
       ModelConformance.Reject(details),
       BadRootHashMessages.Reject(details),
       CreatesExistingContracts.Reject(resources),
     )
 
-    Gen.oneOf(builders).map(_(LocalVerdict.protocolVersionRepresentativeFor(protocolVersion)))
+    Gen
+      .oneOf(builders)
+      .map(_.toLocalReject(protocolVersion))
   }
 
   // TODO(#14515) Check that the generator is exhaustive
   private def localRejectGen: Gen[LocalReject] =
-    Gen.oneOf(localRejectErrorImplGen, localVerdictMalformedGen)
+    Gen.oneOf(localVerdictRejectGen, localVerdictMalformedGen)
 
   private def localApproveGen: Gen[LocalApprove] =
     Gen.const(LocalApprove(protocolVersion))
