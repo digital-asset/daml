@@ -4,7 +4,7 @@
 package com.digitalasset.canton.version
 
 import cats.syntax.either.*
-import com.daml.error.ErrorCategory.SecurityAlert
+import com.daml.error.ErrorCategory.{InvalidGivenCurrentSystemStateOther, SecurityAlert}
 import com.daml.error.{ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DomainAlias
@@ -176,7 +176,6 @@ final case class VersionNotSupportedError(
 }
 
 object HandshakeErrors extends HandshakeErrorGroup {
-
   @Explanation(
     """This error is logged or returned if a participant or domain are using deprecated protocol versions.
       |Deprecated protocol versions might not be secure anymore."""
@@ -209,6 +208,28 @@ object HandshakeErrors extends HandshakeErrorGroup {
         ) {
       override def logOnCreation: Boolean = false
     }
+  }
+
+  @Explanation(
+    """This error is logged or returned if a participant or domain are using a protocol versions which will be deprecated."""
+  )
+  @Resolution(
+    """Consider migration to a new domain that uses the most recent protocol version."""
+  )
+  object DeprecatingProtocolVersion
+      extends ErrorCode("DEPRECATING_PROTOCOL_VERSION", InvalidGivenCurrentSystemStateOther) {
+    final case class WarnSequencerClient(domainAlias: DomainAlias, version: ProtocolVersion)(
+        implicit val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"This node is connecting to a sequencer using protocol version $version which will be deprecated."
+        )
+    final case class WarnDomain(name: InstanceName, version: ProtocolVersion)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          s"This domain node is configured to use protocol version $version which will be deprecated." +
+            s"We recommend migrating to a later protocol version (such as ${ProtocolVersion.latest})."
+        )
   }
 }
 
