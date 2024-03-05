@@ -22,8 +22,8 @@ load(
 
 [
     genrule(
-        name = "script{scriptVersion}-test-v{major}".format(
-            major = major,
+        name = "script{scriptVersion}-test-v{name}".format(
+            name = name,
             scriptVersion = scriptVersion,
         ),
         srcs =
@@ -35,8 +35,8 @@ load(
                 "//docs:source/daml-script/template-root/src/ScriptExample.daml",
                 "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
-        outs = ["script{scriptVersion}-test-v{major}.dar".format(
-            major = major,
+        outs = ["script{scriptVersion}-test-v{name}.dar".format(
+            name = name,
             scriptVersion = scriptVersion,
         )],
         cmd = """
@@ -72,10 +72,10 @@ dependencies:
 build-options:
   - --target={target}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script{scriptVersion}-test-v{major}.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script{scriptVersion}-test-v{name}.dar)
       rm -rf $$TMP_DIR
     """.format(
-            major = major,
+            name = name,
             scriptVersion = scriptVersion,
             sdk = sdk_version,
             target = target,
@@ -83,8 +83,13 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for major in LF_MAJOR_VERSIONS
-    for target in [lf_version_default_or_latest(major)]
+    for (target, name) in [(
+        lf_version_default_or_latest(major),
+        major,
+    ) for major in LF_MAJOR_VERSIONS] + [
+        (target, target)
+        for target in LF_DEV_VERSIONS
+    ]
     for scriptVersion in [
         "",
         "3",
@@ -335,10 +340,12 @@ daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.1.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
     ],
     project_name = "upgrade-test-lib",
-    target = "2.1",
+    # TODO(https://github.com/digital-asset/daml/issues/18457): split the lib into modules that use
+    #  contract keys and those that don't. Revert to the default target for those that don't.
+    target = "2.dev",
     version = "1.0.0",
 )
 
@@ -354,6 +361,10 @@ da_scala_test_suite(
     ),
     data = [
         ":script-test-no-ledger.dar",
+        # TODO((https://github.com/digital-asset/daml/issues/18457): remove these dev dependencies
+        #  oncee integration tests don't depend on keys anymore
+        ":script-test-v2.dev.dar",
+        ":script3-test-v2.dev.dar",
         "//compiler/damlc",
         "//daml-script/runner:daml-script-binary",
     ] + [
@@ -402,7 +413,7 @@ da_scala_test(
         ":upgrade-test-files",
         ":upgrade-test-lib.dar",
         "//compiler/damlc",
-        "//daml-script/daml3:daml3-script-2.1.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [

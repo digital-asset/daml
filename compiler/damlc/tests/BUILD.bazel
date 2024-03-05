@@ -1050,6 +1050,7 @@ da_haskell_test(
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script.dar",
         "//daml-script/daml3:daml3-script.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -1295,10 +1296,12 @@ filegroup(
     name = "divulgence-daml-test-files",
     srcs = [
         "daml-test-files/AuthFailure.daml",
+        "daml-test-files/AuthFailureWithKey.daml",
         "daml-test-files/AuthorizedDivulgence.daml",
         "daml-test-files/DiscloseViaChoiceObserver.daml",
         "daml-test-files/Divulgence.daml",
         "daml-test-files/ExceptionSemantics.daml",
+        "daml-test-files/ExceptionSemanticsWithKeys.daml",
         "daml-test-files/LFContractKeys.daml",
         "daml-test-files/MoreChoiceObserverDivulgence.daml",
         "daml-test-files/ScriptAssertHelpers.daml",

@@ -12,7 +12,6 @@ import org.junit.runners.Suite;
  */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-  ContractKeysTest.class,
   DecoderTest.class,
   ListTest.class,
   OptionalTest.class,

@@ -1,7 +1,9 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module LfStableContractKeyThroughExercises where
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module LfDevContractKeyThroughExercises where
 
 import Daml.Script
 import DA.Assert ((===))
@@ -39,7 +41,7 @@ template KeyOps
             assert $ S.member actor signatories
             lookupByKey @BasicKey keyMaintainers
 
--- @LEDGER run LfStableContractKeyThroughExercises.EXPECTED.ledger
+-- @LEDGER run LfDevContractKeyThroughExercises.EXPECTED.ledger
 run = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"

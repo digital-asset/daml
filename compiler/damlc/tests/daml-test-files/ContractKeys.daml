@@ -1,5 +1,5 @@
 -- Check that the compiler bits of contract keys work.
--- @SINCE-LF 2.1
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
 
 module ContractKeys where
 
