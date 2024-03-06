@@ -284,23 +284,15 @@ enum BuiltinCon {
 // Builtin functions
 // Refer to Daml-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
-  ADD_DECIMAL = 0; // *Available in versions < 1.7*
-  SUB_DECIMAL = 1; // *Available in versions < 1.7*
-  MUL_DECIMAL = 2; // *Available in versions < 1.7*
-  DIV_DECIMAL = 3; // *Available in versions < 1.7*
-  ROUND_DECIMAL = 6; // *Available in versions < 1.7*
 
-  ADD_NUMERIC = 107;           // *Available in versions >= 1.7*
-  SUB_NUMERIC = 108;           // *Available in versions >= 1.7*
-  MUL_NUMERIC_LEGACY = 109;    // *Available in 1.7 <= versions < 1.dev*
-  MUL_NUMERIC = 149;           // *Available in versions >= 1.dev*
-  DIV_NUMERIC_LEGACY = 110;    // *Available in 1.7 <= versions < 1.dev*
-  DIV_NUMERIC = 150;           // *Available in  versions >= 1.dev*
-  ROUND_NUMERIC = 111;         // *Available in versions >= 1.7*
-  CAST_NUMERIC_LEGACY = 121;   // *Available in 1.7 <= versions < 1.dev*
-  CAST_NUMERIC = 151;          // *Available in versions >= 1.dev*
-  SHIFT_NUMERIC_LEGACY = 122;  // *Available in 1.7 <= versions < 1.dev*
-  SHIFT_NUMERIC = 152;         // *Available in versions >= 1.dev*
+  TRACE = 0;
+  ERROR = 1;
+
+  EQUAL = 2;
+  LESS_EQ = 3;
+  LESS = 4;
+  GREATER_EQ = 5;
+  GREATER = 6;
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -309,133 +301,77 @@ enum BuiltinFunction {
   MOD_INT64 = 11;
   EXP_INT64 = 12;
 
-  FOLDL = 20;
-  FOLDR = 21;
+  ADD_NUMERIC = 13;
+  SUB_NUMERIC = 14;
+  MUL_NUMERIC = 15;
+  DIV_NUMERIC = 16;
+  ROUND_NUMERIC = 17;
+  CAST_NUMERIC = 18;
+  SHIFT_NUMERIC = 19;
 
-  TEXTMAP_EMPTY = 96;
-  TEXTMAP_INSERT = 97;
-  TEXTMAP_LOOKUP = 98;
-  TEXTMAP_DELETE = 99;
-  TEXTMAP_TO_LIST = 100;
-  TEXTMAP_SIZE = 101;
+  INT64_TO_NUMERIC = 20;
+  NUMERIC_TO_INT64 = 21;
 
-  GENMAP_EMPTY = 124; // *Available in versions >= 1.11*
-  GENMAP_INSERT = 125; // *Available in versions >= 1.11*
-  GENMAP_LOOKUP = 126; // *Available in versions >= 1.11*
-  GENMAP_DELETE = 127; // *Available in versions >= 1.11*
-  GENMAP_KEYS = 128; // *Available in versions >= 1.11*
-  GENMAP_VALUES = 129; // *Available in versions >= 1.11*
-  GENMAP_SIZE = 130; // *Available in versions >= 1.11*
+  INT64_TO_TEXT = 22;
+  NUMERIC_TO_TEXT = 23;
+  TIMESTAMP_TO_TEXT = 25;
+  DATE_TO_TEXT = 26;
+  PARTY_TO_TEXT = 27;
+  TEXT_TO_PARTY = 28;
+  TEXT_TO_INT64 = 29;
+  TEXT_TO_NUMERIC = 30;
+  CONTRACT_ID_TO_TEXT = 31;
+  SHA256_TEXT = 32;
+  EXPLODE_TEXT = 33;
+  APPEND_TEXT = 34;
+  IMPLODE_TEXT = 35;
 
-  EXPLODE_TEXT = 23;
-  APPEND_TEXT = 24;
+  CODE_POINTS_TO_TEXT = 36;
+  TEXT_TO_CODE_POINTS = 37;
+  DATE_TO_UNIX_DAYS = 38;
+  UNIX_DAYS_TO_DATE = 39;
+  TIMESTAMP_TO_UNIX_MICROSECONDS = 40;
+  UNIX_MICROSECONDS_TO_TIMESTAMP = 41;
 
-  ERROR = 25;
-  ANY_EXCEPTION_MESSAGE = 147;              // *Available in versions >= 1.14*
+  COERCE_CONTRACT_ID = 42;
 
-  LEQ_INT64 = 33;         // *Available in versions < 1.11*
-  LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
-  LEQ_NUMERIC = 112;      // *Available in versions >= 1.7 and < 1.11*
-  LEQ_TEXT = 36;          // *Available in versions < 1.11*
-  LEQ_TIMESTAMP = 37;     // *Available in versions < 1.11*
-  LEQ_DATE = 67;          // *Available in versions < 1.11*
-  LEQ_PARTY = 89;         // *Available in versions >= 1.1 and < 1.11*
+  FOLDL = 43;
+  FOLDR = 44;
+  EQUAL_LIST = 45;
 
-  LESS_INT64 = 39;        // *Available in versions < 1.11*
-  LESS_DECIMAL = 40;      // *Available in versions < 1.7*
-  LESS_NUMERIC = 113;     // *Available in versions >= 1.7 and < 1.11*
-  LESS_TEXT = 42;         // *Available in versions < 1.11*
-  LESS_TIMESTAMP = 43;    // *Available in versions < 1.11*
-  LESS_DATE = 68;         // *Available in versions < 1.11*
-  LESS_PARTY = 90;        // *Available in versions >= 1.1 and < 1.11*
+  TEXTMAP_EMPTY = 46;
+  TEXTMAP_INSERT = 47;
+  TEXTMAP_LOOKUP = 48;
+  TEXTMAP_DELETE = 49;
+  TEXTMAP_TO_LIST = 50;
+  TEXTMAP_SIZE = 51;
 
-  GEQ_INT64 = 45;         // *Available in versions < 1.11*
-  GEQ_DECIMAL = 46;       // *Available in versions < 1.7*
-  GEQ_NUMERIC = 114;      // *Available in versions >= 1.7 and < 1.11*
-  GEQ_TEXT = 48;          // *Available in versions < 1.11*
-  GEQ_TIMESTAMP = 49;     // *Available in versions < 1.11*
-  GEQ_DATE = 69;          // *Available in versions < 1.11*
-  GEQ_PARTY = 91;         // *Available in versions >= 1.1 and < 1.11*
+  GENMAP_EMPTY = 52;
+  GENMAP_INSERT = 53;
+  GENMAP_LOOKUP = 54;
+  GENMAP_DELETE = 55;
+  GENMAP_KEYS = 56;
+  GENMAP_VALUES = 57;
+  GENMAP_SIZE = 58;
 
-  GREATER_INT64 = 51;     // *Available in versions < 1.11*
-  GREATER_DECIMAL = 52;   // *Available in versions < 1.7*
-  GREATER_NUMERIC = 115;  // *Available in versions >= 1.7 and < 1.11*
-  GREATER_TEXT = 54;      // *Available in versions < 1.11*
-  GREATER_TIMESTAMP = 55; // *Available in versions < 1.11*
-  GREATER_DATE = 70;      // *Available in versions < 1.11*
-  GREATER_PARTY = 92;     // *Available in versions >= 1.1 and < 1.11*
+  ANY_EXCEPTION_MESSAGE = 59;
 
-  INT64_TO_TEXT = 57;
-  DECIMAL_TO_TEXT = 58;  // *Available in versions < 1.7*
-  NUMERIC_TO_TEXT = 116;  // *Available in versions >= 1.7*
-  TEXT_TO_TEXT = 60;
-  TIMESTAMP_TO_TEXT = 61;
-  DATE_TO_TEXT = 71;
-  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions < 1.14*
-  PARTY_TO_TEXT = 94;
-  TEXT_TO_PARTY = 95;
-  TEXT_TO_INT64 = 103;
-  TEXT_TO_DECIMAL = 104;
-  TEXT_TO_NUMERIC_LEGACY = 117; // *Available in 1.7 <= versions < 1.dev*
-  TEXT_TO_NUMERIC = 153; // *Available in versions >= 1.dev*
-  CONTRACT_ID_TO_TEXT = 136; // *Available in versions >= 1.11*
-  SHA256_TEXT = 93;
+  // Next id is 60.
 
-  DATE_TO_UNIX_DAYS = 72; // Date -> Int64
-  UNIX_DAYS_TO_DATE = 73; // Int64 -> Date
+  /* Dev Builtins */
 
-  TIMESTAMP_TO_UNIX_MICROSECONDS = 74; // Timestamp -> Int64
-  UNIX_MICROSECONDS_TO_TIMESTAMP = 75; // Int64 -> Timestamp
+  SCALE_BIGNUMERIC = 1001;             // *Available in versions >= 1.dev
+  PRECISION_BIGNUMERIC = 1002;         // *Available in versions >= 1.dev
+  ADD_BIGNUMERIC = 1003;               // *Available in versions >= 1.dev
+  SUB_BIGNUMERIC = 1004;               // *Available in versions >= 1.dev
+  MUL_BIGNUMERIC = 1005;               // *Available in versions >= 1.dev
+  DIV_BIGNUMERIC = 1006;               // *Available in versions >= 1.dev
+  SHIFT_RIGHT_BIGNUMERIC = 1007;       // *Available in versions >= 1.dev
+  BIGNUMERIC_TO_NUMERIC = 1008;        // *Available in versions >= 1.dev*
+  NUMERIC_TO_BIGNUMERIC = 1009;        // *Available in versions >= 1.dev
+  BIGNUMERIC_TO_TEXT = 1010;           // *Available in versions >= 1.dev
 
-  INT64_TO_DECIMAL = 76;  // *Available in versions < 1.7*
-  DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.7*
-
-  INT64_TO_NUMERIC_LEGACY = 118;  // *Available in 1.7 <= versions < 1.dev*
-  INT64_TO_NUMERIC = 154;  // *Available in versions >= 1.dev*
-  NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.7*
-
-  IMPLODE_TEXT = 78;
-
-  EQUAL_INT64 = 79;       // *Available in versions < 1.11*
-  EQUAL_DECIMAL = 80;     // *Available in versions < 1.7*
-  EQUAL_NUMERIC = 120;    // *Available in versions >= 1.7 and < 1.11*
-  EQUAL_TEXT = 81;        // *Available in versions < 1.11*
-  EQUAL_TIMESTAMP = 82;   // *Available in versions < 1.11*
-  EQUAL_DATE = 83;        // *Available in versions < 1.11*
-  EQUAL_PARTY = 84;       // *Available in versions < 1.11*
-  EQUAL_BOOL = 85;        // *Available in versions < 1.11*
-  EQUAL_CONTRACT_ID = 86; // *Available in versions < 1.11*
-  EQUAL_LIST = 87;
-  EQUAL_TYPE_REP = 123;   // *Available in versions = 1.8*
-
-  EQUAL = 131;            // *Available in versions >= 1.11*
-  LESS_EQ = 132;          // *Available in versions >= 1.11*
-  LESS = 133;             // *Available in versions >= 1.11*
-  GREATER_EQ = 134;       // *Available in versions >= 1.11*
-  GREATER = 135;          // *Available in versions >= 1.11*
-
-  TRACE = 88;
-
-  COERCE_CONTRACT_ID = 102;
-
-  CODE_POINTS_TO_TEXT = 105;
-  TEXT_TO_CODE_POINTS = 106;
-
-  SCALE_BIGNUMERIC = 137;             // *Available in versions >= 1.13*
-  PRECISION_BIGNUMERIC = 138;         // *Available in versions >= 1.13*
-  ADD_BIGNUMERIC = 139;               // *Available in versions >= 1.13*
-  SUB_BIGNUMERIC = 140;               // *Available in versions >= 1.13*
-  MUL_BIGNUMERIC = 141;               // *Available in versions >= 1.13*
-  DIV_BIGNUMERIC = 142;               // *Available in versions >= 1.13*
-  SHIFT_RIGHT_BIGNUMERIC = 143;       // *Available in versions >= 1.13*
-  BIGNUMERIC_TO_NUMERIC_LEGACY = 144; // *Available in 1.13 <= versions < 1.dev*
-  BIGNUMERIC_TO_NUMERIC = 155;        // *Available in versions >= 1.dev*
-  NUMERIC_TO_BIGNUMERIC = 145;        // *Available in versions >= 1.13*
-  BIGNUMERIC_TO_TEXT = 146;           // *Available in versions >= 1.13*
-
-  TYPE_REP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
-
-  // Next id is 156.
+  TYPE_REP_TYCON_NAME = 1011;          // *Available in versions >= 1.dev*
 }
 
 // Builtin literals

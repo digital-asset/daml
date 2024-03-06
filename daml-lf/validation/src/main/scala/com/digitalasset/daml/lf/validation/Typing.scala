@@ -234,7 +234,6 @@ private[validation] object Typing {
       BAppendText -> tBinop(TText),
       BInt64ToText -> (TInt64 ->: TText),
       BNumericToText -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TText),
-      BTextToText -> (TText ->: TText),
       BTimestampToText -> (TTimestamp ->: TText),
       BPartyToText -> (TParty ->: TText),
       BDateToText -> (TDate ->: TText),

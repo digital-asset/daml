@@ -98,13 +98,13 @@ sourceLocToRange (SourceLoc _ slin scol elin ecol) =
         (fromIntegral ecol))
 
 mkBuiltinEqual :: BuiltinType -> Expr
-mkBuiltinEqual ty = EBuiltinFun BEEqualGeneric `ETyApp` TBuiltin ty
+mkBuiltinEqual ty = EBuiltinFun BEEqual `ETyApp` TBuiltin ty
 
 mkBuiltinLess :: BuiltinType -> Expr
-mkBuiltinLess ty = EBuiltinFun BELessGeneric `ETyApp` TBuiltin ty
+mkBuiltinLess ty = EBuiltinFun BELess `ETyApp` TBuiltin ty
 
 mkBuiltinGreater :: BuiltinType -> Expr
-mkBuiltinGreater ty = EBuiltinFun BEGreaterGeneric `ETyApp` TBuiltin ty
+mkBuiltinGreater ty = EBuiltinFun BEGreater `ETyApp` TBuiltin ty
 
 preconditionFailedTypeCon :: MajorVersion -> Qualified TypeConName
 preconditionFailedTypeCon major = Qualified

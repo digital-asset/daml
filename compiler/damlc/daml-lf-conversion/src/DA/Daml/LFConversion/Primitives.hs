@@ -47,15 +47,15 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
 
 -- Comparison
 convertPrim _ "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltinFun BEEqualGeneric `ETyApp` a1
+    pure $ EBuiltinFun BEEqual `ETyApp` a1
 convertPrim _ "BELess" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltinFun BELessGeneric `ETyApp` a1
+    pure $ EBuiltinFun BELess `ETyApp` a1
 convertPrim _ "BELessEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltinFun BELessEqGeneric `ETyApp` a1
+    pure $ EBuiltinFun BELessEq `ETyApp` a1
 convertPrim _ "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltinFun BEGreaterGeneric `ETyApp` a1
+    pure $ EBuiltinFun BEGreater `ETyApp` a1
 convertPrim _ "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltinFun BEGreaterEqGeneric `ETyApp` a1
+    pure $ EBuiltinFun BEGreaterEq `ETyApp` a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     pure $ EBuiltinFun BEEqualList `ETyApp` a1
 
@@ -106,8 +106,6 @@ convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     pure $ EBuiltinFun BETrace `ETyApp` a1
 convertPrim _ "BESha256Text" (TText :-> TText) =
     pure $ EBuiltinFun BESha256Text
-convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
-    pure $ EBuiltinFun BEPartyToQuotedText
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =

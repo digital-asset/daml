@@ -223,7 +223,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "APPEND_TEXT" -> BAppendText,
         "INT64_TO_TEXT" -> BInt64ToText,
         "NUMERIC_TO_TEXT" -> BNumericToText,
-        "TEXT_TO_TEXT" -> BTextToText,
         "TIMESTAMP_TO_TEXT" -> BTimestampToText,
         "PARTY_TO_TEXT" -> BPartyToText,
         "DATE_TO_TEXT" -> BDateToText,
