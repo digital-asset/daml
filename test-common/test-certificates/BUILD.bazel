@@ -58,7 +58,7 @@ chmod 400 $(location ca.key)
 # Create Root Certificate (self-signed)
 $(location @openssl_dev_env//:openssl) req -config $(location openssl.cnf) \
     -key $(location ca.key) \
-    -new -x509 -days 7300 -sha256 -extensions v3_ca \
+    -new -x509 -days 14600 -sha256 -extensions v3_ca \
     -subj '/CN=0.0.0.0.ca' \
     -out $(location ca.crt)
 # Dump out cert details

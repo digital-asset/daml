@@ -359,8 +359,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    // TODO(ETX-421): fix and un-ignore this test.
-    "query for visible contract, which was created and archived by another party before your first query" ignore withHttpService {
+    "query for visible contract, which was created and archived by another party before your first query" in withHttpService {
       fixture =>
         for {
           (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
