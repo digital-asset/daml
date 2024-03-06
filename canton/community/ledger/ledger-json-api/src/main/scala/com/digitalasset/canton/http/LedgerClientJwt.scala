@@ -7,7 +7,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.admin.metering_report_service.{
+import com.daml.ledger.api.v2.admin.metering_report_service.{
   GetMeteringReportRequest,
   GetMeteringReportResponse,
 }
@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
 }
-import com.daml.ledger.api.v1.package_service
+import com.daml.ledger.api.v2.package_service
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
@@ -331,7 +331,7 @@ object LedgerClientJwt {
   //  type GetContractByContractKey =
   //    (
   //        Jwt,
-  //        com.daml.ledger.api.v1.value.Value,
+  //        com.daml.ledger.api.v2.value.Value,
   //        Identifier,
   //        Set[domain.Party],
   //        ContinuationToken,

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -12,7 +12,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /**
  * A Timestamp value is represented as microseconds since the UNIX epoch.
  *
- * @see com.daml.ledger.api.v1.ValueOuterClass.Value#getTimestamp()
+ * @see com.daml.ledger.api.v2.ValueOuterClass.Value#getTimestamp()
  */
 public final class Timestamp extends Value {
 

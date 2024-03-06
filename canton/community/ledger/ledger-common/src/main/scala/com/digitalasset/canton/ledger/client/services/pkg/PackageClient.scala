@@ -3,16 +3,14 @@
 
 package com.digitalasset.canton.ledger.client.services.pkg
 
-import com.daml.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  GetPackageStatusResponse,
-  ListPackagesResponse,
-}
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageServiceStub
 import com.daml.ledger.api.v2.package_service.{
   GetPackageRequest,
+  GetPackageResponse,
   GetPackageStatusRequest,
+  GetPackageStatusResponse,
   ListPackagesRequest,
+  ListPackagesResponse,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
 

@@ -4,9 +4,13 @@
 package com.digitalasset.canton.participant.ledger.api.client
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TemplateFilter}
-import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterV2
+import com.daml.ledger.api.v2.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TemplateFilter,
+  TransactionFilter as TransactionFilterV2,
+}
+import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi
 import com.digitalasset.canton.config.ClientConfig
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId

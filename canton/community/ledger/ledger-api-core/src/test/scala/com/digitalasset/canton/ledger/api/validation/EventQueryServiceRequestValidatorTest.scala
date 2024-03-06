@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.event_query_service
+import com.daml.ledger.api.v2.event_query_service
 import com.digitalasset.canton.ledger.api.messages.event
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
@@ -71,7 +71,7 @@ class EventQueryServiceRequestValidatorTest
 //      val apiRequest = event_query_service.GetEventsByContractKeyRequest(
 //        contractKey = Some(api.Value(Value.Sum.Text("contractKey"))),
 //        templateId = Some(
-//          com.daml.ledger.api.v1.value
+//          com.daml.ledger.api.v2.value
 //            .Identifier(packageId, moduleName.toString, dottedName.toString)
 //        ),
 //        requestingParties = txRequest.requestingParties.toSeq,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.transaction_filter.Filters
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId

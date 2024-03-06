@@ -4,6 +4,9 @@
 package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
+import java.time.Instant
+import com.daml.ledger.javaapi.data._
+import com.daml.ledger.api.v2.TraceContextOuterClass.TraceContext
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava._
@@ -11,8 +14,8 @@ import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Absolute
-import com.daml.ledger.api.v1.transaction_filter.TemplateFilter
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
+import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.FiltersByParty
 import io.reactivex.Observable
 import org.scalacheck.Shrink
@@ -29,6 +32,31 @@ final class UpdateClientImplTest
     with AuthMatchers
     with DataLayerHelpers {
 
+  case class TransactionWithoutRecordTime(
+      updateId: String,
+      commandId: String,
+      workflowId: String,
+      effectiveAt: Instant,
+      events: List[Event],
+      offset: String,
+      domainId: String,
+      traceContext: TraceContext,
+  )
+
+  object TransactionWithoutRecordTime {
+    def apply(t: Transaction): TransactionWithoutRecordTime =
+      TransactionWithoutRecordTime(
+        t.getUpdateId,
+        t.getCommandId,
+        t.getWorkflowId,
+        t.getEffectiveAt,
+        t.getEvents.asScala.toList,
+        t.getOffset,
+        t.getDomainId,
+        t.getTraceContext,
+      )
+  }
+
   override val ledgerServices = new LedgerServices("update-service-ledger")
 
   implicit def tupleNoShrink[A, B]: Shrink[(A, B)] = Shrink.shrinkAny
@@ -43,12 +71,19 @@ final class UpdateClientImplTest
     case (ledgerContent, expectedTransactions) =>
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
-          transactionClient
-            .getTransactions(ledgerBegin, ledgerEnd, emptyFilter, false)
-            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-            .blockingIterable()
-            .asScala
-            .toList shouldBe expectedTransactions
+          {
+            val result: List[TransactionWithoutRecordTime] =
+              transactionClient
+                .getTransactions(ledgerBegin, ledgerEnd, emptyFilter, false)
+                .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+                .blockingIterable()
+                .asScala
+                .toList
+                .map(TransactionWithoutRecordTime(_))
+            val expectedTransactionsWithoutRecordTime: List[TransactionWithoutRecordTime] =
+              expectedTransactions.map(TransactionWithoutRecordTime(_))
+            result shouldEqual expectedTransactionsWithoutRecordTime
+          }
       }
   }
 

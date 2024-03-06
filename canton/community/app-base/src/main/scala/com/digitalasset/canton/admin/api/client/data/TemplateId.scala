@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.admin.api.client.data
 
-import com.daml.ledger.api.v1.ValueOuterClass
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.ValueOuterClass
+import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi
 
 final case class TemplateId(

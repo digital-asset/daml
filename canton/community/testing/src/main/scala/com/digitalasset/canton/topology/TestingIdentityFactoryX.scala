@@ -280,7 +280,7 @@ class TestingIdentityFactoryX(
     val updateF = store.update(
       SequencedTime(CantonTimestamp.Epoch.immediatePredecessor),
       EffectiveTime(CantonTimestamp.Epoch.immediatePredecessor),
-      removeMapping = Set.empty,
+      removeMapping = Map.empty,
       removeTxs = Set.empty,
       additions = transactions,
     )(TraceContext.empty)

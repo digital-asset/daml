@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/trace_context.proto";
+import "com/daml/ledger/api/v2/trace_context.proto";
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 
@@ -77,5 +77,5 @@ message Completion {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  com.daml.ledger.api.v1.TraceContext trace_context = 9;
+  com.daml.ledger.api.v2.TraceContext trace_context = 9;
 }

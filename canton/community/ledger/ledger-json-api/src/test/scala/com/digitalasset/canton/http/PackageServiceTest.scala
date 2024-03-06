@@ -9,7 +9,7 @@ import com.digitalasset.canton.http.Generators.{
   nonEmptySetOf,
 }
 import com.digitalasset.canton.http.PackageService.TemplateIdMap
-import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.{v2 as lav2}
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside
@@ -47,8 +47,8 @@ class PackageServiceTest
       }
 
     "pass one specific test case that was failing" in {
-      val id0 = domain.ContractTypeId.Template.fromLedgerApi(lav1.value.Identifier("a", "f4", "x"))
-      val id1 = domain.ContractTypeId.Template.fromLedgerApi(lav1.value.Identifier("b", "f4", "x"))
+      val id0 = domain.ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("a", "f4", "x"))
+      val id1 = domain.ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("b", "f4", "x"))
       val map = PackageService.buildTemplateIdMap(Set(id0, id1))
       map.all.keySet shouldBe Set(id0, id1)
       map.unique shouldBe Map.empty

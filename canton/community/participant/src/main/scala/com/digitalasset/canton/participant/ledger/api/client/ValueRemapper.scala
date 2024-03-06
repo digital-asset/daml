@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v2.event.CreatedEvent
+import com.daml.ledger.api.v2.value
 
 /** Utilities for modifying ledger api values, e.g. to make them suitable for importing into canton:
   *

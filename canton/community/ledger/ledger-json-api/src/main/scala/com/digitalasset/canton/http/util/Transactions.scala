@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.util
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.transaction.Transaction
 
 object Transactions {

@@ -4,9 +4,9 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta as ProtoObjectMeta
-import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.daml.ledger.api.v1.admin.party_management_service.{
+import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta as ProtoObjectMeta
+import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.daml.ledger.api.v2.admin.party_management_service.{
   AllocatePartyRequest,
   AllocatePartyResponse,
   GetParticipantIdRequest,

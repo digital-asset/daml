@@ -3,11 +3,11 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1.admin;
+package com.daml.ledger.api.v2.admin;
 
 option java_outer_classname = "ParticipantPruningServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+option java_package = "com.daml.ledger.api.v2.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // Status: experimental interface, will change before it is deemed production
 // ready

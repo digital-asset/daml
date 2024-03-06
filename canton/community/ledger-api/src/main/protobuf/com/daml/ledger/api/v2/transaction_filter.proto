@@ -5,11 +5,79 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/transaction_filter.proto";
+import "com/daml/ledger/api/v2/value.proto";
 
 option java_outer_classname = "TransactionFilterOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// The union of a set of contract filters, or a wildcard.
+message Filters {
+
+  // If set, then contracts matching any of the ``InclusiveFilters`` match
+  // this filter.
+  // If not set, or if ``InclusiveFilters`` has empty ``template_filters`` and empty ``interface_filters``:
+  // any contract matches this filter.
+  // Optional
+  InclusiveFilters inclusive = 1;
+}
+
+// A filter that matches all contracts that are either an instance of one of
+// the ``template_filters`` or that match one of the ``interface_filters``.
+message InclusiveFilters {
+
+  // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
+  // The ``InterfaceFilter`` instances MUST each use a unique ``interface_id``.
+  // Optional
+  repeated InterfaceFilter interface_filters = 1;
+
+  // A collection of templates for which the data will be included in the
+  // ``create_arguments`` of a matching ``CreatedEvent``.
+  // SHOULD NOT contain duplicate templates.
+  // If a contract is simultaneously selected by a template filter and one or more interface filters,
+  // the corresponding ``include_created_event_blob`` are consolidated using an OR operation.
+  // Optional
+  repeated TemplateFilter template_filters = 2;
+}
+
+// This filter matches contracts that implement a specific interface.
+message InterfaceFilter {
+
+  // The interface that a matching contract must implement.
+  // The ``interface_id`` needs to be valid: corresponding interface should be defined in
+  // one of the available packages at the time of the query.
+  // Required
+  Identifier interface_id = 1;
+
+  // Whether to include the interface view on the contract in the returned ``CreatedEvent``.
+  // Use this to access contract data in a uniform manner in your API client.
+  // Optional
+  bool include_interface_view = 2;
+
+  reserved 3; // removed include_create_arguments_blob
+
+  // Whether to include a ``created_event_blob`` in the returned ``CreatedEvent``.
+  // Use this to access the contract create event payload in your API client
+  // for submitting it as a disclosed contract with future commands.
+  // Optional
+  bool include_created_event_blob = 4;
+}
+
+// This filter matches contracts of a specific template.
+message TemplateFilter {
+
+  // A template for which the payload should be included in the response.
+  // The ``template_id`` needs to be valid: corresponding template should be defined in
+  // one of the available packages at the time of the query.
+  // Required
+  Identifier template_id = 1;
+
+  // Whether to include a ``created_event_blob`` in the returned ``CreatedEvent``.
+  // Use this to access the contract event payload in your API client
+  // for submitting it as a disclosed contract with future commands.
+  // Optional
+  bool include_created_event_blob = 2;
+}
 
 // A filter both for filtering create and archive events as well as for
 // filtering transaction trees.
@@ -25,5 +93,5 @@ message TransactionFilter {
   //    stakeholders include at least one of the listed parties and match the
   //    per-party filter.
   // Required
-  map<string, com.daml.ledger.api.v1.Filters> filters_by_party = 1;
+  map<string, Filters> filters_by_party = 1;
 }

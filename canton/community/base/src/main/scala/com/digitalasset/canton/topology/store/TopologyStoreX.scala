@@ -7,6 +7,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -180,7 +181,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
   def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Set[MappingHash],
+      removeMapping: Map[MappingHash, PositiveInt],
       removeTxs: Set[TxHash],
       additions: Seq[GenericValidatedTopologyTransactionX],
   )(implicit

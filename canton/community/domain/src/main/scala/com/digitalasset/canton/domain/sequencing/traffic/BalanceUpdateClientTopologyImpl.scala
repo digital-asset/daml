@@ -4,7 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.traffic
 
 import cats.data.EitherT
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoClient}
+import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.BalanceUpdateClient
@@ -42,35 +42,49 @@ class BalanceUpdateClientTopologyImpl(
         protocolVersion,
         warnIfApproximate,
       )
-      trafficBalance <- FutureUnlessShutdown.outcomeF(
-        topology.ipsSnapshot
-          .trafficControlStatus(Seq(member))
-          .map { statusMap =>
-            statusMap
-              .get(member)
-              .flatten
-              .map { status =>
-                // Craft a `TrafficBalance` from the `MemberTrafficControlState` coming from topology
-                // This is temporary while we have both implementations in place
-                // Note that we use the topology "effectiveTimestamp" as the "sequencingTimestamp"
-                // In the new balance implementation they are the same, but semantically for the topology one it makes more sense
-                // to use the effective timestamp.
-                TrafficBalance(
-                  member,
-                  status.serial,
-                  status.totalExtraTrafficLimit.toNonNegative,
-                  status.effectiveTimestamp,
-                )
-              }
-          }
-      )
+      trafficBalance <- balanceFromSnapshot(member, topology)
     } yield trafficBalance
 
     EitherT.liftF(balanceFUS)
   }
+
+  private def balanceFromSnapshot(member: Member, topology: SyncCryptoApi)(implicit
+      traceContext: TraceContext
+  ) = {
+    FutureUnlessShutdown.outcomeF(
+      topology.ipsSnapshot
+        .trafficControlStatus(Seq(member))
+        .map { statusMap =>
+          statusMap
+            .get(member)
+            .flatten
+            .map { status =>
+              // TODO(i17060): clean up when top ups from topology are removed
+              // Craft a `TrafficBalance` from the `MemberTrafficControlState` coming from topology
+              // This is temporary while we have both implementations in place
+              // Note that we use the topology "effectiveTimestamp" as the "sequencingTimestamp"
+              // In the new balance implementation they are the same, but semantically for the topology one it makes more sense
+              // to use the effective timestamp.
+              TrafficBalance(
+                member,
+                status.serial,
+                status.totalExtraTrafficLimit.toNonNegative,
+                status.effectiveTimestamp,
+              )
+            }
+        }
+    )
+  }
+
   override def close(): Unit = ()
 
   override def lastKnownTimestamp: Option[CantonTimestamp] = Some(
     syncCrypto.approximateTimestamp
   )
+
+  override def latestKnownBalanceFor(
+      member: Member
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[TrafficBalance]] = {
+    balanceFromSnapshot(member, syncCrypto.headSnapshot)
+  }
 }

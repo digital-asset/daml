@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v2.value.Value
+import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value as Lf
 

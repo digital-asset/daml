@@ -8,6 +8,7 @@ import cats.instances.seq.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
@@ -127,7 +128,7 @@ class TopologyStateProcessorX(
         val pendingWrites = transactions.map(MaybePending)
         val removes = pendingWrites
           .zip(duplicates)
-          .foldLeftM((Set.empty[MappingHash], Set.empty[TxHash])) {
+          .foldLeftM((Map.empty[MappingHash, PositiveInt], Set.empty[TxHash])) {
             case ((removeMappings, removeTxs), (tx, _noDuplicateFound @ None)) =>
               validateAndMerge(
                 effective,
@@ -413,9 +414,9 @@ class TopologyStateProcessorX(
 
   private def determineRemovesAndUpdatePending(
       tx: MaybePending,
-      removeMappings: Set[MappingHash],
+      removeMappings: Map[MappingHash, PositiveInt],
       removeTxs: Set[TxHash],
-  )(implicit traceContext: TraceContext): (Set[MappingHash], Set[TxHash]) = {
+  )(implicit traceContext: TraceContext): (Map[MappingHash, PositiveInt], Set[TxHash]) = {
     val finalTx = tx.currentTx
     // UPDATE tx SET valid_until = effective WHERE storeId = XYZ
     //    AND valid_until is NULL and valid_from < effective
@@ -470,7 +471,12 @@ class TopologyStateProcessorX(
       //   rules: if a namespace delegation is a root delegation, it won't be affected by the
       //          cascading deletion of its authorizer. this will allow us to roll namespace certs
       //          also, root cert authorization is only valid if serial == 1
-      (removeMappings + mappingHash, removeTxs)
+      (
+        removeMappings.updatedWith(mappingHash)(
+          Ordering[Option[PositiveInt]].max(_, Some(finalTx.serial))
+        ),
+        removeTxs,
+      )
     }
   }
 }

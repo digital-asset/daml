@@ -8,13 +8,13 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.sequencing.integrations.state.InMemorySequencerStateManagerStore
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.{
   MemberCounters,

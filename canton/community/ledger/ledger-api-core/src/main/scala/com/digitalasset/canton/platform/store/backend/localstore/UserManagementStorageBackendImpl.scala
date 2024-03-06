@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend.localstore
 
 import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.api.v1.admin.user_management_service.Right
+import com.daml.ledger.api.v2.admin.user_management_service.Right
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.UserRight.{
   CanActAs,

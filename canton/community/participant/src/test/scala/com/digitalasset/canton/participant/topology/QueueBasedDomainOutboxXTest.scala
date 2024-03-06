@@ -150,10 +150,10 @@ class QueueBasedDomainOutboxXTest
                   // dumbed down version of how to "append" ValidatedTopologyTransactionXs:
                   removeMapping = Option
                     .when(x.operation == TopologyChangeOpX.Remove)(
-                      x.mapping.uniqueKey
+                      x.mapping.uniqueKey -> x.serial
                     )
                     .toList
-                    .toSet,
+                    .toMap,
                   removeTxs = Set.empty,
                 )
                 .flatMap(_ =>

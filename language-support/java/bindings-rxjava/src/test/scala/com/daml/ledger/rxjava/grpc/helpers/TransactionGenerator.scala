@@ -3,13 +3,13 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.daml.ledger.api.v1.event._
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.daml.ledger.api.v1.value
-import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created}
+import com.daml.ledger.api.v2.event._
+import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.Exercised
+import com.daml.ledger.api.v2.value
+import com.daml.ledger.api.v2.value.Value.Sum
+import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.google.protobuf.ByteString
@@ -36,6 +36,8 @@ import scala.jdk.OptionConverters._
 object TransactionGenerator {
 
   implicit def noShrink[A]: Shrink[A] = Shrink.shrinkAny
+
+  private val zeroTime = Instant.ofEpochSecond(0, 0)
 
   val nonEmptyId: Gen[String] = Gen
     .nonEmptyListOf(Arbitrary.arbChar.arbitrary)
@@ -348,6 +350,7 @@ object TransactionGenerator {
       offset,
       domainId,
       traceContext,
+      zeroTime,
     ),
   )
 
@@ -381,6 +384,7 @@ object TransactionGenerator {
       Collections.emptyList(),
       domainId,
       traceContext,
+      zeroTime,
     ),
   )
 

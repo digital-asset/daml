@@ -14,7 +14,6 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TrafficControlStateX}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.TopUpEvent
 
 class TrafficStateTopUpSubscription(
     trafficStateController: TrafficStateController,
@@ -38,12 +37,10 @@ class TrafficStateTopUpSubscription(
           logger.debug(
             s"Updating total extra traffic limit for ${tx.mapping.member} from topology transaction with hash ${tx.mapping.uniqueKey.hash}"
           )
-          trafficStateController.addTopUp(
-            TopUpEvent(
-              tx.mapping.totalExtraTrafficLimit,
-              effectiveTimestamp.value,
-              tx.serial,
-            )
+          trafficStateController.updateBalance(
+            tx.mapping.totalExtraTrafficLimit.toNonNegative,
+            tx.serial,
+            effectiveTimestamp.value,
           )
         }
       }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.http
 
 import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.daml.lf.typesig
 import com.daml.nonempty.NonEmpty
@@ -288,8 +288,8 @@ package domain {
   ) {
     def toLedgerApi(implicit
         TmplId: TmplId <:< ContractTypeId.Template.RequiredPkg
-    ): lav1.commands.DisclosedContract =
-      lav1.commands.DisclosedContract(
+    ): lav2.commands.DisclosedContract =
+      lav2.commands.DisclosedContract(
         templateId = Some(apiIdentifier(templateId)),
         contractId = ContractId unwrap contractId,
         createdEventBlob = Base64 unwrap createdEventBlob,
@@ -393,7 +393,7 @@ package domain {
 
     def fromTransactionTree(
         tx: lav2.transaction.TransactionTree
-    ): Error \/ Vector[Contract[lav1.value.Value]] = {
+    ): Error \/ Vector[Contract[lav2.value.Value]] = {
       tx.rootEventIds.toVector
         .map(fromTreeEvent(tx.eventsById))
         .sequence
@@ -401,29 +401,29 @@ package domain {
     }
 
     private[this] def fromTreeEvent(
-        eventsById: Map[String, lav1.transaction.TreeEvent]
-    )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
+        eventsById: Map[String, lav2.transaction.TreeEvent]
+    )(eventId: String): Error \/ Vector[Contract[lav2.value.Value]] = {
       @tailrec
       def loop(
           es: Vector[String],
-          acc: Error \/ Vector[Contract[lav1.value.Value]],
-      ): Error \/ Vector[Contract[lav1.value.Value]] = es match {
+          acc: Error \/ Vector[Contract[lav2.value.Value]],
+      ): Error \/ Vector[Contract[lav2.value.Value]] = es match {
         case head +: tail =>
           eventsById(head).kind match {
-            case lav1.transaction.TreeEvent.Kind.Created(created) =>
+            case lav2.transaction.TreeEvent.Kind.Created(created) =>
               val a =
                 ActiveContract
                   .fromLedgerApi(domain.ActiveContract.IgnoreInterface, created)
-                  .map(a => Contract[lav1.value.Value](\/-(a)))
+                  .map(a => Contract[lav2.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
-            case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>
+            case lav2.transaction.TreeEvent.Kind.Exercised(exercised) =>
               val a = ArchivedContract
                 .fromLedgerApi(exercised)
-                .map(_.map(a => Contract[lav1.value.Value](-\/(a))))
+                .map(_.map(a => Contract[lav2.value.Value](-\/(a))))
               val newAcc = ^(acc, a)(_ ++ _.toVector)
               loop(exercised.childEventIds.toVector ++ tail, newAcc)
-            case lav1.transaction.TreeEvent.Kind.Empty =>
+            case lav2.transaction.TreeEvent.Kind.Empty =>
               val errorMsg = s"Expected either Created or Exercised event, got: Empty"
               -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
           }
@@ -483,7 +483,7 @@ package domain {
   object ArchivedContract {
     def fromLedgerApi(
         resolvedQuery: domain.ResolvedQuery,
-        in: lav1.event.ArchivedEvent,
+        in: lav2.event.ArchivedEvent,
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
         case ResolvedQuery.ByInterfaceId(interfaceId) =>
@@ -499,7 +499,7 @@ package domain {
       )
     }
 
-    def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
+    def fromLedgerApi(in: lav2.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
         for {
           templateId <- in.templateId.required("templateId")
@@ -700,15 +700,15 @@ package domain {
 
   object CreateAndExerciseCommand {
     type LAVUnresolved = CreateAndExerciseCommand[
-      lav1.value.Record,
-      lav1.value.Value,
+      lav2.value.Record,
+      lav2.value.Value,
       domain.ContractTypeId.Template.OptionalPkg,
       domain.ContractTypeId.OptionalPkg,
     ]
 
     type LAVResolved = CreateAndExerciseCommand[
-      lav1.value.Record,
-      lav1.value.Value,
+      lav2.value.Record,
+      lav2.value.Value,
       domain.ContractTypeId.Template.RequiredPkg,
       domain.ContractTypeId.RequiredPkg,
     ]
@@ -1088,7 +1088,7 @@ package domain {
 
     def apply[PkgId](packageId: PkgId, moduleName: String, entityName: String): CtId[PkgId]
 
-    final def fromLedgerApi(in: lav1.value.Identifier): RequiredPkg =
+    final def fromLedgerApi(in: lav2.value.Identifier): RequiredPkg =
       apply(in.packageId, in.moduleName, in.entityName)
 
     private[this] def qualifiedName(a: CtId[_]): Ref.QualifiedName =

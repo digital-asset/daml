@@ -25,7 +25,7 @@ trait WritePackagesService {
     * to be able to get the byte size of each individual ArchivePayload, which
     * is information that the read / index service need to provide. Moreover
     * this information should be consistent with the payload that the
-    * [[com.daml.ledger.api.v1.package_service.GetPackageResponse]]
+    * [[com.daml.ledger.api.v2.package_service.GetPackageResponse]]
     * contains. If we were to consume packages we'd have to re-encode them to
     * provide the size, and the size might potentially be different from the
     * original size, which would be quite confusing.

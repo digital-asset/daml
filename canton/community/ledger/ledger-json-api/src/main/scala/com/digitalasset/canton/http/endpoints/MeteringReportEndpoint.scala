@@ -8,7 +8,7 @@ import com.digitalasset.canton.http.EndpointsCompanion.{Error, ServerError}
 import com.digitalasset.canton.http.endpoints.MeteringReportEndpoint.{MeteringReportDateRequest, toPbRequest}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1.admin.metering_report_service
+import com.daml.ledger.api.v2.admin.metering_report_service
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContextOf

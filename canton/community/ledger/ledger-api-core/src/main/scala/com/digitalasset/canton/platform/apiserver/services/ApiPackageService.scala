@@ -5,19 +5,17 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  GetPackageStatusResponse,
-  HashFunction as APIHashFunction,
-  ListPackagesResponse,
-  PackageStatus,
-}
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v2.package_service.{
   GetPackageRequest,
+  GetPackageResponse,
   GetPackageStatusRequest,
+  GetPackageStatusResponse,
+  HashFunction as APIHashFunction,
   ListPackagesRequest,
+  ListPackagesResponse,
   PackageServiceGrpc,
+  PackageStatus,
 }
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext

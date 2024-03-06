@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v2.event.Event
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 
 private[platform] object TransactionConversion {

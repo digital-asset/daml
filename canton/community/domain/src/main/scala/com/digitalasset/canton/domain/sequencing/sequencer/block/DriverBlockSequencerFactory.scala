@@ -68,7 +68,7 @@ class DriverBlockSequencerFactory[C](
       clock: Clock,
       driverClock: Clock,
       protocolVersion: ProtocolVersion,
-      rateLimitManager: Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,

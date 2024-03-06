@@ -21,7 +21,7 @@ import com.google.protobuf.ByteString
 
 import scala.collection.SeqView
 
-final case class SequencerSnapshot private (
+final case class SequencerSnapshot(
     lastTs: CantonTimestamp,
     heads: Map[Member, SequencerCounter],
     status: SequencerPruningStatus,

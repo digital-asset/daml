@@ -59,4 +59,14 @@ object WriterStartupError {
   final case class FailedToCreateExclusiveStorage(message: String) extends WriterStartupError {
     override val retryable = true
   }
+
+  /** When creating a separate database sequencer from a snapshot given by another one, there
+    * was an error consuming the snapshot to initialize the initial state.
+    * If this is a database problem, it can be retried.
+    * Other kinds of issues would indicate that the new sequencer does not have a fresh database,
+    * which is a fundamental requirement for being able to start a new sequencer fresh from a snapshot.
+    */
+  final case class FailedToInitializeFromSnapshot(message: String) extends WriterStartupError {
+    override val retryable = true
+  }
 }
