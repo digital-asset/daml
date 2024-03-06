@@ -110,7 +110,11 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
     "Loading a config with environment variable interpolation" should {
       "replace valid variable" in {
         val version = for {
-          config <- ProjectConfig.loadFromStringWithEnv(projectRoot, "version: ${MY_VERSION}", Map(("MY_VERSION", "0.0.0")))
+          config <- ProjectConfig.loadFromStringWithEnv(
+            projectRoot,
+            "version: ${MY_VERSION}",
+            Map(("MY_VERSION", "0.0.0")),
+          )
           result <- config.version
         } yield result
         version shouldBe Right(Some("0.0.0"))
@@ -120,7 +124,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
           config <- ProjectConfig.loadFromStringWithEnv(
             projectRoot,
             "name: ${PACKAGE_TYPE}-project-${PACKAGE_VISIBILITY}",
-            Map(("PACKAGE_TYPE", "production"), ("PACKAGE_VISIBILITY", "public"))
+            Map(("PACKAGE_TYPE", "production"), ("PACKAGE_VISIBILITY", "public")),
           )
           result <- config.name
         } yield result
@@ -128,14 +132,22 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "not replace escaped variable" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(projectRoot, """name: \${MY_NAME}""", Map(("MY_NAME", "name")))
+          config <- ProjectConfig.loadFromStringWithEnv(
+            projectRoot,
+            """name: \${MY_NAME}""",
+            Map(("MY_NAME", "name")),
+          )
           result <- config.name
         } yield result
         name shouldBe Right(Some("${MY_NAME}"))
       }
       "replace double escaped variable" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(projectRoot, """name: \\${MY_NAME}""", Map(("MY_NAME", "name")))
+          config <- ProjectConfig.loadFromStringWithEnv(
+            projectRoot,
+            """name: \\${MY_NAME}""",
+            Map(("MY_NAME", "name")),
+          )
           result <- config.name
         } yield result
         name shouldBe Right(Some("""\name"""))
@@ -143,14 +155,22 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       "replace variable using dots for underscores" in {
         @nowarn("msg=possible missing interpolator")
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(projectRoot, "name: ${MY.NAME}", Map(("MY_NAME", "name")))
+          config <- ProjectConfig.loadFromStringWithEnv(
+            projectRoot,
+            "name: ${MY.NAME}",
+            Map(("MY_NAME", "name")),
+          )
           result <- config.name
         } yield result
         name shouldBe Right(Some("name"))
       }
       "not add syntax/structure" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(projectRoot, "name: ${MY_NAME}", Map(("MY_NAME", "\n  - elem\n  - elem")))
+          config <- ProjectConfig.loadFromStringWithEnv(
+            projectRoot,
+            "name: ${MY_NAME}",
+            Map(("MY_NAME", "\n  - elem\n  - elem")),
+          )
           result <- config.name
         } yield result
         name shouldBe Right(Some("\n  - elem\n  - elem"))
@@ -160,7 +180,9 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
           config <- ProjectConfig.loadFromStringWithEnv(projectRoot, "name: ${MY_NAME}", Map())
           result <- config.name
         } yield result
-        name shouldBe Left(ConfigParseError("""Couldn't find environment variable MY_NAME in value ${MY_NAME}"""))
+        name shouldBe Left(
+          ConfigParseError("""Couldn't find environment variable MY_NAME in value ${MY_NAME}""")
+        )
       }
     }
   }

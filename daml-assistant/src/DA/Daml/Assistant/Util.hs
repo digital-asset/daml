@@ -14,6 +14,7 @@ import Control.Exception.Safe
 import Control.Applicative
 import Control.Monad.Extra
 import Data.Either.Extra
+import Data.Foldable (traverse_)
 import System.Process.Typed (ExitCodeException(..))
 
 -- | Throw an assistant error.
@@ -25,7 +26,7 @@ throwErr msg = throwIO (assistantError msg)
 wrapErrG :: (Text -> SomeException -> AssistantError) -> Maybe Text -> Text -> IO a -> IO a
 wrapErrG wrapSomeException exitMessage ctx m = m `catches`
     [ Handler $ throwIO @IO @ExitCode
-    , Handler $ \ExitCodeException{eceExitCode} -> traverse (putStrLn . unpack) exitMessage >> exitWith eceExitCode
+    , Handler $ \ExitCodeException{eceExitCode} -> traverse_ (putStrLn . unpack) exitMessage >> exitWith eceExitCode
     , Handler $ throwIO . addErrorContext
     , Handler $ throwIO . wrapSomeException ctx
     ]

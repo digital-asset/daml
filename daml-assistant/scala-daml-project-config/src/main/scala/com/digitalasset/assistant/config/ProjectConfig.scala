@@ -126,20 +126,28 @@ object ProjectConfig {
 
   val envVarMatch: Regex = """(^|[^\\])(\\*)\$\{([^\}]+)\}""".r
   def interpolateEnvironmentVariable(str: String, env: Map[String, String]): String =
-    envVarMatch.replaceAllIn(str, (m: Regex.Match) => Regex.quoteReplacement {
-      val prefix = m.group(1) + m.group(2).take(m.group(2).length / 2)
-      if (m.group(2).length % 2 == 0) {
-        val varName = m.group(3).replace(".", "_")
-        prefix + env.get(varName).getOrElse(
-          throw new IllegalArgumentException(s"Couldn't find environment variable $varName in value $str")
-        )
-      } else prefix + "${" + m.group(3) + "}"
-    })
+    envVarMatch.replaceAllIn(
+      str,
+      (m: Regex.Match) =>
+        Regex.quoteReplacement {
+          val prefix = m.group(1) + m.group(2).take(m.group(2).length / 2)
+          if (m.group(2).length % 2 == 0) {
+            val varName = m.group(3).replace(".", "_")
+            prefix + env
+              .get(varName)
+              .getOrElse(
+                throw new IllegalArgumentException(
+                  s"Couldn't find environment variable $varName in value $str"
+                )
+              )
+          } else prefix + "${" + m.group(3) + "}"
+        },
+    )
 
   def interpolateEnvironmentVariables(json: Json, env: Map[String, String]): Json =
     Plated.transform[Json](_.mapString(interpolateEnvironmentVariable(_, env)))(json)
 
-    /** Loads a project configuration from a string */
+  /** Loads a project configuration from a string */
   def loadFromString(
       projectPath: Path,
       content: String,
@@ -154,7 +162,8 @@ object ProjectConfig {
   ): Either[ConfigLoadingError, ProjectConfig] = {
     for {
       json <- yaml.parser.parse(content).left.map(e => ConfigParseError(e.getMessage))
-      interpolatedJson <- Try(interpolateEnvironmentVariables(json, env)).fold(e => Left(ConfigParseError(e.getMessage)), Right(_))
+      interpolatedJson <- Try(interpolateEnvironmentVariables(json, env))
+        .fold(e => Left(ConfigParseError(e.getMessage)), Right(_))
     } yield ProjectConfig(interpolatedJson, projectPath)
   }
 
