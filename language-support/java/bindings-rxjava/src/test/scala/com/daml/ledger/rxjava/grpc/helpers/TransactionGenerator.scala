@@ -37,6 +37,8 @@ object TransactionGenerator {
 
   implicit def noShrink[A]: Shrink[A] = Shrink.shrinkAny
 
+  private val zeroTime = Instant.ofEpochSecond(0, 0)
+
   val nonEmptyId: Gen[String] = Gen
     .nonEmptyListOf(Arbitrary.arbChar.arbitrary)
     .map(s => {
@@ -348,6 +350,7 @@ object TransactionGenerator {
       offset,
       domainId,
       traceContext,
+      zeroTime,
     ),
   )
 
@@ -381,6 +384,7 @@ object TransactionGenerator {
       Collections.emptyList(),
       domainId,
       traceContext,
+      zeroTime,
     ),
   )
 
