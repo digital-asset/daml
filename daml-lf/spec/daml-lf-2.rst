@@ -4161,7 +4161,7 @@ BigNumeric functions
   Adds the two decimals. Throws an ``ArithmeticError`` if the output
   is not a valid BigNumeric.
 
-  [*Available in version ≥ 1.dev*]
+  [*Available in version ≥ 2.dev*]
 
 * ``SUB_BIGNUMERIC : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
