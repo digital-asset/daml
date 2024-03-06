@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -1434,10 +1434,14 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
       val mediatorMessage =
         transferData.transferOutRequest.tree.mediatorMessage(Signature.noSignature)
-      val result = mediatorMessage.createConfirmationResult(
+      val result = ConfirmationResultMessage.create(
+        mediatorMessage.domainId,
+        ViewType.TransferOutViewType,
         requestId,
+        Some(mediatorMessage.rootHash),
         Verdict.Approve(BaseTest.testedProtocolVersion),
         mediatorMessage.allInformees,
+        BaseTest.testedProtocolVersion,
       )
       val signedResult =
         SignedProtocolMessage.from(

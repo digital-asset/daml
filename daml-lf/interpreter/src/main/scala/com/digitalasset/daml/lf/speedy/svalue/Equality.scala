@@ -38,7 +38,7 @@ private[lf] object Equality {
     @inline
     def step(tuple: (SValue, SValue)) =
       tuple match {
-        case (x: SPrimLit, y: SPrimLit) =>
+        case (x: SBuiltinLit, y: SBuiltinLit) =>
           success =
             if (x == y)
               true

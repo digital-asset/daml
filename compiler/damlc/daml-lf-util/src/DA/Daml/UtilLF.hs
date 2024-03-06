@@ -98,13 +98,13 @@ sourceLocToRange (SourceLoc _ slin scol elin ecol) =
         (fromIntegral ecol))
 
 mkBuiltinEqual :: BuiltinType -> Expr
-mkBuiltinEqual ty = EBuiltin BEEqualGeneric `ETyApp` TBuiltin ty
+mkBuiltinEqual ty = EBuiltinFun BEEqualGeneric `ETyApp` TBuiltin ty
 
 mkBuiltinLess :: BuiltinType -> Expr
-mkBuiltinLess ty = EBuiltin BELessGeneric `ETyApp` TBuiltin ty
+mkBuiltinLess ty = EBuiltinFun BELessGeneric `ETyApp` TBuiltin ty
 
 mkBuiltinGreater :: BuiltinType -> Expr
-mkBuiltinGreater ty = EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
+mkBuiltinGreater ty = EBuiltinFun BEGreaterGeneric `ETyApp` TBuiltin ty
 
 preconditionFailedTypeCon :: MajorVersion -> Qualified TypeConName
 preconditionFailedTypeCon major = Qualified
@@ -115,7 +115,7 @@ preconditionFailedTypeCon major = Qualified
  where
   -- We cannot look up these stable IDs using stablePackageByModuleName because
   -- it would introduce a cyclic dependency with StablePackages.
-  packageId V2 = "4c290f7b9fe25f59a2d0ad07ee506d5e0a3ecfdb413e5c32e60dafa1052fdd6a"
+  packageId V2 = "9c64df81897c6b98c86063b3a2a4503d756bb7994f06c290ea3d6ad719b76c72"
 
 mkPreconditionFailed :: MajorVersion -> Expr -> Expr
 mkPreconditionFailed major msg = ERecCon

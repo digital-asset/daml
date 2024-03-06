@@ -17,6 +17,7 @@ import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
 import com.digitalasset.canton.tracing.{TraceContext, Traced, W3CTraceContext}
 import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.RetryUtil
@@ -202,14 +203,19 @@ class DbReferenceBlockOrderingStore(
           }
           ._2
         requestsUntilFirstGap.map { case (height, tracedRequest, uuid) =>
-          val orderedRequests =
+          val (orderedRequests, lastTopologyTimestamp) =
             if (tracedRequest.value.tag == BatchTag) {
-              val batchedRequests = proto.TracedBatchedBlockOrderingRequests
+              val tracedBatchedBlockOrderingRequests = proto.TracedBatchedBlockOrderingRequests
                 .parseFrom(tracedRequest.value.body.toByteArray)
-                .requests
-                .map(DbReferenceBlockOrderingStore.fromProto)
-              batchedRequests
-            } else Seq(tracedRequest)
+              val batchedRequests =
+                tracedBatchedBlockOrderingRequests.requests
+                  .map(DbReferenceBlockOrderingStore.fromProto)
+              batchedRequests -> CantonTimestamp.ofEpochMicro(
+                tracedBatchedBlockOrderingRequests.lastTopologyTimestampEpochMicros
+              )
+            } else {
+              Seq(tracedRequest) -> SignedTopologyTransactionX.InitialTopologySequencingTime
+            }
           // Logging the UUID to be able to correlate the block on the write side.
           logger.debug(s"Retrieved block at height $height with UUID: $uuid")
           val blockTimestamp =
@@ -217,6 +223,7 @@ class DbReferenceBlockOrderingStore(
           TimestampedBlock(
             BlockOrderer.Block(height, orderedRequests),
             blockTimestamp,
+            lastTopologyTimestamp,
           )
         }
       }

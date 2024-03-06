@@ -94,7 +94,6 @@ class DefaultMessageDispatcher(
       case RequestKind(_) => runAsyncResult(run)
 
       case ResultKind(_) => runAsyncResult(run)
-      case MalformedMediatorConfirmationRequestMessage => runAsyncResult(run)
 
       case DeliveryMessageKind => run
     }

@@ -131,7 +131,7 @@ class DamlLfEncoderTest
             .modules(builtinMod)
             .definitions
             .values
-            .collect { case Ast.DValue(_, Ast.EBuiltin(builtin), _) => builtin }
+            .collect { case Ast.DValue(_, Ast.EBuiltinFun(builtin), _) => builtin }
             .toSet
           val builtinsInVersion = DecodeV2.builtinFunctionInfos.collect {
             case DecodeV2.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)

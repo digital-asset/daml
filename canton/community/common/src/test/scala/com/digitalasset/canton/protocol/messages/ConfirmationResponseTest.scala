@@ -31,7 +31,9 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     RequestId(CantonTimestamp.now()),
     topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
     None,
-    LocalRejectError.MalformedRejects.Payloads.Reject("test message")(localVerdictProtocolVersion),
+    LocalRejectError.MalformedRejects.Payloads
+      .Reject("test message")
+      .toLocalReject(testedProtocolVersion),
     Some(RootHash(TestHash.digest("txid3"))),
     Set.empty,
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),

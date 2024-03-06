@@ -705,7 +705,7 @@ typeOf' :: MonadGamma m => Expr -> m Type
 typeOf' = \case
   EVar var -> lookupExprVar var
   EVal val -> dvalType <$> inWorld (lookupValue val)
-  EBuiltin bexpr -> typeOfBuiltin bexpr
+  EBuiltinFun bexpr -> typeOfBuiltin bexpr
   ERecCon typ recordExpr -> checkRecCon typ recordExpr $> typeConAppToType typ
   ERecProj typ field rec -> typeOfRecProj typ field rec
   ERecUpd typ field record update -> typeOfRecUpd typ field record update

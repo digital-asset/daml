@@ -457,7 +457,7 @@ instance Pretty Expr where
   pPrintPrec lvl prec = \case
     EVar x -> pPrint x
     EVal z -> pPrintPrec lvl prec z
-    EBuiltin b -> pPrintPrec lvl prec b
+    EBuiltinFun b -> pPrintPrec lvl prec b
     ERecCon (TypeConApp tcon targs) fields ->
       maybeParens (prec > precEApp) $
         sep $

@@ -157,7 +157,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
       SEApp(leaf, xs)
     }
     val appWideBuiltin = (xs: List[SExpr]) => {
-      SEApp(SEBuiltin(SBuiltin.SBConsMany(width)), xs)
+      SEApp(SEBuiltin(SBuiltinFun.SBConsMany(width)), xs)
     }
     val caseWide = (xs: List[SExpr]) => {
       SECase(leaf, xs.map(x => SCaseAlt(pat, x)))

@@ -117,7 +117,7 @@ object SValue {
 
   /** "Primitives" that can be applied. */
   sealed abstract class Prim
-  final case class PBuiltin(b: SBuiltin) extends Prim
+  final case class PBuiltin(b: SBuiltinFun) extends Prim
 
   /** A closure consisting of an expression together with the values the
     * expression is closing over.
@@ -329,11 +329,11 @@ object SValue {
     }
   }
 
-  // NOTE(JM): We are redefining PrimLit here so it can be unified
+  // NOTE(JM): We are redefining BuiltinLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
-  sealed abstract class SPrimLit extends SValue with Equals
-  final case class SInt64(value: Long) extends SPrimLit
-  final case class SNumeric(value: Numeric) extends SPrimLit
+  sealed abstract class SBuiltinLit extends SValue with Equals
+  final case class SInt64(value: Long) extends SBuiltinLit
+  final case class SNumeric(value: Numeric) extends SBuiltinLit
   object SNumeric {
     def fromBigDecimal(scale: Numeric.Scale, x: java.math.BigDecimal) =
       Numeric.fromBigDecimal(scale, x) match {
@@ -343,7 +343,7 @@ object SValue {
           overflowUnderflow
       }
   }
-  final class SBigNumeric private (val value: java.math.BigDecimal) extends SPrimLit {
+  final class SBigNumeric private (val value: java.math.BigDecimal) extends SBuiltinLit {
     override def canEqual(that: Any): Boolean = that match {
       case _: SBigNumeric => true
       case _ => false
@@ -385,16 +385,16 @@ object SValue {
     def checkScale(s: Long): Either[String, Int] =
       Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
   }
-  final case class SText(value: String) extends SPrimLit
-  final case class STimestamp(value: Time.Timestamp) extends SPrimLit
-  final case class SParty(value: Party) extends SPrimLit
-  final case class SBool(value: Boolean) extends SPrimLit
+  final case class SText(value: String) extends SBuiltinLit
+  final case class STimestamp(value: Time.Timestamp) extends SBuiltinLit
+  final case class SParty(value: Party) extends SBuiltinLit
+  final case class SBool(value: Boolean) extends SBuiltinLit
   object SBool {
     def apply(value: Boolean): SBool = if (value) SValue.True else SValue.False
   }
-  final case object SUnit extends SPrimLit
-  final case class SDate(value: Time.Date) extends SPrimLit
-  final case class SContractId(value: V.ContractId) extends SPrimLit
+  final case object SUnit extends SBuiltinLit
+  final case class SDate(value: Time.Date) extends SBuiltinLit
+  final case class SContractId(value: V.ContractId) extends SBuiltinLit
   final case class STypeRep(ty: Type) extends SValue
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue

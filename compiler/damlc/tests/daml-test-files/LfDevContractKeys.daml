@@ -3,7 +3,9 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
-module LfStableContractKeys where
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module LfDevContractKeys where
 
 import Daml.Script
 import DA.Optional (isNone)
@@ -89,7 +91,7 @@ template Helper
       do
         fetchByKey @TextKey key
 
--- @LEDGER run LfStableContractKeys.EXPECTED.ledger
+-- @LEDGER run LfDevContractKeys.EXPECTED.ledger
 run = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"

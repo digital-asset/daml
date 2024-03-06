@@ -31,6 +31,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.*
@@ -159,23 +160,8 @@ class BlockSequencer(
     case Failure(ex) => noTracingLogger.error("Sequencer flow has failed", ex)
   }
 
-  private object TopologyTimestampCheck
-
-  private def ensureTopologyTimestampPresentForAggregationRuleAndSignatures(
-      submission: SubmissionRequest
-  ): EitherT[Future, SendAsyncError, TopologyTimestampCheck.type] =
-    EitherT.cond[Future](
-      submission.aggregationRule.isEmpty || submission.topologyTimestamp.isDefined ||
-        submission.batch.envelopes.forall(_.signatures.isEmpty),
-      TopologyTimestampCheck,
-      SendAsyncError.RequestInvalid(
-        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `topologyTimestamp` is not defined. Please set the `topologyTimestamp` for the submission."
-      ): SendAsyncError,
-    )
-
   private def validateMaxSequencingTime(
-      _topologyTimestampCheck: TopologyTimestampCheck.type,
-      submission: SubmissionRequest,
+      submission: SubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     val estimatedSequencingTimestamp = clock.now
     submission.aggregationRule match {
@@ -241,9 +227,9 @@ class BlockSequencer(
     )
 
     for {
-      topologyTimestampCheck <-
-        ensureTopologyTimestampPresentForAggregationRuleAndSignatures(submission)
-      _ <- validateMaxSequencingTime(topologyTimestampCheck, submission)
+      // TODO(i17584): revisit the consequences of no longer enforcing that
+      //  aggregated submissions with signed envelopes define a topology snapshot
+      _ <- validateMaxSequencingTime(submission)
       memberCheck <- EitherT.right[SendAsyncError](
         cryptoApi.currentSnapshotApproximation.ipsSnapshot
           .allMembers()
@@ -314,7 +300,9 @@ class BlockSequencer(
     * purely local operations that do not affect other block sequencers that share the same source of
     * events.
     */
-  override def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] = {
+  protected def disableMemberInternal(
+      member: Member
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     if (!stateManager.isMemberRegistered(member)) {
       logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
       Future.unit
@@ -332,6 +320,8 @@ class BlockSequencer(
       } yield ()
     }
   }
+
+  override protected def localSequencerMember: DomainMember = sequencerId
 
   override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -465,7 +455,7 @@ class BlockSequencer(
     upToDateTrafficStatesForMembers(
       stateManager.getHeadState.chunk.ephemeral.status.members.map(_.member),
       Some(clock.now),
-    )
+    ).map(_.view.mapValues(_.state).toMap)
   }
 
   /** Compute traffic states for the specified members at the provided timestamp,
@@ -478,14 +468,14 @@ class BlockSequencer(
       updateTimestamp: Option[CantonTimestamp] = None,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Member, TrafficState]] = {
+  ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]] = {
     // Get the parameters for the traffic control
     OptionUtil.zipWithFDefaultValue(
       rateLimitManager,
       FutureUnlessShutdown.outcomeF(
         cryptoApi.headSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
       ),
-      Map.empty[Member, TrafficState],
+      Map.empty[Member, TrafficStateUpdateResult],
     ) { case (rlm, parameters) =>
       // Use the head ephemeral state to get the known traffic states
       val headEphemeral = stateManager.getHeadState.chunk.ephemeral
@@ -521,7 +511,7 @@ class BlockSequencer(
 
   override def setTrafficBalance(
       member: Member,
-      serial: NonNegativeLong,
+      serial: PositiveInt,
       totalTrafficBalance: NonNegativeLong,
       sequencerClient: SequencerClient,
   )(implicit
@@ -543,12 +533,12 @@ class BlockSequencer(
   ): FutureUnlessShutdown[SequencerTrafficStatus] = {
     upToDateTrafficStatesForMembers(requestedMembers)
       .map { updated =>
-        updated.map { case (member, state) =>
+        updated.map { case (member, TrafficStateUpdateResult(state, balanceUpdateSerial)) =>
           MemberTrafficStatus(
             member,
             state.timestamp,
             state.toSequencedEventTrafficState,
-            List.empty, // TODO(i17477): Was never used, set to empty for now and remove when we're done with the rework
+            balanceUpdateSerial,
           )
         }.toList
       }

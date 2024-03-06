@@ -20,11 +20,17 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, PeriodicAction}
-import com.digitalasset.canton.topology.{DomainTopologyManagerId, Member, UnauthenticatedMemberId}
+import com.digitalasset.canton.topology.{
+  DomainMember,
+  DomainTopologyManagerId,
+  Member,
+  UnauthenticatedMemberId,
+}
 import com.digitalasset.canton.tracing.Spanning.SpanWrapper
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.ifThenET
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -157,6 +163,28 @@ abstract class BaseSequencer(
     Future.failed(
       new RuntimeException(s"Failed to auto-register members: $registrationError")
     )
+  }
+
+  protected def localSequencerMember: DomainMember
+  protected def disableMemberInternal(member: Member)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
+
+  def disableMember(member: Member)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SequencerAdministrationError, Unit] = {
+    logger.info(show"Disabling member at the sequencer: $member")
+    for {
+      _ <- EitherT
+        .cond[Future](
+          localSequencerMember != member,
+          (),
+          SequencerAdministrationError.CannotDisableLocalSequencerMember
+            .Error(localSequencerMember),
+        )
+
+      _ <- EitherT.right(disableMemberInternal(member))
+    } yield ()
   }
 
   protected def healthInternal(implicit traceContext: TraceContext): Future[SequencerHealthStatus]

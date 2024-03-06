@@ -103,7 +103,7 @@ mkELets :: [Binding] -> Expr -> Expr
 mkELets = curry (review _ELets)
 
 mkEmptyText :: Expr
-mkEmptyText = EBuiltin (BEText "")
+mkEmptyText = EBuiltinFun (BEText "")
 
 mkIf :: Expr -> Expr -> Expr -> Expr
 mkIf cond0 then0 else0 =
@@ -113,16 +113,16 @@ mkIf cond0 then0 else0 =
   ]
 
 mkBool :: Bool -> Expr
-mkBool = EBuiltin . BEBool
+mkBool = EBuiltinFun . BEBool
 
 pattern EUnit :: Expr
-pattern EUnit = EBuiltin BEUnit
+pattern EUnit = EBuiltinFun BEUnit
 
 pattern ETrue :: Expr
-pattern ETrue = EBuiltin (BEBool True)
+pattern ETrue = EBuiltinFun (BEBool True)
 
 pattern EFalse :: Expr
-pattern EFalse = EBuiltin (BEBool False)
+pattern EFalse = EBuiltinFun (BEBool False)
 
 mkNot :: Expr -> Expr
 mkNot arg = mkIf arg (mkBool False) (mkBool True)

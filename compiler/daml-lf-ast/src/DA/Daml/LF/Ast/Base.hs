@@ -363,7 +363,7 @@ data Expr
   -- | Reference to a value definition.
   | EVal  !(Qualified ExprValName)
   -- | Builtin operation or literal.
-  | EBuiltin !BuiltinExpr
+  | EBuiltinFun !BuiltinExpr
   -- | Record construction.
   | ERecCon
     { recTypeCon :: !TypeConApp

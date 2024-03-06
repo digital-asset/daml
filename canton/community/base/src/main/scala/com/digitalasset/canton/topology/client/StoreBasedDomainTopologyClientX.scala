@@ -403,12 +403,19 @@ class StoreBasedTopologySnapshotX(
         .result
         .groupBy(_.mapping.member)
         .flatMap { case (member, mappings) =>
-          collectLatestMapping(
+          collectLatestTransaction(
             TopologyMappingX.Code.TrafficControlStateX,
             mappings.sortBy(_.validFrom),
-          ).map(mapping =>
-            Some(MemberTrafficControlState(totalExtraTrafficLimit = mapping.totalExtraTrafficLimit))
-          ).map(member -> _)
+          ).map { tx =>
+            val mapping = tx.mapping
+            Some(
+              MemberTrafficControlState(
+                totalExtraTrafficLimit = mapping.totalExtraTrafficLimit,
+                tx.serial,
+                tx.validFrom.value,
+              )
+            )
+          }.map(member -> _)
         }
 
       val membersWithoutState = members.toSet.diff(membersWithState.keySet).map(_ -> None).toMap

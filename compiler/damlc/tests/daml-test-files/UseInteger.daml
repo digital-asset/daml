@@ -3,10 +3,10 @@
 -- @INFO Use negate
 
 -- Test that foo does not overflow
--- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["foo"]) | .expr.prim_lit | lf::get_int64($pkg) == "1"
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["foo"]) | .expr.builtin_lit | lf::get_int64($pkg) == "1"
 
 -- Test that Daml-LF can hold maxBound :: Int64
--- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["bar"]) | .expr.prim_lit | lf::get_int64($pkg) == "9223372036854775807"
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["bar"]) | .expr.builtin_lit | lf::get_int64($pkg) == "9223372036854775807"
 
 module UseInteger where
 

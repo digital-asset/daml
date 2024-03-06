@@ -15,7 +15,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 import com.daml.lf.engine.script.v1.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.SBuiltin.SBToAny
+import com.daml.lf.speedy.SBuiltinFun.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -117,7 +117,7 @@ private[lf] class Runner(
                           SELet1(
                             SEImportValue(typ, value),
                             SELet1(
-                              SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
+                              SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SELocS(1))),
                               SEAppAtomic(SEValue(handle), Array(SELocS(1))),
                             ),
                           )

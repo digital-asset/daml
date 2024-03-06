@@ -145,86 +145,53 @@ message Kind {
   }
 }
 
-// Builtin primitive types
-enum PrimType {
+// Builtin types
+enum BuiltinType {
   // Builtin type 'Unit'
   UNIT = 0;
-
   // Builtin type 'Bool'
   BOOL = 1;
-
   // Builtin type 'Int64'
   INT64 = 2;
-
-  // Builtin type for legacy 'Decimal'
-  // Alias for (Numeric 10)
-  // *available in version < 1.7*
-  DECIMAL = 3;
-
-  // CHAR = 4; // we have removed this in favor of TEXT for everything text related.
-
-  // Builtin type 'Text'
-  TEXT = 5;
-
-  // Builtin type 'Timestamp'
-  TIMESTAMP = 6;
-
-  // RELTIME = 7; // we removed this in favor of INT64.
-
-  // Builtin tpe 'Party'
-  PARTY = 8;
-
-  // Builtin type 'List'
-  LIST = 9;
-
-  // Builtin type 'Update'
-  UPDATE = 10;
-
-  // Builtin type 'Scenario'
-  SCENARIO = 11;
-
   // Builtin type 'Date'
-  DATE = 12;
-
-  // Builtin type 'ContractId'
-  CONTRACT_ID = 13;
-
-  // Builtin type 'Optional'
-  OPTIONAL = 14;
-
-  // Builtin type `TArrow`
-  ARROW = 15;
-
-  // Builtin type 'TTextMap`
-  TEXTMAP = 16;
-
+  DATE = 3;
+  // Builtin type 'Timestamp'
+  TIMESTAMP = 4;
   // Builtin type 'Numeric'
-  // *Available in versions >= 1.7*
-  NUMERIC = 17;
-
-  // Builtin type 'Any'
-  // *Available in versions >= 1.7*
-  ANY = 18;
-
-  // Builtin type 'TypeRep'
-  // *Available in versions >= 1.7*
-  TYPE_REP = 19;
-
+  NUMERIC = 5;
+  // Builtin tpe 'Party'
+  PARTY = 6;
+  // Builtin type 'Text'
+  TEXT = 7;
+  // Builtin type 'ContractId'
+  CONTRACT_ID = 8;
+  // Builtin type 'Optional'
+  OPTIONAL = 9;
+  // Builtin type 'List'
+  LIST = 10;
   // Builtin type 'TGenMap`
-  // *Available in versions >= 1.11*
-  GENMAP = 20;
-
-  // Builtin type 'TBigNumeric'
-  // *Available in versions >= 1.13*
-  BIGNUMERIC = 21;
-
-  // Builtin type 'TRoundingMode'
-  // *Available in versions >= 1.13*
-  ROUNDING_MODE = 22;
-
+  GENMAP = 11;
+  // Builtin type 'TTextMap`
+  TEXTMAP = 12;
+  // Builtin type 'Any'
+  ANY = 13;
   // Builtin type 'TAnyException'
-  // *Available in versions >= 1.14*
-  ANY_EXCEPTION = 23;
+  ANY_EXCEPTION = 14;
+  // Builtin type 'TypeRep'
+  TYPE_REP = 15;
+  // Builtin type `TArrow`
+  ARROW = 16;
+  // Builtin type 'Update'
+  UPDATE = 17;
+  // Builtin type 'Scenario'
+  // *Available in versions >= 2.dev*
+  SCENARIO = 1001;
+  // Builtin type 'TBigNumeric'
+  // *Available in versions >= 2.dev*
+  BIGNUMERIC = 1002;
+  // Builtin type 'TRoundingMode'
+  // *Available in versions >= 2.dev*
+  ROUNDING_MODE = 1003;
 }
 
 // Types
@@ -262,11 +229,11 @@ message Type {
   }
 
   // Possibly applied builtin types
-  message Prim {
+  message Builtin {
 
     // Builtin type
     // FixMe: Rename
-    PrimType prim = 1;
+    BuiltinType builtin = 1;
 
     // Types to which the builtin type is applied.
     repeated Type args = 2;
@@ -290,7 +257,7 @@ message Type {
   oneof Sum {
     Var var = 1;
     Con con = 2;
-    Prim prim = 3; // FixMe: renamed
+    Builtin builtin = 3; // FixMe: renamed
     Forall forall = 5;
     Struct struct = 7;
     // *Available in versions >= 1.7*
@@ -302,23 +269,14 @@ message Type {
     int32 interned = 13; // *Available in versions >= 1.11*
   }
 
-  reserved 4; // This was fun.  Removed in favour of PrimType.ARROW
-  reserved 6; // This was list. Removed in favour of PrimType.LIST
-  reserved 8; // This was contract_id. Removed in favour of PrimType.CONTRACT_ID
-  reserved 9; // This was update. Removed in favour of PrimType.UPDATE
-  reserved 10; // This was scenario. Removed in favor of PrimType.SCENARIO
-
 }
 
-// Primitive constructors
-enum PrimCon {
-
+// Builtin constructors
+enum BuiltinCon {
   // Unit value '()'
   CON_UNIT = 0;
-
   // 'False' boolean value
   CON_FALSE = 1;
-
   // 'True' boolean value
   CON_TRUE = 2;
 }
@@ -481,10 +439,10 @@ enum BuiltinFunction {
 }
 
 // Builtin literals
-// FixMe: Renamed
-message PrimLit {
+message BuiltinLit {
 
   // match java.math.BigDecimal.ROUND_XXX constants
+  // *Available in versions >= 2.dev*
   enum RoundingMode {
     UP = 0;
     DOWN = 1;
@@ -497,32 +455,20 @@ message PrimLit {
   }
 
   oneof Sum {
-
     //  64-bit integer literal ('LitInt64')
     sint64 int64 = 1;
-
-    // *Must be a valid representation of decimal*
-    string decimal_str = 2; // *Available in versions < 1.7*
-
-    // *Must be a valid interned numeric */
-    int32 numeric_interned_str = 10;
-
-    // *Must be a valid interned text*
-    int32 text_interned_str = 11;
-
     // *Must be a valid timestamp*
-    sfixed64 timestamp = 5;
-
+    sfixed64 timestamp = 2;
+    // *Must be a valid interned numeric */
+    int32 numeric_interned_str = 3;
+    // *Must be a valid interned text*
+    int32 text_interned_str = 4;
     // *Must be a valid date*
-    int32 date = 8;
-
+    int32 date = 5;
     // rounding mode for arithmetic operation
-    // *Available in versions >= 1.13*
-    RoundingMode rounding_mode = 13;
+    // *Available in versions >= 2.dev*
+    RoundingMode rounding_mode = 1001;
   }
-
-  reserved 3; // This was char.
-  reserved 6; // This was reltime;
 }
 
 // Source code locations
@@ -896,11 +842,11 @@ message Expr {
     // Builtin function ('ExpBuiltin')
     BuiltinFunction builtin = 3;
 
-    // Primitive constructor ('()', 'False' or 'True')
-    PrimCon prim_con = 4;
+    // Builtin constructor ('()', 'False' or 'True')
+    BuiltinCon builtin_con = 4;
 
     // Builtin literal ('ExpBuiltin')
-    PrimLit prim_lit = 5;
+    BuiltinLit builtin_lit = 5;
 
     // Record construction ('ExpRecCon')
     RecCon rec_con = 6;
@@ -1077,7 +1023,7 @@ message CaseAlt {
   oneof Sum {
     Unit default = 1;
     Variant variant = 2;
-    PrimCon prim_con = 3;
+    BuiltinCon builtin_con = 3;
     Unit nil = 4;
     Cons cons = 5;
     Unit optional_none = 7;

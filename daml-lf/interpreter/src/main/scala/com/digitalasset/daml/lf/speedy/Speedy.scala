@@ -1651,7 +1651,7 @@ private[lf] object Speedy {
   private[speedy] final case class KBuiltin[Q] private (
       machine: Machine[Q],
       savedBase: Int,
-      builtin: SBuiltin,
+      builtin: SBuiltinFun,
       actuals: util.ArrayList[SValue],
   ) extends Kont[Q]
       with SomeArrayEquals
@@ -1668,7 +1668,7 @@ private[lf] object Speedy {
   object KBuiltin {
     def apply[Q](
         machine: Machine[Q],
-        builtin: SBuiltin,
+        builtin: SBuiltinFun,
         actuals: util.ArrayList[SValue],
     ): KBuiltin[Q] =
       KBuiltin(machine, machine.markBase(), builtin, actuals)
@@ -1698,8 +1698,8 @@ private[lf] object Speedy {
       case SValue.SBool(b) =>
         alts.find { alt =>
           alt.pattern match {
-            case SCPPrimCon(PCTrue) => b
-            case SCPPrimCon(PCFalse) => !b
+            case SCPBuiltinCon(BCTrue) => b
+            case SCPBuiltinCon(BCFalse) => !b
             case SCPDefault => true
             case _ => false
           }
@@ -1742,7 +1742,7 @@ private[lf] object Speedy {
       case SValue.SUnit =>
         alts.find { alt =>
           alt.pattern match {
-            case SCPPrimCon(PCUnit) => true
+            case SCPBuiltinCon(BCUnit) => true
             case SCPDefault => true
             case _ => false
           }

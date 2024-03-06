@@ -1,6 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 
 module JsonEncodingTest where
 
@@ -22,9 +23,12 @@ template Account with
   where
     signatory owner
 
+#ifdef DAML_CONTRACT_KEYS
     key (owner, number) : (Party, Text)
     maintainer key._1
+#endif
 
+#ifdef DAML_CONTRACT_KEYS
 template KeyedByParty with
     name: Text
     party: Party
@@ -53,3 +57,4 @@ template KeyedByVariantAndRecord with
     signatory party
     key (party, (age, fooVariant, bazRecord)): (Party, (Int, Foo, BazRecord))
     maintainer key._1
+#endif

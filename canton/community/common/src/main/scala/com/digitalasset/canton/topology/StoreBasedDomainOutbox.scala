@@ -12,7 +12,7 @@ import com.digitalasset.canton.common.domain.{
   SequencerBasedRegisterTopologyTransactionHandleX,
 }
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
-import com.digitalasset.canton.config.{ProcessingTimeout, TopologyXConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
@@ -462,7 +462,7 @@ class DomainOutboxXFactory(
     authorizedTopologyManager: AuthorizedTopologyManagerX,
     domainTopologyManager: DomainTopologyManagerX,
     crypto: Crypto,
-    topologyXConfig: TopologyXConfig,
+    topologyXConfig: TopologyConfig,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     override val loggerFactory: NamedLoggerFactory,
@@ -578,7 +578,7 @@ class DomainOutboxXFactorySingleCreate(
     authorizedTopologyManager: AuthorizedTopologyManagerX,
     domainTopologyManager: DomainTopologyManagerX,
     crypto: Crypto,
-    topologyXConfig: TopologyXConfig,
+    topologyXConfig: TopologyConfig,
     override val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,

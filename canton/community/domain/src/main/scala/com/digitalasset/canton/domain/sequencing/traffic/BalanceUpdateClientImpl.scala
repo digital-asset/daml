@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.traffic
 
 import cats.data.EitherT
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.BalanceUpdateClient
@@ -30,10 +29,9 @@ class BalanceUpdateClientImpl(
       warnIfApproximate: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, NonNegativeLong] = {
+  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Option[TrafficBalance]] = {
     manager
       .getTrafficBalanceAt(member, timestamp, lastSeen, warnIfApproximate)
-      .map(_.map(_.balance).getOrElse(NonNegativeLong.zero))
       .leftMap { case TrafficBalanceManager.TrafficBalanceAlreadyPruned(member, timestamp) =>
         SequencerRateLimitError.UnknownBalance(member, timestamp)
       }

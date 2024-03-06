@@ -11,6 +11,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficConfig,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
@@ -233,13 +234,17 @@ class EnterpriseSequencerRateLimitManagerTest
           warnIfApproximate = true,
         )
         .failOnShutdown
-      _ = state2.get(sender).value shouldBe TrafficState(
-        extraTrafficRemainder = NonNegativeLong.tryCreate(8L),
-        extraTrafficConsumed = NonNegativeLong.zero,
-        baseTrafficRemainder = NonNegativeLong.tryCreate(
-          4L
-        ), // Should have half of the max base rate added back after 1 second
-        sequencingTs.immediateSuccessor.plusSeconds(1),
+      _ = state2.get(sender).value shouldBe TrafficStateUpdateResult(
+        TrafficState(
+          extraTrafficRemainder = NonNegativeLong.tryCreate(8L),
+          extraTrafficConsumed = NonNegativeLong.zero,
+          // Should have half of the max base rate added back after 1 second
+          baseTrafficRemainder = NonNegativeLong.tryCreate(
+            4L
+          ),
+          sequencingTs.immediateSuccessor.plusSeconds(1),
+        ),
+        Some(PositiveInt.one),
       )
     } yield succeed
   }

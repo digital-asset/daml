@@ -117,7 +117,7 @@ applySubstInExpr subst@Subst{..} = \case
             Just e -> e
             Nothing -> EVar x
     e@(EVal _) -> e
-    e@(EBuiltin _) -> e
+    e@(EBuiltinFun _) -> e
     ERecCon t fs -> ERecCon
         (applySubstInTypeConApp subst t)
         (substFields subst fs)

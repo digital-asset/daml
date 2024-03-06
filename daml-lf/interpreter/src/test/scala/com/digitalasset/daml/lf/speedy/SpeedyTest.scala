@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._

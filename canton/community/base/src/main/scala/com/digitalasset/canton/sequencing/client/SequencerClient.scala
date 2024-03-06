@@ -758,6 +758,7 @@ class RichSequencerClientImpl(
   private val handlerIdle: AtomicReference[Promise[Unit]] = new AtomicReference(
     Promise.successful(())
   )
+  private val handlerIdleLock: Object = new Object
 
   override protected def subscribeAfterInternal(
       priorTimestamp: CantonTimestamp,
@@ -1024,10 +1025,6 @@ class RichSequencerClientImpl(
               .leftMap[SequencerClientSubscriptionError](EventAggregationError)
           } yield
             if (toSignalHandler) {
-              // TODO(#17462) Consider to remove excessive debug logging
-              logger.debug(
-                s"Signalling event with counter ${serializedEvent.counter} to the application handler from loop for $sequencerId (alias=$sequencerAlias)"
-              )
               signalHandler(applicationHandler)
             }).value
         }
@@ -1054,11 +1051,13 @@ class RichSequencerClientImpl(
     //        futures have been added in the meantime as the synchronous flush future finished.
     //     c. I (rv) think that waiting on the `handlerIdle` is a unnecessary for shutdown as it does the
     //        same as the flush future. We only need it to ensure we don't start the sequential processing in parallel.
+    // TODO(#13789) This code should really not live in the `SubscriptionHandler` class of which we have multiple
+    //  instances with equivalent parameters in case of BFT subscriptions.
     private def signalHandler(
         eventHandler: OrdinaryApplicationHandler[ClosedEnvelope]
     )(implicit traceContext: TraceContext): Unit = performUnlessClosing(functionFullName) {
       val isIdle = blocking {
-        synchronized {
+        handlerIdleLock.synchronized {
           val oldPromise = handlerIdle.getAndUpdate(p => if (p.isCompleted) Promise() else p)
           oldPromise.isCompleted
         }
@@ -1074,22 +1073,12 @@ class RichSequencerClientImpl(
     ): Future[Unit] = {
       val inboxSize = config.eventInboxSize.unwrap
       val javaEventList = new java.util.ArrayList[OrdinarySerializedEvent](inboxSize)
-      // TODO(#17462) Consider to remove excessive debug logging
-      noTracingLogger.debug(
-        s"Draining events in handler loop for $sequencerId (alias=$sequencerAlias)"
-      )
       if (sequencerAggregator.eventQueue.drainTo(javaEventList, inboxSize) > 0) {
         import scala.jdk.CollectionConverters.*
         val handlerEvents = javaEventList.asScala.toSeq
-        // TODO(#17462) Consider to remove excessive debug logging
-        noTracingLogger.debug(
-          s"Drained ${handlerEvents.size} events in handler loop for $sequencerId (alias=$sequencerAlias): sequencerCounters ${handlerEvents
-              .map(_.counter)
-              .minOption} to ${handlerEvents.map(_.counter).maxOption}"
-        )
 
         def stopHandler(): Unit = blocking {
-          this.synchronized { val _ = handlerIdle.get().success(()) }
+          handlerIdleLock.synchronized { val _ = handlerIdle.get().success(()) }
         }
 
         sendTracker
@@ -1104,7 +1093,7 @@ class RichSequencerClientImpl(
           }
       } else {
         val stillBusy = blocking {
-          this.synchronized {
+          handlerIdleLock.synchronized {
             val idlePromise = handlerIdle.get()
             if (sequencerAggregator.eventQueue.isEmpty) {
               // signalHandler must not be executed here, because that would lead to lost signals.
@@ -1118,10 +1107,6 @@ class RichSequencerClientImpl(
         if (stillBusy) {
           handleReceivedEventsUntilEmpty(eventHandler)
         } else {
-          // TODO(#17462) Consider to remove excessive debug logging
-          noTracingLogger.debug(
-            s"Stopping handler loop for $sequencerId (alias=$sequencerAlias) because we ran out of queued events"
-          )
           Future.unit
         }
       }

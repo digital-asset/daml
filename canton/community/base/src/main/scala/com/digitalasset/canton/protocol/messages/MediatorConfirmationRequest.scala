@@ -7,8 +7,8 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{Informee, ViewPosition, ViewType}
+import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.ParticipantId
 
@@ -29,11 +29,8 @@ trait MediatorConfirmationRequest extends UnsignedProtocolMessage {
       .map(_.party)
       .toSet
 
-  def createConfirmationResult(
-      requestId: RequestId,
-      verdict: Verdict,
-      recipientParties: Set[LfPartyId],
-  ): ConfirmationResult with SignedProtocolMessageContent
+  /** Determines whether the mediator may disclose informees as part of its result message. */
+  def informeesArePublic: Boolean
 
   def minimumThreshold(informees: Set[Informee]): NonNegativeInt
 

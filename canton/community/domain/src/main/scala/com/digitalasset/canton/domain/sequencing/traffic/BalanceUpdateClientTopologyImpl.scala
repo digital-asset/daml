@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.traffic
 
 import cats.data.EitherT
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError
@@ -34,7 +33,7 @@ class BalanceUpdateClientTopologyImpl(
       warnIfApproximate: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, NonNegativeLong] = {
+  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Option[TrafficBalance]] = {
     val balanceFUS = for {
       topology <- SyncCryptoClient.getSnapshotForTimestampUS(
         syncCrypto,
@@ -46,11 +45,26 @@ class BalanceUpdateClientTopologyImpl(
       trafficBalance <- FutureUnlessShutdown.outcomeF(
         topology.ipsSnapshot
           .trafficControlStatus(Seq(member))
-          .map(
-            _.get(member).flatten.map(_.totalExtraTrafficLimit.toNonNegative)
-          )
+          .map { statusMap =>
+            statusMap
+              .get(member)
+              .flatten
+              .map { status =>
+                // Craft a `TrafficBalance` from the `MemberTrafficControlState` coming from topology
+                // This is temporary while we have both implementations in place
+                // Note that we use the topology "effectiveTimestamp" as the "sequencingTimestamp"
+                // In the new balance implementation they are the same, but semantically for the topology one it makes more sense
+                // to use the effective timestamp.
+                TrafficBalance(
+                  member,
+                  status.serial,
+                  status.totalExtraTrafficLimit.toNonNegative,
+                  status.effectiveTimestamp,
+                )
+              }
+          }
       )
-    } yield trafficBalance.getOrElse(NonNegativeLong.zero)
+    } yield trafficBalance
 
     EitherT.liftF(balanceFUS)
   }

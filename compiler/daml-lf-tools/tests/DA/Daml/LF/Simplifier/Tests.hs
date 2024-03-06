@@ -28,24 +28,24 @@ constantLiftingTests :: Version -> TestTree
 constantLiftingTests version = testGroup ("Constant Lifting " <> renderVersion version)
     [ mkTestCase "empty module" [] []
     , mkTestCase "closed value"
-        [ dval "foo" TInt64 (EBuiltin (BEInt64 10)) ]
-        [ dval "foo" TInt64 (EBuiltin (BEInt64 10)) ]
+        [ dval "foo" TInt64 (EBuiltinFun (BEInt64 10)) ]
+        [ dval "foo" TInt64 (EBuiltinFun (BEInt64 10)) ]
     , mkTestCase "nested int"
         [ dval "foo" (TInt64 :-> TInt64)
-            (ETmLam (ExprVarName "x", TInt64) (EBuiltin (BEInt64 10))) ]
+            (ETmLam (ExprVarName "x", TInt64) (EBuiltinFun (BEInt64 10))) ]
         [ dval "foo" (TInt64 :-> TInt64)
-            (ETmLam (ExprVarName "x", TInt64) (EBuiltin (BEInt64 10))) ]
+            (ETmLam (ExprVarName "x", TInt64) (EBuiltinFun (BEInt64 10))) ]
     , mkTestCase "nested arithmetic"
         [ dval "foo" (TInt64 :-> TInt64)
             (ETmLam (ExprVarName "x", TInt64)
-                (EBuiltin BEAddInt64
-                    `ETmApp` EBuiltin (BEInt64 10)
-                    `ETmApp` EBuiltin (BEInt64 10)))
+                (EBuiltinFun BEAddInt64
+                    `ETmApp` EBuiltinFun (BEInt64 10)
+                    `ETmApp` EBuiltinFun (BEInt64 10)))
         ]
         [ dval "$$sc_foo_1" TInt64
-            (EBuiltin BEAddInt64
-                `ETmApp` EBuiltin (BEInt64 10)
-                `ETmApp` EBuiltin (BEInt64 10))
+            (EBuiltinFun BEAddInt64
+                `ETmApp` EBuiltinFun (BEInt64 10)
+                `ETmApp` EBuiltinFun (BEInt64 10))
         , dval "foo" (TInt64 :-> TInt64)
             (ETmLam (ExprVarName "x", TInt64) (exprVal "$$sc_foo_1"))
         ]

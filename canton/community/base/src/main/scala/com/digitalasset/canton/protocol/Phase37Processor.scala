@@ -36,12 +36,6 @@ trait Phase37Processor[RequestBatch] {
       traceContext: TraceContext
   ): HandlerResult
 
-  def processMalformedMediatorConfirmationRequestResult(
-      timestamp: CantonTimestamp,
-      sequencerCounter: SequencerCounter,
-      signedResultBatch: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-  )(implicit traceContext: TraceContext): HandlerResult
-
   /** Processes a result message, commits the changes or rolls them back and emits events via the
     * [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
     *

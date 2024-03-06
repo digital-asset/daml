@@ -21,7 +21,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 
 //
 // Pretty-printer for the interpreter errors and the scenario ledger
@@ -544,11 +544,11 @@ private[lf] object Pretty {
           (text("var") + char('(') + str(v) + char(')'), index + 1)
         case SCPEnum(_, v, _) =>
           (text("enum") + char('(') + str(v) + char(')'), index)
-        case SCPPrimCon(pc) =>
+        case SCPBuiltinCon(pc) =>
           pc match {
-            case PCTrue => (text("true"), index)
-            case PCFalse => (text("false"), index)
-            case PCUnit => (text("()"), index)
+            case BCTrue => (text("true"), index)
+            case BCFalse => (text("false"), index)
+            case BCUnit => (text("()"), index)
           }
         case SCPNone => (text("none"), index)
         case SCPSome => (text("some"), index + 1)
@@ -578,7 +578,7 @@ private[lf] object Pretty {
             line +
             intercalate(line, alts.map(prettyAlt(index)))).nested(2)
 
-        case SEBuiltin(x) =>
+        case SEBuiltinFun(x) =>
           x match {
             case SBConsMany(n) => text(s"$$consMany[$n]")
             case SBCons => text(s"$$cons")
@@ -611,7 +611,7 @@ private[lf] object Pretty {
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
         case SEAppAtomicSaturatedBuiltin(builtin, args) =>
-          val prefix = prettySExpr(index)(SEBuiltin(builtin)) + text("@B(")
+          val prefix = prettySExpr(index)(SEBuiltinFun(builtin)) + text("@B(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
 

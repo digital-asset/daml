@@ -156,7 +156,7 @@ class ParticipantNodeBootstrapX(
           storage,
           indexedStringStore,
           parameters,
-          config.topologyX,
+          config.topology,
           crypto,
           clock,
           futureSupervisor,

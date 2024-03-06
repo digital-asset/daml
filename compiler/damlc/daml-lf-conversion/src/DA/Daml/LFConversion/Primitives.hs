@@ -23,7 +23,7 @@ convertPrim _ "UPure" (a1 :-> TUpdate a2) | a1 == a2 =
 convertPrim _ "UBind" (t1@(TUpdate a1) :-> t2@(a2 :-> TUpdate b1) :-> TUpdate b2) | a1 == a2, b1 == b2 =
     pure $ ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EUpdate $ UBind (Binding (varV3, a1) (EVar varV1)) (EVar varV2 `ETmApp` EVar varV3)
 convertPrim _ "UAbort" (TText :-> t@(TUpdate a)) =
-    pure $ ETmLam (varV1, TText) $ EUpdate (UEmbedExpr a (EBuiltin BEError `ETyApp` t `ETmApp` EVar varV1))
+    pure $ ETmLam (varV1, TText) $ EUpdate (UEmbedExpr a (EBuiltinFun BEError `ETyApp` t `ETmApp` EVar varV1))
 convertPrim _ "UGetTime" (TUpdate TTimestamp) =
     pure $ EUpdate UGetTime
 
@@ -33,7 +33,7 @@ convertPrim _ "SPure" (a1 :-> TScenario a2) | a1 == a2 =
 convertPrim _ "SBind" (t1@(TScenario a1) :-> t2@(a2 :-> TScenario b1) :-> TScenario b2) | a1 == a2, b1 == b2 =
     pure $ ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SBind (Binding (varV3, a1) (EVar varV1)) (EVar varV2 `ETmApp` EVar varV3)
 convertPrim _ "SAbort" (TText :-> t@(TScenario a)) =
-    pure $ ETmLam (varV1, TText) $ EScenario (SEmbedExpr a (EBuiltin BEError `ETyApp` t `ETmApp` EVar varV1))
+    pure $ ETmLam (varV1, TText) $ EScenario (SEmbedExpr a (EBuiltinFun BEError `ETyApp` t `ETmApp` EVar varV1))
 convertPrim _ "SCommit" (t1@TParty :-> t2@(TUpdate a1) :-> TScenario a2) | a1 == a2 =
     pure $ ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SCommit a1 (EVar varV1) (EVar varV2)
 convertPrim _ "SMustFailAt" (t1@TParty :-> t2@(TUpdate a1) :-> TScenario TUnit) =
@@ -47,178 +47,178 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
 
 -- Comparison
 convertPrim _ "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltin BEEqualGeneric `ETyApp` a1
+    pure $ EBuiltinFun BEEqualGeneric `ETyApp` a1
 convertPrim _ "BELess" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltin BELessGeneric `ETyApp` a1
+    pure $ EBuiltinFun BELessGeneric `ETyApp` a1
 convertPrim _ "BELessEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltin BELessEqGeneric `ETyApp` a1
+    pure $ EBuiltinFun BELessEqGeneric `ETyApp` a1
 convertPrim _ "BEGreater" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltin BEGreaterGeneric `ETyApp` a1
+    pure $ EBuiltinFun BEGreaterGeneric `ETyApp` a1
 convertPrim _ "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
-    pure $ EBuiltin BEGreaterEqGeneric `ETyApp` a1
+    pure $ EBuiltinFun BEGreaterEqGeneric `ETyApp` a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
-    pure $ EBuiltin BEEqualList `ETyApp` a1
+    pure $ EBuiltinFun BEEqualList `ETyApp` a1
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
-    pure $ EBuiltin BEAddInt64
+    pure $ EBuiltinFun BEAddInt64
 convertPrim _ "BESubInt64" (TInt64 :-> TInt64 :-> TInt64) =
-    pure $ EBuiltin BESubInt64
+    pure $ EBuiltinFun BESubInt64
 convertPrim _ "BEMulInt64" (TInt64 :-> TInt64 :-> TInt64) =
-    pure $ EBuiltin BEMulInt64
+    pure $ EBuiltinFun BEMulInt64
 convertPrim _ "BEDivInt64" (TInt64 :-> TInt64 :-> TInt64) =
-    pure $ EBuiltin BEDivInt64
+    pure $ EBuiltinFun BEDivInt64
 convertPrim _ "BEModInt64" (TInt64 :-> TInt64 :-> TInt64) =
-    pure $ EBuiltin BEModInt64
+    pure $ EBuiltinFun BEModInt64
 convertPrim _ "BEExpInt64" (TInt64 :-> TInt64 :-> TInt64) =
-    pure $ EBuiltin BEExpInt64
+    pure $ EBuiltinFun BEExpInt64
 
 -- Time arithmetic
 convertPrim _ "BETimestampToUnixMicroseconds" (TTimestamp :-> TInt64) =
-    pure $ EBuiltin BETimestampToUnixMicroseconds
+    pure $ EBuiltinFun BETimestampToUnixMicroseconds
 convertPrim _ "BEUnixMicrosecondsToTimestamp" (TInt64 :-> TTimestamp) =
-    pure $ EBuiltin BEUnixMicrosecondsToTimestamp
+    pure $ EBuiltinFun BEUnixMicrosecondsToTimestamp
 convertPrim _ "BEDateToUnixDays" (TDate :-> TInt64) =
-    pure $ EBuiltin BEDateToUnixDays
+    pure $ EBuiltinFun BEDateToUnixDays
 convertPrim _ "BEUnixDaysToDate" (TInt64 :-> TDate) =
-    pure $ EBuiltin BEUnixDaysToDate
+    pure $ EBuiltinFun BEUnixDaysToDate
 
 -- List operations
 convertPrim _ "BEFoldl" ((b1 :-> a1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
-    pure $ EBuiltin BEFoldl `ETyApp` a1 `ETyApp` b1
+    pure $ EBuiltinFun BEFoldl `ETyApp` a1 `ETyApp` b1
 convertPrim _ "BEFoldr" ((a1 :-> b1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
-    pure $ EBuiltin BEFoldr `ETyApp` a1 `ETyApp` b1
+    pure $ EBuiltinFun BEFoldr `ETyApp` a1 `ETyApp` b1
 
 -- Error
 convertPrim _ "BEError" (TText :-> t2) =
-    pure $ ETyApp (EBuiltin BEError) t2
+    pure $ ETyApp (EBuiltinFun BEError) t2
 
 -- Text operations
 convertPrim _ "BEToText" (TBuiltin x :-> TText) =
-    pure $ EBuiltin $ BEToText x
+    pure $ EBuiltinFun $ BEToText x
 convertPrim _ "BEExplodeText" (TText :-> TList TText) =
-    pure $ EBuiltin BEExplodeText
+    pure $ EBuiltinFun BEExplodeText
 convertPrim _ "BEImplodeText" (TList TText :-> TText) =
-    pure $ EBuiltin BEImplodeText
+    pure $ EBuiltinFun BEImplodeText
 convertPrim _ "BEAppendText" (TText :-> TText :-> TText) =
-    pure $ EBuiltin BEAppendText
+    pure $ EBuiltinFun BEAppendText
 convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
-    pure $ EBuiltin BETrace `ETyApp` a1
+    pure $ EBuiltinFun BETrace `ETyApp` a1
 convertPrim _ "BESha256Text" (TText :-> TText) =
-    pure $ EBuiltin BESha256Text
+    pure $ EBuiltinFun BESha256Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
-    pure $ EBuiltin BEPartyToQuotedText
+    pure $ EBuiltinFun BEPartyToQuotedText
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
-    pure $ EBuiltin BETextToParty
+    pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
-    pure $ EBuiltin BETextToInt64
+    pure $ EBuiltinFun BETextToInt64
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
-    pure $ EBuiltin BETextToCodePoints
+    pure $ EBuiltinFun BETextToCodePoints
 convertPrim _ "BECodePointsToText" (TList TInt64 :-> TText) =
-    pure $ EBuiltin BECodePointsToText
+    pure $ EBuiltinFun BECodePointsToText
 
 -- Map operations
 
 convertPrim _ "BETextMapEmpty" (TTextMap a) =
-    pure $ EBuiltin BETextMapEmpty `ETyApp` a
+    pure $ EBuiltinFun BETextMapEmpty `ETyApp` a
 convertPrim _ "BETextMapInsert"  (TText :-> a1 :-> TTextMap a2 :-> TTextMap a3) | a1 == a2, a2 == a3 =
-    pure $ EBuiltin BETextMapInsert `ETyApp` a1
+    pure $ EBuiltinFun BETextMapInsert `ETyApp` a1
 convertPrim _ "BETextMapLookup" (TText :-> TTextMap a1 :-> TOptional a2) | a1 == a2 =
-    pure $ EBuiltin BETextMapLookup `ETyApp` a1
+    pure $ EBuiltinFun BETextMapLookup `ETyApp` a1
 convertPrim _ "BETextMapDelete" (TText :-> TTextMap a1 :-> TTextMap a2) | a1 == a2 =
-    pure $ EBuiltin BETextMapDelete `ETyApp` a1
+    pure $ EBuiltinFun BETextMapDelete `ETyApp` a1
 convertPrim _ "BETextMapToList" (TTextMap a1 :-> TList (TTextMapEntry a2)) | a1 == a2  =
-    pure $ EBuiltin BETextMapToList `ETyApp` a1
+    pure $ EBuiltinFun BETextMapToList `ETyApp` a1
 convertPrim _ "BETextMapSize" (TTextMap a :-> TInt64) =
-    pure $ EBuiltin BETextMapSize `ETyApp` a
+    pure $ EBuiltinFun BETextMapSize `ETyApp` a
 
 
 convertPrim _ "BEGenMapEmpty" (TGenMap a b) =
-    pure $ EBuiltin BEGenMapEmpty `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BEGenMapEmpty `ETyApp` a `ETyApp` b
 convertPrim _ "BEGenMapInsert"  (a :-> b :-> TGenMap a1 b1 :-> TGenMap a2 b2) | a == a1, a == a2, b == b1, b == b2 =
-    pure $ EBuiltin BEGenMapInsert `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BEGenMapInsert `ETyApp` a `ETyApp` b
 convertPrim _ "BEGenMapLookup" (a1 :-> TGenMap a b :-> TOptional b1) | a == a1, b == b1 =
-    pure $ EBuiltin BEGenMapLookup `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BEGenMapLookup `ETyApp` a `ETyApp` b
 convertPrim _ "BEGenMapDelete" (a2 :-> TGenMap a b :-> TGenMap a1 b1) | a == a1, a == a2, b == b1 =
-    pure $ EBuiltin BEGenMapDelete `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BEGenMapDelete `ETyApp` a `ETyApp` b
 convertPrim _ "BEGenMapKeys" (TGenMap a b :-> TList a1) | a == a1 =
-    pure $ EBuiltin BEGenMapKeys `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BEGenMapKeys `ETyApp` a `ETyApp` b
 convertPrim _ "BEGenMapValues" (TGenMap a b :-> TList b1) | b == b1 =
-    pure $ EBuiltin BEGenMapValues `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BEGenMapValues `ETyApp` a `ETyApp` b
 convertPrim _ "BEGenMapSize" (TGenMap a b :-> TInt64) =
-    pure $ EBuiltin BEGenMapSize `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BEGenMapSize `ETyApp` a `ETyApp` b
 
 convertPrim _ "BECoerceContractId" (TContractId a :-> TContractId b) =
-    pure $ EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
+    pure $ EBuiltinFun BECoerceContractId `ETyApp` a `ETyApp` b
 
 -- Numeric primitives. These are polymorphic in the scale.
 convertPrim _ "BEAddNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
-    pure $ ETyApp (EBuiltin BEAddNumeric) n1
+    pure $ ETyApp (EBuiltinFun BEAddNumeric) n1
 convertPrim _ "BESubNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
-    pure $ ETyApp (EBuiltin BESubNumeric) n1
+    pure $ ETyApp (EBuiltinFun BESubNumeric) n1
 convertPrim _ "BEMulNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n0 == n3 =
-    pure $ EBuiltin BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+    pure $ EBuiltinFun BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BEDivNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n0 == n3 =
-    pure $ EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+    pure $ EBuiltinFun BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
-    pure $ ETyApp (EBuiltin BERoundNumeric) n1
+    pure $ ETyApp (EBuiltinFun BERoundNumeric) n1
 convertPrim _ "BECastNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2) | n0 == n2 =
-    pure $ EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
+    pure $ EBuiltinFun BECastNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEShiftNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2) | n0 == n2 =
-    pure $ EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
+    pure $ EBuiltinFun BEShiftNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEInt64ToNumeric" (TNumeric n0 :-> TInt64 :-> TNumeric n) | n0 == n =
-    pure $ ETyApp (EBuiltin BEInt64ToNumeric) n
+    pure $ ETyApp (EBuiltinFun BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
-    pure $ ETyApp (EBuiltin BENumericToInt64) n
+    pure $ ETyApp (EBuiltinFun BENumericToInt64) n
 convertPrim _ "BENumericToText" (TNumeric n :-> TText) =
-    pure $ ETyApp (EBuiltin BENumericToText) n
+    pure $ ETyApp (EBuiltinFun BENumericToText) n
 convertPrim _ "BETextToNumeric" (TNumeric n0 :-> TText :-> TOptional (TNumeric n)) | n0 == n =
-    pure $ ETyApp (EBuiltin BETextToNumeric) n
+    pure $ ETyApp (EBuiltinFun BETextToNumeric) n
 convertPrim _ "BENumericOne" (TNumeric (TNat n0))  =
-    pure $ EBuiltin $ BENumeric $ numeric n (10 ^ n)
+    pure $ EBuiltinFun $ BENumeric $ numeric n (10 ^ n)
   where n = fromTypeLevelNat n0
 
 convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEScaleBigNumeric
+        EBuiltinFun BEScaleBigNumeric
 convertPrim version "BEPrecisionBigNumeric" ty@(TBigNumeric :-> TInt64) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEPrecisionBigNumeric
+        EBuiltinFun BEPrecisionBigNumeric
 convertPrim version "BEAddBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEAddBigNumeric
+        EBuiltinFun BEAddBigNumeric
 convertPrim version "BESubBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BESubBigNumeric
+        EBuiltinFun BESubBigNumeric
 convertPrim version "BEMulBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEMulBigNumeric
+        EBuiltinFun BEMulBigNumeric
 convertPrim version "BEDivBigNumeric" ty@(TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEDivBigNumeric
+        EBuiltinFun BEDivBigNumeric
 convertPrim version "BEShiftRightBigNumeric" ty@(TInt64 :-> TBigNumeric :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEShiftRightBigNumeric
+        EBuiltinFun BEShiftRightBigNumeric
 convertPrim version "BENumericToBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BENumericToBigNumeric `ETyApp` n
+        EBuiltinFun BENumericToBigNumeric `ETyApp` n
 convertPrim version "BEBigNumericToNumeric" ty@(TNumeric n0 :-> TBigNumeric :-> TNumeric n) | n0 == n =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEBigNumericToNumeric `ETyApp` n
+        EBuiltinFun BEBigNumericToNumeric `ETyApp` n
 
 -- Conversion from ContractId to Text
 
 convertPrim _ "BEContractIdToText" (TContractId t :-> TOptional TText) =
-    pure $ ETyApp (EBuiltin BEContractIdToText) t
+    pure $ ETyApp (EBuiltinFun BEContractIdToText) t
 
 
 -- Template Desugaring.
@@ -414,7 +414,7 @@ convertPrim _ "EObserverInterface" (TCon interface :-> TList TParty) =
 
 -- Exceptions
 convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
-    pure $ EBuiltin BEAnyExceptionMessage
+    pure $ EBuiltinFun BEAnyExceptionMessage
 
 convertPrim _ "EThrow" (ty1 :-> ty2) =
     pure $ ETmLam (mkVar "x", ty1) (EThrow ty2 ty1 (EVar (mkVar "x")))
@@ -478,7 +478,7 @@ convertPrim _ "EUnsafeFromRequiredInterface" ty@(TContractId fromTy :-> fromTy1 
     | fromTy == fromTy1
         = pure $ runtimeError ty $ "Tried to unsafely convert from a required interface '" <> T.pack (renderPretty fromTy) <> "', but that type is not an interface."
 
-convertPrim _ "ETypeRepTyConName" (TTypeRep :-> TOptional TText) = pure $ EBuiltin BETypeRepTyConName
+convertPrim _ "ETypeRepTyConName" (TTypeRep :-> TOptional TText) = pure $ EBuiltinFun BETypeRepTyConName
 
 convertPrim _ "EViewInterface" (TCon iface :-> _) =
     pure $
@@ -525,7 +525,7 @@ whenRuntimeSupports version feature t e
     | otherwise = runtimeError t (featureErrorMessage feature)
 
 runtimeError :: Type -> T.Text -> Expr
-runtimeError t msg = ETmApp (ETyApp (EBuiltin BEError) t) (EBuiltin (BEText msg))
+runtimeError t msg = ETmApp (ETyApp (EBuiltinFun BEError) t) (EBuiltinFun (BEText msg))
 
 featureErrorMessage :: Feature -> T.Text
 featureErrorMessage (Feature name versionReq _) =

@@ -1,0 +1,22 @@
+Transactions: 
+  TX 0 1970-01-01T00:00:00Z (LfDevMustFailInterpretation:32:3)
+  #0:0
+  │   disclosed to (since): 'p' (0)
+  └─> 'p' creates LfDevMustFailInterpretation:Keyed
+          with
+            p = 'p'; v = 0
+  
+  TX 1 1970-01-01T00:00:00Z
+     mustFailAt actAs: {'p'} readAs:
+                               {} (LfDevMustFailInterpretation:37:3)
+  
+  TX 2 1970-01-01T00:00:00Z (LfDevMustFailInterpretation:38:3)
+  #2:0
+  │   disclosed to (since): 'p' (2)
+  └─> 'p' creates LfDevMustFailInterpretation:Keyed
+          with
+            p = 'p'; v = 1
+
+Active contracts:  #0:0, #2:0
+
+Return value: #2:0

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
@@ -17,7 +17,7 @@ import com.google.protobuf.ByteString
 
 final case class SetTrafficBalanceMessage private (
     member: Member,
-    serial: NonNegativeLong,
+    serial: PositiveInt,
     totalTrafficBalance: NonNegativeLong,
     domainId: DomainId,
 )(
@@ -79,7 +79,7 @@ object SetTrafficBalanceMessage
 
   def apply(
       member: Member,
-      serial: NonNegativeLong,
+      serial: PositiveInt,
       totalTrafficBalance: NonNegativeLong,
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
@@ -94,7 +94,7 @@ object SetTrafficBalanceMessage
   )(bytes: ByteString): ParsingResult[SetTrafficBalanceMessage] = {
     for {
       member <- Member.fromProtoPrimitive(proto.member, "member")
-      serial <- ProtoConverter.parseNonNegativeLong(proto.serial)
+      serial <- ProtoConverter.parsePositiveInt(proto.serial)
       totalTrafficBalance <- ProtoConverter.parseNonNegativeLong(proto.totalTrafficBalance)
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))

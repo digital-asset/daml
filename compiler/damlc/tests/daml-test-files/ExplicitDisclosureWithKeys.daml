@@ -1,0 +1,37 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module ExplicitDisclosureWithKeys where
+
+import DA.Optional(fromSome)
+import Daml.Script
+
+template Box with
+    s: Party
+    content: Text
+  where
+    signatory s
+    key s: Party
+    maintainer key
+    nonconsuming choice Open: Text with
+        c: Party
+      controller c
+      do
+        pure content
+
+disclosuresByKeyTest : Script Text
+disclosuresByKeyTest = do
+  -- init
+  alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+  bob <- allocatePartyOn "bob" (ParticipantName "participant1")
+  did <- alice `submit` do
+     createCmd (Box alice "my secret")
+  disclosure <- fromSome <$> queryDisclosure alice did
+
+  content <- submitWithDisclosures bob [disclosure] (exerciseByKeyCmd @Box alice (Open bob))
+
+  pure content

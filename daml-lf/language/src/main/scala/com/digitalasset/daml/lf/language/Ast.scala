@@ -61,13 +61,13 @@ object Ast {
   final case class EVal(value: ValueRef) extends ExprAtomic
 
   /** Reference to a builtin function. */
-  final case class EBuiltin(value: BuiltinFunction) extends ExprAtomic
+  final case class EBuiltinFun(value: BuiltinFunction) extends ExprAtomic
 
-  /** Primitive constructor, e.g. True, False or Unit. */
-  final case class EPrimCon(value: PrimCon) extends ExprAtomic
+  /** Builtin constructor, e.g. True, False or Unit. */
+  final case class EBuiltinCon(value: BuiltinCon) extends ExprAtomic
 
-  /** Primitive literal. */
-  final case class EPrimLit(value: PrimLit) extends ExprAtomic
+  /** Builtin literal. */
+  final case class EBuiltinLit(value: BuiltinLit) extends ExprAtomic
 
   /** Record construction. */
   final case class ERecCon(tycon: TypeConApp, fields: ImmArray[(FieldName, Expr)]) extends Expr
@@ -392,30 +392,30 @@ object Ast {
   case object BTBigNumeric extends BuiltinType
 
   //
-  // Primitive literals
+  // Builtin literals
   //
 
-  sealed abstract class PrimLit extends Equals with Product with Serializable {
+  sealed abstract class BuiltinLit extends Equals with Product with Serializable {
     def value: Any
   }
 
-  final case class PLInt64(override val value: Long) extends PrimLit
-  final case class PLNumeric(override val value: Numeric) extends PrimLit
+  final case class BLInt64(override val value: Long) extends BuiltinLit
+  final case class BLNumeric(override val value: Numeric) extends BuiltinLit
   // Text should be treated as Utf8, data.Utf8 provide emulation functions for that
-  final case class PLText(override val value: String) extends PrimLit
-  final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
-  final case class PLDate(override val value: Time.Date) extends PrimLit
-  final case class PLRoundingMode(override val value: java.math.RoundingMode) extends PrimLit
+  final case class BLText(override val value: String) extends BuiltinLit
+  final case class BLTimestamp(override val value: Time.Timestamp) extends BuiltinLit
+  final case class BLDate(override val value: Time.Date) extends BuiltinLit
+  final case class BLRoundingMode(override val value: java.math.RoundingMode) extends BuiltinLit
 
   //
-  // Primitive constructors
+  // Builtin constructors
   //
 
-  sealed abstract class PrimCon extends Product with Serializable
+  sealed abstract class BuiltinCon extends Product with Serializable
 
-  case object PCTrue extends PrimCon
-  case object PCFalse extends PrimCon
-  case object PCUnit extends PrimCon
+  case object BCTrue extends BuiltinCon
+  case object BCFalse extends BuiltinCon
+  case object BCUnit extends BuiltinCon
 
   //
   // Builtin functions.
@@ -638,8 +638,8 @@ object Ast {
       extends CasePat
   // Match on enum
   final case class CPEnum(tycon: TypeConName, constructor: EnumConName) extends CasePat
-  // Match on primitive constructor.
-  final case class CPPrimCon(pc: PrimCon) extends CasePat
+  // Match on builtin constructor.
+  final case class CPBuiltinCon(pc: BuiltinCon) extends CasePat
   // Match on an empty list.
   case object CPNil extends CasePat
   // Match on a non-empty list.

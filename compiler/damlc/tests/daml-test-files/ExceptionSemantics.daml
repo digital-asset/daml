@@ -2,10 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
--- @ERROR range=132:1-132:23; Unhandled exception: ExceptionSemantics:E
--- @ERROR range=147:1-147:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
--- @ERROR range=175:1-175:11; Attempt to fetch or exercise a contract not visible to the reading parties.
--- @ERROR range=186:1-186:11; Attempt to exercise a consumed contract
+-- @ERROR range=101:1-101:23; Unhandled exception: ExceptionSemantics:E
+-- @ERROR range=116:1-116:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
+-- @ERROR range=131:1-131:11; Attempt to fetch or exercise a contract not visible to the reading parties.
+-- @ERROR range=142:1-142:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
 
 import Daml.Script
@@ -22,8 +22,6 @@ template K
     v : Int
   where
     signatory p
-    key (p, v) : (Party, Int)
-    maintainer key._1
 
 template T
   with
@@ -55,35 +53,6 @@ template T
       do try (() <$ fetch cid)
          catch
            E -> pure()
-
-    nonconsuming choice TransientDuplicate : ()
-      with
-        i : Int
-      controller p
-      do try do
-           create (K p i)
-           create (K p i)
-           throw E
-         catch
-           E -> pure ()
-    nonconsuming choice NonTransientDuplicate : ()
-      with
-        i : Int
-      controller p
-      do try do
-           create (K p i)
-           throw E
-         catch
-           E -> pure ()
-    nonconsuming choice RollbackKey : ()
-      with
-        i : Int
-      controller p
-      do try do
-           create (K p i)
-           throw E
-         catch
-           E -> create (K p i) >> pure ()
 
     nonconsuming choice RollbackArchive : ()
       with
@@ -153,19 +122,6 @@ handledArithmeticError = script do
   p <- allocateParty "p"
   r <- submit p $ createAndExerciseCmd (T p) CatchArithmeticError
   r === 42
-
--- this test fails on canton
--- the second `createAndExerciseCmd (T p) (NonTransientDuplicate 1)` does not fails
-duplicateKey = script do
-  p <- allocateParty "p"
-  -- transient duplicate key in rollback
-  submitMustFail p $ createAndExerciseCmd (T p) (TransientDuplicate 0)
-  submit p $ createCmd (K p 1)
-  -- duplicate key error with contract created outside of rollback
-  submitMustFail p $ createAndExerciseCmd (T p) (NonTransientDuplicate 1)
-  -- no duplicate key error if key creation got rolled back
-  submit p $ createAndExerciseCmd (T p) (RollbackKey 2)
-  pure ()
 
 rollbackArchive = script do
   p <- allocateParty "p"

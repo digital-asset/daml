@@ -72,13 +72,13 @@ private[validation] object Typing {
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
   }
 
-  private def typeOfPrimLit(lit: PrimLit): Type = lit match {
-    case PLInt64(_) => TInt64
-    case PLNumeric(s) => TNumeric(TNat(Numeric.scale(s)))
-    case PLText(_) => TText
-    case PLTimestamp(_) => TTimestamp
-    case PLDate(_) => TDate
-    case PLRoundingMode(_) => TRoundingMode
+  private def typeOfBuiltinLit(lit: BuiltinLit): Type = lit match {
+    case BLInt64(_) => TInt64
+    case BLNumeric(s) => TNumeric(TNat(Numeric.scale(s)))
+    case BLText(_) => TText
+    case BLTimestamp(_) => TTimestamp
+    case BLDate(_) => TDate
+    case BLRoundingMode(_) => TRoundingMode
   }
 
   private def tBinop(typ: Type): Type = typ ->: typ ->: typ
@@ -296,10 +296,10 @@ private[validation] object Typing {
     )
   }
 
-  private def typeOfPRimCon(con: PrimCon): Type = con match {
-    case PCTrue => TBool
-    case PCFalse => TBool
-    case PCUnit => TUnit
+  private def typeOfPRimCon(con: BuiltinCon): Type = con match {
+    case BCTrue => TBool
+    case BCFalse => TBool
+    case BCUnit => TUnit
   }
 
   def checkModule(pkgInterface: PackageInterface, pkgId: PackageId, mod: Module): Unit = { // entry point
@@ -975,10 +975,10 @@ private[validation] object Typing {
         case CPEnum(tycon, constructor) =>
           val rank = handleLookup(ctx, pkgInterface.lookupEnumConstructor(tycon, constructor))
           SomeRanks(ranks + rank)
-        case CPPrimCon(pc) =>
+        case CPBuiltinCon(pc) =>
           pc match {
-            case PCFalse | PCUnit => SomeRanks(ranks + 1)
-            case PCTrue => SomeRanks(ranks + 0)
+            case BCFalse | BCUnit => SomeRanks(ranks + 1)
+            case BCTrue => SomeRanks(ranks + 0)
           }
         case CPCons(_, _) | CPSome(_) =>
           SomeRanks(ranks + 1)
@@ -1420,12 +1420,12 @@ private[validation] object Typing {
         Ret(lookupExpVar(name))
       case EVal(ref) =>
         Ret(handleLookup(ctx, pkgInterface.lookupValue(ref)).typ)
-      case EBuiltin(fun) =>
+      case EBuiltinFun(fun) =>
         Ret(typeOfBuiltinFunction(fun))
-      case EPrimCon(con) =>
+      case EBuiltinCon(con) =>
         Ret(typeOfPRimCon(con))
-      case EPrimLit(lit) =>
-        Ret(typeOfPrimLit(lit))
+      case EBuiltinLit(lit) =>
+        Ret(typeOfBuiltinLit(lit))
       case EEnumCon(tyCon, constructor) =>
         checkEnumCon(tyCon, constructor)
         Ret(TTyCon(tyCon))

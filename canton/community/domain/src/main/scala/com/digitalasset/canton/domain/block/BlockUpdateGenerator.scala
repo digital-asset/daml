@@ -672,28 +672,6 @@ class BlockUpdateGenerator(
     }
   }
 
-  private def ensureTopologyTimestampPresentForAggregationRuleWithSignatures(
-      submissionRequest: SubmissionRequest,
-      topologySnapshot: SyncCryptoApi,
-      sequencingTimestamp: CantonTimestamp,
-      st: EphemeralState,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
-    EitherTUtil.condUnitET(
-      submissionRequest.aggregationRule.isEmpty || submissionRequest.topologyTimestamp.isDefined ||
-        submissionRequest.batch.envelopes.forall(_.signatures.isEmpty),
-      invalidSubmissionRequest(
-        submissionRequest,
-        sequencingTimestamp,
-        SequencerErrors.TopologyTimestampMissing(
-          "`topologyTimestamp` is not defined for a submission with an `aggregationRule` and signatures on the envelopes present. Please set `topologyTimestamp` for the submission."
-        ),
-        st.tryNextCounter(submissionRequest.sender),
-      ),
-    )
-
   private def validateMaxSequencingTimeForAggregationRule(
       submissionRequest: SubmissionRequest,
       topologySnapshot: SyncCryptoApi,
@@ -819,12 +797,8 @@ class BlockUpdateGenerator(
         st.tryNextCounter,
       )
       topologySnapshot = signingSnapshotO.getOrElse(sequencingSnapshot)
-      _ <- ensureTopologyTimestampPresentForAggregationRuleWithSignatures(
-        submissionRequest,
-        topologySnapshot,
-        sequencingTimestamp,
-        st,
-      ).mapK(FutureUnlessShutdown.outcomeK)
+      // TODO(i17584): revisit the consequences of no longer enforcing that
+      //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTimeForAggregationRule(
         submissionRequest,
         topologySnapshot,
@@ -1506,7 +1480,9 @@ class BlockUpdateGenerator(
         )
         .map { trafficStateUpdates =>
           ephemeralState
-            .copy(trafficState = ephemeralState.trafficState ++ trafficStateUpdates)
+            .copy(trafficState =
+              ephemeralState.trafficState ++ trafficStateUpdates.view.mapValues(_.state).toMap
+            )
         }
     }
   }
