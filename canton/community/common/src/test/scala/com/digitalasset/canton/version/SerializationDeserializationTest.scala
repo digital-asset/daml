@@ -101,11 +101,12 @@ class SerializationDeserializationTest
         testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.AcknowledgeRequest)
         testProtocolVersioned(com.digitalasset.canton.sequencing.protocol.ClosedEnvelope)
 
-        testVersioned(ContractMetadata)(
+        testVersioned(ContractMetadata, version)(
           generatorsProtocol.contractMetadataArb(canHaveEmptyKey = true)
         )
         testVersioned[SerializableContract](
           SerializableContract,
+          version,
           List(DefaultValueUntilExclusive(_.copy(contractSalt = None), ProtocolVersion.v4)),
         )(generatorsProtocol.serializableContractArb(canHaveEmptyKey = true))
 
@@ -150,7 +151,8 @@ class SerializationDeserializationTest
           MaxRequestSizeToDeserialize.NoLimit,
         )
         testVersioned(
-          com.digitalasset.canton.sequencing.SequencerConnections
+          com.digitalasset.canton.sequencing.SequencerConnections,
+          version,
         )
       }
 

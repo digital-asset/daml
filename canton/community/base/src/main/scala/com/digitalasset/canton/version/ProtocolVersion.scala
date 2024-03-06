@@ -10,7 +10,13 @@ import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.ProtocolVersion.{deleted, deprecated, supported, unstable}
+import com.digitalasset.canton.version.ProtocolVersion.{
+  deleted,
+  deprecated,
+  deprecating,
+  supported,
+  unstable,
+}
 import pureconfig.error.FailureReason
 import pureconfig.{ConfigReader, ConfigWriter}
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
@@ -66,6 +72,7 @@ sealed case class ProtocolVersion private[version] (v: Int)
   type Status <: ProtocolVersion.Status
 
   def isDeprecated: Boolean = deprecated.contains(this)
+  def isDeprecating: Boolean = deprecating.contains(this)
 
   def isUnstable: Boolean = unstable.contains(this)
   def isStable: Boolean = !isUnstable
@@ -251,6 +258,17 @@ object ProtocolVersion {
 
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
+  /** Terminology summary:
+    *
+    * - deprecating: The protocol version will be deprecated in a subsequent minor version.
+    *                It can be used and is supported.
+    *
+    * - deprecated: The protocol was deprecated and is not supported anymore.
+    *               It can be used but is not supported.
+    *
+    * - deleted: The protocol version cannot be used at all.
+    */
+  private val deprecating: Seq[ProtocolVersion] = Seq()
   private val deprecated: Seq[ProtocolVersion] = Seq()
   private val deleted: Seq[ProtocolVersion] = Seq(ProtocolVersion(2), v3, v4)
 
@@ -267,6 +285,7 @@ object ProtocolVersion {
       .getOrElse(
         sys.error("Release needs to support at least one protocol version")
       )
+
     val deletedIntersection = releasePVs.forgetNE.intersect(deleted)
     require(
       deletedIntersection.isEmpty,

@@ -210,7 +210,7 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
       for {
         _ <- sequencer.saveWatermark(ts(10)).valueOrFail("saveWatermark")
         _ <- sequencer.goOffline()
-        watermarkO <- sequencer.fetchWatermark
+        watermarkO <- sequencer.fetchWatermark()
       } yield watermarkO.value shouldBe Watermark(ts(10), online = false)
     }
 
@@ -222,7 +222,7 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
 
         for {
           goOnlineTs <- sequencer.goOnline(now)
-          watermarkO <- sequencer.fetchWatermark
+          watermarkO <- sequencer.fetchWatermark()
         } yield {
           goOnlineTs shouldBe now
           watermarkO.value shouldBe Watermark(now, online = true)

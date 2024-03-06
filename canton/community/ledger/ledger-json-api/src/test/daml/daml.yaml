@@ -1,4 +1,4 @@
-sdk-version: 2.9.0-snapshot.20240228.12647.1.v85afe011
+sdk-version: 2.9.0-snapshot.20240305.12663.0.v528827ef
 build-options: 
 - --target=1.14
 name: JsonEncodingTest

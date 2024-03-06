@@ -67,7 +67,7 @@ object CommunityConfigValidations
       developmentProtocolSafetyCheckDomains,
       developmentProtocolSafetyCheckParticipants,
       warnIfUnsafeMinProtocolVersion,
-      warnIfUnsafeProtocolVersionEmbeddedDomain,
+      warnIfDeprecatedProtocolVersionEmbeddedDomain,
       adminTokenSafetyCheckParticipants,
     )
 
@@ -245,7 +245,7 @@ object CommunityConfigValidations
     Validated.valid(())
   }
 
-  private def warnIfUnsafeProtocolVersionEmbeddedDomain(
+  private def warnIfDeprecatedProtocolVersionEmbeddedDomain(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     config.domains.toSeq.foreach { case (name, config) =>

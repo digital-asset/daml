@@ -40,6 +40,7 @@ import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -519,7 +520,7 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
   /** Read the watermark for this sequencer and its online/offline status.
     * Currently only used for testing.
     */
-  def fetchWatermark(instanceIndex: Int)(implicit
+  def fetchWatermark(instanceIndex: Int, maxRetries: Int = retry.Forever)(implicit
       traceContext: TraceContext
   ): Future[Option[Watermark]]
 
