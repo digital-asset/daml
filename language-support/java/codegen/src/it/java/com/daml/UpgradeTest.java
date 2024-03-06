@@ -94,7 +94,7 @@ public class UpgradeTest {
   @Test
   void exactMatchVariant() {
     Variant variant = new Variant("MyVariant1", new Text("abc"));
-    MyVariant actual = MyVariant.fromValue(variant);
+    MyVariant actual = MyVariant.valueDecoder().decode(variant);
 
     MyVariant expected = new MyVariant1("abc");
 

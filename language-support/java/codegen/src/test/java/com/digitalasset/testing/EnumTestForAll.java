@@ -29,10 +29,10 @@ public class EnumTestForAll {
       OptionalColor variant = new SomeColor(c);
       ColoredTree variantRecord =
           new Node(Color.RED, new Leaf(Unit.getInstance()), new Leaf(Unit.getInstance()));
-      assertEquals(Color.fromValue(c.toValue()), c);
-      assertEquals(Box.fromValue(record.toValue()), record);
-      assertEquals(OptionalColor.fromValue(variant.toValue()), variant);
-      assertEquals(ColoredTree.fromValue(variantRecord.toValue()), variantRecord);
+      assertEquals(Color.valueDecoder().decode(c.toValue()), c);
+      assertEquals(Box.valueDecoder().decode(record.toValue()), record);
+      assertEquals(OptionalColor.valueDecoder().decode(variant.toValue()), variant);
+      assertEquals(ColoredTree.valueDecoder().decode(variantRecord.toValue()), variantRecord);
     }
   }
 
@@ -66,10 +66,10 @@ public class EnumTestForAll {
               new DamlRecord.Field("left", leaf),
               new DamlRecord.Field("right", leaf));
       Variant tree = new Variant("Node", node);
-      assertEquals(Color.fromValue(damlEnum).toValue(), damlEnum);
-      assertEquals(Box.fromValue(record).toValue(), record);
-      assertEquals(OptionalColor.fromValue(variant).toValue(), variant);
-      assertEquals(ColoredTree.fromValue(tree).toValue(), tree);
+      assertEquals(Color.valueDecoder().decode(damlEnum).toValue(), damlEnum);
+      assertEquals(Box.valueDecoder().decode(record).toValue(), record);
+      assertEquals(OptionalColor.valueDecoder().decode(variant).toValue(), variant);
+      assertEquals(ColoredTree.valueDecoder().decode(tree).toValue(), tree);
     }
   }
 
@@ -99,6 +99,6 @@ public class EnumTestForAll {
   @Test
   void badValue2Enum() {
     DamlEnum value = new DamlEnum("Yellow");
-    assertThrows(IllegalArgumentException.class, () -> Color.fromValue(value));
+    assertThrows(IllegalArgumentException.class, () -> Color.valueDecoder().decode(value));
   }
 }
