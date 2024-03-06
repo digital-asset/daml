@@ -6,7 +6,7 @@ package com.daml;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;

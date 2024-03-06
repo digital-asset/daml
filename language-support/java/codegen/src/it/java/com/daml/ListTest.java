@@ -5,7 +5,7 @@ package com.daml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.DamlCollectors;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Text;

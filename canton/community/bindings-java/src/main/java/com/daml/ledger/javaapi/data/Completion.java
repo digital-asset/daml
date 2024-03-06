@@ -4,7 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.CompletionOuterClass;
-import com.daml.ledger.api.v1.TraceContextOuterClass;
+import com.daml.ledger.api.v2.TraceContextOuterClass;
 import com.google.rpc.Status;
 import org.checkerframework.checker.nullness.qual.NonNull;
 

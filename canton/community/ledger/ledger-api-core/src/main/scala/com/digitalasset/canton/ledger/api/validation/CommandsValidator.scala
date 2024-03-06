@@ -5,15 +5,14 @@ package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.commands.Command
-import com.daml.ledger.api.v1.commands.Command.Command.{
+import com.daml.ledger.api.v2.commands.Command.Command.{
   Create as ProtoCreate,
   CreateAndExercise as ProtoCreateAndExercise,
   Empty as ProtoEmpty,
   Exercise as ProtoExercise,
   ExerciseByKey as ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.commands.{Command, Commands}
 import com.daml.lf.command.*
 import com.daml.lf.data.*
 import com.daml.lf.value.Value as Lf

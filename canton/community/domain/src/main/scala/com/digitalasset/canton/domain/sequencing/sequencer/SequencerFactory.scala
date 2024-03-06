@@ -10,6 +10,7 @@ import com.digitalasset.canton.domain.block.SequencerDriver
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -29,6 +30,7 @@ trait SequencerFactory extends AutoCloseable {
   def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
+      balanceManager: TrafficBalanceManager,
   )(implicit ex: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit]
 
   def create(
@@ -38,7 +40,8 @@ trait SequencerFactory extends AutoCloseable {
       driverClock: Clock, // this clock is only used in tests, otherwise can the same clock as above can be passed
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      mkRateLimitManager: TrafficBalanceStore => Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
+      balanceStore: TrafficBalanceStore,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -52,6 +55,7 @@ abstract class DatabaseSequencerFactory extends SequencerFactory {
   override def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
+      balanceManager: TrafficBalanceManager,
   )(implicit ex: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] =
     EitherT.leftT(
       "Database sequencer does not support dynamically bootstrapping from a snapshot. " +
@@ -77,7 +81,8 @@ class CommunityDatabaseSequencerFactory(
       driverClock: Clock,
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      mkRateLimitManager: TrafficBalanceStore => Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
+      balanceStore: TrafficBalanceStore,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -86,6 +91,7 @@ class CommunityDatabaseSequencerFactory(
   ): Future[Sequencer] = {
     val sequencer = DatabaseSequencer.single(
       config,
+      None,
       nodeParameters.processingTimeouts,
       storage,
       clock,

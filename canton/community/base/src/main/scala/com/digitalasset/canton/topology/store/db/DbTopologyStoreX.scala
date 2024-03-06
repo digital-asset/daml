@@ -147,16 +147,16 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   override def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Set[TopologyMappingX.MappingHash],
+      removeMapping: Map[TopologyMappingX.MappingHash, PositiveInt],
       removeTxs: Set[TopologyTransactionX.TxHash],
       additions: Seq[GenericValidatedTopologyTransactionX],
   )(implicit traceContext: TraceContext): Future[Unit] = {
 
     val effectiveTs = effective.value
 
-    val transactionRemovals = removeMapping.toList.map(mappingHash =>
-      sql"mapping_key_hash=${mappingHash.hash.toLengthLimitedHexString}"
-    ) ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
+    val transactionRemovals = removeMapping.toList.map { case (mappingHash, serial) =>
+      sql"mapping_key_hash=${mappingHash.hash.toLengthLimitedHexString} and serial_counter <= $serial"
+    } ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
 
     lazy val updateRemovals =
       (sql"UPDATE common_topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++

@@ -17,7 +17,7 @@ import Data.Functor
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Generated
-import qualified Com.Daml.Ledger.Api.V1.Admin.PackageManagementService as LL
+import qualified Com.Daml.Ledger.Api.V2.Admin.PackageManagementService as LL
 
 data PackageDetails = PackageDetails
     { pid :: PackageId

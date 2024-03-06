@@ -3,14 +3,14 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1.admin;
+package com.daml.ledger.api.v2.admin;
 
-import "com/daml/ledger/api/v1/admin/object_meta.proto";
+import "com/daml/ledger/api/v2/admin/object_meta.proto";
 import "google/protobuf/field_mask.proto";
 
 option java_outer_classname = "UserManagementServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+option java_package = "com.daml.ledger.api.v2.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 
 // Service to manage users and their rights for interacting with the Ledger API
@@ -202,7 +202,7 @@ message UpdateUserRequest {
     // (2) for concurrent change control.
     // Examples of valid update paths: 'primary_party', 'metadata', 'metadata.annotations'.
     // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
-    // For similar Ledger API see ``com.daml.ledger.api.v1.admin.UpdatePartyDetailsRequest``.
+    // For similar Ledger API see ``com.daml.ledger.api.v2.admin.UpdatePartyDetailsRequest``.
     // Required
     google.protobuf.FieldMask update_mask = 2;
 }

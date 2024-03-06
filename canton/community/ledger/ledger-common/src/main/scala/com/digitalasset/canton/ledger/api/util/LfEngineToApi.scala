@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.util
 
-import com.daml.ledger.api.v1.value as api
+import com.daml.ledger.api.v2.value as api
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.value.Value as Lf
 import com.google.protobuf.empty.Empty

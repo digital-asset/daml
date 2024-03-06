@@ -68,7 +68,6 @@ class TrafficBalanceSubmissionHandler(
           snapshot.trafficControlParameters(protocolVersion),
           TrafficControlErrors.TrafficControlDisabled.Error(),
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       sequencerGroup <- EitherT
         .liftF(
           snapshot
@@ -188,10 +187,10 @@ class TrafficBalanceSubmissionHandler(
         .toMillis
     )
     // If we're close to the upper bound, we'll submit the top up to both time windows to ensure low latency
-    // We use 20% of the window size as the threshold
+    // We use 25% of the window size as the threshold
     if (
       windowUpperBound - now <= trafficParams.setBalanceRequestSubmissionWindowSize.duration
-        .dividedBy(100 / 20)
+        .dividedBy(100 / 25)
     ) {
       NonEmpty.mk(Seq, windowUpperBound, windowUpperBound.plus(timeWindowSize.duration))
     } else

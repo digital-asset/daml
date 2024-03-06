@@ -188,7 +188,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = List(ns1k1_k1).map(ValidatedTopologyTransactionX(_)),
           )
@@ -316,7 +316,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = List(ns1k1_k1, ns6k6_k6, id1ak4_k1).map(ValidatedTopologyTransactionX(_)),
           )
@@ -390,7 +390,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = List(ns6k6_k6).map(ValidatedTopologyTransactionX(_)),
           )
@@ -415,7 +415,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = List(ns1k1_k1).map(ValidatedTopologyTransactionX(_)),
           )
@@ -444,7 +444,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = List(ns1k1_k1).map(ValidatedTopologyTransactionX(_)),
           )
@@ -481,7 +481,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions =
               List(ns1k1_k1, ns1k2_k1, id1ak4_k2, ns6k6_k6).map(ValidatedTopologyTransactionX(_)),
@@ -561,7 +561,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = List(ns1k1_k1, ns2k2_k2).map(
               ValidatedTopologyTransactionX(_)
@@ -626,7 +626,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
               ValidatedTopologyTransactionX(_)
@@ -655,7 +655,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
               ValidatedTopologyTransactionX(_)
@@ -664,7 +664,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
           _ <- store.update(
             SequencedTime(ts(1)),
             EffectiveTime(ts(1)),
-            removeMapping = Set.empty,
+            removeMapping = Map.empty,
             removeTxs = Set.empty,
             additions = proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber.map(
               ValidatedTopologyTransactionX(_)
@@ -709,7 +709,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         _ <- store.update(
           SequencedTime(ts(0)),
           EffectiveTime(ts(0)),
-          removeMapping = Set.empty,
+          removeMapping = Map.empty,
           removeTxs = Set.empty,
           additions = decentralizedNamespaceWithThreeOwners.map(
             ValidatedTopologyTransactionX(_)
@@ -778,7 +778,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         _ <- store.update(
           SequencedTime(ts(0)),
           EffectiveTime(ts(0)),
-          removeMapping = Set.empty,
+          removeMapping = Map.empty,
           removeTxs = Set.empty,
           additions = decentralizedNamespaceWithTwoOwners.map(
             ValidatedTopologyTransactionX(_)
@@ -888,7 +888,7 @@ class IncomingTopologyTransactionAuthorizationValidatorTestX
         _ <- store.update(
           SequencedTime(ts(0)),
           EffectiveTime(ts(0)),
-          removeMapping = Set.empty,
+          removeMapping = Map.empty,
           removeTxs = Set.empty,
           additions = decentralizedNamespaceWithThreeOwners.map(
             ValidatedTopologyTransactionX(_)

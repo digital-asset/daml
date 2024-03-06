@@ -6,7 +6,7 @@ package com.digitalasset.canton.http.util
 import com.daml.error.NoLogging
 import com.daml.lf
 import com.digitalasset.canton.ledger.api.validation.StricterValueValidator
-import com.daml.ledger.api.{v1 => lav1}
+import com.daml.ledger.api.{v2 => lav2}
 import io.grpc.StatusRuntimeException
 import scalaz.{Show, \/}
 
@@ -21,7 +21,7 @@ object ApiValueToLfValueConverter {
   }
 
   type ApiValueToLfValue =
-    lav1.value.Value => Error \/ lf.value.Value
+    lav2.value.Value => Error \/ lf.value.Value
 
   def apiValueToLfValue: ApiValueToLfValue = { a =>
     \/.fromEither(StricterValueValidator.validateValue(a)(NoLogging)).leftMap(e => Error(e))

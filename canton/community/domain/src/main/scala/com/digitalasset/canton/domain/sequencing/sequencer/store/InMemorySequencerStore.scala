@@ -13,7 +13,6 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore.CheckpointDataAtCounter
 import com.digitalasset.canton.lifecycle.CloseContext
@@ -22,6 +21,7 @@ import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, SequencerCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -39,7 +39,10 @@ import scala.jdk.CollectionConverters.*
   */
 class UniqueKeyViolationException(message: String) extends RuntimeException(message)
 
-class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(implicit
+class InMemorySequencerStore(
+    protocolVersion: ProtocolVersion,
+    protected val loggerFactory: NamedLoggerFactory,
+)(implicit
     protected val executionContext: ExecutionContext
 ) extends SequencerStore {
   private case class StoredPayload(instanceDiscriminator: UUID, content: ByteString)
@@ -456,7 +459,7 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
 
   override def readStateAtTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[EphemeralState] = {
+  ): Future[SequencerSnapshot] = {
 
     val watermarkO = watermark.get()
     val disabledClients = disabledClientsRef.get()
@@ -489,16 +492,22 @@ class InMemorySequencerStore(protected val loggerFactory: NamedLoggerFactory)(im
             .getOrElse(CantonTimestamp.MinValue),
           checkpointO.flatMap(_._2.latestTopologyClientTimestamp),
         )
-
         (member, checkpoint)
       }.toMap
     }
+
+    val lastTs = memberCheckpoints.map(_._2.timestamp).maxOption.getOrElse(CantonTimestamp.MinValue)
+
     Future.successful(
-      EphemeralState(
-        Map(): InFlightAggregations,
-        internalStatus(timestamp).toInternal,
-        memberCheckpoints,
-        Map(),
+      SequencerSnapshot(
+        lastTs,
+        memberCheckpoints.fmap(_.counter),
+        internalStatus(lastTs),
+        Map.empty,
+        None,
+        protocolVersion,
+        Map.empty,
+        Seq.empty,
       )
     )
   }

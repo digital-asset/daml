@@ -485,10 +485,11 @@ trait DomainGovernanceSnapshotClient {
 
   def trafficControlParameters[A](
       protocolVersion: ProtocolVersion
-  )(implicit tc: TraceContext): Future[Option[TrafficControlParameters]] = {
-    findDynamicDomainParametersOrDefault(protocolVersion)
-      .map(_.trafficControlParameters)
-  }
+  )(implicit tc: TraceContext): FutureUnlessShutdown[Option[TrafficControlParameters]] =
+    FutureUnlessShutdown.outcomeF {
+      findDynamicDomainParametersOrDefault(protocolVersion)
+        .map(_.trafficControlParameters)
+    }
 
   def findDynamicDomainParametersOrDefault(
       protocolVersion: ProtocolVersion,

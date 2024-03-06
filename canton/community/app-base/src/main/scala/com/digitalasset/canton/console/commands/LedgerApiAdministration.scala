@@ -8,13 +8,12 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1.admin.package_management_service.PackageDetails
-import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails as ProtoPartyDetails
-import com.daml.ledger.api.v1.commands.{Command, DisclosedContract}
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
+import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
+import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
@@ -27,7 +26,10 @@ import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeProto,
 }
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterProto
+import com.daml.ledger.api.v2.transaction_filter.{
+  Filters,
+  TransactionFilter as TransactionFilterProto,
+}
 import com.daml.ledger.javaapi.data.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,

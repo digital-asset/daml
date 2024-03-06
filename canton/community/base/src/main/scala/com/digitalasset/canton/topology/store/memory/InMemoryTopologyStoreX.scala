@@ -131,7 +131,7 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
   override def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Set[TopologyMappingX.MappingHash],
+      removeMapping: Map[TopologyMappingX.MappingHash, PositiveInt],
       removeTxs: Set[TopologyTransactionX.TxHash],
       additions: Seq[GenericValidatedTopologyTransactionX],
   )(implicit traceContext: TraceContext): Future[Unit] =
@@ -139,13 +139,16 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       synchronized {
         // transactionally
         // UPDATE txs SET valid_until = effective WHERE effective < $effective AND valid_from is NULL
-        //    AND ((mapping_key_hash IN $removeMapping) OR (tx_hash IN $removeTxs))
+        //    AND ((mapping_key_hash IN $removeMapping AND serial_counter <= $serial) OR (tx_hash IN $removeTxs))
         // INSERT IGNORE DUPLICATES (...)
         topologyTransactionStore.zipWithIndex.foreach { case (tx, idx) =>
           if (
-            tx.from.value < effective.value && tx.until.isEmpty && (removeMapping.contains(
-              tx.mapping.uniqueKey
-            ) || removeTxs.contains(tx.hash))
+            tx.from.value < effective.value && tx.until.isEmpty &&
+            (removeMapping
+              .get(tx.mapping.uniqueKey)
+              .exists(_ >= tx.serial)
+              ||
+                removeTxs.contains(tx.hash))
           ) {
             topologyTransactionStore.update(idx, tx.copy(until = Some(effective)))
           }

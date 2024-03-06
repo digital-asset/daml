@@ -3,13 +3,13 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1.admin;
+package com.daml.ledger.api.v2.admin;
 
 import "google/protobuf/field_mask.proto";
 
 option java_outer_classname = "IdentityProviderConfigServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+option java_package = "com.daml.ledger.api.v2.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // Identity Provider Config Service makes it possible for participant node administrators
 // to setup and manage additional identity providers at runtime.

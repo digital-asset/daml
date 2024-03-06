@@ -73,6 +73,7 @@ object ApiServiceOwner {
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       upgradingEnabled: Boolean,
+      disableUpgradeValidation: Boolean,
       // immutable configuration parameters
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
@@ -176,6 +177,7 @@ object ApiServiceOwner {
         upgradingEnabled = upgradingEnabled,
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
+        disableUpgradeValidation = disableUpgradeValidation,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

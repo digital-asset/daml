@@ -78,6 +78,7 @@ trait TopologyComponentFactory {
       trafficStateController: TrafficStateController,
       recordOrderPublisher: RecordOrderPublisher,
       protocolVersion: ProtocolVersion,
+      useNewTrafficControl: Boolean,
   ): TopologyTransactionProcessorCommon.Factory
 
 }
@@ -104,6 +105,7 @@ class TopologyComponentFactoryX(
       trafficStateController: TrafficStateController,
       recordOrderPublisher: RecordOrderPublisher,
       protocolVersion: ProtocolVersion,
+      useNewTrafficControl: Boolean,
   ): TopologyTransactionProcessorCommon.Factory = new TopologyTransactionProcessorCommon.Factory {
     override def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
@@ -136,7 +138,10 @@ class TopologyComponentFactoryX(
         case _ =>
           throw new IllegalStateException("passed wrong type. coding bug")
       }
-      processor.subscribe(new TrafficStateTopUpSubscription(trafficStateController, loggerFactory))
+      if (!useNewTrafficControl)
+        processor.subscribe(
+          new TrafficStateTopUpSubscription(trafficStateController, loggerFactory)
+        )
       processor
     }
   }

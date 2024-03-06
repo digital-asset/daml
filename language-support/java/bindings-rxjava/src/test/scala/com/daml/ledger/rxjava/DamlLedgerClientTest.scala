@@ -17,7 +17,7 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForUpdateIdResponse,
 }
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v1.package_service._
+import com.daml.ledger.api.v2.package_service._
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset

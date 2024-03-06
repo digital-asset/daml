@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.EventOuterClass;
+import com.daml.ledger.api.v2.EventOuterClass;
 import com.google.protobuf.ByteString;
 import com.google.rpc.Status;
 import java.time.Instant;
@@ -138,7 +138,7 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   /**
    * {@code createdAt} has been introduced in the Ledger API {@link
-   * com.daml.ledger.api.v1.EventOuterClass.CreatedEvent} starting with Canton version 2.8.0. Events
+   * com.daml.ledger.api.v2.EventOuterClass.CreatedEvent} starting with Canton version 2.8.0. Events
    * sourced from the Ledger API prior to this version will return the default {@link Instant#EPOCH}
    * value.
    */

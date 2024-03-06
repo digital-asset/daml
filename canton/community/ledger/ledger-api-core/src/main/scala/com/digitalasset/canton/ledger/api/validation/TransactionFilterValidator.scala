@@ -4,8 +4,12 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InterfaceFilter, TemplateFilter}
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.transaction_filter.{
+  Filters,
+  InterfaceFilter,
+  TemplateFilter,
+  TransactionFilter,
+}
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import io.grpc.StatusRuntimeException

@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.admin.api.client.commands
 
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.ledger.api.v2.state_service.{
@@ -12,6 +11,7 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteAssigned,
   IncompleteUnassigned,
 }
+import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
 import com.daml.lf.data.Time
 import com.digitalasset.canton.LfPackageName
 import com.digitalasset.canton.admin.api.client.data.TemplateId

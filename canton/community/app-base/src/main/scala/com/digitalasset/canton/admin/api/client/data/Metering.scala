@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.admin.api.client.data
 
-import com.daml.ledger.api.v1.admin.metering_report_service.GetMeteringReportResponse
+import com.daml.ledger.api.v2.admin.metering_report_service.GetMeteringReportResponse
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.protobuf.struct

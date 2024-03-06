@@ -26,6 +26,6 @@ object LedgerClientUtils {
   /** Convert codegen command to scala proto command */
   def javaCodegenToScalaProto(
       command: com.daml.ledger.javaapi.data.Command
-  ): com.daml.ledger.api.v1.commands.Command =
-    com.daml.ledger.api.v1.commands.Command.fromJavaProto(command.toProtoCommand)
+  ): com.daml.ledger.api.v2.commands.Command =
+    com.daml.ledger.api.v2.commands.Command.fromJavaProto(command.toProtoCommand)
 }

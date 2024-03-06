@@ -9,8 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockUpdateGenerator.SignedEvents
-import com.digitalasset.canton.domain.block.data.BlockInfo
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
+import com.digitalasset.canton.domain.block.data.{BlockInfo, EphemeralState}
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdates
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.Member

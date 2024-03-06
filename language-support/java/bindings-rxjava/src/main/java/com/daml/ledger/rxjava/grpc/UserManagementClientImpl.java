@@ -3,9 +3,9 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.ledger.api.v1.admin.UserManagementServiceGrpc;
-import com.daml.ledger.api.v1.admin.UserManagementServiceGrpc.UserManagementServiceFutureStub;
-import com.daml.ledger.api.v1.admin.UserManagementServiceOuterClass;
+import com.daml.ledger.api.v2.admin.UserManagementServiceGrpc;
+import com.daml.ledger.api.v2.admin.UserManagementServiceGrpc.UserManagementServiceFutureStub;
+import com.daml.ledger.api.v2.admin.UserManagementServiceOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.rxjava.UserManagementClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;

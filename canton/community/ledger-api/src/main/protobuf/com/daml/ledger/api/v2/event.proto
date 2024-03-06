@@ -3,16 +3,16 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/value.proto";
+import "com/daml/ledger/api/v2/value.proto";
 import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
 
 option java_outer_classname = "EventOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // An event in the flat transaction stream can either be the creation
 // or the archiving of a contract.

@@ -1499,7 +1499,7 @@ genrule(
 filegroup(
     name = "ledger-api-protos-fg",
     srcs = glob(
-        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"] + [
+        [
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
         ],
     ),
@@ -1508,8 +1508,6 @@ filegroup(
 
 # Minimal set of ledger-api services we need for hs-bindings
 ledger_api_haskellpb_sources = [
-    # V2.PackageService depends on V1, so we still include it here
-    "V1/PackageService.hs",
     "V2/PackageService.hs",
 ]
 
@@ -1520,15 +1518,16 @@ genrule(
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg",
     ],
-    outs = ["Com/Daml/Ledger/Api/" + b for b in ledger_api_haskellpb_sources],
+    outs = ["Com/Daml/Ledger/Api/V2/PackageService.hs"],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto $${src#*community/ledger-api/src/main/protobuf/} \
+                --proto com/daml/ledger/api/v2/$$(basename $$src) \
                 --out $(@D)
+            cp -ruv $(@D)/Com/Daml/Ledger/Api/V2/* $(@D)
         done
     """,
     tools = [
@@ -1539,8 +1538,8 @@ genrule(
 filegroup(
     name = "ledger-api-protos-fg-admin",
     srcs = glob(
-        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/admin/*.proto"],
-        exclude = ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/admin/participant_pruning_service.proto"],  # TODO: haskell grpc client for participant pruning
+        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/*.proto"],
+        exclude = ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/participant_pruning_service.proto"],  # TODO: haskell grpc client for participant pruning
     ),
     visibility = ["//visibility:private"],
 )
@@ -1560,14 +1559,14 @@ genrule(
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-admin",
     ],
-    outs = ["Com/Daml/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
+    outs = ["Com/Daml/Ledger/Api/V2/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """
         for src in $(locations :ledger-api-protos-fg-admin); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v1/admin/$$(basename $$src) \
+                --proto com/daml/ledger/api/v2/admin/$$(basename $$src) \
                 --out $(@D)
         done
     """,

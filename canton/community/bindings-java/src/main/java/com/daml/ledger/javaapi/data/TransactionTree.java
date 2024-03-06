@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TraceContextOuterClass;
+import com.daml.ledger.api.v2.TraceContextOuterClass;
 import com.daml.ledger.api.v2.TransactionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -33,6 +33,8 @@ public final class TransactionTree {
 
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
+  @NonNull private final Instant recordTime;
+
   public TransactionTree(
       @NonNull String updateId,
       @NonNull String commandId,
@@ -42,7 +44,8 @@ public final class TransactionTree {
       @NonNull Map<@NonNull String, @NonNull TreeEvent> eventsById,
       List<String> rootEventIds,
       @NonNull String domainId,
-      TraceContextOuterClass.@NonNull TraceContext traceContext) {
+      TraceContextOuterClass.@NonNull TraceContext traceContext,
+      @NonNull Instant recordTime) {
     this.updateId = updateId;
     this.commandId = commandId;
     this.workflowId = workflowId;
@@ -52,6 +55,7 @@ public final class TransactionTree {
     this.rootEventIds = rootEventIds;
     this.domainId = domainId;
     this.traceContext = traceContext;
+    this.recordTime = recordTime;
   }
 
   public static TransactionTree fromProto(TransactionOuterClass.TransactionTree tree) {
@@ -79,7 +83,8 @@ public final class TransactionTree {
         eventsById,
         rootEventIds,
         tree.getDomainId(),
-        tree.getTraceContext());
+        tree.getTraceContext(),
+        Utils.instantFromProto(tree.getRecordTime()));
   }
 
   public TransactionOuterClass.TransactionTree toProto() {
@@ -99,6 +104,7 @@ public final class TransactionTree {
         .addAllRootEventIds(rootEventIds)
         .setDomainId(domainId)
         .setTraceContext(traceContext)
+        .setRecordTime(Utils.instantToProto(recordTime))
         .build();
   }
 
@@ -146,6 +152,11 @@ public final class TransactionTree {
     return traceContext;
   }
 
+  @NonNull
+  public Instant getRecordTime() {
+    return recordTime;
+  }
+
   @Override
   public String toString() {
     return "TransactionTree{"
@@ -172,6 +183,8 @@ public final class TransactionTree {
         + '\''
         + ", traceContext="
         + traceContext
+        + ", recordTime="
+        + recordTime
         + '}';
   }
 
@@ -188,7 +201,8 @@ public final class TransactionTree {
         && Objects.equals(rootEventIds, that.rootEventIds)
         && Objects.equals(offset, that.offset)
         && Objects.equals(domainId, that.domainId)
-        && Objects.equals(traceContext, that.traceContext);
+        && Objects.equals(traceContext, that.traceContext)
+        && Objects.equals(recordTime, that.recordTime);
   }
 
   @Override
@@ -202,6 +216,7 @@ public final class TransactionTree {
         eventsById,
         rootEventIds,
         domainId,
-        traceContext);
+        traceContext,
+        recordTime);
   }
 }

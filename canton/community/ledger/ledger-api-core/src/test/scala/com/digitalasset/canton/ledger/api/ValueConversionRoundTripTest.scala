@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api
 
 import com.daml.error.NoLogging
-import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value as api
+import com.daml.ledger.api.v2.value.Value.Sum
+import com.daml.ledger.api.v2.value as api
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId

@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.integrations.state
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState
 import com.digitalasset.canton.domain.sequencing.integrations.state.SequencerStateManagerStore.PruningResult
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError
@@ -28,9 +29,9 @@ import scala.concurrent.Future
   */
 trait SequencerStateManagerStore {
 
-  /** Rehydrate the sequencer [[EphemeralState]] from the backing persisted store
+  /** Rehydrate the sequencer state from the backing persisted store
     *
-    * @param timestamp The timestamp for which the [[EphemeralState]] is computed
+    * @param timestamp The timestamp for which the state is computed
     */
   def readAtBlockTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

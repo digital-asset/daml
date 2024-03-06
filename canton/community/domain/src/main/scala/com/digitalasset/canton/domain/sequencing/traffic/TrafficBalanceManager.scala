@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
   * Balances can be automatically pruned from the cache AND the store according to pruningRetentionWindow.
   */
 class TrafficBalanceManager(
-    store: TrafficBalanceStore,
+    val store: TrafficBalanceStore,
     clock: Clock,
     trafficConfig: SequencerTrafficConfig,
     futureSupervisor: FutureSupervisor,
@@ -85,6 +85,34 @@ class TrafficBalanceManager(
         ),
       sequencerMetrics.trafficControl.balanceCache,
     )
+  }
+
+  lazy val subscription = new SequencerTrafficControlSubscriber(this, loggerFactory)
+
+  /** Initializes the traffic manager lastUpdateAt with the initial timestamp from the store if it's not already set.
+    * Call before using the manager.
+    */
+  def initialize(implicit tc: TraceContext) = {
+    // Check the lastUpdateAt first to avoid a DB access if it's already been set
+    val lastUpdated = lastUpdateAt.get()
+    if (lastUpdated.isEmpty) {
+      store.getInitialTimestamp.map {
+        case Some(initialTs) =>
+          if (lastUpdateAt.compareAndSet(None, Some(initialTs)))
+            logger.debug(
+              s"Traffic balance manager 'lastUpdateAt' initialized with $initialTs from store"
+            )
+          else
+            logger.debug(
+              s"Traffic balance manager 'lastUpdateAt' was updated while being initialized, initialization value '$initialTs' will be ignored."
+            )
+        case _ =>
+          logger.debug("No initial timestamp found in traffic balance store")
+      }
+    } else {
+      logger.debug(s"Traffic balance manager 'lastUpdateAt' already initialized with $lastUpdated")
+      Future.successful(())
+    }
   }
 
   /** Timestamp of the last update made to the manager
@@ -293,6 +321,14 @@ class TrafficBalanceManager(
     go(List.empty)
   }
 
+  /** Return the latest known balance for the given member.
+    */
+  def getLatestKnownBalance(member: Member): FutureUnlessShutdown[Option[TrafficBalance]] = {
+    FutureUnlessShutdown.outcomeF(
+      trafficBalances.get(member).map(_.trafficBalances.values.lastOption)
+    )
+  }
+
   /** Return the traffic balance valid at the given timestamp for the given member.
     * Balances are cached in this class, according to the cache size defined in trafficConfig.
     * Requesting balances for timestamps outside of the cache will trigger a lookup in the database.
@@ -317,7 +353,11 @@ class TrafficBalanceManager(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TrafficBalanceManagerError, Option[TrafficBalance]] = {
-    (lastUpdateAt.get(), lastSeenO) match {
+    val lastUpdate = lastUpdateAt.get()
+    logger.debug(
+      s"Requesting balance for $member at $desired with lastSeen = $lastSeenO. Last update: $lastUpdate"
+    )
+    val result = (lastUpdate, lastSeenO) match {
       // Desired timestamp is before or equal the timestamp just after last update, so the balance is correct and we can provide it immediately
       // This is correct because an update only becomes valid at the immediateSuccessor of its sequencing timestamp.
       // So if we ask for t1.immediateSuccessor, and the last update we saw was at t1, any further update will be at least at t1.immediateSuccessor, and therefore not relevant for t1.immediateSuccessor
@@ -332,12 +372,16 @@ class TrafficBalanceManager(
       case (lastUpdate, None) =>
         if (warnIfApproximate)
           logger.warn(
-            s"The desired timestamp $desired is more recent than the last update ${lastUpdate.map(_.toString).getOrElse("N/A")}, and no 'lastSeen' timestamp was provided. The provided balance may not be up to date if a balance update is being processed."
+            s"The desired timestamp $desired is more recent than the last update ${lastUpdate.map(_.toString).getOrElse("N/A")}," +
+              s" and no 'lastSeen' timestamp was provided. The provided balance may not be up to date if a balance update is being processed."
           )
         getBalanceAt(member, desired)
       case (_, Some(lastSeen)) =>
+        logger.debug(
+          s"Balance for $member at $desired is not available yet. Waiting to observe an event at $lastSeen. Last update: $lastUpdate"
+        )
         val promise = mkPromise[Either[TrafficBalanceManagerError, Option[TrafficBalance]]](
-          s"waiting for traffic balance for $member at $lastSeen, requested timestamp: $desired",
+          s"waiting for traffic balance for $member at $lastSeen, requested timestamp: $desired, last update: $lastUpdate",
           futureSupervisor,
         )
         val pendingUpdate = PendingBalanceUpdate(desired, lastSeen, member, promise)
@@ -347,6 +391,12 @@ class TrafficBalanceManager(
           }
         }
         EitherT(promise.futureUS)
+    }
+    result.flatTap { balance =>
+      logger.debug(
+        s"Requested balance for $member at $desired with lastSeen = $lastSeenO. Last update: $lastUpdate. Balance is $balance"
+      )
+      EitherT.pure(())
     }
   }
 

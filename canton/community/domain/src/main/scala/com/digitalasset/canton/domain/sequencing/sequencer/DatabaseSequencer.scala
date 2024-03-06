@@ -61,6 +61,7 @@ object DatabaseSequencer {
   /** Creates a single instance of a database sequencer. */
   def single(
       config: DatabaseSequencerConfig,
+      initialSnapshot: Option[SequencerSnapshot],
       timeouts: ProcessingTimeout,
       storage: Storage,
       clock: Clock,
@@ -86,6 +87,7 @@ object DatabaseSequencer {
     new DatabaseSequencer(
       SequencerWriterStoreFactory.singleInstance,
       config,
+      initialSnapshot,
       TotalNodeCountValues.SingleSequencerTotalNodeCount,
       new LocalSequencerStateEventSignaller(
         timeouts,
@@ -112,6 +114,7 @@ object DatabaseSequencer {
 class DatabaseSequencer(
     writerStorageFactory: SequencerWriterStoreFactory,
     config: DatabaseSequencerConfig,
+    initialSnapshot: Option[SequencerSnapshot],
     totalNodeCount: PositiveInt,
     eventSignaller: EventSignaller,
     keepAliveInterval: Option[NonNegativeFiniteDuration],
@@ -164,7 +167,7 @@ class DatabaseSequencer(
   // Only start pruning scheduler after `store` variable above has been initialized to avoid racy NPE
   withNewTraceContext { implicit traceContext =>
     timeouts.unbounded.await(s"Waiting for sequencer writer to fully start")(
-      writer.startOrLogError()
+      writer.startOrLogError(initialSnapshot)
     )
 
     pruningScheduler.foreach(ps =>
@@ -373,7 +376,7 @@ class DatabaseSequencer(
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, SequencerSnapshot] =
-    EitherT.rightT(SequencerSnapshot.unimplemented(protocolVersion))
+    EitherT.right[String](store.readStateAtTimestamp(timestamp))
 
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     // Database sequencers are never bootstrapped

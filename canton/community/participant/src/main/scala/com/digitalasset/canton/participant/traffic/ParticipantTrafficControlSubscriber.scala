@@ -11,7 +11,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TrafficControlErrors.InvalidTrafficControlBalanceMessage
 import com.digitalasset.canton.traffic.TrafficControlProcessor.TrafficControlSubscriber
 
+import scala.concurrent.Future
+
 class ParticipantTrafficControlSubscriber(
+    trafficStateController: TrafficStateController,
     participantId: ParticipantId,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends TrafficControlSubscriber
@@ -20,20 +23,23 @@ class ParticipantTrafficControlSubscriber(
       traceContext: TraceContext
   ): Unit = {
     logger.debug(s"Traffic control handler observed timestamp: $timestamp")
-    // Take note that sequenced messages up to `timestamp` have been processed
-    // by the traffic control handler
+    // Nothing to do here for the participant, only interested in balance updates
   }
 
-  override def balanceUpdate(update: SetTrafficBalanceMessage)(implicit
+  override def balanceUpdate(
+      update: SetTrafficBalanceMessage,
+      sequencingTimestamp: CantonTimestamp,
+  )(implicit
       traceContext: TraceContext
-  ): Unit = {
+  ): Future[Unit] = Future.successful {
     if (update.member == participantId) {
       logger.debug(s"Received balance update from traffic control processor: $update")
 
-      // Check the serial of the new balance against the latest in our traffic state
-      // if not more recent -> info and skip
-
-      // Update our traffic balance
+      trafficStateController.updateBalance(
+        update.totalTrafficBalance,
+        update.serial,
+        sequencingTimestamp,
+      )
     } else {
       InvalidTrafficControlBalanceMessage
         .Error(s"Received a traffic balance update for another member: $update")

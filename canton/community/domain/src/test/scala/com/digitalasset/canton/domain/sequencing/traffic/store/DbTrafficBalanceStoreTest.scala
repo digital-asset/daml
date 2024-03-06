@@ -18,7 +18,7 @@ trait DbTrafficBalanceStoreTest extends AsyncWordSpec with BaseTest with Traffic
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
     storage.update(
-      DBIO.seq(sqlu"truncate table sequencer_traffic_control_balance_updates"),
+      DBIO.seq(sqlu"truncate table seq_traffic_control_balance_updates"),
       functionFullName,
     )
   }

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http
 
 import com.digitalasset.canton.http.domain.ContractTypeId
-import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.topology.DomainId
 import org.scalacheck.Gen
@@ -12,12 +12,12 @@ import scalaz.{-\/, \/, \/-}
 import spray.json.{JsNumber, JsObject, JsString, JsValue}
 
 object Generators {
-  def genApiIdentifier: Gen[lav1.value.Identifier] =
+  def genApiIdentifier: Gen[lav2.value.Identifier] =
     for {
       p <- Gen.identifier
       m <- Gen.identifier
       e <- Gen.identifier
-    } yield lav1.value.Identifier(packageId = p, moduleName = m, entityName = e)
+    } yield lav2.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
   def genDomainTemplateId: Gen[domain.ContractTypeId.Template.RequiredPkg] =
     genDomainContractTypeId[domain.ContractTypeId.Template]
@@ -40,7 +40,7 @@ object Generators {
   def nonEmptySetOf[A](gen: Gen[A]): Gen[Set[A]] = Gen.nonEmptyListOf(gen).map(_.toSet)
 
   // Generate Identifiers with unique packageId values, but the same moduleName and entityName.
-  def genDuplicateModuleEntityApiIdentifiers: Gen[Set[lav1.value.Identifier]] =
+  def genDuplicateModuleEntityApiIdentifiers: Gen[Set[lav2.value.Identifier]] =
     for {
       id0 <- genApiIdentifier
       otherPackageIds <- nonEmptySetOf(Gen.identifier.filter(x => x != id0.packageId))

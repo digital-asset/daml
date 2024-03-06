@@ -7,7 +7,7 @@ import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.RetryInfoDetail
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v1.admin.party_management_service.{
+import com.daml.ledger.api.v2.admin.party_management_service.{
   AllocatePartyRequest,
   PartyDetails as ProtoPartyDetails,
 }
@@ -271,7 +271,7 @@ object ApiPartyManagementServiceSpec {
   val protoPartyDetails: ProtoPartyDetails = ProtoPartyDetails(
     party = "Bob",
     displayName = "Bob Martin",
-    localMetadata = Some(new com.daml.ledger.api.v1.admin.object_meta.ObjectMeta()),
+    localMetadata = Some(new com.daml.ledger.api.v2.admin.object_meta.ObjectMeta()),
     isLocal = true,
     identityProviderId = "",
   )

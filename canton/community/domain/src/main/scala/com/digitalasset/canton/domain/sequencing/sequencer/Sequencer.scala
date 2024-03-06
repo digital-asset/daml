@@ -13,7 +13,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   SequencerAdministrationError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitManager,
+  SequencerTrafficStatus,
+}
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
@@ -153,6 +156,10 @@ trait Sequencer
   def trafficStates(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, TrafficState]]
+
+  /** Return the rate limit manager for this sequencer, if it exists.
+    */
+  def rateLimitManager: Option[SequencerRateLimitManager] = None
 }
 
 /** Sequencer pruning interface.

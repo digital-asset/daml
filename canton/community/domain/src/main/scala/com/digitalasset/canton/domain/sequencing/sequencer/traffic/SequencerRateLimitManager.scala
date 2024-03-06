@@ -7,6 +7,10 @@ import cats.data.EitherT
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
+import com.digitalasset.canton.domain.sequencing.traffic.{
+  SequencerTrafficControlSubscriber,
+  TrafficBalance,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.{
@@ -58,19 +62,29 @@ trait SequencerRateLimitManager {
     TrafficState,
   ]
 
+  /** Returns the provided states updated with the latest known balance.
+    */
+  def getLatestTrafficStates(
+      partialTrafficStates: Map[Member, TrafficState],
+      trafficControlParameters: TrafficControlParameters,
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]]
+
   /** Returns the provided states updated at updateTimestamp.
     * Note that if updateTimestamp is older than the timestamp of the traffic state of a member, the state for that member will not be updated.
     *  If updateTimestamp is not provided, the latest timestamp at which the traffic balance is known will be used.
     * Specifically, the remaining base traffic and the traffic balance may have changed since the provided traffic state.
     * @param partialTrafficStates the traffic states to update
-    * @param updateTimestamp the timestamp at which the traffic states should be updated. If not provided, the latest timestamp at which balances are known will be used.
+    * @param updateTimestamp the timestamp at which the traffic states should be updated
     * @param trafficControlParameters the traffic control parameters
     * @param lastBalanceUpdateTimestamp latest known timestamp which may contain a balance update
     * @param warnIfApproximate if true, a warning will be logged if the balance is approximate
     */
-  def updateTrafficStates(
+  def getUpdatedTrafficStatesAtTimestamp(
       partialTrafficStates: Map[Member, TrafficState],
-      updateTimestamp: Option[CantonTimestamp],
+      updateTimestamp: CantonTimestamp,
       trafficControlParameters: TrafficControlParameters,
       lastBalanceUpdateTimestamp: Option[CantonTimestamp],
       warnIfApproximate: Boolean,
@@ -78,6 +92,16 @@ trait SequencerRateLimitManager {
       ec: ExecutionContext,
       tc: TraceContext,
   ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]]
+
+  /** Returns the latest known balance for the given member.
+    */
+  def lastKnownBalanceFor(member: Member)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[TrafficBalance]]
+
+  /** Optional subscriber to the traffic control processor, only used for the new top up implementation
+    */
+  def balanceUpdateSubscriber: Option[SequencerTrafficControlSubscriber]
 }
 
 sealed trait SequencerRateLimitError
@@ -87,6 +111,12 @@ object SequencerRateLimitError {
       member: Member,
       trafficCost: NonNegativeLong,
       trafficState: TrafficState,
+  ) extends SequencerRateLimitError
+
+  final case class EventOutOfOrder(
+      member: Member,
+      currentTimestamp: CantonTimestamp,
+      eventTimestamp: CantonTimestamp,
   ) extends SequencerRateLimitError
 
   final case class UnknownBalance(

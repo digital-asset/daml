@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.block.data.{BlockEphemeralState, SequencerBlockStore}
@@ -18,6 +19,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerHealthConfig,
   SequencerInitialState,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
@@ -54,13 +56,6 @@ abstract class BlockSequencerFactory(
     loggerFactory,
   )
 
-  private val balanceStore = TrafficBalanceStore(
-    storage,
-    nodeParameters.processingTimeouts,
-    loggerFactory,
-    nodeParameters.batchingConfig.aggregator,
-  )
-
   protected val name: String
 
   protected val orderingTimeFixMode: OrderingTimeFixMode
@@ -78,7 +73,7 @@ abstract class BlockSequencerFactory(
       clock: Clock,
       driverClock: Clock,
       protocolVersion: ProtocolVersion,
-      rateLimitManager: Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,
@@ -91,12 +86,19 @@ abstract class BlockSequencerFactory(
   override final def initialize(
       snapshot: SequencerInitialState,
       sequencerId: SequencerId,
+      balanceManager: TrafficBalanceManager,
   )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
     val initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
     logger.debug(s"Storing sequencers initial state: $initialBlockState")
     val result = for {
       _ <- store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
-      _ <- snapshot.snapshot.trafficBalances.parTraverse_(balanceStore.store)
+      _ <- snapshot.snapshot.trafficBalances.parTraverse_(balanceManager.store.store)
+      _ = logger.debug(
+        s"from snapshot: ticking traffic balance manager with ${snapshot.latestSequencerEventTimestamp}"
+      )
+      _ <- snapshot.latestSequencerEventTimestamp
+        .traverse(ts => balanceManager.store.setInitialTimestamp(ts))
+      _ = snapshot.latestSequencerEventTimestamp.map(balanceManager.tick)
     } yield ()
 
     EitherT.right(result)
@@ -109,7 +111,8 @@ abstract class BlockSequencerFactory(
       driverClock: Clock,
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      mkRateLimitManager: TrafficBalanceStore => Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
+      balanceStore: TrafficBalanceStore,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -162,7 +165,7 @@ abstract class BlockSequencerFactory(
         clock,
         driverClock,
         protocolVersion,
-        mkRateLimitManager(balanceStore),
+        rateLimitManager,
         orderingTimeFixMode,
         initialBlockHeight,
         domainLoggerFactory,

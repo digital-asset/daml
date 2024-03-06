@@ -4,11 +4,10 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
-import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{List as ApiList, Map as ApiMap, Optional as ApiOptional, *}
-import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
+import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v2.value.Value.Sum
+import com.daml.ledger.api.v2.value.{List as ApiList, Map as ApiMap, Optional as ApiOptional, *}
 import com.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
 import com.daml.lf.data.Ref.TypeConRef
 import com.daml.lf.data.*

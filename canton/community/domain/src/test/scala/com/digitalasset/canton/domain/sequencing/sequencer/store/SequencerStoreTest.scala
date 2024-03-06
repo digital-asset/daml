@@ -9,7 +9,6 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.DomainSequencingTestUtils.mockDeliverStoreEvent
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError.BoundLowerThanExisting
 import com.digitalasset.canton.domain.sequencing.sequencer.{
@@ -17,6 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   DomainSequencingTestUtils,
   SequencerMemberStatus,
   SequencerPruningStatus,
+  SequencerSnapshot,
 }
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
@@ -719,14 +719,14 @@ trait SequencerStoreTest
           statusBefore.lowerBound shouldBe <(statusAfter.lowerBound)
           lowerBound.value shouldBe ts(5) // to prevent reads from before this point
 
-          val memberCheckpoints = Map(
-            (alice, CounterCheckpoint(Counter(recordCountsBefore.events - 1L), ts(6), None)),
-            (bob, CounterCheckpoint(Counter(recordCountsBefore.events - 2L), ts(6), None)),
+          val memberHeads = Map(
+            (alice, Counter(recordCountsBefore.events - 1L)),
+            (bob, Counter(recordCountsBefore.events - 2L)),
           )
-          stateBeforeCheckpoints.checkpoints shouldBe memberCheckpoints
-          stateBeforePruning.checkpoints shouldBe memberCheckpoints
+          stateBeforeCheckpoints.heads shouldBe memberHeads
+          stateBeforePruning.heads shouldBe memberHeads
           // after pruning we should still see the same counters since we can rely on checkpoints
-          stateAfterPruning.checkpoints shouldBe memberCheckpoints
+          stateAfterPruning.heads shouldBe memberHeads
 
         }
       }
@@ -1023,11 +1023,15 @@ trait SequencerStoreTest
           } yield (state, stateAfterNewEvents)
         }
 
-        def createFromSnapshot(snapshot: EphemeralState) = {
+        def createFromSnapshot(snapshot: SequencerSnapshot) = {
           val env = Env()
           import env.*
           for {
-            _ <- store.initializeSeparateFromState(snapshot)
+            _ <- store.initializeFromSnapshot(snapshot).value.map {
+              case Left(error) =>
+                fail(s"Failed to initialize from snapshot $error")
+              case _ => ()
+            }
 
             stateFromNewStore <- store.readStateAtTimestamp(ts(4))
 
@@ -1067,19 +1071,19 @@ trait SequencerStoreTest
           val (stateFromNewStore, stateFromNewStoreAfterNewEvents) = newSnapshots
 
           val memberCheckpoints = Map(
-            (alice, CounterCheckpoint(Counter(1L), ts(4), None)),
-            (bob, CounterCheckpoint(Counter(0L), ts(4), None)),
+            (alice, Counter(1L)),
+            (bob, Counter(0L)),
           )
-          state.checkpoints shouldBe memberCheckpoints
-          stateFromNewStore.checkpoints shouldBe memberCheckpoints
+          state.heads shouldBe memberCheckpoints
+          stateFromNewStore.heads shouldBe memberCheckpoints
 
-          val memberCheckpointsAfterNewEvents = Map(
-            (alice, CounterCheckpoint(Counter(3L), ts(6), None)),
-            (bob, CounterCheckpoint(Counter(2L), ts(6), None)),
+          val memberHeadsAfterNewEvents = Map(
+            (alice, Counter(3L)),
+            (bob, Counter(2L)),
           )
 
-          stateAfterNewEvents.checkpoints shouldBe memberCheckpointsAfterNewEvents
-          stateFromNewStoreAfterNewEvents.checkpoints shouldBe memberCheckpointsAfterNewEvents
+          stateAfterNewEvents.heads shouldBe memberHeadsAfterNewEvents
+          stateFromNewStoreAfterNewEvents.heads shouldBe memberHeadsAfterNewEvents
         }
       }
     }

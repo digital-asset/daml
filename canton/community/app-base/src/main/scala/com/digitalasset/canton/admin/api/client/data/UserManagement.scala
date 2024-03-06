@@ -5,8 +5,8 @@ package com.digitalasset.canton.admin.api.client.data
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v1.admin.user_management_service.Right.Kind
-import com.daml.ledger.api.v1.admin.user_management_service.{
+import com.daml.ledger.api.v2.admin.user_management_service.Right.Kind
+import com.daml.ledger.api.v2.admin.user_management_service.{
   ListUsersResponse as ProtoListUsersResponse,
   Right as ProtoUserRight,
   User as ProtoLedgerApiUser,

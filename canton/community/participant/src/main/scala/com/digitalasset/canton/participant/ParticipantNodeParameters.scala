@@ -39,6 +39,7 @@ final case class ParticipantNodeParameters(
     enableContractUpgrading: Boolean,
     iterationsBetweenInterruptions: Long,
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
+    disableUpgradeValidation: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -89,5 +90,6 @@ object ParticipantNodeParameters {
     iterationsBetweenInterruptions =
       10000, // 10000 is the default value in the engine configuration
     journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
+    disableUpgradeValidation = true,
   )
 }

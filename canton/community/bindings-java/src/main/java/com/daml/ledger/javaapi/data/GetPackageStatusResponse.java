@@ -43,7 +43,7 @@ public final class GetPackageStatusResponse {
   }
 
   public static GetPackageStatusResponse fromProto(
-      com.daml.ledger.api.v1.PackageServiceOuterClass.GetPackageStatusResponse p) {
+      com.daml.ledger.api.v2.PackageServiceOuterClass.GetPackageStatusResponse p) {
     return new GetPackageStatusResponse(PackageStatus.valueOf(p.getPackageStatusValue()));
   }
 }
