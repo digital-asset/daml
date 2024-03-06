@@ -59,7 +59,6 @@ private[apiserver] final class ApiPackageManagementService private (
     submissionIdGenerator: String => Ref.SubmissionId,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
-    disableUpgradeValidation: Boolean,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -128,12 +127,7 @@ private[apiserver] final class ApiPackageManagementService private (
             .handleError(Validation.handleLfEnginePackageError)
         } yield (dar, decodedDar)
       )
-      _ <-
-        if (disableUpgradeValidation) {
-          logger.info(s"Skipping upgrade validation for package ${decodedDar.main._1}.")
-          Future{()}
-        } else
-          validateUpgrade(decodedDar)
+      _ <- validateUpgrade(decodedDar)
     } yield dar
   }
 
@@ -234,7 +228,6 @@ private[apiserver] object ApiPackageManagementService {
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
-      disableUpgradeValidation: Boolean,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -249,7 +242,6 @@ private[apiserver] object ApiPackageManagementService {
       submissionIdGenerator,
       telemetry,
       loggerFactory,
-      disableUpgradeValidation,
     )
 
   private final class SynchronousResponseStrategy(

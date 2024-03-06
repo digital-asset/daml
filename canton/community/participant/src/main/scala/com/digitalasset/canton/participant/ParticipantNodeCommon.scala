@@ -336,7 +336,6 @@ trait ParticipantNodeBootstrapCommon {
           syncCrypto.pureCrypto,
           componentFactory.createPackageOps(syncDomainPersistentStateManager, syncCrypto),
           arguments.metrics,
-          parameterConfig.disableUpgradeValidation,
           parameterConfig.processingTimeouts,
           loggerFactory,
         )

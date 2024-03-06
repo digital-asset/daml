@@ -48,7 +48,6 @@ object DAMLeTestInstance {
         pureCrypto,
         new PackageOpsForTesting(participant, loggerFactory),
         ParticipantTestMetrics,
-        true,
         timeouts,
         loggerFactory,
       )

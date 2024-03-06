@@ -101,7 +101,6 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       upgradingEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
-      disableUpgradeValidation: Boolean,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -349,7 +348,6 @@ object ApiServices {
           engine,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
-          disableUpgradeValidation = disableUpgradeValidation,
         )
 
         val participantPruningService = ApiParticipantPruningService.createApiService(
