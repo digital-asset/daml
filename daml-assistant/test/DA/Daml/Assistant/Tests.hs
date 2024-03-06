@@ -1,9 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Daml.Assistant.Tests
-    ( main
-    ) where
+module DA.Daml.Assistant.Tests where
 
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Install
@@ -11,6 +9,7 @@ import DA.Daml.Assistant.Cache (UseCache (DontUseCache))
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
+import DA.Daml.Project.Config
 import System.Directory
 import System.Environment.Blank
 import System.FilePath
@@ -21,10 +20,14 @@ import Data.List.Extra
 import DA.Test.Util
 import qualified Test.Tasty as Tasty
 import qualified Test.Tasty.HUnit as Tasty
+import Test.Tasty.HUnit ((@?=))
 import qualified Test.Tasty.QuickCheck as Tasty
 import qualified Data.Text as T
 import Test.Tasty.QuickCheck ((==>))
+import Data.Bifunctor (second)
 import Data.Maybe
+import qualified Data.Yaml as Y
+import Control.Exception (catch, displayException)
 import Control.Monad
 import Conduit
 import qualified Data.Conduit.Zlib as Zlib
@@ -43,6 +46,7 @@ main = do
         , testGetSdk
         , testGetDispatchEnv
         , testInstall
+        , testEnvironmentVariableInterpolation
         ]
 
 assertError :: Text -> Text -> IO a -> IO ()
@@ -572,3 +576,42 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
 testInstallWindows :: Tasty.TestTree
 testInstallWindows = Tasty.testGroup "windows-specific tests" []
+
+testEnvironmentVariableInterpolation :: Tasty.TestTree
+testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment variable interpolation"
+    [ test "replace valid variable" [("MY_VERSION", "0.0.0")] "version: ${MY_VERSION}" $ withSuccess $ \p ->
+        queryTopLevelField p "version" @?= "0.0.0"
+    , test 
+        "replace value with multiple variables"
+        [("PACKAGE_TYPE", "production"), ("PACKAGE_VISIBILITY", "public")]
+        "name: ${PACKAGE_TYPE}-project-${PACKAGE_VISIBILITY}"
+        $ withSuccess $ \p -> queryTopLevelField p "name" @?= "production-project-public"
+    , test "not replace escaped variable" [("MY_NAME", "name")] "name: \\${MY_NAME}" $ withSuccess $ \p ->
+        queryTopLevelField p "name" @?= "${MY_NAME}"
+    , test "replace double escaped variable" [("MY_NAME", "name")] "name: \\\\${MY_NAME}" $ withSuccess $ \p ->
+        queryTopLevelField p "name" @?= "\\name"
+    , test "replace variable using dots for underscores" [("MY_NAME", "name")] "name: ${MY.NAME}" $ withSuccess $ \p ->
+        queryTopLevelField p "name" @?= "name"
+    , test "not add syntax/structure" [("MY_NAME", "\n  - elem\n  - elem")] "name: ${MY_NAME}" $ withSuccess $ \p ->
+        queryTopLevelField p "name" @?= "\n  - elem\n  - elem"
+    , test "fail when variable doesn't exist" [] "name: ${MY_NAME}" $ withFailure $ \case
+        ConfigFileInvalid _ (Y.AesonException "Couldn't find environment variable MY_NAME in value ${MY_NAME}") -> pure ()
+        e -> Tasty.assertFailure $ "Expected failed to find environment variable error, got " <> show e
+    ]
+  where
+    test :: String -> [(String, String)] -> String -> (Either ConfigError ProjectConfig -> IO ()) -> Tasty.TestTree
+    test name env damlyaml pred = 
+      Tasty.testCase name $
+        withSystemTempDirectory "daml-yaml-env-var-test" $ \ base -> do
+          writeFile (base </> "daml.yaml") damlyaml
+          res <- withEnv (second Just <$> env) (Right <$> readProjectConfig (ProjectPath base))
+            `catch` \(e :: ConfigError) -> pure (Left e)
+          pred res
+    withSuccess :: (ProjectConfig -> IO ()) -> Either ConfigError ProjectConfig -> IO ()
+    withSuccess act (Right p) = act p
+    withSuccess _ (Left e) = Tasty.assertFailure $ displayException e
+    withFailure :: (ConfigError -> IO ()) -> Either ConfigError ProjectConfig -> IO ()
+    withFailure act (Left e) = act e
+    withFailure _ (Right _) = Tasty.assertFailure "Expected failure but got success"
+    queryTopLevelField :: ProjectConfig -> Text -> String
+    queryTopLevelField p field = either (error . show) id $ queryProjectConfigRequired [field] p

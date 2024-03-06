@@ -135,6 +135,7 @@ da_haskell_test(
         "temporary",
         "text",
         "unix-compat",
+        "yaml",
     ],
     main_function = "DA.Daml.Assistant.Tests.main",
     src_strip_prefix = "test",
