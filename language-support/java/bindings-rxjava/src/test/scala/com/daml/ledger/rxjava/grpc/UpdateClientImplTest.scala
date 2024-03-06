@@ -33,14 +33,14 @@ final class UpdateClientImplTest
     with DataLayerHelpers {
 
   case class TransactionWithoutRecordTime(
-    updateId: String,
-    commandId: String,
-    workflowId: String,
-    effectiveAt: Instant,
-    events: List[Event],
-    offset: String,
-    domainId: String,
-    traceContext: TraceContext,
+      updateId: String,
+      commandId: String,
+      workflowId: String,
+      effectiveAt: Instant,
+      events: List[Event],
+      offset: String,
+      domainId: String,
+      traceContext: TraceContext,
   )
 
   object TransactionWithoutRecordTime {
@@ -70,19 +70,20 @@ final class UpdateClientImplTest
   it should "return transactions from the ledger" in forAll(ledgerContentGen) {
     case (ledgerContent, expectedTransactions) =>
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
-        (transactionClient, _) => {
-          val result: List[TransactionWithoutRecordTime] =
-                transactionClient
-                  .getTransactions(ledgerBegin, ledgerEnd, emptyFilter, false)
-                  .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-                  .blockingIterable()
-                  .asScala
-                  .toList
-                  .map(TransactionWithoutRecordTime(_))
-          val expectedTransactionsWithoutRecordTime: List[TransactionWithoutRecordTime] =
-                expectedTransactions.map(TransactionWithoutRecordTime(_))
-          result shouldEqual expectedTransactionsWithoutRecordTime
-        }
+        (transactionClient, _) =>
+          {
+            val result: List[TransactionWithoutRecordTime] =
+              transactionClient
+                .getTransactions(ledgerBegin, ledgerEnd, emptyFilter, false)
+                .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+                .blockingIterable()
+                .asScala
+                .toList
+                .map(TransactionWithoutRecordTime(_))
+            val expectedTransactionsWithoutRecordTime: List[TransactionWithoutRecordTime] =
+              expectedTransactions.map(TransactionWithoutRecordTime(_))
+            result shouldEqual expectedTransactionsWithoutRecordTime
+          }
       }
   }
 
