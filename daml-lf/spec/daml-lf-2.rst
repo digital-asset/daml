@@ -669,7 +669,7 @@ Then we can define our kinds, types, and expressions::
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
        |  LitParty                                  -- ExpLitParty: Party literal
        |  cid                                       -- ExpLitContractId: Contract identifiers
-       |  LitRoundingMode                           -- ExpLitRoundingMode: Rounding Mode [Daml-LF ≥ 1.dev]
+       |  LitRoundingMode                           -- ExpLitRoundingMode: Rounding Mode [Daml-LF ≥ 2.dev]
        |  F                                         -- ExpBuiltin: Builtin function
        |  Mod:W                                     -- ExpVal: Defined value
        |  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₘ = eₘ }   -- ExpRecCon: Record construction
@@ -4113,7 +4113,7 @@ Numeric functions
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
   type parameters `α₁`, `α₂`, `α` define the scale of the first input,
   the second input, and the output, respectively.  The first argument
-  is used as a witness for the scale `α`, is actual value is ignored.
+  is used as a witness for the scale `α`.
   Throws an ``ArithmeticError`` exception in case of overflow.
 
 
@@ -4124,20 +4124,20 @@ Numeric functions
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
   `n` is given as the type parameter).  The type parameters `α₁`,
   `α₂`, `α` define the scale of the first input, the second input, and
-  the output, respectively.  The first argument is used as a witness for the scale `α`, is actual value is ignored. Throws an ``ArithmeticError`` exception
+  the output, respectively.  The first argument is used as a witness for the scale `α`. Throws an ``ArithmeticError`` exception
   if the second argument is ``0.0`` or if the computation overflow.
 
 * ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₂ →  'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` while
-  keeping the value the same. The first argument is used as a witness for the scale `α`, is actual value is ignored. Throws an ``ArithmeticError`` exception
+  keeping the value the same. The first argument is used as a witness for the scale `α`. Throws an ``ArithmeticError`` exception
   in case of overflow or precision loss.
 
 * ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₂ → 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
   by shifting the decimal point. Thus the output will be equal to the input
-  multiplied by `1E(α₁-α₂)`. The first argument is used as a witness for the scale `α`, is actual value is ignored.
+  multiplied by `1E(α₁-α₂)`. The first argument is used as a witness for the scale `α`.
 
 * ``NUMERIC_TO_TEXT : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
@@ -4151,7 +4151,7 @@ Numeric functions
   ``[+-]?\d+(\.d+)?`` or if the result of the conversion cannot
   be mapped into a decimal without loss of precision, returns
   ``None``.  The scale of the output is given by the  parameter
-  `α`. The first argument is used as a witness for the scale `α`, is actual value is ignored.
+  `α`. The first argument is used as a witness for the scale `α`.
 
 BigNumeric functions
 ~~~~~~~~~~~~~~~~~~~~
@@ -4168,14 +4168,14 @@ BigNumeric functions
   Subtracts the two decimals. Throws an ``ArithmeticError`` if the
   output is not a valid BigNumeric.
 
-  [*Available in version ≥ 1.dev*]
+  [*Available in version ≥ 2.dev*]
 
 * ``MUL_BIGNUMERIC : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
   Multiplies the two numerics. Throws an ``ArithmeticError`` if the
   output is not a valid BigNumeric.
 
-  [*Available in version ≥ 1.dev*]
+  [*Available in version ≥ 2.dev*]
 
 * ``DIV_BIGNUMERIC : 'RoundingMode' → 'Int' → 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
@@ -4245,7 +4245,7 @@ BigNumeric functions
 
   Converts the ``BigNumeric`` to a ``Numeric α`` value with scale
   ``α``.  Throws an ``ArithmeticError`` in case the result cannot be
-  represented without loss of precision. The first argument is used as a witness for the scale `α`, is actual value is ignored.
+  represented without loss of precision. The first argument is used as a witness for the scale `α`.
 
   [*Available in version ≥ 2.dev*]
 
