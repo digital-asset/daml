@@ -7,9 +7,13 @@ import java.io.File
 import java.nio.file.{Files, Path}
 
 import io.circe.{Json, yaml}
+import io.circe.optics.JsonOptics._
+import monocle.function.Plated
 
+import scala.collection.immutable.Map
 import scala.io.Source
 import scala.util.Try
+import scala.util.matching.Regex
 
 /** Base class for all errors encountered while loading the config file */
 sealed abstract class ConfigLoadingError extends Product with Serializable {
@@ -120,14 +124,38 @@ object ProjectConfig {
       Try(new File(path, projectConfigName)).toEither.left.map(t => ConfigMissing(t.getMessage))
     )
 
-  /** Loads a project configuration from a string */
+  val envVarMatch: Regex = """(^|[^\\])(\\*)\$\{([^\}]+)\}""".r
+  def interpolateEnvironmentVariable(str: String, env: Map[String, String]): String =
+    envVarMatch.replaceAllIn(str, (m: Regex.Match) => Regex.quoteReplacement {
+      val prefix = m.group(1) + m.group(2).take(m.group(2).length / 2)
+      if (m.group(2).length % 2 == 0) {
+        val varName = m.group(3).replace(".", "_")
+        prefix + env.get(varName).getOrElse(
+          throw new IllegalArgumentException(s"Couldn't find environment variable $varName in value $str")
+        )
+      } else prefix + "${" + m.group(3) + "}"
+    })
+
+  def interpolateEnvironmentVariables(json: Json, env: Map[String, String]): Json =
+    Plated.transform[Json](_.mapString(interpolateEnvironmentVariable(_, env)))(json)
+
+    /** Loads a project configuration from a string */
   def loadFromString(
       projectPath: Path,
       content: String,
+  ): Either[ConfigLoadingError, ProjectConfig] =
+    loadFromStringWithEnv(projectPath, content, sys.env)
+
+  /** Loads a project configuration from a string, with an explicit environment variable map */
+  def loadFromStringWithEnv(
+      projectPath: Path,
+      content: String,
+      env: Map[String, String],
   ): Either[ConfigLoadingError, ProjectConfig] = {
     for {
       json <- yaml.parser.parse(content).left.map(e => ConfigParseError(e.getMessage))
-    } yield ProjectConfig(json, projectPath)
+      interpolatedJson <- Try(interpolateEnvironmentVariables(json, env)).fold(e => Left(ConfigParseError(e.getMessage)), Right(_))
+    } yield ProjectConfig(interpolatedJson, projectPath)
   }
 
   /** Loads a project configuration from a file */
