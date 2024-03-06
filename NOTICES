@@ -100,7 +100,6 @@ better-files 3.9.1 : MIT License
 bifunctors 5.5.13 : BSD 3-clause "New" or "Revised" License
 binary-extensions v2.2.0 : MIT License
 bl 4.1.0 : MIT License
-blackducksoftware_lodash 4.17.21 : MIT License
 blaze-builder 0.4.2.2 : BSD 3-clause "New" or "Revised" License
 blaze-html 0.9.1.2 : BSD 3-clause "New" or "Revised" License
 blaze-markup 0.8.2.8 : BSD 3-clause "New" or "Revised" License
@@ -706,6 +705,7 @@ livereload-js 2.4.0 : MIT License
 ljharb/object.assign 4.1.2 : MIT License
 ljharb/object.assign 4.1.4 : MIT License
 locate-path v5.0.0 : MIT License
+Lodash 4.17.21 : MIT License
 lodash.camelcase 4.3.0 : MIT License
 lodash-es 4.17.21 : MIT License
 lodash.escape 4.0.1 : MIT License
@@ -16347,7 +16347,7 @@ SOFTWARE
 ---
 
 MIT License
-(blackducksoftware_lodash 4.17.21, grunt-known-options 2.0.0, lodash-es 4.17.21, lodash.camelcase 4.3.0, lodash.escape 4.0.1, lodash.flattendeep 4.4.0, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
+(grunt-known-options 2.0.0, Lodash 4.17.21, lodash-es 4.17.21, lodash.camelcase 4.3.0, lodash.escape 4.0.1, lodash.flattendeep 4.4.0, lodash.isequal 4.5.0, lodash.isfinite 3.3.2)
 
 ====
 
