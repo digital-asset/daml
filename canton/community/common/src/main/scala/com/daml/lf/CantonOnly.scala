@@ -40,10 +40,9 @@ object CantonOnly {
       darMap: Map[PackageId, Ast.Package],
       enableLfDev: Boolean,
   ): PureCompiledPackages = {
-    // TODO(#14706): switch to LF v2 once it becomes the new default major version
     PureCompiledPackages.assertBuild(
       darMap,
-      if (enableLfDev) Compiler.Config.Dev(LanguageMajorVersion.V2)
+      if (enableLfDev) Compiler.Config.Dev(LanguageMajorVersion.V1)
       else Compiler.Config.Default(LanguageMajorVersion.V1),
     )
   }

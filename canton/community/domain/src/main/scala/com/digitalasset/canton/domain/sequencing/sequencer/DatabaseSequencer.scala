@@ -304,11 +304,7 @@ class DatabaseSequencer(
     store.status(clock.now)
 
   override def healthInternal(implicit traceContext: TraceContext): Future[SequencerHealthStatus] =
-    Future.successful(
-      SequencerHealthStatus(
-        isActive = writer.isActive
-      )
-    )
+    writer.healthStatus
 
   override def prune(
       requestedTimestamp: CantonTimestamp
