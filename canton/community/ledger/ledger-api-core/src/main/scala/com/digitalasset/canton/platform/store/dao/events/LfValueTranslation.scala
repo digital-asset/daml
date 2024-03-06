@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import cats.implicits.toTraverseOps
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent, InterfaceView}
-import com.daml.ledger.api.v1.value.{
+import com.daml.ledger.api.v2.event.{CreatedEvent, ExercisedEvent, InterfaceView}
+import com.daml.ledger.api.v2.value.{
   Identifier as ApiIdentifier,
   Record as ApiRecord,
   Value as ApiValue,

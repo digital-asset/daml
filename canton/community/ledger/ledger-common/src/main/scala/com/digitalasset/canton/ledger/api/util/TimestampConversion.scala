@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.util
 
-import com.daml.ledger.api.v1.value.Value
+import com.daml.ledger.api.v2.value.Value
 import com.daml.lf.data.Time.{Timestamp as LfTimestamp}
 import com.google.protobuf.timestamp.{Timestamp as ProtoTimestamp}
 

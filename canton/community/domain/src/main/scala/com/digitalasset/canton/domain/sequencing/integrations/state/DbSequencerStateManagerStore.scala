@@ -13,6 +13,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState
 import com.digitalasset.canton.domain.protocol.v30
 import com.digitalasset.canton.domain.sequencing.integrations.state.SequencerStateManagerStore.PruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender

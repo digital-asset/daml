@@ -14,6 +14,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
@@ -202,13 +203,17 @@ class SequencerWriter(
     * This will however be visible to anyone calling the status operation and could be used by a process monitor
     * to externally restart the sequencer.
     */
-  def startOrLogError()(implicit traceContext: TraceContext): Future[Unit] =
-    start().fold(
+  def startOrLogError(
+      initialSnapshot: Option[SequencerSnapshot]
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    start(initialSnapshot).fold(
       err => logger.error(s"Failed to startup sequencer writer: $err"),
       identity,
     )
 
-  def start()(implicit traceContext: TraceContext): EitherT[Future, WriterStartupError, Unit] =
+  def start(
+      initialSnapshot: Option[SequencerSnapshot] = None
+  )(implicit traceContext: TraceContext): EitherT[Future, WriterStartupError, Unit] =
     performUnlessClosingEitherT[WriterStartupError, Unit](
       functionFullName,
       WriterStartupError.WriterShuttingDown,
@@ -233,6 +238,13 @@ class SequencerWriter(
                 _ <- EitherTUtil
                   .onErrorOrFailure(() => writerStore.close()) {
                     for {
+                      _ <- initialSnapshot.fold[EitherT[Future, WriterStartupError, Unit]](
+                        EitherT.rightT(())
+                      )(snapshot =>
+                        generalStore
+                          .initializeFromSnapshot(snapshot)
+                          .leftMap(FailedToInitializeFromSnapshot)
+                      )
                       // validate that the datastore has an appropriate commit mode set in order to run the writer
                       _ <- expectedCommitMode
                         .fold(EitherTUtil.unit[String])(writerStore.validateCommitMode)
@@ -347,7 +359,7 @@ class SequencerWriter(
             FutureUtil.doNotAwait(
               // Wait for the writer store to be closed before re-starting, otherwise we might end up with
               // concurrent write stores trying to connect to the DB within the same sequencer node
-              closed.flatMap(_ => startOrLogError()),
+              closed.flatMap(_ => startOrLogError(None)(traceContext)),
               "SequencerWriter recovery",
             )
           } else {

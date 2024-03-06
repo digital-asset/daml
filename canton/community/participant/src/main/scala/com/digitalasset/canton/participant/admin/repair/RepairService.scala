@@ -9,7 +9,7 @@ import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v1.value.{Identifier, Record}
+import com.daml.ledger.api.v2.value.{Identifier, Record}
 import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*

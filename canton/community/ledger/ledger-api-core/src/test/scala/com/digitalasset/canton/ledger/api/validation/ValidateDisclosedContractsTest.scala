@@ -4,9 +4,11 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.commands.{DisclosedContract as ProtoDisclosedContract}
-import com.daml.ledger.api.v1.value.Identifier as ProtoIdentifier
-import com.daml.ledger.api.v2.commands.{Commands as ProtoCommands}
+import com.daml.ledger.api.v2.commands.{
+  Commands as ProtoCommands,
+  DisclosedContract as ProtoDisclosedContract,
+}
+import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.*

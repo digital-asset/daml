@@ -72,6 +72,7 @@ class PackageService(
     hashOps: HashOps,
     packageOps: PackageOps,
     metrics: ParticipantMetrics,
+    disableUpgradeValidation: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -394,7 +395,12 @@ class PackageService(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
-      _ <- validateUpgrade(mainPackage._1, mainPackage._2)
+      _ <-
+        if (disableUpgradeValidation) {
+          logger.info(s"Skipping upgrade validation for package ${mainPackage._1}.")
+          EitherT.rightT[Future, DamlError](())
+        } else
+          validateUpgrade(mainPackage._1, mainPackage._2)
     } yield ()
 
   private def validateUpgrade(upgradingPackageId: LfPackageId, upgradingPackage: Package)(implicit

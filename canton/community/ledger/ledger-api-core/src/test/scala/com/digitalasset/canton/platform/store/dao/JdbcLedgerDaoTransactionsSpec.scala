@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.resources.ResourceContext
@@ -425,8 +425,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         )
         .runWith(Sink.seq)
     } yield {
-      import com.daml.ledger.api.v1.event.Event
-      import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
+      import com.daml.ledger.api.v2.event.Event
+      import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created}
 
       val txs = extractAllTransactions(result)
 
@@ -458,8 +458,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .runWith(Sink.seq)
 
     } yield {
-      import com.daml.ledger.api.v1.event.Event
-      import com.daml.ledger.api.v1.event.Event.Event.Created
+      import com.daml.ledger.api.v2.event.Event
+      import com.daml.ledger.api.v2.event.Event.Event.Created
 
       inside(extractAllTransactions(result)) { case Vector(tx) =>
         tx.updateId shouldBe create2.transactionId

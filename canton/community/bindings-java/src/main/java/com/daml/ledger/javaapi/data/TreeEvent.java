@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TransactionOuterClass;
+import com.daml.ledger.api.v2.TransactionOuterClass;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.NonNull;
 

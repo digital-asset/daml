@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.traffic
 
-import cats.implicits.showInterpolator
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
@@ -43,42 +42,43 @@ class SequencerMemberRateLimiter(
   )(implicit
       tc: TraceContext
   ): (
-    Either[SequencerRateLimitError.AboveTrafficLimit, TrafficState],
-  ) = {
-    require(
+    Either[SequencerRateLimitError, TrafficState],
+  ) = Either
+    .cond(
       sequencingTimestamp > trafficState.timestamp,
-      show"Tried to consume an events out of order. Last event at ${trafficState.timestamp}, new event at $sequencingTimestamp",
+      (),
+      SequencerRateLimitError.EventOutOfOrder(member, trafficState.timestamp, sequencingTimestamp),
     )
-
-    val eventCost = eventCostCalculator.computeEventCost(
-      event,
-      trafficControlConfig.readVsWriteScalingFactor,
-      groupToMembers,
-    )
-
-    val (newTrafficState, accepted) =
-      updateTrafficState(
-        sequencingTimestamp,
-        trafficControlConfig,
-        eventCost,
-        trafficState,
-        currentBalance,
+    .flatMap { _ =>
+      val eventCost = eventCostCalculator.computeEventCost(
+        event,
+        trafficControlConfig.readVsWriteScalingFactor,
+        groupToMembers,
       )
 
-    logger.debug(s"Updated traffic status for $member: $newTrafficState")
-
-    if (accepted)
-      Right(newTrafficState)
-    else {
-      Left(
-        SequencerRateLimitError.AboveTrafficLimit(
-          member = member,
-          trafficCost = eventCost,
-          newTrafficState,
+      val (newTrafficState, accepted) =
+        updateTrafficState(
+          sequencingTimestamp,
+          trafficControlConfig,
+          eventCost,
+          trafficState,
+          currentBalance,
         )
-      )
+
+      logger.debug(s"Updated traffic status for $member: $newTrafficState")
+
+      if (accepted)
+        Right(newTrafficState)
+      else {
+        Left(
+          SequencerRateLimitError.AboveTrafficLimit(
+            member = member,
+            trafficCost = eventCost,
+            newTrafficState,
+          )
+        )
+      }
     }
-  }
 
   private[traffic] def updateTrafficState(
       sequencingTimestamp: CantonTimestamp,

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.ledger.api.v1.{admin as proto_admin}
+import com.daml.ledger.api.v2.{admin as proto_admin}
 import com.digitalasset.canton.ledger.api.domain.ObjectMeta
 
 object Utils {

@@ -3,13 +3,13 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
 import "google/protobuf/empty.proto";
 
 option java_outer_classname = "ValueOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Encodes values that the ledger accepts as command arguments and emits as contract arguments.
 //

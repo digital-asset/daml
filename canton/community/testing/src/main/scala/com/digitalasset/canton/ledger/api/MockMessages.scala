@@ -3,18 +3,16 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.daml.ledger.api.v1.event.*
-import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.transaction_filter.Filters
-import com.daml.ledger.api.v1.value.Value.Sum.Text
-import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.event.*
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
-import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v2.value.Value.Sum.Text
+import com.daml.ledger.api.v2.value.{Identifier, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.util.Random

@@ -75,4 +75,15 @@ trait TrafficBalanceStore extends AutoCloseable {
   /** Returns the maximum timestamp present in a member balance.
     */
   def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]]
+
+  /** Persists the timestamp of the last sequenced event in the snapshot with which the sequencer is initialized.
+    * This allows to recover from a crash just after onboarding by reading back this timestamp to tick the balance manager.
+    */
+  def setInitialTimestamp(cantonTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
+
+  /** Gets the timestamp of the last sequenced event in the snapshot the sequencer is initialized with.
+    */
+  def getInitialTimestamp(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]]
 }

@@ -13,13 +13,13 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommitMode,
   PruningError,
   SequencerPruningStatus,
+  SequencerSnapshot,
   WriteNotification,
 }
 import com.digitalasset.canton.lifecycle.CloseContext
@@ -739,7 +739,7 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
   ): Future[Option[CantonTimestamp]]
 
   /** The state returned here is used to initialize a separate database sequencer (that does not share the same database as this one)
-    * using [[initializeSeparateFromState]] such that this new sequencer has enough information (registered members, checkpoints, etc)
+    * using [[initializeFromSnapshot]] such that this new sequencer has enough information (registered members, checkpoints, etc)
     * to be able to process new events from the same point as this sequencer to the same clients.
     * This is typically used by block sequencers that use the database sequencer as local storage such that they will process the same
     * events in the same order and they need to be able to spin up new block sequencers from a specific point in time.
@@ -747,31 +747,30 @@ trait SequencerStore extends NamedLogging with AutoCloseable {
     */
   def readStateAtTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[EphemeralState]
+  ): Future[SequencerSnapshot]
 
-  // probably a good idea to implement this as an atomic db transaction on the DbSequencerStore
-  def initializeSeparateFromState(state: EphemeralState)(implicit
+  def initializeFromSnapshot(snapshot: SequencerSnapshot)(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[Unit] = {
-    val timestamps = state.checkpoints.map(_._2.timestamp)
-    val lowerBound = timestamps.minOption.getOrElse(CantonTimestamp.MinValue)
-    val watermark = timestamps.maxOption.getOrElse(CantonTimestamp.MinValue)
+  ): EitherT[Future, String, Unit] = {
+    import EitherT.right as eitherT
+    val lastTs = snapshot.lastTs
     for {
-      _ <- saveWatermark(0, watermark).value.map(_ => ())
-      _ <- saveLowerBound(lowerBound).value.map(_ => ())
-      _ <- Future.traverse(state.status.members) { memberStatus =>
+      _ <- snapshot.status.members.parTraverse { memberStatus =>
         for {
-          id <- registerMember(memberStatus.member, memberStatus.registeredAt)
-          _ <- if (!memberStatus.enabled) disableMember(id) else Future.unit
-          _ <- memberStatus.lastAcknowledged.fold(Future.unit)(ack => acknowledge(id, ack))
-          _ <- state.checkpoints
-            .get(memberStatus.member)
-            .fold(Future.unit)(checkpoint =>
-              saveCounterCheckpoint(id, checkpoint).value.map(_ => ())
-            )
+          id <- eitherT(registerMember(memberStatus.member, memberStatus.registeredAt))
+          _ <-
+            if (!memberStatus.enabled) eitherT(disableMember(id))
+            else EitherT.rightT[Future, String](())
+          _ <- eitherT(memberStatus.lastAcknowledged.fold(Future.unit)(ack => acknowledge(id, ack)))
+          _ <- saveCounterCheckpoint(
+            id,
+            CounterCheckpoint(snapshot.heads(memberStatus.member), lastTs, Some(lastTs)),
+          ).leftMap(_.toString)
         } yield ()
       }
+      _ <- saveLowerBound(lastTs).leftMap(_.toString)
+      _ <- saveWatermark(0, lastTs).leftMap(_.toString)
     } yield ()
   }
 }
@@ -786,7 +785,7 @@ object SequencerStore {
       overrideCloseContext: Option[CloseContext] = None,
   )(implicit executionContext: ExecutionContext): SequencerStore =
     storage match {
-      case _: MemoryStorage => new InMemorySequencerStore(loggerFactory)
+      case _: MemoryStorage => new InMemorySequencerStore(protocolVersion, loggerFactory)
       case dbStorage: DbStorage =>
         new DbSequencerStore(
           dbStorage,

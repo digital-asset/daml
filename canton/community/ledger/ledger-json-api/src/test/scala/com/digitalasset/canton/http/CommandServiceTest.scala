@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import lav2.command_service.{
   SubmitAndWaitForTransactionResponse,
@@ -44,7 +44,7 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
       val specialActAs = NonEmptyList("bar")
       val specialReadAs = List("quux")
       def create(meta: Option[domain.CommandMeta.NoDisclosed]) =
-        domain.CreateCommand(tplId, lav1.value.Record(), meta)
+        domain.CreateCommand(tplId, lav2.value.Record(), meta)
       for {
         normal <- cs.create(multiPartyJwt, multiPartyJwp, create(None))
         overridden <- cs.create(
@@ -149,13 +149,13 @@ object CommandServiceTest extends BaseTest {
           _ =>
             Future {
               txns.add(req)
-              import lav1.event.{CreatedEvent, Event}, Event.Event.Created
+              import lav2.event.{CreatedEvent, Event}, Event.Event.Created
               import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
               val creation = Event(
                 Created(
                   CreatedEvent(
                     templateId = Some(apiIdentifier(tplId)),
-                    createArguments = Some(lav1.value.Record()),
+                    createArguments = Some(lav2.value.Record()),
                   )
                 )
               )

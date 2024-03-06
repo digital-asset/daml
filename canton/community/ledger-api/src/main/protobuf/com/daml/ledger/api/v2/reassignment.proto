@@ -5,9 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/event.proto";
-import "com/daml/ledger/api/v1/trace_context.proto";
-import "com/daml/ledger/api/v1/value.proto";
+import "com/daml/ledger/api/v2/event.proto";
+import "com/daml/ledger/api/v2/trace_context.proto";
+import "com/daml/ledger/api/v2/value.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_outer_classname = "ReassignmentOuterClass";
@@ -50,7 +50,7 @@ message Reassignment {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  com.daml.ledger.api.v1.TraceContext trace_context = 7;
+  com.daml.ledger.api.v2.TraceContext trace_context = 7;
 
   // The time at which the reassignment was recorded. The record time refers to the source/target
   // domain for an unassign/assign event respectively.
@@ -75,7 +75,7 @@ message UnassignedEvent {
 
   //  The template of the reassigned contract.
   //  Required
-  com.daml.ledger.api.v1.Identifier template_id = 3;
+  com.daml.ledger.api.v2.Identifier template_id = 3;
 
   // The ID of the source domain
   // Must be a valid domain ID
@@ -143,5 +143,5 @@ message AssignedEvent {
   uint64 reassignment_counter = 5;
 
   // Required
-  com.daml.ledger.api.v1.CreatedEvent created_event = 6;
+  com.daml.ledger.api.v2.CreatedEvent created_event = 6;
 }

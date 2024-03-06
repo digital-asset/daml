@@ -1,19 +1,23 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.domain.sequencing.integrations.state
+package com.digitalasset.canton.domain.block.data
 
 import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoint
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregations,
   InternalSequencerPruningStatus,
+  SequencerSnapshot,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalance
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.version.ProtocolVersion
 
 /** State held in memory by [[com.digitalasset.canton.domain.block.BlockSequencerStateManager]] to keep track of:
   *
@@ -38,6 +42,27 @@ final case class EphemeralState(
     */
   def headCounterAboveGenesis(member: Member): Boolean =
     heads.get(member).exists(_ > SequencerCounter.Genesis)
+  def toSequencerSnapshot(
+      lastTs: CantonTimestamp,
+      additional: Option[SequencerSnapshot.ImplementationSpecificInfo],
+      protocolVersion: ProtocolVersion,
+      trafficBalances: Seq[TrafficBalance],
+  ): SequencerSnapshot =
+    SequencerSnapshot(
+      lastTs,
+      heads,
+      status.toSequencerPruningStatus(lastTs),
+      inFlightAggregations,
+      additional,
+      protocolVersion,
+      trafficState = trafficState.map { case (member, state) =>
+        member -> MemberTrafficSnapshot(
+          member = member,
+          state = state,
+        )
+      },
+      trafficBalances,
+    )
 
   assert(
     heads.keys.forall(registeredMembers.contains),

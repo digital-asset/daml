@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
 import "google/protobuf/wrappers.proto";
 

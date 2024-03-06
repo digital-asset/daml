@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
+import com.daml.ledger.api.v2.event.{CreatedEvent, ExercisedEvent}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId

@@ -4,17 +4,17 @@
 package com.digitalasset.canton.ledger.client
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v1.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
-import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc
-import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
-import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc
-import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
-import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc
-import com.daml.ledger.api.v1.trace_context.TraceContext as LedgerApiTraceContext
+import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
+import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc
+import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc
+import com.daml.ledger.api.v2.admin.participant_pruning_service.ParticipantPruningServiceGrpc
+import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc
+import com.daml.ledger.api.v2.admin.user_management_service.UserManagementServiceGrpc
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc as CommandServiceGrpcV2
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc as PackageServiceGrpcV2
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc
+import com.daml.ledger.api.v2.trace_context.TraceContext as LedgerApiTraceContext
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc
 import com.daml.ledger.api.v2.version_service.VersionServiceGrpc
 import com.digitalasset.canton.ledger.client.LedgerCallCredentials.authenticatingStub

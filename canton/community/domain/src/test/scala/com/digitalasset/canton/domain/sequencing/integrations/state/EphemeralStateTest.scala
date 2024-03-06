@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.integrations.state
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InternalSequencerPruningStatus,
   SequencerMemberStatus,

@@ -918,26 +918,8 @@ alter table seq_initial_state
 alter table seq_initial_state
     add column sequenced_timestamp bigint;
 
--- Store the top up events per member as they get sequenced in the topology state
--- Allows to efficiently query top ups without replaying the topology state
-create table seq_top_up_events (
-    -- member the traffic limit belongs to
-    member varchar(300) not null,
-    -- timestamp at which the limit is effective
-    effective_timestamp bigint not null,
-    -- the total traffic limit at that time
-    extra_traffic_limit bigint not null,
-    -- serial number of the topology transaction effecting the top up
-    -- used to disambiguate between top ups with the same effective timestamp
-    serial bigint not null,
-    -- top ups should have unique serial per member
-    primary key (member, serial)
-);
-
-create index idx_seq_top_up_events ON seq_top_up_events (member);
-
 -- Stores the traffic balance updates
-create table sequencer_traffic_control_balance_updates (
+create table seq_traffic_control_balance_updates (
     -- member the traffic balance update is for
        member varchar(300) not null,
     -- timestamp at which the update was sequenced
@@ -948,6 +930,13 @@ create table sequencer_traffic_control_balance_updates (
        serial bigint not null,
     -- traffic states have a unique sequencing_timestamp per member
        primary key (member, sequencing_timestamp)
+);
+
+-- Stores the initial timestamp during onboarding. Allows to survive a restart immediately after onboarding
+create table seq_traffic_control_initial_timestamp (
+        -- Timestamp used to initialize the sequencer during onboarding, and the balance manager as well
+        initial_timestamp bigint not null,
+        primary key (initial_timestamp)
 );
 
 --   BFT Ordering Tables

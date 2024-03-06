@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.util
 
-import com.daml.ledger.api.v1.value.Value.{Sum as VSum}
+import com.daml.ledger.api.v2.value.Value.{Sum as VSum}
 import com.daml.lf.data.Time
 import org.scalacheck.{Gen, Prop}
 import org.scalatest.matchers.should.Matchers

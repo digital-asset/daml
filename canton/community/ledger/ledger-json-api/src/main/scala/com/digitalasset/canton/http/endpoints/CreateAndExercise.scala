@@ -18,8 +18,8 @@ import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.JwtParties.*
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1 as lav1
-import lav1.value.{Record as ApiRecord, Value as ApiValue}
+import com.daml.ledger.api.{v2 as lav2}
+import lav2.value.{Record as ApiRecord, Value as ApiValue}
 import scalaz.std.scalaFuture.*
 import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json.*

@@ -17,9 +17,9 @@ import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   BlockUpdateClosureWithHeight,
+  EphemeralState,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer

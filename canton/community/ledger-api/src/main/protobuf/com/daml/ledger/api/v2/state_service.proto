@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v2/event.proto";
 import "com/daml/ledger/api/v2/participant_offset.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
@@ -98,7 +98,7 @@ message GetActiveContractsResponse {
 message ActiveContract {
 
   // Required
-  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
+  com.daml.ledger.api.v2.CreatedEvent created_event = 1;
 
   // A valid domain ID
   // Required
@@ -116,7 +116,7 @@ message ActiveContract {
 message IncompleteUnassigned {
 
   // Required
-  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
+  com.daml.ledger.api.v2.CreatedEvent created_event = 1;
 
   // Required
   UnassignedEvent unassigned_event = 2;

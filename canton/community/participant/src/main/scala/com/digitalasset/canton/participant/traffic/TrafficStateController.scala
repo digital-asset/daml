@@ -3,46 +3,49 @@
 
 package com.digitalasset.canton.participant.traffic
 
-import cats.instances.option.*
-import cats.syntax.parallel.*
+import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.traffic.TrafficStateController.ParticipantTrafficState
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEventTrafficState}
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.traffic.{MemberTrafficStatus, TopUpEvent}
-import com.digitalasset.canton.util.FutureInstances.parallelFuture
-import com.digitalasset.canton.util.FutureUtil
-import monocle.macros.syntax.lens.*
+import com.digitalasset.canton.traffic.MemberTrafficStatus
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /** Maintains the current traffic state up to date for a given domain.
   */
 class TrafficStateController(
     val participant: ParticipantId,
     override val loggerFactory: NamedLoggerFactory,
-    topologyClient: DomainTopologyClientWithInit,
     metrics: SyncDomainMetrics,
-    clock: Clock,
 ) extends NamedLogging {
   private val currentTrafficState =
-    new AtomicReference[Option[SequencedEventTrafficState]](None)
-  def addTopUp(topUp: TopUpEvent)(implicit tc: TraceContext): Unit = {
-    metrics.trafficControl.topologyTransaction.updateValue(topUp.limit.value)
-    FutureUtil.doNotAwaitUnlessShutdown(
-      // Getting the state will update metrics with the latest top up value
-      clock.scheduleAt(
-        _ => metrics.trafficControl.extraTrafficAvailable.updateValue(topUp.limit.value),
-        topUp.validFromInclusive,
-      ),
-      "update metrics after top up is effective",
-    )
+    new AtomicReference[Option[ParticipantTrafficState]](None)
+  def updateBalance(newBalance: NonNegativeLong, serial: PositiveInt, timestamp: CantonTimestamp)(
+      implicit tc: TraceContext
+  ): Unit = {
+    metrics.trafficControl.topologyTransaction.updateValue(newBalance.value)
+    metrics.trafficControl.extraTrafficAvailable.updateValue(newBalance.value)
+    val newState = currentTrafficState.updateAndGet {
+      case Some(old) if old.timestamp <= timestamp =>
+        old.state
+          .updateLimit(newBalance)
+          .map { newState =>
+            Some(old.copy(state = newState, timestamp = timestamp, serial = Some(serial)))
+          }
+          .valueOr { err =>
+            logger.info(s"Failed to update traffic state after balance update: $err")
+            Some(old)
+          }
+      case other => other
+    }
+    logger.debug(s"Updating traffic state after balance update to $newState")
   }
 
   def updateState(event: PossiblyIgnoredSequencedEvent[ClosedEnvelope])(implicit
@@ -50,44 +53,33 @@ class TrafficStateController(
   ): Unit = {
     event.trafficState.foreach { newState =>
       logger.trace(s"Updating traffic control state with $newState")
-      currentTrafficState.set(Some(newState))
       metrics.trafficControl.extraTrafficAvailable.updateValue(newState.extraTrafficRemainder.value)
+      currentTrafficState.updateAndGet {
+        case Some(old) if old.timestamp <= event.timestamp => Some(old.copy(state = newState))
+        case None => Some(ParticipantTrafficState(newState, event.timestamp))
+        case other => other
+      }
     }
   }
 
-  def getState(implicit
-      tc: TraceContext,
-      ec: ExecutionContext,
-  ): Future[Option[MemberTrafficStatus]] = {
+  def getState(): Future[Option[MemberTrafficStatus]] = Future.successful {
     currentTrafficState
       .get()
-      .parTraverse { trafficState =>
-        val currentSnapshot = topologyClient.headSnapshot
-
-        currentSnapshot
-          .trafficControlStatus(Seq(participant))
-          .map(_.get(participant).flatten)
-          .map { topologyTrafficOpt =>
-            MemberTrafficStatus(
-              participant,
-              currentSnapshot.timestamp,
-              topologyTrafficOpt
-                .map { totalTrafficLimit =>
-                  // If there is a traffic limit in the topology state, use that to compute the traffic state returned
-                  val newRemainder =
-                    totalTrafficLimit.totalExtraTrafficLimit.value - trafficState.extraTrafficConsumed.value
-                  trafficState
-                    .focus(_.extraTrafficRemainder)
-                    .replace(
-                      NonNegativeLong.tryCreate(newRemainder)
-                    )
-                }
-                .getOrElse(trafficState),
-              // TODO(i17538): We don't have the serial of the traffic balance in the participant yet
-              Option.empty[PositiveInt],
-            )
-          }
-
+      .map { participantState =>
+        MemberTrafficStatus(
+          participant,
+          participantState.timestamp,
+          participantState.state,
+          participantState.serial,
+        )
       }
   }
+}
+
+object TrafficStateController {
+  private final case class ParticipantTrafficState(
+      state: SequencedEventTrafficState,
+      timestamp: CantonTimestamp,
+      serial: Option[PositiveInt] = None,
+  )
 }

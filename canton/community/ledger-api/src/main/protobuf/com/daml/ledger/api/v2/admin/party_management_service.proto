@@ -3,14 +3,14 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1.admin;
+package com.daml.ledger.api.v2.admin;
 
-import "com/daml/ledger/api/v1/admin/object_meta.proto";
+import "com/daml/ledger/api/v2/admin/object_meta.proto";
 import "google/protobuf/field_mask.proto";
 
 option java_outer_classname = "PartyManagementServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+option java_package = "com.daml.ledger.api.v2.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // This service allows inspecting the party management state of the ledger known to the participant
 // and managing the participant-local party metadata.
@@ -170,7 +170,7 @@ message UpdatePartyDetailsRequest {
   // as long as the values provided in the update request match the server values.
   // Examples of update paths: 'local_metadata.annotations', 'local_metadata'.
   // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
-  // For similar Ledger API see ``com.daml.ledger.api.v1.admin.UpdateUserRequest``.
+  // For similar Ledger API see ``com.daml.ledger.api.v2.admin.UpdateUserRequest``.
   // Required
   google.protobuf.FieldMask update_mask = 2;
 }

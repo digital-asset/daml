@@ -156,12 +156,14 @@ class TrafficBalanceSubmissionHandlerTest
     val maxSequencingTimeCapture: ArgumentCaptor[CantonTimestamp] =
       ArgumentCaptor.forClass(classOf[CantonTimestamp])
 
-    // 01/01/2024 15:39:00
-    val currentSimTime = LocalDateTime.of(2024, 1, 1, 15, 39, 0)
+    val minutesBucketEnd =
+      (8 * trafficParams.setBalanceRequestSubmissionWindowSize.duration.toMinutes).toInt
+    // 01/01/2024 15:31:00
+    val currentSimTime = LocalDateTime.of(2024, 1, 1, 15, minutesBucketEnd - 1, 0)
     val newTime = CantonTimestamp.ofEpochMilli(
       currentSimTime.toInstant(ZoneOffset.UTC).toEpochMilli
     )
-    // Advance the clock to 15:39 - within one minute of the next time bucket
+    // Advance the clock to 15:minutesBucketEnd - 1 - within one minute of the next time bucket (every setBalanceRequestSubmissionWindowSize minutes)
     clock.advanceTo(newTime)
 
     when(
@@ -209,11 +211,13 @@ class TrafficBalanceSubmissionHandlerTest
     )
 
     maxSequencingTimeCapture.getAllValues.asScala should contain theSameElementsAs List(
-      mkTimeBucketUpperBound(40),
-      mkTimeBucketUpperBound(45),
+      mkTimeBucketUpperBound(minutesBucketEnd),
+      mkTimeBucketUpperBound(
+        minutesBucketEnd + trafficParams.setBalanceRequestSubmissionWindowSize.duration.toMinutes.toInt
+      ),
     )
 
-    resultF.failOnShutdown.futureValue shouldBe Right(mkTimeBucketUpperBound(45))
+    resultF.failOnShutdown.futureValue shouldBe Right(mkTimeBucketUpperBound(36))
   }
 
   "catch sequencer client failures" in {

@@ -1284,9 +1284,7 @@ class CantonSyncService(
         trafficStateController = new TrafficStateController(
           participantId,
           loggerFactory,
-          domainHandle.topologyClient,
           metrics.domainMetrics(domainAlias),
-          clock,
         )
 
         syncDomain = syncDomainFactory.create(
@@ -1311,6 +1309,7 @@ class CantonSyncService(
               trafficStateController,
               ephemeral.recordOrderPublisher,
               domainHandle.staticParameters.protocolVersion,
+              parameters.useNewTrafficControl,
             ),
           missingKeysAlerter,
           transferCoordination,

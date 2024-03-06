@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.daml.ledger.api.v1.admin
+import com.daml.ledger.api.v2.admin
 import scalapb.GeneratedMessageCompanion
 
 object FieldNames {

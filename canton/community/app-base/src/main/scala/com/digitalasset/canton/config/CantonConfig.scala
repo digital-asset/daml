@@ -379,6 +379,7 @@ trait CantonConfig {
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
+        disableUpgradeValidation = participantParameters.disableUpgradeValidation,
       )
     }
 

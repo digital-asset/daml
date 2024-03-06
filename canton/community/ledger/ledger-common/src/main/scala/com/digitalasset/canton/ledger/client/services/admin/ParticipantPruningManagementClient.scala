@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.client.services.admin
 
-import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningServiceStub
-import com.daml.ledger.api.v1.admin.participant_pruning_service.{PruneRequest, PruneResponse}
+import com.daml.ledger.api.v2.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningServiceStub
+import com.daml.ledger.api.v2.admin.participant_pruning_service.{PruneRequest, PruneResponse}
 import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.Future
