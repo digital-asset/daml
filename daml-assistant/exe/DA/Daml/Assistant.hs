@@ -25,7 +25,8 @@ import System.Directory
 import System.Process.Typed
 import System.Exit
 import System.IO
-import Control.Exception.Safe
+import Control.Exception (throw)
+import Control.Exception.Safe hiding (throw)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.KeyMap as A
@@ -287,11 +288,31 @@ runCommand env@Env{..} = \case
             dispatch env path args
 
     Dispatch SdkCommandInfo{..} cmdArgs -> do
-        wrapErr ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do
+        wrapErrWithEnvVarWarning env ("Running " <> unwrapSdkCommandName sdkCommandName <> " command.") $ do
             sdkPath <- required "Could not determine SDK path." envSdkPath
             let path = unwrapSdkPath sdkPath </> unwrapSdkCommandPath sdkCommandPath
                 args = unwrapSdkCommandArgs sdkCommandArgs ++ unwrapUserCommandArgs cmdArgs
             dispatch env path args
+
+envVarAddedVersion :: ReleaseVersion
+envVarAddedVersion = either throw id $ unsafeParseOldReleaseVersion "2.9.0-snapshot.20240210.0"
+
+wrapErrWithEnvVarWarning :: Env -> Text -> IO a -> IO a
+wrapErrWithEnvVarWarning Env{..} ctx act = do
+    case (envSdkVersion, envProjectPath) of
+        (Just ver, Just path) -> do
+            hasEnvVars <- projectConfigExistsWithEnv path
+            let sdkMissingEnvSupport = ver < envVarAddedVersion && not (isHeadVersion ver)
+            if hasEnvVars && sdkMissingEnvSupport
+                then do
+                    putStrLn "WARNING: Using an SDK that does not support Environment Variable Interpolation with a daml.yaml containing Environment Variables."
+                    putStrLn "  Something will almost certainly break."
+                    wrapErrWithExitMessage
+                        "This failure may be due to the environment variables in your daml.yaml. The selected SDK Version does not support this feature."
+                        ctx
+                        act
+                else wrapErr ctx act
+        _ -> wrapErr ctx act
 
 dispatch :: Env -> FilePath -> [String] -> IO ()
 dispatch env path args = do

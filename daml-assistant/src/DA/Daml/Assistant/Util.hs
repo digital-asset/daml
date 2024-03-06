@@ -22,10 +22,10 @@ throwErr msg = throwIO (assistantError msg)
 
 -- | Handle synchronous exceptions by wrapping them in an AssistantError,
 -- add context to any assistant errors that are missing context.
-wrapErrG :: (Text -> SomeException -> AssistantError) -> Text -> IO a -> IO a
-wrapErrG wrapSomeException ctx m = m `catches`
+wrapErrG :: (Text -> SomeException -> AssistantError) -> Maybe Text -> Text -> IO a -> IO a
+wrapErrG wrapSomeException exitMessage ctx m = m `catches`
     [ Handler $ throwIO @IO @ExitCode
-    , Handler $ \ExitCodeException{eceExitCode} -> exitWith eceExitCode
+    , Handler $ \ExitCodeException{eceExitCode} -> traverse (putStrLn . unpack) exitMessage >> exitWith eceExitCode
     , Handler $ throwIO . addErrorContext
     , Handler $ throwIO . wrapSomeException ctx
     ]
@@ -35,7 +35,7 @@ wrapErrG wrapSomeException ctx m = m `catches`
             err { errContext = errContext err <|> Just ctx }
 
 wrapErrNoDisplay :: Text -> IO a -> IO a
-wrapErrNoDisplay = wrapErrG wrapSomeExceptionWithoutMsg
+wrapErrNoDisplay = wrapErrG wrapSomeExceptionWithoutMsg Nothing
 
 wrapSomeExceptionWithoutMsg :: Text -> SomeException -> AssistantError
 wrapSomeExceptionWithoutMsg ctx err =
@@ -46,7 +46,10 @@ wrapSomeExceptionWithoutMsg ctx err =
         }
 
 wrapErr :: Text -> IO a -> IO a
-wrapErr = wrapErrG wrapSomeExceptionWithMsg
+wrapErr = wrapErrG wrapSomeExceptionWithMsg Nothing
+
+wrapErrWithExitMessage :: Text -> Text -> IO a -> IO a
+wrapErrWithExitMessage = wrapErrG wrapSomeExceptionWithMsg . Just
 
 wrapSomeExceptionWithMsg :: Text -> SomeException -> AssistantError
 wrapSomeExceptionWithMsg ctx err =
