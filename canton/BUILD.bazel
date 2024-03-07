@@ -921,7 +921,8 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    unused_dependency_checker_mode = "error",
+    # we use "warn" because it claims incorrectly that daml-lf/validation" is unused
+    unused_dependency_checker_mode = "warn",
     exports = [
         "@maven//:io_netty_netty_handler",
     ],
