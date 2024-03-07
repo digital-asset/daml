@@ -370,63 +370,14 @@ encodeBuiltinExpr = \case
       LitRoundingHalfEven -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_EVEN
       LitRoundingUnnecessary -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUNNECESSARY
 
-    BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
-    BELessGeneric -> builtin P.BuiltinFunctionLESS
-    BELessEqGeneric -> builtin P.BuiltinFunctionLESS_EQ
-    BEGreaterGeneric -> builtin P.BuiltinFunctionGREATER
-    BEGreaterEqGeneric -> builtin P.BuiltinFunctionGREATER_EQ
-
-    BEEqual typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
-      BTText -> builtin P.BuiltinFunctionEQUAL_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionEQUAL_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionEQUAL_DATE
-      BTParty -> builtin P.BuiltinFunctionEQUAL_PARTY
-      BTBool -> builtin P.BuiltinFunctionEQUAL_BOOL
-      BTTypeRep -> builtin P.BuiltinFunctionEQUAL_TYPE_REP
-      other -> error $ "BEEqual unexpected type " <> show other
-
-    BELessEq typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionLEQ_INT64
-      BTText -> builtin P.BuiltinFunctionLEQ_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionLEQ_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionLEQ_DATE
-      BTParty -> builtin P.BuiltinFunctionLEQ_PARTY
-      other -> error $ "BELessEq unexpected type " <> show other
-
-    BELess typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionLESS_INT64
-      BTText -> builtin P.BuiltinFunctionLESS_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionLESS_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionLESS_DATE
-      BTParty -> builtin P.BuiltinFunctionLESS_PARTY
-      other -> error $ "BELess unexpected type " <> show other
-
-    BEGreaterEq typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionGEQ_INT64
-      BTText -> builtin P.BuiltinFunctionGEQ_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionGEQ_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionGEQ_DATE
-      BTParty -> builtin P.BuiltinFunctionGEQ_PARTY
-      other -> error $ "BEGreaterEq unexpected type " <> show other
-
-    BEGreater typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionGREATER_INT64
-      BTText -> builtin P.BuiltinFunctionGREATER_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionGREATER_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionGREATER_DATE
-      BTParty -> builtin P.BuiltinFunctionGREATER_PARTY
-      other -> error $ "BEGreater unexpected type " <> show other
-
-    BEEqualNumeric -> builtin P.BuiltinFunctionEQUAL_NUMERIC
-    BELessNumeric -> builtin P.BuiltinFunctionLESS_NUMERIC
-    BELessEqNumeric -> builtin P.BuiltinFunctionLEQ_NUMERIC
-    BEGreaterNumeric -> builtin P.BuiltinFunctionGREATER_NUMERIC
-    BEGreaterEqNumeric -> builtin P.BuiltinFunctionGEQ_NUMERIC
+    BEEqual -> builtin P.BuiltinFunctionEQUAL
+    BELess -> builtin P.BuiltinFunctionLESS
+    BELessEq -> builtin P.BuiltinFunctionLESS_EQ
+    BEGreater -> builtin P.BuiltinFunctionGREATER
+    BEGreaterEq -> builtin P.BuiltinFunctionGREATER_EQ
 
     BEToText typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionINT64_TO_TEXT
-      BTText -> builtin P.BuiltinFunctionTEXT_TO_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionTIMESTAMP_TO_TEXT
       BTDate -> builtin P.BuiltinFunctionDATE_TO_TEXT
       BTParty -> builtin P.BuiltinFunctionPARTY_TO_TEXT
@@ -439,7 +390,6 @@ encodeBuiltinExpr = \case
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
     BETextToNumeric -> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
-    BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddNumeric -> builtin P.BuiltinFunctionADD_NUMERIC
     BESubNumeric -> builtin P.BuiltinFunctionSUB_NUMERIC
@@ -502,7 +452,6 @@ encodeBuiltinExpr = \case
     BEUnixDaysToDate -> builtin P.BuiltinFunctionUNIX_DAYS_TO_DATE
 
     BETrace -> builtin P.BuiltinFunctionTRACE
-    BEEqualContractId -> builtin P.BuiltinFunctionEQUAL_CONTRACT_ID
     BECoerceContractId -> builtin P.BuiltinFunctionCOERCE_CONTRACT_ID
 
     BETypeRepTyConName -> builtin P.BuiltinFunctionTYPE_REP_TYCON_NAME

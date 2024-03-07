@@ -99,8 +99,15 @@ tListPackages :: SandboxTest
 tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \DarMetadata{mainPackageId,manifest} _testId -> do
     pids <- listPackages
     liftIO $ do
-        -- Canton loads the `AdminWorkflows` package at boot, hence the + 1
-        assertEqual "#packages" (length (dalfPaths manifest) + 1) (length pids)
+        putStrLn ("PIDS" <> show pids)
+        putStrLn ("dalfPaths manifest" <> show (dalfPaths manifest))
+        -- Canton loads the `AdminWorkflows` package at boot, hence the + 1.
+        -- The `AdminWorkflows` package transitively pulls the 2.1 prim and
+        -- stdlib packages, while our test dar pulls the 2.dev ones, hence the 
+        -- temporary + 2.
+        -- TODO(https://github.com/digital-asset/daml/issues/18457): revert to
+        --  just +1 once the test dar targets 2.1 again.
+        assertEqual "#packages" (length (dalfPaths manifest) + 1 + 2) (length pids)
         assertBool "The pid is listed" (mainPackageId `elem` pids)
 
 tGetPackage :: SandboxTest
