@@ -6,23 +6,30 @@ module DA.Test.DamlcMultiPackage (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Exception (try)
-import Control.Monad.Extra (forM_, unless, void)
+import Control.Monad.Extra (forM, forM_, unless, void)
 import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
-import Data.List (intercalate, intersect, isInfixOf, union, (\\))
+import qualified DA.Daml.Dar.Reader as Reader
+import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Version (version1_15)
+import DA.Test.Util (defaultJvmMemoryLimits, limitJvmMemory, withEnv)
+import qualified Data.HashMap.Strict as HashMap
+import Data.List (find, intercalate, intersect, isInfixOf, isPrefixOf, sort, union, (\\))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
+import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
-import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, listDirectory, removeFile, withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
-import System.FilePath (makeRelative, (</>))
-import System.IO.Extra (withTempDir)
-import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
-import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase)
+import System.FilePath (getSearchPath, isExtensionOf, makeRelative, replaceFileName, searchPathSeparator, takeFileName, (</>))
+import System.Info.Extra (isWindows)
+import System.IO.Extra (newTempDir, withTempDir)
+import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess, readProcess)
+import Test.Tasty (TestTree, defaultMain, testGroup, withResource)
+import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, assertEqual, testCase, (@?=))
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
 
 -- Abstraction over the folder structure of a project, consisting of many packages.
@@ -40,6 +47,7 @@ data ProjectStructure
   | MultiPackage
       { mpPackages :: [T.Text]
       , mpProjects :: [T.Text]
+      , mpCompositeDars :: [CompositeDarDefinition]
       }
   | Dir
       { dName :: T.Text 
@@ -62,6 +70,14 @@ data PackageIdentifier = PackageIdentifier
 instance Show PackageIdentifier where
   show pi = T.unpack (piName pi) <> "-" <> T.unpack (piVersion pi)
 
+data CompositeDarDefinition = CompositeDarDefinition
+  { cddName :: T.Text
+  , cddVersion :: T.Text
+  , cddPackages :: [T.Text]
+  , cddDars :: [T.Text]
+  , cddPath :: T.Text
+  }
+
 {- Remaining tests needed:
 - multi-sdk
     Use Dylan's `releases-endpoint` and `alternate-download` in daml-config to defer sdk download
@@ -73,16 +89,24 @@ main :: IO ()
 main = withSdkVersions $ do
   damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
   release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
+  oldPath <- getSearchPath
+  javaPath <- locateRunfiles "local_jdk/bin"
+
   withTempDir $ \damlHome -> do
     setEnv "DAML_HOME" damlHome True
     -- Install sdk `env:DAML_SDK_RELEASE_VERSION` into temp DAML_HOME
     -- corresponds to:
     --   - `0.0.0` on PR builds
     --   - `x.y.z-snapshot.yyyymmdd.nnnnn.m.vpppppppp` on MAIN/Release builds
-    void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", sdkVersion]) ""
+    void $ readProcess damlAssistant ["install", release, "--install-with-custom-version", sdkVersion] ""
     -- Install a copy under the release version 10.0.0
-    void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
-    defaultMain $ tests damlAssistant
+    void $ readProcess damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"] ""
+
+    limitJvmMemory defaultJvmMemoryLimits
+    withEnv
+        [("PATH", Just $ intercalate [searchPathSeparator] $ javaPath : oldPath)] 
+        (defaultMain $ tests damlAssistant)
+
 
 tests :: SdkVersioned => FilePath -> TestTree
 tests damlAssistant =
@@ -390,6 +414,109 @@ tests damlAssistant =
             [PackageIdentifier "package-b" "0.0.1"]
             warningProject
         ]
+    , testGroup
+        "Composite Dar Building"
+        [ test "Building a single composite dar works and builds only the packages needed" ["--composite-dar=main"] "" compositeDarProject $ Right 
+            [ PackageIdentifier "package-a" "0.0.1"
+            , PackageIdentifier "package-b" "0.0.1"
+            , PackageIdentifier "main" "0.0.1"
+            ]
+        , test "Building two composite dars builds only the packages needed" ["--composite-dar=main", "--composite-dar=test"] "" compositeDarProject $ Right 
+            [ PackageIdentifier "package-a" "0.0.1"
+            , PackageIdentifier "package-b" "0.0.1"
+            , PackageIdentifier "package-c" "0.0.1"
+            , PackageIdentifier "package-d" "0.0.1"
+            , PackageIdentifier "main" "0.0.1"
+            , PackageIdentifier "test" "0.0.1"
+            ]
+        , test "Building --all and a composite dar builds every package except the other composite dar" ["--all", "--composite-dar=main"] "" compositeDarProject $ Right 
+            [ PackageIdentifier "package-a" "0.0.1"
+            , PackageIdentifier "package-b" "0.0.1"
+            , PackageIdentifier "package-c" "0.0.1"
+            , PackageIdentifier "package-d" "0.0.1"
+            , PackageIdentifier "package-e" "0.0.1"
+            , PackageIdentifier "main" "0.0.1"
+            ]
+        , test "Building --all-composite-dars builds all composite dars and only packages needed for them" ["--all-composite-dars"] "" compositeDarProject $ Right 
+            [ PackageIdentifier "package-a" "0.0.1"
+            , PackageIdentifier "package-b" "0.0.1"
+            , PackageIdentifier "package-c" "0.0.1"
+            , PackageIdentifier "package-d" "0.0.1"
+            , PackageIdentifier "main" "0.0.1"
+            , PackageIdentifier "test" "0.0.1"
+            ]
+        , test "Building a single composite dar from a subdirectory works" ["--composite-dar=main"] "./package-a" compositeDarProject $ Right 
+            [ PackageIdentifier "package-a" "0.0.1"
+            , PackageIdentifier "package-b" "0.0.1"
+            , PackageIdentifier "main" "0.0.1"
+            ]
+        , test "Building a transitive composite dar gives an error including where the dar is" ["--composite-dar=unshadowed-transitive"] "./first" compositeDarShadowingProject
+            $ Left "Found definition for unshadowed-transitive in the following sub-projects"
+        , test "Building a repeated transitive dar (same name and version) gives error" ["--composite-dar=main"] "" compositeDarDuplicateProject
+            $ Left "Multiple composite dars with the same name and version: main-0.0.1"
+        , test "Building a composite dar by name only when another with the same name exists fails" ["--composite-dar=same-name"] "./first" compositeDarShadowingProject
+            $ Left "Multiple composite dars with the same name were found, to specify which you need, use one of the following full names:\n  - same-name-0.0.1\n  - same-name-0.0.2\n"
+        , test "Building a duplicate name dar by name and version succeeds" ["--composite-dar=same-name-0.0.1"] "./first" compositeDarShadowingProject
+            $ Right [ PackageIdentifier "same-name" "0.0.1", PackageIdentifier "same-name-package" "0.0.1" ]
+        , test "Building a non-existent composite dar fails as expected" ["--composite-dar=some-composite-dar"] "./first" compositeDarShadowingProject
+            $ Left "Couldn't find composite dar with the name some-composite-dar in"
+        , testWithStdout "Building a shadowed transitive dar succeeds with warning" ["--composite-dar=shadowed-transitive"] "./first" compositeDarShadowingProject
+            (Right [ PackageIdentifier "shadowed-transitive" "0.0.1", PackageIdentifier "shadowed-transitive-package" "0.0.1" ])
+            (Just "Warning: Found definition for shadowed-transitive in the following sub-projects:")
+        ]
+    , testGroup
+        "Composite Dar Artifact"
+        [ withCompositeDar compositeDarProject "main-0.0.1" $ \getDarData -> testGroup "main-0.0.1" $
+            [ testCase "Only has expected packages" $ do
+                darInfo <- snd <$> getDarData
+                let dalfInfos = fmap snd $ HashMap.toList $ Reader.packages darInfo
+                    notPrimOrStdlib dalfName = not $ "daml-prim" `isPrefixOf` dalfName || "daml-stdlib" `isPrefixOf` dalfName
+                    nonDamlDalfInfos = filter (notPrimOrStdlib . takeFileName . Reader.dalfFilePath) dalfInfos
+                    nonDamlPkgNames = maybe "unknown" LF.unPackageName . Reader.dalfPackageName <$> nonDamlDalfInfos
+
+                sort nonDamlPkgNames @?= ["main", "package-a", "package-b"]
+            , testCase "Main package has correct name and version" $ do
+                darInfo <- snd <$> getDarData
+                let ownDalfInfo = fromMaybe (error "Missing own package") $ HashMap.lookup (Reader.mainPackageId darInfo) $ Reader.packages darInfo
+
+                Reader.dalfPackageName ownDalfInfo @?= Just (LF.PackageName "main")
+                Reader.dalfPackageVersion ownDalfInfo @?= Just (LF.PackageVersion "0.0.1")
+            , testCase "All packages have correct LF version" $ do
+                darInfo <- snd <$> getDarData
+                let dalfInfos = fmap snd $ HashMap.toList $ Reader.packages darInfo
+                    isPrimOrStdlib dalfInfo = 
+                      let dalfName = takeFileName $ Reader.dalfFilePath dalfInfo
+                       in "daml-prim" `isPrefixOf` dalfName || "daml-stdlib" `isPrefixOf` dalfName
+                -- We do not check daml-prim/daml-stdlib, as they are in very old LF versions
+                forM_ (filter (not . isPrimOrStdlib) dalfInfos) $ \dalfInfo -> do
+                  let dalfLfVersion = LF.packageLfVersion $ Reader.dalfPackage dalfInfo
+                      dalfName = maybe "unknown" (T.unpack . LF.unPackageName) $ Reader.dalfPackageName dalfInfo
+                  
+                  assertEqual ("LF version for " <> dalfName <> " was incorrect") version1_15 dalfLfVersion
+            , testCase "Dar has no source code" $ do
+                darInfo <- snd <$> getDarData
+                let damlFiles = filter (isExtensionOf "daml") $ Reader.files darInfo
+                unless (null damlFiles) $ assertFailure $ "Expected no daml files but found " <> show damlFiles
+            , testCase "Main package is empty" $ do
+                darInfo <- snd <$> getDarData
+                let ownDalfInfo = fromMaybe (error "Missing own package") $ HashMap.lookup (Reader.mainPackageId darInfo) $ Reader.packages darInfo
+                assertBool "Main package has modules" $ NM.null $ LF.packageModules $ Reader.dalfPackage ownDalfInfo
+            , testCase "Works with java codegen" $ do
+                darPath <- fst <$> getDarData
+                let codegenPath = replaceFileName darPath "java-codegen"
+                void $ readProcess damlAssistant ["codegen", "java", darPath, "--output-directory", codegenPath] ""
+                listDirectory codegenPath >>= assertBool "Codegen directory is empty" . not . null
+            ] <> 
+            [ testCase "Works with js codegen" $ do
+                darPath <- fst <$> getDarData
+                let codegenPath = replaceFileName darPath "js-codegen"
+                void $ readProcess damlAssistant ["codegen", "js", darPath, "-o", codegenPath] ""
+                listDirectory codegenPath >>= assertBool "Codegen directory is empty" . not . null
+            -- The '@daml/types' NPM package is not available on Windows which
+            -- is required by 'daml2js'.
+            | not isWindows
+            ]
+        ]
     ]
 
   where
@@ -403,10 +530,23 @@ tests damlAssistant =
       -> Either T.Text [PackageIdentifier]
       -> TestTree
     test name flags runPath projectStructure expectedResult =
+      testWithStdout name flags runPath projectStructure expectedResult Nothing
+
+    testWithStdout
+      :: String
+      -> [String]
+      -> FilePath
+      -> [ProjectStructure]
+      -- Left is error regex, right is success + expected packages to have build.
+      -- Any created dar files that aren't listed here throw an error.
+      -> Either T.Text [PackageIdentifier]
+      -> Maybe String
+      -> TestTree
+    testWithStdout name flags runPath projectStructure expectedResult expectedStdout =
       testCase name $
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
-        runBuildAndAssert dir flags runPath allPossibleDars expectedResult
+        runBuildAndAssert dir flags runPath allPossibleDars expectedResult expectedStdout
 
     testCache 
       :: String -- name
@@ -450,7 +590,7 @@ tests damlAssistant =
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
         let runBuild :: ([String], FilePath) -> [PackageIdentifier] -> IO ()
-            runBuild (flags, runPath) pkgs =  runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs)
+            runBuild (flags, runPath) pkgs = runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs) Nothing
             getPkgsLastModified :: [PackageIdentifier] -> IO (Map.Map PackageIdentifier UTCTime)
             getPkgsLastModified pkgs =
               -- fromJust is safe as long as called after a runBuild, since that asserts all pkgs exists in allPossibleDars
@@ -488,8 +628,9 @@ tests damlAssistant =
       -> FilePath
       -> Map.Map PackageIdentifier FilePath
       -> Either T.Text [PackageIdentifier]
+      -> Maybe String
       -> IO ()
-    runBuildAndAssert dir flags runPath allPossibleDars expectedResult = do
+    runBuildAndAssert dir flags runPath allPossibleDars expectedResult expectedStdout = do
       -- Quick check to ensure all the package identifiers are possible
       case expectedResult of
         Left _ -> pure ()
@@ -502,7 +643,9 @@ tests damlAssistant =
       runPath <- canonicalizePath $ dir </> runPath
       let args = ["build", "--enable-multi-package=yes"] <> flags
           process = (proc damlAssistant args) {cwd = Just runPath}
-      (exitCode, _, err) <- readCreateProcessWithExitCode process ""
+      (exitCode, out, err) <- readCreateProcessWithExitCode process ""
+      forM_ expectedStdout $ \expectedOut -> assertBool "Stdout did not contained expected string" $ expectedOut `isInfixOf` out
+
       case expectedResult of
         Right expectedPackageIdentifiers -> do
           unless (exitCode == ExitSuccess) $ assertFailure $ "Expected success and got " <> show exitCode <> ".\n  StdErr: \n  " <> err
@@ -557,7 +700,18 @@ tests damlAssistant =
         TIO.writeFile (path </> "multi-package.yaml") $ T.unlines
           $  ["packages:"] ++ fmap ("  - " <>) (mpPackages multiPackage)
           ++ ["projects:"] ++ fmap ("  - " <>) (mpProjects multiPackage)
-        pure Map.empty
+          ++ ["composite-dars:"]
+          ++ concatMap (\cd ->
+               [ "  - name: " <> cddName cd
+               , "    version: " <> cddVersion cd
+               ]
+               <> ["    packages: "] <> fmap ("      - " <>) (cddPackages cd)
+               <> ["    dars: "] <> fmap ("      - " <>) (cddDars cd)
+               <> ["    path: " <> cddPath cd]
+             ) (mpCompositeDars multiPackage)
+        fmap Map.fromList $ forM (mpCompositeDars multiPackage) $ \cd -> do
+          outPath <- canonicalizePath $ path </> T.unpack (cddPath cd)
+          pure (PackageIdentifier (cddName cd) (cddVersion cd), outPath)
       dir@Dir {} -> do
         let newDir = path </> (T.unpack $ dName dir)
         createDirectoryIfMissing True newDir
@@ -572,6 +726,25 @@ tests damlAssistant =
         TIO.writeFile (path </> T.unpack (gfName genericFile)) $ gfContent genericFile
         pure Map.empty
 
+    withCompositeDar :: [ProjectStructure] -> String -> (IO (FilePath, Reader.InspectInfo) -> TestTree) -> TestTree
+    withCompositeDar projectStructure compositeDarFullName f =
+      let acquireResource = do
+            (dir, removeDir) <- newTempDir
+            darMapping <- buildProject dir projectStructure
+
+            let isCorrectPackage :: PackageIdentifier -> Bool
+                isCorrectPackage pkgId = compositeDarFullName == show pkgId
+            compositeDarPath <-
+              maybe (assertFailure "Failed to find given composite dar name. Use the full path (name-version)") (pure . snd)
+                $ find (isCorrectPackage . fst) $ Map.toList darMapping
+
+            let args = ["build", "--enable-multi-package=yes", "--composite-dar=" <> compositeDarFullName]
+                process = (proc damlAssistant args) {cwd = Just dir}
+            _ <- readCreateProcess process ""
+            darInfo <- Reader.getDarInfo compositeDarPath
+            pure (removeDir, (compositeDarPath, darInfo))
+       in withResource acquireResource fst $ f . fmap snd
+
 ----- Testing project fixtures
 
 -- daml.yaml with current sdk version, default ouput path and source set to `daml`
@@ -581,7 +754,7 @@ damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] 
 -- B depends on A
 simpleTwoPackageProject :: [ProjectStructure]
 simpleTwoPackageProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ damlYaml "package-a" "0.0.1" []
     , Dir "daml" [DamlSource "PackageAMain" []]
@@ -595,7 +768,7 @@ simpleTwoPackageProject =
 -- B and C depend on A, D depends on B and C
 diamondProject :: [ProjectStructure]
 diamondProject =
-  [ MultiPackage ["./package-a", "./package-b", "./package-c", "./package-d"] []
+  [ MultiPackage ["./package-a", "./package-b", "./package-c", "./package-d"] [] []
   , Dir "package-a"
     [ damlYaml "package-a" "0.0.1" []
     , Dir "daml" [DamlSource "PackageAMain" []]
@@ -619,7 +792,7 @@ diamondProject =
 multiProject :: [ProjectStructure]
 multiProject =
   [ Dir "libs"
-    [ MultiPackage ["./lib-a", "./lib-b"] []
+    [ MultiPackage ["./lib-a", "./lib-b"] [] []
     , Dir "lib-a"
       [ damlYaml "lib-a" "0.0.1" []
       , Dir "daml" [DamlSource "LibAMain" []]
@@ -630,7 +803,7 @@ multiProject =
       ]
     ]
   , Dir "packages"
-    [ MultiPackage ["./package-a", "./package-b"] ["../libs"]
+    [ MultiPackage ["./package-a", "./package-b"] ["../libs"] []
     , Dir "package-a"
       [ damlYaml "package-a" "0.0.1" ["../../libs/lib-b/.daml/dist/lib-b-0.0.1.dar"]
       , Dir "daml" [DamlSource "PackageAMain" ["LibBMain"]]
@@ -646,14 +819,14 @@ multiProject =
 cyclicMultiPackage :: [ProjectStructure]
 cyclicMultiPackage =
   [ Dir "libs"
-    [ MultiPackage ["./lib-a"] ["../packages"]
+    [ MultiPackage ["./lib-a"] ["../packages"] []
     , Dir "lib-a"
       [ damlYaml "lib-a" "0.0.1" []
       , Dir "daml" [DamlSource "LibAMain" []]
       ]
     ]
   , Dir "packages"
-    [ MultiPackage ["./package-a"] ["../libs"]
+    [ MultiPackage ["./package-a"] ["../libs"] []
     , Dir "package-a"
       [ damlYaml "package-a" "0.0.1" ["../../libs/lib-a/.daml/dist/lib-a-0.0.1.dar"]
       , Dir "daml" [DamlSource "PackageAMain" ["LibAMain"]]
@@ -664,7 +837,7 @@ cyclicMultiPackage =
 -- Cyclic dar dependencies in daml.yamls
 cyclicPackagesProject :: [ProjectStructure]
 cyclicPackagesProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ damlYaml "package-a" "0.0.1" ["../package-b/.daml/dist/package-b-0.0.1.dar"]
     , Dir "daml" [DamlSource "PackageAMain" ["PackageBMain"]]
@@ -678,7 +851,7 @@ cyclicPackagesProject =
 -- Package that defines --output, putting `dar` outside of `.daml/dist`
 customOutPathProject :: [ProjectStructure]
 customOutPathProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ (damlYaml "package-a" "0.0.1" []) {dyOutPath = Just "../package-a.dar" }
     , Dir "daml" [DamlSource "PackageAMain" []]
@@ -692,7 +865,7 @@ customOutPathProject =
 -- Project where both packages throw warnings, used to detect flag forwarding via -Werror
 warningProject :: [ProjectStructure]
 warningProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ damlYaml "package-a" "0.0.1" []
     , Dir "daml" [GenericFile "PackageAMain.daml" $ "module PackageAMain where\n" <> warnText]
@@ -710,7 +883,7 @@ warningProject =
 -- v2 depends on v1
 sameNameDifferentVersionProject :: [ProjectStructure]
 sameNameDifferentVersionProject =
-  [ MultiPackage ["./package-v1", "./package-v2"] []
+  [ MultiPackage ["./package-v1", "./package-v2"] [] []
   , Dir "package-v1"
     [ damlYaml "package" "0.0.1" []
     , Dir "daml" [DamlSource "PackageV1Main" []]
@@ -725,7 +898,7 @@ sameNameDifferentVersionProject =
 -- v1-again depends on v1
 sameNameSameVersionProject :: [ProjectStructure]
 sameNameSameVersionProject =
-  [ MultiPackage ["./package-v1", "./package-v1-again"] []
+  [ MultiPackage ["./package-v1", "./package-v1-again"] [] []
   , Dir "package-v1"
     [ damlYaml "package" "0.0.1" []
     , Dir "daml" [DamlSource "PackageV1Main" []]
@@ -739,7 +912,7 @@ sameNameSameVersionProject =
 -- B depends on A with specified source folder for package-a
 simpleTwoPackageProjectSource :: T.Text -> [ProjectStructure]
 simpleTwoPackageProjectSource path =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ (damlYaml "package-a" "0.0.1" []) {dySource = path}
     , Dir path [DamlSource "PackageAMain" []]
@@ -753,7 +926,7 @@ simpleTwoPackageProjectSource path =
 -- B depends on A where package-a uses a .daml file source in daml.yaml
 simpleTwoPackageProjectSourceDaml :: [ProjectStructure]
 simpleTwoPackageProjectSourceDaml =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ (damlYaml "package-a" "0.0.1" []) {dySource = "daml/PackageAMain.daml"}
     , Dir "daml" [DamlSource "PackageAMain" ["PackageAAux"], DamlSource "PackageAAux" []]
@@ -768,7 +941,7 @@ simpleTwoPackageProjectSourceDaml =
 -- This daml file depends on another daml file higher up the file system hierarchy
 simpleTwoPackageProjectSourceDamlUpwards :: [ProjectStructure]
 simpleTwoPackageProjectSourceDamlUpwards =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ (damlYaml "package-a" "0.0.1" []) {dySource = "daml/PackageA/PackageAMain.daml"}
     , Dir "daml" [DamlSource "PackageAAux" [], Dir "PackageA" [DamlSource "PackageA.PackageAMain" ["PackageAAux"]]]
@@ -781,7 +954,7 @@ simpleTwoPackageProjectSourceDamlUpwards =
 
 simpleTwoPackageProjectModulePrefixes :: [ProjectStructure]
 simpleTwoPackageProjectModulePrefixes =
-  [ MultiPackage ["./package-a", "./package-b"] []
+  [ MultiPackage ["./package-a", "./package-b"] [] []
   , Dir "package-a"
     [ damlYaml "package-a" "0.0.1" []
     , Dir "daml" [DamlSource "PackageAMain" []]
@@ -790,4 +963,68 @@ simpleTwoPackageProjectModulePrefixes =
     [ (damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]) {dyModulePrefixes = [(PackageIdentifier "package-a" "0.0.1", "A")]}
     , Dir "daml" [DamlSource "PackageBMain" ["A.PackageAMain"]]
     ]
+  ]
+
+-- 5 Packages, A-E. 2 Composite dars, first depends on A,B, second on C,D
+-- Each package has a unique module name and defines a template, for codegen testing
+-- (java codegen won't generate any files if all modules are empty)
+compositeDarProject :: [ProjectStructure]
+compositeDarProject =
+    [ MultiPackage ["./package-a", "./package-b", "./package-c", "./package-d", "./package-e"] []
+        [ CompositeDarDefinition "main" "0.0.1" ["./package-a", "./package-b"] [] "./main.dar"
+        , CompositeDarDefinition "test" "0.0.1" ["./package-c", "./package-d"] [] "./test.dar"
+        ]
+    , simplePackage "package-a" "Main1"
+    , simplePackage "package-b" "Main2"
+    , simplePackage "package-c" "Main3"
+    , simplePackage "package-d" "Main4"
+    , simplePackage "package-e" "Main5"
+    ]
+  where
+    -- Simple package with one module that defines a template
+    -- Names need to be unique for java codegen
+    simplePackage :: T.Text -> T.Text -> ProjectStructure
+    simplePackage name moduleName = Dir name
+      [ damlYaml name "0.0.1" []
+      , Dir "daml" [GenericFile (moduleName <> ".daml") ("module " <> moduleName <> " where template T with p : Party where signatory p")]
+      ]
+
+-- first multi-package
+--   shadowed-transitive
+--   same-name-0.0.1
+--   same-name-0.0.2
+--     
+-- second multi-package
+--   unshadowed-transitive
+--   shadowed-transitive
+-- each composite dar has one package unique to it
+compositeDarShadowingProject :: [ProjectStructure]
+compositeDarShadowingProject = 
+    [ Dir "first" $ compositeDarsStructure [("shadowed-transitive", "0.0.1"), ("same-name", "0.0.1"), ("same-name", "0.0.2")] ["../second"]
+    , Dir "second" $ compositeDarsStructure [("shadowed-transitive", "0.0.1"), ("unshadowed-transitive", "0.0.1")] []
+    ]
+  where
+    -- For each name and version, make a composite dar entry in the multi-package and a single package that it is composed of
+    compositeDarsStructure :: [(T.Text, T.Text)] -> [T.Text] -> [ProjectStructure]
+    compositeDarsStructure compositeDars projects =
+      [ MultiPackage ((\(name, version) -> "./" <> name <> "-" <> version) <$> compositeDars) projects $
+          (\(name, version) -> CompositeDarDefinition name version ["./" <> name <> "-" <> version] [] ("./" <> name <> "-" <> version <> ".dar")) <$> compositeDars
+      ] <>
+      ((\(name, version) ->
+        Dir (name <> "-" <> version)
+          [ damlYaml (name <> "-package") version []
+          , Dir "daml" [DamlSource "Main" []]
+          ]
+      ) <$> compositeDars)
+
+compositeDarDuplicateProject :: [ProjectStructure]
+compositeDarDuplicateProject =
+  [ MultiPackage ["./package-a"] []
+      [ CompositeDarDefinition "main" "0.0.1" ["./package-a"] [] "./main.dar"
+      , CompositeDarDefinition "main" "0.0.1" ["./package-a"] [] "./main2.dar"
+      ]
+  , Dir "package-a"
+      [ damlYaml "package-a" "0.0.1" []
+      , Dir "daml" [DamlSource "Main" []]
+      ]
   ]

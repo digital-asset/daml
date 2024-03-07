@@ -7,6 +7,7 @@
 module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
+    , CompositeDar (..)
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
@@ -21,7 +22,7 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
 import Control.Exception.Safe (throwIO, displayException)
-import Control.Monad (when)
+import Control.Monad (forM_, when)
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Lazy
@@ -101,9 +102,22 @@ checkPkgConfig PackageConfigFields {pName, pVersion} =
     versionRegex = "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$" :: T.Text
     packageNameRegex = "^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$" :: T.Text
 
+data CompositeDar = CompositeDar
+    { cdName :: LF.PackageName
+    , cdVersion :: LF.PackageVersion
+    , cdPackages :: [FilePath]
+    , cdDars :: [FilePath]
+    , cdPath :: FilePath
+    }
+    deriving Show
+
 data MultiPackageConfigFields = MultiPackageConfigFields
     { mpPackagePaths :: [FilePath]
+    , mpCompositeDars :: [CompositeDar]
+    , mpTransitiveCompositeDarNames :: [(FilePath, [LF.PackageName])]
+    , mpPath :: FilePath
     }
+    deriving Show
 
 -- | Intermediate of MultiPackageConfigFields that carries links to other config files, before being flattened into a single MultiPackageConfigFields
 data MultiPackageConfigFieldsIntermediate = MultiPackageConfigFieldsIntermediate
@@ -111,11 +125,34 @@ data MultiPackageConfigFieldsIntermediate = MultiPackageConfigFieldsIntermediate
     , mpiOtherConfigFiles :: [FilePath]
     }
 
+parseCompositeDar :: MultiPackageCompositeDar -> Either ConfigError CompositeDar
+parseCompositeDar compositeDar = do
+    cdName <- queryMultiPackageCompositeDarRequired ["name"] compositeDar
+    cdVersion <- queryMultiPackageCompositeDarRequired ["version"] compositeDar
+    cdPackages <- fromMaybe [] <$> queryMultiPackageCompositeDar ["packages"] compositeDar
+    cdDars <- fromMaybe [] <$> queryMultiPackageCompositeDar ["dars"] compositeDar
+    cdPath <- queryMultiPackageCompositeDarRequired ["path"] compositeDar
+    if null $ cdPackages <> cdDars
+      then Left $ ConfigFileInvalid "multi-package" $ Y.InvalidYaml $ Just
+            $ Y.YamlException $ "Missing either `packages` or `dars` in composite dar \"" <> (T.unpack $ LF.unPackageName cdName) <> "\""
+      else Right CompositeDar {..}
+
 -- | Parse the multi-package.yaml file for auto rebuilds/IDE intelligence in multi-package projects
-parseMultiPackageConfig :: MultiPackageConfig -> Either ConfigError MultiPackageConfigFieldsIntermediate
-parseMultiPackageConfig multiPackage = do
-    mpiConfigFields <- MultiPackageConfigFields . fromMaybe [] <$> queryMultiPackageConfig ["packages"] multiPackage
+parseMultiPackageConfig :: MultiPackageConfig -> FilePath -> Either ConfigError MultiPackageConfigFieldsIntermediate
+parseMultiPackageConfig multiPackage mpPath = do
+    mpPackagePaths <- fromMaybe [] <$> queryMultiPackageConfig ["packages"] multiPackage
     mpiOtherConfigFiles <- fromMaybe [] <$> queryMultiPackageConfig ["projects"] multiPackage
+    compositeDarObjects <- fromMaybe [] <$> queryMultiPackageConfig ["composite-dars"] multiPackage
+    mpCompositeDars <- traverse parseCompositeDar compositeDarObjects
+    -- n^2 but this list is usually so small that its not worth complicating the logic
+    forM_ mpCompositeDars $ \cd ->
+      let matching = length $ filter (\otherCd -> (cdName cd, cdVersion cd) == (cdName otherCd, cdVersion otherCd)) mpCompositeDars
+       in when (matching > 1) $ Left $ ConfigFileInvalid "multi-package" $ Y.InvalidYaml $ Just
+            $ Y.YamlException $ "Multiple composite dars with the same name and version: " <>
+              T.unpack (LF.unPackageName (cdName cd) <> "-" <> LF.unPackageVersion (cdVersion cd))
+
+    let mpTransitiveCompositeDarNames = []
+        mpiConfigFields = MultiPackageConfigFields {..}
     Right MultiPackageConfigFieldsIntermediate {..}
 
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
@@ -194,11 +231,25 @@ findMultiPackageConfig projectPath = do
         let newPath = takeDirectory path
         in pure $ if path == newPath then Right Nothing else Left newPath
 
+canonicalizeCompositeDar :: CompositeDar -> IO CompositeDar
+canonicalizeCompositeDar cd = do
+  canonPackages <- traverse canonicalizePath $ cdPackages cd
+  canonDars <- traverse canonicalizePath $ cdDars cd
+  canonPath <- canonicalizePath $ cdPath cd
+
+  pure cd { cdPackages = canonPackages, cdDars = canonDars, cdPath = canonPath }
+
 canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
-canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths) multiPackagePaths) =
+canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate mpc multiPackagePaths) =
   withCurrentDirectory (unwrapProjectPath projectPath) $ do
     MultiPackageConfigFieldsIntermediate
-      <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths)
+      <$> 
+        ( MultiPackageConfigFields
+            <$> traverse canonicalizePath (mpPackagePaths mpc)
+            <*> traverse canonicalizeCompositeDar (mpCompositeDars mpc)
+            <*> pure (mpTransitiveCompositeDarNames mpc)
+            <*> pure (mpPath mpc)
+        )
       <*> traverse canonicalizePath multiPackagePaths
 
 -- Given some computation to give a result and dependencies, we explore the entire cyclic graph to give the combined
@@ -221,11 +272,16 @@ fullParseMultiPackageConfig :: ProjectPath -> IO MultiPackageConfigFields
 fullParseMultiPackageConfig startPath = do
   mpcs <- exploreAndFlatten startPath $ \projectPath -> do
     multiPackage <- readMultiPackageConfig projectPath
-    multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
+    multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage $ unwrapProjectPath projectPath)
     canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
     pure (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
 
-  pure $ MultiPackageConfigFields $ nubOrd $ concatMap mpPackagePaths mpcs
+  pure MultiPackageConfigFields
+    { mpPackagePaths = nubOrd $ concatMap mpPackagePaths mpcs
+    , mpCompositeDars = mpCompositeDars $ head mpcs
+    , mpTransitiveCompositeDarNames = (\mpc -> (mpPath mpc, cdName <$> mpCompositeDars mpc)) <$> tail mpcs
+    , mpPath = mpPath $ head mpcs
+    }
 
 -- Gives the filepath where the multipackage was found if its not the same as project path.
 withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a

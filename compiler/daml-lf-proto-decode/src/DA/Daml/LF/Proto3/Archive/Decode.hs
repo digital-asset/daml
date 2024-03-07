@@ -4,6 +4,7 @@
 module DA.Daml.LF.Proto3.Archive.Decode
   ( decodeArchive
   , decodeArchivePackageId
+  , decodeArchiveLfVersion
   , decodePackage
   , ArchiveError(..)
   , DecodingMode(..)
@@ -47,6 +48,11 @@ decodeArchive mode bytes = do
     package <- decodePackage mode packageId payloadBytes
     return (packageId, package)
 
+decodeArchiveLfVersion :: BS.ByteString -> Either ArchiveError LF.Version
+decodeArchiveLfVersion bytes = do
+  (packageId, payloadBytes) <- decodeArchiveHeader bytes
+  decodePackageLfVersion packageId payloadBytes
+
 -- | Decode an LF archive payload, returning the package
 -- Used to decode a BS returned from the PackageService ledger API
 decodePackage :: DecodingMode -> LF.PackageId -> BS.ByteString -> Either ArchiveError LF.Package
@@ -55,7 +61,12 @@ decodePackage mode packageId payloadBytes = do
             DecodeAsMain -> LF.PRSelf
             DecodeAsDependency -> LF.PRImport packageId
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
-    over _Left (ProtobufError. show) $ Decode.decodePayload packageId selfPackageRef payload
+    over _Left (ProtobufError . show) $ Decode.decodePayload packageId selfPackageRef payload
+
+decodePackageLfVersion :: LF.PackageId -> BS.ByteString -> Either ArchiveError LF.Version
+decodePackageLfVersion packageId payloadBytes = do
+  payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
+  over _Left (ProtobufError . show) $ Decode.extractLFVersion packageId payload
 
 -- | Decode an LF archive header, returning the package-id and the payload
 decodeArchiveHeader :: BS.ByteString -> Either ArchiveError (LF.PackageId, BS.ByteString)

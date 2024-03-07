@@ -3,6 +3,7 @@
 module DA.Daml.Compiler.Dar
     ( createDarFile
     , buildDar
+    , buildCompositeDar
     , createArchive
     , FromDalf(..)
     , breakAt72Bytes
@@ -23,8 +24,9 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.Proto3.Archive (decodeArchiveLfVersion, encodeArchiveAndHash)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Reader (Dalfs (..), dalfsToList, readDalfsWithMeta)
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.TypeChecker.Upgrade as TypeChecker.Upgrade
 import DA.Daml.Options (expandSdkPackages)
@@ -44,6 +46,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as S
 import qualified Data.Text as T
 import Data.Time
+import Data.Tuple.Extra (second3, snd3, thd3)
 import Development.IDE.Core.API
 import Development.IDE.Core.Service (getIdeOptions)
 import Development.IDE.Core.RuleTypes.Daml
@@ -67,7 +70,7 @@ import DA.Daml.Project.Types (UnresolvedReleaseVersion(..))
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 
-import SdkVersion.Class (SdkVersioned)
+import SdkVersion.Class (SdkVersioned, unresolvedBuiltinSdkVersion)
 
 -- | Create a DAR file by running a ZipArchive action.
 createDarFile :: Logger.Handle IO -> FilePath -> Zip.ZipArchive () -> IO ()
@@ -194,6 +197,34 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                        ifaces
                    , Just pkgId
                    )
+
+-- | Takes a list of paths to dars, composite package name and composite package version
+-- Merges together all the dars without usage checks, generates a main package with 0 modules
+-- Generated package uses latest LF version with matching Major version to the dars given, and the current builtin sdk version.
+buildCompositeDar :: SdkVersioned => [FilePath] -> LF.PackageName -> LF.PackageVersion -> IO (Zip.ZipArchive ())
+buildCompositeDar darPaths name version = do
+  dars <-
+    forM darPaths $ \darPath -> do
+      bs <- BSL.readFile darPath
+      pure $ ZipArchive.toArchive bs
+
+  let darDalfs = fmap (fmap (second3 BSL.toStrict) . either error id . readDalfsWithMeta) dars
+  darLfVersions <- forM darDalfs $ either (fail . DA.Pretty.renderPretty) pure . decodeArchiveLfVersion . snd3 . mainDalf
+
+  let lfVersion =
+        case nubOrd $ LF.versionMajor <$> darLfVersions of
+          -- Note that this will not select dev. We may want to detect if any of the packages are `X.dev` and use this if so (and warn)
+          [mv] -> LF.defaultOrLatestStable mv
+          xs -> error $ "Dars contained multiple different Major LF versions: " <> show (sort xs)        
+      pkgMeta = LF.PackageMetadata name version Nothing
+      pkg = LF.Package { LF.packageLfVersion = lfVersion, LF.packageModules = NM.empty, LF.packageMetadata = Just pkgMeta }
+      (dalf, pkgId) = encodeArchiveAndHash pkg
+      conf = mkConfFile name (Just version) [] Nothing [] pkgId
+      -- Dalfs included unique by packageId
+      dalfs = nubOrdOn thd3 $ concatMap dalfsToList darDalfs
+      dar = createArchive name (Just version) unresolvedBuiltinSdkVersion pkgId dalf dalfs "." [] [conf] []
+
+  pure dar
 
 validateExposedModules :: Maybe [ModuleName] -> [ModuleName] -> MaybeT Action ()
 validateExposedModules mbExposedModules pkgModuleNames = do
