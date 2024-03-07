@@ -14,7 +14,6 @@ import Control.Exception.Safe
 import Control.Applicative
 import Control.Monad.Extra
 import Data.Either.Extra
-import Data.Foldable (traverse_)
 import System.Process.Typed (ExitCodeException(..))
 
 -- | Throw an assistant error.
@@ -23,10 +22,10 @@ throwErr msg = throwIO (assistantError msg)
 
 -- | Handle synchronous exceptions by wrapping them in an AssistantError,
 -- add context to any assistant errors that are missing context.
-wrapErrG :: (Text -> SomeException -> AssistantError) -> Maybe Text -> Text -> IO a -> IO a
-wrapErrG wrapSomeException exitMessage ctx m = m `catches`
+wrapErrG :: (Text -> SomeException -> AssistantError) -> Text -> IO a -> IO a
+wrapErrG wrapSomeException ctx m = m `catches`
     [ Handler $ throwIO @IO @ExitCode
-    , Handler $ \ExitCodeException{eceExitCode} -> traverse_ (putStrLn . unpack) exitMessage >> exitWith eceExitCode
+    , Handler $ \ExitCodeException{eceExitCode} -> exitWith eceExitCode
     , Handler $ throwIO . addErrorContext
     , Handler $ throwIO . wrapSomeException ctx
     ]
@@ -36,7 +35,7 @@ wrapErrG wrapSomeException exitMessage ctx m = m `catches`
             err { errContext = errContext err <|> Just ctx }
 
 wrapErrNoDisplay :: Text -> IO a -> IO a
-wrapErrNoDisplay = wrapErrG wrapSomeExceptionWithoutMsg Nothing
+wrapErrNoDisplay = wrapErrG wrapSomeExceptionWithoutMsg
 
 wrapSomeExceptionWithoutMsg :: Text -> SomeException -> AssistantError
 wrapSomeExceptionWithoutMsg ctx err =
@@ -47,10 +46,7 @@ wrapSomeExceptionWithoutMsg ctx err =
         }
 
 wrapErr :: Text -> IO a -> IO a
-wrapErr = wrapErrG wrapSomeExceptionWithMsg Nothing
-
-wrapErrWithExitMessage :: Text -> Text -> IO a -> IO a
-wrapErrWithExitMessage = wrapErrG wrapSomeExceptionWithMsg . Just
+wrapErr = wrapErrG wrapSomeExceptionWithMsg
 
 wrapSomeExceptionWithMsg :: Text -> SomeException -> AssistantError
 wrapSomeExceptionWithMsg ctx err =

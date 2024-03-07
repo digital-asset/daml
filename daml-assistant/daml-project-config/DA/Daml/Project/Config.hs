@@ -6,7 +6,7 @@ module DA.Daml.Project.Config
     ( DamlConfig
     , ProjectConfig
     , SdkConfig
-    , projectConfigExistsWithEnv
+    , projectConfigUsesEnvironmentVariables
     , readSdkConfig
     , readProjectConfig
     , readDamlConfig
@@ -56,8 +56,8 @@ readProjectConfig :: ProjectPath -> IO ProjectConfig
 readProjectConfig (ProjectPath path) = readConfigWithEnv "project" (path </> projectConfigName)
 
 -- | Checks if a project config contains environment variables.
-projectConfigExistsWithEnv :: ProjectPath -> IO Bool
-projectConfigExistsWithEnv (ProjectPath path) = configExistsWithEnv (path </> projectConfigName)
+projectConfigUsesEnvironmentVariables :: ProjectPath -> IO Bool
+projectConfigUsesEnvironmentVariables (ProjectPath path) = configUsesEnvironmentVariables (path </> projectConfigName)
 
 -- | Read sdk config file.
 -- Throws a ConfigError if reading or parsing fails.
@@ -155,10 +155,10 @@ readConfigWithEnv name path = do
       Error str -> throwE $ Y.AesonException str
   fromRightM (throwIO . ConfigFileInvalid name) configE
 
--- Returns false if the file doesn't exist or isn't valid yaml.
--- Does not attempt to replace values, so will not fail if the environment variables do not exist.
-configExistsWithEnv :: FilePath -> IO Bool
-configExistsWithEnv path =
+-- Checks if a config uses environment variable interpolation
+-- Will return False if the file does not exist, rather than throwing an error.
+configUsesEnvironmentVariables :: FilePath -> IO Bool
+configUsesEnvironmentVariables path =
   fmap (fromRight False) $ runExceptT $ do
     (configValue :: Y.Value) <- ExceptT $ Y.decodeFileEither path
     pure $ flip any (universe configValue) $ \case
