@@ -379,6 +379,7 @@ trait CantonConfig {
         iterationsBetweenInterruptions = participantParameters.iterationsBetweenInterruptions,
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
+        disableUpgradeValidation = participantParameters.disableUpgradeValidation,
       )
     }
 
@@ -801,8 +802,8 @@ object CantonConfig {
       deriveReader[ActiveContractsServiceStreamsConfig]
     lazy implicit val packageMetadataViewConfigReader: ConfigReader[PackageMetadataViewConfig] =
       deriveReader[PackageMetadataViewConfig]
-    lazy implicit val topologyXConfigReader: ConfigReader[TopologyXConfig] =
-      deriveReader[TopologyXConfig]
+    lazy implicit val topologyXConfigReader: ConfigReader[TopologyConfig] =
+      deriveReader[TopologyConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileReader
         : ConfigReader[SequencerConnectionConfig.CertificateFile] =
       deriveReader[SequencerConnectionConfig.CertificateFile]
@@ -1183,8 +1184,8 @@ object CantonConfig {
       deriveWriter[ActiveContractsServiceStreamsConfig]
     lazy implicit val packageMetadataViewConfigWriter: ConfigWriter[PackageMetadataViewConfig] =
       deriveWriter[PackageMetadataViewConfig]
-    lazy implicit val topologyXConfigWriter: ConfigWriter[TopologyXConfig] =
-      deriveWriter[TopologyXConfig]
+    lazy implicit val topologyXConfigWriter: ConfigWriter[TopologyConfig] =
+      deriveWriter[TopologyConfig]
     lazy implicit val sequencerConnectionConfigCertificateFileWriter
         : ConfigWriter[SequencerConnectionConfig.CertificateFile] =
       deriveWriter[SequencerConnectionConfig.CertificateFile]

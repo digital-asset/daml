@@ -14,7 +14,6 @@ import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import org.slf4j.LoggerFactory
 
 import scala.collection.SeqView
 import scala.collection.mutable
@@ -453,7 +452,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         tpl: DottedName,
         key: PLF.DefTemplate.DefKey,
     ): Work[TemplateKey] = {
-      assertSinceKeys()
+      assertSince(LV.Features.contractKeys, "key")
       decodeExpr(key.getKeyExpr, s"${tpl}:key") { keyExpr =>
         decodeType(key.getType) { typ =>
           decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
@@ -482,7 +481,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               sequenceWork(lfImplements.view.map(decodeTemplateImplements(_))) { implements =>
                 bindWork(
                   if (lfTempl.hasKey) {
-                    assertSinceKeys()
+                    assertSince(LV.Features.contractKeys, "key")
                     bindWork(decodeTemplateKey(tpl, lfTempl.getKey)) { tk =>
                       Ret(Some(tk))
                     }
@@ -712,11 +711,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(TSynApp(decodeTypeSynName(tsyn.getTysyn), types.to(ImmArray)))
           }
         case PLF.Type.SumCase.BUILTIN =>
-          val prim = lfType.getBuiltin
-          val info = builtinTypeInfoMap(prim.getBuiltin)
-          assertSince(info.minVersion, prim.getBuiltin.getValueDescriptor.getFullName)
+          val builtin = lfType.getBuiltin
+          val info = builtinTypeInfoMap(builtin.getBuiltin)
+          assertSince(info.minVersion, builtin.getBuiltin.getValueDescriptor.getFullName)
           val baseType: Type = info.typ
-          sequenceWork(prim.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          sequenceWork(builtin.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft(baseType)(TApp))
           }
         case PLF.Type.SumCase.FORALL =>
@@ -1243,7 +1242,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         value: PLF.Update.RetrieveByKey,
         definition: String,
     ): Work[RetrieveByKey] = {
-      assertSinceKeys()
+      assertSince(LV.Features.contractKeys, "RetrieveByKey")
       decodeExpr(value.getKey, definition) { keyE =>
         Ret(RetrieveByKey(decodeTypeConName(value.getTemplate), keyE))
       }
@@ -1335,7 +1334,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
-          assertSinceKeys()
+          assertSince(LV.Features.contractKeys, "exercise_by_key")
           val exerciseByKey = lfUpdate.getExerciseByKey
           val templateId = decodeTypeConName(exerciseByKey.getTemplate)
           val choice = getInternedName(exerciseByKey.getChoiceInternedStr)
@@ -1374,13 +1373,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
-          assertSinceKeys()
+          assertSince(LV.Features.contractKeys, "fetch_by_key")
           bindWork(decodeRetrieveByKey(lfUpdate.getFetchByKey, definition)) { rbk =>
             Ret(UpdateFetchByKey(rbk))
           }
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
-          assertSinceKeys()
+          assertSince(LV.Features.contractKeys, "lookup_by_key")
           bindWork(decodeRetrieveByKey(lfUpdate.getLookupByKey, definition)) { rbk =>
             Ret(UpdateLookupByKey(rbk))
           }
@@ -1578,24 +1577,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
   private[this] def assertEmpty(s: util.List[_], description: => String): Unit =
     if (!s.isEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
-
-  // TODO(https://github.com/digital-asset/daml/issues/18457): this is a temporary hack to disable
-  //  key support in canton tests, in order to find out which of canton's tests are loading dars
-  //  that use keys. Remove ASAP.
-  private[this] val rejectKeys: Boolean = {
-    val res = sys.env.get("DAML_REJECT_KEYS").isDefined
-    if (res)
-      LoggerFactory
-        .getLogger(this.getClass)
-        .warn("DAML_REJECT_KEYS is defined, will reject keys during decoding")
-    res
-  }
-
-  // TODO(https://github.com/digital-asset/daml/issues/18457): this is a temporary hack. Replace
-  //  with a feature flag.
-  private[this] def assertSinceKeys(): Unit =
-    if (versionIsOlderThan(LV.Features.contractKeys) && rejectKeys)
-      throw Error.Parsing("Keys are not supported")
 }
 
 private[lf] object DecodeV2 {
@@ -1693,9 +1674,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(NUMERIC_TO_TEXT, BNumericToText),
       BuiltinFunctionInfo(TIMESTAMP_TO_TEXT, BTimestampToText),
       BuiltinFunctionInfo(PARTY_TO_TEXT, BPartyToText),
-      BuiltinFunctionInfo(TEXT_TO_TEXT, BTextToText),
       BuiltinFunctionInfo(CONTRACT_ID_TO_TEXT, BContractIdToText),
-      BuiltinFunctionInfo(PARTY_TO_QUOTED_TEXT, BPartyToQuotedText, maxVersion = Some(exceptions)),
       BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText),
       BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),

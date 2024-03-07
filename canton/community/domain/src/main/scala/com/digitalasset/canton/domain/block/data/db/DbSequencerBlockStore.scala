@@ -9,21 +9,19 @@ import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
+  EphemeralState,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState.counterToCheckpoint
+import com.digitalasset.canton.domain.sequencing.integrations.state.DbSequencerStateManagerStore
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.{
   MemberCounters,
   MemberSignedEvents,
   MemberTimestamps,
-}
-import com.digitalasset.canton.domain.sequencing.integrations.state.{
-  DbSequencerStateManagerStore,
-  EphemeralState,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,

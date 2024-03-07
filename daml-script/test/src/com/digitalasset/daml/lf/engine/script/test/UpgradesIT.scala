@@ -35,12 +35,14 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
   final override protected lazy val devMode = true
   final override protected lazy val enableContractUpgrading = true
 
-  val languageVersion: LanguageVersion = LanguageVersion.v2_1
+  // TODO(https://github.com/digital-asset/daml/issues/18457): split the test into one with contract
+  //  keys and one without, and revert to the default version. Here and below, in the loaded dars.
+  val languageVersion: LanguageVersion = LanguageVersion.v2_dev
   override val majorLanguageVersion: LanguageMajorVersion = languageVersion.major
 
   override protected lazy val darFiles = List()
 
-  lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.1.dar")
+  lazy val damlScriptDar = requiredResource("daml-script/daml3/daml3-script-2.dev.dar")
   lazy val upgradeTestLibDar: Path = rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar"))
 
   lazy val tempDir: Path = Files.createTempDirectory("upgrades-it")

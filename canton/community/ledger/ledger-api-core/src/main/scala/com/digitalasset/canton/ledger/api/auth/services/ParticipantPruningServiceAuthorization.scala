@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningService
-import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+import com.daml.ledger.api.v2.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningService
+import com.daml.ledger.api.v2.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,

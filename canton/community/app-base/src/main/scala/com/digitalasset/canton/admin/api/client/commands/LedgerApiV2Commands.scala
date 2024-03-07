@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.admin.api.client.commands
 
-import com.daml.ledger.api.v1.commands.{Command, DisclosedContract}
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TemplateFilter}
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v2.command_completion_service.{
@@ -29,11 +25,13 @@ import com.daml.ledger.api.v2.command_submission_service.{
   SubmitRequest,
   SubmitResponse,
 }
-import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryServiceStub
 import com.daml.ledger.api.v2.event_query_service.{
   EventQueryServiceGrpc,
+  GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
@@ -61,7 +59,12 @@ import com.daml.ledger.api.v2.testing.time_service.{
   TimeServiceGrpc,
 }
 import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TemplateFilter,
+  TransactionFilter,
+}
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,

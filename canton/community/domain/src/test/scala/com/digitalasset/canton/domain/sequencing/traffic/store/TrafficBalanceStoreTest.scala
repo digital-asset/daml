@@ -180,6 +180,20 @@ trait TrafficBalanceStoreTest
         }
       }
 
+      "set and get the initial timestamp" in {
+        val store = mk()
+
+        for {
+          // We should not really ever set the initial timestamp twice, but if we do make sure
+          // we take the highest one
+          _ <- store.setInitialTimestamp(t1)
+          _ <- store.setInitialTimestamp(t0)
+          t1get <- store.getInitialTimestamp
+        } yield {
+          t1get shouldBe Some(t1)
+        }
+      }
+
       "return latest balances at given timestamp" in {
         val store = mk()
 

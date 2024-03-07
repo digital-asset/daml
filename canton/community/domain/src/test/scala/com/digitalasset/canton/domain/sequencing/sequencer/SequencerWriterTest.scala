@@ -60,7 +60,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
     val clock = new SimClock(loggerFactory = loggerFactory)
     val runningFlows = mutable.Buffer[MockRunningWriterFlow]()
     val storage = new MemoryStorage(loggerFactory, timeouts)
-    val store = new InMemorySequencerStore(loggerFactory)
+    val store = new InMemorySequencerStore(testedProtocolVersion, loggerFactory)
     val storeSpy = spy(store)
     val instanceIndex = 0
     val storageFactory = new MockWriterStoreFactory()

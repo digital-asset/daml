@@ -116,7 +116,7 @@ final case class CommunityParticipantConfig(
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
-    override val topologyX: TopologyXConfig = TopologyXConfig(),
+    override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalParticipantConfig
     with CommunityLocalNodeConfig
     with ConfigDefaults[DefaultPorts, CommunityParticipantConfig] {
@@ -340,6 +340,7 @@ object TestingTimeServiceConfig {
   * @param enableContractUpgrading If true contracts may be automatically upgraded or downgraded as needed.
   * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
   * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
+  * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -370,6 +371,7 @@ final case class ParticipantNodeParameterConfig(
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     override val useNewTrafficControl: Boolean = false,
+    disableUpgradeValidation: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

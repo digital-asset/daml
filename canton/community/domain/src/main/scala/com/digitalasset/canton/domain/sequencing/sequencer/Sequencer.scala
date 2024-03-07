@@ -10,9 +10,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
   RegisterMemberError,
+  SequencerAdministrationError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitManager,
+  SequencerTrafficStatus,
+}
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
@@ -116,7 +120,9 @@ trait Sequencer
     * Their unread data can also be pruned.
     * Effectively disables all instances of this member.
     */
-  def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit]
+  def disableMember(member: Member)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SequencerAdministrationError, Unit]
 
   /** The first [[com.digitalasset.canton.SequencerCounter]] that this sequencer can serve for its sequencer client
     * when the sequencer topology processor's [[com.digitalasset.canton.store.SequencedEventStore]] is empty.
@@ -150,6 +156,10 @@ trait Sequencer
   def trafficStates(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, TrafficState]]
+
+  /** Return the rate limit manager for this sequencer, if it exists.
+    */
+  def rateLimitManager: Option[SequencerRateLimitManager] = None
 }
 
 /** Sequencer pruning interface.

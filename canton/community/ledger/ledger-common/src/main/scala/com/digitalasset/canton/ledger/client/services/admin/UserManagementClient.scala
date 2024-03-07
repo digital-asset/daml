@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.client.services.admin
 
-import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
-import com.daml.ledger.api.v1.admin.user_management_service as proto
-import com.daml.ledger.api.v1.admin as admin_proto
+import com.daml.ledger.api.v2.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
+import com.daml.ledger.api.v2.admin.user_management_service as proto
+import com.daml.ledger.api.v2.admin as admin_proto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, UserId}
 import com.digitalasset.canton.ledger.api.domain
@@ -119,7 +119,7 @@ object UserManagementClient {
     )
 
   private def fromProtoMetadata(
-      metadata: com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
+      metadata: com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
   ): domain.ObjectMeta = {
     domain.ObjectMeta(
       // It's unfortunate that a client is using the server-side domain ObjectMeta and has to know how to parse the resource version

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.value.Identifier
 import com.daml.lf.data.Ref.{PackageRef, Party, TypeConRef}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.value.Value.ContractId

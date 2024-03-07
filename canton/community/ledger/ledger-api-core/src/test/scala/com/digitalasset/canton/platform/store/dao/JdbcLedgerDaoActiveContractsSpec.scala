@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi

@@ -75,8 +75,6 @@ module BuiltinMod {
     TIMESTAMP_TO_TEXT;
   val partyToText: Party -> Text =
     PARTY_TO_TEXT;
-  val textToText: Text -> Text =
-    TEXT_TO_TEXT;
   val contractIdToText: forall (a: *). ContractId a -> Option Text =
     CONTRACT_ID_TO_TEXT;
   val codePointsToText: List Int64 -> Text =

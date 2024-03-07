@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v1.event.{
+import com.daml.ledger.api.v2.event.{
   ArchivedEvent as PbArchivedEvent,
   CreatedEvent as PbCreatedEvent,
   Event as PbFlatEvent,
   ExercisedEvent as PbExercisedEvent,
 }
-import com.daml.ledger.api.v1.transaction.TreeEvent as PbTreeEvent
+import com.daml.ledger.api.v2.transaction.TreeEvent as PbTreeEvent
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.PackageName
 import com.daml.lf.data.Time.Timestamp

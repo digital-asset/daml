@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v1.package_service.{
+import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
+import com.daml.ledger.api.v2.package_service.{
   GetPackageResponse,
   GetPackageStatusResponse,
   ListPackagesResponse,
+  *,
 }
-import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
-import com.daml.ledger.api.v2.package_service.*
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService

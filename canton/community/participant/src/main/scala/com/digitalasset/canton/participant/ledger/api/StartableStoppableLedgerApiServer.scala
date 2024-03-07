@@ -351,6 +351,7 @@ class StartableStoppableLedgerApiServer(
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
+        disableUpgradeValidation = config.cantonParameterConfig.disableUpgradeValidation,
       )
       _ <- startHttpApiIfEnabled
       _ <- {

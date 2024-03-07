@@ -195,7 +195,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             _ <- update(
               store,
               ts4,
-              removeMapping = Set(tx1_NSD_Proposal.mapping.uniqueKey),
+              removeMapping = Map(tx1_NSD_Proposal.mapping.uniqueKey -> tx1_NSD_Proposal.serial),
             )
             removedByMappingHash <- store.findStored(CantonTimestamp.MaxValue, tx1_NSD_Proposal)
             _ <- update(store, ts4, removeTxs = Set(tx2_OTK.hash))

@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform.store.utils
 
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
-import com.daml.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
-import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{
+import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v2.event.{CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v2.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.{
   Created as TreeCreated,
   Exercised as TreeExercised,
 }
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.value.Identifier
 
 object EventOps {
 

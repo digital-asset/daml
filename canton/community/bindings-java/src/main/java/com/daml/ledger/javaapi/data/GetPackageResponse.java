@@ -57,7 +57,7 @@ public final class GetPackageResponse {
   }
 
   public static GetPackageResponse fromProto(
-      com.daml.ledger.api.v1.PackageServiceOuterClass.GetPackageResponse p) {
+      com.daml.ledger.api.v2.PackageServiceOuterClass.GetPackageResponse p) {
     return new GetPackageResponse(
         HashFunction.valueOf(p.getHashFunctionValue()), p.getHash(), p.getArchivePayload());
   }

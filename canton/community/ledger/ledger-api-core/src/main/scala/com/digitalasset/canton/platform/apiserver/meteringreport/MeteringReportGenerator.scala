@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.meteringreport
 
-import com.daml.ledger.api.v1.admin.metering_report_service.*
+import com.daml.ledger.api.v2.admin.metering_report_service.*
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp

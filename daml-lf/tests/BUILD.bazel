@@ -8,8 +8,10 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
     "LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
+    "mangle_for_damlc",
 )
 load("@os_info//:os_info.bzl", "is_intel")
 
@@ -21,6 +23,16 @@ load("@os_info//:os_info.bzl", "is_intel")
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in LF_MAJOR_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "Exceptions-{}".format(mangle_for_damlc(version)),
+        srcs = ["Exceptions.daml"],
+        target = version,
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for version in LF_DEV_VERSIONS
 ]
 
 [
@@ -71,4 +83,14 @@ daml_compile(
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in LF_MAJOR_VERSIONS
+]
+
+[
+    daml_compile(
+        name = "MultiKeys-{}".format(mangle_for_damlc(version)),
+        srcs = ["MultiKeys.daml"],
+        target = version,
+        visibility = ["//daml-lf:__subpackages__"],
+    )
+    for version in LF_DEV_VERSIONS
 ]

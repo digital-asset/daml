@@ -13,12 +13,8 @@ import com.digitalasset.canton.domain.sequencing.config.{
   SequencerNodeConfigCommon,
   SequencerNodeParameters,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
-  SequencerRateLimitManager,
-  SequencerTrafficConfig,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerFactory}
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.domain.sequencing.traffic.{
   BalanceUpdateClientImpl,
   BalanceUpdateClientTopologyImpl,
@@ -132,6 +128,7 @@ trait SequencerNodeBootstrapCommon[
       memberAuthServiceFactory: MemberAuthenticationServiceFactory,
       domainLoggerFactory: NamedLoggerFactory,
       trafficConfig: SequencerTrafficConfig,
+      balanceManager: TrafficBalanceManager,
   ): EitherT[Future, String, SequencerRuntime] = {
     val syncCrypto = new DomainSyncCryptoClient(
       sequencerId,
@@ -144,48 +141,28 @@ trait SequencerNodeBootstrapCommon[
       loggerFactory,
     )
 
-    def mkRateLimitManager(balanceStore: TrafficBalanceStore): Option[SequencerRateLimitManager] = {
-      // Use this client for the new top ups
-      def newTrafficBalanceClient = {
-        val manager = new TrafficBalanceManager(
-          balanceStore,
-          clock,
-          trafficConfig,
-          futureSupervisor,
-          arguments.metrics,
-          timeouts,
-          loggerFactory,
-        )
+    def newTrafficBalanceClient = new BalanceUpdateClientImpl(balanceManager, loggerFactory)
 
-        new BalanceUpdateClientImpl(manager, loggerFactory)
-      }
-
-      // Old balance client from topology
-      def topologyTrafficBalanceClient = {
-        new BalanceUpdateClientTopologyImpl(
-          syncCrypto,
-          staticDomainParameters.protocolVersion,
-          loggerFactory,
-        )
-      }
-
-      val balanceUpdateClient =
-        if (arguments.parameterConfig.useNewTrafficControl) newTrafficBalanceClient
-        else topologyTrafficBalanceClient
-
-      val rateLimitManager = {
-        val rateLimiter = new EnterpriseSequencerRateLimitManager(
-          balanceUpdateClient,
-          loggerFactory,
-          futureSupervisor,
-          timeouts,
-          arguments.metrics,
-        )
-        Some(rateLimiter)
-      }
-
-      rateLimitManager
+    // Old balance client from topology
+    def topologyTrafficBalanceClient = {
+      new BalanceUpdateClientTopologyImpl(
+        syncCrypto,
+        staticDomainParameters.protocolVersion,
+        loggerFactory,
+      )
     }
+
+    val balanceUpdateClient =
+      if (arguments.parameterConfig.useNewTrafficControl) newTrafficBalanceClient
+      else topologyTrafficBalanceClient
+
+    val rateLimitManager = new EnterpriseSequencerRateLimitManager(
+      balanceUpdateClient,
+      loggerFactory,
+      futureSupervisor,
+      timeouts,
+      arguments.metrics,
+    )
 
     for {
       sequencer <- EitherT.liftF[Future, String, Sequencer](
@@ -196,7 +173,8 @@ trait SequencerNodeBootstrapCommon[
           clock,
           syncCrypto,
           futureSupervisor,
-          mkRateLimitManager,
+          rateLimitManager,
+          balanceManager.store,
         )
       )
 

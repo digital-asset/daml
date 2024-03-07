@@ -4,7 +4,7 @@
 package com.digitalasset.canton.fetchcontracts
 
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.daml.lf
 import util.ClientUtil.boxedRecord
@@ -89,10 +89,10 @@ package domain {
 
     def fromLedgerApi[RQ, CtTyId](
         resolvedQuery: RQ,
-        in: lav1.event.CreatedEvent,
-    )(implicit RQ: ForQuery[RQ, CtTyId]): Error \/ ActiveContract[CtTyId, lav1.value.Value] = {
+        in: lav2.event.CreatedEvent,
+    )(implicit RQ: ForQuery[RQ, CtTyId]): Error \/ ActiveContract[CtTyId, lav2.value.Value] = {
       type IdKeyPayload =
-        (Error \/ CtTyId, Option[lav1.value.Value], Error \/ lav1.value.Record)
+        (Error \/ CtTyId, Option[lav2.value.Value], Error \/ lav2.value.Record)
 
       def templateFallback = {
         val id = in.templateId.required("templateId").map(ContractTypeId.Template.fromLedgerApi)

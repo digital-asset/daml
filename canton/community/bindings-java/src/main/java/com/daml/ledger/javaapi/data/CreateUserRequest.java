@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.admin.UserManagementServiceOuterClass;
+import com.daml.ledger.api.v2.admin.UserManagementServiceOuterClass;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

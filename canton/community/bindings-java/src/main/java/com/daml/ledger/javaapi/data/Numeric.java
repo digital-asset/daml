@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import java.math.BigDecimal;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;

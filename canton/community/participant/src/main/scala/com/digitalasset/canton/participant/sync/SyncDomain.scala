@@ -271,9 +271,11 @@ class SyncDomain(
   private val trafficProcessor =
     new TrafficControlProcessor(domainCrypto, domainId, loggerFactory)
 
-  trafficProcessor.subscribe(
-    new ParticipantTrafficControlSubscriber(participantId, loggerFactory)
-  )
+  if (parameters.useNewTrafficControl) {
+    trafficProcessor.subscribe(
+      new ParticipantTrafficControlSubscriber(trafficStateController, participantId, loggerFactory)
+    )
+  }
 
   private val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor =
     new BadRootHashMessagesRequestProcessor(
@@ -331,8 +333,8 @@ class SyncDomain(
       traceContext: TraceContext
   ): Unit = journalGarbageCollector.removeOneLock()
 
-  def getTrafficControlState(implicit tc: TraceContext): Future[Option[MemberTrafficStatus]] =
-    trafficStateController.getState
+  def getTrafficControlState: Future[Option[MemberTrafficStatus]] =
+    trafficStateController.getState()
 
   def authorityOfInSnapshotApproximation(requestingAuthority: Set[LfPartyId])(implicit
       traceContext: TraceContext

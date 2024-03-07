@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.client.services.admin
 
-import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
-import com.daml.ledger.api.v1.admin.party_management_service.{
+import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
+import com.daml.ledger.api.v2.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
   GetPartiesRequest,

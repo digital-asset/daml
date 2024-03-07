@@ -8,7 +8,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.TopologyXConfig
+import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.{
@@ -258,7 +258,7 @@ class SyncDomainPersistentStateManagerX(
     storage: Storage,
     indexedStringStore: IndexedStringStore,
     parameters: ParticipantNodeParameters,
-    topologyXConfig: TopologyXConfig,
+    topologyXConfig: TopologyConfig,
     crypto: Crypto,
     clock: Clock,
     futureSupervisor: FutureSupervisor,

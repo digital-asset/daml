@@ -3,10 +3,11 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TraceContextOuterClass;
+import com.daml.ledger.api.v2.TraceContextOuterClass;
 import com.daml.ledger.api.v2.ReassignmentOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -26,6 +27,8 @@ public final class Reassignment implements WorkflowEvent {
 
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
+  @NonNull private final Instant recordTime;
+
   private Reassignment(
       @NonNull String updateId,
       @NonNull String commandId,
@@ -33,7 +36,8 @@ public final class Reassignment implements WorkflowEvent {
       @NonNull String offset,
       @NonNull Optional<UnassignedEvent> unassignedEvent,
       @NonNull Optional<AssignedEvent> assignedEvent,
-      TraceContextOuterClass.@NonNull TraceContext traceContext) {
+      TraceContextOuterClass.@NonNull TraceContext traceContext,
+      @NonNull Instant recordTime) {
     this.updateId = updateId;
     this.commandId = commandId;
     this.workflowId = workflowId;
@@ -41,6 +45,7 @@ public final class Reassignment implements WorkflowEvent {
     this.unassignedEvent = unassignedEvent;
     this.assignedEvent = assignedEvent;
     this.traceContext = traceContext;
+    this.recordTime = recordTime;
   }
 
   public Reassignment(
@@ -49,7 +54,8 @@ public final class Reassignment implements WorkflowEvent {
       @NonNull String workflowId,
       @NonNull String offset,
       @NonNull UnassignedEvent unassignedEvent,
-      TraceContextOuterClass.@NonNull TraceContext traceContext) {
+      TraceContextOuterClass.@NonNull TraceContext traceContext,
+      @NonNull Instant recordTime) {
     this(
         updateId,
         commandId,
@@ -57,7 +63,8 @@ public final class Reassignment implements WorkflowEvent {
         offset,
         Optional.of(unassignedEvent),
         Optional.empty(),
-        traceContext);
+        traceContext,
+        recordTime);
   }
 
   public Reassignment(
@@ -66,7 +73,8 @@ public final class Reassignment implements WorkflowEvent {
       @NonNull String workflowId,
       @NonNull String offset,
       @NonNull AssignedEvent assignedEvent,
-      TraceContextOuterClass.@NonNull TraceContext traceContext) {
+      TraceContextOuterClass.@NonNull TraceContext traceContext,
+      @NonNull Instant recordTime) {
     this(
         updateId,
         commandId,
@@ -74,7 +82,8 @@ public final class Reassignment implements WorkflowEvent {
         offset,
         Optional.empty(),
         Optional.of(assignedEvent),
-        traceContext);
+        traceContext,
+        recordTime);
   }
 
   @NonNull
@@ -111,6 +120,11 @@ public final class Reassignment implements WorkflowEvent {
     return traceContext;
   }
 
+  @NonNull
+  public Instant getRecordTime() {
+    return recordTime;
+  }
+
   public static Reassignment fromProto(ReassignmentOuterClass.Reassignment reassignment) {
     return new Reassignment(
         reassignment.getUpdateId(),
@@ -123,7 +137,8 @@ public final class Reassignment implements WorkflowEvent {
         reassignment.hasAssignedEvent()
             ? Optional.of(AssignedEvent.fromProto(reassignment.getAssignedEvent()))
             : Optional.empty(),
-        reassignment.getTraceContext());
+        reassignment.getTraceContext(),
+        Utils.instantFromProto(reassignment.getRecordTime()));
   }
 
   public ReassignmentOuterClass.Reassignment toProto() {
@@ -133,7 +148,8 @@ public final class Reassignment implements WorkflowEvent {
             .setCommandId(commandId)
             .setWorkflowId(workflowId)
             .setOffset(offset)
-            .setTraceContext(traceContext);
+            .setTraceContext(traceContext)
+            .setRecordTime(Utils.instantToProto(recordTime));
     unassignedEvent.ifPresent(event -> builder.setUnassignedEvent(event.toProto()));
     assignedEvent.ifPresent(event -> builder.setAssignedEvent(event.toProto()));
     return builder.build();
@@ -160,6 +176,8 @@ public final class Reassignment implements WorkflowEvent {
         + assignedEvent
         + ", traceContext="
         + traceContext
+        + ", recordTime="
+        + recordTime
         + '}';
   }
 
@@ -174,13 +192,21 @@ public final class Reassignment implements WorkflowEvent {
         && Objects.equals(offset, that.offset)
         && Objects.equals(unassignedEvent, that.unassignedEvent)
         && Objects.equals(assignedEvent, that.assignedEvent)
-        && Objects.equals(traceContext, that.traceContext);
+        && Objects.equals(traceContext, that.traceContext)
+        && Objects.equals(recordTime, that.recordTime);
   }
 
   @Override
   public int hashCode() {
 
     return Objects.hash(
-        updateId, commandId, workflowId, offset, unassignedEvent, assignedEvent, traceContext);
+        updateId,
+        commandId,
+        workflowId,
+        offset,
+        unassignedEvent,
+        assignedEvent,
+        traceContext,
+        recordTime);
   }
 }

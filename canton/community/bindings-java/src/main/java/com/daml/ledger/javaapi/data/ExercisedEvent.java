@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.EventOuterClass;
+import com.daml.ledger.api.v2.EventOuterClass;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

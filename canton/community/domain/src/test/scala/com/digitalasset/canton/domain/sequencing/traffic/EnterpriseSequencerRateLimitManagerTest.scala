@@ -3,22 +3,18 @@
 
 package com.digitalasset.canton.domain.sequencing.traffic
 
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError.AboveTrafficLimit
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
-  SequencerRateLimitManager,
-  SequencerTrafficConfig,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.TrafficStateUpdateResult
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.traffic.{EventCostCalculator, TopUpEvent}
+import com.digitalasset.canton.traffic.EventCostCalculator
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.scalatest.FutureOutcome
@@ -27,7 +23,8 @@ import org.scalatest.flatspec.FixtureAsyncFlatSpec
 class EnterpriseSequencerRateLimitManagerTest
     extends FixtureAsyncFlatSpec
     with BaseTest
-    with HasExecutionContext {
+    with HasExecutionContext
+    with RateLimitManagerTesting {
 
   behavior of "EnterpriseSequencerRateLimiter"
 
@@ -45,11 +42,6 @@ class EnterpriseSequencerRateLimitManagerTest
   private val eventCost = 5L
   private val eventCostCalculator = mock[EventCostCalculator]
   private val batch: Batch[ClosedEnvelope] = Batch(List(envelope1), testedProtocolVersion)
-  private val topUp: TopUpEvent = TopUpEvent(
-    PositiveLong.tryCreate(10L),
-    CantonTimestamp.Epoch,
-    PositiveInt.one,
-  )
   when(
     eventCostCalculator.computeEventCost(batch, trafficConfig.readVsWriteScalingFactor, Map.empty)
   )
@@ -61,7 +53,6 @@ class EnterpriseSequencerRateLimitManagerTest
       NonNegativeLong.tryCreate(15L)
     ) // value is irrelevant, just different from inState
   private val inState = TrafficState.empty(CantonTimestamp.Epoch)
-  private val sequencerMetrics = SequencerMetrics.noop("sequencer-rate-limit-manager-test")
 
   case class Env(
       trafficConfig: TrafficControlParameters,
@@ -226,9 +217,9 @@ class EnterpriseSequencerRateLimitManagerTest
       )
       // Update state one second later
       state2 <- f.rlm
-        .updateTrafficStates(
+        .getUpdatedTrafficStatesAtTimestamp(
           Map(sender -> state1),
-          Some(sequencingTs.immediateSuccessor.plusSeconds(1)),
+          sequencingTs.immediateSuccessor.plusSeconds(1),
           trafficConfigWithBaseRate,
           Option(sequencingTs.immediateSuccessor),
           warnIfApproximate = true,
@@ -289,32 +280,14 @@ class EnterpriseSequencerRateLimitManagerTest
   }
 
   override def withFixture(test: OneArgAsyncTest): FutureOutcome = {
-    val balanceStore = new InMemoryTrafficBalanceStore(loggerFactory)
-    val balanceManager = new TrafficBalanceManager(
-      balanceStore,
-      new SimClock(CantonTimestamp.Epoch, loggerFactory),
-      SequencerTrafficConfig(),
-      futureSupervisor,
-      SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
-      timeouts,
-      loggerFactory,
-    )
-    val balanceUpdateClient = new BalanceUpdateClientImpl(balanceManager, loggerFactory)
-    val rlm: EnterpriseSequencerRateLimitManager = new EnterpriseSequencerRateLimitManager(
-      balanceUpdateClient,
-      loggerFactory,
-      futureSupervisor,
-      timeouts,
-      sequencerMetrics,
-      DefaultSequencerMemberRateLimiterFactory,
-      eventCostCalculator,
-    )
-
+    val store = new InMemoryTrafficBalanceStore(loggerFactory)
+    val manager = mkTrafficBalanceManager(store)
+    val rateLimiter = mkRateLimiter(manager)
     val env = Env(
       trafficConfig,
       batch,
-      rlm,
-      balanceManager,
+      rateLimiter,
+      manager,
     )
 
     withFixture(test.toNoArgAsyncTest(env))

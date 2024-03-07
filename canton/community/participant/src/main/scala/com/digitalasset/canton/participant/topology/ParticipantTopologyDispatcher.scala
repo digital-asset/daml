@@ -304,7 +304,7 @@ class ParticipantTopologyDispatcherX(
         sequencerClientFactory,
         sequencerConnections,
         crypto,
-        config.topologyX,
+        config.topology,
         protocolVersion,
         expectedSequencers,
       )).run()
@@ -325,7 +325,7 @@ class ParticipantTopologyDispatcherX(
         domainId,
         participantId,
         clock,
-        config.topologyX,
+        config.topology,
         protocolVersion,
         timeouts,
         domainLoggerFactory,

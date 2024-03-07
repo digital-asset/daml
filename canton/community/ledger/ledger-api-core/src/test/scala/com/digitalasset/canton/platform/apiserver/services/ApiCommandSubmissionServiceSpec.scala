@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v2.commands.{Command, CreateCommand}
+import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.tracing.{DefaultOpenTelemetry, SpanAttribute}
 import com.digitalasset.canton.BaseTest

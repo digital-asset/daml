@@ -89,4 +89,23 @@ object TrafficControlErrors extends TrafficControlErrorGroup {
       )
     }
   }
+  @Explanation(
+    """The provided serial is lower or equal to the latest recorded balance update.
+      |"""
+  )
+  @Resolution(
+    """Re-submit the top up request with a serial above the latest recorded balance update."""
+  )
+  object TrafficControlSerialTooLow
+      extends ErrorCode(
+        "TRAFFIC_CONTROL_SERIAL_TOO_LOW",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Error(failureCause: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = failureCause
+        )
+        with TrafficControlError
+  }
 }

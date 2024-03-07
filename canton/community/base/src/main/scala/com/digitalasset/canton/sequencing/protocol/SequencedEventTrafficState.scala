@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.apply.*
+import com.digitalasset.canton.config.RequireTypes
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveLong}
 import com.digitalasset.canton.domain.api.v30.SequencedEventTrafficState as SequencedEventTrafficStateP
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -24,6 +25,14 @@ final case class SequencedEventTrafficState(
       extraTrafficRemainder = extraTrafficRemainder.value,
       extraTrafficConsumed = extraTrafficConsumed.value,
     )
+  }
+
+  def updateLimit(
+      newLimit: NonNegativeLong
+  ): Either[RequireTypes.InvariantViolation, SequencedEventTrafficState] = {
+    NonNegativeLong.create(newLimit.value - extraTrafficConsumed.value).map { newRemainder =>
+      copy(extraTrafficRemainder = newRemainder)
+    }
   }
 
 }

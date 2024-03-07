@@ -4,13 +4,13 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.trace_context.TraceContext as DamlTraceContext
-import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.state_service.{ActiveContract, GetActiveContractsResponse}
+import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
 import com.daml.ledger.api.v2.transaction.{
   Transaction as ApiTransaction,
   TransactionTree as ApiTransactionTree,
+  TreeEvent,
 }
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,

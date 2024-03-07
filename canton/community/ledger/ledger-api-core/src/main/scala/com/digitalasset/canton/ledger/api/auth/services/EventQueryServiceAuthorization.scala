@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryService
 import com.daml.ledger.api.v2.event_query_service.{
   EventQueryServiceGrpc,
+  GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
 import com.digitalasset.canton.ledger.api.ProxyCloseable

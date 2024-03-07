@@ -6,9 +6,9 @@ package com.digitalasset.canton.http.util
 import java.util.UUID
 
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.{CommandId, Party}
-import com.daml.ledger.api.v1.transaction_filter.{Filters}
+import com.daml.ledger.api.v2.transaction_filter.{Filters}
 import com.daml.ledger.api.v2.transaction_filter.{TransactionFilter}
-import com.daml.ledger.api.{v1 as lav1}
+import com.daml.ledger.api.{v2 as lav2}
 
 object ClientUtil {
   def uniqueId(): String = UUID.randomUUID.toString
@@ -20,6 +20,6 @@ object ClientUtil {
 
   import com.digitalasset.canton.fetchcontracts.util.ClientUtil as FC
 
-  def boxedRecord(a: lav1.value.Record): lav1.value.Value =
+  def boxedRecord(a: lav2.value.Record): lav2.value.Value =
     FC.boxedRecord(a)
 }

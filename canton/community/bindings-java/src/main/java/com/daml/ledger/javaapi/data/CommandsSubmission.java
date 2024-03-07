@@ -386,12 +386,12 @@ public final class CommandsSubmission {
       throw new IllegalArgumentException("actAs must have at least one element");
     }
 
-    List<com.daml.ledger.api.v1.CommandsOuterClass.Command> commandsConverted =
+    List<com.daml.ledger.api.v2.CommandsOuterClass.Command> commandsConverted =
         HasCommands.toCommands(commands).stream()
             .map(Command::toProtoCommand)
             .collect(Collectors.toList());
 
-    List<com.daml.ledger.api.v1.CommandsOuterClass.DisclosedContract> disclosedContractsConverted =
+    List<com.daml.ledger.api.v2.CommandsOuterClass.DisclosedContract> disclosedContractsConverted =
         disclosedContracts.stream().map(DisclosedContract::toProto).collect(Collectors.toList());
 
     CommandsOuterClass.Commands.Builder builder =

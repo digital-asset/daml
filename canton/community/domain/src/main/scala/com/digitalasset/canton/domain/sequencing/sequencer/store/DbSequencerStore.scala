@@ -15,12 +15,11 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommitMode,
-  InFlightAggregations,
   SequencerMemberStatus,
   SequencerPruningStatus,
+  SequencerSnapshot,
 }
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -834,7 +833,7 @@ class DbSequencerStore(
 
   override def readStateAtTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[EphemeralState] = {
+  )(implicit traceContext: TraceContext): Future[SequencerSnapshot] = {
     def h2PostgresQueryMemberCheckpoints(
         memberContainsBefore: String,
         memberContainsAfter: String,
@@ -902,14 +901,25 @@ class DbSequencerStore(
     } yield counters
 
     for {
-      statusAtTimestamp <- status(timestamp)
       checkpointsAtTimestamp <- storage.query(query.transactionally, functionFullName)
-    } yield EphemeralState(
-      Map(): InFlightAggregations,
-      statusAtTimestamp.toInternal,
-      checkpointsAtTimestamp.toMap,
-      Map(),
-    )
+      lastTs = checkpointsAtTimestamp
+        .map(_._2.timestamp)
+        .maxOption
+        .getOrElse(CantonTimestamp.MinValue)
+      statusAtTimestamp <- status(lastTs)
+    } yield {
+      val checkpoints = checkpointsAtTimestamp.toMap
+      SequencerSnapshot(
+        lastTs,
+        checkpoints.fmap(_.counter),
+        statusAtTimestamp,
+        Map.empty,
+        None,
+        protocolVersion,
+        Map.empty,
+        Seq.empty,
+      )
+    }
   }
 
   override def deleteEventsPastWatermark(

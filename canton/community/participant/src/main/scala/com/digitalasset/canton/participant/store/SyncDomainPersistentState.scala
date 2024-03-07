@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
   ProcessingTimeout,
-  TopologyXConfig,
+  TopologyConfig,
 }
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -63,7 +63,7 @@ object SyncDomainPersistentState {
       clock: Clock,
       crypto: Crypto,
       parameters: ParticipantStoreConfig,
-      topologyXConfig: TopologyXConfig,
+      topologyXConfig: TopologyConfig,
       caching: CachingConfigs,
       batching: BatchingConfig,
       processingTimeouts: ProcessingTimeout,

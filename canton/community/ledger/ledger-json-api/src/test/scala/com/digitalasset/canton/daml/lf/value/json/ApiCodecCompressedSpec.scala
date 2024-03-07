@@ -26,29 +26,31 @@ import scala.annotation.nowarn
 import scala.util.{Success, Try}
 import scala.util.Random.shuffle
 
-class ApiCodecCompressedSpec
+abstract class ApiCodecCompressedSpec
     extends AnyWordSpec
     with Matchers
     with ScalaCheckPropertyChecks
     with Inside {
 
+  def darPath: String
+
   import C.typeLookup
 
-  private[this] implicit val cidArb: Arbitrary[ContractId] = Arbitrary(coidGen)
+  protected implicit val cidArb: Arbitrary[ContractId] = Arbitrary(coidGen)
 
-  private val dar = TestResourceUtils.resourceFile("JsonEncodingTest.dar")
+  private val dar = TestResourceUtils.resourceFile(darPath)
   require(dar.exists())
 
-  private val darMetadata: MetadataReader.LfMetadata =
+  protected val darMetadata: MetadataReader.LfMetadata =
     MetadataReader
       .readFromDar(dar)
       .valueOr(e => fail(s"Cannot read metadata from $dar, error:" + e.shows))
 
-  private val darTypeLookup: NavigatorModelAliases.DamlLfTypeLookup =
+  protected val darTypeLookup: NavigatorModelAliases.DamlLfTypeLookup =
     MetadataReader.typeLookup(darMetadata)
 
   /** Serializes the API value to JSON, then parses it back to an API value */
-  private def serializeAndParse(
+  protected def serializeAndParse(
       value: model.ApiValue,
       typ: model.DamlLfType,
   ): Try[model.ApiValue] = {
@@ -61,12 +63,12 @@ class ApiCodecCompressedSpec
     } yield parsed
   }
 
-  private def roundtrip(va: VA)(v: va.Inj): Option[va.Inj] =
+  protected def roundtrip(va: VA)(v: va.Inj): Option[va.Inj] =
     va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
 
-  private[this] val decimalScale = Numeric.Scale.assertFromInt(10)
+  protected val decimalScale = Numeric.Scale.assertFromInt(10)
 
-  private object C /* based on navigator DamlConstants */ {
+  protected object C /* based on navigator DamlConstants */ {
     import shapeless.syntax.singleton.*
     val packageId0 = Ref.PackageId assertFromString "hash"
     val moduleName0 = Ref.ModuleName assertFromString "Module"
@@ -146,6 +148,18 @@ class ApiCodecCompressedSpec
         colorId -> colorGD,
       ).lift
   }
+
+  protected def mustBeOne[A](as: Seq[A]): A = as match {
+    case Seq(x) => x
+    case xs @ _ => sys.error(s"Expected exactly one element, got: $xs")
+  }
+}
+
+class ApiCodecCompressedSpecStable extends ApiCodecCompressedSpec {
+
+  import C.typeLookup
+
+  override def darPath: String = "JsonEncodingTest.dar"
 
   "API compressed JSON codec" when {
 
@@ -244,13 +258,13 @@ class ApiCodecCompressedSpec
     }
 
     def cn(canonical: String, numerically: String, typ: VA)(
-        expected: typ.Inj,
-        alternates: String*
+      expected: typ.Inj,
+      alternates: String*
     )(implicit pos: source.Position) =
       (pos.lineNumber, canonical, numerically, typ, expected, alternates)
 
     def c(canonical: String, typ: VA)(expected: typ.Inj, alternates: String*)(implicit
-        pos: source.Position
+                                                                              pos: source.Position
     ) =
       cn(canonical, canonical, typ)(expected, alternates: _*)(pos)
 
@@ -510,7 +524,15 @@ class ApiCodecCompressedSpec
         actualValue shouldBe expectedValueWithIds
       }
     }
+  }
+}
 
+class ApiCodecCompressedSpecDev extends ApiCodecCompressedSpec {
+  override def darPath: String = "JsonEncodingTestDev.dar"
+
+  import com.daml.lf.value.{Value as LfValue}
+
+  "API compressed JSON codec" when {
     "dealing with Contract Key" should {
       import com.daml.lf.typesig.PackageSignature.TypeDecl.{Template as TDTemplate}
 
@@ -583,10 +605,5 @@ class ApiCodecCompressedSpec
         }
       }
     }
-  }
-
-  private def mustBeOne[A](as: Seq[A]): A = as match {
-    case Seq(x) => x
-    case xs @ _ => sys.error(s"Expected exactly one element, got: $xs")
   }
 }

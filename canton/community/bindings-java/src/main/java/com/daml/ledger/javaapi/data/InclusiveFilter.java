@@ -3,8 +3,8 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TransactionFilterOuterClass;
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.TransactionFilterOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
