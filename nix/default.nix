@@ -119,7 +119,6 @@ in rec {
 
     yapf = pkgs.python37Packages.yapf;
 
-    pex = pkgs.python37Packages.pex;
     pipenv = import ./tools/pipenv {
       lib = pkgs.lib;
       python3 = python3;
