@@ -101,6 +101,7 @@ object CantonRunner {
          |        enable-engine-stack-traces = true
          |        enable-contract-upgrading = ${config.enableUpgrade}
          |        dev-version-support = ${config.devMode}
+         |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
          |    }""".stripMargin
