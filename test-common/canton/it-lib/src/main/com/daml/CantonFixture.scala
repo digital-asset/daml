@@ -82,6 +82,8 @@ trait CantonFixtureWithResource[A]
     case _ => false
   }
 
+  protected val disableUpgradeValidation: Boolean = false
+
   // If we need to enable debugging (logs, etc.), but still want to clean up the
   // temporary files after a test is done running
   protected val cantonFixtureDebugModeRemoveTmpFilesRegardless = false
@@ -124,6 +126,7 @@ trait CantonFixtureWithResource[A]
     debug = cantonFixtureDebugModeIsDebug,
     bootstrapScript = bootstrapScript,
     targetScope = targetScope,
+    disableUpgradeValidation = disableUpgradeValidation,
   )
 
   protected def info(msg: String): Unit =
