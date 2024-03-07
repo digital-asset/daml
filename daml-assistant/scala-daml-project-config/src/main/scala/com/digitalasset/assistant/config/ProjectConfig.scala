@@ -132,7 +132,7 @@ object ProjectConfig {
         Regex.quoteReplacement {
           val prefix = m.group(1) + m.group(2).take(m.group(2).length / 2)
           if (m.group(2).length % 2 == 0) {
-            val varName = m.group(3).replace(".", "_")
+            val varName = m.group(3)
             prefix + env
               .get(varName)
               .getOrElse(

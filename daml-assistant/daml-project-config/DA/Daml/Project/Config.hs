@@ -95,37 +95,47 @@ transformSubmatch = fmap (fmap toSubMatch . Array.elems) . Array.elems
     toSubMatch :: (Text, (Int, Int)) -> SubMatch
     toSubMatch (smText, (smStart, smLength)) = let smEnd = smStart + smLength in SubMatch {..}
 
+-- Replaces all occurences of a regex pattern in a string using a replacement function
+-- Replacement function runs in a monad
+replaceAllInM :: forall m. Monad m => String -> Text -> ([SubMatch] -> m Text) -> m Text
+replaceAllInM needle haystack replacer = do
+  let matchPositions :: [[SubMatch]] = transformSubmatch $ getAllTextMatches $ haystack =~ needle
+      -- State is string replaced so far, position in haystack
+      initialReplaceState :: (Text, Int) = ("", 0)
+      -- Gets replacement string from replacer, adds unmatched prefix from haystack then replacement to the state
+      -- Shifts the haystack position to the end of the match
+      stepReplace :: (Text, Int) -> [SubMatch] -> m (Text, Int)
+      stepReplace (replacedSoFar, haystackPosition) match = do
+        replacement <- replacer match
+        let fullMatch = head match
+        pure (replacedSoFar <> textSub haystackPosition (smStart fullMatch) haystack <> replacement, smEnd fullMatch)
+  -- Run the fold, which builds a string ending on the last match
+  (replacedToLastMatch, haystackPosition) <- foldlM stepReplace initialReplaceState matchPositions
+  -- Add the final suffix (which has no matches)
+  pure $ replacedToLastMatch <> textSub haystackPosition (T.length haystack) haystack
+
+-- First group is leading character, would ideally be a non-capturing group
+-- Second group is leading backslashes. Odd length means no replacement, even means replacement
+-- Third group is the variable name
+envVarPattern :: String
+envVarPattern = "(^|[^\\\\])(\\\\*)\\${([^}]+)}"
+
 -- Finds any ${...} where the dollar isn't preceeded by (an odd number of) '\'
 -- Replaces the inner name with the value provided by the below mapping
--- Note that `.` in the name are replaced with `_`, to allow for future support for heirarchical names
 interpolateEnvVariables :: [(String, String)] -> T.Text -> Either String T.Text
-interpolateEnvVariables env str = do
-  let matchPositions :: [[SubMatch]] = transformSubmatch $ getAllTextMatches (str =~ ("(^|[^\\\\])(\\\\*)\\${([^}]+)}" :: String))
-      -- First 2 matches aren't needed (whole match + start of line check)
-      --   TDFA doesn't support non capturing groups, which is why that match exists in the first place
-      replaceWithPrefix (s, start) [_, _, escapeSlashes, name] = do
-        -- Divide by 2 and floor to get the number of `\` that should be in the final string
-        let finalSlashesText = T.replicate (smLength escapeSlashes `div` 2) "\\"
-            prefix = textSub start (smStart escapeSlashes) str
-        if smLength escapeSlashes `mod` 2 == 1 -- Odd number of backslashes, thiss expression is escaped
-          then pure
-                ( s <> prefix
-                    <> finalSlashesText
-                    <> textSub (smEnd escapeSlashes) (smEnd name + 1) str
-                , smEnd name + 1
-                )
-          else do
-            let envVarName = T.unpack $ T.replace "." "_" $ smText name
-                mEnvVar = lookup envVarName env
-            envVarValue <- maybeToEither ("Couldn't find environment variable " <> envVarName <> " in value " <> T.unpack str) mEnvVar
-            pure 
-              ( s <> prefix <> finalSlashesText <> T.pack envVarValue
-              , smEnd name + 1
-              )
-      -- Impossible case to appease the warnings
-      replaceWithPrefix _ _ = Left "Impossible incorrect regex submatches"
-  (replacedPrefix, prefixEnd) <- foldlM replaceWithPrefix ("" :: Text, 0) matchPositions
-  pure $ replacedPrefix <> textSub prefixEnd (T.length str) str
+interpolateEnvVariables env str = 
+  replaceAllInM envVarPattern str $ \case
+    [_, firstChar, escapeSlashes, name] -> do
+      -- Divide by 2 and floor to get the number of `\` that should be in the final string
+      let prefix = smText firstChar <> T.replicate (smLength escapeSlashes `div` 2) "\\"
+      if smLength escapeSlashes `mod` 2 == 1 -- Odd number of backslashes, this expression is escaped
+        then pure $ prefix <> "${" <> smText name <> "}"
+        else do
+          let envVarName = T.unpack $ smText name
+              mEnvVar = lookup envVarName env
+          envVarValue <- maybeToEither ("Couldn't find environment variable " <> envVarName <> " in value " <> T.unpack str) mEnvVar
+          pure $ prefix <> T.pack envVarValue
+    _ -> Left "Impossible incorrect regex submatches"
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
@@ -152,7 +162,7 @@ configExistsWithEnv path =
   fmap (fromRight False) $ runExceptT $ do
     (configValue :: Y.Value) <- ExceptT $ Y.decodeFileEither path
     pure $ flip any (universe configValue) $ \case
-      Y.String str -> str =~ ("(^|[^\\\\])(\\\\\\\\)*\\${[^}]+}" :: String)
+      Y.String str -> str =~ envVarPattern
       _ -> False
 
 -- | Determine pinned sdk version from project config, if it exists.

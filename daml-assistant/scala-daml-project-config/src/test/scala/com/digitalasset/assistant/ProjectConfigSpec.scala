@@ -152,18 +152,6 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
         } yield result
         name shouldBe Right(Some("""\name"""))
       }
-      "replace variable using dots for underscores" in {
-        @nowarn("msg=possible missing interpolator")
-        val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
-            projectRoot,
-            "name: ${MY.NAME}",
-            Map(("MY_NAME", "name")),
-          )
-          result <- config.name
-        } yield result
-        name shouldBe Right(Some("name"))
-      }
       "not add syntax/structure" in {
         val name = for {
           config <- ProjectConfig.loadFromStringWithEnv(

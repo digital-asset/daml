@@ -592,8 +592,6 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
         queryTopLevelField p "name" @?= "${MY_NAME}"
     , test "replace double escaped variable" [("MY_NAME", "name")] "name: \\\\${MY_NAME}" $ withSuccess $ \p ->
         queryTopLevelField p "name" @?= "\\name"
-    , test "replace variable using dots for underscores" [("MY_NAME", "name")] "name: ${MY.NAME}" $ withSuccess $ \p ->
-        queryTopLevelField p "name" @?= "name"
     , test "not add syntax/structure" [("MY_NAME", "\n  - elem\n  - elem")] "name: ${MY_NAME}" $ withSuccess $ \p ->
         queryTopLevelField p "name" @?= "\n  - elem\n  - elem"
     , test "fail when variable doesn't exist" [] "name: ${MY_NAME}" $ withFailure $ \case
