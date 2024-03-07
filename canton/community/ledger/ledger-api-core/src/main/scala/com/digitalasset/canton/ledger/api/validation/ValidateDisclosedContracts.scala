@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.commands.{
 }
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.TransactionCoder
-import com.digitalasset.canton.ledger.api.domain.{DisclosedContract, UpgradableDisclosedContract}
+import com.digitalasset.canton.ledger.api.domain.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.requireContractId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
@@ -87,7 +87,7 @@ class ValidateDisclosedContracts {
         )
       } yield {
         import fatContractInstance.*
-        UpgradableDisclosedContract(
+        DisclosedContract(
           contractId = validatedContractId,
           templateId = templateId,
           packageName = packageName,

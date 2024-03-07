@@ -5,11 +5,7 @@ package com.digitalasset.canton.http
 
 import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
-import lav2.command_service.{
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest,
-}
+import lav2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitRequest}
 import lav2.transaction.{Transaction, TransactionTree}
 import com.digitalasset.canton.http.util.Logging as HLogging
 import com.daml.logging.LoggingContextOf
@@ -17,18 +13,17 @@ import LoggingContextOf.{label, newLoggingContext}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.auth.AuthServiceJWTCodec
+import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, StandardJWTPayload, StandardJWTTokenFormat}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.{NonEmptyList, \/-}
 import scalaz.syntax.foldable.*
 import scalaz.syntax.tag.*
-import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTPayload, CustomDamlJWTPayload}
 import spray.json.*
 import scalaz.syntax.show.*
-
 import java.util.concurrent.CopyOnWriteArrayList
+
 import scala.collection as sc
 import scala.concurrent.{Future, ExecutionContext as EC}
 import scala.jdk.CollectionConverters.*
@@ -99,32 +94,20 @@ object CommandServiceTest extends BaseTest {
   def jwtForParties(
       actAs: List[domain.Party],
       readAs: List[domain.Party],
-      withoutNamespace: Boolean = false,
-      admin: Boolean = false,
   ): Jwt = {
     import AuthServiceJWTCodec.JsonImplicits.*
     val payload: JsValue = {
-      val customJwtPayload: AuthServiceJWTPayload =
-        CustomDamlJWTPayload(
-          ledgerId = None,
-          applicationId = Some(applicationId.unwrap),
-          actAs = domain.Party unsubst actAs,
+      val standardJwtPayload: AuthServiceJWTPayload =
+        StandardJWTPayload(
+          issuer = None,
+          userId = applicationId.unwrap,
           participantId = None,
           exp = None,
-          admin = admin,
-          readAs = domain.Party unsubst readAs,
+          format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
+          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
         )
-      val payloadJson = customJwtPayload.toJson
-      if (withoutNamespace) {
-        // unsafe code but if someone changes the underlying structure
-        // they will notice the failing tests.
-        val payloadObj = payloadJson.asInstanceOf[JsObject]
-        val innerFieldsObj =
-          payloadObj.fields(AuthServiceJWTCodec.oidcNamespace).asInstanceOf[JsObject]
-        new JsObject(
-          payloadObj.fields ++ innerFieldsObj.fields - AuthServiceJWTCodec.oidcNamespace
-        )
-      } else payloadJson
+      standardJwtPayload.toJson
     }
     JwtSigner.HMAC256
       .sign(

@@ -43,8 +43,7 @@ import com.digitalasset.canton.health.admin.data.{
 import com.digitalasset.canton.logging.{LastErrorsAppender, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.repair.RepairService
-import com.digitalasset.canton.participant.config.{AuthServiceConfig, BaseParticipantConfig}
-import com.digitalasset.canton.participant.ledger.api.JwtTokenUtilities
+import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.SequencerConnections
@@ -570,55 +569,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         choice,
         arguments,
         event.contractId,
-      )
-    }
-
-    // intentionally not publicly documented
-    object jwt {
-      def generate_unsafe_token_for_participant(
-          participant: LocalParticipantReference,
-          admin: Boolean,
-          applicationId: String,
-      ): Map[PartyId, String] = {
-        val secret = participant.config.ledgerApi.authServices
-          .collectFirst { case AuthServiceConfig.UnsafeJwtHmac256(secret, _, _) =>
-            secret.unwrap
-          }
-          .getOrElse("notasecret")
-
-        participant.parties
-          .hosted()
-          .map(_.party)
-          .map(x =>
-            (
-              x,
-              generate_unsafe_jwt256_token(
-                secret = secret,
-                admin = admin,
-                readAs = List(x.toLf),
-                actAs = List(x.toLf),
-                ledgerId = Some(participant.id.uid.id.unwrap),
-                applicationId = Some(applicationId),
-              ),
-            )
-          )
-          .toMap
-      }
-
-      def generate_unsafe_jwt256_token(
-          secret: String,
-          admin: Boolean,
-          readAs: List[String],
-          actAs: List[String],
-          ledgerId: Option[String],
-          applicationId: Option[String],
-      ): String = JwtTokenUtilities.buildUnsafeToken(
-        secret = secret,
-        admin = admin,
-        readAs = readAs,
-        actAs = actAs,
-        ledgerId = ledgerId,
-        applicationId = applicationId,
       )
     }
   }

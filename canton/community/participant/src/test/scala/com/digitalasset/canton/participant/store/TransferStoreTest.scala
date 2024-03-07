@@ -1438,7 +1438,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
         mediatorMessage.domainId,
         ViewType.TransferOutViewType,
         requestId,
-        Some(mediatorMessage.rootHash),
+        mediatorMessage.rootHash,
         Verdict.Approve(BaseTest.testedProtocolVersion),
         mediatorMessage.allInformees,
         BaseTest.testedProtocolVersion,

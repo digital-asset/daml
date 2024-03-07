@@ -77,7 +77,7 @@ final case class CommunityMediatorNodeXConfig(
   override def withDefaults(ports: DefaultPorts): CommunityMediatorNodeXConfig = {
     this
       .focus(_.adminApi.internalPort)
-      .modify(ports.mediatorXAdminApiPort.setDefaultPort)
+      .modify(ports.mediatorAdminApiPort.setDefaultPort)
   }
 }
 

@@ -235,6 +235,54 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             dtsTx.map(_.transaction) shouldBe Some(tx5_DTC)
           }
         }
+        "able to filter with inspect" in {
+          val store = mk()
+
+          for {
+            _ <- update(store, ts2, add = Seq(tx2_OTK))
+            _ <- update(store, ts5, add = Seq(tx5_DTC))
+            _ <- update(store, ts6, add = Seq(tx6_MDS))
+
+            proposalTransactions <- inspect(
+              store,
+              TimeQuery.HeadState,
+            )
+            proposalTransactionsFiltered <- inspect(
+              store,
+              TimeQuery.HeadState,
+              types = Seq(
+                DomainTrustCertificateX.code,
+                OwnerToKeyMappingX.code,
+              ), // to test the types filter
+            )
+            proposalTransactionsFiltered2 <- inspect(
+              store,
+              TimeQuery.HeadState,
+              types = Seq(PartyToParticipantX.code),
+            )
+
+          } yield {
+            expectTransactions(
+              proposalTransactions,
+              Seq(
+                tx2_OTK,
+                tx5_DTC,
+                tx6_MDS,
+              ),
+            )
+            expectTransactions(
+              proposalTransactionsFiltered,
+              Seq(
+                tx2_OTK,
+                tx5_DTC,
+              ),
+            )
+            expectTransactions(
+              proposalTransactionsFiltered2,
+              Nil, // no proposal transaction of type PartyToParticipantX in the range
+            )
+          }
+        }
 
         "able to inspect" in {
           val store = mk()
@@ -253,7 +301,7 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             decentralizedNamespaceTransactions <- inspect(
               store,
               TimeQuery.Range(ts1.some, ts4.some),
-              typ = DecentralizedNamespaceDefinitionX.code.some,
+              types = Seq(DecentralizedNamespaceDefinitionX.code),
             )
             removalTransactions <- inspect(
               store,

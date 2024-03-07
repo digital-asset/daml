@@ -540,14 +540,19 @@ object TopologyAdminCommandsX {
         Right(response.storeIds)
     }
 
-    final case class ListAll(query: BaseQueryX)
+    final case class ListAll(query: BaseQueryX, excludeMappings: Seq[String])
         extends BaseCommand[
           v30.ListAllRequest,
           v30.ListAllResponse,
           GenericStoredTopologyTransactionsX,
         ] {
       override def createRequest(): Either[String, v30.ListAllRequest] =
-        Right(new v30.ListAllRequest(Some(query.toProtoV1)))
+        Right(
+          new v30.ListAllRequest(
+            baseQuery = Some(query.toProtoV1),
+            excludeMappings = excludeMappings,
+          )
+        )
 
       override def submitRequest(
           service: TopologyManagerReadServiceStub,

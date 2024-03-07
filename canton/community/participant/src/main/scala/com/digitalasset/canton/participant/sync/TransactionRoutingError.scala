@@ -119,26 +119,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           with TransactionRoutingError
     }
 
-    @Explanation(
-      """The WorkflowID defined in the transaction metadata is not a valid domain alias."""
-    )
-    @Resolution(
-      """Check that the workflow ID (if specified) corresponds to a valid domain alias.
-        A typical rejection reason is a too-long domain alias. """
-    )
-    object InvalidDomainAlias
-        extends ErrorCode(
-          id = "INVALID_DOMAIN_ALIAS",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
-
-      final case class Error(problem: String)
-          extends TransactionErrorImpl(
-            cause = "Unable to parse workflow ID."
-          )
-          with TransactionRoutingError
-    }
-
+    // TODO(i17634): remove or adapt description
     @Explanation(
       """The WorkflowID defined in the transaction metadata contains an invalid domain id."""
     )

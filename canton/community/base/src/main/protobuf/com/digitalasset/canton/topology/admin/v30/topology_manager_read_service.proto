@@ -295,6 +295,8 @@ message ListAvailableStoresResponse {
 
 message ListAllRequest {
   BaseQuery base_query = 1;
+  /** The list of topology mappings to exclude from the result.*/
+  repeated string exclude_mappings = 2;
 }
 
 message ListAllResponse {

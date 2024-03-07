@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import scala.concurrent.blocking
 
@@ -22,8 +22,10 @@ import scala.concurrent.blocking
   */
 class DomainOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogging {
 
-  private val unsentQueue = new scala.collection.mutable.Queue[GenericSignedTopologyTransactionX]
-  private val pendingQueue = new scala.collection.mutable.Queue[GenericSignedTopologyTransactionX]
+  private val unsentQueue =
+    new scala.collection.mutable.Queue[Traced[GenericSignedTopologyTransactionX]]
+  private val pendingQueue =
+    new scala.collection.mutable.Queue[Traced[GenericSignedTopologyTransactionX]]
 
   /** To be called by the topology manager whenever new topology transactions have been validated.
     */
@@ -31,7 +33,7 @@ class DomainOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogg
       txs: Seq[GenericSignedTopologyTransactionX]
   )(implicit traceContext: TraceContext): Unit = blocking(synchronized {
     logger.debug(s"enqueuing: $txs")
-    unsentQueue.enqueueAll(txs).discard
+    unsentQueue.enqueueAll(txs.map(Traced(_))).discard
   })
 
   def size(): Int = blocking(synchronized(unsentQueue.size))
@@ -51,7 +53,7 @@ class DomainOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogg
     )
     pendingQueue.enqueueAll(txs)
     unsentQueue.remove(0, limit)
-    pendingQueue.toSeq
+    pendingQueue.toSeq.map(_.value)
   })
 
   /** Marks the currently pending transactions as unsent and adds them to the front of the queue in the same order.

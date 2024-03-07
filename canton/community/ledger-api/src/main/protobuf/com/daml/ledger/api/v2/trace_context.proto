@@ -7,6 +7,10 @@ package com.daml.ledger.api.v2;
 
 import "google/protobuf/wrappers.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+option java_outer_classname = "TraceContextOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+
 message TraceContext {
   // https://www.w3.org/TR/trace-context/
   google.protobuf.StringValue traceparent = 1;
