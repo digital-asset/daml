@@ -22,7 +22,7 @@ import qualified Data.Text as T
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
 import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
 import DA.Test.Process (callProcessSilent)
-import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedJwt)
+import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedAdminJwt)
 import DA.Test.Util
 import SdkVersion (SdkVersioned, withSdkVersions, sdkVersion)
 import qualified DA.Daml.LF.Ast as LF
@@ -60,7 +60,7 @@ authenticationTests Tools{..} =
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret [] <> "\n")
+              writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret <> "\n")
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
@@ -72,7 +72,7 @@ authenticationTests Tools{..} =
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret [] <> "\n")
+              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
@@ -85,12 +85,12 @@ authenticationTests Tools{..} =
               writeMinimalProject
               let tokenFile = deployDir </> "secretToken.jwt"
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret [] <> "\n")
+              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
               appendFile "daml.yaml" $ unlines
                 ["ledger:"
                 , "  access-token-file: " <> tokenFile
                 ]
-              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret [] <> "\n")
+              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
               setEnv "DAML_PROJECT" deployDir True
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"

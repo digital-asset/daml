@@ -27,7 +27,7 @@ import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.Set as Set
-import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict,splitOn)
+import qualified Data.Text.Lazy as TL(Text,pack,fromStrict,splitOn)
 import Data.Text (unpack)
 import Data.Either.Extra(maybeToEither)
 import qualified Data.Aeson as Aeson
@@ -93,7 +93,7 @@ dropHashSuffix = head . TL.splitOn "::"
 
 run :: WithSandbox -> (DarMetadata -> TestId -> LedgerService ()) -> IO ()
 run withSandbox f =
-  withSandbox $ \sandbox maybeAuth darMetadata testId -> runWithSandbox sandbox maybeAuth testId (f darMetadata testId)
+  withSandbox $ \sandbox maybeAuth darMetadata testId -> runWithSandbox sandbox maybeAuth (f darMetadata testId)
 
 tListPackages :: SandboxTest
 tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \DarMetadata{mainPackageId,manifest} _testId -> do
@@ -232,26 +232,22 @@ newtype Secret = Secret { getSecret :: String }
 nextTestId :: TestId -> TestId
 nextTestId (TestId i) = TestId (i + 1)
 
-alice,bob :: TestId -> Party
-alice (TestId i) = Party $ TL.pack $ "Alice" <> show i
-bob (TestId i) = Party $ TL.pack $ "Bob" <> show i
-
 ----------------------------------------------------------------------
 -- runWithSandbox
 
-runWithSandbox :: forall a. Port -> Maybe Secret -> TestId -> LedgerService a -> IO a
-runWithSandbox port mbSecret tid ls = runLedgerService ls' timeout (configOfPort port)
+runWithSandbox :: forall a. Port -> Maybe Secret -> LedgerService a -> IO a
+runWithSandbox port mbSecret ls = runLedgerService ls' timeout (configOfPort port)
     where timeout = 60 :: TimeoutSeconds
           ls' :: LedgerService a
           ls' = case mbSecret of
             Nothing -> ls
             Just secret -> do
-              let tok = Ledger.Token ("Bearer " <> makeSignedJwt' secret tid)
+              let tok = Ledger.Token ("Bearer " <> makeSignedJwt' secret)
               setToken tok ls
 
-makeSignedJwt' :: Secret -> TestId -> String
-makeSignedJwt' secret tid =
-    makeSignedJwt (getSecret secret) [TL.unpack $ unParty $ p tid | p <- [alice, bob]]
+makeSignedJwt' :: Secret -> String
+makeSignedJwt' secret =
+    makeSignedAdminJwt (getSecret secret)
 
 ----------------------------------------------------------------------
 -- misc expectation combinators
