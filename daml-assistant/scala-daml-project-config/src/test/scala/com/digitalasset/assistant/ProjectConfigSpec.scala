@@ -7,7 +7,6 @@ import java.nio.file.Paths
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scala.annotation.nowarn
 
 class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
