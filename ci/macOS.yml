@@ -15,7 +15,7 @@ jobs:
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
-  condition: and(succeeded(),
+  condition: and(false,succeeded(),
                  or(eq('${{parameters.name}}', 'macos'),
                     or(eq(variables['Build.SourceBranchName'], 'main'),
                        eq(variables['Build.SourceBranchName'], 'main-2.x'))))
