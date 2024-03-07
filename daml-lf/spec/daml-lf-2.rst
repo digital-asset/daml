@@ -4545,18 +4545,14 @@ ordered by keys according to the comparison function ``LESS``.
 
   Returns an empty generic map.
 
-  [*Available in versions >= 1.11*]
-
 * ``GENMAP_INSERT : ∀ α. ∀ β.  α → β → 'GenMap' α β → 'GenMap' α β``
 
   Inserts a new key and value in the map. If the key is already
   present according the builtin function ``EQUAL``, the associated
   value is replaced with the supplied value, otherwise the key/value
-  is inserted in order according to the builtin function ``LESS`` applied
-  on keys. This raises a runtime error if it tries to compare
-  incomparable values.
-
-  [*Available in versions >= 1.11*]
+  is inserted in order according to the builtin function ``LESS``
+  applied on keys. This raises a runtime error if it the first
+  argument is not a comparable value.
 
   Formally the builtin function ``GENMAP_INSERT`` semantics is defined
   by the following rules. ::
@@ -4595,9 +4591,7 @@ ordered by keys according to the comparison function ``LESS``.
 
   Looks up the value at a key in the map using the builtin function
   ``EQUAL`` to test key equality. This raises a runtime error if it
-  try to compare incomparable values.
-
-  [*Available in versions >= 1.11*]
+  the first argument is not a comparable value.
 
   Formally the builtin function ``GENMAP_LOOKUP`` semantics is defined
   by the following rules. ::
@@ -4623,10 +4617,8 @@ ordered by keys according to the comparison function ``LESS``.
 
   Deletes a key and its value from the map, using the builtin function
   ``EQUAL`` to test key equality. When the key is not a member of the
-  map, the original map is returned.  This raises a runtime error if it
-  try to compare incomparable values.
-
-  [*Available in versions >= 1.11*]
+  map, the original map is returned. This raises a runtime error if it
+  the first argument is not a comparable value.
 
   Formally the builtin function ``GENMAP_DELETE`` semantics is defined
   by the following rules. ::
@@ -4650,8 +4642,6 @@ ordered by keys according to the comparison function ``LESS``.
   Get the list of keys in the map. The keys are returned in the order
   they appear in the map.
 
-  [*Available in versions >= 1.11*]
-
   Formally the builtin function ``GENMAP_KEYS`` semantics is defined
   by the following rules. ::
 
@@ -4668,8 +4658,6 @@ ordered by keys according to the comparison function ``LESS``.
   Get the list of values in the map. The values are returned in the
   order they appear in the map (i.e. sorted by key).
 
-  [*Available in versions >= 1.11*]
-
   Formally the builtin function ``GENMAP_VALUES`` semantics is defined
   by the following rules. ::
 
@@ -4684,8 +4672,6 @@ ordered by keys according to the comparison function ``LESS``.
 * ``GENMAP_SIZE : ∀ α. ∀ β.  'GenMap' α β → 'Int64'``
 
   Return the number of elements in the map.
-
-  [*Available in versions >= 1.11*]
 
 Type Representation function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
