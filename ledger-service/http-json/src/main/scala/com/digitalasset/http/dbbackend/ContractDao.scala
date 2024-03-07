@@ -154,6 +154,18 @@ object ContractDao {
     }
   }
 
+  def hasVisibleContracts(parties: domain.PartySet, templateId: domain.ContractTypeId.RequiredPkg)(
+      implicit
+      log: LogHandler,
+      sjd: SupportedJdbcDriver.TC,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[Boolean] = {
+    for {
+      tpId <- surrogateTemplateId(templateId)
+      hasVisible <- sjd.q.queries.hasVisibleContracts(queriesPartySet(parties), tpId)
+    } yield hasVisible
+  }
+
   /** A "lagging offset" is a template-ID/party pair whose stored offset may not reflect
     * the actual contract table state at query time.  Examples of this are described in
     * <https://github.com/digital-asset/daml/issues/10334> .
