@@ -9,13 +9,12 @@ import "com/daml/ledger/api/v2/trace_context.proto";
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "CompletionOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // A completion represents the status of a submitted command on the ledger: it can be successful or failed.
 message Completion {
-
   // The ID of the succeeded or failed command.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required

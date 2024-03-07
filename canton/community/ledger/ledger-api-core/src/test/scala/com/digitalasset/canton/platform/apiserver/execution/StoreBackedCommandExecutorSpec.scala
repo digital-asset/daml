@@ -209,7 +209,6 @@ class StoreBackedCommandExecutorSpec
   }
 
   "Upgrade Verification" should {
-
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
@@ -231,7 +230,7 @@ class StoreBackedCommandExecutorSpec
 
     val disclosedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "02")
 
-    val disclosedContract: domain.DisclosedContract = domain.UpgradableDisclosedContract(
+    val disclosedContract: domain.DisclosedContract = domain.DisclosedContract(
       templateId = identifier,
       packageName = packageName,
       contractId = disclosedContractId,
@@ -253,7 +252,6 @@ class StoreBackedCommandExecutorSpec
         expected: Option[Option[String]],
         authenticationResult: Either[String, Unit] = Right(()),
         stakeholderContractDriverMetadata: Option[Array[Byte]] = Some(salt.toByteArray),
-        upgradableDisclosedContract: Boolean = true,
     ): Future[Assertion] = {
       val ref: AtomicReference[Option[Option[String]]] = new AtomicReference(None)
       val mockEngine = mock[Engine]
@@ -350,24 +348,10 @@ class StoreBackedCommandExecutorSpec
         TimeProvider.UTC,
       )
 
-      val commandsWithUpgradableDisclosedContracts = commands
-      val commandsWithDeprecatedDisclosedContracts = commands.copy(disclosedContracts =
-        ImmArray(
-          domain.NonUpgradableDisclosedContract(
-            templateId = identifier,
-            contractId = disclosedContractId,
-            argument = ValueTrue,
-            createdAt = mock[Timestamp],
-            keyHash = None,
-            driverMetadata = salt,
-          )
-        )
-      )
+      val commandsWithDisclosedContracts = commands
       sut
         .execute(
-          commands =
-            if (upgradableDisclosedContract) commandsWithUpgradableDisclosedContracts
-            else commandsWithDeprecatedDisclosedContracts,
+          commands = commandsWithDisclosedContracts,
           submissionSeed = submissionSeed,
           ledgerConfiguration = configuration,
         )(LoggingContextWithTrace(loggerFactory))
@@ -431,18 +415,6 @@ class StoreBackedCommandExecutorSpec
         Some(Some(expected)),
         authenticationResult = Left(errorMessage),
         stakeholderContractDriverMetadata = None,
-      )
-    }
-
-    "disallow upgrading deprecated disclosed contract formats" in {
-      doTest(
-        Some(disclosedContractId),
-        Some(
-          Some(
-            s"Contract with $disclosedContractId was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
-          )
-        ),
-        upgradableDisclosedContract = false,
       )
     }
   }

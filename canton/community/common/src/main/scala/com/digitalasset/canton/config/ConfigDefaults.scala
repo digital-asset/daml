@@ -17,7 +17,7 @@ class DefaultPorts {
 
   class DefaultPort(private val startPort: Int) {
     private val portRef = new AtomicReference[Port](Port.tryCreate(startPort))
-    private val maxPort = Port.tryCreate(startPort + 190)
+    private val maxPort = Port.tryCreate(startPort + 990)
 
     /** Sets a automatically allocated default port if not already set. */
     def setDefaultPort[C](optPort: Option[Port]): Option[Port] =
@@ -40,26 +40,12 @@ class DefaultPorts {
   val ledgerApiPort = defaultPortStart(4001)
   val participantAdminApiPort = defaultPortStart(4002)
 
-  /** Domain node default ports */
-  val domainPublicApiPort = defaultPortStart(4201)
-  val domainAdminApiPort = defaultPortStart(4202)
-
-  /** External sequencer node default ports (enterprise-only) */
-  val sequencerPublicApiPort = defaultPortStart(4401)
-  val sequencerAdminApiPort = defaultPortStart(4402)
-
-  /** External mediator node default port (enterprise-only) */
-  val mediatorAdminApiPort = defaultPortStart(4602)
-
-  /** Domain node default ports */
-  val domainManagerAdminApiPort = defaultPortStart(4801)
-
   /** External sequencer node x default ports (enterprise-only) */
-  val sequencerXPublicApiPort = defaultPortStart(5001)
-  val sequencerXAdminApiPort = defaultPortStart(5002)
+  val sequencerPublicApiPort = defaultPortStart(5001)
+  val sequencerAdminApiPort = defaultPortStart(5002)
 
   /** External mediator node x default port (enterprise-only) */
-  val mediatorXAdminApiPort = defaultPortStart(5202)
+  val mediatorAdminApiPort = defaultPortStart(6002)
 
   /** Increase the default port number for each new instance by portStep */
   private val portStep = 10

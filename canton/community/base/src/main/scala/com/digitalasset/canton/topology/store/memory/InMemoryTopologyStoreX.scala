@@ -280,7 +280,7 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       timeQuery: TimeQuery,
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
-      typ: Option[TopologyMappingX.Code],
+      types: Seq[TopologyMappingX.Code],
       idFilter: String,
       namespaceOnly: Boolean,
   )(implicit
@@ -319,12 +319,13 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
         }
       }
     }
+    val filter4: TopologyStoreEntry => Boolean = entry =>
+      types.isEmpty || types.contains(entry.mapping.code)
+
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
       entry =>
-        typ.forall(
-          _ == entry.mapping.code
-        ) && (entry.transaction.isProposal == proposals) && filter1(entry) && filter2(
+        filter4(entry) && (entry.transaction.isProposal == proposals) && filter1(entry) && filter2(
           entry
         ) && filter3(entry),
     )

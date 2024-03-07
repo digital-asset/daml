@@ -1456,7 +1456,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   ): Future[Map[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]] = {
 
     for {
-      ipsSnapshot <- domainCrypto.ipsSnapshot(timestamp.forgetRefinement)
+      ipsSnapshot <- domainCrypto.awaitIpsSnapshot(timestamp.forgetRefinement)
       // Important: use the keys of the timestamp
       isActiveParticipant <- ipsSnapshot.isParticipantActive(participantId)
 

@@ -251,7 +251,7 @@ trait MessageDispatcher { this: NamedLogging =>
     )
 
   private def processTransactionAndTransferMessages(
-      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       sc: SequencerCounter,
       ts: CantonTimestamp,
       envelopes: List[DefaultOpenEnvelope],
@@ -284,7 +284,7 @@ trait MessageDispatcher { this: NamedLogging =>
         val viewType = msg.protocolMessage.message.viewType
         val processor = tryProtocolProcessor(viewType)
 
-        doProcess(ResultKind(viewType), processor.processResult(eventE))
+        doProcess(ResultKind(viewType), processor.processResult(event))
 
       case _ =>
         // Alarm about invalid confirmation result messages
@@ -294,7 +294,7 @@ trait MessageDispatcher { this: NamedLogging =>
 
         val containsTopologyTransactionsX = DefaultOpenEnvelopesFilter.containsTopologyX(envelopes)
 
-        val isReceipt = eventE.event.content.messageIdO.isDefined
+        val isReceipt = event.event.content.messageIdO.isDefined
         processEncryptedViewsAndRootHashMessages(
           encryptedViews = encryptedViews,
           rootHashMessages = rootHashMessages,

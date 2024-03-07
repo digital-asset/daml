@@ -228,6 +228,15 @@ class GrpcTopologyManagerReadService(
       namespaceOrUidFilter: Either[String, String],
   )(implicit
       traceContext: TraceContext
+  ): EitherT[Future, CantonError, Seq[(TransactionSearchResult, TopologyMappingX)]] =
+    collectFromStores(baseQueryProto, Seq(typ), namespaceOrUidFilter)
+
+  private def collectFromStores(
+      baseQueryProto: Option[adminProto.BaseQuery],
+      typ: Seq[TopologyMappingX.Code],
+      namespaceOrUidFilter: Either[String, String],
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[Future, CantonError, Seq[(TransactionSearchResult, TopologyMappingX)]] = {
 
     def fromStore(
@@ -242,7 +251,7 @@ class GrpcTopologyManagerReadService(
           timeQuery = baseQuery.timeQuery,
           recentTimestampO = getApproximateTimestamp(storeId),
           op = baseQuery.ops,
-          typ = Some(typ),
+          types = typ,
           idFilter = namespaceOrUidFilter.merge,
           namespaceOnly = namespaceOrUidFilter.isLeft,
         )
@@ -654,7 +663,11 @@ class GrpcTopologyManagerReadService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       baseQuery <- wrapErr(BaseQueryX.fromProto(request.baseQuery))
+      excludeMappings <- wrapErr(
+        request.excludeMappings.traverse(TopologyMappingX.Code.fromString)
+      )
       stores <- collectStores(baseQuery.filterStore)
+      types = TopologyMappingX.Code.all.diff(excludeMappings)
       results <- EitherT.right(
         stores.parTraverse { store =>
           store
@@ -663,7 +676,7 @@ class GrpcTopologyManagerReadService(
               timeQuery = baseQuery.timeQuery,
               recentTimestampO = getApproximateTimestamp(store.storeId),
               op = baseQuery.ops,
-              typ = None,
+              types = types,
               idFilter = "",
               namespaceOnly = false,
             )

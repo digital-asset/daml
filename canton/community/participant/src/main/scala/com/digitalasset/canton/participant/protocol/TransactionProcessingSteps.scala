@@ -980,7 +980,7 @@ class TransactionProcessingSteps(
         witnessedAndDivulged = usedAndCreated.contracts.witnessedAndDivulged,
         createdContracts = usedAndCreated.contracts.created,
         transient = usedAndCreated.contracts.transient,
-        successfulActivenessCheck = activenessResult.isSuccessful,
+        activenessResult = activenessResult,
         viewValidationResults = viewResults.result(),
         timeValidationResultE = parallelChecksResult.timeValidationResultE,
         hostedWitnesses = usedAndCreated.hostedWitnesses,
@@ -1032,6 +1032,7 @@ class TransactionProcessingSteps(
 
   override def constructResponsesForMalformedPayloads(
       requestId: RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
@@ -1039,6 +1040,7 @@ class TransactionProcessingSteps(
     Seq(
       confirmationResponseFactory.createConfirmationResponsesForMalformedPayloads(
         requestId,
+        rootHash,
         malformedPayloads,
       )
     )
@@ -1323,8 +1325,7 @@ class TransactionProcessingSteps(
       createdContracts = usedAndCreated.contracts.created
 
       commitSet = CommitSet.createForTransaction(
-        successfulActivenessCheck =
-          pendingRequestData.transactionValidationResult.successfulActivenessCheck,
+        activenessResult = pendingRequestData.transactionValidationResult.activenessResult,
         requestId = pendingRequestData.requestId,
         consumedInputsOfHostedParties = usedAndCreated.contracts.consumedInputsOfHostedStakeholders,
         transient = usedAndCreated.contracts.transient,
@@ -1349,7 +1350,7 @@ class TransactionProcessingSteps(
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -1366,7 +1367,7 @@ class TransactionProcessingSteps(
         topologySnapshot: TopologySnapshot
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
       (
-        result.verdict,
+        verdict,
         pendingRequestData.modelConformanceResultE,
       ) match {
         case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)

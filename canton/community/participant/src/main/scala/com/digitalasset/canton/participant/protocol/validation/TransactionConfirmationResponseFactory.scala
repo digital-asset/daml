@@ -103,17 +103,21 @@ class TransactionConfirmationResponseFactory(
         if (inactiveInputs.nonEmpty) {
           // The transaction uses an inactive contract. Reject.
           Some(
-            LocalRejectError.ConsistencyRejections.InactiveContracts
-              .Reject(inactiveInputs.toSeq.map(_.coid))
-              .toLocalReject(protocolVersion)
+            logged(
+              requestId,
+              LocalRejectError.ConsistencyRejections.InactiveContracts
+                .Reject(inactiveInputs.toSeq.map(_.coid)),
+            ).toLocalReject(protocolVersion)
           )
         } else if (lockedInputs.nonEmpty | lockedForActivation.nonEmpty) {
           // The transaction would create / use a locked contract. Reject.
           val allLocked = lockedForActivation ++ lockedInputs
           Some(
-            LocalRejectError.ConsistencyRejections.LockedContracts
-              .Reject(allLocked.toSeq.map(_.coid))
-              .toLocalReject(protocolVersion)
+            logged(
+              requestId,
+              LocalRejectError.ConsistencyRejections.LockedContracts
+                .Reject(allLocked.toSeq.map(_.coid)),
+            ).toLocalReject(protocolVersion)
           )
         } else {
           // Everything ok from the perspective of conflict detection.
@@ -207,6 +211,7 @@ class TransactionConfirmationResponseFactory(
                       s"submissionTime=$submissionTime, recordTime=$recordTime, maxDelta=$maxDelta"
                     )
                 }
+                .map(logged(requestId, _))
                 .map(_.toLocalReject(protocolVersion))
 
             val contractConsistencyRejections =
@@ -246,7 +251,7 @@ class TransactionConfirmationResponseFactory(
                     participantId,
                     Some(viewPosition),
                     localVerdict,
-                    Some(transactionValidationResult.transactionId.toRootHash),
+                    transactionValidationResult.transactionId.toRootHash,
                     parties,
                     domainId,
                     protocolVersion,
@@ -261,6 +266,7 @@ class TransactionConfirmationResponseFactory(
         Seq(
           createConfirmationResponsesForMalformedPayloads(
             requestId,
+            transactionValidationResult.transactionId.toRootHash,
             malformedPayloads,
           )
         )
@@ -279,6 +285,7 @@ class TransactionConfirmationResponseFactory(
 
   def createConfirmationResponsesForMalformedPayloads(
       requestId: RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): ConfirmationResponse =
     checked(
@@ -295,7 +302,7 @@ class TransactionConfirmationResponseFactory(
             LocalRejectError.MalformedRejects.Payloads
               .Reject(malformedPayloads.toString),
           ).toLocalReject(protocolVersion),
-          None,
+          rootHash,
           Set.empty,
           domainId,
           protocolVersion,

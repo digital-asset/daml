@@ -463,6 +463,7 @@ trait ProcessingSteps[
     */
   def constructResponsesForMalformedPayloads(
       requestId: RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
@@ -503,7 +504,7 @@ trait ProcessingSteps[
     */
   def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: requestType.PendingRequestData,
       pendingSubmissions: PendingSubmissions,
       hashOps: HashOps,
@@ -606,6 +607,8 @@ object ProcessingSteps {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
     def mediator: MediatorsOfDomain
+
+    def rootHashO: Option[RootHash]
   }
 
   object PendingRequestData {

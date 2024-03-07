@@ -5,12 +5,12 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2.admin;
 
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 option java_outer_classname = "MeteringReportOuterClass";
 option java_package = "com.daml.ledger.api.v2.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
-
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/struct.proto";
 
 // Experimental API to retrieve metering reports.
 //
@@ -18,41 +18,33 @@ import "google/protobuf/struct.proto";
 // and application operators.
 //
 service MeteringReportService {
-
-    // Retrieve a metering report.
-    rpc GetMeteringReport (GetMeteringReportRequest) returns (GetMeteringReportResponse);
-
+  // Retrieve a metering report.
+  rpc GetMeteringReport(GetMeteringReportRequest) returns (GetMeteringReportResponse);
 }
 
 // Authorized if and only if the authenticated user is a participant admin.
 message GetMeteringReportRequest {
+  // The from timestamp (inclusive).
+  // Required.
+  google.protobuf.Timestamp from = 1;
 
-    // The from timestamp (inclusive).
-    // Required.
-    google.protobuf.Timestamp from = 1;
+  // The to timestamp (exclusive).
+  // If not provided, the server will default to its current time.
+  google.protobuf.Timestamp to = 2;
 
-    // The to timestamp (exclusive).
-    // If not provided, the server will default to its current time.
-    google.protobuf.Timestamp to = 2;
-
-    // If set to a non-empty value, then the report will only be generated for that application.
-    // Optional.
-    string application_id = 3;
+  // If set to a non-empty value, then the report will only be generated for that application.
+  // Optional.
+  string application_id = 3;
 }
 
 message GetMeteringReportResponse {
+  // The actual request that was executed.
+  GetMeteringReportRequest request = 1;
 
-    // The actual request that was executed.
-    GetMeteringReportRequest request = 1;
+  // The time at which the report was computed.
+  google.protobuf.Timestamp report_generation_time = 2;
 
-    // Metering report json now used
-    reserved "participant_report"; reserved 2;
-
-    // The time at which the report was computed.
-    google.protobuf.Timestamp report_generation_time = 3;
-
-    // The metering report json.  For a JSON Schema definition of the JSon see:
-    // https://github.com/digital-asset/daml/blob/main/ledger-api/grpc-definitions/metering-report-schema.json
-    google.protobuf.Struct metering_report_json = 4;
+  // The metering report json.  For a JSON Schema definition of the JSon see:
+  // https://github.com/digital-asset/daml/blob/main/ledger-api/grpc-definitions/metering-report-schema.json
+  google.protobuf.Struct metering_report_json = 3;
 }
-

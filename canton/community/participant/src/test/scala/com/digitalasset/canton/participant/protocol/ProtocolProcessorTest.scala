@@ -184,7 +184,7 @@ class ProtocolProcessorTest
   private val trm = mock[ConfirmationResultMessage]
   when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[ConfirmationResultMessage])
   when(trm.verdict).thenAnswer(Verdict.Approve(testedProtocolVersion))
-  when(trm.rootHashO).thenAnswer(Some(rootHash))
+  when(trm.rootHash).thenAnswer(rootHash)
   when(trm.domainId).thenAnswer(DefaultTestIdentities.domainId)
 
   private val requestId = RequestId(CantonTimestamp.Epoch)

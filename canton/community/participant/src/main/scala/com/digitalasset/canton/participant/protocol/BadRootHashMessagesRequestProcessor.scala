@@ -51,15 +51,16 @@ class BadRootHashMessagesRequestProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
       for {
-        snapshot <- crypto.snapshotUS(timestamp)
+        snapshot <- crypto.awaitSnapshotUS(timestamp)
         requestId = RequestId(timestamp)
+        _ = reject.log()
         rejection = checked(
           ConfirmationResponse.tryCreate(
             requestId = requestId,
             sender = participantId,
             viewPositionO = None,
             localVerdict = reject.toLocalReject(protocolVersion),
-            rootHash = Some(rootHash),
+            rootHash = rootHash,
             confirmingParties = Set.empty,
             domainId = domainId,
             protocolVersion = protocolVersion,

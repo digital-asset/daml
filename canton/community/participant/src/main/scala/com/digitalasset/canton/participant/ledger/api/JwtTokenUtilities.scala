@@ -5,7 +5,12 @@ package com.digitalasset.canton.participant.ledger.api
 
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
+import com.digitalasset.canton.ledger.api.auth.{
+  AuthServiceJWTCodec,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 
 import java.time.Instant
 
@@ -14,21 +19,17 @@ object JwtTokenUtilities {
 
   def buildUnsafeToken(
       secret: String,
-      admin: Boolean,
-      readAs: List[String],
-      actAs: List[String],
-      ledgerId: Option[String] = None,
-      applicationId: Option[String] = None,
+      userId: Option[String] = None,
       exp: Option[Instant] = None,
   ): String = {
-    val payload = CustomDamlJWTPayload(
-      ledgerId = ledgerId,
-      None,
-      applicationId = applicationId,
+    val payload = StandardJWTPayload(
+      issuer = None,
+      userId = userId.getOrElse(UserManagementStore.DefaultParticipantAdminUserId),
+      participantId = None,
       exp = exp,
-      admin = admin,
-      readAs = readAs,
-      actAs = actAs,
+      format = StandardJWTTokenFormat.Scope,
+      audiences = List.empty,
+      scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
     )
     // stolen from com.digitalasset.canton.ledger.api.auth.Main
     val jwtPayload = AuthServiceJWTCodec.compactPrint(payload)

@@ -60,7 +60,7 @@ main = withSdkVersions $ do
             ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: String -> T.Text
-hardcodedToken alice = tokenFor [T.pack alice] "sandbox" "AssistantIntegrationTests"
+hardcodedToken alice = tokenFor (T.pack alice)
 
 authorizationHeaders :: String -> RequestHeaders
 authorizationHeaders alice = [("Authorization", "Bearer " <> T.encodeUtf8 (hardcodedToken alice))]
@@ -132,6 +132,8 @@ damlStart tmpDir = do
             , "init : Script Party"
             , "init = do"
             , "  alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
+            , "  aliceId <- validateUserId \"alice\""
+            , "  aliceUser <- createUser (User aliceId (Some alice)) [CanActAs alice]"
             , "  alice `submit` createCmd (T alice)"
             , "  pure alice"
             , "test : Int -> Script (Int, Int)"
@@ -166,7 +168,7 @@ damlStart tmpDir = do
             , jsonApiPort = jsonApiPort
             , startStdin = startStdin
             , alice = alice
-            , aliceHeaders = authorizationHeaders alice
+            , aliceHeaders = authorizationHeaders "alice"
             , stop = do
                 interruptProcessGroupOf startPh
                 killThread outReader

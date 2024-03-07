@@ -7,9 +7,9 @@ package com.daml.ledger.api.v2.admin;
 
 import "google/protobuf/field_mask.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 option java_outer_classname = "IdentityProviderConfigServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // Identity Provider Config Service makes it possible for participant node administrators
 // to setup and manage additional identity providers at runtime.
@@ -34,24 +34,22 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 // In order to update the properties represented by the ``IdentityProviderConfig`` message use the ``UpdateIdentityProviderConfig`` RPC.
 // The only fields that can be modified are those marked as ``Modifiable``.
 service IdentityProviderConfigService {
-
   // Create a new identity provider configuration.
   // The request will fail if the maximum allowed number of separate configurations is reached.
-  rpc CreateIdentityProviderConfig (CreateIdentityProviderConfigRequest) returns (CreateIdentityProviderConfigResponse);
+  rpc CreateIdentityProviderConfig(CreateIdentityProviderConfigRequest) returns (CreateIdentityProviderConfigResponse);
 
   // Get the identity provider configuration data by id.
-  rpc GetIdentityProviderConfig (GetIdentityProviderConfigRequest) returns (GetIdentityProviderConfigResponse);
+  rpc GetIdentityProviderConfig(GetIdentityProviderConfigRequest) returns (GetIdentityProviderConfigResponse);
 
   // Update selected modifiable attribute of an identity provider config resource described
   // by the ``IdentityProviderConfig`` message.
-  rpc UpdateIdentityProviderConfig (UpdateIdentityProviderConfigRequest) returns (UpdateIdentityProviderConfigResponse);
+  rpc UpdateIdentityProviderConfig(UpdateIdentityProviderConfigRequest) returns (UpdateIdentityProviderConfigResponse);
 
   // List all existing identity provider configurations.
-  rpc ListIdentityProviderConfigs (ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse);
+  rpc ListIdentityProviderConfigs(ListIdentityProviderConfigsRequest) returns (ListIdentityProviderConfigsResponse);
 
   // Delete an existing identity provider configuration.
-  rpc DeleteIdentityProviderConfig (DeleteIdentityProviderConfigRequest) returns (DeleteIdentityProviderConfigResponse);
-
+  rpc DeleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest) returns (DeleteIdentityProviderConfigResponse);
 }
 
 message IdentityProviderConfig {
@@ -87,7 +85,6 @@ message IdentityProviderConfig {
   // Modifiable
   string audience = 5;
 }
-
 
 message CreateIdentityProviderConfigRequest {
   // Required
@@ -145,6 +142,4 @@ message DeleteIdentityProviderConfigRequest {
 }
 
 // Does not (yet) contain any data.
-message DeleteIdentityProviderConfigResponse {
-
-}
+message DeleteIdentityProviderConfigResponse {}

@@ -46,7 +46,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{DomainAlias, LfKeyResolver, LfPartyId}
+import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -59,7 +59,6 @@ import scala.concurrent.{ExecutionContext, Future}
   *               The inner future completes after the submission has been sequenced or if it will never be sequenced.
   */
 class DomainRouter(
-    domainIdResolver: DomainAlias => Option[DomainId],
     submit: DomainId => (
         SubmitterInfo,
         TransactionMeta,
@@ -135,9 +134,7 @@ class DomainRouter(
       transactionData <- TransactionData.create(
         submitterInfo,
         transaction,
-        transactionMeta.workflowId,
         snapshotProvider,
-        domainIdResolver,
         contractRoutingParties,
         inputDisclosedContracts.map(_.contractId),
         optDomainId,
@@ -281,7 +278,6 @@ object DomainRouter {
         loggerFactory,
       )
 
-    val domainIdResolver = recoveredDomainOfAlias(connectedDomains, domainAliasManager) _
     val domainStateProvider = new DomainStateProviderImpl(connectedDomains)
     val domainRankComputation = new DomainRankComputation(
       participantId = participantId,
@@ -305,7 +301,6 @@ object DomainRouter {
     )
 
     new DomainRouter(
-      domainIdResolver,
       submit(connectedDomains),
       transfer,
       domainStateProvider,
@@ -315,15 +310,6 @@ object DomainRouter {
       timeouts,
       loggerFactory,
     )
-  }
-
-  private def recoveredDomainOfAlias(
-      connectedDomains: ConnectedDomainsLookup,
-      domainAliasManager: DomainAliasManager,
-  )(domainAlias: DomainAlias): Option[DomainId] = {
-    domainAliasManager
-      .domainIdForAlias(domainAlias)
-      .filter(domainId => connectedDomains.get(domainId).exists(_.ready))
   }
 
   private def priorityOfDomain(

@@ -24,12 +24,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.domain.{
-  Commands as ApiCommands,
-  DisclosedContract,
-  NonUpgradableDisclosedContract,
-  UpgradableDisclosedContract,
-}
+import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
@@ -493,19 +488,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           }
       )
 
-    val checkDisclosedContractUpgradable: DisclosedContract => Result = {
-      case upgradable: UpgradableDisclosedContract =>
-        EitherT.rightT(
-          UpgradeVerificationContractData.fromDisclosedContract(
-            upgradable,
-            recomputedContractMetadata,
-          )
-        )
-      // Upgrading is not supported for deprecated disclosed contract format
-      case _: NonUpgradableDisclosedContract =>
-        EitherT.leftT(DeprecatedDisclosedContractFormat: UpgradeVerificationResult)
-    }
-
     val handleVerificationResult: UpgradeVerificationResult => Option[String] = {
       case Valid => None
       case UpgradeFailure(message) => Some(message)
@@ -518,15 +500,18 @@ private[apiserver] final class StoreBackedCommandExecutor(
         Some(
           s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
         )
-      case DeprecatedDisclosedContractFormat =>
-        Some(
-          s"Contract with $coid was provided via the deprecated DisclosedContract create_argument_blob field and cannot be upgraded. Use the create_argument_payload instead and retry the submission"
-        )
     }
 
     disclosedContracts
       .get(coid)
-      .map(checkDisclosedContractUpgradable)
+      .map { disclosedContract =>
+        EitherT.rightT[Future, UpgradeVerificationResult](
+          UpgradeVerificationContractData.fromDisclosedContract(
+            disclosedContract,
+            recomputedContractMetadata,
+          )
+        )
+      }
       .getOrElse(lookupActiveContractVerificationData())
       .semiflatMap(validateContractAuthentication)
       .merge
@@ -544,7 +529,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
 
   private object UpgradeVerificationContractData {
     def fromDisclosedContract(
-        disclosedContract: UpgradableDisclosedContract,
+        disclosedContract: DisclosedContract,
         recomputedMetadata: ContractMetadata,
     ): UpgradeVerificationContractData =
       UpgradeVerificationContractData(
@@ -612,6 +597,5 @@ private object UpgradeVerificationResult {
   case object Valid extends UpgradeVerificationResult
   final case class UpgradeFailure(message: String) extends UpgradeVerificationResult
   case object ContractNotFound extends UpgradeVerificationResult
-  case object DeprecatedDisclosedContractFormat extends UpgradeVerificationResult
   case object MissingDriverMetadata extends UpgradeVerificationResult
 }

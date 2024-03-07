@@ -947,7 +947,6 @@ scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",
@@ -1104,12 +1103,10 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    # we use "warn" because it seems detect incorrectly that :community_admin-api" is unused
-    unused_dependency_checker_mode = "warn",
+    unused_dependency_checker_mode = "error",
     runtime_deps = [":community_reference-driver"],
     deps = [
         ":bindings-java",
-        ":community_admin-api",
         ":community_base",
         ":community_buildinfo",
         ":community_common",

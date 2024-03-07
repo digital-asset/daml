@@ -527,7 +527,7 @@ class TransferOutProcessingSteps(
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: PendingTransferOut,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -555,7 +555,17 @@ class TransferOutProcessingSteps(
 
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
 
-    result.verdict match {
+    def rejected(
+        reason: TransactionRejection
+    ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
+      _ <- ifThenET(transferringParticipant) { deleteTransfer(targetDomain, requestId) }
+
+      eventO <- EitherT.fromEither[Future](
+        createRejectionEvent(RejectionArgs(pendingRequestData, reason))
+      )
+    } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+
+    verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -610,24 +620,9 @@ class TransferOutProcessingSteps(
           ),
         )
 
-      case reasons: Verdict.ParticipantReject =>
-        for {
-          _ <- ifThenET(transferringParticipant) {
-            deleteTransfer(targetDomain, requestId)
-          }
+      case reasons: Verdict.ParticipantReject => rejected(reasons.keyEvent)
 
-          tsEventO <- EitherT
-            .fromEither[Future](
-              createRejectionEvent(RejectionArgs(pendingRequestData, reasons.keyEvent))
-            )
-        } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, tsEventO)
-
-      case _: MediatorReject =>
-        for {
-          _ <- ifThenET(transferringParticipant) {
-            deleteTransfer(targetDomain, requestId)
-          }
-        } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None)
+      case rejection: MediatorReject => rejected(rejection)
     }
   }
 
@@ -736,7 +731,7 @@ class TransferOutProcessingSteps(
           participantId,
           Some(ViewPosition.root),
           localVerdict,
-          Some(rootHash),
+          rootHash,
           confirmingParties,
           domainId.unwrap,
           sourceDomainProtocolVersion.v,
@@ -781,7 +776,10 @@ object TransferOutProcessingSteps {
       transferInExclusivity: Option[CantonTimestamp],
       mediator: MediatorsOfDomain,
   ) extends PendingTransfer
-      with PendingRequestData
+      with PendingRequestData {
+
+    override def rootHashO: Option[RootHash] = Some(rootHash)
+  }
 
   final case class PendingDataAndResponseArgs(
       txOutRequest: FullTransferOutTree,

@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.CommitMode
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.retry
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -67,8 +68,10 @@ trait SequencerWriterStore extends AutoCloseable {
   /** Read the watermark for this sequencer and its online/offline status.
     * Currently only used for testing.
     */
-  def fetchWatermark(implicit traceContext: TraceContext): Future[Option[Watermark]] =
-    store.fetchWatermark(instanceIndex)
+  def fetchWatermark(maxRetries: Int = retry.Forever)(implicit
+      traceContext: TraceContext
+  ): Future[Option[Watermark]] =
+    store.fetchWatermark(instanceIndex, maxRetries)
 
   /** Mark the sequencer as online and return a timestamp for when this sequencer can start safely producing events.
     * @param now Now according to this sequencer's clock which will be used if it is ahead of the lowest available
