@@ -368,6 +368,55 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
+    "query for visible contract, which was created and archived by another party before your first query" in withHttpService {
+      fixture =>
+        for {
+          (alice, aliceHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+          (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+
+          // Create contract visible to both Alice and Bob
+          contractId <- postCreateCommand(
+            iouCreateCommand(
+              alice,
+              amount = "42.0",
+              currency = "HKD",
+              observers = Vector(bob),
+            ),
+            fixture,
+            aliceHeaders,
+          ) map resultContractId
+
+          // Query by Alice, to populate the contract into cache
+          _ <- searchExpectOk(
+            List.empty,
+            jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "HKD"}}"""),
+            fixture,
+            aliceHeaders,
+          ).map { acl => acl.size shouldBe 1 }
+
+          // Archive this contract on the ledger. The cache is not yet updated.
+          exercise = archiveCommand(domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId))
+          exerciseJson: JsValue = encodeExercise(fixture.encoder)(exercise)
+
+          _ <- fixture
+            .postJsonRequest(Uri.Path("/v1/exercise"), exerciseJson, aliceHeaders)
+            .parseResponse[domain.ExerciseResponse[JsValue]]
+            .flatMap(inside(_) { case domain.OkResponse(exercisedResponse, _, StatusCodes.OK) =>
+              assertExerciseResponseArchivedContract(exercisedResponse, exercise)
+            })
+
+          // Now the *first* query by Bob.
+          // This should not get confused by the fact that the archival happened before this query.
+          _ <- searchExpectOk(
+            List.empty,
+            jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "HKD"}}"""),
+            fixture,
+            bobHeaders,
+          ).map { acl => acl.size shouldBe 0 }
+
+        } yield succeed
+    }
+
     "multi-view" - {
       val amountsCurrencies = Vector(("42.0", "USD"), ("84.0", "CHF"))
       val expectedAmountsCurrencies = amountsCurrencies.map { case (a, c) => (a.toDouble, c) }
