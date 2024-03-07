@@ -190,7 +190,7 @@ in rec {
     openssl = pkgs.openssl.bin;
     tar = bazel_dependencies.gnutar;
 
-    semver = pkgs.callPackage ./tools/semver-tool {};
+    semver = pkgs.semver-tool;
 
     undmg = pkgs.undmg;
 
