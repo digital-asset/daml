@@ -151,7 +151,7 @@ beforeAll(async () => {
     const userRights = [UserRightHelper.canActAs(party)];
     await ledger.createUser(userName, userRights, party);
     const user = await ledger.getUser(userName);
-    return user.userId
+    return user.userId;
   }
 
   console.log("Explicitly allocating parties");
@@ -1181,10 +1181,10 @@ test("user API", async () => {
   ]);
 
   const allUserIdsPlusNice = (await ledger.listUsers()).map(it => it.userId);
-  const newUserIds = allUserIdsPlusNice.filter(id => !allUserIds.includes(id))
+  const newUserIds = allUserIdsPlusNice.filter(id => !allUserIds.includes(id));
   expect(newUserIds).toEqual([niceUser]);
   await ledger.deleteUser(niceUser);
-  const allUserIdsEnd =(await ledger.listUsers()).map(it => it.userId);
+  const allUserIdsEnd = (await ledger.listUsers()).map(it => it.userId);
   expect(_.sortBy(allUserIdsEnd)).toEqual(_.sortBy(allUserIds));
 });
 
