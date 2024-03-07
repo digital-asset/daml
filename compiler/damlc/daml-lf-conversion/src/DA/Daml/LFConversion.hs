@@ -1970,7 +1970,7 @@ mkCase env scrutineeType resultType scrutinee galts =
 
     mkScrutineeEquality :: LF.Expr -> LF.Expr
     mkScrutineeEquality pattern
-        = EBuiltinFun BEEqualGeneric `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
+        = EBuiltinFun BEEqual `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool

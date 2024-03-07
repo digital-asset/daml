@@ -568,14 +568,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "TEXT_TO_TEXT" - {
-      "is idempotent" in {
-        forEvery(strings) { s =>
-          eval(e""" TEXT_TO_TEXT "$s" """) shouldBe Right(SText(s))
-        }
-      }
-    }
-
     "Text binary operations computes proper results" in {
 
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
@@ -709,27 +701,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         }
       }
     }
-
-    "TEXT_TO_TIMESTAMP" - {
-      "works as expected" in {
-        val testCases =
-          Table[String](
-            "timestamp",
-            "2000-12-31T22:59:59.900Z",
-            "2000-12-31T22:59:59.990Z",
-            "2000-12-31T22:59:59.999Z",
-            "2000-12-31T22:59:59.999900Z",
-            "2000-12-31T22:59:59.999990Z",
-            "2000-12-31T22:59:59.999999Z",
-            "2000-12-31T23:00:00Z",
-          )
-
-        forEvery(testCases) { s =>
-          eval(e"TEXT_TO_TEXT $s") shouldBe Right(SText(s))
-        }
-      }
-    }
-
   }
 
   "Date operations" - {

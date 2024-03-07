@@ -403,7 +403,6 @@ private[lf] final class PhaseOne(
           case BAppendText => SBAppendText
 
           case BInt64ToText => SBToText
-          case BTextToText => SBToText
           case BTimestampToText => SBToText
           case BPartyToText => SBToText
           case BDateToText => SBToText

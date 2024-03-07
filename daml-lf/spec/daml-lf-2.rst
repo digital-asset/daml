@@ -669,7 +669,7 @@ Then we can define our kinds, types, and expressions::
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
        |  LitParty                                  -- ExpLitParty: Party literal
        |  cid                                       -- ExpLitContractId: Contract identifiers
-       |  LitRoundingMode                           -- ExpLitRoundingMode: Rounding Mode
+       |  LitRoundingMode                           -- ExpLitRoundingMode: Rounding Mode [Daml-LF ≥ 2.dev]
        |  F                                         -- ExpBuiltin: Builtin function
        |  Mod:W                                     -- ExpVal: Defined value
        |  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₘ = eₘ }   -- ExpRecCon: Record construction
@@ -4017,16 +4017,6 @@ other one.
 	          'True' → 'False'
 	      '|' 'False' → 'GREATER_EQ' α x y
 
-Boolean functions
-~~~~~~~~~~~~~~~~~
-
-* ``EQUAL_BOOL : 'Bool' → 'Bool' → 'Bool'``
-
-  Returns ``'True'`` if the two booleans are syntactically equal,
-  ``False`` otherwise.
-
-  [*Available in version < 1.11*]
-
 Int64 functions
 ~~~~~~~~~~~~~~~
 
@@ -4116,83 +4106,52 @@ Numeric functions
   inputs and the output is given by the type parameter `α`.  Throws an
   ``ArithmeticError`` exception in case of overflow.
 
-* ``MUL_NUMERIC_LEGACY : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
+* ``MUL_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α → 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Multiplies the two numerics and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
   type parameters `α₁`, `α₂`, `α` define the scale of the first input,
-  the second input, and the output, respectively.  Throws an
-  ``ArithmeticError`` exception in case of overflow.
+  the second input, and the output, respectively.  The first argument
+  is used as a witness for the scale `α`.
+  Throws an ``ArithmeticError`` exception in case of overflow.
 
 
-* ``DIV_NUMERIC_LEGACY : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
+* ``DIV_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α → 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Divides the first decimal by the second one and rounds the result to
   the closest multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
   `n` is given as the type parameter).  The type parameters `α₁`,
   `α₂`, `α` define the scale of the first input, the second input, and
-  the output, respectively.  Throws an ``ArithmeticError`` exception
+  the output, respectively.  The first argument is used as a witness for the scale `α`. Throws an ``ArithmeticError`` exception
   if the second argument is ``0.0`` or if the computation overflow.
 
-* ``CAST_NUMERIC_LEGACY : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+* ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₂ →  'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` while
-  keeping the value the same. Throws an ``ArithmeticError`` exception
+  keeping the value the same. The first argument is used as a witness for the scale `α`. Throws an ``ArithmeticError`` exception
   in case of overflow or precision loss.
 
-* ``SHIFT_NUMERIC_LEGACY : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₂ → 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
   by shifting the decimal point. Thus the output will be equal to the input
-  multiplied by `1E(α₁-α₂)`.
-
-* ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
-
-  Returns ``'True'`` if the first numeric is less or equal than the
-  second, ``'False'`` otherwise.  The scale of the inputs is given by
-  the type parameter `α`.
-
-* ``GREATER_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
-
-  Returns ``'True'`` if the first numeric is greater or equal than the
-  second, ``'False'`` otherwise. The scale of the inputs is given by
-  the type parameter `α`.
-
-* ``LESS_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
-
-  Returns ``'True'`` if the first numeric is strictly less than the
-  second, ``'False'`` otherwise.  The scale of the inputs is given by
-  the type parameter `α`.
-
-* ``GREATER_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
-
-  Returns ``'True'`` if the first numeric is strictly greater than the
-  second, ``'False'`` otherwise.  The scale of the inputs is given by
-  the type parameter `α`.
-
-* ``EQUAL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
-
-  Returns ``'True'`` if the first numeric is equal to the second,
-  ``'False'`` otherwise.  The scale of the inputs is given by the type
-  parameter `α`.
-
-  [*Available in version < 1.11*]
+  multiplied by `1E(α₁-α₂)`. The first argument is used as a witness for the scale `α`.
 
 * ``NUMERIC_TO_TEXT : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
   Returns the numeric string representation of the numeric.  The scale
   of the input is given by the type parameter `α`.
 
-* ``TEXT_TO_NUMERIC_LEGACY : ∀ (α : nat) .'Text' → 'Optional' 'Numeric' α``
+* ``TEXT_TO_NUMERIC : ∀ (α : nat) . 'Numeric' α →'Text' → 'Optional' 'Numeric' α``
 
   Given a string representation of a numeric returns the numeric
   wrapped in ``Some``. If the input does not match the regexp
   ``[+-]?\d+(\.d+)?`` or if the result of the conversion cannot
   be mapped into a decimal without loss of precision, returns
-  ``None``.  The scale of the output is given by the type parameter
-  `α`.
+  ``None``.  The scale of the output is given by the  parameter
+  `α`. The first argument is used as a witness for the scale `α`.
 
 BigNumeric functions
 ~~~~~~~~~~~~~~~~~~~~
@@ -4202,21 +4161,21 @@ BigNumeric functions
   Adds the two decimals. Throws an ``ArithmeticError`` if the output
   is not a valid BigNumeric.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``SUB_BIGNUMERIC : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
   Subtracts the two decimals. Throws an ``ArithmeticError`` if the
   output is not a valid BigNumeric.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``MUL_BIGNUMERIC : 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
   Multiplies the two numerics. Throws an ``ArithmeticError`` if the
   output is not a valid BigNumeric.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``DIV_BIGNUMERIC : 'RoundingMode' → 'Int' → 'BigNumeric' → 'BigNumeric' → 'BigNumeric'``
 
@@ -4252,19 +4211,19 @@ BigNumeric functions
   Throws an ``ArithmeticError``` if the output is not a valid
   BigNumeric.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``SCALE_BIGNUMERIC : 'BigNumeric' → 'Int64'``
 
   Returns the scale of the BigNumeric
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``PRECISION_BIGNUMERIC : 'BigNumeric' → 'Int64'``
 
   Returns the precision of the BigNumeric
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``SHIFT_RIGHT_BIGNUMERIC : 'Int64' → 'BigNumeric' → 'BigNumeric'``
 
@@ -4272,7 +4231,7 @@ BigNumeric functions
   first argument. Throws an ``ArithmeticError`` in case the result
   cannot be represented without loss of precision.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``BIGNUMERIC_TO_TEXT : 'BigNumeric' → 'Text'``
 
@@ -4280,21 +4239,21 @@ BigNumeric functions
   result will be returned at the smallest precision that can represent
   the result exactly, i.e., without any trailing zeroes.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
-* ``'BIGNUMERIC_TO_NUMERIC_LEGACY' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
+* ``'BIGNUMERIC_TO_NUMERIC' : ∀ (α : nat). 'Numeric' α` → 'BigNumeric' → 'Numeric' α``
 
   Converts the ``BigNumeric`` to a ``Numeric α`` value with scale
   ``α``.  Throws an ``ArithmeticError`` in case the result cannot be
-  represented without loss of precision.
+  represented without loss of precision. The first argument is used as a witness for the scale `α`.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 * ``'NUMERIC_TO_BIGNUMERIC' : ∀ (α : nat). 'Numeric' α  → 'BigNumeric'``
 
   Converts the ``Numeric`` to a ``BigNumeric``. This is always exact.
 
-  [*Available in version ≥ 1.13*]
+  [*Available in version ≥ 2.dev*]
 
 String functions
 ~~~~~~~~~~~~~~~~
@@ -4318,37 +4277,6 @@ String functions
   Performs the `SHA-256 <https://en.wikipedia.org/wiki/SHA-2>`_
   hashing of the UTF-8 string and returns it encoded as a Hexadecimal
   string (lower-case).
-
-* ``LESS_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
-
-  Returns ``'True'`` if the first string is lexicographically less
-  or equal than the second, ``'False'`` otherwise.
-
-* ``GREATER_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
-
-  Returns ``'True'`` if the first string is lexicographically
-  greater or equal than the second, ``'False'`` otherwise.
-
-* ``LESS_TEXT : 'Text' → 'Text' → 'Bool'``
-
-  Returns ``'True'`` if the first string is lexicographically
-  strictly less than the second, ``'False'`` otherwise.
-
-* ``GREATER_TEXT : 'Text' → 'Text' → 'Bool'``
-
-  Returns ``'True'`` if the first string is lexicographically
-  strictly greater than the second, ``'False'`` otherwise.
-
-* ``EQUAL_TEXT : 'Text' → 'Text' → 'Bool'``
-
-  Returns ``'True'`` if the first string is equal to the second,
-  ``'False'`` otherwise.
-
-  [*Available in version < 1.11*]
-
-* ``TEXT_TO_TEXT : 'Text' → 'Text'``
-
-  Returns string such as.
 
 * ``TEXT_TO_CODE_POINTS``: 'Text' → 'List' 'Int64'
 
@@ -4781,12 +4709,6 @@ Type Representation function
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
 
-* ``INT64_TO_DECIMAL_LEGACY : ∀ (α : nat) . 'Int64' → 'Numeric' α``
-
-  Returns a numeric representation of the integer.  The scale of the
-  output and the output is given by the type parameter `α`.  Throws an
-  ``ArithmeticError`` exception in case of overflow.
-
 * ``NUMERIC_TO_INT64 : ∀ (α : nat) . 'Numeric' α → 'Int64'``
 
   Returns the integral part of the given numeric -- in other words,
@@ -5063,91 +4985,6 @@ fields of type ``int32`` with the suffix ``_interned_dname``
 deserialization process will reject any Daml-LF 1.7 (or later) that
 that does not comply this restriction.
 
-Nat kind and Nat types
-......................
-
-[*Available in versions >= 1.7*]
-
-The deserialization process will reject any Daml-LF 1.6 (or earlier)
-that uses ``nat`` field in ``Kind`` or ``Type`` messages.
-
-Starting from Daml-LF 1.7 those messages are deserialized to ``nat``
-kind and ``nat`` type respectively. The field ``nat`` of ``Type``
-message must be a positive integer.
-
-Note that despite there being no concrete way to build Nat types in a
-Daml-LF 1.6 (or earlier) program, those are implicitly generated when
-reading as Numeric type and Numeric builtin as described in the next
-section.
-
-Parametric scaled Decimals
-..........................
-
-[*Available in versions >= 1.7*]
-
-Daml-LF 1.7 is the first version that supports parametric scaled
-decimals. Prior versions have decimal number with a fixed scale of 10
-called Decimal.  Backward compatibility with the current specification
-is achieved as follows:
-
-On the one hand, in case of Daml-LF 1.6 archive:
-
-- The ``decimal`` field of the ``BuiltinLit`` message must match the
-  regexp::
-
-    ``[+-]?\d{1,28}(.[0-9]\d{1-10})?``
-
-  The deserialization process will silently convert any message that
-  contains such field to a numeric literal of scale 10. The
-  deserialization process will reject any non-compliant program.
-
-- ``PrimType`` message with a field ``decimal`` set are translated to
-  ``(Numeric 10)`` type when deserialized.
-
-- Decimal ``BuiltinFunction`` messages are translated as follows :
-
-  + ``ADD_DECIMAL`` message is translated to ``(ADD_NUMERIC @10)``
-  + ``SUB_DECIMAL`` message is translated to ``(SUB_NUMERIC @10)``
-  + ``MUL_DECIMAL`` message is translated to ``(MUL_NUMERIC_LEGACY @10)``
-  + ``DIV_DECIMAL`` message is translated to ``(DIV_NUMERIC_LEGACY @10)``
-  + ``ROUND_DECIMAL`` message is translated to ``(ROUND_NUMERIC @10)``
-  + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)``
-  + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)``
-  + ``LESS_DECIMAL`` message is translated to ``(LESS_NUMERIC @10)``
-  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
-  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
-  + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)``
-  + ``DECIMAL_TO_TEXT`` message is translated to ``(NUMERIC_TO_TEXT @10)``
-  + ``TEXT_TO_DECIMAL`` message is translated to ``(TEXT_TO_NUMERIC_LEGACY @10)``  [*Available in versions >= 1.5*]
-  + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC_LEGACY @10)``
-  + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)``
-
-- Numeric types, literals and builtins cannot be referred directly.
-  In other words ``numeric`` fields in ``BuiltinLit`` and ``PrimType``
-  messages must remain unset and Numeric ``BuiltinFunction`` (those
-  containing ``NUMERIC`` in their name) are forbidden. The
-  deserialization process will reject any Daml-LF 1.6 (or earlier)
-  that does not comply those restrictions.
-
-On the other hand, starting from Daml-LF 1.7:
-
-- The ``numeric`` field of the ``BuiltinLit`` message must match the
-  regexp:
-
-  ``[-]?([1-9]\d*|0).\d*``
-
-  with the addition constrains that it contains at most 38 digits
-  (ignoring a possibly leading ``0``). The deserialization process
-  will use the number of digits on the right of the decimal dot
-  as scale when converting the message to numeric literals. The
-  deserialization process will reject any non-compliant program.
-
-- Decimal types, literals and builtins cannot be referred directly.
-  In other words ``decimal`` fields in ``BuiltinLit`` and ``PrimType``
-  messages must remain unset and Decimal ``BuiltinFunction`` (those
-  containing ``DECIMAL`` in their name are forbidden). The
-  deserialization process will reject any Daml-LF 1.7 (or later)
-  that does not comply those restrictions.
 
 Any type and type representation
 ................................
