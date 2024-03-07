@@ -1370,19 +1370,6 @@ class DecodeV2Spec
     }
   }
 
-  s"reject DefValue with no_party_literals = false" in {
-    val defValue =
-      DamlLf2.DefValue
-        .newBuilder()
-        .setNoPartyLiterals(false)
-        .build()
-    forEveryVersion { version =>
-      val decoder = moduleDecoder(version)
-      val ex = the[Error.Parsing] thrownBy decoder.decodeDefValueForTest(defValue)
-      ex.msg shouldBe "DefValue must have no_party_literals set to true"
-    }
-  }
-
   s"reject Feature flags set to false" in {
     def featureFlags(
         forbidPartyLits: Boolean,
