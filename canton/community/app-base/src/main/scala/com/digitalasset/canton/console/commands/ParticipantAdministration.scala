@@ -90,10 +90,11 @@ private[console] object ParticipantCommands {
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         logger: TracedLogger,
+        dryRun: Boolean,
     ): ConsoleCommandResult[String] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
-          .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
+          .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger, dryRun)
       )
 
   }
@@ -858,11 +859,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
+        dryRun: Boolean = false,
     ): String = {
       val res = consoleEnvironment.runE {
         for {
           hash <- ParticipantCommands.dars
-            .upload(runner, path, vetAllPackages, synchronizeVetting, logger)
+            .upload(runner, path, vetAllPackages, synchronizeVetting, logger, dryRun)
             .toEither
         } yield hash
       }

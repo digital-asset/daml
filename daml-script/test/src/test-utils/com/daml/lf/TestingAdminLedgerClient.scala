@@ -38,6 +38,7 @@ class TestingAdminLedgerClient(
           filename = file.getName,
           vetAllPackages = true,
           synchronizeVetting = true,
+          dryRun = false,
         )
       )
       .map { response =>

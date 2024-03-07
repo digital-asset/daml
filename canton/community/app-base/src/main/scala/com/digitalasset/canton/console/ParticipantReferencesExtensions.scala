@@ -32,6 +32,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         darPath: String,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
+        dryRun: Boolean = false,
     ): Map[ParticipantReference, String] = {
       val res = ConsoleCommandResult.runAll(participants)(
         ParticipantCommands.dars
@@ -41,6 +42,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
             vetAllPackages = vetAllPackages,
             synchronizeVetting = synchronizeVetting,
             logger,
+            dryRun,
           )
       )
       if (synchronizeVetting && vetAllPackages) {

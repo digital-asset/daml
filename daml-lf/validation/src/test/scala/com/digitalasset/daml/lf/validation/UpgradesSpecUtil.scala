@@ -26,7 +26,7 @@ private[validation] final class AdminLedgerClient(
   private val packageServiceStub =
     AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)
 
-  def uploadDar(bytes: ByteString, filename: String): Future[Unit] = {
+  def uploadDar(bytes: ByteString, filename: String, dryRun: Boolean): Future[Unit] = {
     packageServiceStub
       .uploadDar(
         admin_package_service.UploadDarRequest(
@@ -34,6 +34,7 @@ private[validation] final class AdminLedgerClient(
           filename,
           false,
           false,
+          dryRun,
         )
       )
       .map(_ => ())

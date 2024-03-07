@@ -58,7 +58,11 @@ uploadDarFile bytes =
     withGRPCClient config $ \client -> do
         service <- LL.packageManagementServiceClient client
         let LL.PackageManagementService {packageManagementServiceUploadDarFile=rpc} = service
-        let request = LL.UploadDarFileRequest bytes TL.empty {- let server allocate submission id -}
+        let request =
+                LL.UploadDarFileRequest
+                    bytes
+                    TL.empty -- let server allocate submission id
+                    False -- do not dry-run
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\LL.UploadDarFileResponse{} -> ())

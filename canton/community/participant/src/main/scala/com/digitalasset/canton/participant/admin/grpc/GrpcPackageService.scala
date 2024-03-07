@@ -47,6 +47,7 @@ class GrpcPackageService(
         request.filename,
         request.vetAllPackages,
         request.synchronizeVetting,
+        request.dryRun,
       )
     } yield UploadDarResponse(
       UploadDarResponse.Value.Success(UploadDarResponse.Success(hash.toHexString))

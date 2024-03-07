@@ -30,10 +30,10 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
       .listKnownPackages(PackageManagementClient.listKnownPackagesRequest)
       .map(_.packageDetails)
 
-  def uploadDarFile(darFile: ByteString, token: Option[String] = None): Future[Unit] =
+  def uploadDarFile(darFile: ByteString, token: Option[String] = None, dryRun: Boolean = false): Future[Unit] =
     LedgerClient
       .stub(service, token)
-      .uploadDarFile(UploadDarFileRequest(darFile))
+      .uploadDarFile(UploadDarFileRequest(darFile, dryRun = dryRun))
       .map(_ => ())
 
 }

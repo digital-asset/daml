@@ -54,13 +54,13 @@ abstract class UpgradesSpecAdminAPI extends UpgradesSpec {
       (testPackageV1Id, testPackageV1BS) <- loadPackageIdAndBS(path.past)
       (testPackageV2Id, testPackageV2BS) <- loadPackageIdAndBS(path.present)
       uploadV1Result <- client
-        .uploadDar(testPackageV1BS, path.past)
+        .uploadDar(testPackageV1BS, path.past, false)
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
         })
       uploadV2Result <- client
-        .uploadDar(testPackageV2BS, path.present)
+        .uploadDar(testPackageV2BS, path.present, false)
         .transform({
           case Failure(err) => Success(Some(err));
           case Success(_) => Success(None);
