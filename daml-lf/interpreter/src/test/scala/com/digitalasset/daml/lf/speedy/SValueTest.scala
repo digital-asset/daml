@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.speedy.SValue.{SInt64, SMap, SText}
+import com.daml.lf.speedy.SValue.{SInt64, SMap, SPAP, SText}
 import com.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -108,5 +108,60 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
         SMap.fromOrderedEntries(isTextMap, entries) shouldBe result
       }
     }
+
+    val nonComparableFailure =
+      Failure(SError.SErrorDamlException(interpretation.Error.NonComparableValues))
+
+    "fail on creation with non-comparable values" in {
+      val tyConEither = language.StablePackagesV2.Either
+      val leftName = Ref.Name.assertFromString("Left")
+      val rightName = Ref.Name.assertFromString("Right")
+
+      def left(v: SValue) = SValue.SVariant(tyConEither, leftName, 0, v)
+
+      def right(v: SValue) = SValue.SVariant(tyConEither, rightName, 1, v)
+
+      val builtin = SBuiltinFun.SBToText
+      // function are incomparable
+      val fun = SPAP(SValue.PBuiltin(builtin), ArrayList.empty, builtin.arity)
+      val testCases = Table[Seq[(SValue, SValue)]](
+        "entries",
+        ImmArray(left(fun) -> SValue.SValue.True, right(SText("0")) -> SValue.SValue.False).toSeq,
+        ImmArray(left(SText("1")) -> SValue.SValue.True, right(fun) -> SValue.SValue.False).toSeq,
+        ImmArray(left(SInt64(42)) -> SText("42"), right(fun) -> SText("1")).toSeq,
+        ImmArray(fun -> SText("42")).toSeq,
+      )
+
+      forEvery(testCases) { entries =>
+        Try(SMap.fromOrderedEntries(true, entries)) shouldBe nonComparableFailure
+        Try(SMap(false, entries)) shouldBe nonComparableFailure
+        Try(SMap(true, entries: _*)) shouldBe nonComparableFailure
+      }
+    }
+
+    "fail on inserting/lookup/deleting a non-comparable value" in {
+      val tyConEither = language.StablePackagesV2.Either
+      val leftName = Ref.Name.assertFromString("Left")
+      val rightName = Ref.Name.assertFromString("Right")
+      def left(v: SValue) = SValue.SVariant(tyConEither, leftName, 0, v)
+      def right(v: SValue) = SValue.SVariant(tyConEither, rightName, 1, v)
+      val builtin = SBuiltinFun.SBToText
+      // functions are incomparable
+      val fun = SPAP(SValue.PBuiltin(builtin), ArrayList.empty, builtin.arity)
+      val testCases = Table[SMap](
+        "entries",
+        SMap(true, left(SText("1")) -> SValue.SValue.True, left(SText("2")) -> SValue.SValue.False),
+        SMap(true, left(SText("0")) -> SValue.SValue.True, left(SText("1")) -> SValue.SValue.False),
+        SMap(true, left(SInt64(42)) -> SValue.SValue.True),
+        SMap(true),
+      )
+
+      forEvery(testCases) { smap =>
+        Try(smap.insert(right(fun), SValue.SValue.False)) shouldBe nonComparableFailure
+        Try(smap.delete(right(fun))) shouldBe nonComparableFailure
+        Try(smap.get(right(fun))) shouldBe nonComparableFailure
+      }
+    }
+
   }
 }

@@ -674,7 +674,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBMapLookup extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
-      SOptional(getSMap(args, 1).entries.get(getSMapKey(args, 0)))
+      SOptional(getSMap(args, 1).get(getSMapKey(args, 0)))
   }
 
   final case object SBMapDelete extends SBuiltinPure(2) {
