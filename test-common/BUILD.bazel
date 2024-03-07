@@ -79,7 +79,7 @@ da_scala_dar_resources_library(
             visibility = ["//visibility:public"],
         ),
         daml_compile(
-            name = "upgrades-{}-v2".format(identifier),
+            name = "upgrades-with-upgrade-pkg-metadata-{}-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             project_name = "upgrades-example-{}".format(identifier),
@@ -88,6 +88,16 @@ da_scala_dar_resources_library(
             # client, not during compilation
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-with-no-upgrade-pkg-metadata-{}-v2".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade without any upgrade package metadata being present
             version = "2.0.0",
             visibility = ["//visibility:public"],
         ),

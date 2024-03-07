@@ -24,8 +24,7 @@ import com.daml.lf.archive.DarReader
 import scala.util.{Success, Failure}
 import com.daml.lf.validation.Upgrading
 
-class UpgradesSpecAdminAPI extends UpgradesSpec {
-  override def suffix = "Admin API"
+class UpgradesSpecAdminAPI extends UpgradesSpec("Admin API") {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -55,8 +54,7 @@ class UpgradesSpecAdminAPI extends UpgradesSpec {
   }
 }
 
-class UpgradesSpecLedgerAPI extends UpgradesSpec {
-  override def suffix = "Ledger API"
+class UpgradesSpecLedgerAPI extends UpgradesSpec("Ledger API") {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -83,7 +81,11 @@ class UpgradesSpecLedgerAPI extends UpgradesSpec {
   }
 }
 
-abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
+abstract class UpgradesSpec(suffix: String)
+    extends AsyncWordSpec
+    with Matchers
+    with Inside
+    with CantonFixture {
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
 
@@ -222,212 +224,218 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
     }
   }
 
-  def suffix: String
+  private val packageMetadataLabels =
+    Seq("with-ugrade-pkg-metadata", "with-no-upgrade-pkg-metadata")
 
   s"Upload-time Upgradeability Checks ($suffix)" should {
-    s"uploading the same package multiple times succeeds ($suffix)" ignore {
-      testPackagePair(
-        "test-common/upgrades-ValidUpgrade-v1.dar",
-        "test-common/upgrades-ValidUpgrade-v1.dar",
-        assertDuplicatePackageUpload(),
-      )
-    }
-    s"uploads against the same package name must be version unique ($suffix)" ignore {
+    s"uploads against the same package name must be version unique ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
-        "test-common/upgrades-CommonVersionFailure-v1b.dar",
+        s"test-common/upgrades-CommonVersionFailure-v1b.dar",
         assertPackageUploadVersionFailure(
           "A DAR with the same version number has previously been uploaded.",
           "1.0.0",
         ),
       )
     }
-    s"report no upgrade errors for valid upgrade ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-ValidUpgrade-v1.dar",
-        "test-common/upgrades-ValidUpgrade-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-    }
-    s"report error when module is missing in upgrading package ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-MissingModule-v1.dar",
-        "test-common/upgrades-MissingModule-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
-          )
-        ),
-      )
-    }
-    s"report error when template is missing in upgrading package ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-MissingTemplate-v1.dar",
-        "test-common/upgrades-MissingTemplate-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
-          )
-        ),
-      )
-    }
-    s"report error when datatype is missing in upgrading package ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-MissingDataCon-v1.dar",
-        "test-common/upgrades-MissingDataCon-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "Data type U appears in package that is being upgraded, but does not appear in the upgrading package."
-          )
-        ),
-      )
-    }
-    s"report error when choice is missing in upgrading package ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-MissingChoice-v1.dar",
-        "test-common/upgrades-MissingChoice-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package."
-          )
-        ),
-      )
-    }
-    s"report error when key type changes ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-TemplateChangedKeyType-v1.dar",
-        "test-common/upgrades-TemplateChangedKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template T cannot change its key type.")),
-      )
-    }
-    s"report error when record fields change ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
-        "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "The upgraded data type Struct has added new fields, but those fields are not Optional."
-          )
-        ),
-      )
+
+    for (label <- packageMetadataLabels) {
+      s"uploading the same package multiple times succeeds ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-ValidUpgrade-v1.dar",
+          s"test-common/upgrades-$label-ValidUpgrade-v1.dar",
+          assertDuplicatePackageUpload(),
+        )
+      }
+      s"report no upgrade errors for valid upgrade with no upgrading package metadata ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-ValidUpgrade-v1.dar",
+          s"test-common/upgrades-$label-ValidUpgrade-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
+      s"report error when module is missing in upgrading package ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-MissingModule-v1.dar",
+          s"test-common/upgrades-$label-MissingModule-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
+            )
+          ),
+        )
+      }
+      s"report error when template is missing in upgrading package ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-MissingTemplate-v1.dar",
+          s"test-common/upgrades-$label-MissingTemplate-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
+            )
+          ),
+        )
+      }
+      s"report error when datatype is missing in upgrading package ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-MissingDataCon-v1.dar",
+          s"test-common/upgrades-$label-MissingDataCon-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Data type U appears in package that is being upgraded, but does not appear in the upgrading package."
+            )
+          ),
+        )
+      }
+      s"report error when choice is missing in upgrading package ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-MissingChoice-v1.dar",
+          s"test-common/upgrades-$label-MissingChoice-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package."
+            )
+          ),
+        )
+      }
+      s"report error when key type changes ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-TemplateChangedKeyType-v1.dar",
+          s"test-common/upgrades-$label-TemplateChangedKeyType-v2.dar",
+          assertPackageUpgradeCheck(Some("The upgraded template T cannot change its key type.")),
+        )
+      }
+      s"report error when record fields change ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
+          s"test-common/upgrades-$label-RecordFieldsNewNonOptional-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded data type Struct has added new fields, but those fields are not Optional."
+            )
+          ),
+        )
+      }
     }
 
     // Ported from DamlcUpgrades.hs
-    s"Fails when template changes key type ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template A cannot change its key type.")),
-      )
-    }
-    s"Fails when template removes key type ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template A cannot remove its key.")),
-      )
-    }
-    s"Fails when template adds key type ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template A cannot add a key.")),
-      )
-    }
-    s"Fails when new field is added to template without Optional type ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded template A has added new fields, but those fields are not Optional.")
-        ),
-      )
-    }
-    s"Fails when old field is deleted from template ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded template A is missing some of its original fields.")
-        ),
-      )
-    }
-    s"Fails when existing field in template is changed ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded template A has changed the types of some of its original fields.")
-        ),
-      )
-    }
-    s"Succeeds when new field with optional type is added to template ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-    }
-    s"Fails when new field is added to template choice without Optional type ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
-        "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "The upgraded input type of choice C on template A has added new fields, but those fields are not Optional."
-          )
-        ),
-      )
-    }
-    s"Fails when old field is deleted from template choice ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
-        "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "The upgraded input type of choice C on template A is missing some of its original fields."
-          )
-        ),
-      )
-    }
-    s"Fails when existing field in template choice is changed ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
-        "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "The upgraded input type of choice C on template A has changed the types of some of its original fields."
-          )
-        ),
-      )
-    }
-    s"Fails when template choice changes its return type ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
-        "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded choice C cannot change its return type.")),
-      )
-    }
-    s"Succeeds when template choice returns a template which has changed ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
-        "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-    }
-    s"Succeeds when template choice input argument has changed ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
-        "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-    }
-    s"Succeeds when new field with optional type is added to template choice ($suffix)" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
-        "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
+    for (label <- packageMetadataLabels) {
+      s"Fails when template changes key type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenTemplateChangesKeyType-v2.dar",
+          assertPackageUpgradeCheck(Some("The upgraded template A cannot change its key type.")),
+        )
+      }
+      s"Fails when template removes key type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenTemplateRemovesKeyType-v2.dar",
+          assertPackageUpgradeCheck(Some("The upgraded template A cannot remove its key.")),
+        )
+      }
+      s"Fails when template adds key type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenTemplateAddsKeyType-v2.dar",
+          assertPackageUpgradeCheck(Some("The upgraded template A cannot add a key.")),
+        )
+      }
+      s"Fails when new field is added to template without Optional type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
+          assertPackageUpgradeCheck(
+            Some("The upgraded template A has added new fields, but those fields are not Optional.")
+          ),
+        )
+      }
+      s"Fails when old field is deleted from template ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
+          assertPackageUpgradeCheck(
+            Some("The upgraded template A is missing some of its original fields.")
+          ),
+        )
+      }
+      s"Fails when existing field in template is changed ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
+          assertPackageUpgradeCheck(
+            Some("The upgraded template A has changed the types of some of its original fields.")
+          ),
+        )
+      }
+      s"Succeeds when new field with optional type is added to template ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
+          s"test-common/upgrades-$label-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
+      s"Fails when new field is added to template choice without Optional type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded input type of choice C on template A has added new fields, but those fields are not Optional."
+            )
+          ),
+        )
+      }
+      s"Fails when old field is deleted from template choice ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded input type of choice C on template A is missing some of its original fields."
+            )
+          ),
+        )
+      }
+      s"Fails when existing field in template choice is changed ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded input type of choice C on template A has changed the types of some of its original fields."
+            )
+          ),
+        )
+      }
+      s"Fails when template choice changes its return type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
+          assertPackageUpgradeCheck(Some("The upgraded choice C cannot change its return type.")),
+        )
+      }
+      s"Succeeds when template choice returns a template which has changed ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
+          s"test-common/upgrades-$label-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
+      s"Succeeds when template choice input argument has changed ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
+          s"test-common/upgrades-$label-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
+      s"Succeeds when new field with optional type is added to template choice ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
+          s"test-common/upgrades-$label-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
     }
 
     s"Succeeds when v1 upgrades to v2 and then v3 ($suffix)" in {
@@ -486,136 +494,140 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       )
     }
 
-    "Fails when a top-level record adds a non-optional field" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v2.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded data type A has added new fields, but those fields are not Optional.")
-        ),
-      )
-    }
+    for (label <- packageMetadataLabels) {
+      s"Fails when a top-level record adds a non-optional field ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenATopLevelRecordAddsANonOptionalField-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded data type A has added new fields, but those fields are not Optional."
+            )
+          ),
+        )
+      }
 
-    "Succeeds when a top-level record adds an optional field at the end" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar",
-        "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar",
-        assertPackageUpgradeCheck(
-          None
-        ),
-      )
-    }
+      s"Succeeds when a top-level record adds an optional field at the end ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar",
+          s"test-common/upgrades-$label-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar",
+          assertPackageUpgradeCheck(
+            None
+          ),
+        )
+      }
 
-    "Fails when a top-level record adds an optional field before the end" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record."
-          )
-        ),
-      )
-    }
+      s"Fails when a top-level record adds an optional field before the end ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record."
+            )
+          ),
+        )
+      }
 
-    "Succeeds when a top-level variant adds a variant" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAVariant-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAVariant-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-    }
+      s"Succeeds when a top-level variant adds a variant ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenATopLevelVariantAddsAVariant-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenATopLevelVariantAddsAVariant-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
 
-    "Fails when a top-level variant removes a variant" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package."
-          )
-        ),
-      )
-    }
+      s"Fails when a top-level variant removes a variant ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenATopLevelVariantRemovesAVariant-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package."
+            )
+          ),
+        )
+      }
 
-    "Fail when a top-level variant changes changes the order of its variants" in {
-      testPackagePair(
-        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
-        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant."
-          )
-        ),
-      )
-    }
+      s"Fail when a top-level variant changes changes the order of its variants ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
+          s"test-common/upgrades-$label-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant."
+            )
+          ),
+        )
+      }
 
-    "Fails when a top-level variant adds a field to a variant's type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v2.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded variant constructor A.Y from variant A has added a field.")
-        ),
-      )
-    }
+      s"Fails when a top-level variant adds a field to a variant's type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v2.dar",
+          assertPackageUpgradeCheck(
+            Some("The upgraded variant constructor A.Y from variant A has added a field.")
+          ),
+        )
+      }
 
-    "Succeeds when a top-level variant adds an optional field to a variant's type" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-    }
+      s"Succeeds when a top-level variant adds an optional field to a variant's type ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
 
-    "Succeeds when a top-level enum changes" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelEnumChanges-v2.dar",
-        assertPackageUpgradeCheck(None),
-      )
-    }
+      s"Succeeds when a top-level enum changes ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenATopLevelEnumChanges-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenATopLevelEnumChanges-v2.dar",
+          assertPackageUpgradeCheck(None),
+        )
+      }
 
-    "Fail when a top-level enum changes changes the order of its variants" in {
-      testPackagePair(
-        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
-        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
-        assertPackageUpgradeCheck(
-          Some(
-            "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum."
-          )
-        ),
-      )
-    }
+      s"Fail when a top-level enum changes changes the order of its variants ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
+          s"test-common/upgrades-$label-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
+          assertPackageUpgradeCheck(
+            Some(
+              "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum."
+            )
+          ),
+        )
+      }
 
-    "Succeeds when a top-level type synonym changes" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v1.dar",
-        "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
-        assertPackageUpgradeCheck(
-          None
-        ),
-      )
-    }
+      s"Succeeds when a top-level type synonym changes ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v1.dar",
+          s"test-common/upgrades-$label-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
+          assertPackageUpgradeCheck(
+            None
+          ),
+        )
+      }
 
-    "Succeeds when two deeply nested type synonyms resolve to the same datatypes" in {
-      testPackagePair(
-        "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v1.dar",
-        "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
-        assertPackageUpgradeCheck(
-          None
-        ),
-      )
-    }
+      s"Succeeds when two deeply nested type synonyms resolve to the same datatypes ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v1.dar",
+          s"test-common/upgrades-$label-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
+          assertPackageUpgradeCheck(
+            None
+          ),
+        )
+      }
 
-    "Fails when two deeply nested type synonyms resolve to different datatypes" in {
-      testPackagePair(
-        "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v1.dar",
-        "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v2.dar",
-        assertPackageUpgradeCheck(
-          Some("The upgraded template A has changed the types of some of its original fields.")
-        ),
-      )
+      s"Fails when two deeply nested type synonyms resolve to different datatypes ($suffix and $label)" in {
+        testPackagePair(
+          "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v1.dar",
+          s"test-common/upgrades-$label-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v2.dar",
+          assertPackageUpgradeCheck(
+            Some("The upgraded template A has changed the types of some of its original fields.")
+          ),
+        )
+      }
     }
   }
 }
