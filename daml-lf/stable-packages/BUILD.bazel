@@ -27,6 +27,7 @@ da_scala_library(
     scala_deps = [
     ],
     scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-stable-packages:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
