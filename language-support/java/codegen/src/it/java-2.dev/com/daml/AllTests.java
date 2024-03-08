@@ -7,9 +7,5 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
-@Suite.SuiteClasses({
-  AllGenericTests.class,
-  GenMapTest.class,
-  NumericTest.class,
-})
+@Suite.SuiteClasses({AllGenericTests.class, ContractKeysTest.class})
 public class AllTests {}

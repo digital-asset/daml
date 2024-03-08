@@ -315,29 +315,12 @@ java_library(
 
 module_prefix_test = "src/it/java/com/daml/ModulePrefixes.java"
 
-contract_keys_test = "src/it/java/com/daml/ContractKeysTest.java"
-
 java_test(
     name = "integration-tests-module-prefixes",
     srcs = [module_prefix_test],
     test_class = "com.daml.ModulePrefixes",
     deps = [
         ":pkg-root.jar",
-        "@maven//:org_junit_jupiter_junit_jupiter_api",
-        "@maven//:org_junit_jupiter_junit_jupiter_engine",
-        "@maven//:org_junit_platform_junit_platform_commons",
-        "@maven//:org_junit_platform_junit_platform_runner",
-    ],
-)
-
-java_test(
-    name = "integration-tests-contract-keys",
-    srcs = [contract_keys_test],
-    test_class = "com.daml.ContractKeysTest",
-    deps = [
-        ":integration-tests-model-2.dev",
-        "//canton:bindings-java",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
         "@maven//:org_junit_jupiter_junit_jupiter_engine",
         "@maven//:org_junit_platform_junit_platform_commons",
@@ -368,7 +351,6 @@ java_test(
                 ],
                 exclude = [
                     module_prefix_test,
-                    contract_keys_test,
                 ],
             ),
             test_class = "com.daml.AllTests",
