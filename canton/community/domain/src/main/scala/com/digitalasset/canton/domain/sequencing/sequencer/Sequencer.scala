@@ -135,6 +135,8 @@ trait Sequencer
   private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter
 
   /** Return the status of the specified members. If the list is empty, return the status of all members.
+    * Requested members who are not registered in the Sequencer will not be in the response.
+    * Registered members with no sent or received event will return an empty status.
     */
   def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext

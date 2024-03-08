@@ -5,10 +5,9 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.metrics.api.MetricName
 import com.daml.resources.PureResource
 import com.digitalasset.canton.BaseTest
@@ -127,13 +126,8 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       ),
       servicesExecutionContext = ec,
       metrics = metrics,
-      // TODO(#14706): revert to new Engine() once the default engine config supports only 2.x
       engine = Some(
-        new Engine(
-          EngineConfig(allowedLanguageVersions =
-            VersionRange(LanguageVersion.v2_1, LanguageVersion.v2_1)
-          )
-        )
+        new Engine(EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2)))
       ),
       participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
       ledgerEndCache = ledgerEndCache,

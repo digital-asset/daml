@@ -305,6 +305,8 @@ class TransferOutProcessingSteps(
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       sourceSnapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorsOfDomain,
+      // not actually used here, because it's available in the only fully unblinded view
+      submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {

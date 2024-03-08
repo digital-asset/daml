@@ -6,14 +6,13 @@ package com.digitalasset.canton.protocol.messages
 import cats.syntax.alternative.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{Checked, ErrorUtil}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -93,32 +92,21 @@ object RootHashMessageRecipients extends HasLoggerName {
     }
   }
 
-  def recipientsAreValid(
-      recipients: Recipients,
-      participantId: ParticipantId,
-      mediator: MediatorsOfDomain,
-      participantIsAddressByPartyGroupAddress: (
-          Seq[LfPartyId],
-          ParticipantId,
-      ) => FutureUnlessShutdown[Boolean],
-  ): FutureUnlessShutdown[Boolean] =
+  def validateRecipientsOnParticipant(recipients: Recipients): Checked[Nothing, String, Unit] = {
     recipients.asSingleGroup match {
+      case Some(group) if group.sizeCompare(2) == 0 =>
+        // group members must be participantId and mediator, due to previous checks
+        Checked.unit
       case Some(group) =>
-        if (group == NonEmpty.mk(Set, MemberRecipient(participantId), mediator))
-          FutureUnlessShutdown.pure(true)
-        else if (group.contains(mediator) && group.size >= 2) {
-          val informeeParty = group.collect { case ParticipantsOfParty(party) =>
-            party.toLf
-          }
-          if (informeeParty.isEmpty) FutureUnlessShutdown.pure(false)
-          else
-            participantIsAddressByPartyGroupAddress(
-              informeeParty.toSeq,
-              participantId,
-            )
-        } else FutureUnlessShutdown.pure(false)
-      case _ => FutureUnlessShutdown.pure(false)
+        val hasGroupAddressing = group.collect { case ParticipantsOfParty(party) =>
+          party.toLf
+        }.nonEmpty
+        if (hasGroupAddressing) Checked.unit
+        else Checked.continue(s"The root hash message has an invalid recipient group.\n$recipients")
+      case _ =>
+        Checked.continue(s"The root hash message has more than one recipient group.\n$recipients")
     }
+  }
 
   def wrongAndCorrectRecipients(
       recipientsList: Seq[Recipients],

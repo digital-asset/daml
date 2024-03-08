@@ -5,10 +5,9 @@ package com.digitalasset.canton.platform
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext}
-import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.domain.LedgerId
@@ -150,11 +149,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = Metrics.ForTesting,
           servicesExecutionContext = ec,
-          // TODO(#14706): revert to new Engine() once the default engine config supports only 2.x
           engine = new Engine(
-            EngineConfig(allowedLanguageVersions =
-              VersionRange(LanguageVersion.v2_1, LanguageVersion.v2_1)
-            )
+            EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
           ),
           inMemoryState = inMemoryState,
           tracer = NoReportingTracerProvider.tracer,

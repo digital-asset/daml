@@ -197,7 +197,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
     val t =
       if (microsSinceMin < 0) ts(counter)
       else CantonTimestamp.MinValue.addMicros(microsSinceMin)
-    IgnoredSequencedEvent(t, SequencerCounter(counter), None)(traceContext)
+    IgnoredSequencedEvent(t, SequencerCounter(counter), None, None)(traceContext)
   }
 
   def sequencedEventStore(mkSes: ExecutionContext => SequencedEventStore): Unit = {
