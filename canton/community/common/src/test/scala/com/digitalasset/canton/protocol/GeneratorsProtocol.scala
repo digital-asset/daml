@@ -101,10 +101,16 @@ final class GeneratorsProtocol(
         DynamicDomainParameters.defaultMaxRequestSizeUntil,
       )
 
-      catchUpConfig <- defaultValueArb(
-        representativePV,
-        DynamicDomainParameters.defaultCatchUpConfigUntil,
-      )
+      catchUpConfig <-
+        for {
+          skip <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
+          trigger <- Gen.choose(1, Math.sqrt(PositiveInt.MaxValue.value.toDouble).intValue)
+        } yield {
+          DynamicDomainParameters.defaultCatchUpConfigUntil.orValue(
+            Some(new CatchUpConfig(PositiveInt.tryCreate(skip), PositiveInt.tryCreate(trigger))),
+            representativePV,
+          )
+        }
 
       // Starting from pv=4, there is an additional constraint on the mediatorDeduplicationTimeout
       updatedMediatorDeduplicationTimeout =
