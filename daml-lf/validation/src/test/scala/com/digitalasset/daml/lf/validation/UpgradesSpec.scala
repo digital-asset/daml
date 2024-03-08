@@ -43,7 +43,7 @@ class UpgradesSpecLedgerAPIWithValidation
     extends UpgradesSpecLedgerAPI("Ledger API with validation")
     with LongTests
 
-abstract class UpgradesSpecAdminAPI(val suffix: String) extends UpgradesSpec(suffix) {
+abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -73,7 +73,8 @@ abstract class UpgradesSpecAdminAPI(val suffix: String) extends UpgradesSpec(suf
   }
 }
 
-class UpgradesSpecLedgerAPI(val suffix: String = "Ledger API") extends UpgradesSpec(suffix) {
+class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
+    extends UpgradesSpec(suffix) {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
