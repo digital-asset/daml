@@ -723,6 +723,7 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorsOfDomain,
+      submitterMetadataO: Option[SubmitterMetadata],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -741,11 +742,6 @@ class TransactionProcessingSteps(
     }
     val workflowIdO =
       IterableUtil.assertAtMostOne(fullViewTrees.forgetNE.mapFilter(_.workflowIdO), "workflow")
-    val submitterMetaO =
-      IterableUtil.assertAtMostOne(
-        fullViewTrees.forgetNE.mapFilter(_.tree.submitterMetadata.unwrap.toOption),
-        "submitterMetadata",
-      )
 
     // TODO(i12911): check that all non-root lightweight trees can be decrypted with the expected (derived) randomness
     //   Also, check that all the view's informees received the derived randomness
@@ -771,7 +767,7 @@ class TransactionProcessingSteps(
           rootViewTreesWithSignatures,
           usedAndCreated,
           workflowIdO,
-          submitterMetaO,
+          submitterMetadataO,
         )
 
       val activenessSet = usedAndCreated.activenessSet

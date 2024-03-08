@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.store.db
 
-import cats.syntax.foldable.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty

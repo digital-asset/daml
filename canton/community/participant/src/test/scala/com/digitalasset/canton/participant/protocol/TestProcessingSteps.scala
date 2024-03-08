@@ -224,6 +224,7 @@ class TestProcessingSteps(
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorsOfDomain,
+      submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TestProcessingError, CheckActivenessAndWritePendingContracts] = {

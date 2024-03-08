@@ -156,11 +156,6 @@ object StoredTopologyTransactionsX
       .map(StoredTopologyTransactionsX(_))
   }
 
-  final case class CertsAndRest(
-      certs: Seq[GenericStoredTopologyTransactionX],
-      rest: Seq[GenericStoredTopologyTransactionX],
-  )
-
   def empty: GenericStoredTopologyTransactionsX =
     StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](Seq())
 

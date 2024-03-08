@@ -8,6 +8,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.EphemeralState
 import com.digitalasset.canton.domain.sequencing.integrations.state.SequencerStateManagerStore.PruningResult
@@ -127,6 +128,11 @@ class InMemorySequencerStateManagerStore(
 
     def toStatus(member: Member): SequencerMemberStatus =
       SequencerMemberStatus(member, addedAt, lastAcknowledged, isEnabled)
+  }
+
+  def locatePruningTimestamp(skip: NonNegativeInt): Option[CantonTimestamp] = {
+    val sortedEvents = state.get().indices.values.flatMap(_.events.map(_.timestamp)).toList.sorted
+    sortedEvents.lift(skip.value)
   }
 
   private object State {

@@ -8,6 +8,7 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
@@ -366,6 +367,18 @@ class DbSequencerBlockStore(
       traceContext: TraceContext
   ): Future[InternalSequencerPruningStatus] =
     sequencerStore.status()
+
+  override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] = storage
+    .querySingle(
+      sql"""select ts from seq_state_manager_events order by ts #${storage.limit(
+          1,
+          skipItems = skip.value.toLong,
+        )}""".as[CantonTimestamp].headOption,
+      functionFullName,
+    )
+    .value
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

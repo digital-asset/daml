@@ -20,39 +20,42 @@ import scala.io.Source
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.archive.DarReader
 
-//import com.daml.lf.archive.{DarReader}
 import scala.util.{Success, Failure}
 import com.daml.lf.validation.Upgrading
 
-class UpgradesSpecAdminAPIWithoutValidation extends UpgradesSpecAdminAPI with ShortTests {
-  override def suffix = "Admin API without validation"
-  override val disableUpgradeValidation = true
+class UpgradesSpecAdminAPIWithoutValidation
+    extends UpgradesSpecAdminAPI("Admin API without validation")
+    with ShortTests {
+  override val disableUpgradeValidation = true;
 }
 
-class UpgradesSpecLedgerAPIWithoutValidation extends UpgradesSpecLedgerAPI with ShortTests {
-  override def suffix = "Ledger API without validation"
-  override val disableUpgradeValidation = true
+class UpgradesSpecLedgerAPIWithoutValidation
+    extends UpgradesSpecLedgerAPI("Ledger API without validation")
+    with ShortTests {
+  override val disableUpgradeValidation = true;
 }
 
-class UpgradesSpecAdminAPIDryRun extends UpgradesSpecAdminAPI with LongTests {
+class UpgradesSpecAdminAPIDryRun
+    extends UpgradesSpecAdminAPI("Admin API with dry run")
+    with LongTests {
   override val uploadSecondPackageDryRun = true;
-  override def suffix = "Admin API with dry run"
 }
 
-class UpgradesSpecLedgerAPIDryRun extends UpgradesSpecLedgerAPI with LongTests {
+class UpgradesSpecLedgerAPIDryRun
+    extends UpgradesSpecLedgerAPI("Ledger API with dry run")
+    with LongTests {
   override val uploadSecondPackageDryRun = true;
-  override def suffix = "Ledger API with dry run"
 }
 
-class UpgradesSpecAdminAPIWithValidation extends UpgradesSpecAdminAPI with LongTests {
-  override def suffix = "Admin API with validation"
-}
+class UpgradesSpecAdminAPIWithValidation
+    extends UpgradesSpecAdminAPI("Admin API with validation")
+    with LongTests
 
-class UpgradesSpecLedgerAPIWithValidation extends UpgradesSpecLedgerAPI with LongTests {
-  override def suffix = "Ledger API with validation"
-}
+class UpgradesSpecLedgerAPIWithValidation
+    extends UpgradesSpecLedgerAPI("Ledger API with validation")
+    with LongTests
 
-abstract class UpgradesSpecAdminAPI extends UpgradesSpec {
+abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -82,7 +85,8 @@ abstract class UpgradesSpecAdminAPI extends UpgradesSpec {
   }
 }
 
-abstract class UpgradesSpecLedgerAPI extends UpgradesSpec {
+class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
+    extends UpgradesSpec(suffix) {
   override def uploadPackagePair(
       path: Upgrading[String]
   ): Future[Upgrading[(PackageId, Option[Throwable])]] = {
@@ -134,14 +138,14 @@ trait ShortTests { this: UpgradesSpec =>
 
 trait LongTests { this: UpgradesSpec =>
   s"Upload-time Upgradeability Checks ($suffix)" should {
-    s"uploading the same package multiple times succeeds ($suffix)" ignore {
+    s"uploading the same package multiple times succeeds ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v1.dar",
         assertDuplicatePackageUpload(),
       )
     }
-    s"uploads against the same package name must be version unique ($suffix)" ignore {
+    s"uploads against the same package name must be version unique ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
@@ -529,11 +533,14 @@ trait LongTests { this: UpgradesSpec =>
   }
 }
 
-abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with CantonFixture {
-  val uploadSecondPackageDryRun: Boolean = false;
-
+abstract class UpgradesSpec(val suffix: String)
+    extends AsyncWordSpec
+    with Matchers
+    with Inside
+    with CantonFixture {
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugRemoveTmpFiles;
+  val uploadSecondPackageDryRun: Boolean = false;
 
   protected def loadPackageIdAndBS(path: String): Future[(PackageId, ByteString)] = {
     val dar = DarReader.assertReadArchiveFromFile(new File(BazelRunfiles.rlocation(path)))
@@ -692,7 +699,4 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
       }
     }
   }
-
-  def suffix: String
-
 }

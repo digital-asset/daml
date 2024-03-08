@@ -452,6 +452,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activeness set failed")
       } yield {
@@ -480,6 +481,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activeness set did not return a left")
       } yield {
@@ -508,6 +510,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activenss set did not return a left")
       } yield {

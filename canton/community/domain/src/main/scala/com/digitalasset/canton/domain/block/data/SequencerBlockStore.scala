@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.db.DbSequencerBlockStore
@@ -89,6 +90,13 @@ trait SequencerBlockStore extends AutoCloseable {
 
   def pruningStatus()(implicit traceContext: TraceContext): Future[InternalSequencerPruningStatus]
 
+  /** Locate a timestamp relative to the earliest available event based on a skip index starting at 0.
+    * Useful to monitor the progress of pruning and for pruning in batches.
+    * @return The timestamp of the (skip+1)'th event if it exists, None otherwise.
+    */
+  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]]
   def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[String]

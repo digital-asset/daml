@@ -298,7 +298,12 @@ class BlockUpdateGenerator(
                       .map(member -> _)
                   }
                   .map(_.toMap)
-              case _ => FutureUnlessShutdown.pure(Map.empty)
+              case _ =>
+                FutureUnlessShutdown.pure(
+                  newMembers.view.mapValues { timestamp =>
+                    TrafficState.empty(timestamp)
+                  }.toMap
+                )
             }
           } yield updatedStates
         } else FutureUnlessShutdown.pure(Map.empty)

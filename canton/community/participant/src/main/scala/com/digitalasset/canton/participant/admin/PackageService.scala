@@ -424,7 +424,7 @@ class PackageService(
       _ <- if (dryRun)
               EitherT
                 .leftT[Future, Unit](
-                  Validation.DryRun.Error(mainPackage._1)
+                  PackageServiceErrors.Validation.DryRun.Error(mainPackage._1)
                 )
                 .leftWiden[DamlError]
            else
