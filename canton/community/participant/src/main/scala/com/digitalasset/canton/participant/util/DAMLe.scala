@@ -47,8 +47,7 @@ object DAMLe {
           else
             VersionRange(
               LanguageVersion.v2_1,
-              // TODO(#14706): use LanguageVersion.StableVersions.max or similar once LF v2 is stable
-              LanguageVersion.v2_1,
+              LanguageVersion.StableVersions(LanguageMajorVersion.V2).max,
             ),
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,

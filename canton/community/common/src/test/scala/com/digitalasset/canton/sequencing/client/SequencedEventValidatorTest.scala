@@ -97,7 +97,12 @@ class SequencedEventValidatorTest
       val err = validator
         .validateOnReconnect(
           Some(
-            IgnoredSequencedEvent(CantonTimestamp.MinValue, SequencerCounter(updatedCounter), None)(
+            IgnoredSequencedEvent(
+              CantonTimestamp.MinValue,
+              SequencerCounter(updatedCounter),
+              None,
+              None,
+            )(
               fixtureTraceContext
             )
           ),
@@ -254,7 +259,8 @@ class SequencedEventValidatorTest
         .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshotUS(tm)(fixtureTraceContext))
       when(syncCrypto.topologyKnownUntilTimestamp).thenReturn(CantonTimestamp.MaxValue)
       val validator = mkValidator(syncCryptoApi = syncCrypto)
-      val priorEvent = IgnoredSequencedEvent(ts(0), SequencerCounter(41), None)(fixtureTraceContext)
+      val priorEvent =
+        IgnoredSequencedEvent(ts(0), SequencerCounter(41), None, None)(fixtureTraceContext)
       val deliver =
         createEventWithCounterAndTs(42, ts(2), topologyTimestampO = Some(ts(1))).futureValue
 
@@ -267,9 +273,10 @@ class SequencedEventValidatorTest
 
     "reject the same counter-timestamp if passed in repeatedly" in { fixture =>
       import fixture.*
-      val priorEvent = IgnoredSequencedEvent(CantonTimestamp.MinValue, SequencerCounter(41), None)(
-        fixtureTraceContext
-      )
+      val priorEvent =
+        IgnoredSequencedEvent(CantonTimestamp.MinValue, SequencerCounter(41), None, None)(
+          fixtureTraceContext
+        )
       val validator = mkValidator()
 
       val deliver = createEventWithCounterAndTs(42, CantonTimestamp.Epoch).futureValue
@@ -289,9 +296,10 @@ class SequencedEventValidatorTest
 
     "fail if the counter or timestamp do not increase" in { fixture =>
       import fixture.*
-      val priorEvent = IgnoredSequencedEvent(CantonTimestamp.Epoch, SequencerCounter(41), None)(
-        fixtureTraceContext
-      )
+      val priorEvent =
+        IgnoredSequencedEvent(CantonTimestamp.Epoch, SequencerCounter(41), None, None)(
+          fixtureTraceContext
+        )
       val validator =
         mkValidator()
 
@@ -332,9 +340,10 @@ class SequencedEventValidatorTest
 
     "fail if there is a counter cap" in { fixture =>
       import fixture.*
-      val priorEvent = IgnoredSequencedEvent(CantonTimestamp.Epoch, SequencerCounter(41), None)(
-        fixtureTraceContext
-      )
+      val priorEvent =
+        IgnoredSequencedEvent(CantonTimestamp.Epoch, SequencerCounter(41), None, None)(
+          fixtureTraceContext
+        )
       val validator = mkValidator()
 
       val deliver1 = createEventWithCounterAndTs(43L, CantonTimestamp.ofEpochSecond(1)).futureValue

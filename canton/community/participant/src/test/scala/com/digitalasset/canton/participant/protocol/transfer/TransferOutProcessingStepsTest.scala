@@ -681,6 +681,7 @@ final class TransferOutProcessingStepsTest
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activeness set failed")
       } yield {

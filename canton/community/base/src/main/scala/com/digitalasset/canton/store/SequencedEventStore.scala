@@ -178,6 +178,7 @@ object SequencedEventStore {
         traceContext = Some(SerializableTraceContext(traceContext).toProtoV30),
         isIgnored = isIgnored,
         underlying = underlying.map(_.toProtoV30),
+        trafficState = trafficState.map(_.toProtoV30),
       )
   }
 
@@ -192,7 +193,7 @@ object SequencedEventStore {
       override val timestamp: CantonTimestamp,
       override val counter: SequencerCounter,
       override val underlying: Option[SignedContent[SequencedEvent[Env]]],
-      override val trafficState: Option[SequencedEventTrafficState] = None,
+      override val trafficState: Option[SequencedEventTrafficState],
   )(override val traceContext: TraceContext)
       extends PossiblyIgnoredSequencedEvent[Env] {
 
@@ -217,6 +218,7 @@ object SequencedEventStore {
         param("timestamp", _.timestamp),
         param("counter", _.counter),
         paramIfDefined("underlying", _.underlying),
+        paramIfDefined("trafficState", _.trafficState),
       )
   }
 
@@ -269,7 +271,8 @@ object SequencedEventStore {
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = this
 
     override def pretty: Pretty[OrdinarySequencedEvent[Envelope[_]]] = prettyOfClass(
-      param("signedEvent", _.signedEvent)
+      param("signedEvent", _.signedEvent),
+      paramIfNonEmpty("trafficState", _.trafficState),
     )
   }
 
@@ -301,6 +304,7 @@ object SequencedEventStore {
         traceContextPO,
         isIgnored,
         underlyingPO,
+        trafficStatePO,
       ) = possiblyIgnoredSequencedEventP
 
       val sequencerCounter = SequencerCounter(counter)
@@ -317,19 +321,19 @@ object SequencedEventStore {
         traceContext <- ProtoConverter
           .required("trace_context", traceContextPO)
           .flatMap(SerializableTraceContext.fromProtoV30)
+        trafficStateO <- trafficStatePO.traverse(SequencedEventTrafficState.fromProtoV30)
         possiblyIgnoredSequencedEvent <-
           if (isIgnored) {
             Right(
-              IgnoredSequencedEvent(timestamp, sequencerCounter, underlyingO, None)(
+              IgnoredSequencedEvent(timestamp, sequencerCounter, underlyingO, trafficStateO)(
                 traceContext.unwrap
               )
             )
           } else
             ProtoConverter
               .required("underlying", underlyingO)
-              // TODO(i13596): This only seems to be used to deserialize time proof events. Revisit whether or not we do need the traffic state for that
               .map(
-                OrdinarySequencedEvent(_, Option.empty[SequencedEventTrafficState])(
+                OrdinarySequencedEvent(_, trafficStateO)(
                   traceContext.unwrap
                 )
               )

@@ -951,6 +951,7 @@ abstract class ProtocolProcessor[
             malformedPayloads,
             snapshot,
             mediator,
+            submitterMetadataO,
           )
           .mapK(FutureUnlessShutdown.outcomeK)
         _ <- trackAndSendResponses(

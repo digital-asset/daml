@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
@@ -207,6 +208,11 @@ class InMemorySequencerBlockStore(
       traceContext: TraceContext
   ): Future[InternalSequencerPruningStatus] =
     sequencerStore.status()
+
+  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] =
+    Future.successful(sequencerStore.locatePruningTimestamp(skip))
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

@@ -39,10 +39,10 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
         txVersion
     }.last
 
-  lazy val fixtureLanguageVersion: LanguageVersion = {
-    // TODO(#14706): map fixtureTransactionVersion to the right 2.x LF version once there is a 1:1 correspondance
-    //  between the two versions
-    LanguageVersion.v2_1
+  lazy val fixtureLanguageVersion: LanguageVersion = fixtureTransactionVersion match {
+    case TransactionVersion.V31 => LanguageVersion.v2_1
+    case TransactionVersion.VDev => LanguageVersion.v2_dev
+    case version => throw new RuntimeException(s"Unknown transaction version $version")
   }
 
   /*
