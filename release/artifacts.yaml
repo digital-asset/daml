@@ -43,6 +43,8 @@
   type: jar-scala
 - target: //daml-script/converter:converter
   type: jar-scala
+- target: //daml-lf/stable-packages:stable-packages
+  type: jar-scala
 - target: //language-support/codegen-common:codegen-common
   type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
