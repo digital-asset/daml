@@ -409,28 +409,24 @@ message Environment {
   repeated Entry entries = 1;
 }
 
-// NOTE(JM): Copy of the ledger-api value, with the addition of tuple and
-// "unserializable".
 message Value {
   oneof Sum {
-    Record record = 1;
-    Variant variant = 2;
-    string contract_id = 3;
-    List list = 4;
-    sint64 int64 = 5;
+    Empty unit = 1;
+    bool bool = 2;
+    sint64 int64 = 3;
+    int32 date = 4;
+    sfixed64 timestamp = 5;
     string numeric = 6;
-    string text = 7;
-    sfixed64 timestamp = 8;
-    string party = 9;
-    bool bool = 10;
-    Empty unit = 11;
-    int32 date = 12;
-    Optional optional = 13;
-    Map map = 14;
-    Enum enum = 15;
-    GenMap gen_map = 16;
-
-    // An unserializable value, e.g. closure. Contains a description of the value.
+    string party = 7;
+    string text = 8;
+    string contract_id = 9;
+    Optional optional = 10;
+    List list = 11;
+    Map map = 12;
+    TextMap text_map = 13;
+    Record record = 14;
+    Variant variant = 15;
+    Enum enum = 16;
     string unserializable = 17;
   }
 }
@@ -439,7 +435,7 @@ message Optional {
   Value value = 1; // optional
 }
 
-message Map {
+message TextMap {
     message Entry {
         string key = 1;
         Value value = 2;
@@ -448,7 +444,7 @@ message Map {
     repeated Entry entries = 1;
 }
 
-message GenMap{
+message Map{
   message Entry {
     Value key = 1;
     Value value = 2;

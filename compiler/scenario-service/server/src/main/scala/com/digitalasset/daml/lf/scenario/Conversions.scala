@@ -862,22 +862,24 @@ final class Conversions(
           case Some(v) => optionalBuilder.setValue(convertValue(v))
         }
         builder.setOptional(optionalBuilder)
-      case V.ValueTextMap(map) =>
-        val mapBuilder = proto.Map.newBuilder
-        map.toImmArray.foreach { case (k, v) =>
-          mapBuilder.addEntries(proto.Map.Entry.newBuilder().setKey(k).setValue(convertValue(v)))
-          ()
-        }
-        builder.setMap(mapBuilder)
-      case V.ValueGenMap(entries) =>
-        val mapBuilder = proto.GenMap.newBuilder
-        entries.foreach { case (k, v) =>
+      case V.ValueTextMap(entries) =>
+        val mapBuilder = proto.TextMap.newBuilder
+        entries.toImmArray.foreach { case (k, v) =>
           mapBuilder.addEntries(
-            proto.GenMap.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v))
+            proto.TextMap.Entry.newBuilder().setKey(k).setValue(convertValue(v))
           )
           ()
         }
-        builder.setGenMap(mapBuilder)
+        builder.setTextMap(mapBuilder)
+      case V.ValueGenMap(entries) =>
+        val mapBuilder = proto.Map.newBuilder
+        entries.foreach { case (k, v) =>
+          mapBuilder.addEntries(
+            proto.Map.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v))
+          )
+          ()
+        }
+        builder.setMap(mapBuilder)
     }
     builder.build
   }

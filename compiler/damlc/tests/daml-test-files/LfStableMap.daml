@@ -1,7 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module LfStableGenMap where
+module LfStableMap where
 
 import Daml.Script
 import DA.Map
@@ -13,7 +13,7 @@ template MapTemplate
   where
     signatory party
 
--- @LEDGER run LfStableGenMap.EXPECTED.ledger
+-- @LEDGER run LfStableMap.EXPECTED.ledger
 run = script do
   alice <- allocateParty "Alice"
   submit alice do
