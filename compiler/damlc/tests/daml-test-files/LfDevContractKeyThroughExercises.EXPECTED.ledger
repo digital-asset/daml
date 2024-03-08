@@ -8,7 +8,7 @@ Transactions:
               with
                 signatories =
                   (DA.Set.Types:Set with
-                     map = GenMap['Alice'->{}]);
+                     map = Map['Alice'->{}]);
                 counterParty = 'Bob'
   
   TX 1 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:54:15)
@@ -23,7 +23,7 @@ Transactions:
                             with
                               signatories =
                                 (DA.Set.Types:Set with
-                                   map = GenMap['Alice'->{}, 'Bob'->{}]);
+                                   map = Map['Alice'->{}, 'Bob'->{}]);
                               counterParty = 'Bob'
   
   TX 2 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:56:15)
@@ -34,13 +34,13 @@ Transactions:
                 actor = 'Alice';
                 keyMaintainers =
                   (DA.Set.Types:Set with
-                     map = GenMap['Alice'->{}])
+                     map = Map['Alice'->{}])
       children:
       #2:1
       │   disclosed to (since): 'Alice' (2), 'Bob' (2)
       └─> lookupByKey LfDevContractKeyThroughExercises:BasicKey
           with key
-            map = GenMap['Alice'->{}]
+            map = Map['Alice'->{}]
           not found
   
   TX 3 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:59:15)
@@ -51,13 +51,13 @@ Transactions:
               actor = 'Bob';
               keyMaintainers =
                 (DA.Set.Types:Set with
-                   map = GenMap['Alice'->{}])
+                   map = Map['Alice'->{}])
       children:
       #3:1
       │   disclosed to (since): 'Alice' (3), 'Bob' (3)
       └─> lookupByKey LfDevContractKeyThroughExercises:BasicKey
           with key
-            map = GenMap['Alice'->{}]
+            map = Map['Alice'->{}]
           not found
   
   TX 4 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:62:10)
@@ -68,7 +68,7 @@ Transactions:
               with
                 owners =
                   (DA.Set.Types:Set with
-                     map = GenMap['Alice'->{}])
+                     map = Map['Alice'->{}])
   
   TX 5 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:64:15)
   #5:0
@@ -78,13 +78,13 @@ Transactions:
                 actor = 'Alice';
                 keyMaintainers =
                   (DA.Set.Types:Set with
-                     map = GenMap['Alice'->{}])
+                     map = Map['Alice'->{}])
       children:
       #5:1
       │   disclosed to (since): 'Alice' (5), 'Bob' (5)
       └─> lookupByKey LfDevContractKeyThroughExercises:BasicKey
           with key
-            map = GenMap['Alice'->{}]
+            map = Map['Alice'->{}]
           found: #4:0
   
   TX 6 1970-01-01T00:00:00Z
