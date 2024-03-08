@@ -78,7 +78,7 @@ class BadRootHashMessagesRequestProcessor(
     performUnlessClosingUSF(functionFullName) {
       for {
         _ <- prepareForMediatorResultOfBadRequest(requestCounter, sequencerCounter, timestamp)
-        snapshot <- crypto.snapshotUS(timestamp)
+        snapshot <- crypto.awaitSnapshotUS(timestamp)
         requestId = RequestId(timestamp)
         rejection = checked(
           MediatorResponse.tryCreate(

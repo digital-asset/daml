@@ -38,6 +38,7 @@ import com.digitalasset.canton.domain.service.ServiceAgreementAcceptance
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.protocol.CatchUpConfig
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
 import com.digitalasset.canton.topology.*
@@ -406,6 +407,21 @@ trait DomainAdministration {
           "Please restart the sequencer node to take into account the new value for max-request-size."
         )
       }
+
+    @Help.Summary("Update the ACS commitments catch up config for the domain")
+    @Help.Description(
+      """The method will fail if the domain does not support the ``catchUpConfig`` parameter
+                     (i.e., if the domain is running on protocol version lower than `6`)"""
+    )
+    @Help.AvailableFrom(ProtocolVersion.v6)
+    def set_commitments_catch_up_config(
+        config: CatchUpConfig
+    ): Unit =
+      update_dynamic_domain_parameters_v2(
+        _.copy(),
+        _.copy(catchUpConfig = Some(config)),
+        "update the ACS commitments catch up config",
+      )
 
     private def update_dynamic_domain_parameters_v2(
         modifierV1: DynamicDomainParametersV1 => DynamicDomainParameters,

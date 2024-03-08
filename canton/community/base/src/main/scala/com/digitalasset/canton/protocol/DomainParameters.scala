@@ -597,11 +597,12 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     _.catchUpConfig,
     "catchUpConfig",
     rpv6,
-    defaultCatchUpConfig,
+    None,
   )
 
-  private val defaultCatchUpConfig: Option[CatchUpConfig] =
-    Option.empty[CatchUpConfig]
+  private val defaultCatchUpConfig: Option[CatchUpConfig] = Some(
+    CatchUpConfig(PositiveInt.tryCreate(5), PositiveInt.tryCreate(2))
+  )
 
   private val defaultParticipantResponseTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(30)
@@ -1116,18 +1117,41 @@ final case class DynamicDomainParametersWithValidity(
   *                                    All participants must catch up to the same timestamp. To ensure this, the
   *                                    interval count starts at EPOCH and gets incremented in catch-up intervals.
   *                                    For example, a `reconciliationInterval` of 5 seconds,
-  *                                    and a catchUpIntervalSkip of 2 (intervals), when a participant receiving a valid commitment at
-  *                                    15 seconds with timestamp 20 seconds, will perform catch-up from 10 seconds to 20 seconds (skipping 15 seconds commitment).
+  *                                    and a catchUpIntervalSkip of 2 (intervals), when a participant receiving a
+  *                                    valid commitment at 15 seconds with timestamp 20 seconds, will perform catch-up
+  *                                    from 10 seconds to 20 seconds (skipping 15 seconds commitment).
   * @param nrIntervalsToTriggerCatchUp The number of intervals a participant should lag behind in
   *                                    order to trigger catch-up mode. If a participant's current timestamp is behind
   *                                    the timestamp of valid received commitments by `reconciliationInterval` *
   *                                    `catchUpIntervalSkip` * `nrIntervalsToTriggerCatchUp`,
   *                                     then the participant triggers catch-up mode.
+  *
+  * @throws java.lang.IllegalArgumentException when [[catchUpIntervalSkip]] * [[nrIntervalsToTriggerCatchUp]] overflows.
+  *
+  * ***** Parameter recommendations
+  * A high [[catchUpIntervalSkip]] outputs more commitments and is slower to catch-up.
+  * For equal [[catchUpIntervalSkip]], a high [[nrIntervalsToTriggerCatchUp]] is less aggressive to trigger the
+  * catch-up mode.
+  *
+  * ***** Examples
+  * (5,2) and (2,5) both trigger the catch-up mode when the processor lags behind by at least 10
+  * reconciliation intervals. The former catches up quicker, but computes fewer commitments, whereas the latter
+  * computes more commitments but is slower to catch-up.
   */
 final case class CatchUpConfig(
     catchUpIntervalSkip: PositiveInt,
     nrIntervalsToTriggerCatchUp: PositiveInt,
 ) extends PrettyPrinting {
+
+  require(
+    Either
+      .catchOnly[ArithmeticException](
+        Math.multiplyExact(catchUpIntervalSkip.value, nrIntervalsToTriggerCatchUp.value)
+      )
+      .isRight,
+    s"Catch up parameters ($catchUpIntervalSkip, $nrIntervalsToTriggerCatchUp) are too large and cause overflow when computing the catch-up interval",
+  )
+
   override def pretty: Pretty[CatchUpConfig] = prettyOfClass(
     param("catchUpIntervalSkip", _.catchUpIntervalSkip),
     param("nrIntervalsToTriggerCatchUp", _.nrIntervalsToTriggerCatchUp),
@@ -1137,6 +1161,10 @@ final case class CatchUpConfig(
     catchUpIntervalSkip.value,
     nrIntervalsToTriggerCatchUp.value,
   )
+
+  // the catch-up mode is effectively disabled when the nr of intervals is Int.MaxValue
+  def isCatchUpEnabled(): Boolean =
+    !(catchUpIntervalSkip.value == 1 && nrIntervalsToTriggerCatchUp.value == Int.MaxValue)
 }
 
 object CatchUpConfig {
@@ -1151,4 +1179,7 @@ object CatchUpConfig {
       )
     } yield CatchUpConfig(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
   }
+
+  def disabledCatchUp(): CatchUpConfig =
+    CatchUpConfig(PositiveInt.tryCreate(1), PositiveInt.tryCreate(Integer.MAX_VALUE))
 }

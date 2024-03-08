@@ -86,8 +86,14 @@ object CantonTimestamp {
     } yield new CantonTimestamp(ts)
   }
 
-  def ofEpochSecond(seconds: Long): CantonTimestamp =
+  def ofEpochSecond(seconds: Long): CantonTimestamp = {
+    // Explicitly check the bounds here to avoid overflows due to the scaling by 1M
+    require(
+      seconds >= CantonTimestamp.MinValue.getEpochSecond && seconds <= CantonTimestamp.MaxValue.getEpochSecond,
+      s"out of bound CantonTimestamp: $seconds seconds",
+    )
     new CantonTimestamp(LfTimestamp.assertFromLong(micros = seconds * 1000 * 1000))
+  }
 
   def ofEpochMilli(milli: Long): CantonTimestamp =
     new CantonTimestamp(LfTimestamp.assertFromLong(micros = milli * 1000))

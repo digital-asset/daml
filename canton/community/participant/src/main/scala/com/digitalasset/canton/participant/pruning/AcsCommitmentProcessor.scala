@@ -302,12 +302,14 @@ class AcsCommitmentProcessor(
     } yield { config.catchUpConfig }
   }
 
+  private def catchUpEnabled(cfg: Option[CatchUpConfig]): Boolean = cfg.exists(_.isCatchUpEnabled())
+
   private def catchUpInProgress(crtTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Boolean] = {
     for {
       config <- catchUpConfig(crtTimestamp)
-    } yield config.isDefined && catchUpToTimestamp >= crtTimestamp
+    } yield catchUpEnabled(config) && catchUpToTimestamp >= crtTimestamp
 
   }
 
@@ -329,27 +331,32 @@ class AcsCommitmentProcessor(
       }
     )
 
-  /** Detects whether the participant should trigger or exit catch-up.
-    * In case a catch-up should start, returns the catch-up timestamp; the participant will catch up to the
-    * next published tick >= catch-up timestamp.
-    * Otherwise returns the prior catch-up boundary, which might be in the past when no catch-up is in progress.
+  /** Detects whether the participant is lagging too far behind (w.r.t. the catchUp config) in commitment computation.
+    * If lagging behind, the method returns a new catch-up timestamp, otherwise it returns the existing [[catchUpToTimestamp]].
+    * It is up to the caller to update the [[catchUpToTimestamp]] accordingly.
+    *
+    * Note that, even if the participant is not lagging too far behind, it does not mean it "caught up".
+    * In particular, if the participant's current timestamp is behind [[catchUpToTimestamp]], then the participant is
+    * still catching up. Please use the method [[catchUpInProgress]] to determine whether the participant has caught up.
     */
   private def computeCatchUpTimestamp(
       completedPeriodTimestamp: CantonTimestamp,
       config: Option[CatchUpConfig],
   )(implicit traceContext: TraceContext): Future[CantonTimestamp] = {
-    for {
-      catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp, config)
-    } yield {
-      if (config.isDefined && catchUpBoundaryTimestamp != completedPeriodTimestamp) {
-        logger.debug(
-          s"Computed catch up boundary when processing end of period $completedPeriodTimestamp: computed catch-up timestamp is $catchUpBoundaryTimestamp"
-        )
-        catchUpBoundaryTimestamp
-      } else {
-        catchUpToTimestamp
+    if (config.exists(_.isCatchUpEnabled())) {
+      for {
+        catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp, config)
+      } yield {
+        if (catchUpBoundaryTimestamp != completedPeriodTimestamp) {
+          logger.debug(
+            s"Computed catch up boundary when processing end of period $completedPeriodTimestamp: computed catch-up timestamp is $catchUpBoundaryTimestamp"
+          )
+          catchUpBoundaryTimestamp
+        } else {
+          catchUpToTimestamp
+        }
       }
-    }
+    } else Future.successful(catchUpToTimestamp)
   }
 
   def initializeTicksOnStartup(
@@ -472,7 +479,7 @@ class AcsCommitmentProcessor(
         // grows monotonically and that catch-ups are towards the future.
         config <- catchUpConfig(completedPeriod.toInclusive.forgetRefinement)
 
-        _ = if (config.isDefined && computingCatchUpTimestamp.isCompleted) {
+        _ = if (config.exists(_.isCatchUpEnabled()) && computingCatchUpTimestamp.isCompleted) {
           computingCatchUpTimestamp.value.foreach { v =>
             v.fold(
               exc => logger.error(s"Error when computing the catch up timestamp", exc),
@@ -1112,11 +1119,26 @@ class AcsCommitmentProcessor(
               .reconciliationIntervals(completedPeriodTimestamp)
             catchUpTimestamp = sortedReconciliationIntervals.intervals.headOption match {
               case Some(interval) =>
-                val catchUpDelta =
-                  interval.intervalLength.duration.getSeconds * cfg.catchUpIntervalSkip.value * cfg.nrIntervalsToTriggerCatchUp.value
-                CantonTimestamp.ofEpochSecond(
-                  completedPeriodTimestamp.getEpochSecond + catchUpDelta - completedPeriodTimestamp.getEpochSecond % catchUpDelta
-                )
+                try {
+                  val catchUpDelta =
+                    Math.multiplyExact(
+                      interval.intervalLength.duration.getSeconds,
+                      cfg.catchUpIntervalSkip.value * cfg.nrIntervalsToTriggerCatchUp.value,
+                    )
+                  CantonTimestamp.ofEpochSecond(
+                    Math.addExact(
+                      completedPeriodTimestamp.getEpochSecond,
+                      catchUpDelta - completedPeriodTimestamp.getEpochSecond % catchUpDelta,
+                    )
+                  )
+                } catch {
+                  case _: ArithmeticException =>
+                    throw new IllegalArgumentException(
+                      s"Overflow when computing the catchUp timestamp with catch up" +
+                        s"parameters (${cfg.catchUpIntervalSkip}, ${cfg.nrIntervalsToTriggerCatchUp}) and" +
+                        s"reconciliation interval ${interval.intervalLength.duration.getSeconds} seconds"
+                    )
+                }
               case None => completedPeriodTimestamp
             }
             comm <- store.queue.peekThroughAtOrAfter(catchUpTimestamp)
