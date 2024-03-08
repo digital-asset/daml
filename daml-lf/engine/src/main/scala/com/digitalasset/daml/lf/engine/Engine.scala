@@ -23,13 +23,8 @@ import com.daml.lf.transaction.{
 import java.nio.file.Files
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.language.{
-  LanguageMajorVersion,
-  LanguageVersion,
-  LookupError,
-  PackageInterface,
-  StablePackages,
-}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf

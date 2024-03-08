@@ -7,7 +7,8 @@ package value
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name, TypeConName}
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, StablePackages}
+import com.daml.lf.language.Ast
+import com.daml.lf.stablepackages.StablePackages
 import data.ScalazEqual._
 import scalaz.{@@, Equal, Order, Tag}
 import scalaz.Ordering.EQ
