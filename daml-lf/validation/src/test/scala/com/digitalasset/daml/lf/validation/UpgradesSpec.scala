@@ -594,7 +594,7 @@ abstract class UpgradesSpec extends AsyncWordSpec with Matchers with Inside with
         }
 
         case None if uploadSecondPackageDryRun => {
-          cantonLogSrc should include regex(
+          cantonLogSrc should include regex (
             s"The DAR will not be uploaded because dry run is set in UploadDarRequest err-context:\\{.*, uploadedPackage=$testPackageV2Id"
           )
           uploadV2Result match {
