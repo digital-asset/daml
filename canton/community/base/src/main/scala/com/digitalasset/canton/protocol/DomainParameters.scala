@@ -295,6 +295,8 @@ object OnboardingRestriction {
   * @param sequencerAggregateSubmissionTimeout the maximum time for how long an incomplete aggregate submission request is
   *                                            allowed to stay pending in the sequencer's state before it's removed.
   *                                            Must be at least `confirmationResponseTimeout` + `mediatorReactionTimeout` in a practical system.
+  *                                            Must be greater than `maxSequencingTime` specified by a participant,
+  *                                            practically also requires extra slack to allow clock skew between participant and sequencer.
   * @param onboardingRestriction current onboarding restrictions for participants
   * @throws DynamicDomainParameters$.InvalidDynamicDomainParameters
   *   if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
@@ -491,9 +493,9 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   private val defaultMediatorDeduplicationTimeout: NonNegativeFiniteDuration =
     defaultLedgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
 
-  // Based on SequencerClientConfig.defaultMaxSequencingTimeOffset
+  // Based on SequencerClientConfig.defaultMaxSequencingTimeOffset + 1 minute of slack for the clock drift
   private val defaultSequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.tryOfMinutes(5)
+    NonNegativeFiniteDuration.tryOfMinutes(6)
 
   private val defaultOnboardingRestriction: OnboardingRestriction =
     OnboardingRestriction.UnrestrictedOpen

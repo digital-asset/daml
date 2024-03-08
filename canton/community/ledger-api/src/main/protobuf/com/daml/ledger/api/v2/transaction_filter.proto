@@ -7,13 +7,12 @@ package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/value.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "TransactionFilterOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // The union of a set of contract filters, or a wildcard.
 message Filters {
-
   // If set, then contracts matching any of the ``InclusiveFilters`` match
   // this filter.
   // If not set, or if ``InclusiveFilters`` has empty ``template_filters`` and empty ``interface_filters``:
@@ -25,7 +24,6 @@ message Filters {
 // A filter that matches all contracts that are either an instance of one of
 // the ``template_filters`` or that match one of the ``interface_filters``.
 message InclusiveFilters {
-
   // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
   // The ``InterfaceFilter`` instances MUST each use a unique ``interface_id``.
   // Optional
@@ -42,7 +40,6 @@ message InclusiveFilters {
 
 // This filter matches contracts that implement a specific interface.
 message InterfaceFilter {
-
   // The interface that a matching contract must implement.
   // The ``interface_id`` needs to be valid: corresponding interface should be defined in
   // one of the available packages at the time of the query.
@@ -54,18 +51,15 @@ message InterfaceFilter {
   // Optional
   bool include_interface_view = 2;
 
-  reserved 3; // removed include_create_arguments_blob
-
   // Whether to include a ``created_event_blob`` in the returned ``CreatedEvent``.
   // Use this to access the contract create event payload in your API client
   // for submitting it as a disclosed contract with future commands.
   // Optional
-  bool include_created_event_blob = 4;
+  bool include_created_event_blob = 3;
 }
 
 // This filter matches contracts of a specific template.
 message TemplateFilter {
-
   // A template for which the payload should be included in the response.
   // The ``template_id`` needs to be valid: corresponding template should be defined in
   // one of the available packages at the time of the query.
@@ -82,7 +76,6 @@ message TemplateFilter {
 // A filter both for filtering create and archive events as well as for
 // filtering transaction trees.
 message TransactionFilter {
-
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
   // The interpretation of the filter depends on the stream being filtered:
   // (1) For **transaction tree streams** all party keys used as wildcard filters, and all subtrees

@@ -26,7 +26,7 @@ class SequencedEventTest extends BaseTestWordSpec {
             domainId,
             ViewType.TransferOutViewType,
             RequestId(CantonTimestamp.now()),
-            Some(TestHash.dummyRootHash),
+            TestHash.dummyRootHash,
             Verdict.Approve(testedProtocolVersion),
             Set.empty,
             testedProtocolVersion,

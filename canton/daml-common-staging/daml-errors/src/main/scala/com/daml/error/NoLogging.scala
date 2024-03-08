@@ -17,4 +17,6 @@ class NoLogging(
   override def warn(message: String, throwable: Throwable): Unit = ()
   override def error(message: String): Unit = ()
   override def error(message: String, throwable: Throwable): Unit = ()
+
+  override def withContext[A](context: Map[String, String])(body: => A): A = body
 }

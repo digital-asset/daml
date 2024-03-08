@@ -5,9 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2.admin;
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 option java_outer_classname = "ParticipantPruningServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // Status: experimental interface, will change before it is deemed production
 // ready
@@ -20,11 +20,9 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 // 1. keeping the "inactive" portion of the ledger to a manageable size and
 // 2. removing inactive state to honor the right to be forgotten.
 service ParticipantPruningService {
-
   // Prune the ledger specifying the offset before and at which ledger transactions should be removed. Only returns when
   // the potentially long-running prune request ends successfully or with an error.
-  rpc Prune (PruneRequest) returns (PruneResponse);
-
+  rpc Prune(PruneRequest) returns (PruneResponse);
 }
 
 message PruneRequest {

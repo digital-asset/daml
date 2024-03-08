@@ -173,7 +173,7 @@ testsForRemoteDataDependencies damlc dar =
                     InspectInfo {mainPackageId} <- getDarInfo dar
                     let mainPkgId = T.unpack $ LF.unPackageId mainPackageId
                     let tokenFp = projDir </> "token"
-                    writeFileUTF8 tokenFp $ makeSignedJwt "secret" []
+                    writeFileUTF8 tokenFp $ makeSignedAdminJwt "secret"
                     sandboxPort <- getSandboxPort
                     writeFileUTF8 (projDir </> "daml.yaml") $
                         unlines

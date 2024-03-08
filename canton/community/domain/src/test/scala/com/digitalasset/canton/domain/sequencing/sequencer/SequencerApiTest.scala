@@ -351,8 +351,8 @@ abstract class SequencerApiTest
             messageContent,
             Recipients.cc(p10),
             // Note:  write side clock is at 100s, which lets the request pass,
-            //        read side clock is at 0s, which should produce an error due to the MST bound at 5m(=300s)
-            maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(350)),
+            //        read side clock is at 0s, which should produce an error due to the MST bound at 6m(=360s)
+            maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(370)),
             aggregationRule = Some(aggregationRule),
             topologyTimestamp = Some(CantonTimestamp.Epoch),
           )

@@ -159,7 +159,7 @@ class ErrorFactoriesSpec
 
     "return queueClosed" in {
       val msg =
-        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down."
+        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service is not running."
       assertStatus(
         CommonErrors.ServiceNotRunning
           .Reject("Some service")(
@@ -622,7 +622,7 @@ class ErrorFactoriesSpec
       val serviceName = "Some API Service"
 
       val msg =
-        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down."
+        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName is not running."
       assertError(CommonErrors.ServiceNotRunning.Reject(serviceName)(contextualizedErrorLogger))(
         code = Code.UNAVAILABLE,
         message = msg,

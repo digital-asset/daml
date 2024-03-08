@@ -10,13 +10,12 @@ import "com/daml/ledger/api/v2/trace_context.proto";
 import "com/daml/ledger/api/v2/value.proto";
 import "google/protobuf/timestamp.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "ReassignmentOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Complete view of an on-ledger reassignment.
 message Reassignment {
-
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
@@ -56,12 +55,10 @@ message Reassignment {
   // domain for an unassign/assign event respectively.
   // Required
   google.protobuf.Timestamp record_time = 8;
-
 }
 
 // Records that a contract has been unassigned, and it becomes unusable on the source domain
 message UnassignedEvent {
-
   // The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
   // For one contract the (unassign_id, source domain) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -112,7 +109,6 @@ message UnassignedEvent {
 
 // Records that a contract has been assigned, and it can be used on the target domain.
 message AssignedEvent {
-
   // The ID of the source domain.
   // Must be a valid domain ID.
   // Required

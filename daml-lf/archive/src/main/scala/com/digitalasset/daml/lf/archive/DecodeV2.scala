@@ -409,9 +409,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
-      if (!lfValue.getNoPartyLiterals) {
-        throw Error.Parsing("DefValue must have no_party_literals set to true")
-      }
       val name = getInternedDottedName(lfValue.getNameWithType.getNameInternedDname)
       decodeType(lfValue.getNameWithType.getType) { typ =>
         decodeExpr(lfValue.getExpr, name.toString) { body =>
@@ -998,7 +995,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Expr.SumCase.OPTIONAL_SOME =>
           val some = lfExpr.getOptionalSome
           decodeType(some.getType) { typ =>
-            decodeExpr(some.getBody, definition) { expr =>
+            decodeExpr(some.getValue, definition) { expr =>
               Ret(ESome(typ, expr))
             }
           }

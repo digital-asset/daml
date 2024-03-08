@@ -22,7 +22,7 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
     Some(ViewPosition.root),
     LocalApprove(testedProtocolVersion),
-    Some(RootHash(TestHash.digest("txid1"))),
+    RootHash(TestHash.digest("txid1")),
     Set(LfPartyId.assertFromString("p1"), LfPartyId.assertFromString("p2")),
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
     testedProtocolVersion,
@@ -34,7 +34,7 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     LocalRejectError.MalformedRejects.Payloads
       .Reject("test message")
       .toLocalReject(testedProtocolVersion),
-    Some(RootHash(TestHash.digest("txid3"))),
+    RootHash(TestHash.digest("txid3")),
     Set.empty,
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
     testedProtocolVersion,

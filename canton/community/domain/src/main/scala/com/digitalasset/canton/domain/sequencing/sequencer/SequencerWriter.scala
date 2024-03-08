@@ -16,14 +16,8 @@ import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
-import com.digitalasset.canton.lifecycle.{
-  AsyncCloseable,
-  AsyncOrSyncCloseable,
-  FlagCloseableAsync,
-  FutureUnlessShutdown,
-  HasCloseContext,
-  SyncCloseable,
-}
+import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SubmissionRequest}
@@ -32,8 +26,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.retry.Pause
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
-import com.digitalasset.canton.util.retry.{Pause, Success}
 import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, PekkoUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -160,7 +154,32 @@ class SequencerWriter(
 
   private case class RunningWriter(flow: RunningSequencerWriterFlow, store: SequencerWriterStore) {
 
-    def isActive: Boolean = store.isActive
+    def healthStatus(implicit traceContext: TraceContext): Future[SequencerHealthStatus] = {
+      for {
+        watermark <- EitherTUtil
+          .fromFuture(
+            // Small positive value for maxRetries, so that
+            // - a short period of unavailability does not make the sequencer inactive
+            // - the future terminates "timely"
+            store.fetchWatermark(maxRetries = 10),
+            ex => logger.info(s"Unable to fetch watermark during health monitoring.", ex),
+          )
+          .value
+      } yield {
+        val watermarkStatus = watermark match {
+          case Left(_) => "N/A"
+          case Right(Some(watermark)) => if (watermark.online) "online" else "offline"
+          case Right(None) => "initializing"
+        }
+        // exception while fetching watermark -> writer offline
+        // no watermark -> writer offline
+        val writerOnline = watermark.exists(_.exists(_.online))
+        SequencerHealthStatus(
+          writerOnline,
+          Some(s"writer: $watermarkStatus"),
+        )
+      }
+    }
 
     /** Ensures that all resources for the writer flow are halted and cleaned up.
       * The store should not be used after calling this operation (the HA implementation will close its exclusive storage instance).
@@ -192,7 +211,18 @@ class SequencerWriter(
 
   @VisibleForTesting
   private[sequencer] def isRunning: Boolean = runningWriterRef.get().isDefined
-  private[sequencer] def isActive: Boolean = runningWriterRef.get().exists(_.isActive)
+
+  private[sequencer] def healthStatus(implicit
+      traceContext: TraceContext
+  ): Future[SequencerHealthStatus] = {
+    runningWriterRef.get() match {
+      case Some(runningWriter) => runningWriter.healthStatus
+      case None =>
+        Future.successful(
+          SequencerHealthStatus(isActive = false, Some("sequencer writer not running"))
+        )
+    }
+  }
 
   private def sequencerQueues: Option[SequencerWriterQueues] =
     runningWriterRef.get().map(_.flow.queues)
@@ -221,8 +251,8 @@ class SequencerWriter(
       def createStoreAndRunCrashRecovery()
           : EitherT[FutureUnlessShutdown, WriterStartupError, SequencerWriterStore] = {
         // only retry errors that are flagged as retryable
-        implicit val success: Success[Either[WriterStartupError, SequencerWriterStore]] =
-          Success {
+        implicit val success: retry.Success[Either[WriterStartupError, SequencerWriterStore]] =
+          retry.Success {
             case Left(error) => !error.retryable
             case Right(_) => true
           }

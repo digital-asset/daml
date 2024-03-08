@@ -30,7 +30,7 @@ message ConfirmationResponse {
   int64 request_id = 1; // in microseconds of UTC time since Unix epoch
   string sender = 2;
   LocalVerdict local_verdict = 3;
-  bytes root_hash = 4; // May be empty for Malformed verdicts if the participant cannot determine the root hash.
+  bytes root_hash = 4; // required since DAML 3.0
   repeated string confirming_parties = 5; // Empty iff the verdict is malformed.
   string domain_id = 6;
   ViewPosition view_position = 7;

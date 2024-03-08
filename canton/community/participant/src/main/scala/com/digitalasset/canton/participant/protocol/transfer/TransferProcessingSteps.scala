@@ -182,6 +182,7 @@ trait TransferProcessingSteps[
 
   override def constructResponsesForMalformedPayloads(
       requestId: RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): Seq[ConfirmationResponse] =
     // TODO(i12926) This will crash the SyncDomain
@@ -253,7 +254,7 @@ trait TransferProcessingSteps[
 
     rejectionReason.logWithContext(Map("requestId" -> pendingTransfer.requestId.toString))
     val rejection =
-      LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.reason)
+      LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.reason())
 
     val tse = completionInfoO.map(info =>
       TimestampedEvent(
@@ -339,7 +340,10 @@ object TransferProcessingSteps {
     def submitterMetadata: TransferSubmitterMetadata
   }
 
-  final case class RejectionArgs[T <: PendingTransfer](pendingTransfer: T, error: LocalReject)
+  final case class RejectionArgs[T <: PendingTransfer](
+      pendingTransfer: T,
+      error: TransactionRejection,
+  )
 
   trait TransferProcessorError
       extends WrapsProcessorError

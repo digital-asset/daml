@@ -5,16 +5,15 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2.admin;
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 option java_outer_classname = "ObjectMetaOuterClass";
 option java_package = "com.daml.ledger.api.v2.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // Represents metadata corresponding to a participant resource (e.g. a participant user or participant local information about a party).
 //
 // Based on ``ObjectMeta`` meta used in Kubernetes API.
 // See https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/generated.proto#L640
 message ObjectMeta {
-
   // An opaque, non-empty value, populated by a participant server which represents the internal version of the resource
   // this ``ObjectMeta`` message is attached to. The participant server will change it to a unique value each time the corresponding resource is updated.
   // You must not rely on the format of resource version. The participant server might change it without notice.

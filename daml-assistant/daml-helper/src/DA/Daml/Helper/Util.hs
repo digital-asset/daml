@@ -41,7 +41,6 @@ import Control.Exception.Safe
 import Control.Monad.Extra
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Key as Aeson.Key
-import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import Data.Foldable
@@ -58,7 +57,6 @@ import System.Exit (exitFailure)
 import System.Process (ProcessHandle, getProcessExitCode, showCommandForUser, terminateProcess)
 import System.Process.Typed
 import qualified Web.JWT as JWT
-import qualified Data.Aeson as A
 import qualified Data.Map as Map
 
 import DA.PortFile
@@ -235,23 +233,18 @@ waitForHttpServer numTries processHandle sleep url headers = do
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
-tokenFor :: [T.Text] -> T.Text -> T.Text -> T.Text
-tokenFor parties ledgerId applicationId =
+tokenFor :: T.Text -> T.Text
+tokenFor user =
   JWT.encodeSigned
     (JWT.EncodeHMACSecret "secret")
     mempty
     mempty
-      { JWT.unregisteredClaims =
+      { JWT.sub = JWT.stringOrURI user
+        , JWT.unregisteredClaims =
           JWT.ClaimsMap $
           Map.fromList
-            [ ( "https://daml.com/ledger-api"
-              , A.Object $
-                KM.fromList
-                  [ ("actAs", A.toJSON parties)
-                  , ("ledgerId", A.String ledgerId)
-                  , ("applicationId", A.String applicationId)
-                  ])
-            ]
+            [ ("scope", Aeson.String "daml_ledger_api")
+          ]
       }
 
 data SandboxPorts = SandboxPorts

@@ -12,47 +12,6 @@ import scala.util.Try
 /** All the JWT payloads that can be used with the JWT auth service. */
 sealed abstract class AuthServiceJWTPayload extends Product with Serializable
 
-/** A JWT token payload constructed from custom claims specific to Daml ledgers.
-  *
-  * @param ledgerId       If set, the token is only valid for the given ledger ID.
-  *                       May also be used to fill in missing ledger ID fields in ledger API requests.
-  *
-  * @param participantId  If set, the token is only valid for the given participant ID.
-  *                       May also be used to fill in missing participant ID fields in ledger API requests.
-  *
-  * @param applicationId  If set, the token is only valid for the given application ID.
-  *                       May also be used to fill in missing application ID fields in ledger API requests.
-  *
-  * @param exp            If set, the token is only valid before the given instant.
-  *                       Note: This is a registered claim in JWT
-  *
-  * @param admin          Whether the token bearer is authorized to use admin endpoints of the ledger API.
-  *
-  * @param actAs          List of parties the token bearer can act as.
-  *                       May also be used to fill in missing party fields in ledger API requests (e.g., submitter).
-  *
-  * @param readAs         List of parties the token bearer can read data for.
-  *                       May also be used to fill in missing party fields in ledger API requests (e.g., transaction filter).
-  */
-final case class CustomDamlJWTPayload(
-    ledgerId: Option[String],
-    participantId: Option[String],
-    applicationId: Option[String],
-    exp: Option[Instant],
-    admin: Boolean,
-    actAs: List[String],
-    readAs: List[String],
-) extends AuthServiceJWTPayload {
-
-  /** If this token is associated with exactly one party, returns that party name.
-    * Otherwise, returns None.
-    */
-  def party: Option[String] = {
-    val allParties = (actAs ++ readAs).toSet
-    if (allParties.size == 1) allParties.headOption else None
-  }
-}
-
 /** There are two JWT token formats which are currently supported by `StandardJWTPayload`.
   * The format is identified by `aud` claim.
   */
@@ -112,43 +71,21 @@ object AuthServiceJWTCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Constants used in the encoding
   // ------------------------------------------------------------------------------------------------------------------
-  // OpenID Connect (OIDC) namespace for custom JWT claims
-  final val oidcNamespace: String = "https://daml.com/ledger-api"
   // Unique scope for standard tokens, following the pattern of https://developers.google.com/identity/protocols/oauth2/scopes
   final val scopeLedgerApiFull: String = "daml_ledger_api"
 
   private[this] final val audPrefix: String = "https://daml.com/jwt/aud/participant/"
-  private[this] final val propLedgerId: String = "ledgerId"
-  private[this] final val propParticipantId: String = "participantId"
-  private[this] final val propApplicationId: String = "applicationId"
   private[this] final val propAud: String = "aud"
   private[this] final val propIss: String = "iss"
-  private[this] final val propAdmin: String = "admin"
-  private[this] final val propActAs: String = "actAs"
-  private[this] final val propReadAs: String = "readAs"
   private[this] final val propExp: String = "exp"
   private[this] final val propSub: String = "sub"
   private[this] final val propScope: String = "scope"
   private[this] final val propParty: String = "party" // Legacy JSON API payload
-  private[this] final val legacyProperties: List[String] =
-    List(propLedgerId, propParticipantId, propApplicationId, propAdmin, propActAs, propReadAs)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
   // ------------------------------------------------------------------------------------------------------------------
   def writePayload: AuthServiceJWTPayload => JsValue = {
-    case v: CustomDamlJWTPayload =>
-      JsObject(
-        oidcNamespace -> JsObject(
-          propLedgerId -> writeOptionalString(v.ledgerId),
-          propParticipantId -> writeOptionalString(v.participantId),
-          propApplicationId -> writeOptionalString(v.applicationId),
-          propAdmin -> JsBoolean(v.admin),
-          propActAs -> writeStringList(v.actAs),
-          propReadAs -> writeStringList(v.readAs),
-        ),
-        propExp -> writeOptionalInstant(v.exp),
-      )
     case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
       JsObject(
         propIss -> writeOptionalString(v.issuer),
@@ -160,7 +97,9 @@ object AuthServiceJWTCodec {
     case v: StandardJWTPayload =>
       JsObject(
         propIss -> writeOptionalString(v.issuer),
-        propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
+        propAud -> v.audiences.headOption.fold[JsValue](
+          JsString(audPrefix + v.participantId.getOrElse(""))
+        )(_ => writeStringList(v.audiences)),
         propSub -> JsString(v.userId),
         propExp -> writeOptionalInstant(v.exp),
         propScope -> writeOptionalString(v.scope),
@@ -180,8 +119,6 @@ object AuthServiceJWTCodec {
       serializationError(
         s"Could not write StandardJWTPayload of scope format as audience-based payload"
       )
-    case _: CustomDamlJWTPayload =>
-      serializationError(s"Could not write CustomDamlJWTPayload as audience-based payload")
   }
 
   def writeScopeBasedPayload: AuthServiceJWTPayload => JsValue = {
@@ -197,8 +134,6 @@ object AuthServiceJWTCodec {
       serializationError(
         s"Could not write StandardJWTPayload of audience-based format as scope payload"
       )
-    case _: CustomDamlJWTPayload =>
-      serializationError(s"Could not write CustomDamlJWTPayload as scope payload")
   }
 
   /** Writes the given payload to a compact JSON string */
@@ -326,55 +261,11 @@ object AuthServiceJWTCodec {
           scope = Some(scopeLedgerApiFull),
         )
       } else
-        fields.get(oidcNamespace) match {
-          case Some(oidcNamespaceField) =>
-            // Custom claims format, OIDC compliant
-            val customClaims = oidcNamespaceField
-              .asJsObject(
-                s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object"
-              )
-              .fields
-            CustomDamlJWTPayload(
-              ledgerId = readOptionalString(propLedgerId, customClaims),
-              participantId = readOptionalString(propParticipantId, customClaims),
-              applicationId = readOptionalString(propApplicationId, customClaims),
-              exp = readInstant(propExp, fields),
-              admin = readOptionalBoolean(propAdmin, customClaims).getOrElse(false),
-              actAs = readOptionalStringList(propActAs, customClaims),
-              readAs = readOptionalStringList(propReadAs, customClaims),
-            )
-          case None if legacyProperties.exists(fields.contains) =>
-            // Legacy custom format without the nesting underneath the OIDC compliant extension
-            logger.warn(s"Token ${value.compactPrint} is using a deprecated JWT payload format")
-            CustomDamlJWTPayload(
-              ledgerId = readOptionalString(propLedgerId, fields),
-              participantId = readOptionalString(propParticipantId, fields),
-              applicationId = readOptionalString(propApplicationId, fields),
-              exp = readInstant(propExp, fields),
-              admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
-              actAs = readOptionalStringList(propActAs, fields) ++ readOptionalString(
-                propParty,
-                fields,
-              ).toList,
-              readAs = readOptionalStringList(propReadAs, fields),
-            )
-          case None if scopes.nonEmpty =>
-            deserializationError(
-              msg =
-                s"Access token with unknown scope \"${scopes.mkString}\". Issue tokens with adjusted or no scope to get rid of this warning."
-            )
-          case _ =>
-            logger.warn(s"Token ${value.compactPrint} is using an unsupported format")
-            CustomDamlJWTPayload(
-              ledgerId = None,
-              participantId = None,
-              applicationId = None,
-              exp = readInstant(propExp, fields),
-              admin = false,
-              actAs = List.empty,
-              readAs = List.empty,
-            )
-        }
+        deserializationError(
+          msg =
+            s"Access token with unknown scope \"${scopes.mkString}\". Issue tokens with adjusted or no scope to get rid of this warning."
+        )
+
     case _ =>
       deserializationError(
         s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"

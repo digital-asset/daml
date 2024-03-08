@@ -15,6 +15,8 @@ trait ContextualizedErrorLogger {
   def warn(message: String, throwable: Throwable): Unit
   def error(message: String): Unit
   def error(message: String, throwable: Throwable): Unit
+
+  def withContext[A](context: Map[String, String])(body: => A): A
 }
 
 object ContextualizedErrorLogger {

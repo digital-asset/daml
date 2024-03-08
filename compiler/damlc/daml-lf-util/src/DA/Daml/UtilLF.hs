@@ -115,7 +115,7 @@ preconditionFailedTypeCon major = Qualified
  where
   -- We cannot look up these stable IDs using stablePackageByModuleName because
   -- it would introduce a cyclic dependency with StablePackages.
-  packageId V2 = "9c64df81897c6b98c86063b3a2a4503d756bb7994f06c290ea3d6ad719b76c72"
+  packageId V2 = "91e167fa7a256f21f990c526a0a0df840e99aeef0e67dc1f5415b0309486de74"
 
 mkPreconditionFailed :: MajorVersion -> Expr -> Expr
 mkPreconditionFailed major msg = ERecCon

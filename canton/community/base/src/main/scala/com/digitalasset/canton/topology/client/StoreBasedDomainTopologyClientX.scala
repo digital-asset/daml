@@ -197,7 +197,7 @@ class StoreBasedTopologySnapshotX(
       timeQuery = TimeQuery.Range(None, Some(timestamp)),
       recentTimestampO = None,
       op = Some(TopologyChangeOpX.Replace),
-      typ = Some(TopologyMappingX.Code.DomainParametersStateX),
+      types = Seq(TopologyMappingX.Code.DomainParametersStateX),
       idFilter = "",
       namespaceOnly = false,
     )
@@ -479,7 +479,7 @@ class StoreBasedTopologySnapshotX(
         timeQuery = TimeQuery.Snapshot(timestamp),
         recentTimestampO = None,
         op = Some(TopologyChangeOpX.Replace),
-        typ = Some(TopologyMappingX.Code.OwnerToKeyMappingX),
+        types = Seq(TopologyMappingX.Code.OwnerToKeyMappingX),
         idFilter = filterOwner,
         namespaceOnly = false,
       )

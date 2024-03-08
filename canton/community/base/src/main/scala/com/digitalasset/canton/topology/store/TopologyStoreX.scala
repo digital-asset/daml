@@ -209,7 +209,7 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       // TODO(#14048) - consider removing `recentTimestampO` and moving callers to TimeQueryX.Snapshot
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
-      typ: Option[TopologyMappingX.Code],
+      types: Seq[TopologyMappingX.Code],
       idFilter: String,
       namespaceOnly: Boolean,
   )(implicit

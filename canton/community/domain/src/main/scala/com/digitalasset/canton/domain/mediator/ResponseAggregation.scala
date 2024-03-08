@@ -17,13 +17,7 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.RequestId
-import com.digitalasset.canton.protocol.messages.{
-  ConfirmationResponse,
-  LocalApprove,
-  LocalReject,
-  LocalVerdict,
-  MediatorConfirmationRequest,
-}
+import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -81,7 +75,7 @@ final case class ResponseAggregation[VKEY](
       sender,
       _viewPositionO,
       localVerdict,
-      rootHashO,
+      rootHash,
       confirmingParties,
       _domainId,
     ) = response
@@ -90,7 +84,7 @@ final case class ResponseAggregation[VKEY](
     (for {
       viewPositionsAndParties <- validateResponse(
         viewKeyO,
-        rootHashO,
+        rootHash,
         responseTimestamp,
         sender,
         localVerdict,
