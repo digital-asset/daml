@@ -3,13 +3,13 @@
 
 pr: none
 trigger: none
-schedules:
-- cron: "0 1 * * *"
-  displayName: Daily split snapshot
-  branches:
-    include:
-    - main
-    - main-2.x
+schedules: none
+#- cron: "0 1 * * *"
+#  displayName: Daily split snapshot
+#  branches:
+#    include:
+#    - main
+#    - main-2.x
 
 parameters:
 - name: version
