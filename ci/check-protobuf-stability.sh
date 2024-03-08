@@ -94,7 +94,7 @@ USAGE
     readonly BRANCH_SUFFIX="${TARGET#release/}"
     readonly MINOR_VERSION="${BRANCH_SUFFIX%.x}"
     readonly NEXT_MINOR_VERSION=$(semver bump minor "$MINOR_VERSION.0")
-    readonly STABLE_TAGS=($(git tag | grep "v.*" | grep -v "snapshot" | sort -V))
+    readonly STABLE_TAGS=($(git tag | grep -P '^v\d+\.\d+\.\d+$' | sort -V))
     LATEST_STABLE_TAG="$(
       for TAG in "${STABLE_TAGS[@]}"; do
         if [[ $(semver compare "${TAG#v}" "$NEXT_MINOR_VERSION") == "-1" ]]; then
