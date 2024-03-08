@@ -20,7 +20,7 @@ import test.enummod.coloredtree.*;
 import test.enummod.optionalcolor.*;
 
 @RunWith(JUnitPlatform.class)
-public class EnumTestForForAll {
+public class EnumTestForAll {
 
   @Test
   void enum2Value2Enum() {
