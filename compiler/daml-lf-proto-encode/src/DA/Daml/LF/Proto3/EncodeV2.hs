@@ -557,7 +557,7 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumOptionalNone P.Expr_OptionalNone{..}
     ESome typ body -> do
         expr_OptionalSomeType <- encodeType typ
-        expr_OptionalSomeBody <- encodeExpr body
+        expr_OptionalSomeValue <- encodeExpr body
         pureExpr $ P.ExprSumOptionalSome P.Expr_OptionalSome{..}
     EToAny ty body -> do
         expr_ToAnyType <- encodeType ty
@@ -836,7 +836,6 @@ encodeDefValue DefValue{..} = do
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody
-    let defValueNoPartyLiterals = True
     let defValueIsTest = getIsTest dvalIsTest
     defValueLocation <- traverse encodeSourceLoc dvalLocation
     pure P.DefValue{..}
@@ -951,7 +950,6 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices
-    let defInterfaceCoImplements = mempty
     defInterfaceView <- encodeType intView
     pure $ P.DefInterface{..}
 

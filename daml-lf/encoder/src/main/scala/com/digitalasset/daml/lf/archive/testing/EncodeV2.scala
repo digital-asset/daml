@@ -635,7 +635,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case ENone(typ) =>
           builder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
+          builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setValue(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr, builder).setLocation(loc)
         case EUpdate(u) =>
@@ -856,7 +856,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         .newBuilder()
         .setNameWithType(dottedName -> value.typ)
         .setExpr(value.body)
-        .setNoPartyLiterals(true)
         .setIsTest(value.isTest)
         .build()
     }

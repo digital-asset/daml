@@ -255,9 +255,7 @@ decodeDefValueNameWithType LF2.DefValue_NameWithType{..} = (,)
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF2.DefValue -> Decode DefValue
-decodeDefValue (LF2.DefValue mbBinder mbBody noParties isTest mbLoc) = do
-  when (not noParties) $
-    throwError (ParseError "DefValue uses unsupported no_party_literals flag")
+decodeDefValue (LF2.DefValue mbLoc mbBinder mbBody isTest) = do
   DefValue
     <$> traverse decodeLocation mbLoc
     <*> mayDecode "defValueName" mbBinder decodeDefValueNameWithType
