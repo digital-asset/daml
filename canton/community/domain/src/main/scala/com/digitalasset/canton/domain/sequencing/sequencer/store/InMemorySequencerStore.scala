@@ -20,7 +20,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, SequencerCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
@@ -135,7 +135,7 @@ class InMemorySequencerStore(
       watermark.set(Some(ts))
     }
 
-  override def fetchWatermark(instanceIndex: Int)(implicit
+  override def fetchWatermark(instanceIndex: Int, maxRetries: Int = retry.Forever)(implicit
       traceContext: TraceContext
   ): Future[Option[Watermark]] =
     Future.successful(watermark.get.map(Watermark(_, online = true)))

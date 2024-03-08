@@ -1535,7 +1535,7 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
             timeout,
             0,
             domainId,
-            workflowId,
+            "",
             id,
           )
       )
@@ -1549,11 +1549,10 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
       domainId: Option[DomainId] = None,
-      workflowId: String = "",
       id: String = "",
   ): Duration = {
     val adminApiRes: Either[String, Duration] =
-      ping_internal(participantId, timeout, domainId, workflowId, id)
+      ping_internal(participantId, timeout, domainId, "", id)
     consoleEnvironment.runE(
       adminApiRes.leftMap { reason =>
         s"Unable to ping $participantId within ${LoggerUtil
@@ -1571,10 +1570,9 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
       domainId: Option[DomainId] = None,
-      workflowId: String = "",
       id: String = "",
   ): Option[Duration] = check(FeatureFlag.Testing) {
-    ping_internal(participantId, timeout, domainId, workflowId, id).toOption
+    ping_internal(participantId, timeout, domainId, "", id).toOption
   }
 }
 

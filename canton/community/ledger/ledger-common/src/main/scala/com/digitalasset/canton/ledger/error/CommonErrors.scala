@@ -69,7 +69,9 @@ object CommonErrors extends CommonErrorGroup {
         )
   }
 
-  @Explanation("This rejection is given when the requested service has already been closed.")
+  @Explanation(
+    "This rejection is given when the requested service is not running. It has not started or has already been shut down."
+  )
   @Resolution(
     "Retry re-submitting the request. If the error persists, contact the participant operator."
   )
@@ -81,7 +83,7 @@ object CommonErrors extends CommonErrorGroup {
     final case class Reject(serviceName: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"$serviceName has been shut down.",
+          cause = s"$serviceName is not running.",
           extraContext = Map("service_name" -> serviceName),
         )
   }

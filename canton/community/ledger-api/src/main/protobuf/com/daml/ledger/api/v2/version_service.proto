@@ -7,22 +7,19 @@ package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/experimental_features.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "VersionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to retrieve information about the ledger API version
 service VersionService {
-
   // Read the Ledger API version
-  rpc GetLedgerApiVersion (GetLedgerApiVersionRequest) returns (GetLedgerApiVersionResponse);
+  rpc GetLedgerApiVersion(GetLedgerApiVersionRequest) returns (GetLedgerApiVersionResponse);
 }
 
-message GetLedgerApiVersionRequest {
-}
+message GetLedgerApiVersionRequest {}
 
 message GetLedgerApiVersionResponse {
-
   // The version of the ledger API.
   string version = 1;
 

@@ -369,8 +369,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
   def querySingle[A](
       action: DBIOAction[Option[A], NoStream, Effect.Read with Effect.Transactional],
       operationName: String,
+      maxRetries: Int = defaultMaxRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): OptionT[Future, A] =
-    OptionT(query(action, operationName))
+    OptionT(query(action, operationName, maxRetries))
 
   /** Write-only action, possibly transactional
     *

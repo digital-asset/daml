@@ -455,6 +455,7 @@ private[transfer] class TransferInProcessingSteps(
 
           val localVerdict =
             localRejectErrorO.fold[LocalVerdict](LocalApprove(targetProtocolVersion.v)) { err =>
+              err.logWithContext()
               err.toLocalReject(targetProtocolVersion.v)
             }
 
@@ -466,7 +467,7 @@ private[transfer] class TransferInProcessingSteps(
                   participantId,
                   Some(ViewPosition.root),
                   localVerdict,
-                  txInRequest.toBeSigned,
+                  txInRequest.rootHash,
                   validationResult.confirmingParties,
                   domainId.id,
                   targetProtocolVersion.v,
@@ -492,7 +493,7 @@ private[transfer] class TransferInProcessingSteps(
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: PendingTransferIn,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -514,7 +515,15 @@ private[transfer] class TransferInProcessingSteps(
       _,
     ) = pendingRequestData
 
-    result.verdict match {
+    def rejected(
+        reason: TransactionRejection
+    ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
+      eventO <- EitherT.fromEither[Future](
+        createRejectionEvent(RejectionArgs(pendingRequestData, reason))
+      )
+    } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+
+    verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
@@ -560,15 +569,9 @@ private[transfer] class TransferInProcessingSteps(
           timestampEvent,
         )
 
-      case reasons: Verdict.ParticipantReject =>
-        EitherT
-          .fromEither[Future](
-            createRejectionEvent(RejectionArgs(pendingRequestData, reasons.keyEvent))
-          )
-          .map(CommitAndStoreContractsAndPublishEvent(None, Seq.empty, _))
+      case reasons: Verdict.ParticipantReject => rejected(reasons.keyEvent)
 
-      case _: Verdict.MediatorReject =>
-        EitherT.pure(CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None))
+      case rejection: Verdict.MediatorReject => rejected(rejection)
     }
   }
 
@@ -675,7 +678,10 @@ object TransferInProcessingSteps {
       hostedStakeholders: Set[LfPartyId],
       mediator: MediatorsOfDomain,
   ) extends PendingTransfer
-      with PendingRequestData
+      with PendingRequestData {
+
+    override def rootHashO: Option[RootHash] = Some(rootHash)
+  }
 
   private[transfer] def makeFullTransferInTree(
       pureCrypto: CryptoPureApi,

@@ -133,13 +133,15 @@ class TopologyAdministrationGroup(
     )
     def identity_transactions()
         : Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]] = {
-      val txs = instance.topology.transactions.list()
-      txs.result
-        .flatMap(tx =>
-          tx.transaction
-            .selectMapping[NamespaceDelegationX]
-            .orElse(tx.transaction.selectMapping[OwnerToKeyMappingX])
+      val excludeExceptTopologyMappings = TopologyMappingX.Code.all
+        .diff(
+          Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
         )
+      val txs =
+        instance.topology.transactions
+          .list(excludeMappings = excludeExceptTopologyMappings)
+      txs.result
+        .map(_.transaction)
         .filter(_.mapping.namespace == instance.id.uid.namespace)
     }
 
@@ -200,6 +202,7 @@ class TopologyAdministrationGroup(
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
+        excludeMappings: Seq[TopologyMappingX.Code] = Nil,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
     ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
@@ -214,7 +217,8 @@ class TopologyAdministrationGroup(
                 operation,
                 filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
                 protocolVersion.map(ProtocolVersion.tryCreate),
-              )
+              ),
+              excludeMappings = excludeMappings.map(_.code),
             )
           )
         }

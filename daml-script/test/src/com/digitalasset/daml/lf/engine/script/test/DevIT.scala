@@ -25,6 +25,7 @@ class DevIT(override val majorLanguageVersion: LanguageMajorVersion)
   final override protected lazy val devMode = true
   // TODO: https://github.com/digital-asset/daml/issues/17082
   final override protected lazy val enableContractUpgrading = true
+  final override protected val disableUpgradeValidation = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   val prettyLfVersion = s"${majorLanguageVersion.pretty}.dev"

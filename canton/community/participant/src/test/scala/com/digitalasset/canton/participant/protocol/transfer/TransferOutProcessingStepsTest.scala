@@ -781,7 +781,7 @@ final class TransferOutProcessingStepsTest
           sourceDomain.id,
           TransferOutViewType,
           RequestId(CantonTimestamp.Epoch),
-          Some(rootHash),
+          rootHash,
           Verdict.Approve(testedProtocolVersion),
           Set(),
           testedProtocolVersion,
@@ -844,7 +844,7 @@ final class TransferOutProcessingStepsTest
           outProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(signedContent),
-              transferResult,
+              transferResult.verdict,
               pendingOut,
               state.pendingTransferOutSubmissions,
               crypto.pureCrypto,

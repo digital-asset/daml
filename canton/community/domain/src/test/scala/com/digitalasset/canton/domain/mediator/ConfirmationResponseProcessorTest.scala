@@ -37,6 +37,7 @@ import io.grpc.Status.Code
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util
 import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
@@ -187,8 +188,11 @@ class ConfirmationResponseProcessorTest
   class Fixture(syncCryptoApi: DomainSyncCryptoClient = domainSyncCryptoApi) {
     private val sequencerSend: TestSequencerClientSend = new TestSequencerClientSend
 
-    def interceptedBatches: Iterable[Batch[DefaultOpenEnvelope]] =
-      sequencerSend.requestsQueue.asScala.map(_.batch)
+    def drainInterceptedBatches(): List[Batch[DefaultOpenEnvelope]] = {
+      val result = new util.ArrayList[TestSequencerClientSend.Request]()
+      sequencerSend.requestsQueue.drainTo(result)
+      result.asScala.map(_.batch).toList
+    }
 
     val verdictSender: TestVerdictSender =
       new TestVerdictSender(
@@ -236,7 +240,7 @@ class ConfirmationResponseProcessorTest
       participant,
       Some(viewPosition),
       verdict,
-      Some(fullInformeeTree.transactionId.toRootHash),
+      fullInformeeTree.transactionId.toRootHash,
       confirmers,
       factory.domainId,
       testedProtocolVersion,
@@ -376,7 +380,7 @@ class ConfirmationResponseProcessorTest
           participant,
           Some(view0Position),
           LocalApprove(testedProtocolVersion),
-          Some(fullInformeeTree.transactionId.toRootHash),
+          fullInformeeTree.transactionId.toRootHash,
           Set(submitter),
           factory.domainId,
           testedProtocolVersion,
@@ -620,56 +624,48 @@ class ConfirmationResponseProcessorTest
       // format: on
 
       sequentialTraverse_(testCases.zipWithIndex) {
-        case ((((req, rootHashMessages), msg), _resultRecipientsAndViewTypes), sc) =>
+        case ((((req, rootHashMessages), msg), expectedRecipientsAndViewTypes), sc) =>
           val ts = CantonTimestamp.ofEpochSecond(sc.toLong)
           withClueF(s"at test case #$sc") {
-            loggerFactory.assertLogs(
-              // This will not send a result message because there are no root hash messages in the batch.
-              sut.processor.processRequest(
-                RequestId(ts),
-                notSignificantCounter,
-                ts.plusSeconds(60),
-                ts.plusSeconds(120),
-                req,
-                rootHashMessages,
-                batchAlsoContainsTopologyXTransaction = false,
-              ),
-              _.shouldBeCantonError(
-                MediatorError.MalformedMessage,
-                _ shouldBe s"Received a mediator confirmation request with id ${RequestId(ts)} with invalid root hash messages. Rejecting... Reason: $msg",
-              ),
-            )
-          }
-      }.map { _ =>
-        val expectedResultRecipientsAndViewTypes: List[(String, List[(Set[Member], ViewType)])] =
-          testCases.map(test => (test._1._2, test._2)).filter(test => test._2.nonEmpty).toList
-        val resultBatches = sut.interceptedBatches
-        resultBatches.size shouldBe expectedResultRecipientsAndViewTypes.size
-        forAll(resultBatches.zip(expectedResultRecipientsAndViewTypes)) {
-          case (resultBatch, expectedRecipientsAndViewTypes) =>
-            val results = resultBatch.envelopes.map { envelope =>
-              envelope.recipients -> Some(
-                envelope.protocolMessage
+            for {
+              _ <- loggerFactory.assertLogs(
+                // This will not send a result message because there are no root hash messages in the batch.
+                sut.processor.processRequest(
+                  RequestId(ts),
+                  notSignificantCounter,
+                  ts.plusSeconds(60),
+                  ts.plusSeconds(120),
+                  req,
+                  rootHashMessages,
+                  batchAlsoContainsTopologyXTransaction = false,
+                ),
+                _.shouldBeCantonError(
+                  MediatorError.MalformedMessage,
+                  _ shouldBe s"Received a mediator confirmation request with id ${RequestId(ts)} with invalid root hash messages. Rejecting... Reason: $msg",
+                ),
+              )
+            } yield {
+              val resultBatches = sut.drainInterceptedBatches()
+              val resultRecipientsAndViewTypes = resultBatches.flatMap { resultBatch =>
+                val envelope = resultBatch.envelopes.loneElement
+                val viewType = envelope.protocolMessage
                   .asInstanceOf[SignedProtocolMessage[ConfirmationResultMessage]]
                   .message
                   .viewType
-              )
-            }
-            val ungroupedResults = results.flatMap { case (Recipients(trees), vt) =>
-              trees.map(_ -> vt).toList
-            }.toSet
 
-            val expectedResults = expectedRecipientsAndViewTypes._2.toSet
-            val expected = expectedResults.flatMap { case (recipients, viewType) =>
-              recipients.map { member =>
-                RecipientsTree.leaf(NonEmpty(Set, member)) -> Some(viewType)
-              }
+                envelope.recipients.trees.map(_ -> viewType)
+              }.toSet
+
+              val expected = expectedRecipientsAndViewTypes.flatMap { case (recipients, viewType) =>
+                recipients.map { member =>
+                  RecipientsTree.leaf(NonEmpty(Set, member)) -> viewType
+                }
+              }.toSet
+
+              resultRecipientsAndViewTypes shouldBe expected
             }
-            withClue(s"Test case: ${expectedRecipientsAndViewTypes._1}") {
-              ungroupedResults shouldBe expected
-            }
-        }
-      }
+          }
+      }.map(_ => succeed)
     }
 
     "reject when declared mediator is wrong" in {
@@ -980,7 +976,7 @@ class ConfirmationResponseProcessorTest
           LocalRejectError.MalformedRejects.Payloads
             .Reject(malformedMsg)
             .toLocalReject(testedProtocolVersion),
-          Some(fullInformeeTree.transactionId.toRootHash),
+          fullInformeeTree.transactionId.toRootHash,
           Set.empty,
           factory.domainId,
           testedProtocolVersion,

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import com.digitalasset.canton.data.{SubmitterMetadata, ViewPosition}
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
+import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
@@ -30,7 +30,7 @@ final case class TransactionValidationResult(
     witnessedAndDivulged: Map[LfContractId, SerializableContract],
     createdContracts: Map[LfContractId, SerializableContract],
     transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
-    successfulActivenessCheck: Boolean,
+    activenessResult: ActivenessResult,
     viewValidationResults: Map[ViewPosition, ViewValidationResult],
     timeValidationResultE: Either[TimeCheckFailure, Unit],
     hostedWitnesses: Set[LfPartyId],
@@ -41,7 +41,7 @@ final case class TransactionValidationResult(
       requestId: RequestId
   )(protocolVersion: ProtocolVersion)(implicit loggingContext: ErrorLoggingContext): CommitSet =
     CommitSet.createForTransaction(
-      successfulActivenessCheck,
+      activenessResult,
       requestId,
       consumedInputsOfHostedParties,
       transient,

@@ -19,7 +19,7 @@ import com.digitalasset.canton.ledger.api.DomainMocks.{
   submissionId,
   workflowId,
 }
-import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, LedgerId}
+import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, DomainMocks, domain}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -41,7 +41,6 @@ class SubmitRequestValidatorTest
     with TableDrivenPropertyChecks
     with MockitoSugar
     with ArgumentMatchersSugar {
-  private val ledgerId = LedgerId("ledger-id")
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
   private object api {
@@ -105,17 +104,22 @@ class SubmitRequestValidatorTest
       ),
     )
 
-    val disclosedContracts: ImmArray[domain.NonUpgradableDisclosedContract] = ImmArray(
-      domain.NonUpgradableDisclosedContract(
-        templateId,
-        Lf.ContractId.V1.assertFromString("00" + "00" * 32),
-        ValueRecord(
+    val disclosedContracts: ImmArray[domain.DisclosedContract] = ImmArray(
+      domain.DisclosedContract(
+        templateId = templateId,
+        contractId = Lf.ContractId.V1.assertFromString("00" + "00" * 32),
+        argument = ValueRecord(
           Some(templateId),
           ImmArray.empty,
         ),
-        Time.Timestamp.now(),
-        None,
-        Bytes.Empty,
+        createdAt = Time.Timestamp.now(),
+        keyHash = None,
+        driverMetadata = Bytes.Empty,
+        packageName = Ref.PackageName.assertFromString("package"),
+        signatories = Set(Ref.Party.assertFromString("party")),
+        stakeholders = Set(Ref.Party.assertFromString("party")),
+        keyMaintainers = None,
+        keyValue = None,
       )
     )
 

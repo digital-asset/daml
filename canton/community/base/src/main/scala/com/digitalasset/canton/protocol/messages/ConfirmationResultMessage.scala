@@ -20,7 +20,7 @@ import com.google.protobuf.ByteString
   * @param domainId the domain on which the request is running
   * @param viewType determines which processor (transaction / transfer) must process this message
   * @param requestId unique identifier of the confirmation request
-  * @param rootHashO hash over the contents of the request
+  * @param rootHash hash over the contents of the request
   * @param verdict the finalized verdict on the request
   * @param informees of the request - empty for transactions
   */
@@ -29,7 +29,7 @@ case class ConfirmationResultMessage private (
     override val domainId: DomainId,
     viewType: ViewType,
     override val requestId: RequestId,
-    rootHashO: Option[RootHash],
+    rootHash: RootHash,
     verdict: Verdict,
     informees: Set[LfPartyId],
 )(
@@ -50,11 +50,11 @@ case class ConfirmationResultMessage private (
       domainId: DomainId = this.domainId,
       viewType: ViewType = this.viewType,
       requestId: RequestId = this.requestId,
-      rootHashO: Option[RootHash] = this.rootHashO,
+      rootHash: RootHash = this.rootHash,
       verdict: Verdict = this.verdict,
       informees: Set[LfPartyId] = this.informees,
   ): ConfirmationResultMessage =
-    ConfirmationResultMessage(domainId, viewType, requestId, rootHashO, verdict, informees)(
+    ConfirmationResultMessage(domainId, viewType, requestId, rootHash, verdict, informees)(
       representativeProtocolVersion,
       None,
     )
@@ -70,7 +70,7 @@ case class ConfirmationResultMessage private (
       domainId = domainId.toProtoPrimitive,
       viewType = viewType.toProtoEnum,
       requestId = requestId.toProtoPrimitive,
-      rootHash = rootHashO.fold(ByteString.EMPTY)(_.toProtoPrimitive),
+      rootHash = rootHash.toProtoPrimitive,
       verdict = Some(verdict.toProtoV30),
       informees = informees.toSeq,
     )
@@ -86,7 +86,7 @@ case class ConfirmationResultMessage private (
       param("domainId", _.domainId),
       param("viewType", _.viewType),
       param("requestId", _.requestId.unwrap),
-      param("rootHash", _.rootHashO),
+      param("rootHash", _.rootHash),
       param("verdict", _.verdict),
       paramIfNonEmpty("informees", _.informees),
     )
@@ -111,12 +111,12 @@ object ConfirmationResultMessage
       domainId: DomainId,
       viewType: ViewType,
       requestId: RequestId,
-      rootHashO: Option[RootHash],
+      rootHash: RootHash,
       verdict: Verdict,
       informees: Set[LfPartyId],
       protocolVersion: ProtocolVersion,
   ): ConfirmationResultMessage =
-    ConfirmationResultMessage(domainId, viewType, requestId, rootHashO, verdict, informees)(
+    ConfirmationResultMessage(domainId, viewType, requestId, rootHash, verdict, informees)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
@@ -137,7 +137,7 @@ object ConfirmationResultMessage
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       requestId <- RequestId.fromProtoPrimitive(requestIdP)
-      rootHashO <- RootHash.fromProtoPrimitiveOption(rootHashP)
+      rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       verdict <- ProtoConverter.parseRequired(Verdict.fromProtoV30, "verdict", verdictPO)
       informees <- informeesP.traverse(ProtoConverter.parseLfPartyId)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
@@ -145,7 +145,7 @@ object ConfirmationResultMessage
       domainId,
       viewType,
       requestId,
-      rootHashO,
+      rootHash,
       verdict,
       informees.toSet,
     )(rpv, Some(bytes))

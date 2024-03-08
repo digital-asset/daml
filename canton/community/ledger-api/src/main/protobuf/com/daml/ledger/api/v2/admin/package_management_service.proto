@@ -7,9 +7,9 @@ package com.daml.ledger.api.v2.admin;
 
 import "google/protobuf/timestamp.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 option java_outer_classname = "PackageManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // Status: experimental interface, will change before it is deemed production
 // ready
@@ -18,10 +18,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 // DAR files. We use 'backing participant' to refer to this specific participant
 // in the methods of this API.
 service PackageManagementService {
-
   // Returns the details of all Daml-LF packages known to the backing participant.
-  rpc ListKnownPackages (ListKnownPackagesRequest) returns
-    (ListKnownPackagesResponse);
+  rpc ListKnownPackages(ListKnownPackagesRequest) returns (ListKnownPackagesResponse);
 
   // Upload a DAR file to the backing participant.
   // Depending on the ledger implementation this might also make the package
@@ -32,21 +30,18 @@ service PackageManagementService {
   // - Succeed, if the package was successfully uploaded, or if the same package
   //   was already uploaded before.
   // - Respond with a gRPC error
-  rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
+  rpc UploadDarFile(UploadDarFileRequest) returns (UploadDarFileResponse);
 }
 
-message ListKnownPackagesRequest {
-}
+message ListKnownPackagesRequest {}
 
 message ListKnownPackagesResponse {
-
   // The details of all Daml-LF packages known to backing participant.
   // Required
   repeated PackageDetails package_details = 1;
 }
 
 message PackageDetails {
-
   // The identity of the Daml-LF package.
   // Must be a valid PackageIdString (as describe in ``value.proto``).
   // Required
@@ -69,7 +64,6 @@ message PackageDetails {
 }
 
 message UploadDarFileRequest {
-
   // Contains a Daml archive DAR file, which in turn is a jar like zipped
   // container for ``daml_lf`` archives. See further details in
   // ``daml_lf.proto``.
@@ -85,5 +79,4 @@ message UploadDarFileRequest {
 }
 
 // An empty message that is received when the upload operation succeeded.
-message UploadDarFileResponse {
-}
+message UploadDarFileResponse {}

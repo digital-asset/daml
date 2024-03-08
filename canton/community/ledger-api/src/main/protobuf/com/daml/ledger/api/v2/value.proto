@@ -7,9 +7,9 @@ package com.daml.ledger.api.v2;
 
 import "google/protobuf/empty.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "ValueOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Encodes values that the ledger accepts as command arguments and emits as contract arguments.
 //
@@ -22,20 +22,28 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 // - ApplicationIdStrings are strings with length <= 255 that match the regexp ``[A-Za-z0-9#:\-_/ @\|]+``.
 //
 message Value {
+  // TODO(#16637) rename to sum
   oneof Sum {
+    // This value is used for example for choices that don't take any arguments.
+    google.protobuf.Empty unit = 1;
 
-    Record record = 1;
+    // True or false.
+    bool bool = 2;
 
-    Variant variant = 2;
+    sint64 int64 = 3 [jstype = JS_STRING];
 
-    // Identifier of an on-ledger contract. Commands which reference an unknown or already archived contract ID will fail.
-    // Must be a valid LedgerString.
-    string contract_id = 3;
+    // Days since the unix epoch. Can go backwards. Limited from
+    // 0001-01-01 to 9999-12-31, also to be compatible with
+    // https://www.ietf.org/rfc/rfc3339.txt
+    int32 date = 4;
 
-    // Represents a homogeneous list of values.
-    List list = 4;
-
-    sint64 int64 = 5 [jstype = JS_STRING];
+    // Microseconds since the UNIX epoch. Can go backwards. Fixed
+    // since the vast majority of values will be greater than
+    // 2^28, since currently the number of microseconds since the
+    // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
+    // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
+    // https://www.ietf.org/rfc/rfc3339.txt
+    sfixed64 timestamp = 5 [jstype = JS_STRING];
 
     // A Numeric, that is a decimal value with precision 38 (at most 38 significant digits) and a
     // scale between 0 and 37 (significant digits on the right of the decimal point).
@@ -44,49 +52,40 @@ message Value {
     // and should be representable by a Numeric without loss of precision.
     string numeric = 6;
 
+    // An agent operating on the ledger.
+    // Must be a valid PartyIdString.
+    string party = 7;
+
     // A string.
     string text = 8;
 
-    // Microseconds since the UNIX epoch. Can go backwards. Fixed
-    // since the vast majority of values will be greater than
-    // 2^28, since currently the number of microseconds since the
-    // epoch is greater than that. Range: 0001-01-01T00:00:00Z to
-    // 9999-12-31T23:59:59.999999Z, so that we can convert to/from
-    // https://www.ietf.org/rfc/rfc3339.txt
-    sfixed64 timestamp = 9 [jstype = JS_STRING];
-
-    // An agent operating on the ledger.
-    // Must be a valid PartyIdString.
-    string party = 11;
-
-    // True or false.
-    bool bool = 12;
-
-    // This value is used for example for choices that don't take any arguments.
-    google.protobuf.Empty unit = 13;
-
-    // Days since the unix epoch. Can go backwards. Limited from
-    // 0001-01-01 to 9999-12-31, also to be compatible with
-    // https://www.ietf.org/rfc/rfc3339.txt
-    int32 date = 14;
+    // Identifier of an on-ledger contract. Commands which reference an unknown or already archived contract ID will fail.
+    // Must be a valid LedgerString.
+    string contract_id = 9;
 
     // The Optional type, None or Some
-    Optional optional = 15;
+    Optional optional = 10;
+
+    // Represents a homogeneous list of values.
+    List list = 11;
 
     // The Map type
-    Map map = 16;
-
-    // The Enum type
-    Enum enum = 17;
+    Map map = 12;
 
     // The GenMap type
-    GenMap gen_map = 18;
+    GenMap gen_map = 13;
+
+    Record record = 14;
+
+    Variant variant = 15;
+
+    // The Enum type
+    Enum enum = 16;
   }
 }
 
 // Contains nested values.
 message Record {
-
   // Omitted from the transaction stream when verbose streaming is not enabled.
   // Optional when submitting commands.
   Identifier record_id = 1;
@@ -98,7 +97,6 @@ message Record {
 
 // A named nested value within a record.
 message RecordField {
-
   // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
   // When submitting a commmand, it's optional:
   //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
@@ -113,27 +111,22 @@ message RecordField {
 
 // Unique identifier of an entity.
 message Identifier {
-
   // The identifier of the Daml package that contains the entity.
   // Must be a valid PackageIdString.
   // Required
   string package_id = 1;
 
-  reserved 2; // was `name` old compact representation of identifier.
-              // removed in favor of  ``module_name`` and ``entity_name``.
-
   // The dot-separated module name of the identifier.
   // Required
-  string module_name = 3;
+  string module_name = 2;
 
   // The dot-separated name of the entity (e.g. record, template, ...) within the module.
   // Required
-  string entity_name = 4;
+  string entity_name = 3;
 }
 
 // A value with alternative representations.
 message Variant {
-
   // Omitted from the transaction stream when verbose streaming is not enabled.
   // Optional when submitting commands.
   Identifier variant_id = 1;
@@ -148,21 +141,8 @@ message Variant {
   Value value = 3;
 }
 
-// // A builtin exception value
-// message BuiltinException {
-//
-//   // Determines the kind of builtin exception: ArithmeticError, GeneralError etc
-//   // Required
-//   string tag = 1;
-//
-//   // The value encoded within the Variant.
-//   // Required
-//   Value value = 2;
-// }
-
 // A value with finite set of alternative representations.
 message Enum {
-
   // Omitted from the transaction stream when verbose streaming is not enabled.
   // Optional when submitting commands.
   Identifier enum_id = 1;
@@ -187,17 +167,16 @@ message Optional {
   Value value = 1; // optional
 }
 
-
 message Map {
-    message Entry {
-        string key = 1;
-        Value value = 2;
-    }
+  message Entry {
+    string key = 1;
+    Value value = 2;
+  }
 
-    repeated Entry entries = 1;
+  repeated Entry entries = 1;
 }
 
-message GenMap{
+message GenMap {
   message Entry {
     Value key = 1;
     Value value = 2;

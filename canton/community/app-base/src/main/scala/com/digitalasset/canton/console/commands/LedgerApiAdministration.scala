@@ -74,11 +74,7 @@ import com.digitalasset.canton.console.{
   RemoteParticipantReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-}
+import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, StandardJWTPayload}
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
@@ -119,10 +115,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
   protected lazy val applicationId: String = token
     .flatMap { encodedToken => JwtDecoder.decode(Jwt(encodedToken)).toOption }
     .flatMap(decodedToken => AuthServiceJWTCodec.readFromString(decodedToken.payload).toOption)
-    .map {
-      case s: StandardJWTPayload => s.userId
-      case c: CustomDamlJWTPayload =>
-        c.applicationId.getOrElse(LedgerApiCommands.defaultApplicationId)
+    .map { case s: StandardJWTPayload =>
+      s.userId
     }
     .getOrElse(LedgerApiCommands.defaultApplicationId)
 

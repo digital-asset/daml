@@ -12,7 +12,6 @@ import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.canton.ledger.api.auth.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,
-  CustomDamlJWTPayload,
   StandardJWTPayload,
 }
 import com.digitalasset.canton.ledger.api.domain.UserRight
@@ -35,7 +34,6 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
 import com.google.rpc.Code as GrpcCode
 import com.google.rpc.Status
-import scalaz.syntax.std.option.*
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
 import scalaz.syntax.std.either.*
@@ -91,12 +89,6 @@ object EndpointsCompanion extends NoTracing {
       case StatusEnvelope(status) => ParticipantServerError(status)
       case NonFatal(t) => ServerError(t)
     }
-  }
-
-  trait CreateFromCustomToken[A] {
-    def apply(
-        jwt: CustomDamlJWTPayload
-    ): Unauthorized \/ A
   }
 
   trait CreateFromUserToken[A] {
@@ -180,39 +172,6 @@ object EndpointsCompanion extends NoTracing {
           ).toRight(Unauthorized("Unable to convert user token into a set of claims"))
         )
 
-  }
-
-  object CreateFromCustomToken {
-
-    implicit val jwtWritePayloadFromCustomToken: CreateFromCustomToken[JwtWritePayload] =
-      (
-        jwt: CustomDamlJWTPayload,
-      ) =>
-        for {
-          applicationId <- jwt.applicationId
-            .toRightDisjunction(Unauthorized("applicationId missing in access token"))
-          actAs <- jwt.actAs match {
-            case p +: ps => \/-(NonEmptyList(p, ps: _*))
-            case _ =>
-              -\/(Unauthorized(s"Expected one or more parties in actAs but got none"))
-          }
-        } yield JwtWritePayload(
-          lar.ApplicationId(applicationId),
-          lar.Party.subst(actAs),
-          lar.Party.subst(jwt.readAs),
-        )
-
-    implicit val jwtPayloadFromCustomToken: CreateFromCustomToken[JwtPayload] =
-      (jwt: CustomDamlJWTPayload) =>
-        for {
-          applicationId <- jwt.applicationId
-            .toRightDisjunction(Unauthorized("applicationId missing in access token"))
-          payload <- JwtPayload(
-            lar.ApplicationId(applicationId),
-            actAs = lar.Party.subst(jwt.actAs),
-            readAs = lar.Party.subst(jwt.readAs),
-          ).toRightDisjunction(Unauthorized("No parties in actAs and readAs"))
-        } yield payload
   }
 
   def notFound(
@@ -302,7 +261,6 @@ object EndpointsCompanion extends NoTracing {
       decodeJwt: ValidateJwt,
       userManagementClient: UserManagementClient,
   )(implicit
-      createFromCustomToken: CreateFromCustomToken[A],
       createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
   ): EitherT[Future, Error, (Jwt, A)] = {
@@ -314,8 +272,6 @@ object EndpointsCompanion extends NoTracing {
             standardToken,
             userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value)),
           ).leftMap(identity[Error])
-        case customToken: CustomDamlJWTPayload =>
-          EitherT.either(createFromCustomToken(customToken): Error \/ A)
       }
     } yield (jwt, p: A)
   }

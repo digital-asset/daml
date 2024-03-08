@@ -8,9 +8,9 @@ package com.daml.ledger.api.v2.admin;
 import "com/daml/ledger/api/v2/admin/object_meta.proto";
 import "google/protobuf/field_mask.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2.admin";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 
 // This service allows inspecting the party management state of the ledger known to the participant
 // and managing the participant-local party metadata.
@@ -31,21 +31,20 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
 // A party details resource, once it has been created, can be modified using the ``UpdatePartyDetails`` RPC.
 // The only fields that can be modified are those marked as ``Modifiable``.
 service PartyManagementService {
-
   // Return the identifier of the participant.
   // All horizontally scaled replicas should return the same id.
   // daml-on-kv-ledger: returns an identifier supplied on command line at launch time
   // canton: returns globally unique identifier of the participant
-  rpc GetParticipantId (GetParticipantIdRequest) returns (GetParticipantIdResponse);
+  rpc GetParticipantId(GetParticipantIdRequest) returns (GetParticipantIdResponse);
 
   // Get the party details of the given parties. Only known parties will be
   // returned in the list.
-  rpc GetParties (GetPartiesRequest) returns (GetPartiesResponse);
+  rpc GetParties(GetPartiesRequest) returns (GetPartiesResponse);
 
   // List the parties known by the participant.
   // The list returned contains parties whose ledger access is facilitated by
   // the participant and the ones maintained elsewhere.
-  rpc ListKnownParties (ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
+  rpc ListKnownParties(ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
 
   // Allocates a new party on a ledger and adds it to the set managed by the participant.
   // Caller specifies a party identifier suggestion, the actual identifier
@@ -62,22 +61,20 @@ service PartyManagementService {
   // is richer than the surface protocol, the arguments take implicit values
   // The party identifier suggestion must be a valid party name. Party names are required to be non-empty US-ASCII strings built from letters, digits, space,
   // colon, minus and underscore limited to 255 chars
-  rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
+  rpc AllocateParty(AllocatePartyRequest) returns (AllocatePartyResponse);
 
   // Update selected modifiable participant-local attributes of a party details resource.
   // Can update the participant's local information for local parties.
-  rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
+  rpc UpdatePartyDetails(UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 
   // Update the assignment of a party from one IDP to another.
-  rpc UpdatePartyIdentityProviderId (UpdatePartyIdentityProviderRequest) returns (UpdatePartyIdentityProviderResponse);
+  rpc UpdatePartyIdentityProviderId(UpdatePartyIdentityProviderRequest) returns (UpdatePartyIdentityProviderResponse);
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message GetParticipantIdRequest {
-}
+message GetParticipantIdRequest {}
 
 message GetParticipantIdResponse {
-
   // Identifier of the participant, which SHOULD be globally unique.
   // Must be a valid LedgerString (as describe in ``value.proto``).
   string participant_id = 1;
@@ -85,7 +82,6 @@ message GetParticipantIdResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message GetPartiesRequest {
-
   // The stable, unique identifier of the Daml parties.
   // Must be valid PartyIdStrings (as described in ``value.proto``).
   // Required
@@ -97,7 +93,6 @@ message GetPartiesRequest {
 }
 
 message GetPartiesResponse {
-
   // The details of the requested Daml parties by the participant, if known.
   // The party details may not be in the same order as requested.
   // Required
@@ -106,14 +101,12 @@ message GetPartiesResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message ListKnownPartiesRequest {
-
   // The id of the ``Identity Provider`` whose parties should be retrieved.
   // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
   string identity_provider_id = 1;
 }
 
 message ListKnownPartiesResponse {
-
   // The details of all Daml parties known by the participant.
   // Required
   repeated PartyDetails party_details = 1;
@@ -121,7 +114,6 @@ message ListKnownPartiesResponse {
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message AllocatePartyRequest {
-
   // A hint to the participant which party ID to allocate. It can be
   // ignored.
   // Must be a valid PartyIdString (as described in ``value.proto``).
@@ -144,7 +136,6 @@ message AllocatePartyRequest {
 }
 
 message AllocatePartyResponse {
-
   PartyDetails party_details = 1;
 }
 
@@ -181,7 +172,6 @@ message UpdatePartyDetailsResponse {
 }
 
 message PartyDetails {
-
   // The stable unique identifier of a Daml party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
@@ -218,8 +208,6 @@ message UpdatePartyIdentityProviderRequest {
   string source_identity_provider_id = 2;
   // Target identity provider id of the party
   string target_identity_provider_id = 3;
-
 }
 
-message UpdatePartyIdentityProviderResponse {
-}
+message UpdatePartyIdentityProviderResponse {}

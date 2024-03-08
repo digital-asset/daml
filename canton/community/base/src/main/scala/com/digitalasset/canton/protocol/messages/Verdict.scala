@@ -96,14 +96,16 @@ object Verdict
       param("isMalformed", _.isMalformed),
     )
 
-    override def logWithContext(extra: Map[String, String])(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): Unit =
-      DecodedCantonError.fromGrpcStatus(reason) match {
-        case Right(error) => error.logWithContext(extra)
-        case Left(err) =>
-          contextualizedErrorLogger.warn(s"Failed to parse mediator rejection: $err")
+    override def logWithContext(
+        extra: Map[String, String]
+    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit = {
+      // Log with level INFO, leave it to MediatorError to log the details.
+      contextualizedErrorLogger.withContext(extra) {
+        lazy val action = if (isMalformed) "malformed" else "rejected"
+        contextualizedErrorLogger.info(show"Request is finalized as $action. $reason")
       }
+
+    }
 
     override def isTimeoutDeterminedByMediator: Boolean =
       DecodedCantonError.fromGrpcStatus(reason).exists(_.code.id == MediatorError.Timeout.id)
@@ -132,7 +134,9 @@ object Verdict
   /** @param reasons Mapping from the parties of a [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
     *                to the rejection reason from the [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
     */
-  final case class ParticipantReject(reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]])(
+  final case class ParticipantReject(
+      reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]]
+  )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict {
 

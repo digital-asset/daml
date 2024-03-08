@@ -5,12 +5,11 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 message ListPackagesResponse {
-
   // The IDs of all Daml-LF packages supported by the server.
   // Each element must be a valid PackageIdString (as described in ``value.proto``).
   // Required
@@ -18,7 +17,6 @@ message ListPackagesResponse {
 }
 
 message GetPackageResponse {
-
   // The hash function we use to calculate the hash.
   // Required
   HashFunction hash_function = 1;
@@ -39,7 +37,6 @@ message GetPackageStatusResponse {
 }
 
 enum PackageStatus {
-
   // The server is not aware of such a package.
   UNKNOWN = 0;
 
@@ -51,26 +48,21 @@ enum HashFunction {
   SHA256 = 0;
 }
 
-
 // Allows clients to query the Daml-LF packages that are supported by the server.
 service PackageService {
-
   // Returns the identifiers of all supported packages.
-  rpc ListPackages (ListPackagesRequest) returns (ListPackagesResponse);
+  rpc ListPackages(ListPackagesRequest) returns (ListPackagesResponse);
 
   // Returns the contents of a single package.
-  rpc GetPackage (GetPackageRequest) returns (GetPackageResponse);
+  rpc GetPackage(GetPackageRequest) returns (GetPackageResponse);
 
   // Returns the status of a single package.
-  rpc GetPackageStatus (GetPackageStatusRequest) returns (GetPackageStatusResponse);
-
+  rpc GetPackageStatus(GetPackageStatusRequest) returns (GetPackageStatusResponse);
 }
 
-message ListPackagesRequest {
-}
+message ListPackagesRequest {}
 
 message GetPackageRequest {
-
   // The ID of the requested package.
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required
@@ -78,7 +70,6 @@ message GetPackageRequest {
 }
 
 message GetPackageStatusRequest {
-
   // The ID of the requested package.
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required

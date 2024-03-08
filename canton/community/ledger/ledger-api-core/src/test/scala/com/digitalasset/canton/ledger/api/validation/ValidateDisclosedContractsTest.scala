@@ -15,7 +15,7 @@ import com.daml.lf.transaction.*
 import com.daml.lf.value.Value.{ContractId, ValueRecord}
 import com.daml.lf.value.Value as Lf
 import com.digitalasset.canton.LfValue
-import com.digitalasset.canton.ledger.api.domain.UpgradableDisclosedContract
+import com.digitalasset.canton.ledger.api.domain.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
   lf,
@@ -294,8 +294,8 @@ object ValidateDisclosedContractsTest {
       cantonData = lf.driverMetadataBytes,
     )
 
-    val expectedDisclosedContracts: ImmArray[UpgradableDisclosedContract] = ImmArray(
-      UpgradableDisclosedContract(
+    val expectedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray(
+      DisclosedContract(
         templateId,
         packageName,
         lfContractId,

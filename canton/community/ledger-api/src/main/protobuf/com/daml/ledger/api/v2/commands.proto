@@ -6,14 +6,12 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/value.proto";
-
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
-
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "CommandsOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // A command can either create a new contract or exercise a choice on an existing contract.
 message Command {
@@ -107,22 +105,14 @@ message DisclosedContract {
   // Required
   string contract_id = 2;
 
-  reserved 3; // removed create_arguments
-
-  reserved 4; // removed metadata
-
-  reserved 5; // removed create_arguments_blob
-
   // Opaque byte string containing the complete payload required by the Daml engine
   // to reconstruct a contract not known to the receiving participant.
   // Required
-  bytes created_event_blob = 6;
+  bytes created_event_blob = 3;
 }
-
 
 // A composite command that groups multiple commands together.
 message Commands {
-
   // Identifier of the on-ledger workflow that this command is a part of.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
@@ -150,7 +140,6 @@ message Commands {
   // If omitted, the participant will assume the configured maximum deduplication time (see
   // ``ledger_configuration_service.proto``).
   oneof deduplication_period {
-
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
     // Must be non-negative. Must not exceed the maximum deduplication time (see

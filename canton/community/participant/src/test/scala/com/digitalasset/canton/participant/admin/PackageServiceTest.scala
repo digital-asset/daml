@@ -79,6 +79,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
         new PackageOpsForTesting(participantId, loggerFactory),
         ParticipantTestMetrics,
         true,
+        PackageNameMapResolverForTesting,
         processingTimeouts,
         loggerFactory,
       )
