@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.cache
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
@@ -227,7 +228,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       keyIdx -> GlobalKey.assertBuild(
         Identifier.assertFromString("pkgId:module:entity"),
         ValueInt64(keyIdx),
-        shared = true,
+        KeyPackageName.assertBuild(None, TransactionVersion.V15),
       )
     }.toMap
 

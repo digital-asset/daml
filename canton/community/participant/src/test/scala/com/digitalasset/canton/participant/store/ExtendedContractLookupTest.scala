@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
-import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value.{ValueText, ValueUnit}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
@@ -12,7 +11,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
   contractInstance,
-  languageVersion,
+  globalKey,
   transactionId,
 }
 import com.digitalasset.canton.protocol.*
@@ -98,14 +97,10 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
     val transactionId0 = transactionId(0)
     val transactionId1 = transactionId(1)
     val transactionId2 = transactionId(2)
-    val key00: LfGlobalKey =
-      LfGlobalKey.build(instance0Template, ValueUnit, Util.sharedKey(languageVersion)).value
-    val key1: LfGlobalKey =
-      LfGlobalKey.build(instance0Template, ValueText("abc"), Util.sharedKey(languageVersion)).value
+    val key00: LfGlobalKey = globalKey(instance0Template, ValueUnit).unversioned
+    val key1: LfGlobalKey = globalKey(instance0Template, ValueText("abc")).unversioned
     val forbiddenKey: LfGlobalKey =
-      LfGlobalKey
-        .build(instance0Template, ValueText("forbiddenKey"), Util.sharedKey(languageVersion))
-        .value
+      globalKey(instance0Template, ValueText("forbiddenKey")).unversioned
     val alice = LfPartyId.assertFromString("alice")
     val bob = LfPartyId.assertFromString("bob")
     val metadata00 = ContractMetadata.tryCreate(

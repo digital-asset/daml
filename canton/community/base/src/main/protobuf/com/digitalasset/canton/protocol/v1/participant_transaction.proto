@@ -40,6 +40,11 @@ message ActionDescription {
     bool failed = 8;
     optional string interface_id = 9;
   }
+
+  // Changes from v0: Updated GlobalKey
+  message LookupByKeyActionDescription {
+    v1.GlobalKey key = 1;
+  }
 }
 
 message ViewNode {
@@ -143,4 +148,13 @@ message SubmitterMetadata {
   string submission_id = 6; // optional; absent if not specified by submitter
   v0.DeduplicationPeriod dedup_period = 7;
   google.protobuf.Timestamp max_sequencing_time = 8;
+}
+
+// Compared to v0: updated GlobalKey
+message ResolvedKey {
+  v1.GlobalKey key = 1;
+  oneof resolution {
+    string contract_id = 2; // the key resolves to a contract
+    v0.ViewParticipantData.FreeKey free = 3; // the key is free and these are the maintainers
+  }
 }

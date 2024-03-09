@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.lf.transaction.ContractStateMachine.KeyInactive
@@ -59,6 +60,9 @@ class TransactionTreeFactoryImplV3(
       if (uniqueContractKeys) ContractKeyUniquenessMode.Strict else ContractKeyUniquenessMode.Off
     )
 
+  /* LF 1.16 will be enabled as part of ProtocolVersion.v6 */
+  private def supportsUpgrading(tv: LfTransactionVersion) = Util.sharedKey(tv)
+
   private[submission] def buildPackagePreference(
       decomposition: TransactionViewDecomposition
   ): Set[LfPackageId] = {
@@ -88,8 +92,7 @@ class TransactionTreeFactoryImplV3(
       }
     }
 
-    /* LF 1.16 will be enabled as part of ProtocolVersion.v6 */
-    if (Util.sharedKey(decomposition.lfNode.version)) {
+    if (supportsUpgrading(decomposition.lfNode.version)) {
       val preferences = go(List(decomposition), Set.empty)
       MapsUtil.toNonConflictingMap(preferences) match {
         case Right(map) => map.values.toSet
@@ -323,7 +326,7 @@ class TransactionTreeFactoryImplV3(
       seed = view.rootSeed
       packagePreference = buildPackagePreference(view)
       actionDescription = createActionDescription(suffixedRootNode, seed, packagePreference)
-      viewCommonData = createViewCommonData(view, viewCommonDataSalt)
+      viewCommonData = createViewCommonData(view, viewCommonDataSalt).fold(throw _, identity)
       viewKeyInputs = state.csmState.globalKeyInputs
       resolvedK <- EitherT.fromEither[Future](
         resolvedKeys(

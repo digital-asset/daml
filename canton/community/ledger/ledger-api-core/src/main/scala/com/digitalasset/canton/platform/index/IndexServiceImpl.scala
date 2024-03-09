@@ -18,7 +18,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier, PackageRef, TypeConRef}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{GlobalKey, Util}
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
@@ -55,7 +55,7 @@ import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.platform.pekkostreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.canton.platform.store.cache.PackageLanguageVersionCache
+import com.digitalasset.canton.platform.store.cache.KeyPackageNameCache
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
@@ -81,7 +81,7 @@ private[index] class IndexServiceImpl(
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
     packageMetadataView: PackageMetadataView,
-    packageLanguageVersionCache: PackageLanguageVersionCache,
+    keyPackageNameCache: KeyPackageNameCache,
     metrics: Metrics,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
@@ -342,14 +342,14 @@ private[index] class IndexServiceImpl(
       keyContinuationToken: KeyContinuationToken,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
 
-    packageLanguageVersionCache
+    keyPackageNameCache
       .get(templateId.packageId)
       .flatMap({
         case None =>
           Future.successful(GetEventsByContractKeyResponse())
-        case Some(languageVersion) =>
+        case Some(keyPackageName) =>
           val globalKey =
-            GlobalKey.assertBuild(templateId, contractKey, Util.sharedKey(languageVersion))
+            GlobalKey.assertBuild(templateId, contractKey, keyPackageName)
           eventsReader.getEventsByContractKey(
             contractKey = globalKey,
             requestingParties = requestingParties,

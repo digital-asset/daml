@@ -299,10 +299,10 @@ final case class ViewParticipantData private (
   )
 
   private[ViewParticipantData] def toProtoV4: v4.ViewParticipantData = v4.ViewParticipantData(
-    coreInputs = coreInputs.values.map(_.toProtoV1).toSeq,
-    createdCore = createdCore.map(_.toProtoV1),
+    coreInputs = coreInputs.values.map(_.toProtoV2).toSeq,
+    createdCore = createdCore.map(_.toProtoV2),
     createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
-    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV0 },
+    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV1 },
     actionDescription = Some(actionDescription.toProtoV3),
     rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
     salt = Some(salt.toProtoV0),
@@ -496,6 +496,7 @@ object ViewParticipantData
       ActionDescription.fromProtoV0,
       CreatedContract.fromProtoV0,
       InputContract.fromProtoV0,
+      ResolvedKey.fromProtoV0,
       rbContextP,
     )(bytes)
   }
@@ -523,6 +524,7 @@ object ViewParticipantData
       ActionDescription.fromProtoV1,
       CreatedContract.fromProtoV1,
       InputContract.fromProtoV1,
+      ResolvedKey.fromProtoV0,
       rbContextP,
     )(bytes)
   }
@@ -550,6 +552,7 @@ object ViewParticipantData
       ActionDescription.fromProtoV2,
       CreatedContract.fromProtoV1,
       InputContract.fromProtoV1,
+      ResolvedKey.fromProtoV0,
       rbContextP,
     )(bytes)
   }
@@ -575,13 +578,19 @@ object ViewParticipantData
       resolvedKeysP,
       actionDescriptionP,
       ActionDescription.fromProtoV3,
-      CreatedContract.fromProtoV1,
-      InputContract.fromProtoV1,
+      CreatedContract.fromProtoV2,
+      InputContract.fromProtoV2,
+      ResolvedKey.fromProtoV1,
       rbContextP,
     )(bytes)
   }
 
-  private def fromProtoV1V2V3V4[ActionDescriptionProto, CreatedContractProto, InputContractProto](
+  private def fromProtoV1V2V3V4[
+      ActionDescriptionProto,
+      CreatedContractProto,
+      InputContractProto,
+      ResolvedKeyProto,
+  ](
       hashOps: HashOps,
       protoVersion: ProtoVersion,
   )(
@@ -589,11 +598,12 @@ object ViewParticipantData
       coreInputsP: Seq[InputContractProto],
       createdCoreP: Seq[CreatedContractProto],
       createdInSubviewArchivedInCoreP: Seq[String],
-      resolvedKeysP: Seq[v0.ViewParticipantData.ResolvedKey],
+      resolvedKeysP: Seq[ResolvedKeyProto],
       actionDescriptionP: Option[ActionDescriptionProto],
       actionDescriptionDeserializer: ActionDescriptionProto => ParsingResult[ActionDescription],
       createdContractDeserializer: CreatedContractProto => ParsingResult[CreatedContract],
       inputContractDeserializer: InputContractProto => ParsingResult[InputContract],
+      resolvedKeyDeserializer: ResolvedKeyProto => ParsingResult[ResolvedKey],
       rbContextP: Option[v0.ViewParticipantData.RollbackContext],
   )(bytes: ByteString): ParsingResult[ViewParticipantData] = for {
     coreInputsSeq <- coreInputsP.traverse(inputContractDeserializer)
@@ -603,10 +613,10 @@ object ViewParticipantData
     createdCore <- createdCoreP.traverse(createdContractDeserializer)
     createdInSubviewArchivedInCore <- createdInSubviewArchivedInCoreP
       .traverse(ProtoConverter.parseLfContractId)
-    resolvedKeys <- resolvedKeysP.traverse(
-      ResolvedKey.fromProtoV0(_).map(rk => rk.key -> rk.resolution)
-    )
-    resolvedKeysMap = resolvedKeys.toMap
+    resolvedKeysSeq <- resolvedKeysP.traverse(resolvedKeyDeserializer)
+    resolvedKeys = resolvedKeysSeq.view
+      .map(resolvedKey => resolvedKey.key -> resolvedKey.resolution)
+      .toMap
     actionDescription <- ProtoConverter
       .required("action_description", actionDescriptionP)
       .flatMap(actionDescriptionDeserializer)
@@ -626,7 +636,7 @@ object ViewParticipantData
         coreInputs = coreInputs,
         createdCore = createdCore,
         createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSet,
-        resolvedKeys = resolvedKeysMap,
+        resolvedKeys = resolvedKeys,
         actionDescription = actionDescription,
         rollbackContext = rollbackContext,
         salt = salt,

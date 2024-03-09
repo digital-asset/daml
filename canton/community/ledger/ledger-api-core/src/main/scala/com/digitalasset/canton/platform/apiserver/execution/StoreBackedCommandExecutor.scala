@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.*
 import cats.syntax.all.*
 import com.daml.lf.crypto
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{
@@ -569,11 +570,12 @@ private[apiserver] final class StoreBackedCommandExecutor(
           maybeKeyWithMaintainers =
             (disclosedContract.keyValue zip disclosedContract.keyMaintainers).map {
               case (value, maintainers) =>
-                val sharedKey = recomputedMetadata.maybeKey.forall(GlobalKey.isShared)
+                val keyPackageName = KeyPackageName
+                  .assertBuild(disclosedContract.packageName, disclosedContract.version)
                 Versioned(
                   disclosedContract.version,
                   GlobalKeyWithMaintainers
-                    .assertBuild(disclosedContract.templateId, value, maintainers, sharedKey),
+                    .assertBuild(disclosedContract.templateId, value, maintainers, keyPackageName),
                 )
             },
         ),

@@ -296,6 +296,7 @@ final case class RetentionPeriodDefaults(
   * @param devVersionSupport If true, allow domain nodes to use unstable protocol versions and participant nodes to connect to such domains
   * @param timeouts Sets the timeouts used for processing and console
   * @param portsFile A ports file name, where the ports of all participants will be written to after startup
+  * @param exitOnFatalFailures If true the node will exit/stop the process in case of fatal failures
   */
 final case class CantonParameters(
     clock: ClockConfig = ClockConfig.WallClock(),
@@ -308,6 +309,7 @@ final case class CantonParameters(
     timeouts: TimeoutSettings = TimeoutSettings(),
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
     console: AmmoniteConsoleConfig = AmmoniteConsoleConfig(),
+    exitOnFatalFailures: Boolean = true,
 ) {
   def getStartupParallelism(numThreads: Int): Int =
     startupParallelism.fold(numThreads)(_.value)
@@ -525,6 +527,7 @@ private[config] object CantonNodeParameterConverter {
       parent.parameters.nonStandardConfig,
       node.storage.parameters.migrateAndStart,
       parent.features.skipTopologyManagerSignatureValidation,
+      parent.parameters.exitOnFatalFailures,
     )
   }
 

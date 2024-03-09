@@ -69,8 +69,7 @@ class GenTransactionTreeTest
 
       val expectedInformeesAndThresholdByView = example.viewWithSubviews.map { case (view, _) =>
         val viewCommonData = view.viewCommonData.tryUnwrap
-        ViewHash
-          .fromRootHash(view.rootHash) -> ((viewCommonData.informees, viewCommonData.threshold))
+        ViewHash.fromRootHash(view.rootHash) -> viewCommonData.viewConfirmationParameters
       }.toMap
 
       "be converted between informee and full informee tree" in {
@@ -100,9 +99,11 @@ class GenTransactionTreeTest
         )
 
         val expectedInformeesByView = expectedInformeesAndThresholdByView
-          .map { case (viewHash, (informees, _)) => viewHash -> informees }
+          .map { case (viewHash, ViewConfirmationParameters(informees, _)) =>
+            viewHash -> informees
+          }
           .filter { case (_, informees) =>
-            informees.exists(i => parties.contains(i.party))
+            informees.exists(parties.contains)
           }
 
         expectedInformeeTree.informeesByViewHash shouldEqual expectedInformeesByView
@@ -561,7 +562,7 @@ class GenTransactionTreeTest
 
     "correctly compute recipients from witnesses" in {
       def mkWitnesses(setup: NonEmpty[Seq[Set[Int]]]): Witnesses =
-        Witnesses(setup.map(_.map(informee)))
+        Witnesses(setup.map(_.map(informee).map(_.party)))
 
       // Maps parties to participants; parties have IDs that start at 1, participants have IDs that start at 11
       val topologyMap = Map(
@@ -729,9 +730,11 @@ class GenTransactionTreeTest
       )
 
     def mkViewCommonData(protocolVersion: ProtocolVersion)(index: Int) =
-      ViewCommonData.create(factory.cryptoOps)(
-        Set.empty,
-        NonNegativeNumeric.tryCreate(0),
+      ViewCommonData.tryCreate(factory.cryptoOps)(
+        ViewConfirmationParameters.tryCreate(
+          Set.empty,
+          Seq(Quorum.create(Set.empty, NonNegativeNumeric.tryCreate(0))),
+        ),
         mkTestSalt(index),
         protocolVersion,
       )

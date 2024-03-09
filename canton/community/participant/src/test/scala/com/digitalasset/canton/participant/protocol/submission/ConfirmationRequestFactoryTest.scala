@@ -296,7 +296,6 @@ class ConfirmationRequestFactoryTest
           .valueOrFail("failed to create symmetric key from randomness")
 
         val participants = tree.informees
-          .map(_.party)
           .map(cryptoSnapshot.ipsSnapshot.activeParticipantsOf(_).futureValue)
           .flatMap(_.keySet)
 

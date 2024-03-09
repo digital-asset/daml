@@ -98,6 +98,9 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   @transient
   override protected val companionObj: HasProtocolVersionedWrapperCompanion[ValueClass, _]
 
+  def isSmallerOrEqualThan(protocolVersion: ProtocolVersion): Boolean =
+    companionObj.protocolVersionRepresentativeFor(protocolVersion) <= representativeProtocolVersion
+
   def isEquivalentTo(protocolVersion: ProtocolVersion): Boolean =
     companionObj.protocolVersionRepresentativeFor(protocolVersion) == representativeProtocolVersion
 
@@ -343,6 +346,30 @@ trait HasSupportedProtoVersions[ValueClass] {
         v.isEmpty == pv < untilExclusive.representative,
         (),
         s"expecting None if and only if pv < ${untilExclusive.representative}; for $pv, found: $v",
+      )
+  }
+
+  case class OneElementSeqExactlyUntilExclusive[T](
+      attribute: ValueClass => Seq[T],
+      attributeName: String,
+      untilExclusive: ThisRepresentativeProtocolVersion,
+  ) extends DefaultValue[Seq[T]] {
+    val defaultValue: Seq[T] = Seq.empty
+
+    def orValue(v: Seq[T], protocolVersion: ProtocolVersion): Seq[T] =
+      if (protocolVersion < untilExclusive.representative) Seq(v(0)) else v
+
+    def orValue(v: Seq[T], protocolVersion: ThisRepresentativeProtocolVersion): Seq[T] =
+      if (protocolVersion < untilExclusive) Seq(v(0)) else v
+
+    override def validate(
+        v: Seq[T],
+        pv: ProtocolVersion,
+    ): Either[String, Unit] =
+      Either.cond(
+        (v.sizeIs == 1) || pv >= untilExclusive.representative,
+        (),
+        s"expecting a list with 1 element if pv < ${untilExclusive.representative}; for $pv, found: $v",
       )
   }
 

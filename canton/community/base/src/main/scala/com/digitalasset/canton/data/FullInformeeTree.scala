@@ -4,8 +4,8 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.InformeeTree.InvalidInformeeTree
 import com.digitalasset.canton.data.MerkleTree.*
@@ -56,7 +56,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
         case _: ParticipantMetadata => BlindSubtree
         case _: TransactionView => RevealIfNeedBe
         case v: ViewCommonData =>
-          if (v.informees.map(_.party).intersect(parties).nonEmpty)
+          if (v.viewConfirmationParameters.informees.intersect(parties).nonEmpty)
             RevealSubtree
           else
             BlindSubtree
@@ -66,20 +66,15 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
     InformeeTree.tryCreate(rawResult, protocolVersion)
   }
 
-  lazy val informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)] =
-    InformeeTree.viewCommonDataByViewHash(tree).map { case (hash, viewCommonData) =>
-      hash -> ((viewCommonData.informees, viewCommonData.threshold))
-    }
+  lazy val informeesAndThresholdByViewHash: Map[ViewHash, ViewConfirmationParameters] =
+    InformeeTree.viewCommonDataByViewHash(tree).fmap(_.viewConfirmationParameters)
 
-  lazy val informeesAndThresholdByViewPosition: Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
-    InformeeTree.viewCommonDataByViewPosition(tree).map { case (position, viewCommonData) =>
-      position -> ((viewCommonData.informees, viewCommonData.threshold))
-    }
+  lazy val informeesAndThresholdByViewPosition: Map[ViewPosition, ViewConfirmationParameters] =
+    InformeeTree.viewCommonDataByViewPosition(tree).fmap(_.viewConfirmationParameters)
 
   lazy val allInformees: Set[LfPartyId] = InformeeTree
     .viewCommonDataByViewPosition(tree)
-    .flatMap { case (_, viewCommonData) => viewCommonData.informees }
-    .map(_.party)
+    .flatMap { case (_, viewCommonData) => viewCommonData.viewConfirmationParameters.informees }
     .toSet
 
   lazy val transactionUuid: UUID = checked(tree.commonMetadata.tryUnwrap).uuid

@@ -360,7 +360,7 @@ class ModelConformanceChecker(
 
     val packageIds = packageIdsOfContracts ++ packageIdsOfKeys
 
-    val informees = view.viewCommonData.tryUnwrap.informees.map(_.party)
+    val informees = view.viewCommonData.tryUnwrap.viewConfirmationParameters.informees
 
     EitherT(for {
       informeeParticipantsByParty <- snapshot.activeParticipantsOfParties(informees.toSeq)

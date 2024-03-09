@@ -17,3 +17,18 @@ message SerializableContract {
   google.protobuf.Timestamp ledger_create_time = 4;
   com.digitalasset.canton.crypto.v0.Salt contract_salt = 5; // optional
 }
+
+// Compared to v0: add package_name
+message GlobalKey {
+  bytes template_id = 1;
+  bytes key = 2;
+  string package_name = 3;
+}
+
+// Compared to v0: reference v1 GlobalKey
+message Metadata {
+  repeated string non_maintainer_signatories = 1;
+  repeated string non_signatory_stakeholders = 2;
+  GlobalKey key = 3; // optional: only set if contract has a key
+  repeated string maintainers = 4; // optional; only set if contract has a key
+}

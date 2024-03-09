@@ -67,7 +67,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
-import com.digitalasset.canton.{BaseTest, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
 
 import scala.collection.concurrent
@@ -191,7 +191,7 @@ class TestProcessingSteps(
     def treeFor(viewHash: ViewHash, hash: Hash): TestViewTree = {
       val rootHash = RootHash(hash)
       val informees = informeesOfView(viewHash)
-      TestViewTree(viewHash, rootHash, informees)
+      TestViewTree(viewHash, rootHash, informees.map(_.party))
     }
 
     val decryptedViewTrees = batch.map { envelope =>
@@ -322,7 +322,7 @@ object TestProcessingSteps {
   final case class TestViewTree(
       viewHash: ViewHash,
       rootHash: RootHash,
-      informees: Set[Informee] = Set.empty,
+      informees: Set[LfPartyId] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
       domainId: DomainId = DefaultTestIdentities.domainId,
       mediator: MediatorRef = MediatorRef(DefaultTestIdentities.mediator),

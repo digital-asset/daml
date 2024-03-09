@@ -7,12 +7,13 @@ import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{Create, Exercise}
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Util}
+import com.daml.lf.transaction.{GlobalKey, Node, NodeId}
 import com.daml.metrics.Timed
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
@@ -252,7 +253,11 @@ private[platform] object InMemoryStateUpdater {
                 arg = createdEvent.createArgument,
               ),
               globalKey = createdEvent.contractKey.map(k =>
-                Key.assertBuild(createdEvent.templateId, k.unversioned, Util.sharedKey(k.version))
+                Key.assertBuild(
+                  createdEvent.templateId,
+                  k.unversioned,
+                  KeyPackageName.assertBuild(createdEvent.packageName, k.version),
+                )
               ),
               ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
               stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
@@ -267,7 +272,11 @@ private[platform] object InMemoryStateUpdater {
             ContractStateEvent.Archived(
               contractId = exercisedEvent.contractId,
               globalKey = exercisedEvent.contractKey.map(k =>
-                Key.assertBuild(exercisedEvent.templateId, k.unversioned, Util.sharedKey(k.version))
+                Key.assertBuild(
+                  exercisedEvent.templateId,
+                  k.unversioned,
+                  KeyPackageName.assertBuild(exercisedEvent.packageName, k.version),
+                )
               ),
               stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
               eventOffset = exercisedEvent.eventOffset,
@@ -288,13 +297,21 @@ private[platform] object InMemoryStateUpdater {
             case create: TransactionLogUpdate.CreatedEvent =>
               create.contractKey.map { ck =>
                 val globalKey =
-                  Key.assertBuild(create.templateId, ck.unversioned, Util.sharedKey(ck.version))
+                  Key.assertBuild(
+                    create.templateId,
+                    ck.unversioned,
+                    KeyPackageName.assertBuild(create.packageName, ck.version),
+                  )
                 globalKey -> create
               }
             case exercise: TransactionLogUpdate.ExercisedEvent if exercise.consuming =>
               exercise.contractKey.map { ck =>
                 val globalKey =
-                  Key.assertBuild(exercise.templateId, ck.unversioned, Util.sharedKey(ck.version))
+                  Key.assertBuild(
+                    exercise.templateId,
+                    ck.unversioned,
+                    KeyPackageName.assertBuild(exercise.packageName, ck.version),
+                  )
                 globalKey -> exercise
               }
             case _ => None
@@ -366,6 +383,7 @@ private[platform] object InMemoryStateUpdater {
           contractId = exercise.targetCoid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = exercise.templateId,
+          packageName = exercise.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =

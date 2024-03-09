@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.value.{
   Record as ApiRecord,
   Value as ApiValue,
 }
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
@@ -22,7 +23,6 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   TransactionCoder,
-  Util,
   Versioned,
 }
 import com.daml.lf.value.Value
@@ -287,13 +287,12 @@ final class LfValueTranslation(
           signatories <- raw.partial.signatories.traverse(Party.fromString).map(_.toSet)
           observers <- raw.partial.observers.traverse(Party.fromString).map(_.toSet)
           maintainers <- raw.createKeyMaintainers.toList.traverse(Party.fromString).map(_.toSet)
-          globalKey <- createKey
-            .traverse(key =>
-              GlobalKey
-                .build(templateId, key.unversioned, Util.sharedKey(key.version))
-                .left
-                .map(_.msg)
-            )
+          globalKey <- createKey.traverse(key =>
+            for {
+              name <- KeyPackageName.build(packageName, key.version)
+              globalKey <- GlobalKey.build(templateId, key.unversioned, name).left.map(_.msg)
+            } yield globalKey
+          )
           apiCreatedAt <- raw.partial.createdAt
             .fold[Either[String, ApiTimestamp]](Left("missing createdAt"))(Right(_))
           instant <- InstantConverter.fromProtoPrimitive(apiCreatedAt).left.map(_.message)
@@ -413,13 +412,12 @@ final class LfValueTranslation(
           maintainers <- createdEvent.createKeyMaintainers.toList
             .traverse(Party.fromString)
             .map(_.toSet)
-          globalKey <- createKey
-            .traverse(key =>
-              GlobalKey
-                .build(templateId, key.unversioned, Util.sharedKey(key.version))
-                .left
-                .map(_.msg)
-            )
+          globalKey <- createKey.traverse(key =>
+            for {
+              name <- KeyPackageName.build(packageName, key.version)
+              globalKey <- GlobalKey.build(templateId, key.unversioned, name).left.map(_.msg)
+            } yield globalKey
+          )
         } yield FatContractInstance.fromCreateNode(
           Node.Create(
             coid = contractId,

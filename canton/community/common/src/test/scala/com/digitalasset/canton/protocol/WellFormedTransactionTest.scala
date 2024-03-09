@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.protocol
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.ImmArray
-import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{State, WithSuffixes, WithoutSuffixes}
@@ -278,7 +278,10 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
                   templateId,
                   contractInst.unversioned.arg,
                   Set.empty,
-                  Util.sharedKey(ExampleTransactionFactory.languageVersion),
+                  KeyPackageName.assertBuild(
+                    ExampleTransactionFactory.packageName,
+                    ExampleTransactionFactory.languageVersion,
+                  ),
                 )
             ),
           ),
@@ -291,7 +294,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
                 templateId,
                 contractInst.unversioned.arg,
                 Set.empty,
-                Util.sharedKey(ExampleTransactionFactory.languageVersion),
+                keyPackageName,
               )
             ),
           ),

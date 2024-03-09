@@ -25,17 +25,18 @@ message ViewParticipantData {
   v0.ViewParticipantData.RollbackContext rollback_context = 7; // optional; defaults to the empty RollbackContext if omitted.
 }
 
-// Compared to v2: packagePreference added to ExerciseActionDescription
 message ActionDescription {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
+  // Compared to v2: ExerciseActionDescription and LookupByKeyActionDescription updated
   oneof description {
     v0.ActionDescription.CreateActionDescription create = 1;
     ExerciseActionDescription exercise = 2;
     v0.ActionDescription.FetchActionDescription fetch = 3;
-    v0.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
+    v1.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
   }
 
+  // Compared to v2: packagePreference added to ExerciseActionDescription
   message ExerciseActionDescription {
     string input_contract_id = 1;
     string choice = 2;

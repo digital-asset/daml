@@ -73,8 +73,8 @@ class IndexMetrics(
   val completionsBufferSize: Counter =
     factory.counter(prefix :+ "completions_buffer_size")
 
-  val packageLanguageVersionCache =
-    new CacheMetrics(prefix :+ "package_language_version_cache", labeledMetricsFactory)
+  val keyPackageNameCache =
+    new CacheMetrics(prefix :+ "key_package_name_cache", labeledMetricsFactory)
 
   @nowarn("cat=deprecation")
   object db extends IndexDBMetrics(prefix :+ "db", factory, labeledMetricsFactory)

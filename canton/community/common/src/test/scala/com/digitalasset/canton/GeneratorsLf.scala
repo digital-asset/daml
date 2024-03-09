@@ -3,20 +3,15 @@
 
 package com.digitalasset.canton
 
-import com.daml.lf.transaction.Versioned
-import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersion,
   ExampleTransactionFactory,
   LfContractId,
-  LfGlobalKey,
   LfHash,
   LfTemplateId,
-  LfTransactionVersion,
   Unicum,
 }
-import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 object GeneratorsLf {
@@ -52,24 +47,9 @@ object GeneratorsLf {
   )
 
   implicit val lfTemplateIdArb: Arbitrary[LfTemplateId] = Arbitrary(for {
-    packageName <- Gen.stringOfN(8, Gen.alphaChar)
+    packageId <- lfPackageId.arbitrary
     moduleName <- Gen.stringOfN(8, Gen.alphaChar)
     scriptName <- Gen.stringOfN(8, Gen.alphaChar)
-  } yield LfTemplateId.assertFromString(s"$packageName:$moduleName:$scriptName"))
+  } yield LfTemplateId.assertFromString(s"$packageId:$moduleName:$scriptName"))
 
-  private val lfVersionedGlobalKeyGen: Gen[Versioned[LfGlobalKey]] = for {
-    templateId <- Arbitrary.arbitrary[LfTemplateId]
-    // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
-    value <- Gen.long.map(ValueInt64)
-  } yield ExampleTransactionFactory.globalKey(templateId, value)
-
-  implicit val lfGlobalKeyArb: Arbitrary[LfGlobalKey] = Arbitrary(
-    lfVersionedGlobalKeyGen.map(_.unversioned)
-  )
-
-  implicit val lfVersionedGlobalKeyArb: Arbitrary[Versioned[LfGlobalKey]] = Arbitrary(
-    lfVersionedGlobalKeyGen
-  )
-
-  implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] = genArbitrary
 }

@@ -39,6 +39,13 @@ final case class CreatedContract private (
       rolledBack = rolledBack,
     )
 
+  def toProtoV2: v2.CreatedContract =
+    v2.CreatedContract(
+      contract = Some(contract.toProtoV2),
+      consumedInCore = consumedInCore,
+      rolledBack = rolledBack,
+    )
+
   override def pretty: Pretty[CreatedContract] = prettyOfClass(
     unnamedParam(_.contract),
     paramIfTrue("consumed in core", _.consumedInCore),
@@ -137,6 +144,34 @@ object CreatedContract {
       ).leftMap(OtherError)
     } yield createdContract
   }
+
+  def fromProtoV2(
+      createdContractP: v2.CreatedContract
+  ): ParsingResult[CreatedContract] = {
+    val v2.CreatedContract(contractP, consumedInCore, rolledBack) =
+      createdContractP
+
+    val ensureAuthenticatedContractId: EnsureContractIdVersion =
+      contractId => {
+        case AuthenticatedContractIdVersion => Right(AuthenticatedContractIdVersion)
+        case AuthenticatedContractIdVersionV2 => Right(AuthenticatedContractIdVersionV2)
+        case NonAuthenticatedContractIdVersion =>
+          Left(s"Unexpected un-authenticated contract id version (contract id: $contractId)")
+      }
+
+    for {
+      contract <- ProtoConverter
+        .required("contract", contractP)
+        .flatMap(SerializableContract.fromProtoV2)
+      createdContract <- create(
+        contract = contract,
+        consumedInCore = consumedInCore,
+        rolledBack = rolledBack,
+        checkContractIdVersion = ensureAuthenticatedContractId(contract.contractId),
+      ).leftMap(OtherError)
+    } yield createdContract
+  }
+
 }
 
 /** @param consumedInView Whether the contract is consumed in the view.

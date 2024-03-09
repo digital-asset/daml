@@ -6,9 +6,11 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.{Dar, DarParser, Decode}
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
 import com.daml.lf.transaction.*
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
@@ -58,15 +60,19 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   private[this] val dar: Dar[DamlLf.Archive] =
     TestModels.com_daml_ledger_test_ModelTestDar_1_15_path
       .pipe(TestResourceUtils.resourceFileFromJar)
-      .pipe(DarParser.assertReadArchiveFromFile(_))
+      .pipe(DarParser.assertReadArchiveFromFile)
 
   private val now = Timestamp.now()
 
   protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] = {
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
   }
-  private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
-  protected val testLanguageVersion = Decode.assertDecodeArchive(dar.main)._2.languageVersion
+  private val (testPackageId, testPackage): (PackageId, Ast.Package) =
+    Decode.assertDecodeArchive(dar.main)
+  protected val testLanguageVersion = testPackage.languageVersion
+  protected val testPackageName = testPackage.metadata.map(_.name)
+  protected val testKeyPackageName =
+    KeyPackageName.assertBuild(testPackageName, testLanguageVersion)
 
   protected final val alice = Party.assertFromString("Alice")
   protected final val bob = Party.assertFromString("Bob")
@@ -94,7 +100,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   )
 
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
-  protected final val somePackageName = LfPackageName.assertFromString("PackageX")
   protected final val someTemplateIdFilter =
     TemplateFilter(someTemplateId, includeCreatedEventBlob = false)
   protected final val someValueText = LfValue.ValueText("some text")
@@ -157,7 +162,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val someContractInstance =
     ContractInstance(
       template = someTemplateId,
-      packageName = Some(somePackageName),
+      packageName = testPackageName,
       arg = someContractArgument,
     )
   protected final val someVersionedContractInstance = Versioned(txVersion, someContractInstance)
@@ -210,7 +215,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),
       templateId: Identifier = someTemplateId,
-      packageName: Option[LfPackageName] = Some(somePackageName),
+      packageName: Option[LfPackageName] = testPackageName,
       contractArgument: LfValue = someContractArgument,
       observers: Set[Party] = Set.empty,
   ): Node.Create =
@@ -230,7 +235,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       stakeholders: Set[Party],
       key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
-      packageName: Option[LfPackageName] = Some(somePackageName),
+      packageName: Option[LfPackageName] = testPackageName,
       contractArgument: LfValue = someContractArgument,
   ): Node.Create =
     Node.Create(
@@ -252,7 +257,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     Node.Exercise(
       targetCoid = targetCid,
       templateId = someTemplateId,
-      packageName = Some(somePackageName),
+      packageName = testPackageName,
       interfaceId = None,
       choiceId = someChoiceName,
       consuming = true,
@@ -276,7 +281,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     Node.Fetch(
       coid = contractId,
       templateId = someTemplateId,
-      packageName = Some(somePackageName),
+      packageName = testPackageName,
       actingParties = Set(party),
       signatories = Set(party),
       stakeholders = Set(party),
@@ -370,7 +375,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       someTemplateId,
       aTextValue,
       maintainers,
-      Util.sharedKey(testLanguageVersion),
+      testKeyPackageName,
     )
   }
 
@@ -415,7 +420,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Exercise(
         targetCoid = id,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = false,
@@ -436,7 +441,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Fetch(
         coid = id,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         actingParties = divulgees,
         signatories = Set(alice),
         stakeholders = Set(alice),
@@ -679,7 +684,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val disclosure = for {
       entry <- signatoriesAndTemplates
       (signatory, template, argument) = entry
-      contract = create(txBuilder.newCid, Set(signatory), template, Some(somePackageName), argument)
+      contract = create(txBuilder.newCid, Set(signatory), template, testPackageName, argument)
       parties = Set[Party](operator, signatory)
       nodeId = txBuilder.add(contract)
     } yield nodeId -> parties
@@ -758,7 +763,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Create(
         coid = txBuilder.newCid,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         arg = someContractArgument,
         agreementText = someAgreement,
         signatories = Set(party),
@@ -769,7 +774,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
               someTemplateId,
               someContractKey(party, key),
               Set(party),
-              Util.sharedKey(testLanguageVersion),
+              testKeyPackageName,
             )
         ),
         version = txVersion,
@@ -801,7 +806,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Exercise(
         targetCoid = contractId,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         interfaceId = None,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
         consuming = true,
@@ -819,7 +824,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
               someTemplateId,
               someContractKey(party, k),
               Set(party),
-              Util.sharedKey(testLanguageVersion),
+              testKeyPackageName,
             )
         ),
         byKey = false,
@@ -850,13 +855,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         key = GlobalKeyWithMaintainers
           .assertBuild(
             someTemplateId,
             someContractKey(party, key),
             Set(party),
-            Util.sharedKey(testLanguageVersion),
+            testKeyPackageName,
           ),
         result = result,
         version = txVersion,
@@ -885,7 +890,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       Node.Fetch(
         coid = contractId,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         actingParties = Set(party),
         signatories = Set(party),
         stakeholders = Set(party),

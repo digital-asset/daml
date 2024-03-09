@@ -131,12 +131,41 @@ final class GeneratorsData(
     )
   )
 
-  implicit val viewCommonDataArb: Arbitrary[ViewCommonData] = Arbitrary(for {
-    informees <- Gen.containerOf[Set, Informee](Arbitrary.arbitrary[Informee])
-    threshold <- Arbitrary.arbitrary[NonNegativeInt]
-    salt <- Arbitrary.arbitrary[Salt]
-    hashOps = TestHash // Not used for serialization
-  } yield ViewCommonData.create(hashOps)(informees, threshold, salt, protocolVersion))
+  implicit val viewConfirmationParametersArb: Arbitrary[ViewConfirmationParameters] = Arbitrary(
+    for {
+      informees <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      viewConfirmationParameters <-
+        if (protocolVersion <= ProtocolVersion.v5) {
+          Arbitrary
+            .arbitrary[Quorum](quorumArb(informees.toSeq))
+            .map(quorum => ViewConfirmationParameters.tryCreate(informees, Seq(quorum)))
+        } else
+          Gen
+            .containerOf[Seq, Quorum](Arbitrary.arbitrary[Quorum](quorumArb(informees.toSeq)))
+            .map(ViewConfirmationParameters.tryCreate(informees, _))
+    } yield viewConfirmationParameters
+  )
+
+  def quorumArb(informees: Seq[LfPartyId]): Arbitrary[Quorum] = Arbitrary(
+    for {
+      confirmers <- Gen.sequence[Set[ConfirmingParty], ConfirmingParty](
+        informees.map(pId => Arbitrary.arbitrary[ConfirmingParty].map(cp => cp.copy(party = pId)))
+      )
+      threshold <- Arbitrary.arbitrary[NonNegativeInt]
+    } yield Quorum.create(confirmers, threshold)
+  )
+
+  implicit val viewCommonDataArb: Arbitrary[ViewCommonData] = Arbitrary(
+    for {
+      viewConfirmationParameters <- Arbitrary.arbitrary[ViewConfirmationParameters]
+      salt <- Arbitrary.arbitrary[Salt]
+      hashOps = TestHash // Not used for serialization
+    } yield ViewCommonData.tryCreate(hashOps)(
+      viewConfirmationParameters,
+      salt,
+      protocolVersion,
+    )
+  )
 
   private def createActionDescriptionGenFor(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]

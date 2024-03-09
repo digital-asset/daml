@@ -1,0 +1,23 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v2;
+
+import "com/digitalasset/canton/crypto/v0/crypto.proto";
+import "com/digitalasset/canton/protocol/v0/sequencing.proto";
+import "com/digitalasset/canton/protocol/v2/common.proto";
+import "scalapb/scalapb.proto";
+
+// Compared to v1: updated SerializableContract
+message TransferInView {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v0.Salt salt = 1;
+  string submitter = 2;
+  v2.SerializableContract contract = 3;
+  v0.SignedContent transfer_out_result_event = 4;
+  bytes creating_transaction_id = 5;
+  int32 source_protocol_version = 6;
+}

@@ -35,6 +35,12 @@ final case class InputContract(contract: SerializableContract, consumed: Boolean
       consumed = consumed,
     )
 
+  def toProtoV2: v2.InputContract =
+    v2.InputContract(
+      contract = Some(contract.toProtoV2),
+      consumed = consumed,
+    )
+
   override def pretty: Pretty[InputContract] = prettyOfClass(
     unnamedParam(_.contract),
     paramIfTrue("consumed", _.consumed),
@@ -54,6 +60,13 @@ object InputContract {
   ): ParsingResult[InputContract] = {
     val v1.InputContract(contractP, consumed) = inputContractP
     toInputContract(contractP, consumed, SerializableContract.fromProtoV1)
+  }
+
+  def fromProtoV2(
+      inputContractP: v2.InputContract
+  ): ParsingResult[InputContract] = {
+    val v2.InputContract(contractP, consumed) = inputContractP
+    toInputContract(contractP, consumed, SerializableContract.fromProtoV2)
   }
 
   private def toInputContract[SerializableContractP](

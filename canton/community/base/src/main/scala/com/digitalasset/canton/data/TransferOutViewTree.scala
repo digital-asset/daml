@@ -686,7 +686,7 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   override def mediator: MediatorRef = commonData.sourceMediator
 
-  override def informees: Set[Informee] = commonData.confirmingParties
+  override def informees: Set[LfPartyId] = commonData.confirmingParties.map(_.party)
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)
 

@@ -22,6 +22,8 @@ import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelper
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import scala.collection.immutable.List
+
 class SerializationDeserializationTest
     extends AnyWordSpec
     with BaseTest
@@ -104,6 +106,7 @@ class SerializationDeserializationTest
         testVersioned(ContractMetadata, version)(
           generatorsProtocol.contractMetadataArb(canHaveEmptyKey = true)
         )
+
         testVersioned[SerializableContract](
           SerializableContract,
           version,

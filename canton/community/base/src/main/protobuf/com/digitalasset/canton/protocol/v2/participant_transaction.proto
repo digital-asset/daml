@@ -8,10 +8,26 @@ package com.digitalasset.canton.protocol.v2;
 import "com/digitalasset/canton/crypto/v0/crypto.proto";
 import "com/digitalasset/canton/protocol/v0/common.proto";
 import "com/digitalasset/canton/protocol/v0/participant_transaction.proto";
+import "com/digitalasset/canton/protocol/v0/quorum.proto";
 import "com/digitalasset/canton/protocol/v1/participant_transaction.proto";
+import "com/digitalasset/canton/protocol/v2/common.proto";
 import "scalapb/scalapb.proto";
 
 // Messages sent by a participant as part of the transaction protocol
+
+// ViewCommonData
+
+message ViewCommonData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.crypto.v0.Salt salt = 1;
+  // Replaced informees data type to only contain the PartyId of the informee since their weight and trust level
+  // are stored in the quorums.
+  repeated string informees = 2;
+
+  // Replaced threshold with a list of quorums that need to be satisfied for the view to be confirmed
+  repeated v0.Quorum quorums = 3;
+}
 
 // SessionKeyLookup
 
@@ -80,4 +96,17 @@ message ActionDescription {
     optional string interface_id = 9;
     optional string template_id = 10;
   }
+}
+
+// Compared to v1: updated SerializableContract
+message CreatedContract {
+  v2.SerializableContract contract = 1;
+  bool consumed_in_core = 2;
+  bool rolled_back = 3;
+}
+
+// Compared to v1: updated SerializableContract
+message InputContract {
+  v2.SerializableContract contract = 1;
+  bool consumed = 2;
 }

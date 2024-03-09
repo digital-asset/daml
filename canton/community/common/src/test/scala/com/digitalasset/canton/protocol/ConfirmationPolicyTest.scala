@@ -3,10 +3,15 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.transaction.Util
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.value.Value
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.{ConfirmingParty, PlainInformee}
+import com.digitalasset.canton.data.{
+  ConfirmingParty,
+  PlainInformee,
+  Quorum,
+  ViewConfirmationParameters,
+}
 import com.digitalasset.canton.protocol.ConfirmationPolicy.{Signatory, Vip}
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   signatoryParticipant,
@@ -159,7 +164,7 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
             templateId,
             Value.ValueUnit,
             Set(ExampleTransactionFactory.signatory),
-            Util.sharedKey(ExampleTransactionFactory.languageVersion),
+            KeyPackageName.assertBuild(None, ExampleTransactionFactory.languageVersion),
           )
         ),
       )
@@ -227,31 +232,50 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
           ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
         )
         val oldThreshold = NonNegativeInt.tryCreate(2)
+        val oldViewConfirmationParameters =
+          ViewConfirmationParameters.create(oldInformees, oldThreshold)
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(None)(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
+          .withSubmittingAdminParty(None)(oldViewConfirmationParameters) shouldBe
+          oldViewConfirmationParameters
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(alice))(oldInformees, oldThreshold) shouldBe
-          Set(
-            ConfirmingParty(alice, PositiveInt.one, TrustLevel.Ordinary),
-            ConfirmingParty(bob, PositiveInt.one, TrustLevel.Ordinary),
-            ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-          ) -> NonNegativeInt.tryCreate(3)
+          .withSubmittingAdminParty(Some(alice))(oldViewConfirmationParameters) shouldBe
+          ViewConfirmationParameters.tryCreate(
+            Set(
+              alice,
+              bob,
+              charlie,
+            ),
+            Seq(
+              Quorum.create(
+                Set(
+                  ConfirmingParty(alice, PositiveInt.one, TrustLevel.Ordinary),
+                  ConfirmingParty(bob, PositiveInt.one, TrustLevel.Ordinary),
+                  ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
+                ),
+                NonNegativeInt.tryCreate(3),
+              )
+            ),
+          )
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(bob))(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
+          .withSubmittingAdminParty(Some(bob))(oldViewConfirmationParameters) shouldBe
+          oldViewConfirmationParameters
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(charlie))(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
+          .withSubmittingAdminParty(Some(charlie))(oldViewConfirmationParameters) shouldBe
+          oldViewConfirmationParameters
 
         ConfirmationPolicy.Signatory
-          .withSubmittingAdminParty(Some(david))(oldInformees, oldThreshold) shouldBe
-          oldInformees + ConfirmingParty(david, PositiveInt.one, TrustLevel.Ordinary) ->
-          NonNegativeInt.tryCreate(3)
+          .withSubmittingAdminParty(Some(david))(oldViewConfirmationParameters) shouldBe {
+          val newInformees =
+            oldInformees + ConfirmingParty(david, PositiveInt.one, TrustLevel.Ordinary)
+          ViewConfirmationParameters.create(
+            newInformees,
+            NonNegativeInt.tryCreate(3),
+          )
+        }
       }
     }
   }
@@ -265,31 +289,61 @@ class ConfirmationPolicyTest extends AnyWordSpec with BaseTest with HasExecution
           ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
         )
         val oldThreshold = NonNegativeInt.one
+        val oldViewConfirmationParameters =
+          ViewConfirmationParameters.create(oldInformees, oldThreshold)
 
         ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(None)(oldInformees, oldThreshold) shouldBe
-          oldInformees -> oldThreshold
+          .withSubmittingAdminParty(None)(oldViewConfirmationParameters) shouldBe
+          oldViewConfirmationParameters
 
         ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(alice))(oldInformees, oldThreshold) shouldBe
-          Set(
-            ConfirmingParty(alice, PositiveInt.tryCreate(3), TrustLevel.Ordinary),
-            ConfirmingParty(bob, PositiveInt.one, TrustLevel.Vip),
-            ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-          ) -> NonNegativeInt.tryCreate(4)
+          .withSubmittingAdminParty(Some(alice))(oldViewConfirmationParameters) shouldBe
+          ViewConfirmationParameters.tryCreate(
+            Set(
+              alice,
+              bob,
+              charlie,
+            ),
+            Seq(
+              Quorum.create(
+                Set(
+                  ConfirmingParty(alice, PositiveInt.tryCreate(3), TrustLevel.Ordinary),
+                  ConfirmingParty(bob, PositiveInt.one, TrustLevel.Vip),
+                  ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
+                ),
+                NonNegativeInt.tryCreate(4),
+              )
+            ),
+          )
 
         ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(bob))(oldInformees, oldThreshold) shouldBe
-          Set(
-            PlainInformee(alice),
-            ConfirmingParty(bob, PositiveInt.tryCreate(4), TrustLevel.Vip),
-            ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
-          ) -> NonNegativeInt.tryCreate(4)
+          .withSubmittingAdminParty(Some(bob))(oldViewConfirmationParameters) shouldBe
+          ViewConfirmationParameters.tryCreate(
+            Set(
+              alice,
+              bob,
+              charlie,
+            ),
+            Seq(
+              Quorum.create(
+                Set(
+                  ConfirmingParty(bob, PositiveInt.tryCreate(4), TrustLevel.Vip),
+                  ConfirmingParty(charlie, PositiveInt.one, TrustLevel.Vip),
+                ),
+                NonNegativeInt.tryCreate(4),
+              )
+            ),
+          )
 
         ConfirmationPolicy.Vip
-          .withSubmittingAdminParty(Some(david))(oldInformees, oldThreshold) shouldBe
-          oldInformees + ConfirmingParty(david, PositiveInt.tryCreate(3), TrustLevel.Ordinary) ->
-          NonNegativeInt.tryCreate(4)
+          .withSubmittingAdminParty(Some(david))(oldViewConfirmationParameters) shouldBe {
+          val newInformees =
+            oldInformees + ConfirmingParty(david, PositiveInt.tryCreate(3), TrustLevel.Ordinary)
+          ViewConfirmationParameters.create(
+            newInformees,
+            NonNegativeInt.tryCreate(4),
+          )
+        }
       }
     }
   }

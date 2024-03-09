@@ -7,7 +7,13 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.HashOps
-import com.digitalasset.canton.data.{Informee, TransferOutViewTree, ViewPosition, ViewType}
+import com.digitalasset.canton.data.{
+  ConfirmingParty,
+  TransferOutViewTree,
+  ViewConfirmationParameters,
+  ViewPosition,
+  ViewType,
+}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -52,20 +58,22 @@ final case class TransferOutMediatorMessage(
 
   override def requestUuid: UUID = commonData.uuid
 
-  override def informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)] = {
+  override def informeesAndConfirmationParamsByViewHash
+      : Map[ViewHash, ViewConfirmationParameters] = {
     val confirmingParties = commonData.confirmingParties
     val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewHash -> ((confirmingParties, threshold)))
+    Map(tree.viewHash -> ViewConfirmationParameters.create(confirmingParties, threshold))
   }
 
-  override def informeesAndThresholdByViewPosition
-      : Map[ViewPosition, (Set[Informee], NonNegativeInt)] = {
+  override def informeesAndConfirmationParamsByViewPosition
+      : Map[ViewPosition, ViewConfirmationParameters] = {
     val confirmingParties = commonData.confirmingParties
     val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(tree.viewPosition -> ((confirmingParties, threshold)))
+    Map(tree.viewPosition -> ViewConfirmationParameters.create(confirmingParties, threshold))
   }
 
-  override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
+  override def minimumThreshold(confirmingParties: Set[ConfirmingParty]): NonNegativeInt =
+    NonNegativeInt.one
 
   override def createMediatorResult(
       requestId: RequestId,

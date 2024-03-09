@@ -135,6 +135,7 @@ object TransactionLogUpdate {
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
+      packageName: Option[Ref.PackageName],
       interfaceId: Option[Identifier],
       commandId: String,
       workflowId: String,

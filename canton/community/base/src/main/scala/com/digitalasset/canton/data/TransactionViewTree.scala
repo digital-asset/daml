@@ -4,11 +4,11 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
-import com.digitalasset.canton.WorkflowId
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.protocol.{ConfirmationPolicy, RootHash, TransactionId, ViewHash}
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
 import com.digitalasset.canton.util.EitherUtil
+import com.digitalasset.canton.{LfPartyId, WorkflowId}
 
 import java.util.UUID
 
@@ -56,7 +56,8 @@ trait TransactionViewTree extends ViewTree {
 
   override lazy val viewHash: ViewHash = ViewHash.fromRootHash(view.rootHash)
 
-  override lazy val informees: Set[Informee] = view.viewCommonData.tryUnwrap.informees
+  override lazy val informees: Set[LfPartyId] =
+    view.viewCommonData.tryUnwrap.viewConfirmationParameters.informees
 
   lazy val viewParticipantData: ViewParticipantData = view.viewParticipantData.tryUnwrap
 
