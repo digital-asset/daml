@@ -547,7 +547,7 @@ class ParticipantPruningAdministrationGroup(
   def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
-        ledgerApiCommand(LedgerApiV2Commands.StateService.LedgerEnd())
+        ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
       )
       consoleEnvironment
         .run(

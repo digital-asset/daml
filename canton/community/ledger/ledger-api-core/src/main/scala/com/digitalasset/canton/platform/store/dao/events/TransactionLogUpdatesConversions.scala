@@ -240,6 +240,7 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            packageName = exercisedEvent.packageName,
             witnessParties =
               requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
           )
@@ -456,6 +457,7 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            packageName = exercisedEvent.packageName,
             interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
             choice = exercisedEvent.choice,
             choiceArgument = Some(choiceArgument),
@@ -595,6 +597,7 @@ private[events] object TransactionLogUpdatesConversions {
               reassignmentCounter = info.reassignmentCounter,
               contractId = unassign.contractId.coid,
               templateId = Some(LfEngineToApi.toApiIdentifier(unassign.templateId)),
+              packageName = unassign.packageName,
               assignmentExclusivity =
                 unassign.assignmentExclusivity.map(TimestampConversion.fromLf),
               witnessParties = reassignmentAccepted.reassignmentInfo.hostedStakeholders

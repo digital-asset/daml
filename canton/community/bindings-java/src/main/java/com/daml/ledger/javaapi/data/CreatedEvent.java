@@ -92,6 +92,7 @@ public final class CreatedEvent implements Event, TreeEvent {
   }
 
   @NonNull
+  @Override
   public String getPackageName() {
     return packageName;
   }

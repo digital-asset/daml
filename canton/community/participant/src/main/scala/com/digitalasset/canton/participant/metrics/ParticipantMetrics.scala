@@ -132,8 +132,8 @@ class SyncDomainMetrics(
 
     @MetricDoc.Tag(
       summary = "Size of conflict detection task queue",
-      description = """The task scheduler will schedule tasks to run at a given timestamp. This metric
-                      |exposes the number of tasks that are waiting in the task queue for the right time to pass.
+      description = """This metric measures the size of the queue for conflict detection between
+                      |concurrent transactions.
                       |A huge number does not necessarily indicate a bottleneck;
                       |it could also mean that a huge number of tasks have not yet arrived at their execution time.""",
       qualification = Debug,
@@ -147,11 +147,10 @@ class SyncDomainMetrics(
   object transactionProcessing extends TransactionProcessingMetrics(prefix, factory)
 
   @MetricDoc.Tag(
-    summary = "Size of conflict detection task queue",
-    description = """The task scheduler will schedule tasks to run at a given timestamp. This metric
-                    |exposes the number of tasks that are waiting in the task queue for the right time to pass.
-                    |A huge number does not necessarily indicate a bottleneck;
-                    |it could also mean that a huge number of tasks have not yet arrived at their execution time.""",
+    summary = "Number of requests being validated on the domain.",
+    description = """Number of requests that are currently being validated on the domain.
+        |This also covers requests submitted by other participants.
+        |""",
     qualification = Debug,
   )
   val numDirtyRequests: Counter = factory.counter(prefix :+ "dirty-requests")

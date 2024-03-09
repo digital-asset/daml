@@ -26,6 +26,9 @@ public interface TreeEvent {
   Identifier getTemplateId();
 
   @NonNull
+  String getPackageName();
+
+  @NonNull
   String getContractId();
 
   default TransactionOuterClass.TreeEvent toProtoTreeEvent() {

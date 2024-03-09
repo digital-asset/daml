@@ -140,9 +140,10 @@ trait SequencerStateManagerStore {
   ): Future[Option[CantonTimestamp]]
 
   @VisibleForTesting
-  protected[state] def numberOfEvents()(implicit
-      traceContext: TraceContext
+  protected[state] def numberOfEventsToBeDeletedByPruneAt(requestedTimestamp: CantonTimestamp)(
+      implicit traceContext: TraceContext
   ): Future[Long]
+
 }
 
 object SequencerStateManagerStore {

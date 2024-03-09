@@ -274,6 +274,7 @@ class SequencerRuntimeForSeparateNode(
 
   override def onClosed(): Unit = {
     Lifecycle.close(
+      Lifecycle.toCloseableOption(sequencer.rateLimitManager),
       timeTracker,
       syncCrypto,
       topologyClient,

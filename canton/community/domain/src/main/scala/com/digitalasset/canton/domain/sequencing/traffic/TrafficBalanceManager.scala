@@ -445,7 +445,10 @@ class TrafficBalanceManager(
   def startAutoPruning(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    lazy val newPromise = mkPromise[Unit]("auto pruning started", futureSupervisor)
+    // This future will only complete when auto pruning is stopped manually or the node goes down
+    // so use the noop supervisor to avoid logging continuously that the future is not done
+    lazy val newPromise =
+      mkPromise[Unit]("auto pruning started", FutureSupervisor.Noop)
     autoPruningPromise.getAndUpdate({
       case None => Some(newPromise)
       case existing => existing

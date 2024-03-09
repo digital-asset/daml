@@ -26,7 +26,7 @@ import scala.concurrent.ExecutionContext
 
 /** Holds the traffic control state and control rate limiting logic of members of a sequencer
   */
-trait SequencerRateLimitManager {
+trait SequencerRateLimitManager extends AutoCloseable {
 
   /** Create a traffic state for a new member at the given timestamp.
     * Its base traffic remainder will be equal to the max burst window configured at that point in time.
@@ -102,6 +102,12 @@ trait SequencerRateLimitManager {
   /** Optional subscriber to the traffic control processor, only used for the new top up implementation
     */
   def balanceUpdateSubscriber: Option[SequencerTrafficControlSubscriber]
+
+  /** Marks the provided timestamp as safe for pruning.
+    * This has for consequence that requesting balances strictly below this timestamp may lead to an UnknownBalance error,
+    * as the balance will be eligible for pruning.
+    */
+  def safeForPruning(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Unit
 }
 
 sealed trait SequencerRateLimitError

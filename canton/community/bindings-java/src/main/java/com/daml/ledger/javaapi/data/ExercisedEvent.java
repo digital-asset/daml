@@ -17,6 +17,8 @@ public final class ExercisedEvent implements TreeEvent {
 
   private final Identifier templateId;
 
+  private final String packageName;
+
   private final Optional<Identifier> interfaceId;
 
   private final String contractId;
@@ -37,6 +39,7 @@ public final class ExercisedEvent implements TreeEvent {
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
+      @NonNull String packageName,
       @NonNull Optional<Identifier> interfaceId,
       @NonNull String contractId,
       @NonNull String choice,
@@ -48,6 +51,7 @@ public final class ExercisedEvent implements TreeEvent {
     this.witnessParties = witnessParties;
     this.eventId = eventId;
     this.templateId = templateId;
+    this.packageName = packageName;
     this.interfaceId = interfaceId;
     this.contractId = contractId;
     this.choice = choice;
@@ -74,6 +78,12 @@ public final class ExercisedEvent implements TreeEvent {
   @Override
   public Identifier getTemplateId() {
     return templateId;
+  }
+
+  @NonNull
+  @Override
+  public String getPackageName() {
+    return packageName;
   }
 
   @NonNull
@@ -124,6 +134,7 @@ public final class ExercisedEvent implements TreeEvent {
         && Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
         && Objects.equals(templateId, that.templateId)
+        && Objects.equals(packageName, that.packageName)
         && Objects.equals(interfaceId, that.interfaceId)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(choice, that.choice)
@@ -140,6 +151,7 @@ public final class ExercisedEvent implements TreeEvent {
         witnessParties,
         eventId,
         templateId,
+        packageName,
         interfaceId,
         contractId,
         choice,
@@ -160,6 +172,8 @@ public final class ExercisedEvent implements TreeEvent {
         + '\''
         + ", templateId="
         + templateId
+        + ", packageName="
+        + packageName
         + ", interfaceId="
         + interfaceId
         + ", contractId='"
@@ -189,6 +203,7 @@ public final class ExercisedEvent implements TreeEvent {
     builder.setConsuming(isConsuming());
     builder.setContractId(getContractId());
     builder.setTemplateId(getTemplateId().toProto());
+    builder.setPackageName(getPackageName());
     interfaceId.ifPresent(i -> builder.setInterfaceId(i.toProto()));
     builder.addAllActingParties(getActingParties());
     builder.addAllWitnessParties(getWitnessParties());
@@ -202,6 +217,7 @@ public final class ExercisedEvent implements TreeEvent {
         exercisedEvent.getWitnessPartiesList(),
         exercisedEvent.getEventId(),
         Identifier.fromProto(exercisedEvent.getTemplateId()),
+        exercisedEvent.getPackageName(),
         exercisedEvent.hasInterfaceId()
             ? Optional.of(Identifier.fromProto(exercisedEvent.getInterfaceId()))
             : Optional.empty(),

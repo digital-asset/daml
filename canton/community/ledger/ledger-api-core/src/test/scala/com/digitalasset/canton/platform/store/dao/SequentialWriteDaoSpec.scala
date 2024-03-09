@@ -251,6 +251,7 @@ object SequentialWriteDaoSpec {
     event_id = "",
     contract_id = "1",
     template_id = "",
+    package_name = "2",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_key_value = None,

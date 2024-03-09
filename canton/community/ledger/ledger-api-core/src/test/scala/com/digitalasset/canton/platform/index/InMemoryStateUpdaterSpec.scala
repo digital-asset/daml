@@ -305,6 +305,7 @@ object InMemoryStateUpdaterSpec {
           Reassignment.Unassign(
             contractId = someCreateNode.coid,
             templateId = templateId2,
+            packageName = packageName,
             stakeholders = List(party2),
             assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
           )
@@ -614,6 +615,7 @@ object InMemoryStateUpdaterSpec {
       reassignment = Reassignment.Unassign(
         contractId = someCreateNode.coid,
         templateId = templateId2,
+        packageName = packageName,
         stakeholders = List(party2),
         assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
       ),

@@ -49,4 +49,9 @@ class BalanceUpdateClientImpl(
   override lazy val balanceUpdateSubscription: Option[SequencerTrafficControlSubscriber] = Some(
     manager.subscription
   )
+
+  override def safeForPruning(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Unit =
+    manager.setSafeToPruneBeforeExclusive(timestamp)
 }

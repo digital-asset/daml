@@ -276,6 +276,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     -- * shared event information
     contract_id text not null,
     template_id integer not null,
+    package_name integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
 
@@ -395,6 +396,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     -- * shared event information
     contract_id text not null,
     template_id integer not null,
+    package_name integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
 
@@ -446,6 +448,7 @@ CREATE TABLE lapi_events_unassign (
     -- * shared event information
     contract_id text not null,
     template_id integer not null,
+    package_name integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
 
     -- * common reassignment

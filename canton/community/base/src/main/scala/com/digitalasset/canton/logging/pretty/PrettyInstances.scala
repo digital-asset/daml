@@ -219,6 +219,9 @@ trait PrettyInstances {
   implicit def prettyLfIdentifier: Pretty[com.daml.lf.data.Ref.Identifier] =
     prettyOfString(id => show"${id.packageId}:${id.qualifiedName}")
 
+  implicit def prettyLfPackageName: Pretty[com.daml.lf.data.Ref.PackageName] =
+    prettyOfString(packageName => show"${packageName.toString}")
+
   implicit def prettyLfContractId: Pretty[LfContractId] = prettyOfString {
     case LfContractId.V1(discriminator, suffix)
         // Shorten only Canton contract ids

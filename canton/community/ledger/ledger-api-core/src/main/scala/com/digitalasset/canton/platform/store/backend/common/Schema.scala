@@ -163,6 +163,9 @@ private[backend] object AppendOnlySchema {
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
         ),
+        "package_name" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.packageName.unsafe.internalize(dbDto.package_name)
+        ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
@@ -199,6 +202,9 @@ private[backend] object AppendOnlySchema {
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
+        ),
+        "package_name" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.packageName.unsafe.internalize(dbDto.package_name)
         ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)

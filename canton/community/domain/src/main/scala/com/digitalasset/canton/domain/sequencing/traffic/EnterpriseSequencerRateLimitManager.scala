@@ -31,12 +31,14 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.EventCostCalculator
+import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
 class EnterpriseSequencerRateLimitManager(
-    balanceUpdateClient: BalanceUpdateClient,
+    @VisibleForTesting
+    private[canton] val balanceUpdateClient: BalanceUpdateClient,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,
@@ -229,6 +231,11 @@ class EnterpriseSequencerRateLimitManager(
   }
   override def balanceUpdateSubscriber: Option[SequencerTrafficControlSubscriber] =
     balanceUpdateClient.balanceUpdateSubscription
+
+  override def safeForPruning(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Unit =
+    balanceUpdateClient.safeForPruning(timestamp)
 }
 
 object EnterpriseSequencerRateLimitManager {
@@ -264,5 +271,6 @@ object EnterpriseSequencerRateLimitManager {
     ): FutureUnlessShutdown[Option[TrafficBalance]]
 
     def balanceUpdateSubscription: Option[SequencerTrafficControlSubscriber] = None
+    def safeForPruning(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Unit = {}
   }
 }

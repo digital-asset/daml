@@ -39,6 +39,7 @@ import com.digitalasset.canton.{
   LedgerParticipantId,
   LedgerSubmissionId,
   LedgerTransactionId,
+  LfPackageName,
   LfPartyId,
   LfTimestamp,
   LfWorkflowId,
@@ -435,6 +436,7 @@ object LedgerSyncEvent {
       submitter: Option[LfPartyId],
       contractId: LfContractId,
       templateId: Option[LfTemplateId],
+      packageName: LfPackageName,
       contractStakeholders: Set[LfPartyId],
       transferId: TransferId,
       targetDomain: TargetDomainId,
@@ -461,6 +463,7 @@ object LedgerSyncEvent {
       param("transferId", _.transferId),
       param("contractId", _.contractId),
       paramIfDefined("templateId", _.templateId),
+      param("packageName", _.packageName),
       param("target", _.targetDomain),
       paramIfDefined("transferInExclusivity", _.transferInExclusivity),
       paramIfDefined("workflowId", _.workflowId),
@@ -488,6 +491,7 @@ object LedgerSyncEvent {
               s"templateId should not be empty in transfer-id: $transferId"
             )
           ),
+          packageName = packageName,
           stakeholders = contractStakeholders.toList,
           assignmentExclusivity = transferInExclusivity,
         ),
