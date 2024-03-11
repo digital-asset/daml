@@ -105,6 +105,10 @@ message UnassignedEvent {
   // The parties that are notified of this event.
   // Required
   repeated string witness_parties = 9;
+
+  // The package name of the contract.
+  // Required
+  string package_name = 10;
 }
 
 // Records that a contract has been assigned, and it can be used on the target domain.

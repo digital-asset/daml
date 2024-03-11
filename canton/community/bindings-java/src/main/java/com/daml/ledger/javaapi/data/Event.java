@@ -26,6 +26,9 @@ public interface Event {
   Identifier getTemplateId();
 
   @NonNull
+  String getPackageName();
+
+  @NonNull
   String getContractId();
 
   default EventOuterClass.Event toProtoEvent() {

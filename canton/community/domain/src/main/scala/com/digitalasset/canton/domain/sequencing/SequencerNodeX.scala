@@ -53,7 +53,7 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TopUpEvent
-import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.util.{FutureUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
@@ -167,6 +167,12 @@ class SequencerNodeBootstrapX(
       arguments.metrics,
       arguments.parameterConfig.processingTimeouts,
       loggerFactory,
+    )
+
+    // Start auto pruning of traffic balances
+    FutureUtil.doNotAwaitUnlessShutdown(
+      balanceManager.startAutoPruning,
+      "Auto pruning of traffic balances",
     )
 
     // add initialization service

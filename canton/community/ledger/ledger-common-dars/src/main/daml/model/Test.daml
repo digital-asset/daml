@@ -22,6 +22,10 @@ template Dummy
       controller operator
       do assert False
 
+    nonconsuming choice DummyNonConsuming: ()
+      controller operator
+      do return ()
+
     nonconsuming choice Clone: ContractId Dummy
       controller operator
       do create Dummy with operator

@@ -335,6 +335,7 @@ private[platform] object InMemoryStateUpdater {
           contractId = exercise.targetCoid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = exercise.templateId,
+          packageName = exercise.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
@@ -387,7 +388,7 @@ private[platform] object InMemoryStateUpdater {
       offset = offset,
       events = events.toVector,
       completionDetails = completionDetails,
-      domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
+      domainId = Some(txAccepted.domainId.toProtoPrimitive),
       recordTime = txAccepted.recordTime,
     )
   }

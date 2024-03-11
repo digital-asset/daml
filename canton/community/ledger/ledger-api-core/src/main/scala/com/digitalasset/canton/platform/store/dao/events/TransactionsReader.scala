@@ -322,6 +322,7 @@ private[dao] object TransactionsReader {
       unassignId = rawUnassignEvent.unassignId,
       contractId = rawUnassignEvent.contractId,
       templateId = Some(LfEngineToApi.toApiIdentifier(rawUnassignEvent.templateId)),
+      packageName = rawUnassignEvent.packageName,
       source = rawUnassignEvent.sourceDomainId,
       target = rawUnassignEvent.targetDomainId,
       submitter = rawUnassignEvent.submitter.getOrElse(""),

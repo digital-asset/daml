@@ -16,16 +16,20 @@ public final class ArchivedEvent implements Event {
 
   private final Identifier templateId;
 
+  private final String packageName;
+
   private final String contractId;
 
   public ArchivedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
+      @NonNull String packageName,
       @NonNull String contractId) {
     this.witnessParties = witnessParties;
     this.eventId = eventId;
     this.templateId = templateId;
+    this.packageName = packageName;
     this.contractId = contractId;
   }
 
@@ -49,6 +53,12 @@ public final class ArchivedEvent implements Event {
 
   @NonNull
   @Override
+  public String getPackageName() {
+    return packageName;
+  }
+
+  @NonNull
+  @Override
   public String getContractId() {
     return contractId;
   }
@@ -61,13 +71,13 @@ public final class ArchivedEvent implements Event {
     return Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
         && Objects.equals(templateId, that.templateId)
+        && Objects.equals(packageName, that.packageName)
         && Objects.equals(contractId, that.contractId);
   }
 
   @Override
   public int hashCode() {
-
-    return Objects.hash(witnessParties, eventId, templateId, contractId);
+    return Objects.hash(witnessParties, eventId, templateId, packageName, contractId);
   }
 
   @Override
@@ -78,6 +88,8 @@ public final class ArchivedEvent implements Event {
         + ", eventId='"
         + eventId
         + '\''
+        + ", packageName="
+        + packageName
         + ", templateId="
         + templateId
         + ", contractId='"
@@ -91,6 +103,7 @@ public final class ArchivedEvent implements Event {
         .setContractId(getContractId())
         .setEventId(getEventId())
         .setTemplateId(getTemplateId().toProto())
+        .setPackageName(getPackageName())
         .addAllWitnessParties(this.getWitnessParties())
         .build();
   }
@@ -100,6 +113,7 @@ public final class ArchivedEvent implements Event {
         archivedEvent.getWitnessPartiesList(),
         archivedEvent.getEventId(),
         Identifier.fromProto(archivedEvent.getTemplateId()),
+        archivedEvent.getPackageName(),
         archivedEvent.getContractId());
   }
 }

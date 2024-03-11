@@ -559,18 +559,20 @@ trait SequencerStateManagerStoreTest
           _ <- store.acknowledge(bob, ts(6))
           statusBefore <- store.status()
           pruningTimestamp = statusBefore.safePruningTimestampFor(now)
-          eventCountBefore <- store.numberOfEvents()
+          eventsToBeDeleted <- store.numberOfEventsToBeDeletedByPruneAt(pruningTimestamp)
           result <- {
             logger.debug(s"Pruning sequencer state manager store from $pruningTimestamp")
             store.prune(pruningTimestamp)
           }
-          eventCountAfter <- store.numberOfEvents()
+          eventsToBeDeletedAfterPruning <- store.numberOfEventsToBeDeletedByPruneAt(
+            pruningTimestamp
+          )
           statusAfter <- store.status()
           lowerBound <- store.fetchLowerBound()
         } yield {
           result.eventsPruned shouldBe 3L
-          val eventsRemoved = eventCountBefore - eventCountAfter
-          eventsRemoved shouldBe 3L
+          eventsToBeDeleted shouldBe 3L
+          eventsToBeDeletedAfterPruning shouldBe 0L
           statusBefore.lowerBound shouldBe <(statusAfter.lowerBound)
           lowerBound.value shouldBe ts(6) // to prevent reads from before this point
           result.newMinimumCountersSupported shouldBe Map(

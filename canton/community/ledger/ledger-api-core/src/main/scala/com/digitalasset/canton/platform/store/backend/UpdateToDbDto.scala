@@ -283,6 +283,7 @@ object UpdateToDbDto {
                     event_id = EventId(u.transactionId, nodeId).toLedgerString,
                     contract_id = exercise.targetCoid.coid,
                     template_id = templateId,
+                    package_name = exercise.packageName,
                     flat_event_witnesses = flatWitnesses,
                     tree_event_witnesses = informees,
                     create_key_value = createKeyValue
@@ -364,6 +365,7 @@ object UpdateToDbDto {
                   submitter = u.reassignmentInfo.submitter,
                   contract_id = unassign.contractId.coid,
                   template_id = templateId,
+                  package_name = unassign.packageName,
                   flat_event_witnesses = flatEventWitnesses.toSet,
                   event_sequential_id = 0L, // this is filled later
                   source_domain_id = u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,

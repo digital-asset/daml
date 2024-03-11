@@ -1010,6 +1010,7 @@ private[store] final case class SerializableTransferredOut(
       submitter,
       contractId,
       templateId,
+      packageName,
       contractStakeholders,
       transferId,
       target,
@@ -1026,6 +1027,7 @@ private[store] final case class SerializableTransferredOut(
       recordTime = SerializableLfTimestamp(transferId.transferOutTimestamp.underlying).toProtoV30,
       contractId = contractId.toProtoPrimitive,
       templateId = templateId.map(_.toString).getOrElse(""),
+      packageName = packageName,
       contractStakeholders = contractStakeholders.toSeq,
       sourceDomain = transferId.sourceDomain.toProtoPrimitive,
       targetDomain = target.toProtoPrimitive,
@@ -1057,6 +1059,7 @@ private[store] object SerializableTransferredOut {
       isTransferringParticipant,
       hostedStakeholdersP,
       transferCounterP,
+      packageNameP,
     ) = transferOutP
 
     for {
@@ -1074,6 +1077,7 @@ private[store] object SerializableTransferredOut {
       )
       workflowId <- ProtoConverter.parseLFWorkflowIdO(workflowIdP)
       templateId <- ProtoConverter.parseTemplateIdO(templateIdP)
+      packageName <- ProtoConverter.parseLfPackageName(packageNameP)
       hostedStakeholders <- hostedStakeholdersP.traverse(ProtoConverter.parseLfPartyId)
     } yield LedgerSyncEvent.TransferredOut(
       updateId = updateId,
@@ -1081,6 +1085,7 @@ private[store] object SerializableTransferredOut {
       submitter = submitter,
       contractId = contractId,
       templateId = templateId,
+      packageName = packageName,
       contractStakeholders = contractStakeholders.toSet,
       transferId = TransferId(SourceDomainId(rawSourceDomainId), CantonTimestamp(recordTime)),
       targetDomain = TargetDomainId(rawTargetDomainId),

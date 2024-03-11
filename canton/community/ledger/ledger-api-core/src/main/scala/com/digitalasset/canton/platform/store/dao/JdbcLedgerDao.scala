@@ -268,7 +268,7 @@ private class JdbcLedgerDao(
                 recordTime = recordTime,
                 completionInfo = info,
                 reasonTemplate = reason,
-                domainId = DomainId.tryFromString("invalid::deadbeef"), // TODO(i15280)
+                domainId = DomainId.tryFromString("invalid::deadbeef"),
               )
             )
           ),
@@ -663,7 +663,7 @@ private class JdbcLedgerDao(
                 blindingInfoO = blindingInfoO,
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
-                domainId = DomainId.tryFromString("invalid::deadbeef"), // TODO(i15280)
+                domainId = DomainId.tryFromString("invalid::deadbeef"),
               )
             )
           ),

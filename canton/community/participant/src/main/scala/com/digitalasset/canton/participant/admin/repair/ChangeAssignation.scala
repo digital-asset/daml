@@ -345,6 +345,7 @@ private final class ChangeAssignation(
         submitter = None,
         contractId = contract.payload.contract.contractId,
         templateId = Option(contract.payload.contract.contractInstance.unversioned.template),
+        packageName = contract.payload.contract.contractInstance.unversioned.packageName,
         contractStakeholders = contract.payload.contract.metadata.stakeholders,
         transferId = transferId,
         targetDomain = targetDomainId,

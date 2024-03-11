@@ -344,10 +344,13 @@ class InMemorySequencerStateManagerStore(
     result.get
   }
 
-  override protected[state] def numberOfEvents()(implicit
+  override protected[state] def numberOfEventsToBeDeletedByPruneAt(
+      requestedTimestamp: CantonTimestamp
+  )(implicit
       traceContext: TraceContext
-  ): Future[Long] = Future.successful(state.get().indices.map(_._2.events.size).sum.toLong)
-
+  ): Future[Long] = Future.successful(
+    state.get().indices.map(_._2.events.count(_.timestamp < requestedTimestamp)).sum.toLong
+  )
   override def fetchLowerBound()(implicit
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] = Future.successful(state.get().pruningLowerBound)

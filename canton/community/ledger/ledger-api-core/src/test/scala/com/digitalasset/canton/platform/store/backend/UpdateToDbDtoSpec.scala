@@ -406,6 +406,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_key_value = None,
@@ -511,6 +512,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -636,6 +638,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeAId).toLedgerString,
           contract_id = exerciseNodeA.targetCoid.coid,
           template_id = exerciseNodeA.templateId.toString,
+          package_name = exerciseNodeA.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -672,6 +675,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeBId).toLedgerString,
           contract_id = exerciseNodeB.targetCoid.coid,
           template_id = exerciseNodeB.templateId.toString,
+          package_name = exerciseNodeB.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -705,6 +709,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeCId).toLedgerString,
           contract_id = exerciseNodeC.targetCoid.coid,
           template_id = exerciseNodeC.templateId.toString,
+          package_name = exerciseNodeC.packageName,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -881,6 +886,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
+          package_name = exerciseNode.packageName,
           flat_event_witnesses = Set("signatory", "observer"),
           tree_event_witnesses = Set("signatory", "observer", "divulgee"),
           create_key_value = None,
@@ -1025,6 +1031,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_id = EventId(transactionId, exerciseNodeId).toLedgerString,
         contract_id = exerciseNode.targetCoid.coid,
         template_id = exerciseNode.templateId.toString,
+        package_name = exerciseNode.packageName,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer", "divulgee"),
         create_key_value = None,
@@ -1572,6 +1579,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         reassignment = Reassignment.Unassign(
           contractId = contractId,
           templateId = createNode.templateId,
+          packageName = createNode.packageName,
           stakeholders =
             List("signatory12", "observer23", "asdasdasd").map(Ref.Party.assertFromString),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(123456)),
@@ -1588,6 +1596,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitter = someParty,
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
+        package_name = createNode.packageName,
         flat_event_witnesses = Set("signatory12", "observer23", "asdasdasd"),
         event_sequential_id = 0,
         source_domain_id = "x::domain1",

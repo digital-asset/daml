@@ -31,7 +31,6 @@ class TrafficStateController(
       implicit tc: TraceContext
   ): Unit = {
     metrics.trafficControl.topologyTransaction.updateValue(newBalance.value)
-    metrics.trafficControl.extraTrafficAvailable.updateValue(newBalance.value)
     val newState = currentTrafficState.updateAndGet {
       case Some(old) if old.timestamp <= timestamp =>
         old.state
@@ -45,6 +44,9 @@ class TrafficStateController(
           }
       case other => other
     }
+    newState
+      .map(_.state.extraTrafficRemainder.value)
+      .foreach(metrics.trafficControl.extraTrafficAvailable.updateValue)
     logger.debug(s"Updating traffic state after balance update to $newState")
   }
 

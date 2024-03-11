@@ -175,6 +175,7 @@ message TransferredOut {
   bool is_transferring_participant = 12;
   repeated string hosted_stakeholders = 13;
   int64 transfer_counter = 14;
+  string package_name = 15;
 }
 
 message TransferredIn {

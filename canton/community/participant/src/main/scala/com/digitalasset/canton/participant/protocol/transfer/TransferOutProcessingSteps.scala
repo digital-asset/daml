@@ -48,6 +48,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
+  LfPackageName,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
@@ -454,6 +455,7 @@ class TransferOutProcessingSteps(
         WithContractHash.fromContract(contract, fullTree.contractId),
         fullTree.transferCounter,
         contract.rawContractInstance.contractInstance.unversioned.template,
+        contract.rawContractInstance.contractInstance.unversioned.packageName,
         transferringParticipant,
         fullTree.submitterMetadata,
         transferId,
@@ -544,6 +546,7 @@ class TransferOutProcessingSteps(
       WithContractHash(contractId, contractHash),
       transferCounter,
       templateId,
+      packageName,
       transferringParticipant,
       submitterMetadata,
       transferId,
@@ -600,6 +603,7 @@ class TransferOutProcessingSteps(
           transferOutEvent <- createTransferredOut(
             contractId,
             templateId,
+            packageName,
             stakeholders,
             submitterMetadata,
             transferId,
@@ -631,6 +635,7 @@ class TransferOutProcessingSteps(
   private def createTransferredOut(
       contractId: LfContractId,
       templateId: LfTemplateId,
+      packageName: LfPackageName,
       contractStakeholders: Set[LfPartyId],
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
@@ -663,6 +668,7 @@ class TransferOutProcessingSteps(
       submitter = Option(submitterMetadata.submitter),
       contractId = contractId,
       templateId = Some(templateId),
+      packageName = packageName,
       contractStakeholders = contractStakeholders,
       transferId = transferId,
       targetDomain = targetDomain,
@@ -768,6 +774,7 @@ object TransferOutProcessingSteps {
       contractIdAndHash: WithContractHash[LfContractId],
       transferCounter: TransferCounter,
       templateId: LfTemplateId,
+      packageName: LfPackageName,
       transferringParticipant: Boolean,
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,

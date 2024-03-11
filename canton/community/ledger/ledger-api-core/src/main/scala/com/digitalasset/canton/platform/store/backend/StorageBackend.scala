@@ -403,6 +403,7 @@ object EventStorageBackend {
       reassignmentCounter: Long,
       contractId: String,
       templateId: Identifier,
+      packageName: PackageName,
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
       traceContext: Option[Array[Byte]],

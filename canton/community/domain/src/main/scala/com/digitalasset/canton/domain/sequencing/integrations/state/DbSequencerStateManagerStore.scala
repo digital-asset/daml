@@ -487,18 +487,20 @@ class DbSequencerStateManagerStore(
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[PruningResult] = for {
-    numberOfEventsBefore <- numberOfEvents()
+    numberOfEventsToBeDeleted <- numberOfEventsToBeDeletedByPruneAt(requestedTimestamp)
     _ <- pruneEvents(requestedTimestamp)
     min <- minCounters
-    numberOfEventsAfter <- numberOfEvents()
-    numberOfDeletions = numberOfEventsBefore - numberOfEventsAfter
-  } yield PruningResult(numberOfDeletions, min)
+  } yield PruningResult(numberOfEventsToBeDeleted, min)
 
-  override protected[state] def numberOfEvents()(implicit
+  override protected[state] def numberOfEventsToBeDeletedByPruneAt(
+      requestedTimestamp: CantonTimestamp
+  )(implicit
       traceContext: TraceContext
-  ): Future[Long] =
-    storage.query(
-      sql"select count(*) from seq_state_manager_events".as[Long].head,
+  ): Future[Long] = storage
+    .query(
+      sql"select count(*) from seq_state_manager_events where ts < $requestedTimestamp"
+        .as[Long]
+        .head,
       functionFullName,
     )
 
