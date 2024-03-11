@@ -105,6 +105,7 @@ da_scala_test(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/stable-packages",
         "//language-support/codegen-common",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",

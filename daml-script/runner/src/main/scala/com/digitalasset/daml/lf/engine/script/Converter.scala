@@ -10,11 +10,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageMajorVersion.V2
-import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
+import com.daml.lf.language.LanguageMajorVersion
 import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, SValue}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.Value

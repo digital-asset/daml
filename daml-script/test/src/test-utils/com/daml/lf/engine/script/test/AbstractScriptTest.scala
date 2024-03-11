@@ -12,8 +12,9 @@ import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
-import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackages}
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.speedy.{ArrayList, SValue}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.value.Value
 import org.scalatest.Suite
 

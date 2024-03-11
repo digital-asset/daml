@@ -10,7 +10,8 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.typesig._
 import com.daml.lf.codegen.conf.PackageReference
-import com.daml.lf.language.{Reference, StablePackagesV2}
+import com.daml.lf.language.Reference
+import com.daml.lf.stablepackages.StablePackagesV2
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 

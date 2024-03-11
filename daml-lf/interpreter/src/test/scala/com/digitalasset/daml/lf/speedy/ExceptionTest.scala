@@ -7,12 +7,13 @@ package speedy
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SParty, SUnit}
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.testing.parser
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters

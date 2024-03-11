@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package archive
+package stablepackages
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
+import com.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.lf.language.LanguageMajorVersion
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -34,7 +35,7 @@ class StablePackageTest(majorLanguageVersion: LanguageMajorVersion)
 
     // We rely on the fact a dar generated with target x.dev contains all the stable packages
     lazy val darFile =
-      resource(rlocation(s"daml-lf/archive/DarReaderTest-v${majorLanguageVersion.pretty}dev.dar"))
+      resource(rlocation(s"daml-lf/stable-packages/Simple-v${majorLanguageVersion.pretty}dev.dar"))
     lazy val depPkgs = UniversalArchiveDecoder.assertReadFile(darFile).dependencies.toMap
 
     // This should be all stable packages + `daml-prim` + `daml-stdlib`
