@@ -385,7 +385,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       Symbol("owner") ->> VA.party ::
       Symbol("currency") ->> VA.text ::
       Symbol("amount") ->> VA.numeric(Scale assertFromInt 10) ::
-      Symbol("observers") ->> VA.list(VA.party) ::
+      Symbol("observers") ->> VA.list(VAx.partyDomain) ::
       RNil
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
@@ -417,6 +417,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       partyName: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      observers: Vector[domain.Party] = Vector.empty,
       meta: Option[domain.CommandMeta] = None,
   ): domain.CreateCommand[v.Record, OptionalPkg] = {
     val party = Ref.Party assertFromString partyName.unwrap
@@ -426,7 +427,7 @@ trait AbstractHttpServiceIntegrationTestFuns
         owner = party,
         currency = currency,
         amount = LfNumeric assertFromString amount,
-        observers = Vector.empty,
+        observers = observers,
       )
     )
 
