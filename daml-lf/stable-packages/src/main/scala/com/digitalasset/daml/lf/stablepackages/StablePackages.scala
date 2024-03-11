@@ -24,7 +24,7 @@ private[daml] sealed case class StablePackage(
     identifier(Ref.DottedName.assertFromString(idName))
 }
 
-private[daml] sealed trait StablePackages {
+private[daml] sealed abstract class StablePackages {
   val allPackages: Seq[StablePackage]
 
   val ArithmeticError: Ref.TypeConName
