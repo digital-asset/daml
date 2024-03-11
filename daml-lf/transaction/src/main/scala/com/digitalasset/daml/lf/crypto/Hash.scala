@@ -302,44 +302,8 @@ object Hash {
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
-  // TODO(#18599) remove/deprecate non package based construction
-  @throws[HashingError]
-  def assertHashContractKey(templateId: Ref.Identifier, key: Value, shared: Boolean): Hash = {
-    _assertHashContractKey(templateId, key, shared)
-  }
-
-  @throws[HashingError]
-  private def _assertHashContractKey(
-      templateId: Ref.Identifier,
-      key: Value,
-      shared: Boolean,
-  ): Hash = {
-    val hashBuilder = builder(Purpose.ContractKey, noCid2String)
-    (if (shared) {
-       val sharedPackageIdLength = 0 // To ensure there cannot be a hash collision
-       hashBuilder.add(sharedPackageIdLength).addQualifiedName(templateId.qualifiedName)
-     } else {
-       hashBuilder.addIdentifier(templateId)
-     }).addTypedValue(key).build
-  }
-
-  private val usePackageBasedHashing = false // Until canton is updated to use new constructor
-
   @throws[HashingError]
   def assertHashContractKey(
-      templateId: Ref.Identifier,
-      key: Value,
-      packageName: KeyPackageName,
-  ): Hash = {
-    if (usePackageBasedHashing) {
-      _assertHashContractKey(templateId, key, packageName)
-    } else {
-      _assertHashContractKey(templateId, key, packageName.toOption.isDefined)
-    }
-  }
-
-  @throws[HashingError]
-  private def _assertHashContractKey(
       templateId: Ref.Identifier,
       key: Value,
       packageName: KeyPackageName,
@@ -351,14 +315,6 @@ object Hash {
       case NoPackageName => hashBuilder.addIdentifier(templateId)
     }).addTypedValue(key).build
   }
-
-  // TODO(#18599) remove/deprecate non package based construction
-  def hashContractKey(
-      templateId: Ref.Identifier,
-      key: Value,
-      shared: Boolean,
-  ): Either[HashingError, Hash] =
-    handleError(assertHashContractKey(templateId, key, shared))
 
   def hashContractKey(
       templateId: Ref.Identifier,

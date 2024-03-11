@@ -63,21 +63,6 @@ object GlobalKey {
       .hashContractKey(templateId, key, packageName)
       .map(new GlobalKey(templateId, key, packageName.toOption, _))
 
-  // TODO(#18599) remove/deprecate non package based construction
-  def build(
-      templateId: Ref.TypeConName,
-      key: Value,
-      shared: Boolean,
-  ): Either[crypto.Hash.HashingError, GlobalKey] =
-    crypto.Hash
-      .hashContractKey(templateId, key, shared)
-      .map(new GlobalKey(templateId, key, None, _))
-
-  // Like `build` but,  in case of error, throws an exception instead of returning a message.
-  // TODO(#18599) remove/deprecate non package based construction
-  def assertBuild(templateId: Ref.TypeConName, key: Value, shared: Boolean): GlobalKey =
-    data.assertRight(build(templateId, key, shared).left.map(_.msg))
-
   def assertBuild(
       templateId: Ref.TypeConName,
       key: Value,
@@ -87,10 +72,6 @@ object GlobalKey {
 
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
     Some((globalKey.templateId, globalKey.key))
-
-  // TODO(#18599) remove/deprecate non package based construction
-  def isShared(key: GlobalKey): Boolean =
-    Hash.hashContractKey(key.templateId, key.key, shared = true) == Right(key.hash)
 
 }
 
@@ -103,15 +84,6 @@ final case class GlobalKeyWithMaintainers(
 
 object GlobalKeyWithMaintainers {
 
-  // TODO(#18599) remove/deprecate non package based construction
-  def assertBuild(
-      templateId: Ref.TypeConName,
-      value: Value,
-      maintainers: Set[Ref.Party],
-      shared: Boolean,
-  ): GlobalKeyWithMaintainers =
-    data.assertRight(build(templateId, value, maintainers, shared).left.map(_.msg))
-
   def assertBuild(
       templateId: Ref.TypeConName,
       value: Value,
@@ -119,15 +91,6 @@ object GlobalKeyWithMaintainers {
       packageName: KeyPackageName,
   ): GlobalKeyWithMaintainers =
     data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
-
-  // TODO(#18599) remove/deprecate non package based construction
-  def build(
-      templateId: Ref.TypeConName,
-      value: Value,
-      maintainers: Set[Ref.Party],
-      shared: Boolean,
-  ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
-    GlobalKey.build(templateId, value, shared).map(GlobalKeyWithMaintainers(_, maintainers))
 
   def build(
       templateId: Ref.TypeConName,
