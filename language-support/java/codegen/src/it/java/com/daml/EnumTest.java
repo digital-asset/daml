@@ -18,7 +18,7 @@ public class EnumTest {
   @Test
   void roundtripFooValue() {
     FooBar expected = FooBar.FOO;
-    FooBar actual = FooBar.fromValue(expected.toValue());
+    FooBar actual = FooBar.valueDecoder().decode(expected.toValue());
     assertEquals(expected, actual);
   }
 
@@ -32,7 +32,7 @@ public class EnumTest {
   @Test
   void roundtripAllUpperCaseValue() {
     ALLUPPERCASE expected = ALLUPPERCASE.ALLUPPERCASE;
-    ALLUPPERCASE actual = ALLUPPERCASE.fromValue(expected.toValue());
+    ALLUPPERCASE actual = ALLUPPERCASE.valueDecoder().decode(expected.toValue());
     assertEquals(expected, actual);
   }
 

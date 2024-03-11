@@ -21,7 +21,7 @@ public class UpgradeTest {
     DamlRecord record =
         new DamlRecord(
             new DamlRecord.Field(new Text("abc")), new DamlRecord.Field(new Text("def")));
-    NoOptional actual = NoOptional.fromValue(record);
+    NoOptional actual = NoOptional.valueDecoder().decode(record);
 
     NoOptional expected = new NoOptional("abc", "def");
 
@@ -36,7 +36,7 @@ public class UpgradeTest {
             new DamlRecord.Field(new Text("def")),
             new DamlRecord.Field(DamlOptional.EMPTY),
             new DamlRecord.Field(DamlOptional.EMPTY));
-    NoOptional actual = NoOptional.fromValue(record);
+    NoOptional actual = NoOptional.valueDecoder().decode(record);
 
     NoOptional expected = new NoOptional("abc", "def");
 
@@ -50,7 +50,7 @@ public class UpgradeTest {
             new DamlRecord.Field(new Text("abc")),
             new DamlRecord.Field(new Text("def")),
             new DamlRecord.Field(DamlOptional.of(Unit.getInstance())));
-    assertThrows(IllegalArgumentException.class, () -> NoOptional.fromValue(record));
+    assertThrows(IllegalArgumentException.class, () -> NoOptional.valueDecoder().decode(record));
   }
 
   @Test
@@ -60,7 +60,7 @@ public class UpgradeTest {
             new DamlRecord.Field(new Text("abc")),
             new DamlRecord.Field(new Text("def")),
             new DamlRecord.Field(Unit.getInstance()));
-    assertThrows(IllegalArgumentException.class, () -> NoOptional.fromValue(record));
+    assertThrows(IllegalArgumentException.class, () -> NoOptional.valueDecoder().decode(record));
   }
 
   @Test
@@ -68,7 +68,7 @@ public class UpgradeTest {
     DamlRecord record =
         new DamlRecord(
             new DamlRecord.Field(new Text("abc")), new DamlRecord.Field(new Text("def")));
-    OptionalAtEnd actual = OptionalAtEnd.fromValue(record);
+    OptionalAtEnd actual = OptionalAtEnd.valueDecoder().decode(record);
     OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.empty(), Optional.empty());
     assertEquals(actual, expected);
   }
@@ -80,7 +80,7 @@ public class UpgradeTest {
             new DamlRecord.Field(new Text("abc")),
             new DamlRecord.Field(new Text("def")),
             new DamlRecord.Field(DamlOptional.of(new Text("ghi"))));
-    OptionalAtEnd actual = OptionalAtEnd.fromValue(record);
+    OptionalAtEnd actual = OptionalAtEnd.valueDecoder().decode(record);
     OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.of("ghi"), Optional.empty());
     assertEquals(actual, expected);
   }
@@ -88,7 +88,7 @@ public class UpgradeTest {
   @Test
   void upgradeNonOptionalFields() {
     DamlRecord record = new DamlRecord(new DamlRecord.Field(new Text("abc")));
-    assertThrows(IllegalArgumentException.class, () -> NoOptional.fromValue(record));
+    assertThrows(IllegalArgumentException.class, () -> NoOptional.valueDecoder().decode(record));
   }
 
   @Test
@@ -105,7 +105,8 @@ public class UpgradeTest {
   void newMatchVariant() {
     Variant variant = new Variant("MyVariant3", new Text("abc"));
     Exception exception =
-        assertThrows(IllegalArgumentException.class, () -> MyVariant.fromValue(variant));
+        assertThrows(
+            IllegalArgumentException.class, () -> MyVariant.valueDecoder().decode(variant));
     assertTrue(
         exception
             .getMessage()
@@ -118,7 +119,7 @@ public class UpgradeTest {
   @Test
   void exactMatchEnum() {
     DamlEnum damlenum = new DamlEnum("MyEnum1");
-    MyEnum actual = MyEnum.fromValue(damlenum);
+    MyEnum actual = MyEnum.valueDecoder().decode(damlenum);
 
     MyEnum expected = MyEnum.MYENUM1;
 
@@ -129,7 +130,7 @@ public class UpgradeTest {
   void newMatchEnum() {
     DamlEnum damlenum = new DamlEnum("MyEnum3");
     Exception exception =
-        assertThrows(IllegalArgumentException.class, () -> MyEnum.fromValue(damlenum));
+        assertThrows(IllegalArgumentException.class, () -> MyEnum.valueDecoder().decode(damlenum));
     System.out.println(exception);
     assertTrue(
         exception

@@ -27,7 +27,6 @@ private[inner] object VariantRecordClass extends StrictLogging {
       val (methods, staticImports) = VariantRecordMethods(
         name,
         fields,
-        superclass,
         className.parameterized(typeParameters),
         typeParameters,
       )

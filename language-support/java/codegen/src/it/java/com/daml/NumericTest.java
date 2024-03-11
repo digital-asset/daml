@@ -46,7 +46,7 @@ public class NumericTest {
     fieldsList.add(new DamlRecord.Field("numeric37", new Numeric(numeric37Value())));
     fieldsList.add(new DamlRecord.Field("nestedBox", new Variant("Nested", nestedRecord)));
     Value value = new DamlRecord(fieldsList);
-    NumericBox record = NumericBox.fromValue(value);
+    NumericBox record = NumericBox.valueDecoder().decode(value);
     checkRecord(record);
     assertTrue(
         "to value uses original Daml-LF names for fields",
@@ -154,10 +154,10 @@ public class NumericTest {
             .build();
 
     Value value = Value.fromProto(protoValue);
-    NumericBox fromValue = NumericBox.fromValue(value);
+    NumericBox fromValue = NumericBox.valueDecoder().decode(value);
     NumericBox fromConstructor = numericBox();
     NumericBox fromRoundTrip =
-        NumericBox.fromValue(Value.fromProto(fromConstructor.toValue().toProto()));
+        NumericBox.valueDecoder().decode(Value.fromProto(fromConstructor.toValue().toProto()));
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), value);
