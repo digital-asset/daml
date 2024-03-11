@@ -40,7 +40,6 @@ jobs:
         else
           setvar skip false
         fi
-      name: check-arm-needed
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: linux-intel-release
