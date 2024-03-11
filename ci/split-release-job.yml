@@ -34,11 +34,10 @@ jobs:
           echo "Setting '$1' to '$2'"
           echo "##vso[task.setvariable variable=$1]$2"
         }
-        if ([ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]) \
-          && ([ "$major" = "2" ] && [ "$minor" -lt "9" ]); then
-          setvar skip true
+        if [ "$major" = "2" ] && [ "$minor" -lt "9" ]; then
+          setvar skip_arm true
         else
-          setvar skip false
+          setvar skip_arm false
         fi
     - task: DownloadPipelineArtifact@0
       inputs:
@@ -50,7 +49,7 @@ jobs:
         artifactName: linux-arm-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(),
-                     not(eq(variables.skip, 'true')),
+                     not(eq(variables.skip_arm, 'true')),
                      not(eq(variables['skip-github'], 'TRUE')))
     - task: DownloadPipelineArtifact@0
       inputs:
