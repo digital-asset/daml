@@ -644,7 +644,21 @@ abstract class UpgradesSpec(val suffix: String)
     cantonLogSrc should include(
       s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
     )
-    uploadV2Result should be(empty)
+    if (uploadSecondPackageDryRun) {
+      uploadV2Result match {
+        case None =>
+          fail(s"Dry run should prevent upload of second package $testPackageV2Id but didn't.");
+        case Some(err) => {
+          val msg = err.toString
+          msg should include("DAR_DONT_UPLOAD_DUE_TO_DRY_RUN")
+          msg should include(
+            "The DAR will not be uploaded because dry run is set in UploadDarRequest"
+          )
+        }
+      }
+    } else {
+      uploadV2Result should be(empty)
+    }
   }
 
   def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
