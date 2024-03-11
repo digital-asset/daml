@@ -258,18 +258,28 @@ object TransactionGenerator {
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {
     eventId <- nonEmptyId
+    pkgName <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
     parties <- Gen.listOf(nonEmptyId)
   } yield (
-    Archived(ArchivedEvent(eventId, contractId, Some(scalaTemplateId), parties)),
-    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, contractId),
+    Archived(
+      ArchivedEvent(
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        witnessParties = parties,
+        packageName = pkgName,
+      )
+    ),
+    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, pkgName, contractId),
   )
 
   val exercisedEventGen: Gen[(Exercised, data.ExercisedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
+    pkgName <- nonEmptyId
     mbInterfaceId <- Gen.option(identifierGen)
     scalaInterfaceId = mbInterfaceId.map(_._1)
     javaInterfaceId = mbInterfaceId.map(_._2)
@@ -283,23 +293,25 @@ object TransactionGenerator {
   } yield (
     Exercised(
       ExercisedEvent(
-        eventId,
-        contractId,
-        Some(scalaTemplateId),
-        scalaInterfaceId,
-        choice,
-        Some(scalaChoiceArgument),
-        actingParties,
-        consuming,
-        witnessParties,
-        Nil,
-        Some(scalaExerciseResult),
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        interfaceId = scalaInterfaceId,
+        choice = choice,
+        choiceArgument = Some(scalaChoiceArgument),
+        actingParties = actingParties,
+        consuming = consuming,
+        witnessParties = witnessParties,
+        childEventIds = Nil,
+        exerciseResult = Some(scalaExerciseResult),
+        packageName = pkgName,
       )
     ),
     new data.ExercisedEvent(
       witnessParties.asJava,
       eventId,
       javaTemplateId,
+      pkgName,
       javaInterfaceId.toJava,
       contractId,
       choice,
