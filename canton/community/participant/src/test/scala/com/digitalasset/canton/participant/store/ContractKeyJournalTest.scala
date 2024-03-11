@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
-import com.daml.lf.transaction.Util
 import com.daml.lf.value.Value.ValueInt64
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.ContractKeyJournal.{
@@ -18,7 +17,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.LfGlobalKey
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.LfTransactionBuilder.defaultLanguageVersion
+import com.digitalasset.canton.util.LfTransactionBuilder.defaultKeyPackageName
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{LfTransactionBuilder, MonadUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -267,6 +266,6 @@ object ContractKeyJournalTest {
     LfGlobalKey.assertBuild(
       LfTransactionBuilder.defaultTemplateId,
       ValueInt64(keyIndex),
-      Util.sharedKey(defaultLanguageVersion),
+      defaultKeyPackageName,
     )
 }

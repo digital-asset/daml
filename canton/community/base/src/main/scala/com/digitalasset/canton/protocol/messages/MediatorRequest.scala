@@ -5,7 +5,12 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{Informee, ViewPosition, ViewType}
+import com.digitalasset.canton.data.{
+  ConfirmingParty,
+  ViewConfirmationParameters,
+  ViewPosition,
+  ViewType,
+}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash}
 import com.digitalasset.canton.topology.MediatorRef
@@ -17,17 +22,15 @@ trait MediatorRequest extends ProtocolMessage with UnsignedProtocolMessage {
 
   def mediator: MediatorRef
 
-  def informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)]
+  def informeesAndConfirmationParamsByViewHash: Map[ViewHash, ViewConfirmationParameters]
 
-  def informeesAndThresholdByViewPosition: Map[ViewPosition, (Set[Informee], NonNegativeInt)]
+  def informeesAndConfirmationParamsByViewPosition: Map[ViewPosition, ViewConfirmationParameters]
 
   def allInformees: Set[LfPartyId] =
-    informeesAndThresholdByViewPosition
-      .flatMap { case (_, (informees, _)) =>
+    informeesAndConfirmationParamsByViewPosition.flatMap {
+      case (_, ViewConfirmationParameters(informees, _)) =>
         informees
-      }
-      .map(_.party)
-      .toSet
+    }.toSet
 
   def createMediatorResult(
       requestId: RequestId,
@@ -35,7 +38,7 @@ trait MediatorRequest extends ProtocolMessage with UnsignedProtocolMessage {
       recipientParties: Set[LfPartyId],
   ): MediatorResult with SignedProtocolMessageContent
 
-  def minimumThreshold(informees: Set[Informee]): NonNegativeInt
+  def minimumThreshold(confirmingParties: Set[ConfirmingParty]): NonNegativeInt
 
   /** Returns the hash that all [[com.digitalasset.canton.protocol.messages.RootHashMessage]]s of the request batch should contain.
     * [[scala.None$]] indicates that no [[com.digitalasset.canton.protocol.messages.RootHashMessage]] should be in the batch.

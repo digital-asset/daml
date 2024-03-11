@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.protocol
 
-import com.daml.lf.transaction.Versioned
+import com.daml.lf.crypto.Hash.KeyPackageName
+import com.daml.lf.transaction.{GlobalKey, Versioned}
+import com.daml.lf.value.Value.ValueInt64
+import com.daml.lf.value.test.ValueGenerators.{pkgNameGen, transactionVersionGen}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
@@ -240,14 +243,42 @@ final class GeneratorsProtocol(
       serializableContractArb(canHaveEmptyKey = true).arbitrary
   )
 
+  implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] = Arbitrary(
+    if (protocolVersion >= ProtocolVersion.v6)
+      transactionVersionGen()
+    else
+      transactionVersionGen(maxVersion = Some(LfTransactionVersion.V15))
+  )
+
+  implicit val lfVersionedGlobalKeyArb: Arbitrary[Versioned[LfGlobalKey]] = Arbitrary(
+    for {
+      templateId <- lfTemplateIdArb.arbitrary
+      version <- lfTransactionVersionArb.arbitrary
+      packageName <- pkgNameGen(version)
+      key <- Gen.long.map(ValueInt64)
+    } yield Versioned(
+      version,
+      GlobalKey.assertBuild(templateId, key, KeyPackageName(packageName, version)),
+    )
+  )
+
   implicit val globalKeyWithMaintainersArb: Arbitrary[Versioned[LfGlobalKeyWithMaintainers]] =
     Arbitrary(
       for {
+        templateId <- lfTemplateIdArb.arbitrary
+        version <- lfTransactionVersionArb.arbitrary
+        packageName <- pkgNameGen(version)
+        key <- Gen.long.map(ValueInt64)
         maintainers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-        key <- Arbitrary.arbitrary[LfGlobalKey]
-      } yield ExampleTransactionFactory.globalKeyWithMaintainers(
-        key,
-        maintainers,
+        keyPackageName = KeyPackageName.assertBuild(packageName, version)
+      } yield Versioned(
+        version,
+        LfGlobalKeyWithMaintainers.assertBuild(
+          templateId,
+          key,
+          maintainers,
+          keyPackageName,
+        ),
       )
     )
 

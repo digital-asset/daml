@@ -32,7 +32,7 @@ object CantonNodeParameters {
     def nonStandardConfig: Boolean
     def dbMigrateAndStart: Boolean
     def skipTopologyManagerSignatureValidation: Boolean
-
+    def exitOnFatalFailures: Boolean
   }
   object General {
     final case class Impl(
@@ -49,6 +49,7 @@ object CantonNodeParameters {
         nonStandardConfig: Boolean,
         dbMigrateAndStart: Boolean,
         skipTopologyManagerSignatureValidation: Boolean,
+        exitOnFatalFailures: Boolean,
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -87,6 +88,7 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def dbMigrateAndStart: Boolean = general.dbMigrateAndStart
   override def skipTopologyManagerSignatureValidation: Boolean =
     general.skipTopologyManagerSignatureValidation
+  override def exitOnFatalFailures: Boolean = general.exitOnFatalFailures
 
 }
 

@@ -11,6 +11,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
+import com.digitalasset.canton.data.ViewConfirmationParameters.InvalidViewConfirmationParameters
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.v2.SubmitterInfo
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -301,7 +302,7 @@ abstract class TransactionTreeFactoryImpl(
         rootViewDecomposition: TransactionViewDecomposition.NewView,
         parentInformee: Set[LfPartyId],
     ): Map[LfPartyId, Set[PackageId]] = {
-      val rootInformees = rootViewDecomposition.informees.map(_.party)
+      val rootInformees = rootViewDecomposition.viewConfirmationParameters.informees
       val allInformees = parentInformee ++ rootInformees
       val childRequirements =
         rootViewDecomposition.tailNodes.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) {
@@ -483,8 +484,12 @@ abstract class TransactionTreeFactoryImpl(
   protected def createViewCommonData(
       rootView: TransactionViewDecomposition.NewView,
       salt: Salt,
-  ): ViewCommonData =
-    ViewCommonData.create(cryptoOps)(rootView.informees, rootView.threshold, salt, protocolVersion)
+  ): Either[InvalidViewConfirmationParameters, ViewCommonData] =
+    ViewCommonData.create(cryptoOps)(
+      rootView.viewConfirmationParameters,
+      salt,
+      protocolVersion,
+    )
 
   protected def createViewParticipantData(
       coreCreatedNodes: List[(LfNodeCreate, RollbackScope)],

@@ -22,7 +22,7 @@ import com.digitalasset.canton.platform.apiserver.TimedIndexService
 import com.digitalasset.canton.platform.common.{MismatchException, ParticipantIdNotFoundException}
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.store.DbSupport
-import com.digitalasset.canton.platform.store.cache.{PackageLanguageVersionCache, *}
+import com.digitalasset.canton.platform.store.cache.*
 import com.digitalasset.canton.platform.store.dao.events.{
   BufferedTransactionsReader,
   CachedEventsReader,
@@ -68,8 +68,8 @@ final class IndexServiceOwner(
       contractLoader = contractLoader,
     )
 
-    val packageLanguageVersionCache =
-      new PackageLanguageVersionCache(ledgerDao, metrics, loggerFactory)(servicesExecutionContext)
+    val keyPackageNameCache =
+      new KeyPackageNameCache(ledgerDao, metrics, loggerFactory)(servicesExecutionContext)
 
     for {
       _ <- Resource.fromFuture(verifyParticipantId(ledgerDao))
@@ -138,7 +138,7 @@ final class IndexServiceOwner(
         },
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
-        packageLanguageVersionCache = packageLanguageVersionCache,
+        keyPackageNameCache = keyPackageNameCache,
         metrics = metrics,
         loggerFactory = loggerFactory,
       )

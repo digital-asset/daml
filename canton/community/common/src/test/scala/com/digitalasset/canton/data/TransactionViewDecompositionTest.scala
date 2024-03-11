@@ -72,11 +72,12 @@ class TransactionViewDecompositionTest
         val informees =
           Set[Informee](ConfirmingParty(signatory, PositiveInt.one, TrustLevel.Ordinary))
         val rootSeed = ExampleTransactionFactory.lfHash(-1)
+        val viewConfirmationParameters =
+          ViewConfirmationParameters.create(informees, NonNegativeInt.one)
         val child =
           NewView(
             node,
-            informees,
-            NonNegativeInt.one,
+            viewConfirmationParameters,
             Some(rootSeed),
             LfNodeId(0),
             Seq.empty,
@@ -86,8 +87,7 @@ class TransactionViewDecompositionTest
         an[IllegalArgumentException] should be thrownBy
           NewView(
             node,
-            informees,
-            NonNegativeInt.one,
+            viewConfirmationParameters,
             Some(rootSeed),
             LfNodeId(0),
             Seq(child),
@@ -172,15 +172,17 @@ class TransactionViewDecompositionTest
       object tif extends TestIdFactory
       val node = exerciseNode(tif.newCid, signatories = Set.empty)
       val sameView = SameView(node, LfNodeId(0), RollbackContext.empty)
-      var nextThreshold: NonNegativeInt = NonNegativeInt.zero
+      var nextThreshold = NonNegativeInt.zero
       def newView(children: TransactionViewDecomposition*): NewView = {
         // Trick: Use unique thresholds to get around NewView nesting check
         // that requires informees or thresholds to differ.
         nextThreshold = nextThreshold + NonNegativeInt.one
         NewView(
           node,
-          Set.empty,
-          nextThreshold,
+          ViewConfirmationParameters.tryCreate(
+            Set.empty,
+            Seq(Quorum.create(Set.empty, nextThreshold)),
+          ),
           None,
           LfNodeId(0),
           children,
@@ -285,7 +287,7 @@ object RollbackDecomposition {
         case view: NewView =>
           RbNewTree(
             view.rbContext.enterRollback.rollbackScope.toList,
-            view.informees.map(_.party),
+            view.viewConfirmationParameters.informees,
             rollbackDecomposition(view.tailNodes),
           )
         case view: SameView =>

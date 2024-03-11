@@ -12,7 +12,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewConfirmationParameters, ViewType}
 import com.digitalasset.canton.domain.mediator.store.MediatorState
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
@@ -243,7 +243,7 @@ private[mediator] class ConfirmationResponseProcessor(
             } yield {
               timeTracker.requestTick(participantResponseDeadline)
               logger.info(
-                show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndThresholdByViewHash.size} view(s). Initial state: ${aggregation.showMergedState}"
+                show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndConfirmationParamsByViewHash.size} view(s). Initial state: ${aggregation.showMergedState}"
               )
             }
 
@@ -475,15 +475,19 @@ private[mediator] class ConfirmationResponseProcessor(
       request: MediatorRequest,
   )(implicit loggingContext: ErrorLoggingContext): Either[MediatorVerdict.MediatorReject, Unit] = {
 
-    request.informeesAndThresholdByViewPosition.toSeq
-      .traverse_ { case (viewPosition, (informees, threshold)) =>
-        val minimumThreshold = request.minimumThreshold(informees)
+    request.informeesAndConfirmationParamsByViewPosition.toSeq
+      .traverse_ { case (viewPosition, ViewConfirmationParameters(informees, quorums)) =>
+        // TODO(#15294): support multiple quorums
+        val quorum = quorums(0)
+        val minimumThreshold =
+          request.minimumThreshold(quorum.getConfirmingParties)
+        val viewMinimumThreshold = quorum.threshold
         EitherUtil.condUnitE(
-          threshold >= minimumThreshold,
+          viewMinimumThreshold >= minimumThreshold,
           MediatorVerdict.MediatorReject(
             MediatorError.MalformedMessage
               .Reject(
-                s"Received a mediator request with id $requestId having threshold $threshold for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of $minimumThreshold. Rejecting request...",
+                s"Received a mediator request with id $requestId having threshold $viewMinimumThreshold for transaction view at $viewPosition, which is below the confirmation policy's minimum threshold of $minimumThreshold. Rejecting request...",
                 v0.MediatorRejection.Code.ViewThresholdBelowMinimumThreshold,
               )
               .reported()
@@ -499,11 +503,12 @@ private[mediator] class ConfirmationResponseProcessor(
   )(implicit
       loggingContext: ErrorLoggingContext
   ): EitherT[Future, MediatorVerdict.MediatorReject, Unit] = {
-    request.informeesAndThresholdByViewPosition.toList
-      .parTraverse_ { case (viewPosition, (informees, threshold)) =>
+    request.informeesAndConfirmationParamsByViewPosition.toList
+      .parTraverse_ { case (viewPosition, ViewConfirmationParameters(_, quorums)) =>
         // sorting parties to get deterministic error messages
-        val declaredConfirmingParties =
-          informees.collect { case p: ConfirmingParty => p }.toSeq.sortBy(_.party)
+        // TODO(#15294): support multiple quorums
+        val quorum = quorums(0)
+        val declaredConfirmingParties = quorum.getConfirmingParties.toSeq.sortBy(_.party)
 
         for {
           partitionedConfirmingParties <- EitherT.right[MediatorVerdict.MediatorReject](
@@ -519,9 +524,10 @@ private[mediator] class ConfirmationResponseProcessor(
           )
 
           (unauthorized, authorized) = partitionedConfirmingParties.separate
-
+          // TODO(#15294): support multiple quorums
+          confirmed = authorized.map(_.weight.unwrap).sum >= quorum.threshold.unwrap
           _ <- EitherTUtil.condUnitET[Future](
-            authorized.map(_.weight.unwrap).sum >= threshold.value, {
+            confirmed, {
               // This partitioning is correct, because a VIP hosted party can always confirm.
               // So if the required trust level is VIP, the problem must be the actual trust level.
               val (insufficientTrustLevel, insufficientPermission) =
@@ -542,7 +548,7 @@ private[mediator] class ConfirmationResponseProcessor(
               val rejection = MediatorError.MalformedMessage
                 .Reject(
                   s"Received a mediator request with id $requestId with insufficient authorized confirming parties for transaction view at $viewPosition. " +
-                    s"Rejecting request. Threshold: $threshold." +
+                    s"Rejecting request." +
                     insufficientPermissionHint +
                     insufficientTrustLevelHint +
                     authorizedPartiesHint,
@@ -596,7 +602,7 @@ private[mediator] class ConfirmationResponseProcessor(
           if (ts <= participantResponseDeadline) OptionT.some[Future](())
           else {
             logger.warn(
-              s"Response ${ts} is too late as request ${response.requestId} has already exceeded the participant response deadline [$participantResponseDeadline]"
+              s"Response $ts is too late as request ${response.requestId} has already exceeded the participant response deadline [$participantResponseDeadline]"
             )
             OptionT.none[Future, Unit]
           }
@@ -624,7 +630,7 @@ private[mediator] class ConfirmationResponseProcessor(
           } else {
             MediatorError.MalformedMessage
               .Reject(
-                s"Request ${response.requestId}, sender ${response.sender}: Discarding mediator response with wrong recipients ${recipients}, expected ${responseAggregation.request.mediator.toRecipient}"
+                s"Request ${response.requestId}, sender ${response.sender}: Discarding mediator response with wrong recipients $recipients, expected ${responseAggregation.request.mediator.toRecipient}"
               )
               .report()
             OptionT.none[Future, Unit]

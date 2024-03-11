@@ -33,7 +33,7 @@ object ExtractUsedAndCreated {
       participant: ViewParticipantData,
       common: ViewCommonData,
   ) {
-    def informees: Set[LfPartyId] = common.informees.map(_.party)
+    def informees: Set[LfPartyId] = common.viewConfirmationParameters.informees
 
     def transientContracts(): Seq[LfContractId] = {
 

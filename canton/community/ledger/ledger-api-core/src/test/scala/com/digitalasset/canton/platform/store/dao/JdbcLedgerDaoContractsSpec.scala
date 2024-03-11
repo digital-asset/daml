@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Util}
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value.{ValueText, VersionedContractInstance}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -149,7 +149,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       someTemplateId,
       aTextValue,
       Set(alice, bob),
-      Util.sharedKey(testLanguageVersion),
+      testKeyPackageName,
     )
 
     for {

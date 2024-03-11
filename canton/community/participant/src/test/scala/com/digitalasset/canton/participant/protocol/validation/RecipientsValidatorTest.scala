@@ -76,7 +76,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
     val viewTree = TestViewTree(
       viewHash(1),
       mkRootHash(rootHash),
-      informeeOf(informees: _*),
+      informeeOf(informees: _*).map(_.party),
       viewPosition = mkViewPosition(viewDepth),
     )
     val recipients = Recipients.cc(members.head1, members.tail1: _*)
@@ -92,7 +92,7 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
     val viewTree = TestViewTree(
       viewHash(1),
       mkRootHash(rootHash),
-      informeeOf(informees: _*),
+      informeeOf(informees: _*).map(_.party),
       viewPosition = mkViewPosition(viewDepth),
     )
     TestInput(viewTree, recipients)

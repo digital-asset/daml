@@ -6,11 +6,12 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.lf.crypto
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder, TransactionBuilder}
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey, Util}
+import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.index.index.StatusDetails
@@ -367,7 +368,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
           GlobalKey
-            .assertBuild(contractTemplate, keyValue, shared = Util.sharedKey(createNode.version))
+            .assertBuild(
+              contractTemplate,
+              keyValue,
+              KeyPackageName.assertBuild(createNode.packageName, createNode.version),
+            )
             .hash
             .bytes
             .toHexString
@@ -467,7 +472,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_maintainers = Some(Set("signatory2", "signatory3")),
         create_key_hash = Some(
           GlobalKey
-            .assertBuild(contractTemplate, keyValue, Util.sharedKey(createNode.version))
+            .assertBuild(
+              contractTemplate,
+              keyValue,
+              KeyPackageName.assertBuild(createNode.packageName, createNode.version),
+            )
             .hash
             .bytes
             .toHexString

@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.{
   ViewHash,
   v0,
   v1,
+  v2,
 }
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -371,6 +372,16 @@ final case class TransferInView private (
       sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
     )
 
+  protected def toProtoV2: v2.TransferInView =
+    v2.TransferInView(
+      salt = Some(salt.toProtoV0),
+      submitter = submitter,
+      contract = Some(contract.toProtoV2),
+      creatingTransactionId = creatingTransactionId.toProtoPrimitive,
+      transferOutResultEvent = Some(transferOutResultEvent.result.toProtoV0),
+      sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
+    )
+
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
@@ -442,6 +453,10 @@ object TransferInView
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v4)(v1.TransferInView)(
       supportedProtoVersionMemoized(_)(fromProtoV1),
       _.toProtoV1.toByteString,
+    ),
+    ProtoVersion(2) -> VersionedProtoConverter(ProtocolVersion.v6)(v2.TransferInView)(
+      supportedProtoVersionMemoized(_)(fromProtoV2),
+      _.toProtoV2.toByteString,
     ),
   )
 
@@ -577,6 +592,50 @@ object TransferInView
       commonData.sourceProtocolVersion,
     )(hashOps, rpv, Some(bytes))
   }
+
+  private[this] def fromProtoV2(hashOps: HashOps, transferInViewP: v2.TransferInView)(
+      bytes: ByteString
+  ): ParsingResult[TransferInView] = {
+    val v2.TransferInView(
+      saltP,
+      submitterP,
+      contractP,
+      transferOutResultEventPO,
+      creatingTransactionIdP,
+      sourceProtocolVersionP,
+    ) =
+      transferInViewP
+    for {
+      protocolVersion <- ProtocolVersion.fromProtoPrimitive(sourceProtocolVersionP)
+      commonData <- CommonData.fromProto(
+        hashOps,
+        saltP,
+        submitterP,
+        transferOutResultEventPO,
+        creatingTransactionIdP,
+        protocolVersion,
+      )
+      contract <- ProtoConverter
+        .required("contract", contractP)
+        .flatMap(SerializableContract.fromProtoV2)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(2))
+    } yield TransferInView(
+      commonData.salt,
+      TransferSubmitterMetadata(
+        commonData.submitter,
+        applicationIdDefaultValue,
+        submittingParticipantDefaultValue,
+        commandIdDefaultValue,
+        submissionId = submissionIdDefaultValue,
+        workflowId = None,
+      ),
+      contract,
+      commonData.creatingTransactionId,
+      commonData.transferOutResultEvent,
+      commonData.sourceProtocolVersion,
+    )(hashOps, rpv, Some(bytes))
+  }
+
 }
 
 /** A fully unblinded [[TransferInViewTree]]
@@ -614,7 +673,7 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
   override def mediator: MediatorRef = commonData.targetMediator
 
-  override def informees: Set[Informee] = commonData.confirmingParties
+  override def informees: Set[LfPartyId] = commonData.confirmingParties.map(_.party)
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)
 

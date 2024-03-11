@@ -49,5 +49,7 @@ object MockedNodeParameters {
     override def dbMigrateAndStart: Boolean = false
 
     override def skipTopologyManagerSignatureValidation: Boolean = false
+
+    override def exitOnFatalFailures: Boolean = ???
   }
 }

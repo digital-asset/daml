@@ -10,7 +10,13 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, Informee, ViewPosition}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ConfirmingParty,
+  Quorum,
+  ViewConfirmationParameters,
+  ViewPosition,
+}
 import com.digitalasset.canton.domain.mediator.MediatorVerdict.MediatorApprove
 import com.digitalasset.canton.domain.mediator.ResponseAggregation.ViewState
 import com.digitalasset.canton.error.MediatorError
@@ -57,6 +63,18 @@ final case class ResponseAggregation[VKEY](
   override type VKey = VKEY
 
   override def isFinalized: Boolean = state.isLeft
+
+  private def quorumsSatisfied(
+      quorums: Seq[Quorum]
+  ): Boolean =
+    // TODO(#15294): support multiple quorums
+    quorums(0).threshold.unwrap == 0
+
+  private def quorumsCanBeSatisfied(
+      quorums: Seq[Quorum]
+  ): Boolean =
+    // TODO(#15294): support multiple quorums
+    quorums(0).threshold.unwrap <= quorums(0).confirmers.map { case (_, w) => w.weight.unwrap }.sum
 
   def asFinalized(protocolVersion: ProtocolVersion): Option[FinalizedResponse] =
     state.swap.toOption.map { verdict =>
@@ -134,8 +152,13 @@ final case class ResponseAggregation[VKEY](
         )
       ),
     )
-    val ViewState(pendingConfirmingParties, consortiumVoting, distanceToThreshold, rejections) =
-      stateOfView
+    val ViewState(
+      consortiumVoting,
+      quorumsState,
+      rejections,
+    ) = stateOfView
+    // TODO(#15294): support multiple quorums
+    val pendingConfirmingParties = quorumsState(0).getConfirmingParties
     val (newlyResponded, _) =
       pendingConfirmingParties.partition(cp => authorizedParties.contains(cp.party))
 
@@ -166,22 +189,35 @@ final case class ResponseAggregation[VKEY](
           loggingContext.debug(
             show"$requestId($keyName $viewKey): Received an approval (or reached consortium thresholds) for parties: $newlyRespondedFullVotes"
           )
-          val contribution = newlyRespondedFullVotes.foldLeft(0)(_ + _.weight.unwrap)
           val stillPending = pendingConfirmingParties -- newlyRespondedFullVotes
           if (newlyRespondedFullVotes.isEmpty) {
             loggingContext.debug(
               show"$requestId($keyName $viewKey): Awaiting approvals or additional votes for consortiums for $stillPending"
             )
           }
+
+          def updateQuorumsStateWithThresholdUpdate(): Seq[Quorum] = {
+            // TODO(#15294): support multiple quorums
+            val quorum = quorumsState(0)
+            val threshold = quorum.threshold
+            val confirmers = quorum.confirmers
+            val contribution = newlyRespondedFullVotes.foldLeft(0)(_ + _.weight.unwrap)
+            // if all thresholds in the list are 0 then all quorums have been met.
+            val updatedThreshold = NonNegativeInt
+              .create(threshold.unwrap - contribution)
+              .getOrElse(NonNegativeInt.zero)
+            val updatedConfirmers = confirmers -- newlyRespondedFullVotes.map(_.party)
+            Seq(quorum.copy(confirmers = updatedConfirmers, threshold = updatedThreshold))
+          }
+
           val nextViewState = ViewState(
-            stillPending,
             consortiumVotingUpdated,
-            distanceToThreshold - contribution,
+            updateQuorumsStateWithThresholdUpdate(),
             rejections,
           )
           val nextStatesOfViews = statesOfViews + (viewKey -> nextViewState)
           Either.cond(
-            nextStatesOfViews.values.exists(_.distanceToThreshold > 0),
+            nextStatesOfViews.values.exists(viewState => !quorumsSatisfied(viewState.quorumsState)),
             nextStatesOfViews,
             MediatorApprove,
           )
@@ -199,17 +235,20 @@ final case class ResponseAggregation[VKEY](
               show"$requestId($keyName $viewKey): Received a rejection (or reached consortium thresholds) for parties: $newRejectionsFullVotes"
             )
             val nextRejections =
-              NonEmpty(List, (newRejectionsFullVotes -> rejection), rejections *)
-            val stillPending =
-              pendingConfirmingParties.filterNot(cp => newRejectionsFullVotes.contains(cp.party))
+              NonEmpty(List, newRejectionsFullVotes -> rejection, rejections *)
+
             val nextViewState = ViewState(
-              stillPending,
               consortiumVotingUpdated,
-              distanceToThreshold,
+              // TODO(#15294): support multiple quorums
+              Seq(
+                quorumsState(0)
+                  .copy(confirmers = quorumsState(0).confirmers -- newRejectionsFullVotes)
+              ),
               nextRejections,
             )
+
             Either.cond(
-              nextViewState.distanceToThreshold <= nextViewState.totalAvailableWeight,
+              quorumsCanBeSatisfied(nextViewState.quorumsState),
               statesOfViews + (viewKey -> nextViewState),
               // TODO(#5337): Don't discard the rejection reasons of the other views.
               MediatorVerdict.ParticipantReject(nextRejections),
@@ -220,9 +259,8 @@ final case class ResponseAggregation[VKEY](
               show"$requestId($keyName $viewKey): Received a rejection, but awaiting more consortium votes for: $pendingConfirmingParties"
             )
             val nextViewState = ViewState(
-              pendingConfirmingParties,
               consortiumVotingUpdated,
-              distanceToThreshold,
+              quorumsState,
               rejections,
             )
             Right(statesOfViews + (viewKey -> nextViewState))
@@ -249,7 +287,8 @@ final case class ResponseAggregation[VKEY](
     case Right(statesOfView) =>
       val unresponsiveParties = statesOfView
         .flatMap { case (_, viewState) =>
-          if (viewState.distanceToThreshold > 0) viewState.pendingConfirmingParties.map(_.party)
+          if (!quorumsSatisfied(viewState.quorumsState))
+            viewState.quorumsState(0).confirmers.keySet
           else Seq.empty
         }
         // Sort and deduplicate the parties so that multiple mediator replicas generate the same rejection reason
@@ -308,22 +347,17 @@ object ResponseAggregation {
     }
   }
 
+  /** @param quorumsState keeps track of what is remaining for a view to be confirmed (e.g. threshold)
+    */
   final case class ViewState(
-      pendingConfirmingParties: Set[ConfirmingParty],
-      consortiumVoting: Map[
-        LfPartyId,
-        ConsortiumVotingState,
-      ], // pendingConfirmingParties is always a subset of consortiumVoting.keys()
-      distanceToThreshold: Int,
+      consortiumVoting: Map[LfPartyId, ConsortiumVotingState],
+      quorumsState: Seq[Quorum],
       rejections: List[(Set[LfPartyId], LocalReject)],
   ) extends PrettyPrinting {
 
-    lazy val totalAvailableWeight: Int = pendingConfirmingParties.map(_.weight.unwrap).sum
-
     override def pretty: Pretty[ViewState] = {
       prettyOfClass(
-        param("distanceToThreshold", _.distanceToThreshold),
-        param("pendingConfirmingParties", _.pendingConfirmingParties),
+        param("quorumsState", _.quorumsState),
         param("consortiumVoting", _.consortiumVoting),
         param("rejections", _.rejections),
       )
@@ -342,7 +376,7 @@ object ResponseAggregation {
   ): Future[ResponseAggregation[?]] =
     for {
       initialState <- mkInitialState(
-        request.informeesAndThresholdByViewPosition,
+        request.informeesAndConfirmationParamsByViewPosition,
         topologySnapshot,
       )
     } yield {
@@ -355,22 +389,24 @@ object ResponseAggregation {
     }
 
   private def mkInitialState[K](
-      informeesAndThresholdByView: Map[K, (Set[Informee], NonNegativeInt)],
+      informeesAndThresholdByView: Map[K, ViewConfirmationParameters],
       topologySnapshot: TopologySnapshot,
   )(implicit ec: ExecutionContext): Future[Map[K, ViewState]] = {
     informeesAndThresholdByView.toSeq
-      .parTraverse { case (viewKey, (informees, threshold)) =>
-        val confirmingParties = informees.collect { case cp: ConfirmingParty => cp }
+      .parTraverse { case (viewKey, ViewConfirmationParameters(_, quorumsState)) =>
+        // TODO(#15294): support multiple quorums
+        val confirmingParties = quorumsState(0).getConfirmingParties
         for {
-          votingThresholds <- topologySnapshot.consortiumThresholds(confirmingParties.map(_.party))
+          votingThresholds <- topologySnapshot.consortiumThresholds(
+            confirmingParties.map(_.party)
+          )
         } yield {
           val consortiumVotingState = votingThresholds.map { case (party, threshold) =>
-            (party -> ConsortiumVotingState(threshold))
+            party -> ConsortiumVotingState(threshold)
           }
           viewKey -> ViewState(
-            confirmingParties,
             consortiumVotingState,
-            threshold.unwrap,
+            quorumsState,
             rejections = Nil,
           )
         }

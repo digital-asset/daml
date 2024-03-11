@@ -73,6 +73,18 @@ case class SerializableContract(
       contractSalt = contractSalt.map(_.toProtoV0),
     )
 
+  def toProtoV2: v2.SerializableContract =
+    v2.SerializableContract(
+      contractId = contractId.toProtoPrimitive,
+      rawContractInstance = rawContractInstance.getCryptographicEvidence,
+      // Even though [[ContractMetadata]] also implements `HasVersionedWrapper`, we explicitly use Protobuf V0
+      // -> we only use `UntypedVersionedMessage` when required and not for 'regularly' nested Protobuf messages
+      metadata = Some(metadata.toProtoV1),
+      ledgerCreateTime = Some(ledgerCreateTime.toProtoPrimitive),
+      // Contract salt can be empty for contracts created in protocol versions < 4.
+      contractSalt = contractSalt.map(_.toProtoV0),
+    )
+
   override def pretty: Pretty[SerializableContract] = prettyOfClass(
     param("contractId", _.contractId),
     paramWithoutValue("instance"), // Do not leak confidential data (such as PII) to the log file!
@@ -108,6 +120,11 @@ object SerializableContract
       ProtocolVersion.v4,
       supportedProtoVersion(v1.SerializableContract)(fromProtoV1),
       _.toProtoV1.toByteString,
+    ),
+    ProtoVersion(2) -> ProtoCodec(
+      ProtocolVersion.v6,
+      supportedProtoVersion(v2.SerializableContract)(fromProtoV2),
+      _.toProtoV2.toByteString,
     ),
   )
 
@@ -192,7 +209,12 @@ object SerializableContract
     val v0.SerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime) =
       serializableContractInstanceP
 
-    toSerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, None)
+    for {
+      metadata <- ProtoConverter
+        .required("metadata", metadataP)
+        .flatMap(ContractMetadata.fromProtoV0)
+      c <- toSerializableContract(contractIdP, rawP, metadata, ledgerCreateTime, None)
+    } yield c
   }
 
   def fromProtoV1(
@@ -201,33 +223,53 @@ object SerializableContract
     val v1.SerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, contractSaltP) =
       serializableContractInstanceP
 
-    toSerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, contractSaltP)
+    for {
+      metadata <- ProtoConverter
+        .required("metadata", metadataP)
+        .flatMap(ContractMetadata.fromProtoV0)
+      c <- toSerializableContract(contractIdP, rawP, metadata, ledgerCreateTime, contractSaltP)
+    } yield c
+
+  }
+
+  def fromProtoV2(
+      serializableContractInstanceP: v2.SerializableContract
+  ): ParsingResult[SerializableContract] = {
+    val v2.SerializableContract(contractIdP, rawP, metadataP, ledgerCreateTime, contractSaltP) =
+      serializableContractInstanceP
+    for {
+      metadata <- ProtoConverter
+        .required("metadata", metadataP)
+        .flatMap(ContractMetadata.fromProtoV1)
+      c <- toSerializableContract(contractIdP, rawP, metadata, ledgerCreateTime, contractSaltP)
+    } yield c
   }
 
   private def toSerializableContract(
       contractIdP: String,
       rawP: ByteString,
-      metadataP: Option[v0.SerializableContract.Metadata],
+      metadata: ContractMetadata,
       ledgerCreateTime: Option[Timestamp],
       contractSaltO: Option[crypto.v0.Salt],
-  ): ParsingResult[SerializableContract] =
+  ): ParsingResult[SerializableContract] = {
     for {
       contractId <- ProtoConverter.parseLfContractId(contractIdP)
       raw <- SerializableRawContractInstance
         .fromByteString(rawP)
         .leftMap(error => ValueConversionError("raw_contract_instance", error.toString))
-      metadata <- ProtoConverter
-        .required("metadata", metadataP)
-        .flatMap(ContractMetadata.fromProtoV0)
       ledgerTime <- ProtoConverter
         .required("ledger_create_time", ledgerCreateTime)
         .flatMap(CantonTimestamp.fromProtoPrimitive)
       contractSalt <- contractSaltO.traverse(Salt.fromProtoV0)
-    } yield SerializableContract(
-      contractId,
-      raw,
-      metadata,
-      LedgerCreateTime(ledgerTime),
-      contractSalt,
-    )
+    } yield {
+      SerializableContract(
+        contractId,
+        raw,
+        metadata,
+        LedgerCreateTime(ledgerTime),
+        contractSalt,
+      )
+    }
+  }
+
 }

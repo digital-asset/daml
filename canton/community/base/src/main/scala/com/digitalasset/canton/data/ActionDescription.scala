@@ -449,6 +449,21 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     } yield actionDescription
   }
 
+  private def fromLookupByKeyProtoV1(
+      k: v1.ActionDescription.LookupByKeyActionDescription,
+      pv: RepresentativeProtocolVersion[ActionDescription.type],
+  ): ParsingResult[LookupByKeyActionDescription] = {
+    val v1.ActionDescription.LookupByKeyActionDescription(keyP) = k
+    for {
+      key <- ProtoConverter
+        .required("key", keyP)
+        .flatMap(GlobalKeySerialization.fromProtoV1)
+      actionDescription <- LookupByKeyActionDescription
+        .create(key.unversioned, key.version, pv)
+        .leftMap(err => OtherError(err.message))
+    } yield actionDescription
+  }
+
   private def fromFetchProtoV0(
       f: v0.ActionDescription.FetchActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
@@ -524,7 +539,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         case Create(create) => fromCreateProtoV0(create, pv)
         case Exercise(exercise) => fromExerciseProtoV3(exercise, pv)
         case Fetch(fetch) => fromFetchProtoV0(fetch, pv)
-        case LookupByKey(lookup) => fromLookupByKeyProtoV0(lookup, pv)
+        case LookupByKey(lookup) => fromLookupByKeyProtoV1(lookup, pv)
         case Empty => Left(FieldNotSet("description"))
       }
     }
@@ -825,11 +840,6 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       ]
   ) extends ActionDescription {
 
-    private val serializedKey =
-      GlobalKeySerialization
-        .toProto(LfVersioned(version, key))
-        .valueOr(err => throw InvalidActionDescription(s"Failed to serialize key: $err"))
-
     override def byKey: Boolean = true
 
     override def seedOption: Option[LfHash] = None
@@ -837,7 +847,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     protected override def toProtoDescriptionV0: v0.ActionDescription.Description.LookupByKey =
       v0.ActionDescription.Description.LookupByKey(
         v0.ActionDescription.LookupByKeyActionDescription(
-          key = Some(serializedKey)
+          key = Some(GlobalKeySerialization.assertToProtoV0(LfVersioned(version, key)))
         )
       )
 
@@ -848,7 +858,11 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       v2.ActionDescription.Description.LookupByKey(toProtoDescriptionV0.value)
 
     override protected def toProtoDescriptionV3: v3.ActionDescription.Description.LookupByKey =
-      v3.ActionDescription.Description.LookupByKey(toProtoDescriptionV0.value)
+      v3.ActionDescription.Description.LookupByKey(
+        v1.ActionDescription.LookupByKeyActionDescription(
+          key = Some(GlobalKeySerialization.assertToProtoV1(LfVersioned(version, key)))
+        )
+      )
 
     override def pretty: Pretty[LookupByKeyActionDescription] = prettyOfClass(
       param("key", _.key),

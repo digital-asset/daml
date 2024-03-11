@@ -34,8 +34,8 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
   def ts(n: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(n.toLong)
   def requestIdTs(n: Int): RequestId = RequestId(ts(n))
 
-  val requestId = RequestId(CantonTimestamp.Epoch)
-  val fullInformeeTree = {
+  val requestId: RequestId = RequestId(CantonTimestamp.Epoch)
+  val fullInformeeTree: FullInformeeTree = {
     val domainId = DefaultTestIdentities.domainId
     val mediatorId = DefaultTestIdentities.mediator
 
@@ -52,9 +52,11 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     def s(i: Int): Salt = TestSalt.generateSalt(i)
 
     val viewCommonData =
-      ViewCommonData.create(hashOps)(
-        Set(alice, bob),
-        NonNegativeInt.tryCreate(2),
+      ViewCommonData.tryCreate(hashOps)(
+        ViewConfirmationParameters.tryCreate(
+          Set(alice.party, bob.party),
+          Seq(Quorum.create(Set(bob), NonNegativeInt.tryCreate(2))),
+        ),
         s(999),
         testedProtocolVersion,
       )
@@ -82,8 +84,8 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       testedProtocolVersion,
     )
   }
-  val informeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
-  val currentVersion = FinalizedResponse(
+  val informeeMessage: InformeeMessage = InformeeMessage(fullInformeeTree)(testedProtocolVersion)
+  val currentVersion: FinalizedResponse = FinalizedResponse(
     requestId,
     informeeMessage,
     requestId.unwrap,

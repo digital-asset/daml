@@ -58,7 +58,20 @@ final case class ContractMetadata private (
       nonMaintainerSignatories = (signatories -- maintainers).toList,
       nonSignatoryStakeholders = (stakeholders -- signatories).toList,
       key = maybeKeyWithMaintainersVersioned.map(x =>
-        GlobalKeySerialization.assertToProto(
+        GlobalKeySerialization.assertToProtoV0(
+          x.map(keyWithMaintainers => keyWithMaintainers.globalKey)
+        )
+      ),
+      maintainers = maintainers.toSeq,
+    )
+  }
+
+  def toProtoV1: v1.Metadata = {
+    v1.Metadata(
+      nonMaintainerSignatories = (signatories -- maintainers).toList,
+      nonSignatoryStakeholders = (stakeholders -- signatories).toList,
+      key = maybeKeyWithMaintainersVersioned.map(x =>
+        GlobalKeySerialization.assertToProtoV1(
           x.map(keyWithMaintainers => keyWithMaintainers.globalKey)
         )
       ),
@@ -82,7 +95,12 @@ object ContractMetadata
       ProtocolVersion.v3,
       supportedProtoVersion(v0.SerializableContract.Metadata)(fromProtoV0),
       _.toProtoV0.toByteString,
-    )
+    ),
+    ProtoVersion(1) -> ProtoCodec(
+      ProtocolVersion.v6,
+      supportedProtoVersion(v1.Metadata)(fromProtoV1),
+      _.toProtoV1.toByteString,
+    ),
   )
 
   override def name: String = "contract metadata"
@@ -133,6 +151,32 @@ object ContractMetadata
       checked(ContractMetadata.tryCreate(signatories, stakeholders, keyWithMaintainersO))
     }
   }
+
+  def fromProtoV1(
+      metadataP: v1.Metadata
+  ): ParsingResult[ContractMetadata] = {
+    val v1.Metadata(
+      nonMaintainerSignatoriesP,
+      nonSignatoryStakeholdersP,
+      keyP,
+      maintainersP,
+    ) =
+      metadataP
+    for {
+      nonMaintainerSignatories <- nonMaintainerSignatoriesP.traverse(ProtoConverter.parseLfPartyId)
+      nonSignatoryStakeholders <- nonSignatoryStakeholdersP.traverse(ProtoConverter.parseLfPartyId)
+      keyO <- keyP.traverse(GlobalKeySerialization.fromProtoV1)
+      maintainersList <- maintainersP.traverse(ProtoConverter.parseLfPartyId)
+      _ <- Either.cond(maintainersList.isEmpty || keyO.isDefined, (), FieldNotSet("Metadata.key"))
+    } yield {
+      val maintainers = maintainersList.toSet
+      val keyWithMaintainersO = keyO.map(_.map(LfGlobalKeyWithMaintainers(_, maintainers)))
+      val signatories = maintainers ++ nonMaintainerSignatories.toSet
+      val stakeholders = signatories ++ nonSignatoryStakeholders.toSet
+      checked(ContractMetadata.tryCreate(signatories, stakeholders, keyWithMaintainersO))
+    }
+  }
+
 }
 
 final case class WithContractMetadata[+A](private val x: A, metadata: ContractMetadata) {

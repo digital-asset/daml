@@ -7,8 +7,12 @@ import cats.data.OptionT
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, ConfirmingParty, Informee, ViewPosition}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ConfirmingParty,
+  ViewConfirmationParameters,
+  ViewPosition,
+}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
@@ -159,23 +163,24 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
             val informeesByView = ViewKey[VKEY].informeesAndThresholdByKey(request)
             val ret = informeesByView.toList
-              .parTraverseFilter { case (viewKey, (informees, _threshold)) =>
-                val hostedConfirmingPartiesF = informees.toList.parTraverseFilter {
-                  case ConfirmingParty(party, _, requiredTrustLevel) =>
+              .parTraverseFilter { case (viewKey, ViewConfirmationParameters(_, quorums)) =>
+                // TODO(#15294): support multiple quorums
+                val quorum = quorums(0)
+                quorum.getConfirmingParties.toList
+                  .parTraverseFilter { cp =>
                     topologySnapshot
-                      .canConfirm(sender, party, requiredTrustLevel)
-                      .map(x => if (x) Some(party) else None)
-                  case _ => Future.successful(None)
-                }
-                hostedConfirmingPartiesF.map { hostedConfirmingParties =>
-                  if (hostedConfirmingParties.nonEmpty)
-                    Some(viewKey -> hostedConfirmingParties.toSet)
-                  else None
-                }
+                      .canConfirm(sender, cp.party, cp.requiredTrustLevel)
+                      .map(Option.when(_)(cp.party))
+                  }
+                  .map { hostedConfirmingParties =>
+                    if (hostedConfirmingParties.nonEmpty)
+                      Some(viewKey -> hostedConfirmingParties.toSet)
+                    else None
+                  }
               }
               .map { viewsWithConfirmingPartiesForSender =>
                 loggingContext.debug(
-                  s"Malformed response $responseTimestamp from $sender considered as a rejection for ${viewsWithConfirmingPartiesForSender}"
+                  s"Malformed response $responseTimestamp from $sender considered as a rejection for $viewsWithConfirmingPartiesForSender"
                 )
                 viewsWithConfirmingPartiesForSender
               }
@@ -192,8 +197,8 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
                   None
                 }
               )
-              (informees, _) = informeesAndThreshold
-              declaredConfirmingParties = informees.collect { case p: ConfirmingParty => p }
+              // TODO(#15294): support multiple quorums
+              declaredConfirmingParties = informeesAndThreshold.quorums(0).getConfirmingParties
               authorizedConfirmingParties <- authorizedPartiesOfSender(
                 viewKey,
                 declaredConfirmingParties,
@@ -213,7 +218,7 @@ trait ViewKey[VKEY] extends Pretty[VKEY] with Product with Serializable {
 
   def informeesAndThresholdByKey(
       request: MediatorRequest
-  ): Map[VKEY, (Set[Informee], NonNegativeInt)]
+  ): Map[VKEY, ViewConfirmationParameters]
 }
 object ViewKey {
   def apply[VKEY: ViewKey]: ViewKey[VKEY] = implicitly[ViewKey[VKEY]]
@@ -226,8 +231,8 @@ object ViewKey {
 
     override def informeesAndThresholdByKey(
         request: MediatorRequest
-    ): Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
-      request.informeesAndThresholdByViewPosition
+    ): Map[ViewPosition, ViewConfirmationParameters] =
+      request.informeesAndConfirmationParamsByViewPosition
 
     override def treeOf(t: ViewPosition): Tree = t.pretty.treeOf(t)
   }
@@ -238,8 +243,8 @@ object ViewKey {
 
     override def informeesAndThresholdByKey(
         request: MediatorRequest
-    ): Map[ViewHash, (Set[Informee], NonNegativeInt)] =
-      request.informeesAndThresholdByViewHash
+    ): Map[ViewHash, ViewConfirmationParameters] =
+      request.informeesAndConfirmationParamsByViewHash
 
     override def treeOf(t: ViewHash): Tree = t.pretty.treeOf(t)
   }

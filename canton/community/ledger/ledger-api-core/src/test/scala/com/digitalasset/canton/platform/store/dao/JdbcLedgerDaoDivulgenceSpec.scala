@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.test.{TransactionBuilder, TreeTransactionBuilder}
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion, Util, Versioned}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractInstance, ValueParty}
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -29,7 +29,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         Node.Create(
           coid = contractId,
           templateId = someTemplateId,
-          packageName = Some(somePackageName),
+          packageName = testPackageName,
           arg = someContractArgument,
           agreementText = someAgreement,
           signatories = Set(alice),
@@ -45,7 +45,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         Node.Create(
           coid = contractId,
           templateId = someTemplateId,
-          packageName = Some(somePackageName),
+          packageName = testPackageName,
           arg = someContractArgument,
           agreementText = someAgreement,
           signatories = Set(bob),
@@ -56,7 +56,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
                 someTemplateId,
                 someContractKey(bob, "some key"),
                 Set(bob),
-                Util.sharedKey(testLanguageVersion),
+                testKeyPackageName,
               )
           ),
           version = TransactionVersion.minVersion,
@@ -67,7 +67,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val exercise3a = Node.Exercise(
         targetCoid = create1,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = true,
@@ -87,7 +87,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val fetch3b = Node.Fetch(
         coid = create2Cid,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         actingParties = Set(bob),
         signatories = Set(bob),
         stakeholders = Set(bob),
@@ -96,7 +96,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
             someTemplateId,
             ValueParty(bob),
             Set(bob),
-            Util.sharedKey(testLanguageVersion),
+            testKeyPackageName,
           )
         ),
         byKey = false,
@@ -106,7 +106,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val exercise3c = Node.Exercise(
         targetCoid = create2Cid,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = true,
@@ -124,7 +124,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
               someTemplateId,
               someContractKey(bob, "some key"),
               Set(bob),
-              Util.sharedKey(testLanguageVersion),
+              testKeyPackageName,
             )
         ),
         byKey = false,
@@ -134,7 +134,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val create3d = Node.Create(
         coid = TransactionBuilder.newCid,
         templateId = someTemplateId,
-        packageName = Some(somePackageName),
+        packageName = testPackageName,
         arg = someContractArgument,
         agreementText = someAgreement,
         signatories = Set(bob),
@@ -145,7 +145,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
               someTemplateId,
               someContractKey(bob, "some key"),
               Set(bob),
-              Util.sharedKey(testLanguageVersion),
+              testKeyPackageName,
             )
         ),
         version = TransactionVersion.minVersion,

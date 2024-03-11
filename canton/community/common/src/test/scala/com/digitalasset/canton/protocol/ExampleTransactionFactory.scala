@@ -5,9 +5,10 @@ package com.digitalasset.canton.protocol
 
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.{Bytes, ImmArray}
-import com.daml.lf.transaction.{Util, Versioned}
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
   ValueContractId,
@@ -75,6 +76,8 @@ object ExampleTransactionFactory {
   val someOptUsedPackages = Some(Set(packageId))
   val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
   val transactionVersion = LfTransactionBuilder.defaultTransactionVersion
+  val packageName: Option[LfPackageName] = None
+  val keyPackageName = KeyPackageName.assertBuild(packageName, transactionVersion)
 
   private def valueCapturing(coid: List[LfContractId]): Value = {
     val captives = coid.map(c => (None, ValueContractId(c)))
@@ -112,7 +115,7 @@ object ExampleTransactionFactory {
   ): Versioned[LfGlobalKey] =
     LfVersioned(
       transactionVersion,
-      LfGlobalKey.assertBuild(templateId, value, Util.sharedKey(transactionVersion)),
+      LfGlobalKey.assertBuild(templateId, value, keyPackageName),
     )
 
   def globalKeyWithMaintainers(
@@ -422,8 +425,7 @@ class ExampleTransactionFactory(
       .map { case (viewInformees, viewThreshold) =>
         val result = NewView(
           rootNode,
-          viewInformees,
-          viewThreshold,
+          ViewConfirmationParameters.create(viewInformees, viewThreshold),
           rootSeed,
           rootNodeId,
           tailNodes,
@@ -590,16 +592,14 @@ class ExampleTransactionFactory(
         confirmationPolicy.informeesAndThreshold(node, topologySnapshot),
         10.seconds,
       )
-    val (informees, threshold) =
+    val viewConfirmationParameters =
       confirmationPolicy.withSubmittingAdminParty(submittingAdminPartyO)(
-        rawInformees,
-        rawThreshold,
+        ViewConfirmationParameters.create(rawInformees, rawThreshold)
       )
 
     val viewCommonData =
-      ViewCommonData.create(cryptoOps)(
-        informees,
-        threshold,
+      ViewCommonData.tryCreate(cryptoOps)(
+        viewConfirmationParameters,
         commonDataSalt(viewIndex),
         protocolVersion,
       )
@@ -933,7 +933,12 @@ class ExampleTransactionFactory(
         (
           rootTransactionViewTree(view0),
           (transaction(Seq(0), reinterpretedNode), metadata, keyResolver),
-          Witnesses(NonEmpty(List, view0.viewCommonData.tryUnwrap.informees)),
+          Witnesses(
+            NonEmpty(
+              List,
+              view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informees,
+            )
+          ),
         )
       )
   }
@@ -1289,7 +1294,12 @@ class ExampleTransactionFactory(
         (
           rootTransactionViewTree(rootViewsWithOneViewUnblinded *),
           (transactionFrom(Seq(i), i, example.reinterpretedNode), example.metadata, Map.empty),
-          Witnesses(NonEmpty(List, example.view0.viewCommonData.tryUnwrap.informees)),
+          Witnesses(
+            NonEmpty(
+              List,
+              example.view0.viewCommonData.tryUnwrap.viewConfirmationParameters.informees,
+            )
+          ),
         )
       }
     }

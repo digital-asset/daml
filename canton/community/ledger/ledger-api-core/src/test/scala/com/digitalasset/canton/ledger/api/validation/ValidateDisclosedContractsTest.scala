@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.commands.{
 }
 import com.daml.ledger.api.v1.value.Identifier as ProtoIdentifier
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value.{ContractId, ValueRecord}
@@ -292,7 +293,7 @@ object ValidateDisclosedContractsTest {
         ),
       ),
       api.keyMaintainers,
-      shared = Util.sharedKey(pvTransactionVersion),
+      KeyPackageName.assertBuild(pvPackageName, pvTransactionVersion),
     )
 
     private val keyHash: Hash = keyWithMaintainers.globalKey.hash

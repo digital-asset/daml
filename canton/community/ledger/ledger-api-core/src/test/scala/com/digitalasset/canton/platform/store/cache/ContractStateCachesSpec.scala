@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
 import com.daml.lf.value.Value.{ContractInstance, ValueInt64, ValueRecord}
@@ -174,7 +175,7 @@ class ContractStateCachesSpec
     GlobalKey.assertBuild(
       Identifier.assertFromString(s"some:template:name"),
       ValueInt64(id.toLong),
-      shared = true,
+      KeyPackageName.assertBuild(None, TransactionVersion.V15),
     )
 
   private def contract(id: Int): Contract = {

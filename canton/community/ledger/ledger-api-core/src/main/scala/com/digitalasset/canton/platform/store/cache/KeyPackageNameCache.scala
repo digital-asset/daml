@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.daml.lf.archive.Decode
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.LanguageVersion
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.caching.CaffeineCache
 import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
@@ -18,49 +18,50 @@ import com.github.benmanes.caffeine.cache as caffeine
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-class PackageLanguageVersionCache(
+// TODO(#17714) Replace use with PackageMetadataView
+class KeyPackageNameCache(
     ledgerDao: LedgerReadDao,
     metrics: Metrics,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  private val languageVersionLoader =
-    new FutureAsyncCacheLoader[PackageId, Option[LanguageVersion]](packageId =>
-      getLanguageVersion(packageId)(LoggingContextWithTrace(loggerFactory)(TraceContext.empty))
+  private val keyPackageNameLoader =
+    new FutureAsyncCacheLoader[PackageId, Option[KeyPackageName]](packageId =>
+      getKeyPackageName(packageId)(LoggingContextWithTrace(loggerFactory)(TraceContext.empty))
     )
 
-  private val languageVersionCache
-      : CaffeineCache.AsyncLoadingCaffeineCache[PackageId, Option[LanguageVersion]] =
-    new CaffeineCache.AsyncLoadingCaffeineCache[PackageId, Option[LanguageVersion]](
+  private val keyPackageNameCache
+      : CaffeineCache.AsyncLoadingCaffeineCache[PackageId, Option[KeyPackageName]] =
+    new CaffeineCache.AsyncLoadingCaffeineCache[PackageId, Option[KeyPackageName]](
       caffeine.Caffeine
         .newBuilder()
         .maximumSize(10000)
-        .buildAsync(languageVersionLoader),
-      metrics.daml.index.packageLanguageVersionCache,
+        .buildAsync(keyPackageNameLoader),
+      metrics.daml.index.keyPackageNameCache,
     )
 
-  private def getLanguageVersion(
+  private def getKeyPackageName(
       packageId: PackageId
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[LanguageVersion]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[KeyPackageName]] = {
     ledgerDao
       .getLfArchive(packageId)
       .map({ archiveO =>
         archiveO.map { archive =>
           val (_, pkg) = Decode.assertDecodeArchive(archive)
-          logger.debug(s"Caching package language version for $packageId: ${pkg.languageVersion}")(
+          logger.debug(s"Caching key package name for package $packageId")(
             TraceContext.empty
           )
-          pkg.languageVersion
+          KeyPackageName.assertBuild(pkg.metadata.map(_.name), pkg.languageVersion)
         }
       })
   }
 
-  def get(packageId: PackageId): Future[Option[LanguageVersion]] = {
-    val result = languageVersionCache.get(packageId)
+  def get(packageId: PackageId): Future[Option[KeyPackageName]] = {
+    val result = keyPackageNameCache.get(packageId)
     // Do not cache failed look-ups as the package may be loaded before the next call
     result
-      .andThen({ case Success(None) => languageVersionCache.invalidate(packageId) })
+      .andThen({ case Success(None) => keyPackageNameCache.invalidate(packageId) })
       .discard
     result
   }

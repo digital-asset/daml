@@ -117,7 +117,7 @@ class RecipientsValidator[I](
         val view = viewOfInput(input)
         snapshot
           .activeParticipantsOfParties(
-            view.informees.map(_.party).toList
+            view.informees.toList
           )
           .map(view.viewPosition.position -> _)
       }

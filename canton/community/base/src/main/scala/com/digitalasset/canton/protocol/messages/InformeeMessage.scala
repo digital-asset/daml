@@ -6,7 +6,13 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.HashOps
-import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, ViewType}
+import com.digitalasset.canton.data.{
+  ConfirmingParty,
+  FullInformeeTree,
+  ViewConfirmationParameters,
+  ViewPosition,
+  ViewType,
+}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{RequestId, RootHash, ViewHash, v0, v1, v2, v3}
@@ -51,11 +57,11 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
 
   override def mediator: MediatorRef = fullInformeeTree.mediator
 
-  override def informeesAndThresholdByViewHash: Map[ViewHash, (Set[Informee], NonNegativeInt)] =
+  override def informeesAndConfirmationParamsByViewHash: Map[ViewHash, ViewConfirmationParameters] =
     fullInformeeTree.informeesAndThresholdByViewHash
 
-  override def informeesAndThresholdByViewPosition
-      : Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
+  override def informeesAndConfirmationParamsByViewPosition
+      : Map[ViewPosition, ViewConfirmationParameters] =
     fullInformeeTree.informeesAndThresholdByViewPosition
 
   override def createMediatorResult(
@@ -118,8 +124,8 @@ case class InformeeMessage(fullInformeeTree: FullInformeeTree)(
   override def toProtoEnvelopeContentV3: v3.EnvelopeContent =
     v3.EnvelopeContent(v3.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV1))
 
-  override def minimumThreshold(informees: Set[Informee]): NonNegativeInt =
-    fullInformeeTree.confirmationPolicy.minimumThreshold(informees)
+  override def minimumThreshold(confirmingParties: Set[ConfirmingParty]): NonNegativeInt =
+    fullInformeeTree.confirmationPolicy.minimumThreshold(confirmingParties)
 
   override def rootHash: Option[RootHash] = Some(fullInformeeTree.transactionId.toRootHash)
 

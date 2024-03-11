@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command
 import com.daml.lf
 import com.daml.lf.command.ApiCommands as LfCommands
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
@@ -16,6 +17,7 @@ import com.daml.lf.transaction.*
 import com.daml.lf.transaction.test.TreeTransactionBuilder.*
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
 import com.daml.lf.value.Value
+import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
@@ -107,7 +109,6 @@ class CommandSubmissionServiceImplSpec
     loggerFactory.assertLogs(
       within = {
         val tmplId = toIdentifier("M:T")
-        val sharedKeys = true
 
         val errorsToExpectedStatuses: Seq[(ErrorCause, Status)] = List(
           ErrorCause.DamlLf(
@@ -122,7 +123,11 @@ class CommandSubmissionServiceImplSpec
             LfError.Interpretation(
               LfError.Interpretation.DamlException(
                 LfInterpretationError.DuplicateContractKey(
-                  GlobalKey.assertBuild(tmplId, Value.ValueUnit, sharedKeys)
+                  GlobalKey.assertBuild(
+                    tmplId,
+                    Value.ValueUnit,
+                    KeyPackageName.assertBuild(pvPackageName, pvTransactionVersion),
+                  )
                 )
               ),
               None,

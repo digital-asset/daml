@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.data
 
-import com.daml.lf.transaction.Util
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.value.Value
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.ActionDescription.*
@@ -12,6 +12,8 @@ import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.LfTransactionBuilder.defaultTemplateId
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
 import org.scalatest.wordspec.AnyWordSpec
+
+import scala.util.Try
 
 class ActionDescriptionTest extends AnyWordSpec with BaseTest {
 
@@ -23,7 +25,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       .build(
         templateId = LfTransactionBuilder.defaultTemplateId,
         key = Value.ValueInt64(10L),
-        shared = Util.sharedKey(testTxVersion),
+        packageName = KeyPackageName.assertBuild(None, testTxVersion),
       )
       .value
   private val choiceName: LfChoiceName = LfChoiceName.assertFromString("choice")
@@ -57,20 +59,22 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       }
 
       "the key value cannot be serialized" in {
-        LookupByKeyActionDescription.create(
-          LfGlobalKey
-            .build(
-              LfTransactionBuilder.defaultTemplateId,
-              ExampleTransactionFactory.veryDeepValue,
-              Util.sharedKey(LfTransactionBuilder.defaultLanguageVersion),
+        Try(
+          LookupByKeyActionDescription
+            .tryCreate(
+              LfGlobalKey
+                .build(
+                  LfTransactionBuilder.defaultTemplateId,
+                  ExampleTransactionFactory.veryDeepValue,
+                  KeyPackageName.assertBuild(None, testTxVersion),
+                )
+                .value,
+              testTxVersion,
+              representativePV,
             )
-            .value,
-          testTxVersion,
-          representativePV,
-        ) shouldBe Left(
-          InvalidActionDescription(
-            "Failed to serialize key: Provided Daml-LF value to encode exceeds maximum nesting level of 100"
-          )
+            .toByteString
+        ).toEither.left.map(_.toString) shouldBe Left(
+          "java.lang.IllegalArgumentException: Can't encode contract key: Provided Daml-LF value to encode exceeds maximum nesting level of 100"
         )
       }
 

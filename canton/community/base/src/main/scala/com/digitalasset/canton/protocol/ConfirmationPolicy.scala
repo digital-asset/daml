@@ -7,7 +7,13 @@ import cats.Order
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.data.{ConfirmingParty, Informee, PlainInformee}
+import com.digitalasset.canton.data.{
+  ConfirmingParty,
+  Informee,
+  PlainInformee,
+  Quorum,
+  ViewConfirmationParameters,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
@@ -38,38 +44,60 @@ sealed trait ConfirmationPolicy extends Product with Serializable with PrettyPri
   /** The minimum threshold for views of requests with this policy.
     * The mediator checks that all views have at least the given threshold.
     */
-  def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
+  def minimumThreshold(confirmingParties: Set[ConfirmingParty]): NonNegativeInt = NonNegativeInt.one
 
   protected def additionalWeightOfSubmittingAdminParty(
-      informees: Set[Informee],
+      confirmingParties: Set[ConfirmingParty],
       adminParty: LfPartyId,
   ): NonNegativeInt =
-    informees
+    confirmingParties
       .collectFirst { case ConfirmingParty(`adminParty`, _, _) => NonNegativeInt.zero }
       .getOrElse(NonNegativeInt.one)
 
   def withSubmittingAdminParty(
       submittingAdminPartyO: Option[LfPartyId]
-  )(informees: Set[Informee], threshold: NonNegativeInt): (Set[Informee], NonNegativeInt) =
+  )(viewConfirmationParameters: ViewConfirmationParameters): ViewConfirmationParameters =
     submittingAdminPartyO match {
       case Some(submittingAdminParty) =>
-        val oldSubmittingInformee = informees
-          .find(_.party == submittingAdminParty)
+        // TODO(#15294): support submitting admin party for with multiple quorums
+        val quorum = viewConfirmationParameters.quorums(0)
+        val confirmers = quorum.getConfirmingParties
+        val oldSubmittingInformee = quorum.confirmers
+          .get(submittingAdminParty)
+          .map(w => ConfirmingParty(submittingAdminParty, w.weight, w.requiredTrustLevel))
           .getOrElse(PlainInformee(submittingAdminParty))
         val additionalWeight =
           additionalWeightOfSubmittingAdminParty(
-            informees,
+            confirmers,
             submittingAdminParty,
           )
         val newSubmittingInformee =
           oldSubmittingInformee.withAdditionalWeight(additionalWeight)
 
-        val newInformees = informees - oldSubmittingInformee + newSubmittingInformee
-        val newThreshold = threshold + additionalWeight
-
-        newInformees -> newThreshold
-
-      case None => informees -> threshold
+        val (newConfirmers, newThreshold) = newSubmittingInformee match {
+          case newSubmittingConfirmingParty: ConfirmingParty =>
+            oldSubmittingInformee match {
+              case oldSubmittingConfirmingParty: ConfirmingParty =>
+                (
+                  confirmers - oldSubmittingConfirmingParty + newSubmittingConfirmingParty,
+                  quorum.threshold + additionalWeight,
+                )
+              case _: PlainInformee =>
+                (
+                  confirmers + newSubmittingConfirmingParty,
+                  quorum.threshold + additionalWeight,
+                )
+            }
+          case _: PlainInformee => (confirmers, quorum.threshold)
+        }
+        /* we are using tryCreate() because we are sure that the new confirmer is in the list of informees, since
+         * it is added at the same time
+         */
+        ViewConfirmationParameters.tryCreate(
+          viewConfirmationParameters.informees + newSubmittingInformee.party,
+          Seq(Quorum.create(newConfirmers, newThreshold)),
+        )
+      case None => viewConfirmationParameters
     }
 
   override def pretty: Pretty[ConfirmationPolicy] = prettyOfObject[ConfirmationPolicy]
@@ -120,17 +148,16 @@ object ConfirmationPolicy {
 
     override def requiredTrustLevel: TrustLevel = TrustLevel.Vip
 
-    override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = {
-      // Make sure that at least one VIP needs to approve.
-
-      val weightOfOrdinary = informees.toSeq.collect {
+    override def minimumThreshold(confirmingParties: Set[ConfirmingParty]): NonNegativeInt = {
+      val weightOfOrdinary = confirmingParties.toSeq.collect {
         case ConfirmingParty(_, weight, TrustLevel.Ordinary) => weight.unwrap
       }.sum
+      // Make sure that at least one VIP needs to approve.
       NonNegativeInt.tryCreate(weightOfOrdinary + 1)
     }
 
     override protected def additionalWeightOfSubmittingAdminParty(
-        informees: Set[Informee],
+        informees: Set[ConfirmingParty],
         adminParty: LfPartyId,
     ): NonNegativeInt =
       NonNegativeInt.tryCreate(informees.toSeq.map(_.weight.unwrap).sum + 1)

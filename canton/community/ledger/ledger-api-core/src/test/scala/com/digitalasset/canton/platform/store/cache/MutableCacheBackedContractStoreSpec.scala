@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.cache
 
 import com.daml.ledger.resources.Resource
 import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
@@ -449,7 +450,7 @@ object MutableCacheBackedContractStoreSpec {
     GlobalKey.assertBuild(
       Identifier.assertFromString(s"some:template:$desc"),
       ValueText(desc),
-      shared = true,
+      KeyPackageName.assertBuild(None, TransactionVersion.V15),
     )
 
   private def offset(idx: Long) = Offset.fromByteArray(BigInt(idx).toByteArray)

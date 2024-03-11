@@ -33,7 +33,7 @@ trait TransactionViewDecompositionFactory {
 
 object TransactionViewDecompositionFactory {
 
-  private type ConformationPolicy = (Set[Informee], NonNegativeInt)
+  private type ConformationPolicy = (Set[LfPartyId], NonNegativeInt)
 
   def apply(protocolVersion: ProtocolVersion): TransactionViewDecompositionFactory = {
     if (protocolVersion >= ProtocolVersion.v5) V2 else V1
@@ -61,8 +61,7 @@ object TransactionViewDecompositionFactory {
               tailNodesF.map(tailNodes =>
                 NewView(
                   LfTransactionUtil.lightWeight(rootNode),
-                  informees,
-                  threshold,
+                  ViewConfirmationParameters.create(informees, threshold),
                   rootSeed,
                   rootNodeId,
                   tailNodes,
@@ -155,12 +154,15 @@ object TransactionViewDecompositionFactory {
   private[data] object V2 extends TransactionViewDecompositionFactory {
 
     private final case class ActionNodeInfo(
-        informees: Set[Informee],
-        threshold: NonNegativeInt,
+        viewConfirmationParameters: ViewConfirmationParameters,
         children: Seq[LfNodeId],
         seed: Option[LfHash],
     ) {
-      def confirmationPolicy: (Set[Informee], NonNegativeInt) = (informees, threshold)
+      def confirmationPolicy: (Set[LfPartyId], NonNegativeInt) = (
+        viewConfirmationParameters.informees,
+        // TODO(#15294): support multiple quorums
+        viewConfirmationParameters.quorums(0).threshold,
+      )
     }
 
     private final case class BuildState[V](
@@ -231,8 +233,7 @@ object TransactionViewDecompositionFactory {
 
         val newView = NewView(
           LfTransactionUtil.lightWeight(actionNode),
-          info.informees,
-          info.threshold,
+          info.viewConfirmationParameters,
           info.seed,
           nodeId,
           childState.views.toList,
@@ -288,7 +289,11 @@ object TransactionViewDecompositionFactory {
           case _ => Seq.empty
         }
         itF.map({ case (i, t) =>
-          nodeId -> ActionNodeInfo(i, t, childNodeIds, transaction.seedFor(nodeId))
+          nodeId -> ActionNodeInfo(
+            ViewConfirmationParameters.create(i, t),
+            childNodeIds,
+            transaction.seedFor(nodeId),
+          )
         })
       })
 

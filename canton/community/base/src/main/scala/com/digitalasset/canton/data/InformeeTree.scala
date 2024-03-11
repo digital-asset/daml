@@ -4,6 +4,7 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.protocol.{v0, *}
@@ -31,10 +32,8 @@ final case class InformeeTree private (tree: GenTransactionTree)(
 
   lazy val transactionId: TransactionId = TransactionId.fromRootHash(tree.rootHash)
 
-  lazy val informeesByViewHash: Map[ViewHash, Set[Informee]] =
-    InformeeTree.viewCommonDataByViewHash(tree).map { case (hash, viewCommonData) =>
-      hash -> viewCommonData.informees
-    }
+  lazy val informeesByViewHash: Map[ViewHash, Set[LfPartyId]] =
+    InformeeTree.viewCommonDataByViewHash(tree).fmap(_.viewConfirmationParameters.informees)
 
   private lazy val commonMetadata = checked(tree.commonMetadata.tryUnwrap)
 

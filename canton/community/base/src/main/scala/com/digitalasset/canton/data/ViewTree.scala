@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, ViewHash}
 import com.digitalasset.canton.topology.{DomainId, MediatorRef}
@@ -11,7 +12,7 @@ import com.digitalasset.canton.topology.{DomainId, MediatorRef}
 trait ViewTree extends PrettyPrinting {
 
   /** The informees of the view in the tree */
-  def informees: Set[Informee]
+  def informees: Set[LfPartyId]
 
   /** Return the hash whose signature is to be included in the [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] */
   def toBeSigned: Option[RootHash]

@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.{GlobalKey, Util}
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
@@ -22,6 +23,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
 import com.digitalasset.canton.platform.{Contract, ContractId, Value, *}
+import com.digitalasset.canton.protocol.LfPackageName
 
 import java.io.{ByteArrayInputStream, InputStream}
 import scala.concurrent.{ExecutionContext, Future}
@@ -88,7 +90,8 @@ private[dao] sealed class ContractsReader(
               GlobalKey.assertBuild(
                 contract.unversioned.template,
                 value.unversioned,
-                Util.sharedKey(value.version),
+                KeyPackageName
+                  .assertBuild(raw.packageName.map(LfPackageName.assertFromString), value.version),
               )
             }
 
