@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.tailrec
 import scala.collection.IndexedSeqView
-import scala.util.{Failure, Success, Try}
+import scala.util.{Try, Success, Failure}
 
 class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
@@ -113,7 +113,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       Failure(SError.SErrorDamlException(interpretation.Error.NonComparableValues))
 
     "fail on creation with non-comparable values" in {
-      val tyConEither = language.StablePackagesV2.Either
+      val tyConEither = stablepackages.StablePackagesV2.Either
       val leftName = Ref.Name.assertFromString("Left")
       val rightName = Ref.Name.assertFromString("Right")
 
@@ -140,7 +140,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
     }
 
     "fail on inserting/lookup/deleting a non-comparable value" in {
-      val tyConEither = language.StablePackagesV2.Either
+      val tyConEither = stablepackages.StablePackagesV2.Either
       val leftName = Ref.Name.assertFromString("Left")
       val rightName = Ref.Name.assertFromString("Right")
       def left(v: SValue) = SValue.SVariant(tyConEither, leftName, 0, v)

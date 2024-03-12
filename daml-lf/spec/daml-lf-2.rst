@@ -4551,7 +4551,7 @@ ordered by keys according to the comparison function ``LESS``.
   present according the builtin function ``EQUAL``, the associated
   value is replaced with the supplied value, otherwise the key/value
   is inserted in order according to the builtin function ``LESS``
-  applied on keys. This raises a runtime error if it the first
+  applied on keys. This raises a runtime error if the first
   argument is not a comparable value.
 
   Formally the builtin function ``GENMAP_INSERT`` semantics is defined
@@ -4590,7 +4590,7 @@ ordered by keys according to the comparison function ``LESS``.
 * ``GENMAP_LOOKUP : ∀ α. ∀ β.  α → 'GenMap' α β → 'Optional' α``
 
   Looks up the value at a key in the map using the builtin function
-  ``EQUAL`` to test key equality. This raises a runtime error if it
+  ``EQUAL`` to test key equality. This raises a runtime error if
   the first argument is not a comparable value.
 
   Formally the builtin function ``GENMAP_LOOKUP`` semantics is defined
@@ -4617,7 +4617,7 @@ ordered by keys according to the comparison function ``LESS``.
 
   Deletes a key and its value from the map, using the builtin function
   ``EQUAL`` to test key equality. When the key is not a member of the
-  map, the original map is returned. This raises a runtime error if it
+  map, the original map is returned. This raises a runtime error if
   the first argument is not a comparable value.
 
   Formally the builtin function ``GENMAP_DELETE`` semantics is defined
