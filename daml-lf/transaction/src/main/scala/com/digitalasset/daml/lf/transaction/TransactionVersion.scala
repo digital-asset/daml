@@ -45,6 +45,8 @@ object TransactionVersion {
 
   private[lf] val minContractKeys = VDev
 
+  import Tests.GenMapTest()
+
   private[lf] val minChoiceAuthorizers = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {

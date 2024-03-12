@@ -20,7 +20,6 @@ import org.junit.runners.Suite;
   ParametrizedContractIdTest.class,
   RecordTest.class,
   TemplateMethodTest.class,
-  TextMapTest.class,
   UpgradeTest.class,
   VariantTest.class,
 })

@@ -52,6 +52,7 @@ object LanguageVersion {
     val extendedInterfaces = v2_dev
 
     /** BigNumeric */
+    val textMap = v2_dev
     val bigNumeric = v2_dev
 
     val scenarios = v2_dev

@@ -129,6 +129,13 @@ featureUnstable = Feature
     , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
+    
+featureTextMap :: Feature
+featureTextMap = Feature
+    { featureName = "TextMap type"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_TEXTMAP"
+    }
 
 featureBigNumeric :: Feature
 featureBigNumeric = Feature
@@ -208,7 +215,8 @@ foreverCppFlags =
 
 allFeatures :: [Feature]
 allFeatures =
-    [ featureBigNumeric
+    [ featureTextMap
+    , featureBigNumeric
     , featureExceptions
     , featureExtendedInterfaces
     , featureChoiceFuncs

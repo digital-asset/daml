@@ -8,7 +8,9 @@ module Prelude (module X) where
 import DA.Internal.Prelude as X hiding (magic)
 import DA.Internal.LF as X hiding
   ( Pair(..)
+#ifdef DAML_TEXTMAP
   , TextMap
+#endif
   , Map
   , unpackPair
   , Any

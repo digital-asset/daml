@@ -24,7 +24,6 @@ object Util {
 
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
-  @scala.annotation.nowarn("cat=unused")
   def assertNormalizeValue(
       value0: Value,
       version: TransactionVersion,
@@ -33,6 +32,8 @@ object Util {
     import Ordering.Implicits.infixOrderingOps
 
     def handleTypeInfo[X](x: Option[X]) = None
+
+    val allowTextMap = version >= TransactionVersion.minTextMap
 
     def go(value: Value): Value =
       value match {
@@ -51,7 +52,13 @@ object Util {
         case ValueOptional(value) =>
           ValueOptional(value.map(go))
         case ValueTextMap(value) =>
-          ValueTextMap(value.mapValue(go))
+          if (allowTextMap) {
+            ValueTextMap(value.mapValue(go))
+          } else {
+            throw new IllegalArgumentException(
+              s"TextMap are not allowed in transaction version $version"
+            )
+          }
         case ValueGenMap(entries) =>
           ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
       }
