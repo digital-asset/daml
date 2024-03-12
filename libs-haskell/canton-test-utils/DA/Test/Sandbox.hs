@@ -167,7 +167,7 @@ getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars
         , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
         , "`" <> getParticipantName conf <> "`.domains.connect_local(sequencer1, \"mydomain\")"
         ]
-    upload dar = "participantsX.all.dars.upload(" <> show dar <> ")"
+    upload dar = "participants.all.dars.upload(" <> show dar <> ")"
     -- We copy out the port file after bootstrap is finished to get a true setup marker
     -- As the normal portfile is created before the bootstrap command is run
     cpPortFile = "os.copy(os.Path(" <> show portFile <> "), os.Path(" <> show (portFile <> "-bootstrapped") <> "))"
