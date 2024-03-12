@@ -27,8 +27,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   SequencerDomainConfigurationStore,
 }
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerInitializationServiceX
-import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.{ComponentStatus, GrpcHealthReporter, HealthService}
@@ -53,7 +51,7 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TopUpEvent
-import com.digitalasset.canton.util.{FutureUtil, SingleUseCell}
+import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
@@ -153,27 +151,6 @@ class SequencerNodeBootstrapX(
         config.init.autoInit,
       )
       with GrpcSequencerInitializationServiceX.Callback {
-    private val balanceStore = TrafficBalanceStore(
-      storage,
-      arguments.parameterConfig.processingTimeouts,
-      loggerFactory,
-      arguments.parameterConfig.batchingConfig.aggregator,
-    )
-    private val balanceManager = new TrafficBalanceManager(
-      balanceStore,
-      clock,
-      arguments.config.trafficConfig,
-      futureSupervisor,
-      arguments.metrics,
-      arguments.parameterConfig.processingTimeouts,
-      loggerFactory,
-    )
-
-    // Start auto pruning of traffic balances
-    FutureUtil.doNotAwaitUnlessShutdown(
-      balanceManager.startAutoPruning,
-      "Auto pruning of traffic balances",
-    )
 
     // add initialization service
     adminServerRegistry.addServiceU(
@@ -299,7 +276,6 @@ class SequencerNodeBootstrapX(
         nonInitializedSequencerNodeServer.getAndSet(None),
         healthReporter,
         healthService,
-        balanceManager,
       )
     }
 
@@ -366,7 +342,7 @@ class SequencerNodeBootstrapX(
                 )
                 // TODO(#14070) make initialize idempotent to support crash recovery during init
                 sequencerFactory
-                  .initialize(initialState, sequencerId, balanceManager)
+                  .initialize(initialState, sequencerId)
                   .mapK(FutureUnlessShutdown.outcomeK)
               }
               .getOrElse {
@@ -424,7 +400,6 @@ class SequencerNodeBootstrapX(
       preinitializedServer: Option[DynamicDomainGrpcServer],
       healthReporter: GrpcHealthReporter,
       healthService: HealthService,
-      balanceManager: TrafficBalanceManager,
   ) extends BootstrapStage[SequencerNodeX, RunningNode[SequencerNodeX]](
         description = "Startup sequencer node",
         bootstrapStageCallback,
@@ -522,7 +497,6 @@ class SequencerNodeBootstrapX(
             domainLoggerFactory,
             topologyProcessor,
           )
-          _ <- EitherT.liftF(balanceManager.initialize)
           sequencer <- createSequencerRuntime(
             sequencerFactory,
             domainId,
@@ -547,7 +521,6 @@ class SequencerNodeBootstrapX(
             memberAuthServiceFactory,
             domainLoggerFactory,
             config.trafficConfig,
-            balanceManager,
           )
           // TODO(#14073) subscribe to processor BEFORE sequencer client is created
           _ = addCloseable(sequencer)

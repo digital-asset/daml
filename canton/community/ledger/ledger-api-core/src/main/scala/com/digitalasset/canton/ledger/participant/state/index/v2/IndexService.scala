@@ -14,7 +14,6 @@ trait IndexService
     with ContractStore
     with MaximumLedgerTimeService
     with IndexPartyManagementService
-    with IndexConfigManagementService
     with IndexParticipantPruningService
     with MeteringStore
     with ReportsHealth

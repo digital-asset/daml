@@ -11,7 +11,7 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.ledger.configuration.{LedgerId, LedgerTimeModel}
@@ -52,21 +52,22 @@ object CantonLedgerApiServerWrapper extends NoTracing {
 
   /** Config for ledger API server and indexer
     *
-    * @param serverConfig          ledger API server configuration
-    * @param jsonApiConfig         JSON API configuration
-    * @param indexerConfig         indexer configuration
-    * @param indexerLockIds        Optional lock IDs to be used for indexer HA
-    * @param ledgerId              unique ledger id used by the ledger API server
-    * @param participantId         unique participant id used e.g. for a unique ledger API server index db name
-    * @param engine                daml engine shared with Canton for performance reasons
-    * @param syncService           canton sync service implementing both read and write services
-    * @param storageConfig         canton storage config so that indexer can share the participant db
-    * @param cantonParameterConfig configurations meant to be overridden primarily in tests (applying to all participants)
-    * @param testingTimeService    an optional service during testing for advancing time, participant-specific
-    * @param adminToken            canton admin token for ledger api auth
-    * @param loggerFactory         canton logger factory
-    * @param tracerProvider        tracer provider for open telemetry grpc injection
-    * @param metrics               upstream metrics module
+    * @param serverConfig             ledger API server configuration
+    * @param jsonApiConfig            JSON API configuration
+    * @param indexerConfig            indexer configuration
+    * @param indexerLockIds           Optional lock IDs to be used for indexer HA
+    * @param ledgerId                 unique ledger id used by the ledger API server
+    * @param participantId            unique participant id used e.g. for a unique ledger API server index db name
+    * @param engine                   daml engine shared with Canton for performance reasons
+    * @param syncService              canton sync service implementing both read and write services
+    * @param storageConfig            canton storage config so that indexer can share the participant db
+    * @param cantonParameterConfig    configurations meant to be overridden primarily in tests (applying to all participants)
+    * @param testingTimeService       an optional service during testing for advancing time, participant-specific
+    * @param adminToken               canton admin token for ledger api auth
+    * @param loggerFactory            canton logger factory
+    * @param tracerProvider           tracer provider for open telemetry grpc injection
+    * @param metrics                  upstream metrics module
+    * @param maxDeduplicationDuration maximum time window during which commands can be deduplicated.
     */
   final case class Config(
       serverConfig: LedgerApiServerConfig,
@@ -86,6 +87,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       metrics: Metrics,
       jsonApiMetrics: HttpApiMetrics,
       meteringReportKey: MeteringReportKey,
+      maxDeduplicationDuration: NonNegativeFiniteDuration,
   ) extends NamedLogging {
     override def logger: TracedLogger = super.logger
 

@@ -8,7 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
-import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
 
 import scala.concurrent.ExecutionContext
@@ -24,7 +24,6 @@ object ParticipantNodeEphemeralState {
       participantId: ParticipantId,
       persistentState: Eval[ParticipantNodePersistentState],
       clock: Clock,
-      maxDeduplicationDuration: Eval[NonNegativeFiniteDuration],
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
@@ -34,7 +33,6 @@ object ParticipantNodeEphemeralState {
       persistentState.map(_.participantEventLog),
       persistentState.map(_.multiDomainEventLog),
       clock,
-      maxDeduplicationDuration.map(_.unwrap),
       timeouts,
       futureSupervisor,
       loggerFactory,

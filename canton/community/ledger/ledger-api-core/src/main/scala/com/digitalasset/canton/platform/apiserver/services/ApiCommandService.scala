@@ -30,7 +30,7 @@ class ApiCommandService(
     commandsValidator: CommandsValidator,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationDuration: () => Option[Duration],
+    maxDeduplicationDuration: Duration,
     generateSubmissionId: SubmissionIdGenerator,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -75,7 +75,7 @@ class ApiCommandService(
         requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the domainId as well)
         currentLedgerTime(),
         currentUtcTime(),
-        maxDeduplicationDuration(),
+        maxDeduplicationDuration,
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t =>

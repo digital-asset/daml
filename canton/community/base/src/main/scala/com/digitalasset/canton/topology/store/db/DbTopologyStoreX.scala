@@ -249,12 +249,12 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       types: Seq[TopologyMappingX.Code],
-      idFilter: String,
-      namespaceOnly: Boolean,
+      idFilter: Option[String],
+      namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]] = {
-    logger.debug(s"Inspecting store for type=$types, filter=$idFilter, time=$timeQuery")
+    logger.debug(s"Inspecting store for types=$types, filter=$idFilter, time=$timeQuery")
 
     val timeFilter: SQLActionBuilderChain = timeQuery match {
       case TimeQuery.HeadState =>
@@ -272,12 +272,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
     val operationFilter = op.map(value => sql" AND operation = $value").getOrElse(sql"")
 
-    val mappingIdFilter = getIdFilter(idFilter, namespaceOnly)
+    val mappingIdFilter = getIdFilter(idFilter)
+    val mappingNameSpaceFilter = getNamespaceFilter(namespaceFilter)
 
     val mappingTypeFilter = typeFilter(types.toSet)
 
     val mappingProposalsAndPreviousFilter =
-      timeFilter ++ operationFilter ++ mappingIdFilter ++ mappingTypeFilter ++ sql" AND is_proposal = $proposals"
+      timeFilter ++ operationFilter ++ mappingIdFilter ++ mappingNameSpaceFilter ++ mappingTypeFilter ++ sql" AND is_proposal = $proposals"
 
     queryForTransactions(mappingProposalsAndPreviousFilter, "inspect")
   }
@@ -804,19 +805,19 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   private def getIdFilter(
-      idFilter: String,
-      namespaceOnly: Boolean,
-  ): SQLActionBuilderChain = if (idFilter.isEmpty) sql""
-  else if (namespaceOnly) {
-    sql" AND namespace LIKE ${idFilter + "%"}"
-  } else {
-    val (prefix, suffix) = UniqueIdentifier.splitFilter(idFilter, "%")
-    val tmp = sql" AND identifier like $prefix "
-    if (suffix.sizeCompare(1) > 0) {
-      tmp ++ sql" AND namespace like $suffix "
-    } else
-      tmp
-  }
+      idFilter: Option[String]
+  ): SQLActionBuilderChain =
+    idFilter match {
+      case Some(value) if value.nonEmpty => sql" AND identifier like ${value + "%"}"
+      case _ => sql""
+    }
+
+  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+  private def getNamespaceFilter(namespaceFilter: Option[String]): SQLActionBuilderChain =
+    namespaceFilter match {
+      case Some(value) if value.nonEmpty => sql" AND namespace LIKE ${value + "%"}"
+      case _ => sql""
+    }
 
 }
 

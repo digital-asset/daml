@@ -90,7 +90,8 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       devVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
-      override val useNewTrafficControl: Boolean = false,
+      useNewTrafficControl: Boolean = false,
+      exitOnFatalFailures: Boolean = true,
   ) extends CantonNodeParameters
 
   private val metricsFactory: CantonLabeledMetricsFactory = new InMemoryMetricsFactory

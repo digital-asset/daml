@@ -5,12 +5,15 @@ package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
 import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService
 import com.digitalasset.canton.domain.admin.v30.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
+  InitializeSequencerVersionedRequest,
+  InitializeSequencerVersionedResponse,
 }
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequestX,
@@ -39,7 +42,7 @@ class GrpcSequencerInitializationServiceX(
     val res: EitherT[Future, CantonError, InitializeSequencerResponse] = for {
       request <- EitherT.fromEither[Future](
         InitializeSequencerRequestX
-          .fromProtoV2(requestP)
+          .fromProtoV30(requestP)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
       result <- handler
@@ -53,6 +56,29 @@ class GrpcSequencerInitializationServiceX(
     } yield result.toProtoV30
     mapErrNew(res)
   }
+
+  override def initializeSequencerVersioned(
+      requestP: InitializeSequencerVersionedRequest
+  ): Future[InitializeSequencerVersionedResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val res: EitherT[Future, CantonError, InitializeSequencerVersionedResponse] = for {
+      request <- EitherT.fromEither[Future](
+        InitializeSequencerRequestX
+          .fromProtoV30(requestP)
+          .leftMap(ProtoDeserializationFailure.Wrap(_))
+      )
+      result <- handler
+        .initialize(request)
+        .leftMap(FailedToInitialiseDomainNode.Failure(_))
+        .onShutdown(Left(FailedToInitialiseDomainNode.Shutdown())): EitherT[
+        Future,
+        CantonError,
+        InitializeSequencerResponseX,
+      ]
+    } yield InitializeSequencerVersionedResponse(result.replicated)
+    mapErrNew(res)
+  }
+
 }
 
 object GrpcSequencerInitializationServiceX {

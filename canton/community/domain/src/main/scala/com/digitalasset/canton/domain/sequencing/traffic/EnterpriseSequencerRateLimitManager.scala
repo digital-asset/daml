@@ -236,6 +236,8 @@ class EnterpriseSequencerRateLimitManager(
       traceContext: TraceContext
   ): Unit =
     balanceUpdateClient.safeForPruning(timestamp)
+
+  override def balanceKnownUntil: Option[CantonTimestamp] = balanceUpdateClient.lastKnownTimestamp
 }
 
 object EnterpriseSequencerRateLimitManager {

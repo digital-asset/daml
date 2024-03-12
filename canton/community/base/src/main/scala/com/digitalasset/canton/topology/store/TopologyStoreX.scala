@@ -210,8 +210,8 @@ abstract class TopologyStoreX[+StoreID <: TopologyStoreId](implicit
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       types: Seq[TopologyMappingX.Code],
-      idFilter: String,
-      namespaceOnly: Boolean,
+      idFilter: Option[String],
+      namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]]

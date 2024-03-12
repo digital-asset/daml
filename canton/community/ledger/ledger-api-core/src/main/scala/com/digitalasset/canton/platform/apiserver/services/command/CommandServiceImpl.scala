@@ -14,7 +14,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetTransactionTreeResponse,
 }
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.services.CommandService
@@ -27,7 +26,6 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImpl.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.{
@@ -36,6 +34,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.{
 }
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, logging}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.{LedgerConfiguration, config}
 import com.google.protobuf.empty.Empty
 import io.grpc.{Context, Deadline}
 
@@ -217,7 +216,7 @@ private[apiserver] object CommandServiceImpl {
       defaultTrackingTimeout: config.NonNegativeFiniteDuration,
       transactionServices: TransactionServices,
       timeProvider: TimeProvider,
-      ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+      ledgerConfiguration: LedgerConfiguration,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -234,8 +233,7 @@ private[apiserver] object CommandServiceImpl {
       commandsValidator = commandsValidator,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationDuration = () =>
-        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
+      maxDeduplicationDuration = ledgerConfiguration.maxDeduplicationDuration,
       generateSubmissionId = SubmissionIdGenerator.Random,
       telemetry = telemetry,
       loggerFactory = loggerFactory,

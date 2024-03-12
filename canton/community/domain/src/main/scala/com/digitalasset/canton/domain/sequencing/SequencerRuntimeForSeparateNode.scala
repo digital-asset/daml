@@ -190,7 +190,12 @@ class SequencerRuntimeForSeparateNode(
 
   private val topologyHandler = topologyProcessor.createHandler(domainId)
   private val trafficProcessor =
-    new TrafficControlProcessor(syncCrypto, domainId, loggerFactory)
+    new TrafficControlProcessor(
+      syncCrypto,
+      domainId,
+      sequencer.rateLimitManager.flatMap(_.balanceKnownUntil),
+      loggerFactory,
+    )
 
   sequencer.rateLimitManager.foreach(_.balanceUpdateSubscriber.foreach(trafficProcessor.subscribe))
 

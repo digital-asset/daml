@@ -40,17 +40,17 @@ public class TextMapTest {
                     .setLabel("mapField")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
-                            .setMap(
-                                ValueOuterClass.Map.newBuilder()
+                            .setTextMap(
+                                ValueOuterClass.TextMap.newBuilder()
                                     .addEntries(
-                                        ValueOuterClass.Map.Entry.newBuilder()
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
                                             .setKey("key1")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
                                                     .setText("value1"))
                                             .build())
                                     .addEntries(
-                                        ValueOuterClass.Map.Entry.newBuilder()
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
                                             .setKey("key2")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
@@ -91,17 +91,17 @@ public class TextMapTest {
                     .setLabel("field")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
-                            .setMap(
-                                ValueOuterClass.Map.newBuilder()
+                            .setTextMap(
+                                ValueOuterClass.TextMap.newBuilder()
                                     .addEntries(
-                                        ValueOuterClass.Map.Entry.newBuilder()
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
                                             .setKey("outerkey1")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
-                                                    .setMap(
-                                                        ValueOuterClass.Map.newBuilder()
+                                                    .setTextMap(
+                                                        ValueOuterClass.TextMap.newBuilder()
                                                             .addEntries(
-                                                                ValueOuterClass.Map.Entry
+                                                                ValueOuterClass.TextMap.Entry
                                                                     .newBuilder()
                                                                     .setKey("key1")
                                                                     .setValue(
@@ -129,7 +129,7 @@ public class TextMapTest {
                                                                             .build())
                                                                     .build())
                                                             .addEntries(
-                                                                ValueOuterClass.Map.Entry
+                                                                ValueOuterClass.TextMap.Entry
                                                                     .newBuilder()
                                                                     .setKey("key2")
                                                                     .setValue(
@@ -159,14 +159,14 @@ public class TextMapTest {
                                                     .build())
                                             .build())
                                     .addEntries(
-                                        ValueOuterClass.Map.Entry.newBuilder()
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
                                             .setKey("outerkey2")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()
-                                                    .setMap(
-                                                        ValueOuterClass.Map.newBuilder()
+                                                    .setTextMap(
+                                                        ValueOuterClass.TextMap.newBuilder()
                                                             .addEntries(
-                                                                ValueOuterClass.Map.Entry
+                                                                ValueOuterClass.TextMap.Entry
                                                                     .newBuilder()
                                                                     .setKey("key1")
                                                                     .setValue(
@@ -194,7 +194,7 @@ public class TextMapTest {
                                                                             .build())
                                                                     .build())
                                                             .addEntries(
-                                                                ValueOuterClass.Map.Entry
+                                                                ValueOuterClass.TextMap.Entry
                                                                     .newBuilder()
                                                                     .setKey("key2")
                                                                     .setValue(
@@ -269,10 +269,10 @@ public class TextMapTest {
             .setConstructor("TextVariant")
             .setValue(
                 ValueOuterClass.Value.newBuilder()
-                    .setMap(
-                        ValueOuterClass.Map.newBuilder()
+                    .setTextMap(
+                        ValueOuterClass.TextMap.newBuilder()
                             .addEntries(
-                                ValueOuterClass.Map.Entry.newBuilder()
+                                ValueOuterClass.TextMap.Entry.newBuilder()
                                     .setKey("key")
                                     .setValue(ValueOuterClass.Value.newBuilder().setText("value"))
                                     .build())
@@ -318,10 +318,10 @@ public class TextMapTest {
                                     .setLabel("x")
                                     .setValue(
                                         ValueOuterClass.Value.newBuilder()
-                                            .setMap(
-                                                ValueOuterClass.Map.newBuilder()
+                                            .setTextMap(
+                                                ValueOuterClass.TextMap.newBuilder()
                                                     .addEntries(
-                                                        ValueOuterClass.Map.Entry.newBuilder()
+                                                        ValueOuterClass.TextMap.Entry.newBuilder()
                                                             .setKey("key")
                                                             .setValue(
                                                                 ValueOuterClass.Value.newBuilder()
@@ -362,10 +362,10 @@ public class TextMapTest {
             .setConstructor("ParameterizedVariant")
             .setValue(
                 ValueOuterClass.Value.newBuilder()
-                    .setMap(
-                        ValueOuterClass.Map.newBuilder()
+                    .setTextMap(
+                        ValueOuterClass.TextMap.newBuilder()
                             .addEntries(
-                                ValueOuterClass.Map.Entry.newBuilder()
+                                ValueOuterClass.TextMap.Entry.newBuilder()
                                     .setKey("key")
                                     .setValue(ValueOuterClass.Value.newBuilder().setInt64(42L))
                                     .build())
@@ -414,10 +414,10 @@ public class TextMapTest {
                     .setLabel("valueMap")
                     .setValue(
                         ValueOuterClass.Value.newBuilder()
-                            .setMap(
-                                ValueOuterClass.Map.newBuilder()
+                            .setTextMap(
+                                ValueOuterClass.TextMap.newBuilder()
                                     .addEntries(
-                                        ValueOuterClass.Map.Entry.newBuilder()
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
                                             .setKey("key")
                                             .setValue(
                                                 ValueOuterClass.Value.newBuilder()

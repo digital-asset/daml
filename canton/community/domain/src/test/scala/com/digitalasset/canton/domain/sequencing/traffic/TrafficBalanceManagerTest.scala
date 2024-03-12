@@ -11,14 +11,16 @@ import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.domain.sequencing.traffic.TrafficBalanceManager.TrafficBalanceAlreadyPruned
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
+import com.digitalasset.canton.lifecycle.PromiseUnlessShutdown
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.{DefaultTestIdentities, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.util.concurrent.CountDownLatch
 import scala.concurrent.Future
 
 class TrafficBalanceManagerTest
@@ -85,7 +87,6 @@ class TrafficBalanceManagerTest
       val balance2 = mkBalance(2, 200, timestamp.plusSeconds(1))
       manager.addTrafficBalance(balance).futureValue
       manager.addTrafficBalance(balance2).futureValue
-      manager.tick(timestamp.plusSeconds(1))
       // Avoids a warning when getting the balance at timestamp.plusSeconds(1).immediateSuccessor
       assertBalance(manager, timestamp.immediateSuccessor, balance)
       assertBalance(manager, timestamp.plusSeconds(1).immediateSuccessor, balance2)
@@ -95,7 +96,6 @@ class TrafficBalanceManagerTest
       val manager = mkManager
       val balance2 = mkBalance(1, 200, timestamp.plusSeconds(1))
       manager.addTrafficBalance(balance2).futureValue
-      manager.tick(timestamp.plusSeconds(1))
       assertEmptyBalance(manager, timestamp.immediateSuccessor)
     }
 
@@ -110,6 +110,51 @@ class TrafficBalanceManagerTest
         .futureValueUS shouldBe Right(Some(balance2))
       store.lookup(member).futureValue.find(_.sequencingTimestamp == timestamp) shouldBe Some(
         balance2
+      )
+    }
+
+    "properly sync between getting a balance and receiving an update for the same timestamp" in {
+      val countDownLatch = new CountDownLatch(1)
+      var reachedMakePromiseForBalance = false
+      val manager = new TrafficBalanceManager(
+        store,
+        clock,
+        SequencerTrafficConfig(pruningRetentionWindow = NonNegativeFiniteDuration.ofSeconds(2)),
+        futureSupervisor,
+        SequencerMetrics.noop("traffic-balance-manager"),
+        timeouts,
+        loggerFactory,
+      ) {
+        override private[traffic] def makePromiseForBalance(
+            member: Member,
+            desired: CantonTimestamp,
+            lastSeen: CantonTimestamp,
+        )(implicit traceContext: TraceContext): Option[PromiseUnlessShutdown[
+          Either[TrafficBalanceManager.TrafficBalanceManagerError, Option[TrafficBalance]]
+        ]] = {
+          reachedMakePromiseForBalance = true
+          countDownLatch.await()
+          super.makePromiseForBalance(member, desired, lastSeen)
+        }
+      }
+      manager.addTrafficBalance(balance).futureValue
+      val getBalanceF = Future(
+        manager.getTrafficBalanceAt(
+          member,
+          timestamp.plusSeconds(1),
+          lastSeenO = Some(timestamp.plusSeconds(1)),
+        )
+      )(parallelExecutionContext)
+      eventually() {
+        reachedMakePromiseForBalance shouldBe true
+      }
+      val balance2 = mkBalance(2, 200, timestamp.plusSeconds(1))
+      // Await on the future, this ensures that we've dequeued pending updates up to timestamp.plusSeconds(1),
+      // but we haven't created the promise for it yet
+      manager.addTrafficBalance(balance2).futureValue
+      countDownLatch.countDown()
+      getBalanceF.futureValue.valueOrFailShutdown("getting balance").futureValue shouldBe Some(
+        balance
       )
     }
 

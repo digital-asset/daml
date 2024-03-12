@@ -178,6 +178,20 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               TimeQuery.Range(ts1.some, ts4.some),
               proposals = true,
             )
+            proposalTransactionsFiltered <- inspect(
+              store,
+              TimeQuery.Range(ts1.some, ts4.some),
+              proposals = true,
+              types =
+                Seq(NamespaceDelegationX.code, PartyToParticipantX.code), // to test the types filter
+            )
+            proposalTransactionsFiltered2 <- inspect(
+              store,
+              TimeQuery.Range(ts1.some, ts4.some),
+              proposals = true,
+              types = Seq(PartyToParticipantX.code),
+            )
+
             positiveProposals <- findPositiveTransactions(store, ts6, isProposal = true)
 
             txByTxHash <- store.findProposalsByTxHash(
@@ -219,6 +233,16 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               Seq(
                 tx1_NSD_Proposal
               ), // only proposal transaction, TimeQueryX.Range is inclusive on both sides
+            )
+            expectTransactions(
+              proposalTransactionsFiltered,
+              Seq(
+                tx1_NSD_Proposal
+              ),
+            )
+            expectTransactions(
+              proposalTransactionsFiltered2,
+              Nil, // no proposal transaction of type PartyToParticipantX in the range
             )
             expectTransactions(positiveProposals, Seq(tx1_NSD_Proposal))
 
@@ -311,13 +335,12 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             idDaTransactions <- inspect(
               store,
               timeQuery = TimeQuery.Range(ts1.some, ts4.some),
-              idFilter = "da",
+              idFilter = Some("da"),
             )
             idNamespaceTransactions <- inspect(
               store,
               timeQuery = TimeQuery.Range(ts1.some, ts4.some),
-              idFilter = "decentralized-namespace",
-              namespaceOnly = true,
+              namespaceFilter = Some("decentralized-namespace"),
             )
             bothParties <- inspectKnownParties(store, ts6)
             onlyFred <- inspectKnownParties(store, ts6, filterParty = "fr::can")

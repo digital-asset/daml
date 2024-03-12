@@ -55,8 +55,6 @@ import com.digitalasset.canton.version.{
   RepresentativeProtocolVersion,
 }
 import com.digitalasset.canton.{
-  LedgerParticipantId,
-  LedgerSubmissionId,
   LfPackageId,
   LfTimestamp,
   ProtoDeserializationError,
@@ -85,9 +83,9 @@ private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEve
 
     v30.LedgerSyncEvent(
       event match {
-        case configurationChanged: LedgerSyncEvent.ConfigurationChanged =>
-          SyncEventP.ConfigurationChanged(
-            SerializableConfigurationChanged(configurationChanged).toProtoV30
+        case init: LedgerSyncEvent.Init =>
+          SyncEventP.Init(
+            SerializableInit(init).toProtoV30
           )
         case partyAddedToParticipant: LedgerSyncEvent.PartyAddedToParticipant =>
           SyncEventP.PartyAddedToParticipant(
@@ -193,8 +191,15 @@ private[store] object SerializableLedgerSyncEvent
     val ledgerSyncEvent = ledgerSyncEventP.value match {
       case SyncEventP.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("LedgerSyncEvent.value"))
-      case SyncEventP.ConfigurationChanged(configurationChanged) =>
-        SerializableConfigurationChanged.fromProtoV30(configurationChanged)
+      case SyncEventP.Init(init) =>
+        SerializableInit.fromProtoV30(init)
+      // Canton is no longer able to produce ConfigurationChanged message
+      case SyncEventP.ConfigurationChanged(_) =>
+        Left(
+          ProtoDeserializationError.OtherError(
+            "Unexpected LedgerSyncEvent.ConfigurationChanged"
+          )
+        )
       // Canton was never able to produce ConfigurationChangeRejected message
       case SyncEventP.ConfigurationChangeRejected(_) =>
         Left(
@@ -235,67 +240,39 @@ private[store] object SerializableLedgerSyncEvent
   }
 }
 
-trait ConfigurationParamsDeserializer {
+trait InitDeserializer {
   def fromProtoV30(
-      recordTimeP: Long,
-      submissionIdP: String,
-      participantIdP: String,
-      configurationP: (String, Option[v30.Configuration]),
+      recordTimeP: Long
   ): Either[
     ProtoDeserializationError,
-    (Timestamp, LedgerSubmissionId, LedgerParticipantId, Configuration),
+    Timestamp,
   ] =
-    configurationP match {
-      case (field, configP) =>
-        for {
-          recordTime <- SerializableLfTimestamp.fromProtoPrimitive(recordTimeP)
-          submissionId <- ProtoConverter.parseLFSubmissionId(submissionIdP)
-          participantId <- ProtoConverter.parseLfParticipantId(participantIdP)
-          configuration <- required(field, configP).flatMap(SerializableConfiguration.fromProtoV30)
-        } yield (recordTime, submissionId, participantId, configuration)
-    }
+    SerializableLfTimestamp.fromProtoPrimitive(recordTimeP)
 }
 
-private[store] final case class SerializableConfigurationChanged(
-    configurationChanged: LedgerSyncEvent.ConfigurationChanged
+private[store] final case class SerializableInit(
+    init: LedgerSyncEvent.Init
 ) {
-  def toProtoV30: v30.ConfigurationChanged = {
-    val LedgerSyncEvent.ConfigurationChanged(
-      recordTime,
-      submissionId,
-      participantId,
-      newConfiguration,
+  def toProtoV30: v30.Init = {
+    val LedgerSyncEvent.Init(
+      recordTime
     ) =
-      configurationChanged
-    v30.ConfigurationChanged(
-      submissionId,
-      Some(SerializableConfiguration(newConfiguration).toProtoV30),
-      participantId,
-      SerializableLfTimestamp(recordTime).toProtoV30,
+      init
+    v30.Init(
+      SerializableLfTimestamp(recordTime).toProtoV30
     )
   }
 }
 
-private[store] object SerializableConfigurationChanged extends ConfigurationParamsDeserializer {
+private[store] object SerializableInit extends InitDeserializer {
   def fromProtoV30(
-      configurationChangedP: v30.ConfigurationChanged
-  ): ParsingResult[LedgerSyncEvent.ConfigurationChanged] = {
-    val v30.ConfigurationChanged(submissionIdP, configurationP, participantIdP, recordTimeP) =
-      configurationChangedP
+      initP: v30.Init
+  ): ParsingResult[LedgerSyncEvent.Init] = {
+    val v30.Init(recordTimeP) =
+      initP
     for {
-      cfg <- fromProtoV30(
-        recordTimeP,
-        submissionIdP,
-        participantIdP,
-        ("configuration", configurationP),
-      )
-      (recordTime, submissionId, participantId, configuration) = cfg
-    } yield LedgerSyncEvent.ConfigurationChanged(
-      recordTime,
-      submissionId,
-      participantId,
-      configuration,
-    )
+      recordTime <- fromProtoV30(recordTimeP)
+    } yield LedgerSyncEvent.Init(recordTime)
   }
 }
 

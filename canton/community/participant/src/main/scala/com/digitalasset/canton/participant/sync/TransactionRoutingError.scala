@@ -222,7 +222,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
 
       final case class NotAllowed(unknownSubmitter: LfPartyId)
           extends TransactionErrorImpl(
-            cause = "This participant can not submit as the given submitter on any connected domain"
+            cause = "This participant cannot submit as the given submitter on any connected domain"
           )
           with TransactionRoutingError
 

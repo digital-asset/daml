@@ -17,6 +17,8 @@ service TopologyManagerWriteService {
 
   rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);
 
+  rpc ImportTopologySnapshot(ImportTopologySnapshotRequest) returns (ImportTopologySnapshotResponse);
+
   rpc SignTransactions(SignTransactionsRequest) returns (SignTransactionsResponse);
 }
 
@@ -101,8 +103,17 @@ message AddTransactionsRequest {
    */
   string store = 3;
 }
-
 message AddTransactionsResponse {}
+
+/**
+ * Same message as AddTransactionsRequest, except that transactions are encoded in a byte string
+ */
+message ImportTopologySnapshotRequest {
+  bytes topology_snapshot = 1;
+  bool force_change = 2;
+  string store = 3;
+}
+message ImportTopologySnapshotResponse {}
 
 message SignTransactionsRequest {
   /** The transactions to be signed, but will not be stored in the authorized store */

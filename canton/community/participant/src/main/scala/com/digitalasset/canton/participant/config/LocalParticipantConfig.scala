@@ -157,7 +157,7 @@ final case class RemoteParticipantConfig(
   * @param address                   ledger api server host name.
   * @param internalPort              ledger api server port.
   * @param tls                       tls configuration setting from ledger api server.
-  * @param configurationLoadTimeout  ledger api server startup delay if no timemodel has been sent by canton via ReadService
+  * @param initSyncTimeout           ledger api server startup delay
   * @param commandService            configurations pertaining to the ledger api server's "command service"
   * @param managementServiceTimeout  ledger api server management service maximum duration. Duration has to be finite
   *                                  as the ledger api server uses java.time.duration that does not support infinite scala durations.
@@ -175,8 +175,8 @@ final case class LedgerApiServerConfig(
     internalPort: Option[Port] = None,
     indexService: LedgerIndexServiceConfig = LedgerIndexServiceConfig(),
     tls: Option[TlsServerConfig] = None,
-    configurationLoadTimeout: config.NonNegativeFiniteDuration =
-      LedgerApiServerConfig.DefaultConfigurationLoadTimeout,
+    initSyncTimeout: config.NonNegativeFiniteDuration =
+      LedgerApiServerConfig.DefaultInitSyncTimeout,
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
     managementServiceTimeout: config.NonNegativeFiniteDuration =
@@ -210,7 +210,7 @@ final case class LedgerApiServerConfig(
 
 object LedgerApiServerConfig {
 
-  private val DefaultConfigurationLoadTimeout: config.NonNegativeFiniteDuration =
+  private val DefaultInitSyncTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofSeconds(10L)
   private val DefaultManagementServiceTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofMinutes(2L)

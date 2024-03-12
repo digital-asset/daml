@@ -14,7 +14,6 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationDuration,
   DeduplicationOffset,
 }
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexedUpdatesMetrics, Metrics}
@@ -69,22 +68,7 @@ object UpdateToDbDto {
             )
           )
 
-        case u: ConfigurationChanged =>
-          incrementCounterForEvent(
-            metrics.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.configurationChange,
-            IndexedUpdatesMetrics.Labels.status.accepted,
-          )
-          Iterator(
-            DbDto.ConfigurationEntry(
-              ledger_offset = offset.toHexString,
-              recorded_at = u.recordTime.micros,
-              submission_id = u.submissionId,
-              typ = JdbcLedgerDao.acceptType,
-              configuration = Configuration.encode(u.newConfiguration).toByteArray,
-              rejection_reason = None,
-            )
-          )
+        case _: Init => Iterator()
 
         case u: PartyAddedToParticipant =>
           incrementCounterForEvent(

@@ -226,16 +226,6 @@ scala_library(
 
 ### community/ledger/ledger-common ###
 
-proto_jars(
-    name = "community_ledger_ledger-common_configuration_proto",
-    srcs = glob(["community/ledger/ledger-common/src/main/protobuf/**/*.proto"]),
-    maven_artifact_prefix = "ledger.configuration.protobuf",
-    maven_group = "com.daml",
-    deps = [
-        "@com_google_protobuf//:duration_proto",
-    ],
-)
-
 da_scala_library(
     name = "community_ledger_ledger-common",
     srcs = glob([
@@ -259,7 +249,6 @@ da_scala_library(
         "//test-common/canton:__subpackages__",
     ],
     deps = [
-        ":community_ledger_ledger-common_configuration_proto_java",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
@@ -600,7 +589,6 @@ scala_library(
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-common",
-        ":community_ledger_ledger-common_configuration_proto_java",
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",

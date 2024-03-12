@@ -172,14 +172,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       domain_id = "domain4",
       trace_context = serializableTraceContext,
     ),
-    DbDto.ConfigurationEntry(
-      ledger_offset = "75",
-      recorded_at = 1,
-      submission_id = "76",
-      typ = "77",
-      configuration = Array.empty,
-      rejection_reason = Some("78"),
-    ),
     DbDto.Package(
       package_id = "79",
       upload_id = "80",

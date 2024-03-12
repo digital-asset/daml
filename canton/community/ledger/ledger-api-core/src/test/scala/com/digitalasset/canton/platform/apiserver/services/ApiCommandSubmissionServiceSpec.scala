@@ -137,7 +137,7 @@ class ApiCommandSubmissionServiceSpec
       writeService = null,
       currentLedgerTime = () => Instant.EPOCH,
       currentUtcTime = () => Instant.EPOCH,
-      maxDeduplicationDuration = () => Some(Duration.ZERO),
+      maxDeduplicationDuration = Duration.ZERO,
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
       metrics = Metrics.ForTesting,
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),

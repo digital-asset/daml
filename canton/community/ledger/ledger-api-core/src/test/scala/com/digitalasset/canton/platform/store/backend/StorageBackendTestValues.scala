@@ -74,19 +74,6 @@ private[store] object StorageBackendTestValues {
   private val serializableTraceContext: Array[Byte] =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
-  def dtoConfiguration(
-      offset: Offset,
-      configuration: Configuration = someConfiguration,
-  ): DbDto.ConfigurationEntry =
-    DbDto.ConfigurationEntry(
-      ledger_offset = offset.toHexString,
-      recorded_at = someTime.micros,
-      submission_id = "submission_id",
-      typ = JdbcLedgerDao.acceptType,
-      configuration = Configuration.encode(configuration).toByteArray,
-      rejection_reason = None,
-    )
-
   def dtoPartyEntry(
       offset: Offset,
       party: String = someParty,

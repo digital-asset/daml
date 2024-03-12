@@ -58,6 +58,8 @@ message GetActiveContractsRequest {
 message GetActiveContractsResponse {
   // Included only in the last message.
   // The client should start consuming the transactions endpoint with this offset.
+  // On a participant that is not aware of any events in the ledger the offset returned could be the empty string.
+  // The empty string signifies that the offset returned is before the first transaction.
   // The format of this field is described in ``participant_offset.proto``.
   string offset = 1;
 

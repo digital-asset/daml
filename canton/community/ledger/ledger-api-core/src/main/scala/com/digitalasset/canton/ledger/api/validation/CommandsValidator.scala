@@ -46,7 +46,7 @@ final class CommandsValidator(
       commands: Commands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationDuration: Option[Duration],
+      maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Commands] =
@@ -230,44 +230,36 @@ final class CommandsValidator(
     */
   def validateDeduplicationPeriod(
       deduplicationPeriod: Commands.DeduplicationPeriod,
-      optMaxDeduplicationDuration: Option[Duration],
+      maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
-    optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
-      Left(
-        RequestValidationErrors.NotFound.LedgerConfiguration
-          .Reject()
-          .asGrpcError
-      )
-    ) { maxDeduplicationDuration =>
-      deduplicationPeriod match {
-        case Commands.DeduplicationPeriod.Empty =>
-          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
-        case Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
-          val deduplicationDuration = DurationConversion.fromProto(duration)
-          DeduplicationPeriodValidator
-            .validateNonNegativeDuration(deduplicationDuration)
-            .map(DeduplicationPeriod.DeduplicationDuration)
-        case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
-          Ref.HexString
-            .fromString(offset)
-            .fold(
-              _ =>
-                Left(
-                  RequestValidationErrors.NonHexOffset
-                    .Error(
-                      fieldName = "deduplication_period",
-                      offsetValue = offset,
-                      message =
-                        s"the deduplication offset has to be a hexadecimal string and not $offset",
-                    )
-                    .asGrpcError
-                ),
-              hexOffset =>
-                Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
-            )
-      }
+    deduplicationPeriod match {
+      case Commands.DeduplicationPeriod.Empty =>
+        Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
+      case Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
+        val deduplicationDuration = DurationConversion.fromProto(duration)
+        DeduplicationPeriodValidator
+          .validateNonNegativeDuration(deduplicationDuration)
+          .map(DeduplicationPeriod.DeduplicationDuration)
+      case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
+        Ref.HexString
+          .fromString(offset)
+          .fold(
+            _ =>
+              Left(
+                RequestValidationErrors.NonHexOffset
+                  .Error(
+                    fieldName = "deduplication_period",
+                    offsetValue = offset,
+                    message =
+                      s"the deduplication offset has to be a hexadecimal string and not $offset",
+                  )
+                  .asGrpcError
+              ),
+            hexOffset =>
+              Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
+          )
     }
 }
 

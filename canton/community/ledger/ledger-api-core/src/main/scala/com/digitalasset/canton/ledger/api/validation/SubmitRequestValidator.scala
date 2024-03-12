@@ -23,7 +23,7 @@ class SubmitRequestValidator(
       req: SubmitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationDuration: Option[Duration],
+      maxDeduplicationDuration: Duration,
       domainIdString: Option[String],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

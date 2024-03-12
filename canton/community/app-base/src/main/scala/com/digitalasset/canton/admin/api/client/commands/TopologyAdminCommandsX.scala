@@ -24,6 +24,8 @@ import com.digitalasset.canton.topology.admin.v30.{
   AddTransactionsResponse,
   AuthorizeRequest,
   AuthorizeResponse,
+  ImportTopologySnapshotRequest,
+  ImportTopologySnapshotResponse,
   ListTrafficStateRequest,
   SignTransactionsRequest,
   SignTransactionsResponse,
@@ -37,6 +39,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMappingX,
 }
 import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -540,8 +543,11 @@ object TopologyAdminCommandsX {
         Right(response.storeIds)
     }
 
-    final case class ListAll(query: BaseQueryX, excludeMappings: Seq[String])
-        extends BaseCommand[
+    final case class ListAll(
+        query: BaseQueryX,
+        excludeMappings: Seq[String],
+        filterNamespace: String,
+    ) extends BaseCommand[
           v30.ListAllRequest,
           v30.ListAllResponse,
           GenericStoredTopologyTransactionsX,
@@ -551,6 +557,7 @@ object TopologyAdminCommandsX {
           new v30.ListAllRequest(
             baseQuery = Some(query.toProtoV1),
             excludeMappings = excludeMappings,
+            filterNamespace = filterNamespace,
           )
         )
 
@@ -568,6 +575,34 @@ object TopologyAdminCommandsX {
           ) { collection =>
             StoredTopologyTransactionsX.fromProtoV30(collection).leftMap(_.toString)
           }
+    }
+    final case class ExportTopologySnapshot(
+        query: BaseQueryX,
+        excludeMappings: Seq[String],
+        filterNamespace: String,
+    ) extends BaseCommand[
+          v30.ExportTopologySnapshotRequest,
+          v30.ExportTopologySnapshotResponse,
+          ByteString,
+        ] {
+      override def createRequest(): Either[String, v30.ExportTopologySnapshotRequest] =
+        Right(
+          new v30.ExportTopologySnapshotRequest(
+            baseQuery = Some(query.toProtoV1),
+            excludeMappings = excludeMappings,
+            filterNamespace = filterNamespace,
+          )
+        )
+
+      override def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.ExportTopologySnapshotRequest,
+      ): Future[v30.ExportTopologySnapshotResponse] = service.exportTopologySnapshot(request)
+
+      override def handleResponse(
+          response: v30.ExportTopologySnapshotResponse
+      ): Either[String, ByteString] =
+        Right(response.result)
     }
   }
 
@@ -595,6 +630,31 @@ object TopologyAdminCommandsX {
       ): Future[AddTransactionsResponse] = service.addTransactions(request)
       override def handleResponse(response: AddTransactionsResponse): Either[String, Unit] =
         Right(())
+    }
+    final case class ImportTopologySnapshot(
+        topologySnapshot: ByteString,
+        store: String,
+    ) extends BaseWriteCommand[
+          ImportTopologySnapshotRequest,
+          ImportTopologySnapshotResponse,
+          Unit,
+        ] {
+      override def createRequest(): Either[String, ImportTopologySnapshotRequest] = {
+        Right(
+          ImportTopologySnapshotRequest(
+            topologySnapshot,
+            forceChange = false,
+            store,
+          )
+        )
+      }
+      override def submitRequest(
+          service: TopologyManagerWriteServiceStub,
+          request: ImportTopologySnapshotRequest,
+      ): Future[ImportTopologySnapshotResponse] = service.importTopologySnapshot(request)
+      override def handleResponse(
+          response: ImportTopologySnapshotResponse
+      ): Either[String, Unit] = Right(())
     }
 
     final case class SignTransactions(

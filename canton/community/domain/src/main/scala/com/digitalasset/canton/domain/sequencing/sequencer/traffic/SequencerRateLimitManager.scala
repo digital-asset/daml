@@ -108,6 +108,10 @@ trait SequencerRateLimitManager extends AutoCloseable {
     * as the balance will be eligible for pruning.
     */
   def safeForPruning(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Unit
+
+  /** Timestamp of the latest known state of traffic balances.
+    */
+  def balanceKnownUntil: Option[CantonTimestamp]
 }
 
 sealed trait SequencerRateLimitError

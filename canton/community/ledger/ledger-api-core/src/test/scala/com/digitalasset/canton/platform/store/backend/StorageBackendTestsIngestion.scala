@@ -25,32 +25,6 @@ private[backend] trait StorageBackendTestsIngestion
 
   import StorageBackendTestValues.*
 
-  it should "ingest a single configuration update" in {
-    val someOffset = offset(1)
-    val dtos = Vector(
-      dtoConfiguration(someOffset, someConfiguration)
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(dtos, _))
-    val configBeforeLedgerEndUpdate = executeSql(backend.configuration.ledgerConfiguration)
-    executeSql(
-      updateLedgerEnd(someOffset, ledgerEndSequentialId = 0)
-    )
-    val configAfterLedgerEndUpdate = executeSql(backend.configuration.ledgerConfiguration)
-
-    // The first query is executed before the ledger end is updated.
-    // It should not see the already ingested configuration change.
-    configBeforeLedgerEndUpdate shouldBe empty
-
-    // The second query should now see the configuration change.
-    inside(configAfterLedgerEndUpdate) { case Some((offset, config)) =>
-      offset shouldBe someOffset
-      config shouldBe someConfiguration
-    }
-    configAfterLedgerEndUpdate should not be empty
-  }
-
   it should "ingest a single package update" in {
     val someOffset = offset(1)
     val dtos = Vector(

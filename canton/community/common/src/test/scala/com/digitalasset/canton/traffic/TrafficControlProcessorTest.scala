@@ -116,7 +116,12 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
         mutable.Builder[SetTrafficBalanceMessage, Seq[SetTrafficBalanceMessage]]
       ],
   ) = {
-    val tcp = new TrafficControlProcessor(domainCrypto, domainId, loggerFactory)
+    val tcp = new TrafficControlProcessor(
+      domainCrypto,
+      domainId,
+      Option.empty[CantonTimestamp],
+      loggerFactory,
+    )
     val observedTs = new AtomicReference(Seq.newBuilder[CantonTimestamp])
     val updates = new AtomicReference(Seq.newBuilder[SetTrafficBalanceMessage])
 

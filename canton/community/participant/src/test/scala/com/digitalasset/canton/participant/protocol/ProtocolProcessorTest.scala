@@ -285,7 +285,6 @@ class ProtocolProcessorTest
       Eval.now(nodePersistentState.participantEventLog),
       Eval.now(mdel),
       clock,
-      Eval.now(Duration.ofDays(1L)),
       timeouts,
       futureSupervisor,
       loggerFactory,

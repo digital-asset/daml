@@ -51,7 +51,7 @@ class ApiCommandServiceSpec
         commandsValidator = commandsValidator,
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
-        maxDeduplicationDuration = () => Some(Duration.ZERO),
+        maxDeduplicationDuration = Duration.ZERO,
         generateSubmissionId = () =>
           Ref.SubmissionId.assertFromString(
             s"$submissionIdPrefix${submissionCounter.incrementAndGet()}"
@@ -104,7 +104,7 @@ class ApiCommandServiceSpec
         commandsValidator = commandsValidator,
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
-        maxDeduplicationDuration = () => Some(Duration.ZERO),
+        maxDeduplicationDuration = Duration.ZERO,
         generateSubmissionId = () => Ref.SubmissionId.assertFromString(s"submissionId"),
         telemetry = telemetry,
         loggerFactory = loggerFactory,

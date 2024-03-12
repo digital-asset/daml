@@ -69,8 +69,8 @@ message Value {
     // Represents a homogeneous list of values.
     List list = 11;
 
-    // The Map type
-    Map map = 12;
+    // The TextMap type
+    TextMap text_map = 12;
 
     // The GenMap type
     GenMap gen_map = 13;
@@ -167,7 +167,7 @@ message Optional {
   Value value = 1; // optional
 }
 
-message Map {
+message TextMap {
   message Entry {
     string key = 1;
     Value value = 2;

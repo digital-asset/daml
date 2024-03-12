@@ -7,7 +7,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.store.backend.common.{
   CommonStorageBackendFactory,
   CompletionStorageBackendTemplate,
-  ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   IngestionStorageBackendTemplate,
   PackageStorageBackendTemplate,
@@ -15,7 +14,6 @@ import com.digitalasset.canton.platform.store.backend.common.{
 }
 import com.digitalasset.canton.platform.store.backend.{
   CompletionStorageBackend,
-  ConfigurationStorageBackend,
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
@@ -36,11 +34,6 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
 
   override def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend =
     new PackageStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
-
-  override def createConfigurationStorageBackend(
-      ledgerEndCache: LedgerEndCache
-  ): ConfigurationStorageBackend =
-    new ConfigurationStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)

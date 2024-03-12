@@ -64,7 +64,7 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseProtocolVersion}
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
@@ -154,6 +154,13 @@ class CantonLedgerApiServerFactory(
             metrics = metrics,
             jsonApiMetrics = httpApiMetrics,
             meteringReportKey = meteringReportKey,
+            maxDeduplicationDuration = participantNodePersistentState
+              .map(_.settingsStore.settings.maxDeduplicationDuration)
+              .value
+              .getOrElse(
+                throw new IllegalArgumentException(s"Unknown maxDeduplicationDuration")
+              )
+              .toConfig,
           ),
           // start ledger API server iff participant replica is active
           startLedgerApiServer = sync.isActive(),
@@ -317,14 +324,6 @@ trait ParticipantNodeBootstrapCommon {
         participantId,
         persistentState,
         clock,
-        maxDeduplicationDuration = persistentState.map(
-          _.settingsStore.settings.maxDeduplicationDuration
-            .getOrElse(
-              ErrorUtil.internalError(
-                new RuntimeException("Max deduplication duration is not available")
-              )
-            )
-        ),
         timeouts = parameterConfig.processingTimeouts,
         futureSupervisor,
         loggerFactory,

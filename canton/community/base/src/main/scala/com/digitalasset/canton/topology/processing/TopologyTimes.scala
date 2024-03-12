@@ -34,6 +34,8 @@ object ApproximateTime {
 }
 
 final case class SequencedTime(value: CantonTimestamp) {
+  def toApproximate: ApproximateTime = ApproximateTime(value)
+
   def toProtoPrimitive: ProtoTimestamp = value.toProtoTimestamp
   def toLf: LfTimestamp = value.toLf
 }

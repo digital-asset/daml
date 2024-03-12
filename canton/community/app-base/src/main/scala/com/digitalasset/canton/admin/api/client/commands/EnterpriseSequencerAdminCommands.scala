@@ -20,6 +20,7 @@ import com.digitalasset.canton.domain.sequencing.admin.grpc.{
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -81,6 +82,42 @@ object EnterpriseSequencerAdminCommands {
         response: v30.InitializeSequencerResponse
     ): Either[String, InitializeSequencerResponseX] =
       InitializeSequencerResponseX.fromProtoV30(response).leftMap(_.toString)
+  }
+  final case class Initialize(
+      topologySnapshot: ByteString,
+      domainParameters: com.digitalasset.canton.protocol.StaticDomainParameters,
+      sequencerSnapshot: ByteString,
+  ) extends GrpcAdminCommand[
+        v30.InitializeSequencerVersionedRequest,
+        v30.InitializeSequencerVersionedResponse,
+        InitializeSequencerResponseX,
+      ] {
+    override type Svc = v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
+
+    override def createService(
+        channel: ManagedChannel
+    ): v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
+      v30.SequencerInitializationServiceGrpc.stub(channel)
+
+    override def submitRequest(
+        service: v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
+        request: v30.InitializeSequencerVersionedRequest,
+    ): Future[v30.InitializeSequencerVersionedResponse] =
+      service.initializeSequencerVersioned(request)
+
+    override def createRequest(): Either[String, v30.InitializeSequencerVersionedRequest] =
+      Right(
+        v30.InitializeSequencerVersionedRequest(
+          topologySnapshot = topologySnapshot,
+          Some(domainParameters.toProtoV30),
+          sequencerSnapshot,
+        )
+      )
+
+    override def handleResponse(
+        response: v30.InitializeSequencerVersionedResponse
+    ): Either[String, InitializeSequencerResponseX] =
+      Right(InitializeSequencerResponseX(response.replicated))
   }
 
   final case class Snapshot(timestamp: CantonTimestamp)

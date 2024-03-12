@@ -15,12 +15,6 @@ import com.digitalasset.canton.domain.sequencing.config.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerFactory}
-import com.digitalasset.canton.domain.sequencing.traffic.{
-  BalanceUpdateClientImpl,
-  BalanceUpdateClientTopologyImpl,
-  EnterpriseSequencerRateLimitManager,
-  TrafficBalanceManager,
-}
 import com.digitalasset.canton.domain.server.DynamicDomainGrpcServer
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.admin.data.{SequencerHealthStatus, SequencerNodeStatus}
@@ -128,7 +122,6 @@ trait SequencerNodeBootstrapCommon[
       memberAuthServiceFactory: MemberAuthenticationServiceFactory,
       domainLoggerFactory: NamedLoggerFactory,
       trafficConfig: SequencerTrafficConfig,
-      balanceManager: TrafficBalanceManager,
   ): EitherT[Future, String, SequencerRuntime] = {
     val syncCrypto = new DomainSyncCryptoClient(
       sequencerId,
@@ -141,29 +134,6 @@ trait SequencerNodeBootstrapCommon[
       loggerFactory,
     )
 
-    def newTrafficBalanceClient = new BalanceUpdateClientImpl(balanceManager, loggerFactory)
-
-    // Old balance client from topology
-    def topologyTrafficBalanceClient = {
-      new BalanceUpdateClientTopologyImpl(
-        syncCrypto,
-        staticDomainParameters.protocolVersion,
-        loggerFactory,
-      )
-    }
-
-    val balanceUpdateClient =
-      if (arguments.parameterConfig.useNewTrafficControl) newTrafficBalanceClient
-      else topologyTrafficBalanceClient
-
-    val rateLimitManager = new EnterpriseSequencerRateLimitManager(
-      balanceUpdateClient,
-      loggerFactory,
-      futureSupervisor,
-      timeouts,
-      arguments.metrics,
-    )
-
     for {
       sequencer <- EitherT.liftF[Future, String, Sequencer](
         sequencerFactory.create(
@@ -173,8 +143,7 @@ trait SequencerNodeBootstrapCommon[
           clock,
           syncCrypto,
           futureSupervisor,
-          rateLimitManager,
-          balanceManager.store,
+          trafficConfig,
         )
       )
 
