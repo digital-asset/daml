@@ -203,13 +203,6 @@ in rec {
     docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
-    terraform = pkgs.terraform_1.withPlugins (p: with p; [
-      azurerm
-      google
-      google-beta
-      secret
-      random
-    ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   };
 
