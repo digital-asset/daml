@@ -5,7 +5,10 @@ package com.digitalasset.canton.console.commands
 
 import cats.syntax.option.*
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.InitializeX
+import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.{
+  Initialize,
+  InitializeX,
+}
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.console.Help
 import com.digitalasset.canton.data.CantonTimestamp
@@ -23,6 +26,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOpX,
   TopologyMappingX,
 }
+import com.google.protobuf.ByteString
 
 class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
 
@@ -61,6 +65,20 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
           ),
           domainParameters.toInternal,
           None,
+        )
+      )
+    }
+
+  def assign_from_beginning(
+      genesisState: ByteString,
+      domainParameters: StaticDomainParameters,
+  ): InitializeSequencerResponseX =
+    consoleEnvironment.run {
+      runner.adminCommand(
+        Initialize(
+          genesisState,
+          domainParameters.toInternal,
+          ByteString.empty(),
         )
       )
     }

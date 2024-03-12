@@ -48,6 +48,7 @@ class DriverBlockSequencerFactory[C](
       nodeParameters,
       loggerFactory,
       testingInterceptor,
+      metrics,
     ) {
 
   override protected final lazy val name: String = sequencerDriverFactory.name

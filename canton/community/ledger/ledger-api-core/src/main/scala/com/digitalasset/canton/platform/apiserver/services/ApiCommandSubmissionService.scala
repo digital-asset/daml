@@ -43,7 +43,7 @@ final class ApiCommandSubmissionService(
     writeService: WriteService,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationDuration: () => Option[Duration],
+    maxDeduplicationDuration: Duration,
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
     telemetry: Telemetry,
@@ -82,7 +82,7 @@ final class ApiCommandSubmissionService(
             req = requestWithSubmissionId,
             currentLedgerTime = currentLedgerTime(),
             currentUtcTime = currentUtcTime(),
-            maxDeduplicationDuration = maxDeduplicationDuration(),
+            maxDeduplicationDuration = maxDeduplicationDuration,
             domainIdString = requestWithSubmissionId.commands.flatMap(commands =>
               OptionUtil.emptyStringAsNone(commands.domainId)
             ),

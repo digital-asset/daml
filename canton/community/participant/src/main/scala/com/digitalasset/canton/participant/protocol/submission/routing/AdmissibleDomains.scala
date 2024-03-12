@@ -181,11 +181,17 @@ private[routing] final class AdmissibleDomains(
 
     for {
       topology <- queryTopology()
+      _ = logger.debug(s"Topology queried for the following domains: ${topology.keySet}")
       knownParties = topology.view.values.map(_.keySet).fold(Set.empty)(_ ++ _)
       _ <- ensureAllSubmittersAreKnown(knownParties)
       _ <- ensureAllInformeesAreKnown(knownParties)
+
       domainsWithAllSubmitters <- domainsWithAllSubmitters(topology)
+      _ = logger.debug(s"Domains with all submitters: ${domainsWithAllSubmitters.keySet}")
+
       domainsWithAllInformees <- domainsWithAllInformees(topology)
+      _ = logger.debug(s"Domains with all informees: ${domainsWithAllInformees.keySet}")
+
       submittersDomainIds <- suitableDomains(domainsWithAllSubmitters)
       informeesDomainIds = domainsWithAllInformees.keySet
       commonDomainIds <- commonDomainIds(submittersDomainIds, informeesDomainIds)

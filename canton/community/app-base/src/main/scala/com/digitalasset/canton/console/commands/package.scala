@@ -8,6 +8,13 @@ import cats.syntax.functorFilter.*
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.util.BinaryFileUtil
+import com.google.protobuf.ByteString
+
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermission.{OWNER_READ, OWNER_WRITE}
+import scala.jdk.CollectionConverters.*
 
 package object commands {
 
@@ -42,4 +49,16 @@ package object commands {
       throw new CommandFailure()
     }
 
+  private[commands] def writeToFile(outputFile: String, bytes: ByteString): Unit = {
+    val file = new File(outputFile)
+    file.createNewFile()
+    // only current user has permissions with the file
+    try {
+      Files.setPosixFilePermissions(file.toPath, Set(OWNER_READ, OWNER_WRITE).asJava)
+    } catch {
+      // the above will throw on non-posix systems such as windows
+      case _: UnsupportedOperationException =>
+    }
+    BinaryFileUtil.writeByteStringToFile(outputFile, bytes)
+  }
 }

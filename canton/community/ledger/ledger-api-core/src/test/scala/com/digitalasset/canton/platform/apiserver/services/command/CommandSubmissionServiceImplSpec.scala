@@ -31,7 +31,6 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService
-import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
@@ -205,7 +204,6 @@ class CommandSubmissionServiceImplSpec
     val writeService = mock[state.WriteService]
     val timeProvider = TimeProvider.Constant(Instant.now)
     val timeProviderType = TimeProviderType.Static
-    val ledgerConfigurationSubscription = mock[LedgerConfigurationSubscription]
     val seedService = SeedService.WeakRandom
     val commandExecutor = mock[CommandExecutor]
     val metrics = Metrics.ForTesting
@@ -288,8 +286,6 @@ class CommandSubmissionServiceImplSpec
       processedDisclosedContracts = processedDisclosedContracts,
     )
 
-    when(ledgerConfigurationSubscription.latestConfiguration())
-      .thenReturn(Some(ledgerConfiguration))
     when(
       commandExecutor.execute(eqTo(commands), any[Hash], eqTo(ledgerConfiguration))(
         any[LoggingContextWithTrace]
@@ -314,7 +310,7 @@ class CommandSubmissionServiceImplSpec
       writeService = writeService,
       timeProviderType = timeProviderType,
       timeProvider = timeProvider,
-      ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+      ledgerConfiguration = ledgerConfiguration,
       seedService = seedService,
       commandExecutor = commandExecutor,
       checkOverloaded = checkOverloaded,

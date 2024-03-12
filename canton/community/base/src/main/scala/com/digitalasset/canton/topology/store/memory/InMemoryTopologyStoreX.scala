@@ -281,8 +281,8 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
       types: Seq[TopologyMappingX.Code],
-      idFilter: String,
-      namespaceOnly: Boolean,
+      idFilter: Option[String],
+      namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]] = {
@@ -303,31 +303,32 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
     val filter2: TopologyStoreEntry => Boolean = entry => op.forall(_ == entry.operation)
 
     val filter3: TopologyStoreEntry => Boolean = {
-      if (idFilter.isEmpty) _ => true
-      else if (namespaceOnly) { entry =>
-        entry.mapping.namespace.fingerprint.unwrap.startsWith(idFilter)
-      } else {
-        val split = idFilter.split(SafeSimpleString.delimiter)
-        val prefix = split(0)
-        if (split.lengthCompare(1) > 0) {
-          val suffix = split(1)
+      idFilter match {
+        case Some(value) if value.nonEmpty =>
           (entry: TopologyStoreEntry) =>
-            entry.mapping.maybeUid.exists(_.id.unwrap.startsWith(prefix)) &&
-              entry.mapping.namespace.fingerprint.unwrap.startsWith(suffix)
-        } else { entry =>
-          entry.mapping.maybeUid.exists(_.id.unwrap.startsWith(prefix))
-        }
+            entry.mapping.maybeUid.exists(_.id.unwrap.startsWith(value))
+        case _ => _ => true
       }
     }
-    val filter4: TopologyStoreEntry => Boolean = entry =>
+
+    val filter4: TopologyStoreEntry => Boolean = {
+      namespaceFilter match {
+        case Some(value) if value.nonEmpty =>
+          (entry: TopologyStoreEntry) =>
+            entry.mapping.namespace.fingerprint.unwrap.startsWith(value)
+        case _ => _ => true
+      }
+    }
+
+    val filter0: TopologyStoreEntry => Boolean = entry =>
       types.isEmpty || types.contains(entry.mapping.code)
 
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
       entry =>
-        filter4(entry) && (entry.transaction.isProposal == proposals) && filter1(entry) && filter2(
+        filter0(entry) && (entry.transaction.isProposal == proposals) && filter1(entry) && filter2(
           entry
-        ) && filter3(entry),
+        ) && filter3(entry) && filter4(entry),
     )
   }
 

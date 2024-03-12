@@ -8,6 +8,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.*
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.LedgerConfiguration
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.*
@@ -20,15 +21,23 @@ import com.digitalasset.canton.ledger.localstore.api.{
   PartyRecordStore,
   UserManagementStore,
 }
-import com.digitalasset.canton.ledger.participant.state.index.v2.*
+import com.digitalasset.canton.ledger.participant.state.index.v2.{
+  ContractStore,
+  IndexActiveContractsService,
+  IndexCompletionsService,
+  IndexEventQueryService,
+  IndexPackagesService,
+  IndexPartyManagementService,
+  IndexService,
+  IndexTransactionsService,
+  MaximumLedgerTimeService,
+  MeteringStore,
+}
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
-import com.digitalasset.canton.platform.apiserver.configuration.{
-  LedgerConfigurationInitializer,
-  LedgerConfigurationSubscription,
-}
+import com.digitalasset.canton.platform.apiserver.configuration.LedgerEndObserverFromIndex
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
@@ -83,7 +92,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       submissionTracker: SubmissionTracker,
-      configurationLoadTimeout: FiniteDuration,
+      initSyncTimeout: FiniteDuration,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
@@ -93,6 +102,7 @@ object ApiServices {
       managementServiceTimeout: FiniteDuration,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
+      ledgerConfiguration: LedgerConfiguration,
       userManagementServiceConfig: UserManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
@@ -119,26 +129,34 @@ object ApiServices {
     private val partyManagementService: IndexPartyManagementService = indexService
     private val meteringStore: MeteringStore = indexService
 
-    private val configurationInitializer = new LedgerConfigurationInitializer(
+    private val ledgerEndObserver = new LedgerEndObserverFromIndex(
       indexService = indexService,
-      materializer = materializer,
       servicesExecutionContext = servicesExecutionContext,
       loggerFactory = loggerFactory,
     )
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
-      logger.info(engine.info.toString)(TraceContext.empty)
+      implicit val traceContext = TraceContext.empty
+      logger.info(engine.info.toString)
       for {
-        currentLedgerConfiguration <- configurationInitializer.initialize(
-          configurationLoadTimeout = configurationLoadTimeout
-        )
-        services <- Resource(
-          Future(
-            createServices(currentLedgerConfiguration, checkOverloaded)(
-              servicesExecutionContext
-            )
+        services <- Resource {
+          logger.debug(s"Waiting for at least one event before creating the ledger api services.")
+          for {
+            _ <- ledgerEndObserver
+              .waitForNonEmptyLedger(
+                initSyncTimeout = initSyncTimeout
+              )
+              .recover(t =>
+                logger.warn(
+                  s"The participant offset was not modified. The ledger API server will now start " +
+                    s"but all services that depend on the ledger having a non empty offset may be affected. " +
+                    s"${t.getMessage}"
+                )
+              )
+          } yield createServices(ledgerConfiguration, checkOverloaded)(
+            servicesExecutionContext
           )
-        )(services =>
+        }(services =>
           Future {
             services.foreach {
               case closeable: AutoCloseable => closeable.close()
@@ -150,7 +168,7 @@ object ApiServices {
     }
 
     private def createServices(
-        ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+        ledgerConfiguration: LedgerConfiguration,
         checkOverloaded: TraceContext => Option[state.SubmissionResult],
     )(implicit
         executionContext: ExecutionContext
@@ -221,7 +239,7 @@ object ApiServices {
 
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
-          ledgerConfigurationSubscription,
+          ledgerConfiguration,
           ledgerApiUpdateService,
           checkOverloaded,
         )
@@ -280,7 +298,7 @@ object ApiServices {
     }
 
     private def intitializeWriteServiceBackedApiServices(
-        ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+        ledgerConfiguration: LedgerConfiguration,
         ledgerApiV2Enabled: Option[ApiUpdateService],
         checkOverloaded: TraceContext => Option[state.SubmissionResult],
     )(implicit
@@ -321,7 +339,7 @@ object ApiServices {
             commandsValidator,
             timeProvider,
             timeProviderType,
-            ledgerConfigurationSubscription,
+            ledgerConfiguration,
             seedService,
             commandExecutor,
             checkOverloaded,
@@ -369,8 +387,7 @@ object ApiServices {
             writeService = writeService,
             currentLedgerTime = () => timeProvider.getCurrentTime,
             currentUtcTime = () => Instant.now,
-            maxDeduplicationDuration = () =>
-              ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
+            maxDeduplicationDuration = ledgerConfiguration.maxDeduplicationDuration,
             submissionIdGenerator = SubmissionIdGenerator.Random,
             metrics = metrics,
             telemetry = telemetry,
@@ -387,7 +404,7 @@ object ApiServices {
               getTransactionById = apiUpdateService.getTransactionById,
             ),
             timeProvider = timeProvider,
-            ledgerConfigurationSubscription = ledgerConfigurationSubscription,
+            ledgerConfiguration = ledgerConfiguration,
             telemetry = telemetry,
             loggerFactory = loggerFactory,
           )

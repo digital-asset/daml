@@ -269,7 +269,12 @@ class SyncDomain(
   )
 
   private val trafficProcessor =
-    new TrafficControlProcessor(domainCrypto, domainId, loggerFactory)
+    new TrafficControlProcessor(
+      domainCrypto,
+      domainId,
+      Option.empty[CantonTimestamp],
+      loggerFactory,
+    )
 
   if (parameters.useNewTrafficControl) {
     trafficProcessor.subscribe(

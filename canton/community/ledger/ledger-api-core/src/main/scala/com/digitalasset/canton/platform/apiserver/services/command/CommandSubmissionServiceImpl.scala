@@ -10,13 +10,13 @@ import com.daml.lf.crypto
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.LedgerConfiguration
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, SubmissionId}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.ledger.configuration.Configuration
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -31,7 +31,6 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService
-import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
@@ -57,7 +56,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
       commandsValidator: CommandsValidator,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+      ledgerConfiguration: LedgerConfiguration,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
@@ -71,7 +70,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
     writeService,
     timeProvider,
     timeProviderType,
-    ledgerConfigurationSubscription,
+    ledgerConfiguration,
     seedService,
     commandExecutor,
     checkOverloaded,
@@ -85,7 +84,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     writeService: state.WriteService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
-    ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+    ledgerConfiguration: LedgerConfiguration,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     checkOverloaded: TraceContext => Option[state.SubmissionResult],
@@ -129,18 +128,9 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
 
-      val evaluatedCommand = ledgerConfigurationSubscription
-        .latestConfiguration() match {
-        case Some(ledgerConfiguration) =>
-          evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
-            .transform(handleSubmissionResult)
-        case None =>
-          Future.failed(
-            RequestValidationErrors.NotFound.LedgerConfiguration
-              .Reject()
-              .asGrpcError
-          )
-      }
+      val evaluatedCommand =
+        evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
+          .transform(handleSubmissionResult)
       evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
     }
 

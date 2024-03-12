@@ -11,7 +11,7 @@ bootstrap.domain(
 
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
-participantsX.all.dars.upload(darPath)
+participants.all.dars.upload(darPath)
 
 val Alice = participant1.parties.enable("Alice")
 val Bob = participant2.parties.enable("Bob", waitForDomain = DomainChoice.All)

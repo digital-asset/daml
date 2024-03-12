@@ -20,8 +20,13 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.{Proposal, Type}
+import com.digitalasset.canton.topology.admin.v30.ImportTopologySnapshotRequest
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactionsX,
+  TopologyStoreId,
+  TopologyStoreX,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
@@ -191,14 +196,41 @@ class GrpcTopologyManagerWriteService(
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
-      manager <- targetManagerET(request.store)
-      // TODO(#12390) let the caller decide whether to expect full authorization or not?
-      _ <- manager
-        .add(signedTxs, force = request.forceChange, expectFullAuthorization = false)
-        .leftWiden[CantonError]
+      _ <- addTransactions(signedTxs, request.store, request.forceChange)
     } yield v30.AddTransactionsResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }
+
+  override def importTopologySnapshot(
+      request: ImportTopologySnapshotRequest
+  ): Future[v30.ImportTopologySnapshotResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val res = for {
+      storedTxs <- EitherT.fromEither[FutureUnlessShutdown](
+        StoredTopologyTransactionsX
+          .fromByteString(request.topologySnapshot)
+          .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+      )
+      signedTxs = storedTxs.result.map(_.transaction)
+      _ <- addTransactions(signedTxs, request.store, request.forceChange)
+    } yield v30.ImportTopologySnapshotResponse()
+    CantonGrpcUtil.mapErrNewEUS(res)
+  }
+
+  private def addTransactions(
+      signedTxs: Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]],
+      store: String,
+      forceChange: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
+    for {
+      manager <- targetManagerET(store)
+      // TODO(#12390) let the caller decide whether to expect full authorization or not?
+      _ <- manager
+        .add(signedTxs, force = forceChange, expectFullAuthorization = false)
+        .leftWiden[CantonError]
+    } yield ()
 
   private def targetManagerET(
       store: String

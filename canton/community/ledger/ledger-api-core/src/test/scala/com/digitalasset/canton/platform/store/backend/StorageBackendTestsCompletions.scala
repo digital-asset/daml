@@ -28,11 +28,10 @@ private[backend] trait StorageBackendTestsCompletions
       val serializableTraceContext = SerializableTraceContext(aTraceContext).toDamlProto.toByteArray
 
       val dtos = Vector(
-        dtoConfiguration(offset(1)),
-        dtoCompletion(offset(2), submitter = party),
-        dtoCompletion(offset(3), submitter = party, traceContext = emptyTraceContext),
+        dtoCompletion(offset(1), submitter = party),
+        dtoCompletion(offset(2), submitter = party, traceContext = emptyTraceContext),
         dtoCompletion(
-          offset(4),
+          offset(3),
           submitter = party,
           traceContext = serializableTraceContext,
         ),
@@ -40,32 +39,27 @@ private[backend] trait StorageBackendTestsCompletions
 
       executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
       executeSql(ingest(dtos, _))
-      executeSql(updateLedgerEnd(offset(4), 3L))
-      val completions0to3 = executeSql(
+      executeSql(updateLedgerEnd(offset(3), 3L))
+      val completions0to2 = executeSql(
         backend.completion
-          .commandCompletions(Offset.beforeBegin, offset(3), applicationId, Set(party), limit = 10)
+          .commandCompletions(Offset.beforeBegin, offset(2), applicationId, Set(party), limit = 10)
       )
-      val completions1to3 = executeSql(
+      val completions1to2 = executeSql(
         backend.completion
-          .commandCompletions(offset(1), offset(3), applicationId, Set(party), limit = 10)
+          .commandCompletions(offset(1), offset(2), applicationId, Set(party), limit = 10)
       )
-      val completions2to3 = executeSql(
+      val completions0to9 = executeSql(
         backend.completion
-          .commandCompletions(offset(2), offset(3), applicationId, Set(party), limit = 10)
-      )
-      val completions1to9 = executeSql(
-        backend.completion
-          .commandCompletions(offset(1), offset(9), applicationId, Set(party), limit = 10)
+          .commandCompletions(Offset.beforeBegin, offset(9), applicationId, Set(party), limit = 10)
       )
 
-      completions0to3 should have length 2
-      completions1to3 should have length 2
-      completions2to3 should have length 1
-      completions1to9 should have length 3
+      completions0to2 should have length 2
+      completions1to2 should have length 1
+      completions0to9 should have length 3
 
-      completions1to9.head.completion.map(_.traceContext) shouldBe Some(None)
-      completions1to9(1).completion.map(_.traceContext) shouldBe Some(None)
-      completions1to9(2).completion.map(_.traceContext) shouldBe Some(
+      completions0to9.head.completion.map(_.traceContext) shouldBe Some(None)
+      completions0to9(1).completion.map(_.traceContext) shouldBe Some(None)
+      completions0to9(2).completion.map(_.traceContext) shouldBe Some(
         Some(SerializableTraceContext(aTraceContext).toDamlProto)
       )
     }
@@ -76,17 +70,16 @@ private[backend] trait StorageBackendTestsCompletions
     val applicationId = someApplicationId
 
     val dtos = Vector(
-      dtoConfiguration(offset(1)),
-      dtoCompletion(offset(2), submitter = party),
+      dtoCompletion(offset(1), submitter = party)
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(2), 1L))
+    executeSql(updateLedgerEnd(offset(1), 1L))
 
     val completions = executeSql(
       backend.completion
-        .commandCompletions(offset(1), offset(2), applicationId, Set(party), limit = 10)
+        .commandCompletions(Offset.beforeBegin, offset(1), applicationId, Set(party), limit = 10)
     )
 
     completions should not be empty
@@ -99,17 +92,22 @@ private[backend] trait StorageBackendTestsCompletions
     val submissionId = Some(someSubmissionId)
 
     val dtos = Vector(
-      dtoConfiguration(offset(1)),
-      dtoCompletion(offset(2), submitter = party, submissionId = submissionId),
-      dtoCompletion(offset(3), submitter = party, submissionId = None),
+      dtoCompletion(offset(1), submitter = party, submissionId = submissionId),
+      dtoCompletion(offset(2), submitter = party, submissionId = None),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(offset(3), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val completions = executeSql(
       backend.completion
-        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
+        .commandCompletions(
+          Offset.beforeBegin,
+          offset(2),
+          someApplicationId,
+          Set(party),
+          limit = 10,
+        )
     ).toList
 
     completions should have length 2
@@ -123,25 +121,30 @@ private[backend] trait StorageBackendTestsCompletions
 
   it should "correctly persist and retrieve command deduplication offsets" in {
     val party = someParty
-    val anOffsetHex = offset(0).toHexString
+    val anOffsetHex = Offset.beforeBegin.toHexString
 
     val dtos = Vector(
-      dtoConfiguration(offset(1)),
       dtoCompletion(
-        offset(2),
+        offset(1),
         submitter = party,
         deduplicationOffset = Some(anOffsetHex),
       ),
-      dtoCompletion(offset(3), submitter = party, deduplicationOffset = None),
+      dtoCompletion(offset(2), submitter = party, deduplicationOffset = None),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(offset(3), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val completions = executeSql(
       backend.completion
-        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
+        .commandCompletions(
+          Offset.beforeBegin,
+          offset(2),
+          someApplicationId,
+          Set(party),
+          limit = 10,
+        )
     ).toList
 
     completions should have length 2
@@ -163,15 +166,14 @@ private[backend] trait StorageBackendTestsCompletions
     val expectedDuration = Duration.of(seconds, nanos)
 
     val dtos = Vector(
-      dtoConfiguration(offset(1)),
       dtoCompletion(
-        offset(2),
+        offset(1),
         submitter = party,
         deduplicationDurationSeconds = Some(seconds),
         deduplicationDurationNanos = Some(nanos),
       ),
       dtoCompletion(
-        offset(3),
+        offset(2),
         submitter = party,
         deduplicationDurationSeconds = None,
         deduplicationDurationNanos = None,
@@ -181,10 +183,16 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
 
-    executeSql(updateLedgerEnd(offset(3), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val completions = executeSql(
       backend.completion
-        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
+        .commandCompletions(
+          Offset.beforeBegin,
+          offset(2),
+          someApplicationId,
+          Set(party),
+          limit = 10,
+        )
     ).toList
 
     completions should have length 2
@@ -209,23 +217,22 @@ private[backend] trait StorageBackendTestsCompletions
         "but they must be either both provided or both absent"
 
     val dtos1 = Vector(
-      dtoConfiguration(offset(1)),
       dtoCompletion(
-        offset(2),
+        offset(1),
         submitter = party,
         deduplicationDurationSeconds = Some(seconds),
         deduplicationDurationNanos = None,
-      ),
+      )
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos1, _))
-    executeSql(updateLedgerEnd(offset(2), 1L))
+    executeSql(updateLedgerEnd(offset(1), 1L))
     val caught = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
+          Offset.beforeBegin,
           offset(1),
-          offset(2),
           someApplicationId,
           Set(party),
           limit = 10,
@@ -237,7 +244,7 @@ private[backend] trait StorageBackendTestsCompletions
 
     val dtos2 = Vector(
       dtoCompletion(
-        offset(3),
+        offset(2),
         submitter = party,
         deduplicationDurationSeconds = None,
         deduplicationDurationNanos = Some(nanos),
@@ -245,12 +252,12 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     executeSql(ingest(dtos2, _))
-    executeSql(updateLedgerEnd(offset(3), 2L))
+    executeSql(updateLedgerEnd(offset(2), 2L))
     val caught2 = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
+          offset(1),
           offset(2),
-          offset(3),
           someApplicationId,
           Set(party),
           limit = 10,

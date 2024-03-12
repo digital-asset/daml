@@ -64,25 +64,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
   "UpdateToDbDto" should {
 
-    "handle ConfigurationChanged" in {
-      val update = state.Update.ConfigurationChanged(
-        someRecordTime,
-        someSubmissionId,
-        someParticipantId,
-        someConfiguration,
+    "handle Init" in {
+      val update = state.Update.Init(
+        someRecordTime
       )
       val dtos = updateToDtos(update)
 
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.ConfigurationEntry(
-          ledger_offset = someOffset.toHexString,
-          recorded_at = someRecordTime.micros,
-          submission_id = someSubmissionId,
-          typ = JdbcLedgerDao.acceptType,
-          configuration = Configuration.encode(update.newConfiguration).toByteArray,
-          rejection_reason = None,
-        )
-      )
+      dtos shouldBe empty
     }
 
     "handle PartyAddedToParticipant (local party)" in {

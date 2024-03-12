@@ -14,11 +14,11 @@ public final class DamlTextMap extends Value {
 
   private final Map<String, Value> map;
 
-  DamlTextMap(Map<String, Value> map) {
-    this.map = map;
+  DamlTextMap(Map<String, Value> textMap) {
+    this.map = textMap;
   }
 
-  /** The map that is passed to this constructor must not be changed once passed. */
+  /** The textMap that is passed to this constructor must not be changed once passed. */
   static @NonNull DamlTextMap fromPrivateMap(Map<@NonNull String, @NonNull Value> value) {
     return new DamlTextMap(Collections.unmodifiableMap(value));
   }
@@ -69,17 +69,18 @@ public final class DamlTextMap extends Value {
 
   @Override
   public final ValueOuterClass.Value toProto() {
-    ValueOuterClass.Map.Builder mb = ValueOuterClass.Map.newBuilder();
+    ValueOuterClass.TextMap.Builder mb = ValueOuterClass.TextMap.newBuilder();
     map.forEach(
         (k, v) ->
-            mb.addEntries(ValueOuterClass.Map.Entry.newBuilder().setKey(k).setValue(v.toProto())));
-    return ValueOuterClass.Value.newBuilder().setMap(mb).build();
+            mb.addEntries(
+                ValueOuterClass.TextMap.Entry.newBuilder().setKey(k).setValue(v.toProto())));
+    return ValueOuterClass.Value.newBuilder().setTextMap(mb).build();
   }
 
-  public static @NonNull DamlTextMap fromProto(ValueOuterClass.Map map) {
-    return map.getEntriesList().stream()
+  public static @NonNull DamlTextMap fromProto(ValueOuterClass.TextMap textMap) {
+    return textMap.getEntriesList().stream()
         .collect(
             DamlCollectors.toDamlTextMap(
-                ValueOuterClass.Map.Entry::getKey, entry -> fromProto(entry.getValue())));
+                ValueOuterClass.TextMap.Entry::getKey, entry -> fromProto(entry.getValue())));
   }
 }

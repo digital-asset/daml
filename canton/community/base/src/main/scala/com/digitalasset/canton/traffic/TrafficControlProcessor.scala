@@ -45,6 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class TrafficControlProcessor(
     cryptoApi: DomainSyncCryptoClient,
     domainId: DomainId,
+    maxFromStoreO: => Option[CantonTimestamp],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
@@ -63,7 +64,6 @@ class TrafficControlProcessor(
     logger.debug(s"subscriptionStartsAt called with start $start")
     val tsStart = start match {
       case FreshSubscription =>
-        val maxFromStoreO: Option[CantonTimestamp] = None // TODO(i17479): get from actual store
         // Use the max timestamp from the store. If the store is empty, use a minimum value
         maxFromStoreO.getOrElse(CantonTimestamp.MinValue)
 

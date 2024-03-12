@@ -110,11 +110,11 @@ abstract class ValueValidator {
       o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueNone))(
         validateValue(_).map(v => Lf.ValueOptional(Some(v)))
       )
-    case Sum.Map(map0) =>
-      val map = map0.entries
+    case Sum.TextMap(textMap0) =>
+      val map = textMap0.entries
         .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
           Right(FrontStack.empty)
-        ) { case (acc, api.Map.Entry(key, value0)) =>
+        ) { case (acc, api.TextMap.Entry(key, value0)) =>
           for {
             tail <- acc
             v <- requirePresence(value0, "value")

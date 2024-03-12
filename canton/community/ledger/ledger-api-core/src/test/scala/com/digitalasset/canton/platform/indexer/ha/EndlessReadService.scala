@@ -55,7 +55,7 @@ final case class EndlessReadService(
   )
 
   /** Produces the following stream of updates:
-    *    1. a config change
+    *    1. an init update
     *    1. a party allocation
     *    1. a package upload
     *    1. a transaction that creates a contract
@@ -74,11 +74,8 @@ final case class EndlessReadService(
         .fromIterator(() => Iterator.from(startIndex))
         .map {
           case i @ 1 =>
-            offset(i) -> Update.ConfigurationChanged(
-              recordTime(i),
-              submissionId(i),
-              participantId,
-              configuration,
+            offset(i) -> Update.Init(
+              recordTime(i)
             )
           case i @ 2 =>
             offset(i) -> Update.PartyAddedToParticipant(

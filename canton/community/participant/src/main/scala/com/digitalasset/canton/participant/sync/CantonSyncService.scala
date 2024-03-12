@@ -738,13 +738,14 @@ class CantonSyncService(
     // Important to invoke recovery before we do anything else with persisted stores.
     recoverParticipantNodeState()
 
-    // Starting with Daml 1.1.0, the ledger api server requires the ledgers to publish their time model as the
-    // first event. Only do so on brand new ledgers without preexisting state.
-    logger.debug("Publishing time model configuration event if ledger is brand new")
+    // Publish the init event that will increase the offset of the participant. Thus, the ledger api server will
+    // not return responses that contain an offset being before the ledger begin. Only do so on brand new ledgers
+    // without preexisting events.
+    logger.debug("Publishing init event if ledger is brand new")
     parameters.processingTimeouts.default
-      .await("Publish time model configuration event if ledger is brand new")(
-        participantNodeEphemeralState.participantEventPublisher.publishTimeModelConfigNeededUpstreamOnlyIfFirst
-          .onShutdown(logger.debug("Aborted publishing of time model due to shutdown"))
+      .await("Publish init event if ledger is brand new")(
+        participantNodeEphemeralState.participantEventPublisher.publishInitNeededUpstreamOnlyIfFirst
+          .onShutdown(logger.debug("Aborted publishing of init due to shutdown"))
       )
   }
 
@@ -1215,9 +1216,14 @@ class CantonSyncService(
         SyncServiceError.SyncServiceFailedDomainConnection(domainAlias, err)
       )
 
-    def handleCloseDegradation(syncDomain: SyncDomain)(err: CantonError) = {
-      syncDomain.failureOccurred(err)
-      disconnectDomain(domainAlias)
+    def handleCloseDegradation(syncDomain: SyncDomain, fatal: Boolean)(err: CantonError) = {
+      if (fatal && parameters.exitOnFatalFailures) {
+        FatalError.exitOnFatalError(err, logger)
+      } else {
+        // If the error is not fatal or the crash on fatal failures flag is off, then we report the unhealthy state and disconnect from the domain
+        syncDomain.failureOccurred(err)
+        disconnectDomain(domainAlias)
+      }
     }
 
     if (aliasManager.domainIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
@@ -1341,29 +1347,29 @@ class CantonSyncService(
           }
         _ = domainHandle.sequencerClient.completion.onComplete {
           case Success(denied: CloseReason.PermissionDenied) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainDisabledUs.Error(domainAlias, denied.cause)
             )
           case Success(CloseReason.BecamePassive) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainBecamePassive.Error(domainAlias)
             )
           case Success(error: CloseReason.UnrecoverableError) =>
             if (isClosing)
               disconnectDomain(domainAlias)
             else
-              handleCloseDegradation(syncDomain)(
+              handleCloseDegradation(syncDomain, fatal = true)(
                 SyncServiceDomainDisconnect.UnrecoverableError(domainAlias, error.cause)
               )
           case Success(error: CloseReason.UnrecoverableException) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, error.throwable)
             )
           case Success(CloseReason.ClientShutdown) =>
             logger.info(s"$domainAlias disconnected because sequencer client was closed")
             disconnectDomain(domainAlias)
           case Failure(exception) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, exception)
             )
         }

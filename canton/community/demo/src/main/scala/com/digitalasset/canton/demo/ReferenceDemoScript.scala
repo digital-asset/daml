@@ -35,7 +35,7 @@ import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters.*
 
 class ReferenceDemoScript(
-    participantsX: Seq[ParticipantReference],
+    participants: Seq[ParticipantReference],
     bankingConnection: SequencerConnection,
     medicalConnection: SequencerConnection,
     rootPath: String,
@@ -56,8 +56,8 @@ class ReferenceDemoScript(
   implicit def toScalaSeq[A](l: java.util.List[A]): Seq[A] = l.asScala.toSeq
   implicit def toJavaList[A](l: List[A]): java.util.List[A] = l.asJava
 
-  require(participantsX.lengthIs > 5, "I need 6 participants for this demo")
-  private val sorted = participantsX.sortBy(_.name)
+  require(participants.lengthIs > 5, "I need 6 participants for this demo")
+  private val sorted = participants.sortBy(_.name)
 
   private val participant1 = sorted(0)
   private val participant2 = sorted(1)

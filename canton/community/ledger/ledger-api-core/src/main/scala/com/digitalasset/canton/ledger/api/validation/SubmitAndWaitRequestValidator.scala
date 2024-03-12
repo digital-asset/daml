@@ -19,7 +19,7 @@ class SubmitAndWaitRequestValidator(
       req: SubmitAndWaitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationDuration: Option[Duration],
+      maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, submission.SubmitRequest] =

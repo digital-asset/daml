@@ -30,7 +30,6 @@ import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.Success
 import scala.util.chaining.*
 
 private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionValues {
@@ -829,23 +828,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       .map(c => c.commandId -> c.status.value.code)
       .runWith(Sink.seq)
 
-  protected def storeConfigurationEntry(
-      offset: Offset,
-      submissionId: String,
-      lastConfig: Configuration,
-      rejectionReason: Option[String] = None,
-  ): Future[PersistenceResponse] =
-    ledgerDao
-      .storeConfigurationEntry(
-        offset = offset,
-        Timestamp.Epoch,
-        submissionId,
-        lastConfig,
-        rejectionReason,
-      )
-      .andThen { case Success(_) =>
-        previousOffset.set(Some(offset))
-      }
 }
 
 object JdbcLedgerDaoSuite {

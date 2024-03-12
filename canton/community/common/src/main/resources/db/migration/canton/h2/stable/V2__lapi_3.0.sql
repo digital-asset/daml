@@ -21,29 +21,6 @@ CREATE TABLE lapi_parameters (
 );
 
 ---------------------------------------------------------------------------------------------------
--- Configuration entries
---
--- Table for storing a log of ledger configuration changes and rejections.
--- It includes id to track the submissions and their resulting statuses
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_configuration_entries (
-    ledger_offset VARCHAR(4000) PRIMARY KEY NOT NULL,
-    recorded_at BIGINT NOT NULL,
-    submission_id VARCHAR(1000) NOT NULL,
-    typ VARCHAR(1000) NOT NULL,
-    configuration BINARY LARGE OBJECT NOT NULL,
-    rejection_reason VARCHAR(1000),
-
-    CONSTRAINT lapi_configuration_entries_check_reason
-        CHECK (
-          (typ = 'accept' AND rejection_reason IS NULL) OR
-          (typ = 'reject' AND rejection_reason IS NOT NULL)
-        )
-);
-
-CREATE INDEX lapi_configuration_submission_idx ON lapi_configuration_entries (submission_id);
-
----------------------------------------------------------------------------------------------------
 -- List of packages
 --
 -- A table for tracking DAML-LF packages.

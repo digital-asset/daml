@@ -280,16 +280,6 @@ private[backend] object AppendOnlySchema {
     val eventsNonConsumingExercise: Table[DbDto.EventExercise] =
       fieldStrategy.insert("lapi_events_non_consuming_exercise")(exerciseFields*)
 
-    val configurationEntries: Table[DbDto.ConfigurationEntry] =
-      fieldStrategy.insert("lapi_configuration_entries")(
-        "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
-        "recorded_at" -> fieldStrategy.bigint(_ => _.recorded_at),
-        "submission_id" -> fieldStrategy.string(_ => _.submission_id),
-        "typ" -> fieldStrategy.string(_ => _.typ),
-        "configuration" -> fieldStrategy.bytea(_ => _.configuration),
-        "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
-      )
-
     val packageEntries: Table[DbDto.PackageEntry] =
       fieldStrategy.insert("lapi_package_entries")(
         "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
@@ -455,7 +445,6 @@ private[backend] object AppendOnlySchema {
       eventsNonConsumingExercise.executeUpdate,
       eventsUnassign.executeUpdate,
       eventsAssign.executeUpdate,
-      configurationEntries.executeUpdate,
       packageEntries.executeUpdate,
       packages.executeUpdate,
       partyEntries.executeUpdate,
@@ -489,7 +478,6 @@ private[backend] object AppendOnlySchema {
             .prepareData(collectWithFilter[EventExercise](!_.consuming), stringInterning),
           eventsUnassign.prepareData(collect[EventUnassign], stringInterning),
           eventsAssign.prepareData(collect[EventAssign], stringInterning),
-          configurationEntries.prepareData(collect[ConfigurationEntry], stringInterning),
           packageEntries.prepareData(collect[PackageEntry], stringInterning),
           packages.prepareData(collect[Package], stringInterning),
           partyEntries.prepareData(collect[PartyEntry], stringInterning),

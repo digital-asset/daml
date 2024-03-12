@@ -28,12 +28,8 @@ import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.attribute.PosixFilePermission.{OWNER_READ, OWNER_WRITE}
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.*
 
 class SecretKeyAdministration(
     instance: InstanceReference,
@@ -359,19 +355,6 @@ class SecretKeyAdministration(
     }
   }
 
-  protected def writeToFile(outputFile: String, bytes: ByteString): Unit = {
-    val file = new File(outputFile)
-    file.createNewFile()
-    // only current user has permissions with the file
-    try {
-      Files.setPosixFilePermissions(file.toPath, Set(OWNER_READ, OWNER_WRITE).asJava)
-    } catch {
-      // the above will throw on non-posix systems such as windows
-      case _: UnsupportedOperationException =>
-    }
-    BinaryFileUtil.writeByteStringToFile(outputFile, bytes)
-  }
-
   @Help.Summary("Download key pair and save it to a file")
   @Help.Description(
     """Download the key pair with the private and public key in its binary representation and store it in a file.
@@ -508,16 +491,19 @@ class PublicKeyAdministration(
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
-  ): Seq[ListKeyOwnersResult] = consoleEnvironment.run {
-    adminCommand(
-      TopologyAdminCommands.Aggregation.ListKeyOwners(
-        filterDomain = filterDomain,
-        filterKeyOwnerType = Some(keyOwner.code),
-        filterKeyOwnerUid = keyOwner.uid.toProtoPrimitive,
-        asOf,
-        limit,
+  ): Seq[ListKeyOwnersResult] = {
+    println(s"keyOwner.uid.toProtoPrimitive = ${keyOwner.uid.toProtoPrimitive}")
+    consoleEnvironment.run {
+      adminCommand(
+        TopologyAdminCommands.Aggregation.ListKeyOwners(
+          filterDomain = filterDomain,
+          filterKeyOwnerType = Some(keyOwner.code),
+          filterKeyOwnerUid = keyOwner.uid.toProtoPrimitive,
+          asOf,
+          limit,
+        )
       )
-    )
+    }
   }
 }
 

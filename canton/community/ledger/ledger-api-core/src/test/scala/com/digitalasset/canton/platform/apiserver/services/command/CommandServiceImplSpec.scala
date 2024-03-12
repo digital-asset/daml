@@ -259,7 +259,7 @@ class CommandServiceImplSpec
       commandsValidator = commandsValidator,
       currentLedgerTime = () => Instant.EPOCH,
       currentUtcTime = () => Instant.EPOCH,
-      maxDeduplicationDuration = () => Some(maxDeduplicationDuration),
+      maxDeduplicationDuration = maxDeduplicationDuration,
       generateSubmissionId = () => submissionId,
       telemetry = telemetry,
       loggerFactory = loggerFactory,
