@@ -4,8 +4,6 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.language.LanguageVersion
-
 import scala.math.Ordered.orderingToOrdered
 
 object Util {
@@ -75,14 +73,12 @@ object Util {
     normalizeValue(contract.unversioned.arg, contract.version)
       .map(normalized => contract.map(_.copy(arg = normalized)))
 
-  // TODO(#18599) remove/deprecate non package based construction
-  def sharedKey(version: TransactionVersion): Boolean = {
-    version >= TransactionVersion.minSharedKeys
+  def supportsUpgrading(version: TransactionVersion): Boolean = {
+    version >= TransactionVersion.minUpgrade
   }
 
-  // TODO(#18599) remove/deprecate non package based construction
-  def sharedKey(version: LanguageVersion): Boolean = {
-    version >= LanguageVersion.Features.sharedKeys
+  def sharedKey(version: TransactionVersion): Boolean = {
+    version >= TransactionVersion.minSharedKeys
   }
 
 }
