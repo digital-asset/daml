@@ -17,7 +17,9 @@ uhoh() {
 trap uhoh EXIT
 
 STABLE_REGEX="\d+\.\d+\.\d+"
-VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8})?$"
+SNAPSHOT_REGEX="^${STABLE_REGEX}-(snapshot|adhoc)\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8}$"
+RC_REGEX="^${STABLE_REGEX}-rc\d+$"
+VERSION_REGEX="(^$STABLE_REGEX$)|($SNAPSHOT_REGEX)|($RC_REGEX)"
 
 function file_ends_with_newline() {
     [[ $(tail -c1 "$1" | wc -l) -gt 0 ]]
@@ -38,7 +40,7 @@ check() {
             echo "Offending version: '$ver'."
             exit 1
         fi
-        if ! is_stable $ver; then
+        if is_snapshot $ver; then
             ver_sha=$(echo $ver | sed 's/.*\.v//')
             if ! [ "${sha:0:8}" = "$ver_sha" ]; then
                 echo "$ver does not match $sha, please correct. ($ver_sha != ${sha:0:8})"
@@ -57,14 +59,19 @@ is_stable() {
     echo "$version" | grep -q -P "^${STABLE_REGEX}$"
 }
 
+is_snapshot() (
+  echo "$1" | grep -q -P "$SNAPSHOT_REGEX"
+)
+
 make_snapshot() {
     local sha prefix commit_date number_of_commits commit_sha_8
-    sha=$1
-    prefix=$2
+    t=$1
+    sha=$2
+    prefix=$3
     commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
     number_of_commits=$(git rev-list --count $sha)
     commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.v$commit_sha_8 SPLIT_RELEASE"
+    echo "$sha $prefix-$t.$commit_date.$number_of_commits.0.v$commit_sha_8 SPLIT_RELEASE"
 }
 
 display_help() {
@@ -79,13 +86,6 @@ $0 snapshot SHA PREFIX
         cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29 SPLIT_RELEASE
 
         Any non-ambiguous git commit reference can be given as SHA.
-
-$0 new snapshot
-        Updates LATEST to add current commit as a new snapshot. Figures out
-        prefix version by keeping the same if the first line in LATEST is a
-        snapshot, and incrementing minor if the first line is stable.
-
-        YOU PROBABLY DO NOT WANT TO DO THIS. Use the above command instead.
 
 $0 check
         Checks that each line of the LATEST file is well-formed.
@@ -103,60 +103,18 @@ fi
 
 commit_belongs_to_release_branch() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -q -E '^origin/(main$|release/)'
-}
-
-new_snapshot () {
-    local sha latest latest_prefix prefix new_line tmp
-    sha=$(git rev-parse HEAD)
-    if ! commit_belongs_to_release_branch $sha; then
-        echo "WARNING: Commit does not belong to a release branch."
-    fi
-    latest=$(head -1 LATEST | awk '{print $2}')
-    latest_prefix=$(echo $latest | grep -o -P "$STABLE_REGEX" | head -1)
-    if is_stable $latest; then
-        # As part of our normal processes, this case should never happen.
-        # Versions in the LATEST file are supposed to be ordered (highest
-        # version at the top), and we're supposed to start creating 1.5
-        # snapshots before we have fully settled on the 1.4 stable. So the
-        # normal case for the top two lines of the LATEST file is either two
-        # snapshots or one snapshot then one stable.
-        #
-        # Still, if it does encounter that case, the only sensible thing the
-        # script can do is bump the version. (Well, or exit 1, I guess.)
-        prefix=$(echo $latest_prefix | jq -Rr '. | split(".") | [.[0], (.[1] | tonumber + 1 | tostring), "0"] | join(".")')
-    else
-        prefix=$latest_prefix
-    fi
-    new_line=$(make_snapshot $sha $prefix)
-    tmp=$(mktemp)
-    cp LATEST $tmp
-    if is_stable $latest; then
-        # This case should not happen (see above), but if it does, we need to
-        # add the new snapshot while keeping the existing stable.
-        cat <(echo $new_line) $tmp > LATEST
-    else
-        # This is the only case consistent with all of our other processes
-        # working as expected: top of LATEST is a snapshot and we replace it
-        # with the new one.
-        cat <(echo $new_line) <(tail -n +2 $tmp) > LATEST
-    fi
+      | grep -q -E '^origin/(main$|main-2\.x$|release/)'
 }
 
 case $1 in
     snapshot)
         if [ -n "${2+x}" ] && [ -n "${3+x}" ]; then
             if ! commit_belongs_to_release_branch $2; then
-                echo "WARNING: Commit does not belong to a release branch."
+                echo "WARNING: Commit does not belong to a release branch." >&2
+                make_snapshot adhoc $(git rev-parse $2) $3
+            else
+                make_snapshot snapshot $(git rev-parse $2) $3
             fi
-            make_snapshot $(git rev-parse $2) $3
-        else
-            display_help
-        fi
-    ;;
-    new)
-        if [ $# -eq 2 ] && [ "$2" == 'snapshot' ]; then
-            new_snapshot
         else
             display_help
         fi
