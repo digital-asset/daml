@@ -57,9 +57,9 @@ Overview
 
 * Every change to Daml-LF values, nodes, transactions or languages *must* be
   checked for governance rules conformance and be approved by Rémy Haemmerle
-  (@remyhaemmerle-da) or Moisés Ackerman (@akrmn) if  Rémy is on vacation.
-  Proposed changes can be filed as tickets under labels "component/daml-lf"
-  and "discussion".
+  (@remyhaemmerle-da) or Moisés Ackerman (@moisesackerman-da) if Rémy is on
+  vacation. Proposed changes can be filed as tickets under labels
+  "component/daml-lf" and "discussion".
 
 Language
 --------
