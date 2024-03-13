@@ -400,7 +400,8 @@ runRepl importPkgs opts replClient logger ideState = do
           , prefix = Just ':'
           , multilineCommand = Nothing
           , tabComplete = Repl.Cursor $ \_ _ -> pure []
-          , initialiser = pure ()
+          , initialiser =
+                  liftIO $ putStrLn "Warning: 'daml repl' is deprecated and will be removed in a future release."
           , finaliser = do
                   liftIO $ putStrLn "Goodbye."
                   pure Repl.Exit
