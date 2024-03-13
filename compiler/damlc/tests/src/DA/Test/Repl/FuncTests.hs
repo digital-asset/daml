@@ -442,7 +442,8 @@ testInteraction replClient replLogger serviceOut options ideState steps = do
         -- Write output to a file so we can conveniently read individual characters.
     withTempFile $ \clientOutFile -> do
         writeFileUTF8 clientOutFile out
-        withFile clientOutFile ReadMode $ \clientOut ->
+        withFile clientOutFile ReadMode $ \clientOut -> do
+            readWarning clientOut
             forM_ outAssertions $ \case
                 Prompt -> readPrompt clientOut
                 MatchRegex regex regexStr producer -> do
@@ -478,6 +479,11 @@ matchOutput s = MatchOutput (makeRegex s) s ReplClient
 
 matchServiceOutput :: String -> Step
 matchServiceOutput s = MatchOutput (makeRegex s) s ReplService
+
+readWarning :: Handle -> Expectation
+readWarning h = do
+  res <- hGetLine h
+  res `shouldBe` "Warning: 'daml repl' is deprecated and will be removed in Daml 3.0."
 
 readPrompt :: Handle -> Expectation
 readPrompt h = do
