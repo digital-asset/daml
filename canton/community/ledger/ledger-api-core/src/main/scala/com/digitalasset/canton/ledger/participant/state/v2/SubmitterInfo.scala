@@ -7,7 +7,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.transaction.TransactionNodeStatistics
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.configuration.Configuration
 
 /** Collects context information for a submission.
   *
@@ -27,7 +26,6 @@ import com.digitalasset.canton.ledger.configuration.Configuration
   *                            [[ReadService.stateUpdates]].
   * @param submissionId        An identifier for the submission that allows an application to
   *                            correlate completions to its submissions.
-  * @param ledgerConfiguration The ledger configuration used during interpretation.
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
@@ -36,7 +34,6 @@ final case class SubmitterInfo(
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: Option[Ref.SubmissionId],
-    ledgerConfiguration: Configuration,
 ) {
 
   /** The ID for the ledger change */
@@ -62,7 +59,6 @@ object SubmitterInfo {
           commandId,
           deduplicationPeriod,
           submissionId,
-          _,
         ) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,

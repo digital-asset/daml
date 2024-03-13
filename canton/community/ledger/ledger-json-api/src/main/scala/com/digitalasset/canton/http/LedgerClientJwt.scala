@@ -396,7 +396,7 @@ object LedgerClientJwt {
   }
 
   private val participantEndOffset =
-    ParticipantOffset(Boundary(ParticipantBoundary.PARTICIPANT_END))
+    ParticipantOffset(Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_END))
 
   // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834
   object Grpc {

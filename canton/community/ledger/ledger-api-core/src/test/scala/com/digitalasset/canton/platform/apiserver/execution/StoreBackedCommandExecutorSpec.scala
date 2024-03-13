@@ -25,7 +25,6 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
-import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
   ContractState,
   ContractStore,
@@ -114,15 +113,6 @@ class StoreBackedCommandExecutorSpec
     )
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
-  private val configuration = Configuration(
-    generation = 1,
-    timeModel = LedgerTimeModel(
-      avgTransactionLatency = Duration.ZERO,
-      minSkew = Duration.ZERO,
-      maxSkew = Duration.ZERO,
-    ).get,
-    maxDeduplicationDuration = Duration.ZERO,
-  )
 
   private def mkSut(tolerance: NonNegativeFiniteDuration, engine: Engine) =
     new StoreBackedCommandExecutor(
@@ -155,7 +145,7 @@ class StoreBackedCommandExecutorSpec
       val sut = mkSut(NonNegativeFiniteDuration.Zero, mockEngine)
 
       sut
-        .execute(commands, submissionSeed, configuration)(
+        .execute(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory)
         )
         .map { actual =>
@@ -178,7 +168,7 @@ class StoreBackedCommandExecutorSpec
       val commands = mkCommands(let)
 
       sut
-        .execute(commands, submissionSeed, configuration)(
+        .execute(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory)
         )
         .map {
@@ -198,7 +188,7 @@ class StoreBackedCommandExecutorSpec
       val commands = mkCommands(let)
 
       sut
-        .execute(commands, submissionSeed, configuration)(
+        .execute(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory)
         )
         .map {
@@ -306,15 +296,6 @@ class StoreBackedCommandExecutorSpec
         disclosedContracts = ImmArray.from(Seq(disclosedContract)),
       )
       val submissionSeed = Hash.hashPrivateKey("a key")
-      val configuration = Configuration(
-        generation = 1,
-        timeModel = LedgerTimeModel(
-          avgTransactionLatency = Duration.ZERO,
-          minSkew = Duration.ZERO,
-          maxSkew = Duration.ZERO,
-        ).get,
-        maxDeduplicationDuration = Duration.ZERO,
-      )
 
       val store = mock[ContractStore]
       when(
@@ -353,7 +334,6 @@ class StoreBackedCommandExecutorSpec
         .execute(
           commands = commandsWithDisclosedContracts,
           submissionSeed = submissionSeed,
-          ledgerConfiguration = configuration,
         )(LoggingContextWithTrace(loggerFactory))
         .map(_ => ref.get() shouldBe expected)
     }

@@ -11,12 +11,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes as LfBytes, ImmArray}
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.canton.ProtoDeserializationError.{
-  TimeModelConversionError,
-  ValueConversionError,
-}
+import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.configuration.*
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.participant.protocol.{ProcessingSteps, v30}
 import com.digitalasset.canton.participant.store.DamlLfSerializers.*
@@ -35,7 +31,6 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{
-  DurationConverter,
   ParsingResult,
   parseLFWorkflowIdO,
   parseLedgerTransactionId,
@@ -193,20 +188,6 @@ private[store] object SerializableLedgerSyncEvent
         Left(ProtoDeserializationError.FieldNotSet("LedgerSyncEvent.value"))
       case SyncEventP.Init(init) =>
         SerializableInit.fromProtoV30(init)
-      // Canton is no longer able to produce ConfigurationChanged message
-      case SyncEventP.ConfigurationChanged(_) =>
-        Left(
-          ProtoDeserializationError.OtherError(
-            "Unexpected LedgerSyncEvent.ConfigurationChanged"
-          )
-        )
-      // Canton was never able to produce ConfigurationChangeRejected message
-      case SyncEventP.ConfigurationChangeRejected(_) =>
-        Left(
-          ProtoDeserializationError.OtherError(
-            "Unexpected LedgerSyncEvent.ConfigurationChangeRejected"
-          )
-        )
       case SyncEventP.PartyAddedToParticipant(partyAddedToParticipant) =>
         SerializablePartyAddedToParticipant.fromProtoV30(partyAddedToParticipant)
       case SyncEventP.PartyAllocationRejected(partyAllocationRejected) =>
@@ -721,65 +702,6 @@ private[store] final case class SerializableLfTimestamp(timestamp: LfTimestamp) 
 private[store] object SerializableLfTimestamp {
   def fromProtoPrimitive(timestampP: Long): ParsingResult[LfTimestamp] =
     CantonTimestamp.fromProtoPrimitive(timestampP).map(_.underlying)
-}
-
-private[store] final case class SerializableConfiguration(configuration: Configuration) {
-  def toProtoV30: v30.Configuration = configuration match {
-    case Configuration(generation, timeModel, maxDeduplicationDuration) =>
-      v30.Configuration(
-        generation,
-        Some(SerializableTimeModel(timeModel).toProtoV30),
-        Some(DurationConverter.toProtoPrimitive(maxDeduplicationDuration)),
-      )
-  }
-}
-
-private[store] object SerializableConfiguration {
-  def fromProtoV30(
-      configuration: v30.Configuration
-  ): ParsingResult[Configuration] = {
-    val v30.Configuration(generationP, timeModelP, maxDeduplicationDurationP) = configuration
-    for {
-      timeModel <- required("timeModel", timeModelP).flatMap(SerializableTimeModel.fromProtoV30)
-      maxDeduplicationDuration <- required("maxDeduplicationDuration", maxDeduplicationDurationP)
-        .flatMap(
-          DurationConverter.fromProtoPrimitive
-        )
-    } yield Configuration(generationP, timeModel, maxDeduplicationDuration)
-  }
-}
-
-private[store] final case class SerializableTimeModel(timeModel: LedgerTimeModel) {
-  def toProtoV30: v30.TimeModel =
-    // uses direct field access as TimeModel is a trait rather than interface
-    v30.TimeModel(
-      Some(DurationConverter.toProtoPrimitive(timeModel.avgTransactionLatency)),
-      Some(DurationConverter.toProtoPrimitive(timeModel.minSkew)),
-      Some(DurationConverter.toProtoPrimitive(timeModel.maxSkew)),
-    )
-}
-
-private[store] object SerializableTimeModel {
-  def fromProtoV30(timeModelP: v30.TimeModel): ParsingResult[LedgerTimeModel] = {
-    val v30.TimeModel(avgTransactionLatencyP, minSkewP, maxSkewP) =
-      timeModelP
-    for {
-      // abbreviations are due to not being able to use full names as they'd be considered accessors in the time model definition below
-      atl <- deserializeDuration("avgTransactionLatencyP", avgTransactionLatencyP)
-      mis <- deserializeDuration("minSkewP", minSkewP)
-      mas <- deserializeDuration("maxSkewP", maxSkewP)
-      // this is quite sketchy however there is no current way to use the values persisted for all fields rather than potentially different new defaults
-      // (without adjusting upstream)
-      timeModel <- LedgerTimeModel(atl, mis, mas)
-        .fold(t => Left(TimeModelConversionError(t.getMessage)), Right(_))
-    } yield timeModel
-  }
-
-  private def deserializeDuration(
-      field: String,
-      optDurationP: Option[com.google.protobuf.duration.Duration],
-  ): ParsingResult[java.time.Duration] =
-    required(field, optDurationP).flatMap(DurationConverter.fromProtoPrimitive)
 }
 
 final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {

@@ -5,7 +5,6 @@ package com.digitalasset.canton.http
 
 import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.daml.lf.typesig
 import com.daml.nonempty.NonEmpty

@@ -118,11 +118,11 @@ final class ApiStateService(
                 response.connectedDomains.flatMap { connectedDomain =>
                   val permissions = connectedDomain.permission match {
                     case TopologyParticipantPermission.Submission =>
-                      Seq(ParticipantPermission.Submission)
+                      Seq(ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION)
                     case TopologyParticipantPermission.Observation =>
-                      Seq(ParticipantPermission.Observation)
+                      Seq(ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION)
                     case TopologyParticipantPermission.Confirmation =>
-                      Seq(ParticipantPermission.Confirmation)
+                      Seq(ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION)
                     case _ => Nil
                   }
                   permissions.map(permission =>

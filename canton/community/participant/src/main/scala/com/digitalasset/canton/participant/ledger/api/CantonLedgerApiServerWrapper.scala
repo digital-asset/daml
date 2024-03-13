@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.lf.engine.Engine
 import com.daml.tracing.DefaultOpenTelemetry
+import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -14,7 +15,7 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.ledger.configuration.{LedgerId, LedgerTimeModel}
+import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -29,25 +30,13 @@ import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.tracing.{NoTracing, TracerProvider}
-import com.digitalasset.canton.{LedgerParticipantId, checked}
 import org.apache.pekko.actor.ActorSystem
 
-import java.time.Duration as JDuration
 import scala.util.{Failure, Success}
 
 /** Wrapper of ledger API server to manage start, stop, and erasing of state.
   */
 object CantonLedgerApiServerWrapper extends NoTracing {
-  // TODO(#3262): Once upstream supports multi-domain in Daml 2.0, configure maximum tolerance time model.
-  @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
-  val maximumToleranceTimeModel: LedgerTimeModel = checked(
-    LedgerTimeModel(
-      avgTransactionLatency = JDuration.ZERO,
-      minSkew = JDuration.ofDays(365),
-      maxSkew = JDuration.ofDays(365),
-    ).get
-  )
-
   final case class IndexerLockIds(mainLockId: Int, workerLockId: Int)
 
   /** Config for ledger API server and indexer

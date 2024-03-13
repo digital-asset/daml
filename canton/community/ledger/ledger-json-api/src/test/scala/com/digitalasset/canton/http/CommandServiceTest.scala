@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import lav2.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitRequest}
 import lav2.transaction.{Transaction, TransactionTree}

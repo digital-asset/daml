@@ -64,7 +64,7 @@ service UserManagementService {
   rpc ListUserRights(ListUserRightsRequest) returns (ListUserRightsResponse);
 
   // Update the assignment of a user from one IDP to another.
-  rpc UpdateUserIdentityProviderId(UpdateUserIdentityProviderRequest) returns (UpdateUserIdentityProviderResponse);
+  rpc UpdateUserIdentityProviderId(UpdateUserIdentityProviderIdRequest) returns (UpdateUserIdentityProviderIdResponse);
 }
 
 // Users and rights
@@ -309,7 +309,7 @@ message ListUserRightsResponse {
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message UpdateUserIdentityProviderRequest {
+message UpdateUserIdentityProviderIdRequest {
   // User to update
   string user_id = 1;
   // Current identity provider id of the user
@@ -318,4 +318,4 @@ message UpdateUserIdentityProviderRequest {
   string target_identity_provider_id = 3;
 }
 
-message UpdateUserIdentityProviderResponse {}
+message UpdateUserIdentityProviderIdResponse {}

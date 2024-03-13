@@ -15,7 +15,6 @@ import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilde
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
 import com.daml.lf.value.Value as LfValue
 import com.digitalasset.canton.ledger.api.domain.TemplateFilter
-import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -25,7 +24,6 @@ import com.digitalasset.canton.testing.utils.{TestModels, TestResourceUtils}
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.{AsyncTestSuite, OptionValues}
 
-import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.concurrent.Future
@@ -165,12 +163,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val otherContractArgument = LfValue.ValueRecord(
     None,
     ImmArray(None -> LfValue.ValueParty(alice)),
-  )
-
-  protected final val defaultConfig = Configuration(
-    generation = 0,
-    timeModel = LedgerTimeModel.reasonableDefault,
-    Duration.ofDays(1),
   )
 
   private[dao] def store(

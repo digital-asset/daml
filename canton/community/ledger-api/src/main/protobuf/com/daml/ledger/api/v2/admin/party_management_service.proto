@@ -68,7 +68,7 @@ service PartyManagementService {
   rpc UpdatePartyDetails(UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 
   // Update the assignment of a party from one IDP to another.
-  rpc UpdatePartyIdentityProviderId(UpdatePartyIdentityProviderRequest) returns (UpdatePartyIdentityProviderResponse);
+  rpc UpdatePartyIdentityProviderId(UpdatePartyIdentityProviderIdRequest) returns (UpdatePartyIdentityProviderIdResponse);
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
@@ -201,7 +201,7 @@ message PartyDetails {
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message UpdatePartyIdentityProviderRequest {
+message UpdatePartyIdentityProviderIdRequest {
   // Party to update
   string party = 1;
   // Current identity provider id of the party
@@ -210,4 +210,4 @@ message UpdatePartyIdentityProviderRequest {
   string target_identity_provider_id = 3;
 }
 
-message UpdatePartyIdentityProviderResponse {}
+message UpdatePartyIdentityProviderIdResponse {}

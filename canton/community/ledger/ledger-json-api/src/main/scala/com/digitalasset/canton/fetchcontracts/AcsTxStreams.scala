@@ -8,7 +8,6 @@ import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Sour
 import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
-import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.transaction.Transaction

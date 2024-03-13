@@ -16,7 +16,6 @@ import com.digitalasset.canton.http.domain.{
 }
 import com.daml.jwt.domain.Jwt
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.lf.data.ImmArray.ImmArraySeq

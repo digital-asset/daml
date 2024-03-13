@@ -103,9 +103,9 @@ private[apiserver] final class ApiPackageService(
           .listLfPackages()
           .map { packages =>
             val result = if (packages.contains(packageId)) {
-              PackageStatus.REGISTERED
+              PackageStatus.PACKAGE_STATUS_REGISTERED
             } else {
-              PackageStatus.UNKNOWN
+              PackageStatus.PACKAGE_STATUS_UNSPECIFIED
             }
             GetPackageStatusResponse(result)
           }
@@ -135,7 +135,7 @@ private[apiserver] final class ApiPackageService(
 
   private def toGetPackageResponse(archive: Archive): GetPackageResponse = {
     val hashFunction = archive.getHashFunction match {
-      case HashFunction.SHA256 => APIHashFunction.SHA256
+      case HashFunction.SHA256 => APIHashFunction.HASH_FUNCTION_SHA256
       case _ => APIHashFunction.Unrecognized(-1)
     }
     GetPackageResponse(

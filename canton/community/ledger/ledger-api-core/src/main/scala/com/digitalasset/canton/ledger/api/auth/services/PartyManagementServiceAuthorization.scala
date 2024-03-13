@@ -65,8 +65,8 @@ final class PartyManagementServiceAuthorization(
   }
 
   override def updatePartyIdentityProviderId(
-      request: UpdatePartyIdentityProviderRequest
-  ): Future[UpdatePartyIdentityProviderResponse] = {
+      request: UpdatePartyIdentityProviderIdRequest
+  ): Future[UpdatePartyIdentityProviderIdResponse] = {
     authorizer.requireAdminClaims(
       call = service.updatePartyIdentityProviderId
     )(

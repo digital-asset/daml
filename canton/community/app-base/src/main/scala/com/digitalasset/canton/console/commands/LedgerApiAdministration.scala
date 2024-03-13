@@ -149,7 +149,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           partyIds: Set[PartyId],
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -181,7 +181,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           filter: TransactionFilterProto,
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -211,7 +211,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           observer: StreamObserver[UpdateTreeWrapper],
           filter: TransactionFilterProto,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -244,7 +244,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           partyIds: Set[PartyId],
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -274,7 +274,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           filter: TransactionFilterProto,
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -302,7 +302,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           observer: StreamObserver[UpdateWrapper],
           filter: TransactionFilterProto,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -1277,7 +1277,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         """This function connects to the command completion stream and passes command completions to `observer` until
           |the stream is completed.
           |Only completions for parties in `parties` will be returned.
-          |The returned completions start at `beginOffset` (default: `PARTICIPANT_BEGIN`).
+          |The returned completions start at `beginOffset` (default: `PARTICIPANT_BOUNDARY_BEGIN`).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
           |this command fails with a `NOT_FOUND` error."""
       )
@@ -1285,7 +1285,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           observer: StreamObserver[CompletionWrapper],
           parties: Seq[PartyId],
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           applicationId: String = applicationId,
       ): AutoCloseable = {
@@ -1971,7 +1971,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             partyIds: Set[PartyId],
             completeAfter: Int,
             beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
             ),
             endOffset: Option[ParticipantOffset] = None,
             verbose: Boolean = true,
@@ -2011,7 +2011,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             partyIds: Set[PartyId],
             completeAfter: Int,
             beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
             ),
             endOffset: Option[ParticipantOffset] = None,
             verbose: Boolean = true,
@@ -2051,7 +2051,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             filter: TransactionFilter,
             completeAfter: Int,
             beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
             ),
             endOffset: Option[ParticipantOffset] = None,
             verbose: Boolean = true,

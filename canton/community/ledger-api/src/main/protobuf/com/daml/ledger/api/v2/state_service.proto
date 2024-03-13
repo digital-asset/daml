@@ -151,17 +151,15 @@ message GetConnectedDomainsResponse {
 // Enum indicating the permission level that the participant has for the party
 // whose connected domains are being listed.
 enum ParticipantPermission {
-  // TODO(#16637) add zero value PARTICIPANT_PERMISSION_UNSPECIFIED
-  // see https://buf.build/docs/lint/rules#enum_zero_value_suffix
+  PARTICIPANT_PERMISSION_UNSPECIFIED = 0;
 
-  // TODO(#16637) add PARTICIPANT_PERMISSION_ prefix to the following values and make them all uppercase (e.g. PARTICIPANT_PERMISSION_OBSERVATION)
-  Submission = 0;
+  PARTICIPANT_PERMISSION_SUBMISSION = 1;
 
   // participant can only confirm transactions
-  Confirmation = 1;
+  PARTICIPANT_PERMISSION_CONFIRMATION = 2;
 
   // participant can only observe transactions
-  Observation = 2;
+  PARTICIPANT_PERMISSION_OBSERVATION = 3;
 }
 
 message GetLedgerEndRequest {}

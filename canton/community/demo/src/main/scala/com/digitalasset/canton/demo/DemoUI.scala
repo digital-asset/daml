@@ -537,7 +537,9 @@ class ParticipantTab(
 
 object ParticipantTab {
   val LedgerBegin: ParticipantOffset = ParticipantOffset(
-    ParticipantOffset.Value.Boundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN)
+    ParticipantOffset.Value.Boundary(
+      ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
+    )
   )
 }
 

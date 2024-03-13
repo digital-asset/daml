@@ -8,7 +8,6 @@ import com.daml.lf.data.Ref
 import com.digitalasset.canton.DefaultDamlValues.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{ApplicationId, CommandId, DefaultDamlValues, WorkflowId}
@@ -21,7 +20,6 @@ object DefaultParticipantStateValues {
       commandId: CommandId = DefaultDamlValues.commandId(),
       deduplicationPeriod: DeduplicationPeriod = deduplicationDuration,
       submissionId: Option[Ref.SubmissionId] = DefaultDamlValues.submissionId().some,
-      ledgerConfiguration: Configuration = DefaultDamlValues.ledgerConfiguration,
   ): SubmitterInfo =
     SubmitterInfo(
       actAs,
@@ -30,7 +28,6 @@ object DefaultParticipantStateValues {
       commandId.unwrap,
       deduplicationPeriod,
       submissionId,
-      ledgerConfiguration,
     )
 
   def completionInfo(

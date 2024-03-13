@@ -55,7 +55,7 @@ import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadat
 import com.digitalasset.canton.protocol.UnicumGenerator
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.{DiscardOps, LedgerConfiguration, LfPartyId}
+import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
@@ -345,11 +345,7 @@ class StartableStoppableLedgerApiServer(
         servicesExecutionContext = executionContext,
         checkOverloaded = config.syncService.checkOverloaded,
         ledgerFeatures = getLedgerFeatures,
-        ledgerConfiguration = LedgerConfiguration(
-          generation = 1L,
-          timeModel = CantonLedgerApiServerWrapper.maximumToleranceTimeModel,
-          maxDeduplicationDuration = config.maxDeduplicationDuration.asJava,
-        ),
+        maxDeduplicationDuration = config.maxDeduplicationDuration,
         authService = authService,
         jwtVerifierLoader = jwtVerifierLoader,
         jwtTimestampLeeway =

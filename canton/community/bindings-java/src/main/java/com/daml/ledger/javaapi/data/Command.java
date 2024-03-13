@@ -23,9 +23,9 @@ public abstract class Command implements HasCommands {
         return CreateCommand.fromProto(command.getCreate());
       case EXERCISE:
         return ExerciseCommand.fromProto(command.getExercise());
-      case CREATEANDEXERCISE:
+      case CREATE_AND_EXERCISE:
         return CreateAndExerciseCommand.fromProto(command.getCreateAndExercise());
-      case EXERCISEBYKEY:
+      case EXERCISE_BY_KEY:
         return ExerciseByKeyCommand.fromProto(command.getExerciseByKey());
       case COMMAND_NOT_SET:
       default:

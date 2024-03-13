@@ -8,7 +8,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.*
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.LedgerConfiguration
+import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.*
@@ -102,7 +102,7 @@ object ApiServices {
       managementServiceTimeout: FiniteDuration,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
       ledgerFeatures: LedgerFeatures,
-      ledgerConfiguration: LedgerConfiguration,
+      maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       userManagementServiceConfig: UserManagementServiceConfig,
       apiStreamShutdownTimeout: FiniteDuration,
       meteringReportKey: MeteringReportKey,
@@ -153,7 +153,7 @@ object ApiServices {
                     s"${t.getMessage}"
                 )
               )
-          } yield createServices(ledgerConfiguration, checkOverloaded)(
+          } yield createServices(checkOverloaded)(
             servicesExecutionContext
           )
         }(services =>
@@ -168,8 +168,7 @@ object ApiServices {
     }
 
     private def createServices(
-        ledgerConfiguration: LedgerConfiguration,
-        checkOverloaded: TraceContext => Option[state.SubmissionResult],
+        checkOverloaded: TraceContext => Option[state.SubmissionResult]
     )(implicit
         executionContext: ExecutionContext
     ): List[BindableService] = {
@@ -239,7 +238,6 @@ object ApiServices {
 
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
-          ledgerConfiguration,
           ledgerApiUpdateService,
           checkOverloaded,
         )
@@ -298,7 +296,6 @@ object ApiServices {
     }
 
     private def intitializeWriteServiceBackedApiServices(
-        ledgerConfiguration: LedgerConfiguration,
         ledgerApiV2Enabled: Option[ApiUpdateService],
         checkOverloaded: TraceContext => Option[state.SubmissionResult],
     )(implicit
@@ -339,7 +336,6 @@ object ApiServices {
             commandsValidator,
             timeProvider,
             timeProviderType,
-            ledgerConfiguration,
             seedService,
             commandExecutor,
             checkOverloaded,
@@ -387,7 +383,7 @@ object ApiServices {
             writeService = writeService,
             currentLedgerTime = () => timeProvider.getCurrentTime,
             currentUtcTime = () => Instant.now,
-            maxDeduplicationDuration = ledgerConfiguration.maxDeduplicationDuration,
+            maxDeduplicationDuration = maxDeduplicationDuration.asJava,
             submissionIdGenerator = SubmissionIdGenerator.Random,
             metrics = metrics,
             telemetry = telemetry,
@@ -404,7 +400,7 @@ object ApiServices {
               getTransactionById = apiUpdateService.getTransactionById,
             ),
             timeProvider = timeProvider,
-            ledgerConfiguration = ledgerConfiguration,
+            maxDeduplicationDuration = maxDeduplicationDuration,
             telemetry = telemetry,
             loggerFactory = loggerFactory,
           )

@@ -7,7 +7,6 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain.Commands
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -36,22 +35,20 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   override def execute(
       commands: Commands,
       submissionSeed: crypto.Hash,
-      ledgerConfiguration: Configuration,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
-    loop(commands, submissionSeed, ledgerConfiguration, maxRetries)
+    loop(commands, submissionSeed, maxRetries)
 
   private[this] def loop(
       commands: Commands,
       submissionSeed: crypto.Hash,
-      ledgerConfiguration: Configuration,
       retriesLeft: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     delegate
-      .execute(commands, submissionSeed, ledgerConfiguration)
+      .execute(commands, submissionSeed)
       .flatMap {
         case e @ Left(_) =>
           // Permanently failed
@@ -68,7 +65,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           def success(c: CommandExecutionResult) = Future.successful(Right(c))
           def retry(c: Commands) = {
             metrics.execution.retry.mark()
-            loop(c, submissionSeed, ledgerConfiguration, retriesLeft - 1)
+            loop(c, submissionSeed, retriesLeft - 1)
           }
 
           resolveMaximumLedgerTime(cer.processedDisclosedContracts, usedContractIds)
