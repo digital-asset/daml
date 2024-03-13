@@ -45,6 +45,8 @@ and ensure that the release notes and documentation has been included as part of
       `{-# OPTIONS -Wno-template-agreement #-}`
       ```
 
+* `daml repl` is now deprecated, it will be removed in a future release.
+
 # Release of Daml 3.0.0
 
 ## Bugfixes
