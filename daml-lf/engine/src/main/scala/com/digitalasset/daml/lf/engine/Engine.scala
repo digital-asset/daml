@@ -155,6 +155,7 @@ class Engine(val config: EngineConfig) {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessReplayCommand(command)
@@ -171,7 +172,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
-        packageResolution = Map.empty,
+        packageResolution = packageResolution,
       )
     } yield result
 
@@ -182,6 +183,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       commands <- preprocessor.translateTransactionRoots(tx)
@@ -194,7 +196,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        packageResolution = Map.empty,
+        packageResolution = packageResolution,
       )
     } yield result
 
