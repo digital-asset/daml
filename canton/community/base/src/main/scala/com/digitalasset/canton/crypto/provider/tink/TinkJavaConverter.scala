@@ -1,11 +1,11 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.crypto.format
+package com.digitalasset.canton.crypto.provider.tink
 
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.format.TinkKeyFormat.serializeHandle
+import com.digitalasset.canton.crypto.provider.jce.JceSecurityProvider
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.google.crypto.tink.aead.AeadKeyTemplates
 import com.google.crypto.tink.hybrid.HybridKeyTemplates
@@ -35,7 +35,7 @@ class TinkJavaConverter extends JavaKeyConverter {
     for {
       // No other way to access the public key directly than going via protobuf
       keysetProto <- ProtoConverter
-        .protoParser(tinkproto.Keyset.parseFrom)(serializeHandle(keysetHandle))
+        .protoParser(tinkproto.Keyset.parseFrom)(TinkKeyFormat.serializeHandle(keysetHandle))
         .leftMap(err =>
           JavaKeyConversionError.InvalidKey(s"Failed to parser tink keyset proto: $err")
         )

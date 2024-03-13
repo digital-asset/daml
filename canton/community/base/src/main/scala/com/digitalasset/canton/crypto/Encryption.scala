@@ -16,7 +16,11 @@ import com.digitalasset.canton.crypto.store.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{DeserializationError, ProtoConverter}
+import com.digitalasset.canton.serialization.{
+  DefaultDeserializationError,
+  DeserializationError,
+  ProtoConverter,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.{
@@ -386,12 +390,12 @@ final case class EncryptionPublicKey private[crypto] (
   override protected def companionObj = EncryptionPublicKey
 
   // TODO(#15649): Make EncryptionPublicKey object invariant
-  protected def validated
-      : Either[ProtoDeserializationError.CryptoKeyDeserializationError, this.type] =
-    CryptoPureApiHelper
+  protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
+    CryptoKeyValidation
       .parseAndValidatePublicKey(
         this,
-        ProtoDeserializationError.CryptoKeyDeserializationError,
+        errMsg =>
+          ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(errMsg)),
       )
       .map(_ => this)
 
@@ -429,7 +433,7 @@ object EncryptionPublicKey
       format: CryptoKeyFormat,
       key: ByteString,
       scheme: EncryptionKeyScheme,
-  ): Either[ProtoDeserializationError.CryptoKeyDeserializationError, EncryptionPublicKey] =
+  ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] =
     new EncryptionPublicKey(id, format, key, scheme).validated
 
   @VisibleForTesting

@@ -5,10 +5,10 @@ package com.digitalasset.canton.crypto.provider.tink
 
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import com.digitalasset.canton.config.CommunityCryptoProvider.Tink
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.HkdfError.{HkdfHmacError, HkdfInternalError}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.format.TinkKeyFormat
 import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
@@ -71,12 +71,9 @@ class TinkPureCrypto private (
         )
         .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
 
-    keyFormat match {
-      case CryptoKeyFormat.Tink | CryptoKeyFormat.Der | CryptoKeyFormat.Raw =>
-        getFromCacheOrDeserializeKey
-      case CryptoKeyFormat.Symbolic => Left(errFn("Symbolic key format not supported"))
-    }
-
+    if (Tink.supportedCryptoKeyFormats.contains(keyFormat))
+      getFromCacheOrDeserializeKey
+    else Left(errFn(s"$keyFormat key format not supported"))
   }
 
   /** Parses and converts a private or symmetric key to a tink keyset handle.
@@ -86,18 +83,17 @@ class TinkPureCrypto private (
     */
   private def parseAndGetPrivateKey[E](
       privateKey: CryptoKey,
-      cached: Boolean,
       errFn: String => E,
   ): Either[E, KeysetHandle] =
     (for {
       // we are using Tink as the provider so we expect all private keys to be in Tink format
-      _ <- CryptoPureApiHelper.ensureFormat(
+      _ <- CryptoKeyValidation.ensureFormat(
         privateKey.format,
         Set(CryptoKeyFormat.Tink),
         KeyParseAndValidateError,
       )
       keysetHandle <- privateKey match {
-        case key: PrivateKey if cached =>
+        case key: PrivateKey =>
           privateKeysetCache
             .getOrElseUpdate(
               key.id,
@@ -105,7 +101,7 @@ class TinkPureCrypto private (
                 .deserializeHandle(privateKey.key)
                 .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err")),
             )
-        case _: SymmetricKey | _: PrivateKey if !cached =>
+        case _: SymmetricKey =>
           TinkKeyFormat
             .deserializeHandle(privateKey.key)
             .leftMap(err => KeyParseAndValidateError(s"Deserialization error: $err"))
@@ -240,7 +236,6 @@ class TinkPureCrypto private (
     for {
       keysetHandle <- parseAndGetPrivateKey(
         symmetricKey,
-        cached = false,
         EncryptionError.InvalidSymmetricKey,
       )
       aead <- getPrimitive[tink.Aead, EncryptionError](
@@ -257,7 +252,6 @@ class TinkPureCrypto private (
     for {
       keysetHandle <- parseAndGetPrivateKey(
         symmetricKey,
-        cached = false,
         DecryptionError.InvalidSymmetricKey,
       )
       aead <- getPrimitive[tink.Aead, DecryptionError](
@@ -292,7 +286,6 @@ class TinkPureCrypto private (
     for {
       keysetHandle <- parseAndGetPrivateKey(
         privateKey,
-        cached = true,
         DecryptionError.InvalidEncryptionKey,
       )
       hybrid <- getPrimitive[tink.HybridDecrypt, DecryptionError](
@@ -309,7 +302,6 @@ class TinkPureCrypto private (
     for {
       keysetHandle <- parseAndGetPrivateKey(
         signingKey,
-        cached = true,
         SigningError.InvalidSigningKey,
       )
       verify <- getPrimitive[tink.PublicKeySign, SigningError](

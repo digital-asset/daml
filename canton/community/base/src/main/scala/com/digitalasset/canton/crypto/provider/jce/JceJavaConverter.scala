@@ -1,11 +1,12 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.crypto.format
+package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
 import com.google.crypto.tink.subtle.EllipticCurves
 import com.google.crypto.tink.subtle.EllipticCurves.CurveType
 import com.google.protobuf.ByteString
@@ -36,7 +37,7 @@ class JceJavaConverter(
       curveType: CurveType,
   ): Either[JavaKeyConversionError, (AlgorithmIdentifier, JPublicKey)] =
     for {
-      _ <- CryptoPureApiHelper.ensureFormat(
+      _ <- CryptoKeyValidation.ensureFormat(
         publicKey.format,
         Set(CryptoKeyFormat.Der),
         _ => JavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, CryptoKeyFormat.Der),
@@ -63,7 +64,7 @@ class JceJavaConverter(
         keyInstance: String,
     ): Either[JavaKeyConversionError, JPublicKey] =
       for {
-        _ <- CryptoPureApiHelper.ensureFormat(
+        _ <- CryptoKeyValidation.ensureFormat(
           publicKey.format,
           Set(format),
           _ => JavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, format),
