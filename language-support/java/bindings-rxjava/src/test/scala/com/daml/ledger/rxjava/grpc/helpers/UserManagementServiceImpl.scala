@@ -52,8 +52,8 @@ final class UserManagementServiceImpl extends UserManagementService with FakeAut
     record(request)(UpdateUserResponse.defaultInstance)
 
   override def updateUserIdentityProviderId(
-      request: UpdateUserIdentityProviderRequest
-  ): Future[UpdateUserIdentityProviderResponse] = throw new UnsupportedOperationException()
+      request: UpdateUserIdentityProviderIdRequest
+  ): Future[UpdateUserIdentityProviderIdResponse] = throw new UnsupportedOperationException()
 }
 
 object UserManagementServiceImpl {
