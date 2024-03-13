@@ -5,7 +5,6 @@ package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.*
-import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ServicesMetrics(
@@ -223,18 +222,6 @@ class ServicesMetrics(
   )
   object write {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
-
-    @MetricDoc.Tag(
-      summary = "The number of submitted transactions by the write service.",
-      description = """The write service is an internal interface for changing the state through
-                      |the synchronization services. The methods in this interface are all methods
-                      |that are supported uniformly across all ledger implementations. This metric
-                      |exposes the total number of the sumbitted transactions.""",
-      qualification = Traffic,
-    )
-    @SuppressWarnings(Array("org.wartremover.warts.Null"))
-    val submitOperationForDocs: Timer =
-      DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
 
     @MetricDoc.FanInstanceTag
     val submitTransaction: Timer = openTelemetryMetricsFactory.timer(prefix :+ "submit_transaction")

@@ -75,8 +75,6 @@
   type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
-- target: //ledger-service/cli-opts:cli-opts
-  type: jar-scala
 - target: //libs-scala/jwt:jwt
   type: jar-scala
 - target: //ledger-service/utils:utils
