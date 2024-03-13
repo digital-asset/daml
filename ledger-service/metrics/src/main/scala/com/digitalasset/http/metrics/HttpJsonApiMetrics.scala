@@ -3,10 +3,8 @@
 
 package com.daml.http.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, MetricsFactory, Timer}
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.http.{DamlHttpMetrics, DamlWebSocketMetrics}
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
@@ -28,13 +26,6 @@ class HttpJsonApiMetrics(
     labeledMetricsFactory: LabeledMetricsFactory,
 ) {
   import HttpJsonApiMetrics._
-
-  @nowarn
-  def getMetricRegistry: Option[MetricRegistry] =
-    defaultMetricsFactory match {
-      case mf: DropwizardMetricsFactory => Some(mf.registry)
-      case _ => None
-    }
 
   val prefix: MetricName = MetricName.Daml :+ "http_json_api"
 

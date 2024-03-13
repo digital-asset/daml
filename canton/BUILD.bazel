@@ -279,7 +279,6 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
