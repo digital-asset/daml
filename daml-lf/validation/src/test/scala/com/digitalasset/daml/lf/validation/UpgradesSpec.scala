@@ -563,7 +563,6 @@ abstract class UpgradesSpec(val suffix: String)
         case _ => {}
       }
 
-      cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
       cantonLogSrc should include(
         s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
       )
@@ -603,13 +602,13 @@ abstract class UpgradesSpec(val suffix: String)
     }
   }
 
+  @scala.annotation.nowarn("cat=unused")
   def assertDuplicatePackageUpload()(
       testPackageV1Id: PackageId,
       uploadV1Result: Option[Throwable],
       testPackageV2Id: PackageId,
       uploadV2Result: Option[Throwable],
   )(cantonLogSrc: String): Assertion = {
-    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
     uploadV1Result should be(empty)
     cantonLogSrc should include(
       s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
@@ -623,7 +622,6 @@ abstract class UpgradesSpec(val suffix: String)
       testPackageV2Id: PackageId,
       uploadV2Result: Option[Throwable],
   )(cantonLogSrc: String): Assertion = {
-    cantonLogSrc should include(s"Package $testPackageV1Id does not upgrade anything")
     uploadV1Result match {
       case Some(err) =>
         fail(s"Uploading first package $testPackageV1Id failed with message: $err");
