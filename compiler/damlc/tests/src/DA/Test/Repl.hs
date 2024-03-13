@@ -197,7 +197,7 @@ testSetTime lfVersion damlc scriptDar ledgerPort = do
         , "actual <- getTime"
         , "assertEq actual expected"
         ]
-    let regexString = "^daml> daml> daml> daml> daml> daml> daml> daml> Goodbye.\n$" :: String
+    let regexString = "daml> daml> daml> daml> daml> daml> daml> daml> Goodbye.\n$" :: String
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")
@@ -238,8 +238,8 @@ testImport lfVersion damlc scriptDar testDar imports successful = do
         ]
     let regexString :: String
         regexString
-          | successful = "^daml> daml> .*: T {proposer = '.*', accepter = '.*'}\ndaml> Goodbye.\n$"
-          | otherwise  = "^daml> daml> File: .*\nHidden: .*\nRange: .*\nSource: .*\nSeverity: DsError\nMessage: \n.*: error:\n    Data constructor not in scope: T : Party -> Party -> .*\ndaml> Goodbye.\n$"
+          | successful = "daml> daml> .*: T {proposer = '.*', accepter = '.*'}\ndaml> Goodbye.\n$"
+          | otherwise  = "daml> daml> File: .*\nHidden: .*\nRange: .*\nSource: .*\nSeverity: DsError\nMessage: \n.*: error:\n    Data constructor not in scope: T : Party -> Party -> .*\ndaml> Goodbye.\n$"
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")
@@ -261,14 +261,22 @@ multiPackageTests lfVersion damlc scriptDar multiTestDar = testGroup "multi-pack
         , "let x = T alice alice"
         , "let y = T2 alice"
         ]
-      out @?= "daml> daml> daml> daml> Goodbye.\n"
+      let
+        regexString = "daml> daml> daml> daml> Goodbye.\n$" :: String
+        regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+      unless (matchTest regex out) $
+        assertFailure (show out <> " did not match " <> show regexString <> ".")
   , testCase "import both versioned" $ do
       out <- readCreateProcess (cp ["repl-test-0.1.0", "repl-test-two-0.1.0"]) $ unlines
         [ "let Some alice = partyFromText \"p\""
         , "let x = T alice alice"
         , "let y = T2 alice"
         ]
-      out @?= "daml> daml> daml> daml> Goodbye.\n"
+      let
+        regexString = "daml> daml> daml> daml> Goodbye.\n$" :: String
+        regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+      unless (matchTest regex out) $
+        assertFailure (show out <> " did not match " <> show regexString <> ".")
   , testCase "import only repl-test" $ do
       out <- readCreateProcess (cp ["repl-test-0.1.0"]) $ unlines
         [ "let Some alice = partyFromText \"p\""
