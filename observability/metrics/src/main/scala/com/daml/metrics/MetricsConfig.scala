@@ -3,4 +3,9 @@
 
 package com.daml.metrics
 
-final case class HistogramDefinition(nameRegex: String, bucketBoundaries: Seq[Double])
+/** Bucket boundary definitions for histograms
+  *
+  * @param name Instrument name that may contain the wildcard characters * and ?
+  * @param bucketBoundaries The boundaries of the histogram buckets
+  */
+final case class HistogramDefinition(name: String, bucketBoundaries: Seq[Double])

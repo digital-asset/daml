@@ -8,8 +8,8 @@ import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
-import io.opentelemetry.sdk.metrics.common.InstrumentType
-import io.opentelemetry.sdk.metrics.view.{Aggregation, InstrumentSelector, View}
+import io.opentelemetry.sdk.metrics.InstrumentType
+import io.opentelemetry.sdk.metrics.{Aggregation, InstrumentSelector, View}
 
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
@@ -23,15 +23,15 @@ object OpenTelemetryOwner {
     // therefore the config views must be registered first to be able to override the code defined views
     val builderWithCustomViews = histograms.foldRight(builder) { case (histogram, builder) =>
       builder.registerView(
-        histogramSelectorWithRegex(histogram.nameRegex),
+        histogramSelectorByName(histogram.name),
         explicitHistogramBucketsView(histogram.bucketBoundaries),
       )
     }
     builderWithCustomViews
       // use smaller buckets for the executor services (must be declared before the generic timing buckets
       .registerView(
-        histogramSelectorWithRegex(
-          s"${ExecutorServiceMetrics.Prefix}.*${OpenTelemetryTimer.TimerUnitAndSuffix}"
+        histogramSelectorByName(
+          s"${ExecutorServiceMetrics.Prefix}*${OpenTelemetryTimer.TimerUnitAndSuffix}"
         ),
         explicitHistogramBucketsView(
           Seq(
@@ -42,8 +42,8 @@ object OpenTelemetryOwner {
       )
       // timing buckets for gRPC server latency measurements with more precise granularity on latencies up to 5s
       .registerView(
-        histogramSelectorWithRegex(
-          s"${DamlGrpcServerMetrics.GrpcServerMetricsPrefix}.*${OpenTelemetryTimer.TimerUnitAndSuffix}"
+        histogramSelectorByName(
+          s"${DamlGrpcServerMetrics.GrpcServerMetricsPrefix}*${OpenTelemetryTimer.TimerUnitAndSuffix}"
         ),
         explicitHistogramBucketsView(
           Seq(
@@ -54,7 +54,7 @@ object OpenTelemetryOwner {
       )
       // generic timing buckets
       .registerView(
-        histogramSelectorWithRegex(s".*${OpenTelemetryTimer.TimerUnitAndSuffix}"),
+        histogramSelectorByName(s"*${OpenTelemetryTimer.TimerUnitAndSuffix}"),
         explicitHistogramBucketsView(
           Seq(
             0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2.5d,
@@ -64,7 +64,7 @@ object OpenTelemetryOwner {
       )
       // use size specific buckets
       .registerView(
-        histogramSelectorWithRegex(s".*${Histogram.Bytes}"),
+        histogramSelectorByName(s"*${Histogram.Bytes}"),
         explicitHistogramBucketsView(
           Seq(
             kilobytes(10),
@@ -80,10 +80,10 @@ object OpenTelemetryOwner {
       )
   }
 
-  private def histogramSelectorWithRegex(regex: String) = InstrumentSelector
+  private def histogramSelectorByName(stringWithWildcards: String) = InstrumentSelector
     .builder()
     .setType(InstrumentType.HISTOGRAM)
-    .setName((t: String) => t.matches(regex))
+    .setName(stringWithWildcards)
     .build()
 
   private def explicitHistogramBucketsView(buckets: Seq[Double]) = View

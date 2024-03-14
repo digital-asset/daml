@@ -12,8 +12,10 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-class Slf4jMetricExporter(logger: Logger = LoggerFactory.getLogger("logging-metrics-exporter"))
-    extends MetricExporter {
+//FIX ME
+abstract class Slf4jMetricExporter(
+    logger: Logger = LoggerFactory.getLogger("logging-metrics-exporter")
+) extends MetricExporter {
 
   override def `export`(
       metrics: util.Collection[MetricData]
