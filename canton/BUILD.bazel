@@ -2,29 +2,31 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
-load(
-    "//bazel_tools:scala.bzl",
-    "kind_projector_plugin",
-    "scala_source_jar",
-    "scaladoc_jar",
-)
-load("//bazel_tools:java.bzl", "da_java_library")
-load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_macro_library", "da_scala_test_suite", "scaladoc_jar")
-load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
-load("@os_info//:os_info.bzl", "is_windows")
-load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
-load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
-load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
     "jar_jar",
 )
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
+load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:java.bzl", "da_java_library")
+load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_macro_library",
+    "da_scala_test_suite",
+    "kind_projector_plugin",
+    "scala_source_jar",
+    "scaladoc_jar",
+)
+load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
+load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
+load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 ### build-info ###
 
@@ -1094,7 +1096,6 @@ scala_library(
     deps = [
         ":bindings-java",
         ":community_base",
-        ":community_buildinfo",
         ":community_common",
         ":community_domain",
         ":community_ledger_ledger-api-core",
