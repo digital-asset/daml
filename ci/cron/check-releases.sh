@@ -113,13 +113,27 @@ verify_backup() (
     trap "rm -f $log" EXIT
     for f in $(ls); do
         (
-            if ! gsutil ls $gcs_base/$f &>/dev/null; then
-                echo "No backup for $f; aborting."
+            # Workaround for workaround for broken daml assistant JSON parsing
+            # https://github.com/digital-asset/daml/issues/18714
+            local_file=$f
+            if [[ "$local_file" =~ daml-sdk-.*-linux.tar.gz(.asc)? ]]; then
+              ext=${f#*tar.gz}
+              with_plat=$(echo daml-sdk-*-linux-x86_64.tar.gz)$ext
+              if [ -f "$with_plat" ]; then
+                remote_file=$with_plat
+              else
+                remote_file=$local_file
+              fi
+            else
+              remote_file=$local_file
+            fi
+            if ! gsutil ls $gcs_base/$remote_file &>/dev/null; then
+                echo "No backup for $local_file; aborting."
                 exit 1
             else
-                gsutil cp $gcs_base/$f $f.gcs &>$log
-                if ! diff $f $f.gcs; then
-                    echo "$f does not match backup; aborting."
+                gsutil cp $gcs_base/$remote_file $local_file.gcs &>$log
+                if ! diff $local_file{,.gcs}; then
+                    echo "$local_file does not match backup; aborting."
                     echo "gcs copy output:"
                     echo "---"
                     cat $log
@@ -213,6 +227,7 @@ main() (
         echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: matches record, skipping."
       else
         echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: does not match records, see above for differences."
+        exit 1
       fi
     else
       echo "[$(date --date=@$SECONDS -u +%H:%M:%S)] $tag: verifying."
