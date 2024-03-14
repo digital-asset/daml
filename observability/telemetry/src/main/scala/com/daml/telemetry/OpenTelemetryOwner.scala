@@ -3,67 +3,15 @@
 
 package com.daml.telemetry
 
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.{ExecutorServiceMetrics, HistogramDefinition}
 import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
-import com.daml.metrics.api.reporters.MetricsReporter
-import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
-import io.opentelemetry.api.OpenTelemetry
-import io.opentelemetry.exporter.prometheus.PrometheusCollector
-import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.common.InstrumentType
 import io.opentelemetry.sdk.metrics.view.{Aggregation, InstrumentSelector, View}
 
-import scala.annotation.nowarn
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.SeqHasAsJava
-
-@nowarn("msg=deprecated")
-case class OpenTelemetryOwner(
-    setAsGlobal: Boolean,
-    reporter: Option[MetricsReporter],
-    histograms: Seq[HistogramDefinition],
-) extends ResourceOwner[OpenTelemetry] {
-
-  override def acquire()(implicit
-      context: ResourceContext
-  ): Resource[OpenTelemetry] = {
-    Resource(
-      Future {
-        if (sys.props.get("otel.traces.exporter").isEmpty) {
-          // if no trace exporter is configured then default to none instead of the oltp default used by the library
-          sys.props.addOne("otel.traces.exporter" -> "none")
-        }
-        AutoConfiguredOpenTelemetrySdk
-          .builder()
-          .addMeterProviderCustomizer { case (builder, _) =>
-            val meterProviderBuilder = addViewsToProvider(builder, histograms)
-            /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
-             * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
-             * This forces us to keep the current OpenTelemetry version (see ticket for potential paths forward).
-             */
-            if (reporter.exists(_.isInstanceOf[Prometheus])) {
-              meterProviderBuilder.registerMetricReader(PrometheusCollector.create())
-            } else meterProviderBuilder
-          }
-          .registerShutdownHook(false)
-          .setResultAsGlobal(setAsGlobal)
-          .build()
-          .getOpenTelemetrySdk
-      }
-    ) { sdk =>
-      Future {
-        sdk.getSdkMeterProvider.close()
-        sdk.getSdkTracerProvider.close()
-      }
-    }
-  }
-
-}
 
 object OpenTelemetryOwner {
 

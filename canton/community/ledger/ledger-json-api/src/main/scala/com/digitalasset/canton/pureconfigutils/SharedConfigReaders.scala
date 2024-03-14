@@ -13,7 +13,6 @@ import scalaz.\/
 import scalaz.syntax.std.option.*
 
 import java.nio.file.Path
-import com.daml.metrics.api.reporters.MetricsReporter
 
 final case class HttpServerConfig(
     address: String = com.digitalasset.canton.cliopts.Http.defaultAddress,
@@ -81,12 +80,4 @@ object SharedConfigReaders {
       } yield ident
     }
 
-  implicit val uriCfgReader: ConfigReader[Uri] =
-    ConfigReader.fromString[Uri](ConvertHelpers.catchReadError(s => Uri(s)))
-
-  implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
-    ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
-      MetricsReporter.parseMetricsReporter(s.toLowerCase())
-    })
-  }
 }
