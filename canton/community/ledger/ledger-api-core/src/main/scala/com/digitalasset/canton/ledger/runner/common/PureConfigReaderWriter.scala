@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.ports.Port
 import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
 import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
@@ -60,6 +61,21 @@ class PureConfigReaderWriter(secure: Boolean = true) {
         .collect { case d: FiniteDuration => d }
         .map(_.toJava)
         .toRight(CannotConvert(str, Duration.getClass.getName, s"Could not convert $str"))
+    }
+
+  implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
+    ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
+      MetricsReporter.parseMetricsReporter(s)
+    })
+  }
+  implicit val metricReporterWriter: ConfigWriter[MetricsReporter] =
+    ConfigWriter.toString {
+      case MetricsReporter.Console => "console"
+      case MetricsReporter.Csv(directory) => s"csv://${directory.toAbsolutePath.toString}"
+      case MetricsReporter.Graphite(address, prefix) =>
+        s"graphite://${address.getHostName}:${address.getPort}/${prefix.getOrElse("")}"
+      case MetricsReporter.Prometheus(address) =>
+        s"prometheus://${address.getHostName}:${address.getPort}"
     }
 
   implicit val clientAuthReader: ConfigReader[ClientAuth] =

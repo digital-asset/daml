@@ -4,6 +4,7 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optReaderEnabled,
@@ -73,6 +74,7 @@ class PureConfigReaderWriterSpec
     val readerWriter = new PureConfigReaderWriter(secure)
     import readerWriter.*
     testReaderWriterIsomorphism(secure, ArbitraryConfig.duration)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.metricsReporter)
     testReaderWriterIsomorphism(secure, Gen.oneOf(TlsVersion.allVersions))
     testReaderWriterIsomorphism(secure, ArbitraryConfig.tlsConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.port)
@@ -202,6 +204,36 @@ class PureConfigReaderWriterSpec
       "unknown-key=yes\n" + validTlsConfigurationValue,
     ).left.value
       .prettyPrint(0) should include("Unknown key")
+  }
+
+  behavior of "MetricsReporter"
+
+  it should "read/write against predefined values" in {
+    def compare(
+        reporter: MetricsReporter,
+        expectedString: String,
+    ): Assertion = {
+      metricReporterWriter.to(reporter) shouldBe fromAnyRef(expectedString)
+      metricReporterReader.from(fromAnyRef(expectedString)).value shouldBe reporter
+    }
+    compare(
+      MetricsReporter.Prometheus(new InetSocketAddress("localhost", 1234)),
+      "prometheus://localhost:1234",
+    )
+    compare(
+      MetricsReporter.Graphite(new InetSocketAddress("localhost", 1234)),
+      "graphite://localhost:1234/",
+    )
+    compare(
+      MetricsReporter.Graphite(new InetSocketAddress("localhost", 1234), Some("test")),
+      "graphite://localhost:1234/test",
+    )
+    val path = Path.of("test").toAbsolutePath
+    compare(
+      MetricsReporter.Csv(path),
+      "csv://" + path.toString,
+    )
+    compare(MetricsReporter.Console, "console")
   }
 
   behavior of "Seeding"
