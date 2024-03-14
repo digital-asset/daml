@@ -7,7 +7,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
 import com.daml.ports.Port
 import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
-import com.digitalasset.canton.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optConvertEnabled,
   optProductHint,
@@ -60,17 +60,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
         .collect { case d: FiniteDuration => d }
         .map(_.toJava)
         .toRight(CannotConvert(str, Duration.getClass.getName, s"Could not convert $str"))
-    }
-
-  implicit val secretsUrlReader: ConfigReader[SecretsUrl] =
-    ConfigReader.fromString[SecretsUrl] { url =>
-      Right(SecretsUrl.fromString(url))
-    }
-
-  implicit val secretsUrlWriter: ConfigWriter[SecretsUrl] =
-    ConfigWriter.toString {
-      case SecretsUrl.FromUrl(url) if !secure => url.toString
-      case _ => ReplaceSecretWithString
     }
 
   implicit val clientAuthReader: ConfigReader[ClientAuth] =

@@ -44,8 +44,7 @@ class TransferOutValidationTest
 
   private val participant = ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::participant")
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -151,7 +150,7 @@ class TransferOutValidationTest
       newStakeholders: Set[LfPartyId],
       sourceProtocolVersion: SourceProtocolVersion,
       expectedTemplateId: LfTemplateId,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
     val transferOutRequest = TransferOutRequest(
       submitterInfo(submitterParty1),

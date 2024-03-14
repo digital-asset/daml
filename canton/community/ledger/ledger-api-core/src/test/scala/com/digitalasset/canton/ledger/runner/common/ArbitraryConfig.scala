@@ -112,7 +112,6 @@ object ArbitraryConfig {
     keyCertChainFile.map(fileName => new File(fileName)),
     keyFile.map(fileName => new File(fileName)),
     trustCertCollectionFile.map(fileName => new File(fileName)),
-    None,
     clientAuth,
     enableCertRevocationChecking,
     minimumServerProtocolVersion,

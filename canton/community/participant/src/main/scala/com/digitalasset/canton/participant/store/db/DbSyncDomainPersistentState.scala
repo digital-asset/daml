@@ -30,7 +30,7 @@ import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 
 import scala.concurrent.ExecutionContext
 
-class DbSyncDomainPersistentStateX(
+class DbSyncDomainPersistentState(
     override val domainId: IndexedDomain,
     val protocolVersion: ProtocolVersion,
     clock: Clock,

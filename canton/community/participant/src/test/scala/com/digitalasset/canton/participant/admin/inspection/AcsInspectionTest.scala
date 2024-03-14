@@ -166,7 +166,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
 
     val allContractIds = contracts.keys ++ missingContracts
 
-    val snapshot = allContractIds.map(_ -> (CantonTimestamp.Epoch, Option.empty[TransferCounter]))
+    val snapshot = allContractIds.map(_ -> (CantonTimestamp.Epoch, TransferCounter.Genesis))
 
     val acs = mock[ActiveContractStore]
     when(acs.snapshot(any[CantonTimestamp]))

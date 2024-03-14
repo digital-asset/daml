@@ -437,8 +437,8 @@ class SyncDomain(
           val changeWithAdjustedTransferCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
             change.deactivations.fmap {
-              case StateChangeType(ContractChange.Unassigned, transferCounter) =>
-                StateChangeType(ContractChange.Unassigned, transferCounter.map(_ - 1))
+              case StateChangeType(ContractChange.TransferredOut, transferCounter) =>
+                StateChangeType(ContractChange.TransferredOut, transferCounter - 1)
               case change => change
             },
           )

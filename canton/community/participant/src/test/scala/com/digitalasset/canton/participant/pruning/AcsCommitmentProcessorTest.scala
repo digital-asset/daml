@@ -49,14 +49,16 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.CursorPrehead
-import com.digitalasset.canton.store.memory.InMemorySequencerCounterTrackerStore
+import com.digitalasset.canton.store.memory.{
+  InMemoryIndexedStringStore,
+  InMemorySequencerCounterTrackerStore,
+}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.{AnyWordSpec, AsyncWordSpec}
 
@@ -105,8 +107,7 @@ sealed trait AcsCommitmentProcessorBaseTest
     h.getByteString()
   }
 
-  lazy val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   protected def ts(i: Int): CantonTimestampSecond = CantonTimestampSecond.ofEpochSecond(i.longValue)
 
@@ -115,47 +116,55 @@ sealed trait AcsCommitmentProcessorBaseTest
 
   protected def mkChangeIdHash(index: Int) = ChangeIdHash(DefaultDamlValues.lfhash(index))
 
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
+
   protected def acsSetup(
       contracts: Map[LfContractId, NonEmpty[Seq[Lifespan]]]
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ActiveContractSnapshot] = {
-    val acs = new InMemoryActiveContractStore(testedProtocolVersion, loggerFactory)
+    val acs =
+      new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory)
     contracts.toList
       .flatMap { case (cid, seq) => seq.forgetNE.map(lifespan => (cid, lifespan)) }
       .parTraverse_ { case (cid, lifespan) =>
         for {
           _ <- {
-            if (lifespan.assignTransferCounter.forall(_ == TransferCounter.Genesis))
+            if (lifespan.transferCounterAtActivation == TransferCounter.Genesis)
               acs
                 .markContractActive(
                   cid -> initialTransferCounter,
-                  TimeOfChange(RequestCounter(0), lifespan.createdTs),
+                  TimeOfChange(RequestCounter(0), lifespan.activatedTs),
                 )
                 .value
             else
               acs
                 .transferInContract(
                   cid,
-                  TimeOfChange(RequestCounter(0), lifespan.createdTs),
+                  TimeOfChange(RequestCounter(0), lifespan.activatedTs),
                   SourceDomainId(domainId),
-                  lifespan.assignTransferCounter,
+                  lifespan.transferCounterAtActivation,
                 )
                 .value
           }
-          _ <- {
-            if (lifespan.unassignTransferCounter.isEmpty)
+          _ <- lifespan match {
+            case Lifespan.ArchiveOnDeactivate(_, deactivatedTs, _) =>
               acs
                 .archiveContract(
                   cid,
-                  TimeOfChange(RequestCounter(0), lifespan.archivedTs),
+                  TimeOfChange(RequestCounter(0), deactivatedTs),
                 )
                 .value
-            else
+            case Lifespan.TransferOutOnDeactivate(
+                  _,
+                  deactivatedTs,
+                  _,
+                  transferCounterAtTransferOut,
+                ) =>
               acs
                 .transferOutContract(
                   cid,
-                  TimeOfChange(RequestCounter(0), lifespan.archivedTs),
+                  TimeOfChange(RequestCounter(0), lifespan.deactivatedTs),
                   TargetDomainId(domainId),
-                  lifespan.unassignTransferCounter,
+                  transferCounterAtTransferOut,
                 )
                 .value
           }
@@ -179,7 +188,7 @@ sealed trait AcsCommitmentProcessorBaseTest
   protected def changesAtToc(
       contractSetup: Map[
         LfContractId,
-        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounterO, TransferCounterO),
+        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounter, TransferCounter),
       ]
   )(toc: TimeOfChange): (CantonTimestamp, RequestCounter, AcsChange) = {
     (
@@ -227,7 +236,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       timeProofs: List[CantonTimestamp],
       contractSetup: Map[
         LfContractId,
-        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounterO, TransferCounterO),
+        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounter, TransferCounter),
       ],
       topology: Map[ParticipantId, Set[LfPartyId]],
       optCommitmentStore: Option[AcsCommitmentStore] = None,
@@ -263,6 +272,8 @@ sealed trait AcsCommitmentProcessorBaseTest
         Some(AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1)))
       else None
 
+    val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
+
     val acsCommitmentProcessor = new AcsCommitmentProcessor(
       domainId,
       localId,
@@ -277,7 +288,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
       futureSupervisor,
-      new InMemoryActiveContractStore(testedProtocolVersion, loggerFactory),
+      new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory),
       new InMemoryContractStore(loggerFactory),
       // no additional consistency checks; if enabled, one needs to populate the above ACS and contract stores
       // correctly, otherwise the test will fail
@@ -292,7 +303,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       // contractSetup: Map[LfContractId, (Set[LfPartyId], TimeOfChange, TimeOfChange)],
       contractSetup: Map[
         LfContractId,
-        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounterO, TransferCounterO),
+        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounter, TransferCounter),
       ],
       topology: Map[ParticipantId, Set[LfPartyId]],
       optCommitmentStore: Option[AcsCommitmentStore] = None,
@@ -322,8 +333,8 @@ sealed trait AcsCommitmentProcessorBaseTest
       Map[LfContractId, (Set[Ref.IdString.Party], NonEmpty[Seq[Lifespan]])],
       Map[CantonTimestampSecond, AcsChange],
   ) = {
-    val tc2 = initialTransferCounter.map(_ + 1)
-    val tc3 = initialTransferCounter.map(_ + 2)
+    val tc2 = initialTransferCounter + 1
+    val tc3 = initialTransferCounter + 2
     val contracts = Map(
       (
         coid(0, 0),
@@ -331,7 +342,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(4).forgetRefinement,
+              initialTransferCounter,
+            ): Lifespan,
           ),
         ),
       ),
@@ -341,8 +356,19 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, tc2),
-            Lifespan(ts(7).forgetRefinement, ts(8).forgetRefinement, tc2, None),
+            Lifespan.TransferOutOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(4).forgetRefinement,
+              initialTransferCounter,
+              tc2,
+            ): Lifespan,
+            Lifespan
+              .TransferOutOnDeactivate(
+                ts(7).forgetRefinement,
+                ts(8).forgetRefinement,
+                tc2,
+                tc2,
+              ): Lifespan,
           ),
         ),
       ),
@@ -352,8 +378,19 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob, carol),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(7).forgetRefinement, ts(8).forgetRefinement, initialTransferCounter, tc2),
-            Lifespan(ts(10).forgetRefinement, ts(12).forgetRefinement, tc2, tc3),
+            Lifespan.TransferOutOnDeactivate(
+              ts(7).forgetRefinement,
+              ts(8).forgetRefinement,
+              initialTransferCounter,
+              tc2,
+            ): Lifespan,
+            Lifespan
+              .TransferOutOnDeactivate(
+                ts(10).forgetRefinement,
+                ts(12).forgetRefinement,
+                tc2,
+                tc3,
+              ): Lifespan,
           ),
         ),
       ),
@@ -363,7 +400,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob, carol),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(9).forgetRefinement, ts(9).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(9).forgetRefinement,
+              ts(9).forgetRefinement,
+              initialTransferCounter,
+            ): Lifespan,
           ),
         ),
       ),
@@ -388,7 +429,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
       transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
     )
-    val acs2 = AcsChange.fromCommitSet(cs2, Map.empty[LfContractId, TransferCounterO])
+    val acs2 = AcsChange.tryFromCommitSet(
+      cs2,
+      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, TransferCounter],
+    )
 
     val cs4 = CommitSet(
       creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
@@ -410,9 +455,10 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
     )
-    val acs4 = AcsChange.fromCommitSet(
+    val acs4 = AcsChange.tryFromCommitSet(
       cs4,
-      Map[LfContractId, TransferCounterO](coid(0, 0) -> initialTransferCounter),
+      Map[LfContractId, TransferCounter](coid(0, 0) -> initialTransferCounter),
+      Map.empty[LfContractId, TransferCounter],
     )
 
     val cs7 = CommitSet(
@@ -436,7 +482,11 @@ sealed trait AcsCommitmentProcessorBaseTest
         )
       ),
     )
-    val acs7 = AcsChange.fromCommitSet(cs7, Map.empty[LfContractId, TransferCounterO])
+    val acs7 = AcsChange.tryFromCommitSet(
+      cs7,
+      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, TransferCounter],
+    )
 
     val cs8 = CommitSet(
       creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
@@ -459,7 +509,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
     )
     val acs8 =
-      AcsChange.fromCommitSet(cs8, Map[LfContractId, TransferCounterO](coid(1, 0) -> tc2))
+      AcsChange.tryFromCommitSet(
+        cs8,
+        Map[LfContractId, TransferCounter](coid(1, 0) -> tc2),
+        Map.empty[LfContractId, TransferCounter],
+      )
 
     val cs9 = CommitSet(
       creations = Map[LfContractId, WithContractHash[CreationCommit]](
@@ -480,9 +534,10 @@ sealed trait AcsCommitmentProcessorBaseTest
       transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
       transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
     )
-    val acs9 = AcsChange.fromCommitSet(
+    val acs9 = AcsChange.tryFromCommitSet(
       cs9,
-      Map[LfContractId, TransferCounterO](coid(3, 0) -> initialTransferCounter),
+      Map.empty[LfContractId, TransferCounter],
+      Map[LfContractId, TransferCounter](coid(3, 0) -> initialTransferCounter),
     )
 
     val cs10 = CommitSet(
@@ -499,7 +554,11 @@ sealed trait AcsCommitmentProcessorBaseTest
         )
       ),
     )
-    val acs10 = AcsChange.fromCommitSet(cs10, Map.empty[LfContractId, TransferCounterO])
+    val acs10 = AcsChange.tryFromCommitSet(
+      cs10,
+      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, TransferCounter],
+    )
 
     val cs12 = CommitSet(
       creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
@@ -515,7 +574,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
     )
-    val acs12 = AcsChange.fromCommitSet(cs12, Map.empty[LfContractId, TransferCounterO])
+    val acs12 = AcsChange.tryFromCommitSet(
+      cs12,
+      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, TransferCounter],
+    )
 
     val acsChanges = Map(
       ts(2) -> acs2,
@@ -544,7 +607,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(4).forgetRefinement,
+              initialTransferCounter,
+            ),
           ),
         ),
       ),
@@ -554,7 +621,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(6).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(6).forgetRefinement,
+              initialTransferCounter,
+            ),
           ),
         ),
       ),
@@ -564,7 +635,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob, carol),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(10).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(10).forgetRefinement,
+              initialTransferCounter,
+            ),
           ),
         ),
       ),
@@ -574,7 +649,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob, carol),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(4).forgetRefinement,
+              initialTransferCounter,
+            ),
           ),
         ),
       ),
@@ -584,7 +663,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, danna),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(14).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(14).forgetRefinement,
+              initialTransferCounter,
+            ),
           ),
         ),
       ),
@@ -594,7 +677,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, ed),
           NonEmpty.mk(
             Seq,
-            Lifespan(ts(2).forgetRefinement, ts(18).forgetRefinement, initialTransferCounter, None),
+            Lifespan.ArchiveOnDeactivate(
+              ts(2).forgetRefinement,
+              ts(18).forgetRefinement,
+              initialTransferCounter,
+            ),
           ),
         ),
       ),
@@ -643,7 +730,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
       transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
     )
-    val acs2 = AcsChange.fromCommitSet(cs2, Map.empty[LfContractId, TransferCounterO])
+    val acs2 = AcsChange.tryFromCommitSet(
+      cs2,
+      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, TransferCounter],
+    )
 
     val cs4 = CommitSet(
       creations = Map.empty[LfContractId, WithContractHash[CreationCommit]],
@@ -662,7 +753,14 @@ sealed trait AcsCommitmentProcessorBaseTest
       transferOuts = Map.empty[LfContractId, WithContractHash[TransferOutCommit]],
       transferIns = Map.empty[LfContractId, WithContractHash[TransferInCommit]],
     )
-    val acs4 = AcsChange.fromCommitSet(cs4, Map.empty[LfContractId, TransferCounterO])
+    val acs4 = AcsChange.tryFromCommitSet(
+      cs4,
+      Map[LfContractId, TransferCounter](
+        coid(0, 0) -> initialTransferCounter,
+        coid(3, 0) -> initialTransferCounter,
+      ),
+      Map.empty[LfContractId, TransferCounter],
+    )
 
     val acsChanges = Map(ts(2) -> acs2, ts(4) -> acs4)
     (contracts, acsChanges)
@@ -686,15 +784,13 @@ class AcsCommitmentProcessorTest
   // if we want to test whether commitment buffering works
   // Also assumes that all the contracts in the map have the same stakeholders
   private def stakeholderCommitment(
-      contracts: Map[LfContractId, TransferCounterO]
+      contracts: Map[LfContractId, TransferCounter]
   ): AcsCommitment.CommitmentType = {
     val h = LtHash16()
     contracts.keySet.foreach { cid =>
       h.add(
         (testHash.bytes.toByteString concat cid.encodeDeterministically
-          concat contracts(cid).fold(ByteString.EMPTY)(
-            TransferCounter.encodeDeterministically
-          )).toByteArray
+          concat TransferCounter.encodeDeterministically(contracts(cid))).toByteArray
       )
     }
     h.getByteString()
@@ -741,7 +837,7 @@ class AcsCommitmentProcessorTest
   private def commitmentMsg(
       params: (
           ParticipantId,
-          Map[LfContractId, TransferCounterO],
+          Map[LfContractId, TransferCounter],
           CantonTimestampSecond,
           CantonTimestampSecond,
       )
@@ -813,7 +909,7 @@ class AcsCommitmentProcessorTest
   private def addCommonContractId(
       rc: RunningCommitments,
       hash: LfHash,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   ): (AcsCommitment.CommitmentType, AcsCommitment.CommitmentType) = {
     val commonContractId = coid(0, 0)
     rc.watermark shouldBe RecordTime.MinValue
@@ -929,7 +1025,11 @@ class AcsCommitmentProcessorTest
             Set(alice, bob),
             NonEmpty.mk(
               Seq,
-              Lifespan(ts(2).forgetRefinement, ts(4).forgetRefinement, initialTransferCounter, None),
+              Lifespan.ArchiveOnDeactivate(
+                ts(2).forgetRefinement,
+                ts(4).forgetRefinement,
+                initialTransferCounter,
+              ),
             ),
           ),
         ),
@@ -939,7 +1039,11 @@ class AcsCommitmentProcessorTest
             Set(alice, bob),
             NonEmpty.mk(
               Seq,
-              Lifespan(ts(2).forgetRefinement, ts(5).forgetRefinement, initialTransferCounter, None),
+              Lifespan.ArchiveOnDeactivate(
+                ts(2).forgetRefinement,
+                ts(5).forgetRefinement,
+                initialTransferCounter,
+              ),
             ),
           ),
         ),
@@ -949,7 +1053,11 @@ class AcsCommitmentProcessorTest
             Set(alice, bob, carol),
             NonEmpty.mk(
               Seq,
-              Lifespan(ts(7).forgetRefinement, ts(8).forgetRefinement, initialTransferCounter, None),
+              Lifespan.ArchiveOnDeactivate(
+                ts(7).forgetRefinement,
+                ts(8).forgetRefinement,
+                initialTransferCounter,
+              ),
             ),
           ),
         ),
@@ -959,7 +1067,11 @@ class AcsCommitmentProcessorTest
             Set(alice, bob, carol),
             NonEmpty.mk(
               Seq,
-              Lifespan(ts(9).forgetRefinement, ts(9).forgetRefinement, initialTransferCounter, None),
+              Lifespan.ArchiveOnDeactivate(
+                ts(9).forgetRefinement,
+                ts(9).forgetRefinement,
+                initialTransferCounter,
+              ),
             ),
           ),
         ),
@@ -969,11 +1081,10 @@ class AcsCommitmentProcessorTest
             Set(bob, carol),
             NonEmpty.mk(
               Seq,
-              Lifespan(
+              Lifespan.ArchiveOnDeactivate(
                 ts(11).forgetRefinement,
                 ts(13).forgetRefinement,
                 initialTransferCounter,
-                None,
               ),
             ),
           ),
@@ -1715,7 +1826,7 @@ class AcsCommitmentProcessorTest
       val rc2 =
         new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
       val hash = ExampleTransactionFactory.lfHash(1)
-      val tc2 = initialTransferCounter.map(_ + 1)
+      val tc2 = initialTransferCounter + 1
 
       val (activeCommitment1, deltaAddedCommitment1) =
         addCommonContractId(rc1, hash, initialTransferCounter)
@@ -1734,9 +1845,9 @@ class AcsCommitmentProcessorTest
       val hash3 = ExampleTransactionFactory.lfHash(3)
       val cid4 = coid(0, 4)
       val hash4 = ExampleTransactionFactory.lfHash(4)
-      val tc1 = initialTransferCounter.map(_ + 1)
-      val tc2 = initialTransferCounter.map(_ + 2)
-      val tc3 = initialTransferCounter.map(_ + 3)
+      val tc1 = initialTransferCounter + 1
+      val tc2 = initialTransferCounter + 2
+      val tc3 = initialTransferCounter + 3
 
       val cs = CommitSet(
         creations = Map[LfContractId, WithContractHash[CreationCommit]](
@@ -1771,26 +1882,30 @@ class AcsCommitmentProcessorTest
         ),
       )
 
-      // Omitting "cid3 -> None" to test that the code considers the missing cid to have transfer counter None
-      val transferCounterOfArchival =
-        Map[LfContractId, TransferCounterO](cid1 -> None, cid4 -> tc3)
+      val transferCounterOfArchival = Map[LfContractId, TransferCounter](cid4 -> tc3)
 
-      val acs1 = AcsChange.fromCommitSet(cs, transferCounterOfArchival)
+      val transferCountersForArchivedTransient = AcsChange.transferCountersForArchivedTransient(cs)
+      val acs1 =
+        AcsChange.tryFromCommitSet(
+          cs,
+          transferCounterOfArchival,
+          transferCountersForArchivedTransient,
+        )
 
       // cid1 is a transient creation with transfer counter initialTransferCounter and should not appear in the ACS change
-      AcsChange.transferCountersforArchivedCidInclTransient(
-        cid1,
-        cs,
-        transferCounterOfArchival,
-      ) shouldBe initialTransferCounter
+      transferCountersForArchivedTransient
+        .get(cid1)
+        .fold(
+          fail(s"$cid1 should be transient, but is not in $transferCountersForArchivedTransient")
+        )(_ shouldBe initialTransferCounter)
       acs1.activations.get(cid1) shouldBe None
       acs1.deactivations.get(cid1) shouldBe None
       // cid3 is a transient transfer-in and should not appear in the ACS change
-      AcsChange.transferCountersforArchivedCidInclTransient(
-        cid3,
-        cs,
-        transferCounterOfArchival,
-      ) shouldBe tc1
+      transferCountersForArchivedTransient
+        .get(cid3)
+        .fold(
+          fail(s"$cid3 should be transient, but is not in $transferCountersForArchivedTransient")
+        )(_ shouldBe tc1)
       acs1.activations.get(cid3) shouldBe None
       acs1.deactivations.get(cid3) shouldBe None
       // transfer-out cid2 is a deactivation with transfer counter tc2
@@ -2102,8 +2217,8 @@ class AcsCommitmentProcessorTest
           (
             remoteId2,
             Map(
-              (coid(1, 1), initialTransferCounter.map(_ + 1)),
-              (coid(2, 1), initialTransferCounter.map(_ + 2)),
+              (coid(1, 1), initialTransferCounter + 1),
+              (coid(2, 1), initialTransferCounter + 2),
             ),
             ts(15),
             ts(20),
@@ -2214,8 +2329,8 @@ class AcsCommitmentProcessorTest
           (
             remoteId2,
             Map(
-              (coid(1, 1), initialTransferCounter.map(_ + 1)),
-              (coid(2, 1), initialTransferCounter.map(_ + 2)),
+              (coid(1, 1), initialTransferCounter + 1),
+              (coid(2, 1), initialTransferCounter + 2),
             ),
             ts(15),
             ts(20),
@@ -2552,12 +2667,26 @@ class AcsCommitmentProcessorTest
   }
 }
 
-final case class Lifespan(
-    createdTs: CantonTimestamp,
-    archivedTs: CantonTimestamp,
-    assignTransferCounter: TransferCounterO,
-    unassignTransferCounter: TransferCounterO,
-)
+sealed trait Lifespan {
+  def activatedTs: CantonTimestamp
+  def deactivatedTs: CantonTimestamp
+  def transferCounterAtActivation: TransferCounter
+}
+
+object Lifespan {
+  final case class ArchiveOnDeactivate(
+      activatedTs: CantonTimestamp,
+      deactivatedTs: CantonTimestamp,
+      transferCounterAtActivation: TransferCounter,
+  ) extends Lifespan
+
+  final case class TransferOutOnDeactivate(
+      activatedTs: CantonTimestamp,
+      deactivatedTs: CantonTimestamp,
+      transferCounterAtActivation: TransferCounter,
+      transferCounterAtTransferOut: TransferCounter,
+  ) extends Lifespan
+}
 
 class AcsCommitmentProcessorSyncTest
     extends AnyWordSpec

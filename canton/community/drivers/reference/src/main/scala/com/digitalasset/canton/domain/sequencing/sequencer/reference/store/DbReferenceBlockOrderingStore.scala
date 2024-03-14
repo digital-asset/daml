@@ -173,10 +173,10 @@ class DbReferenceBlockOrderingStore(
       )
   }
 
-  override def countBlocks()(implicit
+  override def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Long] =
-    storage.query(sql"""select count(*) from blocks""".as[Long].head, "count blocks")
+  ): Future[Option[Long]] =
+    storage.query(sql"""select max(id) from blocks""".as[Option[Long]].head, "max block height")
 
   override def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext

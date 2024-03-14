@@ -215,44 +215,9 @@ class BlockUpdateGenerator(
       }
     val fixedTsChanges: Seq[(CantonTimestamp, Traced[LedgerBlockEvent])] = revFixedTsChanges.reverse
 
-    val membersToDisable = fixedTsChanges.collect { case (_, Traced(DisableMember(member))) =>
-      member
-    }
     val submissionRequests = fixedTsChanges.collect { case (ts, ev @ Traced(sendEvent: Send)) =>
       // Discard the timestamp of the `Send` event as this one is obsolete
       (ts, ev.map(_ => sendEvent.signedSubmissionRequest))
-    }
-
-    /* Pruning requests should only specify pruning timestamps that were safe at the time
-     * they were submitted for sequencing. A safe pruning timestamp never becomes unsafe,
-     * so it should still be safe. We nevertheless double-check this here and error on unsafe pruning requests.
-     * Since the safe pruning timestamp is before or at the last acknowledgement of each enabled member,
-     * and both acknowledgements and member enabling/disabling take effect only when they are part of a block,
-     * the safe pruning timestamp must be at most the last event of the previous block.
-     * If it is later, then the sequencer node that submitted the pruning request is buggy
-     * and it is better to crash.
-     */
-    // TODO(M99) Gracefully deal with buggy sequencer nodes
-    val safePruningTimestamp = lastBlockSafePruning.min(lastBlockTs)
-    val allPruneRequests = fixedTsChanges.collect { case (_, traced @ Traced(Prune(ts))) =>
-      Traced(ts)(traced.traceContext)
-    }
-    val (pruneRequests, invalidPruneRequests) = allPruneRequests.partition(
-      _.value <= safePruningTimestamp
-    )
-    if (invalidPruneRequests.nonEmpty) {
-      invalidPruneRequests.foreach(_.withTraceContext { implicit traceContext => pruneTimestamp =>
-        logger.error(
-          s"Unsafe pruning request at $pruneTimestamp. The latest safe pruning timestamp is $safePruningTimestamp for block $height"
-        )
-      })
-      val alarm = SequencerError.InvalidPruningRequestOnChain.Error(
-        height,
-        lastBlockTs,
-        lastBlockSafePruning,
-        invalidPruneRequests.map(_.value),
-      )
-      throw alarm.asGrpcError
     }
 
     for {
@@ -312,29 +277,24 @@ class BlockUpdateGenerator(
           member -> SequencerMemberStatus(member, ts, None)
         }
 
-        val membersWithDisablements =
-          membersToDisable.foldLeft(state.ephemeral.status.membersMap ++ newMemberStatus) {
-            case (membersMap, memberToDisable) =>
-              membersMap.updated(memberToDisable, membersMap(memberToDisable).copy(enabled = false))
-          }
-
-        val newMembersWithDisablementsAndAcknowledgements =
-          acksByMember.foldLeft(membersWithDisablements) { case (membersMap, (member, timestamp)) =>
-            membersMap
-              .get(member)
-              .fold {
-                logger.debug(
-                  s"Ack at $timestamp for $member being ignored because the member has not yet been registered."
-                )
-                membersMap
-              } { memberStatus =>
-                membersMap.updated(member, memberStatus.copy(lastAcknowledged = Some(timestamp)))
-              }
+        val newMembersWithAcknowledgements =
+          acksByMember.foldLeft(state.ephemeral.status.membersMap ++ newMemberStatus) {
+            case (membersMap, (member, timestamp)) =>
+              membersMap
+                .get(member)
+                .fold {
+                  logger.debug(
+                    s"Ack at $timestamp for $member being ignored because the member has not yet been registered."
+                  )
+                  membersMap
+                } { memberStatus =>
+                  membersMap.updated(member, memberStatus.copy(lastAcknowledged = Some(timestamp)))
+                }
           }
 
         state
           .focus(_.ephemeral.status.membersMap)
-          .replace(newMembersWithDisablementsAndAcknowledgements)
+          .replace(newMembersWithAcknowledgements)
           .focus(_.ephemeral.trafficState)
           .modify(_ ++ newMembersTraffic)
       }
@@ -355,12 +315,10 @@ class BlockUpdateGenerator(
           }
         val chunkUpdate = ChunkUpdate(
           newMembers,
-          membersToDisable,
           acksByMember,
           invalidAcks,
           reversedSignedEvents.reverse,
           inFlightAggregationUpdates,
-          pruneRequests,
           lastSequencerEventTimestamp,
           finalEphemeralState,
         )

@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.BlockSequencerStateManager.ChunkState
+import com.digitalasset.canton.domain.block.BlockSequencerStateManager.{ChunkState, HeadState}
 import com.digitalasset.canton.domain.block.data.memory.InMemorySequencerBlockStore
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
@@ -238,11 +238,10 @@ class BlockSequencerTest
     override val maybeLowerTopologyTimestampBound: Option[CantonTimestamp] = None
 
     override def handleBlock(
-        updateClosure: BlockUpdateClosureWithHeight
-    ): FutureUnlessShutdown[BlockEphemeralState] =
-      FutureUnlessShutdown.pure(
-        BlockEphemeralState(BlockInfo.initial, EphemeralState.empty)
-      ) // Discarded anyway
+        priorState: HeadState,
+        updateClosure: BlockUpdateClosureWithHeight,
+    ): FutureUnlessShutdown[HeadState] =
+      FutureUnlessShutdown.pure(priorState) // Discarded anyway
 
     override def getHeadState: BlockSequencerStateManager.HeadState =
       BlockSequencerStateManager.HeadState(
@@ -262,10 +261,11 @@ class BlockSequencerTest
     override private[domain] def firstSequencerCounterServableForSequencer
         : com.digitalasset.canton.SequencerCounter = ???
     override def handleLocalEvent(
-        event: com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
+        priorHead: HeadState,
+        event: com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent,
     )(implicit
         traceContext: com.digitalasset.canton.tracing.TraceContext
-    ): scala.concurrent.Future[Unit] = ???
+    ): scala.concurrent.Future[HeadState] = ???
     override def isMemberEnabled(member: com.digitalasset.canton.topology.Member): Boolean = ???
     override def pruneLocalDatabase(timestamp: com.digitalasset.canton.data.CantonTimestamp)(
         implicit traceContext: com.digitalasset.canton.tracing.TraceContext

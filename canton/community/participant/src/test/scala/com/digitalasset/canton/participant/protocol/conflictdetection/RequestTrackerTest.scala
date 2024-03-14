@@ -14,13 +14,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{
-  BaseTest,
-  RequestCounter,
-  SequencerCounter,
-  TransferCounter,
-  TransferCounterO,
-}
+import com.digitalasset.canton.{BaseTest, RequestCounter, SequencerCounter, TransferCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -37,8 +31,7 @@ private[conflictdetection] trait RequestTrackerTest {
   val coid10: LfContractId = ExampleTransactionFactory.suffixedId(1, 0)
   val coid11: LfContractId = ExampleTransactionFactory.suffixedId(1, 1)
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private val active = Active(initialTransferCounter)
 
@@ -1248,7 +1241,7 @@ private[conflictdetection] trait RequestTrackerTest {
   protected def checkSnapshot(
       acs: ActiveContractStore,
       ts: CantonTimestamp,
-      expected: Map[LfContractId, (CantonTimestamp, TransferCounterO)],
+      expected: Map[LfContractId, (CantonTimestamp, TransferCounter)],
   ): Future[Assertion] =
     acs
       .snapshot(ts)

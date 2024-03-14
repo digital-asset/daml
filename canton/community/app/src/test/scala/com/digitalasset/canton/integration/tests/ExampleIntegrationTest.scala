@@ -83,7 +83,7 @@ object ExampleIntegrationTest {
 }
 
 sealed abstract class SimplePingExampleXIntegrationTest
-    extends ExampleIntegrationTest(simpleTopology / "simple-topology-x.conf") {
+    extends ExampleIntegrationTest(simpleTopology / "simple-topology.conf") {
 
   "run simple-ping.canton successfully" in { implicit env =>
     import env.*

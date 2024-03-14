@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, QueryCostMonitoringConfig, StorageConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
 import com.digitalasset.canton.domain.block.{
@@ -75,32 +75,27 @@ class ReferenceBlockOrderer(
         (),
       )
       .viaMat(KillSwitches.single)(Keep.right)
-      .mapAsync(1)(_ => store.countBlocks().map(_ - 1L))
       .scanAsync(
         (fromHeight - 1L, Seq[BlockOrderer.Block]())
-      ) { case ((lastHeight, _), currentHeight) =>
+      ) { case ((lastHeight, _), _tick) =>
         for {
           newBlocks <-
-            if (currentHeight > lastHeight) {
-              store.queryBlocks(lastHeight + 1L).map { timestampedBlocks =>
-                val blocks = timestampedBlocks.map(_.block)
-                if (logger.underlying.isDebugEnabled()) {
-                  logger.debug(
-                    s"New blocks (${blocks.length}) at heights ${lastHeight + 1} to $currentHeight, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
+            store.queryBlocks(lastHeight + 1L).map { timestampedBlocks =>
+              val blocks = timestampedBlocks.map(_.block)
+              if (logger.underlying.isDebugEnabled()) {
+                logger.debug(
+                  s"New blocks (${blocks.length}) at heights ${lastHeight + 1}, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
+                )
+              }
+              blocks.lastOption.foreach { lastBlock =>
+                if (lastBlock.blockHeight != lastHeight + blocks.length) {
+                  logger.warn(
+                    s"Last block height was expected to be ${lastHeight + blocks.length} but was ${lastBlock.blockHeight}. " +
+                      "This might point to a gap in queried blocks (visible under debug logging) and cause the BlockSequencer subscription to become stuck."
                   )
                 }
-                blocks.lastOption.foreach { lastBlock =>
-                  if (lastBlock.blockHeight != lastHeight + blocks.length) {
-                    logger.warn(
-                      s"Last block height was expected to be ${lastHeight + blocks.length} but was ${lastBlock.blockHeight}. " +
-                        "This might point to a gap in queried blocks (visible under debug logging) and cause the BlockSequencer subscription to become stuck."
-                    )
-                  }
-                }
-                blocks
               }
-            } else {
-              Future.successful(Seq.empty[BlockOrderer.Block])
+              blocks
             }
         } yield {
           // Setting the "new lastHeight" watermark block height based on the number of new blocks seen
@@ -167,6 +162,7 @@ object ReferenceBlockOrderer {
       storage: StorageConfigT,
       pollInterval: config.NonNegativeFiniteDuration =
         config.NonNegativeFiniteDuration.ofMillis(100),
+      logQueryCost: Option[QueryCostMonitoringConfig] = None,
   )
 
   final case class TimestampedRequest(tag: String, body: ByteString, timestamp: CantonTimestamp)

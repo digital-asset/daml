@@ -11,6 +11,12 @@ import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
+import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail.{
+  Archive,
+  Create,
+  TransferIn,
+  TransferOut,
+}
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
@@ -30,13 +36,7 @@ import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.{
-  BaseTest,
-  LfPackageId,
-  RequestCounter,
-  TransferCounter,
-  TransferCounterO,
-}
+import com.digitalasset.canton.{BaseTest, LfPackageId, RequestCounter, TransferCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpecLike
 
@@ -53,14 +53,13 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
   lazy val acsDomainStr: String300 = String300.tryCreate("active-contract-store::default")
   lazy val acsDomainId: DomainId = DomainId.tryFromString(acsDomainStr.unwrap)
 
-  lazy val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
-  lazy val tc1: TransferCounterO = initialTransferCounter.map(_ + 1)
-  lazy val tc2: TransferCounterO = initialTransferCounter.map(_ + 2)
-  lazy val tc3: TransferCounterO = initialTransferCounter.map(_ + 3)
-  lazy val tc4: TransferCounterO = initialTransferCounter.map(_ + 4)
-  lazy val tc5: TransferCounterO = initialTransferCounter.map(_ + 5)
+  lazy val tc1: TransferCounter = initialTransferCounter + 1
+  lazy val tc2: TransferCounter = initialTransferCounter + 2
+  lazy val tc3: TransferCounter = initialTransferCounter + 3
+  lazy val tc4: TransferCounter = initialTransferCounter + 4
+  lazy val tc5: TransferCounter = initialTransferCounter + 5
 
   lazy val active = Active(initialTransferCounter)
 
@@ -90,7 +89,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       contains exactly `expectedContract`
      */
     def assertSnapshots(acs: ActiveContractStore, ts: CantonTimestamp, rc: RequestCounter)(
-        expectedContract: Option[(LfContractId, TransferCounterO)]
+        expectedContract: Option[(LfContractId, TransferCounter)]
     ): Future[Assertion] =
       for {
         snapshotTs <- acs.snapshot(ts)
@@ -286,21 +285,6 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           assert(fetch.contains(ContractState(Archived, toc)))
           snapshot shouldBe Map.empty
         }
-      }
-    }
-
-    "marking contract as active fails if the reassignment counter value is not conform with the protocol version" in {
-      val acs = mk()
-      val toc = TimeOfChange(rc, ts)
-
-      val faultyTransferCounter = None
-
-      for {
-        marked <- acs.markContractActive(coid00 -> faultyTransferCounter, toc).value
-        markedSuccessfully <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
-      } yield {
-        assert(marked.isAbort, "marking the contract as active fails")
-        assert(markedSuccessfully.successful, "marking the contract as active succeeds")
       }
     }
 
@@ -579,7 +563,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val acs = mk()
       for {
         created <- acs
-          .markContractsActive(Seq.empty[(LfContractId, TransferCounterO)], TimeOfChange(rc, ts))
+          .markContractsActive(Seq.empty[(LfContractId, TransferCounter)], TimeOfChange(rc, ts))
           .value
       } yield assert(created.successful, "succeed")
     }
@@ -712,9 +696,13 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       } yield assert(archived.successful, "succeed")
     }
 
+    // Domain with index 2
+    val domain1Idx = 2
     val sourceDomain1 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
     val targetDomain1 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
 
+    // Domain with index 3
+    val domain2Idx = 3
     val sourceDomain2 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
     val targetDomain2 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
 
@@ -998,8 +986,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             SimultaneousActivation(
               coid00,
               toc1,
-              TransferDetails(sourceDomain1, initialTransferCounter),
-              TransferDetails(sourceDomain2, initialTransferCounter),
+              TransferIn(initialTransferCounter, domain1Idx),
+              TransferIn(initialTransferCounter, domain2Idx),
             )
           ),
           "second transfer-in is flagged",
@@ -1030,8 +1018,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             SimultaneousDeactivation(
               coid00,
               toc1,
-              TransferDetails(targetDomain1, initialTransferCounter),
-              TransferDetails(targetDomain2, initialTransferCounter),
+              TransferOut(initialTransferCounter, domain1Idx),
+              TransferOut(initialTransferCounter, domain2Idx),
             )
           ),
           "second transfer-out is flagged",
@@ -1060,9 +1048,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             SimultaneousDeactivation(
               coid00,
               toc,
-              TransferDetails(targetDomain1, initialTransferCounter),
-              // The acs always stores transfer counter None for archivals
-              CreationArchivalDetail(None: TransferCounterO),
+              TransferOut(initialTransferCounter, domain1Idx),
+              Archive,
             )
           ),
           "archival is flagged",
@@ -1090,8 +1077,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             SimultaneousActivation(
               coid00,
               toc,
-              CreationArchivalDetail(initialTransferCounter),
-              TransferDetails(sourceDomain1, initialTransferCounter),
+              Create(initialTransferCounter),
+              TransferIn(initialTransferCounter, domain1Idx),
             )
           ),
           "transfer-in is flagged",
@@ -1329,7 +1316,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         snapshot <- acs.snapshot(ts2)
       } yield {
         val idOrdering = Ordering[LfContractId]
-        val resultOrdering = Ordering.Tuple2[LfContractId, (CantonTimestamp, TransferCounterO)]
+        val resultOrdering = Ordering.Tuple2[LfContractId, (CantonTimestamp, TransferCounter)]
         snapshot.toList shouldBe snapshot.toList.sorted(resultOrdering)
         snapshot.keys.toList shouldBe snapshot.keys.toList.sorted(idOrdering)
       }
@@ -1590,10 +1577,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             ActiveContractIdsChange(
               activations = Map(
                 coid10 -> StateChangeType(ContractChange.Created, initialTransferCounter),
-                coid11 -> StateChangeType(ContractChange.Assigned, tc1),
+                coid11 -> StateChangeType(ContractChange.TransferredIn, tc1),
               ),
-              deactivations =
-                Map(coid01 -> StateChangeType(ContractChange.Archived, initialTransferCounter)),
+              deactivations = Map(
+                coid01 -> StateChangeType(ContractChange.Archived, initialTransferCounter)
+              ),
             ),
           ),
           (
@@ -1602,14 +1590,14 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
               activations = Map.empty,
               deactivations = Map(
                 coid10 -> StateChangeType(ContractChange.Archived, initialTransferCounter),
-                coid11 -> StateChangeType(ContractChange.Unassigned, tc2),
+                coid11 -> StateChangeType(ContractChange.TransferredOut, tc2),
               ),
             ),
           ),
           (
             toc4,
             ActiveContractIdsChange(
-              activations = Map(coid11 -> StateChangeType(ContractChange.Assigned, tc3)),
+              activations = Map(coid11 -> StateChangeType(ContractChange.TransferredIn, tc3)),
               deactivations = Map.empty,
             ),
           ),

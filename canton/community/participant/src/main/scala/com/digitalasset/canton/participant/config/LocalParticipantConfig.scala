@@ -8,7 +8,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.http.HttpApiConfig
-import com.digitalasset.canton.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DefaultRateLimit
@@ -253,7 +253,6 @@ object LedgerApiServerConfig {
               Some(keyCertChainFile),
               Some(keyFile),
               trustCertCollectionFile,
-              secretsUrl,
               authRequirement,
               enableCertRevocationChecking,
               optTlsVersion,
@@ -264,7 +263,6 @@ object LedgerApiServerConfig {
             certChainFile = ExistingFile.tryCreate(keyCertChainFile),
             privateKeyFile = ExistingFile.tryCreate(keyFile),
             trustCollectionFile = trustCertCollectionFile.map(x => ExistingFile.tryCreate(x)),
-            secretsUrl = secretsUrl.map(_.toString),
             clientAuth = fromClientAuth(authRequirement),
             minimumServerProtocolVersion = optTlsVersion.map(_.version),
             enableCertRevocationChecking = enableCertRevocationChecking,
@@ -287,7 +285,6 @@ object LedgerApiServerConfig {
       certChainFile = Some(tlsCantonConfig.certChainFile.unwrap),
       privateKeyFile = Some(tlsCantonConfig.privateKeyFile.unwrap),
       trustCollectionFile = tlsCantonConfig.trustCollectionFile.map(_.unwrap),
-      secretsUrl = tlsCantonConfig.secretsUrl.map(SecretsUrl.fromString),
       clientAuth = tlsCantonConfig.clientAuth match {
         case ServerAuthRequirementConfig.Require(_cert) => ClientAuth.REQUIRE
         case ServerAuthRequirementConfig.Optional => ClientAuth.OPTIONAL

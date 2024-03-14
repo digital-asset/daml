@@ -50,13 +50,7 @@ import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{
-  BaseTest,
-  HasExecutorService,
-  RequestCounter,
-  TransferCounter,
-  TransferCounterO,
-}
+import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter, TransferCounter}
 import org.scalactic.source
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -86,10 +80,9 @@ class ConflictDetectorTest
   private val transfer1 = TransferId(sourceDomain1, Epoch)
   private val transfer2 = TransferId(sourceDomain2, Epoch)
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
-  private val transferCounter1 = initialTransferCounter.map(_ + 1)
-  private val transferCounter2 = initialTransferCounter.map(_ + 2)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private val transferCounter1 = initialTransferCounter + 1
+  private val transferCounter2 = initialTransferCounter + 2
 
   private val active = Active(initialTransferCounter)
 

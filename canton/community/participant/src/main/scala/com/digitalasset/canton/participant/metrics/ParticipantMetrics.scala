@@ -176,7 +176,7 @@ class SyncDomainMetrics(
     )
     val taskQueueForDoc: Gauge[Int] = NoOpGauge(prefix :+ "task-queue", 0)
     def taskQueue(size: () => Int): CloseableGauge =
-      factory.gauge(prefix :+ "task-queue", 0)(MetricsContext.Empty)
+      factory.gaugeWithSupplier(prefix :+ "task-queue", size)
   }
 
   // TODO(i14580): add testing
@@ -190,7 +190,7 @@ class SyncDomainMetrics(
       qualification = Traffic,
     )
     val extraTrafficAvailable: Gauge[Long] =
-      factory.gauge(prefix :+ "extra-traffic-credit-available", 0L)(MetricsContext.Empty)
+      factory.gauge(prefix :+ "extra-traffic-credit-available", 0L)
 
     @MetricDoc.Tag(
       summary = "Records a new top up on the participant",
@@ -198,7 +198,7 @@ class SyncDomainMetrics(
       qualification = Traffic,
     )
     val topologyTransaction: Gauge[Long] =
-      factory.gauge(prefix :+ "traffic-state-topology-transaction", 0L)(MetricsContext.Empty)
+      factory.gauge(prefix :+ "traffic-state-topology-transaction", 0L)
 
     @MetricDoc.Tag(
       summary = "Event was not delivered because of traffic limit exceeded",

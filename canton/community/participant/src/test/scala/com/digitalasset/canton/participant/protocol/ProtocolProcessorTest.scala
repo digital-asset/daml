@@ -229,13 +229,14 @@ class ProtocolProcessorTest
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val clock = new WallClock(timeouts, loggerFactory)
     val persistentState =
-      new InMemorySyncDomainPersistentStateX(
+      new InMemorySyncDomainPersistentState(
         clock,
         crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
         enableTopologyTransactionValidation = false,
+        new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
         loggerFactory,
         timeouts,
         futureSupervisor,

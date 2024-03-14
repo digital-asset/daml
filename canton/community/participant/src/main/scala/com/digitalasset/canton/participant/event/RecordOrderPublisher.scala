@@ -23,6 +23,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.event.AcsChange.transferCountersForArchivedTransient
 import com.digitalasset.canton.participant.event.RecordOrderPublisher.PendingPublish
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -398,15 +399,25 @@ class RecordOrderPublisher(
           show"transfer-ins ${commitSet.transferIns}" +
           show"archivals ${commitSet.archivals} transfer-outs ${commitSet.transferOuts}"
       )
+
+      val transientArchivals = transferCountersForArchivedTransient(commitSet)
+
       val acsChangePublish =
         for {
           // Retrieves the transfer counters of the archived contracts from the latest state in the active contract store
           archivalsWithTransferCountersOnly <- activeContractSnapshot
-            .bulkContractsTransferCounterSnapshot(commitSet.archivals.keySet, requestCounter)
+            .bulkContractsTransferCounterSnapshot(
+              commitSet.archivals.keySet -- transientArchivals.keySet,
+              requestCounter,
+            )
 
         } yield {
           // Computes the ACS change by decorating the archive events in the commit set with their transfer counters
-          val acsChange = AcsChange.fromCommitSet(commitSet, archivalsWithTransferCountersOnly)
+          val acsChange = AcsChange.tryFromCommitSet(
+            commitSet,
+            archivalsWithTransferCountersOnly,
+            transientArchivals,
+          )
           logger.debug(
             s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
           )

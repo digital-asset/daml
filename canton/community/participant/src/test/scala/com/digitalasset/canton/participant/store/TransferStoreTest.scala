@@ -54,7 +54,6 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
   TransferCounter,
-  TransferCounterO,
   config,
 }
 import org.scalatest.wordspec.AsyncWordSpec
@@ -1336,7 +1335,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
     )
   }
 
-  private val initialTransferCounter: TransferCounterO = Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   val seedGenerator = new SeedGenerator(pureCryptoApi)
 

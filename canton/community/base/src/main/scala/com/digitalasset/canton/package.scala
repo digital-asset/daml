@@ -119,10 +119,6 @@ package object canton {
     )
   }
 
-  /** A transfer counter.
-    */
-  type TransferCounterO = Option[TransferCounter]
-
   object RequestCounter extends CounterCompanion[RequestCounterDiscriminator]
 
   /** Wrap a method call with this method to document that the caller is sure that the callee's preconditions are met. */

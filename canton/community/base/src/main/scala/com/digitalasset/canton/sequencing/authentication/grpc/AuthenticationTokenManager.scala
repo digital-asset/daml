@@ -18,7 +18,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import io.grpc.Status
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 final case class AuthenticationTokenWithExpiry(
@@ -53,21 +53,8 @@ class AuthenticationTokenManager(
     * If there is no token it will cause a token refresh to start and be completed once obtained.
     * If there is a refresh already in progress it will be completed with this refresh.
     */
-  def getToken: EitherT[Future, Status, AuthenticationToken] = blocking {
-    // updates must be synchronized, as we are triggering refreshes from here
-    // and the AtomicReference.updateAndGet requires the update to be side-effect free
-    synchronized {
-      state.get() match {
-        // we are already refreshing, so pass future result
-        case Refreshing(pending) => pending.map(_.token)
-        // we have a token, so share it
-        case HaveToken(token) => EitherT.rightT[Future, Status](token)
-        // there is no token yet, so start refreshing and return pending result
-        case NoToken =>
-          createRefreshTokenFuture()
-      }
-    }
-  }
+  def getToken: EitherT[Future, Status, AuthenticationToken] =
+    refreshToken(refreshWhenHaveToken = false)
 
   /** Invalid the current token if it matches the provided value.
     * Although unlikely, the token must be provided here in case a response terminates after a new token has already been generated.
@@ -79,22 +66,45 @@ class AuthenticationTokenManager(
     }
   }
 
-  private def createRefreshTokenFuture(): EitherT[Future, Status, AuthenticationToken] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val syncP = Promise[Unit]()
-    val refresh = EitherT.right(syncP.future).flatMap(_ => obtainToken(traceContext))
+  private def refreshToken(
+      refreshWhenHaveToken: Boolean
+  ): EitherT[Future, Status, AuthenticationToken] = {
+    val refreshTokenPromise = Promise[Either[Status, AuthenticationTokenWithExpiry]]()
+    val refreshingState = Refreshing(EitherT(refreshTokenPromise.future))
 
+    state.getAndUpdate {
+      case NoToken => refreshingState
+      case have @ HaveToken(_) => if (refreshWhenHaveToken) refreshingState else have
+      case other => other
+    } match {
+      // we are already refreshing, so pass future result
+      case Refreshing(pending) => pending.map(_.token)
+      // we have a token, so share it
+      case HaveToken(token) =>
+        if (refreshWhenHaveToken) createRefreshTokenFuture(refreshTokenPromise)
+        else EitherT.rightT[Future, Status](token)
+      // there is no token yet, so start refreshing and return pending result
+      case NoToken =>
+        createRefreshTokenFuture(refreshTokenPromise)
+    }
+  }
+
+  private def createRefreshTokenFuture(
+      promise: Promise[Either[Status, AuthenticationTokenWithExpiry]]
+  ): EitherT[Future, Status, AuthenticationToken] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     logger.debug("Refreshing authentication token")
 
+    val currentRefresh = promise.future
     def completeRefresh(result: State): Unit = {
       state.updateAndGet {
-        case Refreshing(pending) if pending == refresh => result
+        case Refreshing(pending) if pending.value == currentRefresh => result
         case other => other
       }.discard
     }
 
     // asynchronously update the state once completed, one way or another
-    val refreshTransformed = refresh.value.thereafter {
+    val currentRefreshTransformed = currentRefresh.thereafter {
       case Failure(exception) =>
         exception match {
           case ex: io.grpc.StatusRuntimeException
@@ -121,15 +131,12 @@ class AuthenticationTokenManager(
         completeRefresh(NoToken)
       case Success(Right(AuthenticationTokenWithExpiry(newToken, expiresAt))) =>
         logger.debug("Token refresh complete")
-        scheduleRefreshBefore(expiresAt)
         completeRefresh(HaveToken(newToken))
+        scheduleRefreshBefore(expiresAt)
     }
 
-    val res = Refreshing(refresh)
-    state.set(res)
-    // only kick off computation once the state is set
-    syncP.success(())
-    EitherT(refreshTransformed).map(_.token)
+    promise.completeWith(obtainToken(traceContext).value)
+    EitherT(currentRefreshTransformed).map(_.token)
   }
 
   private def scheduleRefreshBefore(expiresAt: CantonTimestamp): Unit = {
@@ -144,7 +151,7 @@ class AuthenticationTokenManager(
   }
 
   private def backgroundRefreshToken(_now: CantonTimestamp): Unit = if (!isClosed) {
-    createRefreshTokenFuture().discard
+    refreshToken(refreshWhenHaveToken = true).discard
   }
 
 }

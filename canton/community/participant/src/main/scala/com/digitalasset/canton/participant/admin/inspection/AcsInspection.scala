@@ -15,7 +15,7 @@ import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySn
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.{LfPartyId, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, TransferCounter}
 
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
@@ -65,7 +65,7 @@ private[inspection] object AcsInspection {
   def getCurrentSnapshot(state: SyncDomainPersistentState)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]]]] =
+  ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]]]] =
     for {
       cursorHeadO <- state.requestJournalStore.preheadClean
       snapshot <- cursorHeadO
@@ -90,7 +90,7 @@ private[inspection] object AcsInspection {
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, AcsSnapshot[
-    SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]
+    SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]
   ]] =
     for {
       _ <-
@@ -120,11 +120,11 @@ private[inspection] object AcsInspection {
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, Option[
-    AcsSnapshot[Iterator[Seq[(LfContractId, TransferCounterO)]]]
+    AcsSnapshot[Iterator[Seq[(LfContractId, TransferCounter)]]]
   ]] = {
 
     type MaybeSnapshot =
-      Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]]]
+      Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]]]
 
     val maybeSnapshotET: EitherT[Future, Error, MaybeSnapshot] = timestamp match {
       case Some(timestamp) =>
@@ -157,7 +157,7 @@ private[inspection] object AcsInspection {
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       skipCleanTimestampCheck: Boolean = false,
-  )(f: (SerializableContract, TransferCounterO) => Either[Error, Unit])(implicit
+  )(f: (SerializableContract, TransferCounter) => Either[Error, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, Option[(Set[LfPartyId], CantonTimestamp)]] = {
@@ -223,8 +223,8 @@ private[inspection] object AcsInspection {
       domainId: DomainId,
       state: SyncDomainPersistentState,
       parties: Set[LfPartyId],
-      f: (SerializableContract, TransferCounterO) => Either[Error, Unit],
-  )(batch: Seq[(LfContractId, TransferCounterO)])(implicit
+      f: (SerializableContract, TransferCounter) => Either[Error, Unit],
+  )(batch: Seq[(LfContractId, TransferCounter)])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, Error, Set[LfPartyId]] = {

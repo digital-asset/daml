@@ -33,6 +33,11 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcesso
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolProcessor}
+import com.digitalasset.canton.participant.store.ActiveContractStore.{
+  Active,
+  Archived,
+  TransferredAway,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
@@ -133,16 +138,20 @@ class TransferOutProcessingSteps(
         ephemeralState.tracker
           .getApproximateStates(Seq(contractId))
           .map(_.get(contractId) match {
-            case Some(state) if state.status.isActive => Right(state.status.transferCounter)
             case Some(state) =>
-              Left(TransferOutProcessorError.DeactivatedContract(contractId, status = state.status))
+              state.status match {
+                case Active(tc) => Right(tc)
+                case Archived | _: TransferredAway =>
+                  Left(
+                    TransferOutProcessorError.DeactivatedContract(contractId, status = state.status)
+                  )
+              }
             case None => Left(TransferOutProcessorError.UnknownContract(contractId))
           })
       ).mapK(FutureUnlessShutdown.outcomeK)
 
       newTransferCounter <- EitherT.fromEither[FutureUnlessShutdown](
-        transferCounter
-          .traverse(_.increment)
+        transferCounter.increment
           .leftMap(_ => TransferOutProcessorError.TransferCounterOverflow)
       )
 
@@ -577,7 +586,7 @@ class TransferOutProcessingSteps(
           creations = Map.empty,
           transferOuts = Map(
             contractId -> WithContractHash(
-              CommitSet.TransferOutCommit(targetDomain, stakeholders, Some(transferCounter)),
+              CommitSet.TransferOutCommit(targetDomain, stakeholders, transferCounter),
               contractHash,
             )
           ),
@@ -715,7 +724,7 @@ class TransferOutProcessingSteps(
       rootHash: RootHash,
   ): Option[ConfirmationResponse] = {
     val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
-      contractId -> Some(ActiveContractStore.Active(Some(declaredTransferCounter - 1)))
+      contractId -> Some(ActiveContractStore.Active(declaredTransferCounter - 1))
     )
 
     val successful =
