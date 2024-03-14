@@ -29,6 +29,7 @@ object NavigatorBackend extends UIBackend {
         |/_/|_/\_,_/|___/_/\_, /\_,_/\__/\___/_/
         |                 /___/
         |Version """.stripMargin + applicationInfo.version
+        + "\n\nWarning: 'daml navigator' is deprecated and will be removed in Daml 3.0."
     )
 
   /** Frontend config file */
