@@ -91,9 +91,9 @@ class DamlLfEncoderTest
   private def getNonEmptyModules(dar: Dar[ArchivePayload]): Seq[ModuleName] = {
     for {
       payload <- dar.all
-      ArchivePayload(_, pkg, version) = payload
+      ArchivePayload(_, version, pkg) = payload
       name <- version match {
-        case LanguageVersion(Major.V2, _) => getNonEmptyModules(pkg.getDamlLf2)
+        case LanguageVersion(Major.V2, _) => getNonEmptyModules(pkg)
         case _ => throw new RuntimeException(s"Unsupported language version: $version")
       }
     } yield name

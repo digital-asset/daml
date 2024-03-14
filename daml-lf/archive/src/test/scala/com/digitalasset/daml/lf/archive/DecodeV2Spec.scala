@@ -1118,29 +1118,28 @@ class DecodeV2Spec
 
   "decodeModuleRef" should {
 
-    lazy val Right(ArchivePayload(pkgId, dalfProto, version)) =
+    lazy val Right(ArchivePayload(pkgId, version, dalfProto)) =
       ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
-      val dalf1 = dalfProto.getDamlLf2
-      val iix = dalf1
+      val iix = dalfProto
         .getModules(0)
         .getValuesList
         .asScala
         .collectFirst {
           case dv
-              if dalf1.getInternedDottedNamesList
+              if dalfProto.getInternedDottedNamesList
                 .asScala(dv.getNameWithType.getNameInternedDname)
                 .getSegmentsInternedStrList
                 .asScala
                 .lastOption
-                .map(x => dalf1.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
+                .map(x => dalfProto.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
             val pr = dv.getExpr.getVal.getModule.getPackageRef
             pr.getSumCase shouldBe DamlLf2.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
             pr.getPackageIdInternedStr
         }
         .value
-      dalf1.getInternedStringsList.asScala.lift(iix.toInt).value
+      dalfProto.getInternedStringsList.asScala.lift(iix.toInt).value
     }
 
     "take a dalf with interned IDs" in {
@@ -1154,7 +1153,7 @@ class DecodeV2Spec
 
     "decode resolving the interned package ID" in {
       val decoder = new DecodeV2(version.minor)
-      inside(decoder.decodePackage(pkgId, dalfProto.getDamlLf2, false)) { case Right(pkg) =>
+      inside(decoder.decodePackage(pkgId, dalfProto, false)) { case Right(pkg) =>
         inside(
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))

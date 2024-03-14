@@ -21,7 +21,7 @@ object Decode {
         new DecodeV2(minor)
           .decodePackage(
             payload.pkgId,
-            payload.proto.getDamlLf2,
+            payload.protoPkg,
             onlySerializableDataDefs,
           )
           .map(payload.pkgId -> _)

@@ -38,17 +38,17 @@ class DarReaderTest
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
 
     val Right(dar) = DarReader.readArchiveFromFile(darFile)
-    val mainArchive = dar.main.proto
+    val mainArchive = dar.main.protoPkg
 
-    forAll(dar.all) { case ArchivePayload(packageId, archive, ver) =>
+    forAll(dar.all) { case ArchivePayload(packageId, ver, protoPkg) =>
       packageId shouldNot be(Symbol("empty"))
-      archive.getDamlLf2.getModulesCount should be > 0
+      protoPkg.getModulesCount should be > 0
       ver.major should be(LanguageMajorVersion.V2)
     }
 
-    val mainArchiveModules = mainArchive.getDamlLf2.getModulesList.asScala
-    val mainArchiveInternedDotted = mainArchive.getDamlLf2.getInternedDottedNamesList.asScala
-    val mainArchiveInternedStrings = mainArchive.getDamlLf2.getInternedStringsList.asScala
+    val mainArchiveModules = mainArchive.getModulesList.asScala
+    val mainArchiveInternedDotted = mainArchive.getInternedDottedNamesList.asScala
+    val mainArchiveInternedStrings = mainArchive.getInternedStringsList.asScala
     inside(
       mainArchiveModules
         .find(m =>
@@ -70,10 +70,10 @@ class DarReaderTest
       actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
     }
 
-    forExactly(1, dar.dependencies) { case ArchivePayload(_, archive, _) =>
-      val archiveModules = archive.getDamlLf2.getModulesList.asScala
-      val archiveInternedDotted = archive.getDamlLf2.getInternedDottedNamesList.asScala
-      val archiveInternedStrings = archive.getDamlLf2.getInternedStringsList.asScala
+    forExactly(1, dar.dependencies) { case ArchivePayload(_, _, protoPkg) =>
+      val archiveModules = protoPkg.getModulesList.asScala
+      val archiveInternedDotted = protoPkg.getInternedDottedNamesList.asScala
+      val archiveInternedStrings = protoPkg.getInternedStringsList.asScala
       val archiveModuleNames = archiveModules
         .map(m =>
           internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname)
