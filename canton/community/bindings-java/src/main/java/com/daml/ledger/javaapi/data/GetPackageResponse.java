@@ -14,7 +14,7 @@ public final class GetPackageResponse {
 
   // Clone of the PackageServiceOuterClass.HashFunction enumeration
   public enum HashFunction {
-    SHA256(0),
+    HASH_FUNCTION_SHA256(0),
     UNRECOGNIZED(-1),
     ;
 
