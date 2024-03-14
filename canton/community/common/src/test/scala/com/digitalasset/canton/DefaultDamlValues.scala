@@ -6,7 +6,6 @@ package com.digitalasset.canton
 import cats.Id
 import com.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.DeduplicationDuration
-import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.protocol.{
   LfCommittedTransaction,
@@ -31,12 +30,6 @@ object DefaultDamlValues {
 
   lazy val deduplicationDuration: DeduplicationDuration = DeduplicationDuration(
     java.time.Duration.ofSeconds(100)
-  )
-
-  lazy val ledgerConfiguration: LedgerConfiguration = LedgerConfiguration(
-    generation = 1L,
-    timeModel = LedgerTimeModel.reasonableDefault,
-    maxDeduplicationDuration = java.time.Duration.ofDays(1L),
   )
 
   def lfTransactionId(index: Int): Ref.TransactionId =

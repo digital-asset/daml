@@ -12,8 +12,8 @@ public final class GetPackageStatusResponse {
 
   // Clone of the PackageServiceOuterClass.PackageStatus enumeration
   public enum PackageStatus {
-    UNKNOWN(0),
-    REGISTERED(1),
+    PACKAGE_STATUS_UNSPECIFIED(0),
+    PACKAGE_STATUS_REGISTERED(1),
     UNRECOGNIZED(-1),
     ;
 

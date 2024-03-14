@@ -9,7 +9,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.LedgerConfiguration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, NonNegativeFiniteDuration}
 import com.digitalasset.canton.ledger.api.auth.*
@@ -70,7 +69,7 @@ object ApiServiceOwner {
       managementServiceTimeout: NonNegativeFiniteDuration =
         ApiServiceOwner.DefaultManagementServiceTimeout,
       ledgerFeatures: LedgerFeatures,
-      ledgerConfiguration: LedgerConfiguration,
+      maxDeduplicationDuration: NonNegativeFiniteDuration,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       upgradingEnabled: Boolean,
@@ -170,7 +169,7 @@ object ApiServiceOwner {
         identityProviderConfigStore = identityProviderConfigStore,
         partyRecordStore = partyRecordStore,
         ledgerFeatures = ledgerFeatures,
-        ledgerConfiguration = ledgerConfiguration,
+        maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
         apiStreamShutdownTimeout = apiStreamShutdownTimeout.underlying,
         meteringReportKey = meteringReportKey,

@@ -77,9 +77,9 @@ public abstract class ParticipantOffset {
         return new Absolute(ParticipantOffset.getAbsolute());
       case BOUNDARY:
         switch (ParticipantOffset.getBoundary()) {
-          case PARTICIPANT_BEGIN:
+          case PARTICIPANT_BOUNDARY_BEGIN:
             return ParticipantBegin.instance;
-          case PARTICIPANT_END:
+          case PARTICIPANT_BOUNDARY_END:
             return ParticipantEnd.instance;
           case UNRECOGNIZED:
           default:
@@ -95,12 +95,14 @@ public abstract class ParticipantOffset {
     if (this instanceof ParticipantBegin) {
       return ParticipantOffsetOuterClass.ParticipantOffset.newBuilder()
           .setBoundary(
-              ParticipantOffsetOuterClass.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN)
+              ParticipantOffsetOuterClass.ParticipantOffset.ParticipantBoundary
+                  .PARTICIPANT_BOUNDARY_BEGIN)
           .build();
     } else if (this instanceof ParticipantEnd) {
       return ParticipantOffsetOuterClass.ParticipantOffset.newBuilder()
           .setBoundary(
-              ParticipantOffsetOuterClass.ParticipantOffset.ParticipantBoundary.PARTICIPANT_END)
+              ParticipantOffsetOuterClass.ParticipantOffset.ParticipantBoundary
+                  .PARTICIPANT_BOUNDARY_END)
           .build();
     } else if (this instanceof Absolute) {
       Absolute absolute = (Absolute) this;

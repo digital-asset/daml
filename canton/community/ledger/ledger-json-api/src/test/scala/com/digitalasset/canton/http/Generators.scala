@@ -4,7 +4,6 @@
 package com.digitalasset.canton.http
 
 import com.digitalasset.canton.http.domain.ContractTypeId
-import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.topology.DomainId
 import org.scalacheck.Gen

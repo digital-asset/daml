@@ -12,7 +12,7 @@ final case class Unrecognized(value: Int) extends HashFunction
 
 object HashFunction {
   def fromLedgerApi(a: package_service.HashFunction): HashFunction = a match {
-    case package_service.HashFunction.SHA256 => SHA256
+    case package_service.HashFunction.HASH_FUNCTION_SHA256 => SHA256
     case package_service.HashFunction.Unrecognized(x) => Unrecognized(x)
   }
 }

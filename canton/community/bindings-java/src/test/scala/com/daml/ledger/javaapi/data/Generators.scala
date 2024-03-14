@@ -503,9 +503,9 @@ object Generators {
       domainAlias <- Arbitrary.arbString.arbitrary
       domainId <- Arbitrary.arbString.arbitrary
       permission <- Gen.oneOf(
-        v2.StateServiceOuterClass.ParticipantPermission.Submission,
-        v2.StateServiceOuterClass.ParticipantPermission.Confirmation,
-        v2.StateServiceOuterClass.ParticipantPermission.Observation,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
+        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
       )
     } yield v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain
       .newBuilder()
@@ -532,10 +532,10 @@ object Generators {
           (b: OffsetProto.Builder) => b.setAbsolute(absolute)
         ),
         Gen.const((b: OffsetProto.Builder) =>
-          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BEGIN)
+          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
         ),
         Gen.const((b: OffsetProto.Builder) =>
-          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_END)
+          b.setBoundary(OffsetProto.ParticipantBoundary.PARTICIPANT_BOUNDARY_END)
         ),
       )
     } yield OffsetProto

@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetTransactionTreeResponse,
 }
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.services.CommandService
@@ -34,7 +35,6 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.{
 }
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, logging}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.{LedgerConfiguration, config}
 import com.google.protobuf.empty.Empty
 import io.grpc.{Context, Deadline}
 
@@ -216,7 +216,7 @@ private[apiserver] object CommandServiceImpl {
       defaultTrackingTimeout: config.NonNegativeFiniteDuration,
       transactionServices: TransactionServices,
       timeProvider: TimeProvider,
-      ledgerConfiguration: LedgerConfiguration,
+      maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -233,7 +233,7 @@ private[apiserver] object CommandServiceImpl {
       commandsValidator = commandsValidator,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationDuration = ledgerConfiguration.maxDeduplicationDuration,
+      maxDeduplicationDuration = maxDeduplicationDuration.asJava,
       generateSubmissionId = SubmissionIdGenerator.Random,
       telemetry = telemetry,
       loggerFactory = loggerFactory,

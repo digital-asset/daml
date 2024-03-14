@@ -7,8 +7,8 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.admin.user_management_service.{
   CreateUserResponse,
   GetUserResponse,
-  UpdateUserIdentityProviderRequest,
-  UpdateUserIdentityProviderResponse,
+  UpdateUserIdentityProviderIdRequest,
+  UpdateUserIdentityProviderIdResponse,
   UpdateUserRequest,
   UpdateUserResponse,
 }
@@ -406,8 +406,8 @@ private[apiserver] final class ApiUserManagementService(
     }
   }
   override def updateUserIdentityProviderId(
-      request: UpdateUserIdentityProviderRequest
-  ): Future[UpdateUserIdentityProviderResponse] = {
+      request: UpdateUserIdentityProviderIdRequest
+  ): Future[UpdateUserIdentityProviderIdResponse] = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
     withValidation {
@@ -433,7 +433,7 @@ private[apiserver] final class ApiUserManagementService(
             id = userId,
           )
           .flatMap(handleResult("update user identity provider"))
-          .map(_ => proto.UpdateUserIdentityProviderResponse())
+          .map(_ => proto.UpdateUserIdentityProviderIdResponse())
       } yield result
     }
   }

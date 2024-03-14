@@ -45,15 +45,10 @@ message ParticipantOffset {
   }
 
   enum ParticipantBoundary {
-    // TODO(#16637) add zero value PARTICIPANT_BOUNDARY_UNSPECIFIED
-    // see https://buf.build/docs/lint/rules#enum_zero_value_suffix
-
     // Refers to the first transaction.
-    // TODO(#16637) rename to PARTICIPANT_BOUNDARY_BEGIN
-    PARTICIPANT_BEGIN = 0;
+    PARTICIPANT_BOUNDARY_BEGIN = 0;
 
     // Refers to the currently last transaction, which is a moving target.
-    // TODO(#16637) rename to PARTICIPANT_BOUNDARY_END
-    PARTICIPANT_END = 1;
+    PARTICIPANT_BOUNDARY_END = 1;
   }
 }

@@ -38,14 +38,14 @@ message GetPackageStatusResponse {
 
 enum PackageStatus {
   // The server is not aware of such a package.
-  UNKNOWN = 0;
+  PACKAGE_STATUS_UNSPECIFIED = 0;
 
   // The server is able to execute Daml commands operating on this package.
-  REGISTERED = 1;
+  PACKAGE_STATUS_REGISTERED = 1;
 }
 
 enum HashFunction {
-  SHA256 = 0;
+  HASH_FUNCTION_SHA256 = 0;
 }
 
 // Allows clients to query the Daml-LF packages that are supported by the server.

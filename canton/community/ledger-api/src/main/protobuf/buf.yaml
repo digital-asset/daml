@@ -10,37 +10,14 @@ lint:
       - com/daml/ledger/api/v2/command_service.proto
       - com/daml/ledger/api/v2/update_service.proto
     RPC_REQUEST_STANDARD_NAME:
-      - com/daml/ledger/api/v2/admin/party_management_service.proto # TODO(#16637) check the corresponding proto file for more
-      - com/daml/ledger/api/v2/admin/user_management_service.proto # TODO(#16637) check the corresponding proto file for more
       - com/daml/ledger/api/v2/command_service.proto
       - com/daml/ledger/api/v2/update_service.proto
     RPC_RESPONSE_STANDARD_NAME:
-      - com/daml/ledger/api/v2/admin/party_management_service.proto # TODO(#16637) check the corresponding proto file for more
-      - com/daml/ledger/api/v2/admin/user_management_service.proto # TODO(#16637) check the corresponding proto file for more
       - com/daml/ledger/api/v2/update_service.proto
-    # TODO(#16637) check the corresponding proto files for more
-    ONEOF_LOWER_SNAKE_CASE:
-      - com/daml/ledger/api/v2/value.proto
-    # TODO(#16637) check the corresponding proto files for more
-    FIELD_LOWER_SNAKE_CASE:
-      - com/daml/ledger/api/v2/commands.proto
-    # TODO(#16637) check the corresponding proto files for more
-    ENUM_VALUE_PREFIX:
-      - com/daml/ledger/api/v2/package_service.proto
-      - com/daml/ledger/api/v2/participant_offset.proto
-      - com/daml/ledger/api/v2/state_service.proto
-    # TODO(#16637) check the corresponding proto files for more
-    ENUM_VALUE_UPPER_SNAKE_CASE:
-      - com/daml/ledger/api/v1/package_service.proto
-      - com/daml/ledger/api/v2/state_service.proto
-    # TODO(#16637) check the corresponding proto files for more
     ENUM_ZERO_VALUE_SUFFIX:
       - com/daml/ledger/api/v2/package_service.proto
       - com/daml/ledger/api/v2/participant_offset.proto
-      - com/daml/ledger/api/v2/state_service.proto
-  # TODO(#16637) move all admin services to a package that ends with a version or keep the exception
-  # (i.e. move from com.daml.ledger.api.v1.admin to com.daml.ledger.api.admin.v1 or com.daml.ledger.api.v1.admin.v1)
-  # for more see https://buf.build/docs/lint/rules#package_version_suffix
   except:
+    # lint exception needed for admin protos
     - PACKAGE_VERSION_SUFFIX
   rpc_allow_google_protobuf_empty_responses: true

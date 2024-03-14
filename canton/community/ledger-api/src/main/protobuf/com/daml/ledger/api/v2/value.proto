@@ -22,8 +22,7 @@ option java_package = "com.daml.ledger.api.v2";
 // - ApplicationIdStrings are strings with length <= 255 that match the regexp ``[A-Za-z0-9#:\-_/ @\|]+``.
 //
 message Value {
-  // TODO(#16637) rename to sum
-  oneof Sum {
+  oneof sum {
     // This value is used for example for choices that don't take any arguments.
     google.protobuf.Empty unit = 1;
 

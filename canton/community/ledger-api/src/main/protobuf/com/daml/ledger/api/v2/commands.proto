@@ -18,8 +18,8 @@ message Command {
   oneof command {
     CreateCommand create = 1;
     ExerciseCommand exercise = 2;
-    ExerciseByKeyCommand exerciseByKey = 4;
-    CreateAndExerciseCommand createAndExercise = 3;
+    ExerciseByKeyCommand exercise_by_key = 4;
+    CreateAndExerciseCommand create_and_exercise = 3;
   }
 }
 

@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
 import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService

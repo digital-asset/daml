@@ -82,29 +82,6 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     }
 
     @Explanation(
-      "The ledger configuration could not be retrieved. This could happen due to incomplete initialization of the participant or due to an internal system error."
-    )
-    @Resolution("Contact the participant operator.")
-    object LedgerConfiguration
-        extends ErrorCode(
-          id = "LEDGER_CONFIGURATION_NOT_FOUND",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
-
-      final case class Reject()(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = "The ledger configuration could not be retrieved."
-          )
-
-      final case class RejectWithMessage(message: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"The ledger configuration could not be retrieved: ${message}."
-          )
-    }
-
-    @Explanation(
       "The queried template or interface ids do not exist."
     )
     @Resolution(

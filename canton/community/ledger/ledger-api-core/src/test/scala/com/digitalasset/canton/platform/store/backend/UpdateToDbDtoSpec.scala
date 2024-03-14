@@ -19,7 +19,6 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationDuration,
   DeduplicationOffset,
 }
-import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.ledger.participant.state.v2 as state
@@ -1701,8 +1700,6 @@ object UpdateToDbDtoSpec {
   private val someSubmissionId =
     Ref.SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
   private val someWorkflowId = Ref.WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
-  private val someConfiguration =
-    Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
   private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")

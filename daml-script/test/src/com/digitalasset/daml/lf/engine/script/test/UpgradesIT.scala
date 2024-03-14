@@ -34,6 +34,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
 
   final override protected lazy val devMode = true
   final override protected lazy val enableContractUpgrading = true
+  final override protected val disableUpgradeValidation = true
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): split the test into one with contract
   //  keys and one without, and revert to the default version. Here and below, in the loaded dars.

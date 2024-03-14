@@ -36,8 +36,8 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
   RevokeUserRightsRequest,
   RevokeUserRightsResponse,
   Right as UserRight,
-  UpdateUserIdentityProviderRequest,
-  UpdateUserIdentityProviderResponse,
+  UpdateUserIdentityProviderIdRequest,
+  UpdateUserIdentityProviderIdResponse,
   UpdateUserRequest,
   UpdateUserResponse,
   User,
@@ -275,19 +275,19 @@ object LedgerApiCommands {
         sourceIdentityProviderId: String,
         targetIdentityProviderId: String,
     ) extends BaseCommand[
-          UpdatePartyIdentityProviderRequest,
-          UpdatePartyIdentityProviderResponse,
+          UpdatePartyIdentityProviderIdRequest,
+          UpdatePartyIdentityProviderIdResponse,
           Unit,
         ] {
 
       override def submitRequest(
           service: PartyManagementServiceStub,
-          request: UpdatePartyIdentityProviderRequest,
-      ): Future[UpdatePartyIdentityProviderResponse] =
+          request: UpdatePartyIdentityProviderIdRequest,
+      ): Future[UpdatePartyIdentityProviderIdResponse] =
         service.updatePartyIdentityProviderId(request)
 
-      override def createRequest(): Either[String, UpdatePartyIdentityProviderRequest] = Right(
-        UpdatePartyIdentityProviderRequest(
+      override def createRequest(): Either[String, UpdatePartyIdentityProviderIdRequest] = Right(
+        UpdatePartyIdentityProviderIdRequest(
           party = party.toProtoPrimitive,
           sourceIdentityProviderId = sourceIdentityProviderId,
           targetIdentityProviderId = targetIdentityProviderId,
@@ -295,7 +295,7 @@ object LedgerApiCommands {
       )
 
       override def handleResponse(
-          response: UpdatePartyIdentityProviderResponse
+          response: UpdatePartyIdentityProviderIdResponse
       ): Either[String, Unit] = Right(())
 
     }
@@ -550,19 +550,19 @@ object LedgerApiCommands {
         sourceIdentityProviderId: String,
         targetIdentityProviderId: String,
     ) extends BaseCommand[
-          UpdateUserIdentityProviderRequest,
-          UpdateUserIdentityProviderResponse,
+          UpdateUserIdentityProviderIdRequest,
+          UpdateUserIdentityProviderIdResponse,
           Unit,
         ] {
 
       override def submitRequest(
           service: UserManagementServiceStub,
-          request: UpdateUserIdentityProviderRequest,
-      ): Future[UpdateUserIdentityProviderResponse] =
+          request: UpdateUserIdentityProviderIdRequest,
+      ): Future[UpdateUserIdentityProviderIdResponse] =
         service.updateUserIdentityProviderId(request)
 
-      override def createRequest(): Either[String, UpdateUserIdentityProviderRequest] = Right(
-        UpdateUserIdentityProviderRequest(
+      override def createRequest(): Either[String, UpdateUserIdentityProviderIdRequest] = Right(
+        UpdateUserIdentityProviderIdRequest(
           userId = id,
           sourceIdentityProviderId = sourceIdentityProviderId,
           targetIdentityProviderId = targetIdentityProviderId,
@@ -570,7 +570,7 @@ object LedgerApiCommands {
       )
 
       override def handleResponse(
-          response: UpdateUserIdentityProviderResponse
+          response: UpdateUserIdentityProviderIdResponse
       ): Either[String, Unit] = Right(())
 
     }
