@@ -273,14 +273,15 @@ jobs:
 
         ## get latest version, in case it's already up to date
         git fetch origin
-        git merge origin/main
+        git -c user.name="Azure Pipelines Daml Build" \
+            -c user.email="support@digitalasset.com" \
+            merge origin/main
 
         source $(bash_lib)
 
         cp .bazelrc compatibility/
         compatibility/update-versions.sh
         git add compatibility/versions.bzl compatibility/maven_install.json
-
 
         if ! git diff --cached --quiet; then
           BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
