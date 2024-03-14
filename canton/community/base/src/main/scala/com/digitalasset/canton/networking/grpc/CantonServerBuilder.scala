@@ -185,13 +185,6 @@ object CantonServerBuilder {
   def baseSslContext(config: TlsBaseServerConfig): SslContext = baseSslBuilder(config).build()
 
   def sslContext(config: TlsServerConfig): SslContext = {
-    // TODO(#7086): secrets service support not yet implemented for canton admin services
-    config.secretsUrl.foreach { url =>
-      throw new IllegalArgumentException(
-        s"Canton admin services do not yet support 'Secrets Service' $url."
-      )
-    }
-
     val s1 = baseSslBuilder(config)
     val s2 = config.trustCollectionFile.fold(s1)(trustCollection =>
       s1.trustManager(trustCollection.unwrap)

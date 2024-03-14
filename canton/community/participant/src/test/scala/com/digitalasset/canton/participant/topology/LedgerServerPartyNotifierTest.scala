@@ -56,6 +56,8 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
 
     private var counter = SequencerCounter(0)
 
+    // TODO(#17726) Figure out whether what this synchronization block is actually guarding.
+    @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
     def simulateTransaction(mapping: PartyToParticipantX): Future[Unit] =
       blocking {
         clock.synchronized {

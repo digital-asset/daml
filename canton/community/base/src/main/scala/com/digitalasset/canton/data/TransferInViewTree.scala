@@ -27,7 +27,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, LfWorkflowId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, LfWorkflowId, TransferCounter}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -248,8 +248,7 @@ final case class TransferInView private (
     creatingTransactionId: TransactionId,
     transferOutResultEvent: DeliveredTransferOutResult,
     sourceProtocolVersion: SourceProtocolVersion,
-    // TODO(#15179) Remove the option
-    transferCounter: TransferCounterO,
+    transferCounter: TransferCounter,
 )(
     hashOps: HashOps,
     override val representativeProtocolVersion: RepresentativeProtocolVersion[TransferInView.type],
@@ -269,13 +268,7 @@ final case class TransferInView private (
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       transferOutResultEvent = Some(transferOutResultEvent.result.toProtoV30),
       sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
-      transferCounter = transferCounter
-        .getOrElse(
-          throw new IllegalStateException(
-            s"Transfer counter must be defined at representative protocol version $representativeProtocolVersion"
-          )
-        )
-        .toProtoPrimitive,
+      transferCounter = transferCounter.toProtoPrimitive,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -283,7 +276,7 @@ final case class TransferInView private (
 
   override def pretty: Pretty[TransferInView] = prettyOfClass(
     param("contract", _.contract), // TODO(#3269) this may contain confidential data
-    paramIfDefined("transfer counter", _.transferCounter),
+    param("transfer counter", _.transferCounter),
     param("creating transaction id", _.creatingTransactionId),
     param("transfer out result", _.transferOutResultEvent),
     param("salt", _.salt),
@@ -347,7 +340,7 @@ object TransferInView
       transferOutResultEvent: DeliveredTransferOutResult,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   ): Either[String, TransferInView] = Either
     .catchOnly[IllegalArgumentException](
       TransferInView(
@@ -392,7 +385,7 @@ object TransferInView
       commonData.creatingTransactionId,
       commonData.transferOutResultEvent,
       commonData.sourceProtocolVersion,
-      Some(TransferCounter(transferCounterP)),
+      TransferCounter(transferCounterP),
     )(hashOps, rpv, Some(bytes))
   }
 }
@@ -420,7 +413,7 @@ final case class FullTransferInTree(tree: TransferInViewTree)
 
   def contract: SerializableContract = view.contract
 
-  def transferCounter: TransferCounterO = view.transferCounter
+  def transferCounter: TransferCounter = view.transferCounter
 
   def creatingTransactionId: TransactionId = view.creatingTransactionId
 

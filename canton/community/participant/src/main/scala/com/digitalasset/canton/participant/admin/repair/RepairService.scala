@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.Eval
 import cats.data.{EitherT, OptionT}
-import cats.implicits.catsSyntaxTuple2Semigroupal
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
@@ -183,9 +182,7 @@ final class RepairService(
             s"transferred-in from $targetDomain (even though contract may have been transferred to yet another domain since)."
         ).discard
 
-        val isTransferCounterIncreasing = (transferCounter, repairContract.transferCounter)
-          .mapN { case (tc, repairTc) => repairTc > tc }
-          .getOrElse(true)
+        val isTransferCounterIncreasing = repairContract.transferCounter > transferCounter
 
         if (isTransferCounterIncreasing) {
           Right(
@@ -769,7 +766,7 @@ final class RepairService(
               s"Marking contract as transferred-in from $targetDomain (even though contract may have since been transferred to yet another domain) and subsequently as archived."
           ).discard
           for {
-            newTransferCounter <- EitherT.fromEither[Future](transferCounter.traverse(_.increment))
+            newTransferCounter <- EitherT.fromEither[Future](transferCounter.increment)
             sourceDomain = SourceDomainId(targetDomain.unwrap)
             _ <- persistTransferIn(repair, sourceDomain, cid, newTransferCounter, timeOfChange)
             _ <- persistArchival(repair, timeOfChange)(cid)
@@ -843,7 +840,7 @@ final class RepairService(
   private def persistCreation(
       repair: RepairRequest,
       cid: LfContractId,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       timeOfChange: TimeOfChange,
   )(implicit
       traceContext: TraceContext
@@ -861,7 +858,7 @@ final class RepairService(
       repair: RepairRequest,
       sourceDomain: SourceDomainId,
       cid: LfContractId,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       timeOfChange: TimeOfChange,
   )(implicit
       traceContext: TraceContext
@@ -1386,7 +1383,7 @@ object RepairService {
   private final case class ContractToAdd(
       contract: SerializableContract,
       witnesses: Set[LfPartyId],
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       transferringFrom: Option[SourceDomainId],
   ) {
     def driverMetadata(protocolVersion: ProtocolVersion): Bytes =

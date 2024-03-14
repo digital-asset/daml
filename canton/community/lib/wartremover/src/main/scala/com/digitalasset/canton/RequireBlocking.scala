@@ -15,7 +15,7 @@ import org.wartremover.{WartTraverser, WartUniverse}
   */
 object RequireBlocking extends WartTraverser {
 
-  val messageSynchronized: String = "synchronized calls must be surrounded by blocking"
+  val messageSynchronized: String = "synchronized blocks must be surrounded by blocking"
   val messageThreadSleep: String = "Use Threading.sleep instead of Thread.sleep"
 
   def apply(u: WartUniverse): u.Traverser = {
@@ -38,12 +38,12 @@ object RequireBlocking extends WartTraverser {
                   Apply(TypeApply(Select(receiver, `synchronizedName`), _tyarg2), List(body))
                 ),
               ) if blocking.symbol.fullName == blockingFullName =>
-            // Look for further synchronized calls in the receiver and the body
+            // Look for further synchronized blocks in the receiver and the body
             // Even if they are Syntactically inside a `blocking` call,
             // we still want to be conservative as further synchronized calls may escape the blocking call
             // due to lazy evaluation.
             //
-            // This heuristics will give false positives on immediately nested synchronized calls.
+            // This heuristics will give false positives on immediately nested synchronized blocks.
             traverse(receiver)
             traverse(body)
           case Select(_receiver, synchronizedN) if synchronizedN.toTermName == synchronizedName =>

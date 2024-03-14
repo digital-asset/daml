@@ -1975,14 +1975,116 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Propose changes to the mediator topology")
+    @Help.Description(
+      """
+     domainId: the target domain
+     group: the mediator group identifier
+     adds: The unique identifiers of the active mediators to add.
+     removes: The unique identifiers of the mediators that should no longer be active mediators.
+     observerAdds: The unique identifiers of the observer mediators to add.
+     observerRemoves: The unique identifiers of the mediators that should no longer be observer mediators.
+     updateThreshold: Optionally an updated value for the threshold of the mediator group.
+     await: optional timeout to wait for the proposal to be persisted in the specified topology store
+     mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                         sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                         when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                         satisfy the mapping's authorization requirements.
+     signedBy: the fingerprint of the key to be used to sign this proposal"""
+    )
+    def propose_delta(
+        domainId: DomainId,
+        group: NonNegativeInt,
+        adds: List[MediatorId] = Nil,
+        removes: List[MediatorId] = Nil,
+        observerAdds: List[MediatorId] = Nil,
+        observerRemoves: List[MediatorId] = Nil,
+        updateThreshold: Option[PositiveInt] = None,
+        await: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        mustFullyAuthorize: Boolean = false,
+        // TODO(#14056) don't use the instance's root namespace key by default.
+        //  let the grpc service figure out the right key to use, once that's implemented
+        signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+    ): Unit = {
+
+      MediatorGroupDeltaComputations
+        .verifyProposalConsistency(adds, removes, observerAdds, observerRemoves, updateThreshold)
+        .valueOr(err => throw new IllegalArgumentException(err))
+
+      def queryStore(proposals: Boolean): Option[MediatorDomainStateX] = expectAtMostOneResult(
+        list(
+          domainId.filterString,
+          group = Some(group),
+          operation = Some(TopologyChangeOpX.Replace),
+          proposals = proposals,
+        )
+      ).map(_.item)
+
+      val mdsO = queryStore(proposals = false)
+
+      MediatorGroupDeltaComputations
+        .verifyProposalAgainstCurrentState(
+          mdsO,
+          adds,
+          removes,
+          observerAdds,
+          observerRemoves,
+          updateThreshold,
+        )
+        .valueOr(err => throw new IllegalArgumentException(err))
+
+      val (threshold, active, observers) = mdsO match {
+        case Some(mds) =>
+          (
+            mds.threshold,
+            mds.active.forgetNE.concat(adds).diff(removes),
+            mds.observers.concat(observerAdds).diff(observerRemoves),
+          )
+        case None =>
+          (PositiveInt.one, adds, observerAdds)
+      }
+
+      propose(
+        domainId,
+        updateThreshold.getOrElse(threshold),
+        active,
+        observers,
+        group,
+        store = Some(domainId.filterString),
+        synchronize = None, // no synchronize - instead rely on await below
+        mustFullyAuthorize = mustFullyAuthorize,
+        signedBy = signedBy,
+      ).discard
+
+      await.foreach { timeout =>
+        ConsoleMacros.utils.retry_until_true(timeout) {
+          def areAllChangesPersisted(mds: MediatorDomainStateX): Boolean = {
+            adds.forall(mds.active.contains) && removes.forall(!mds.active.contains(_)) &&
+            observerAdds.forall(mds.observers.contains) && observerRemoves.forall(
+              !mds.observers.contains(_)
+            ) && updateThreshold.forall(_ == mds.threshold)
+          }
+
+          if (mustFullyAuthorize) {
+            queryStore(proposals = false).exists(areAllChangesPersisted)
+          } else {
+            // If the proposal does not need to be authorized, first check for proposals then for an authorized transaction
+            queryStore(proposals = true).exists(areAllChangesPersisted) || queryStore(proposals =
+              false
+            ).exists(areAllChangesPersisted)
+          }
+        }
+      }
+    }
+
+    @Help.Summary("Replace the mediator topology")
     @Help.Description("""
          domainId: the target domain
          threshold: the minimum number of mediators that need to come to a consensus for a message to be sent to other members.
          active: the list of mediators that will take part in the mediator consensus in this mediator group
          passive: the mediators that will receive all messages but will not participate in mediator consensus
          group: the mediator group identifier
-
-
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                 propagated to connected domains, if applicable.
                 - "<domain-id>": the topology transaction will be directly submitted to the specified domain without

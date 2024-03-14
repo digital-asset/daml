@@ -223,8 +223,6 @@ sealed trait BaseTlsArguments {
   *                            optional or unsupported.
   *                            If client authentication is enabled and this parameter is absent,
   *                            the certificates in the JVM trust store will be used instead.
-  * @param secretsUrl URL of a secrets service that provide parameters needed to decrypt the private key.
-  *                   Required when private key is encrypted (indicated by '.enc' filename suffix).
   * @param clientAuth indicates whether server requires, requests, does does not request auth from clients.
   *                   Normally the ledger api server requires client auth under TLS, but using this setting this
   *                   requirement can be loosened.
@@ -241,7 +239,6 @@ final case class TlsServerConfig(
     certChainFile: ExistingFile,
     privateKeyFile: ExistingFile,
     trustCollectionFile: Option[ExistingFile] = None,
-    secretsUrl: Option[String] = None,
     clientAuth: ServerAuthRequirementConfig = ServerAuthRequirementConfig.Optional,
     minimumServerProtocolVersion: Option[String] = Some(
       TlsServerConfig.defaultMinimumServerProtocol

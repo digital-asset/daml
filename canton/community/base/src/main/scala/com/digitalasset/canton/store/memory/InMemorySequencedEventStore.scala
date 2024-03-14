@@ -69,16 +69,15 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
   ): EitherT[Future, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent] = {
 
     logger.debug(s"Looking to retrieve delivery event $criterion")
-    blocking(lock.synchronized {
-      val resO = criterion match {
+    val resO = blocking(lock.synchronized {
+      criterion match {
         case ByTimestamp(timestamp) =>
           eventByTimestamp.get(timestamp)
         case LatestUpto(inclusive) =>
           eventByTimestamp.rangeTo(inclusive).lastOption.map { case (_, event) => event }
       }
-
-      EitherT(Future.successful(resO.toRight(SequencedEventNotFoundError(criterion))))
     })
+    EitherT(Future.successful(resO.toRight(SequencedEventNotFoundError(criterion))))
   }
 
   override def findRange(criterion: RangeCriterion, limit: Option[Int])(implicit
@@ -87,7 +86,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
     PossiblyIgnoredSerializedEvent
   ]] = {
     logger.debug(s"Looking to retrieve delivery event $criterion")
-    blocking(lock.synchronized {
+    val res = blocking(lock.synchronized {
       criterion match {
         case ByTimestampRange(lowerInclusive, upperInclusive) =>
           val valuesInRangeIterable =
@@ -97,23 +96,22 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
           pruningStatusF.get match {
             case Some(pruningStatus) if pruningStatus.timestamp >= lowerInclusive =>
-              EitherT.leftT[Future, Seq[PossiblyIgnoredSerializedEvent]](
-                SequencedEventRangeOverlapsWithPruning(criterion, pruningStatus, result)
-              )
+              Left(SequencedEventRangeOverlapsWithPruning(criterion, pruningStatus, result))
             case _ =>
-              EitherT.rightT[Future, SequencedEventRangeOverlapsWithPruning](result)
+              Right(result)
           }
       }
     })
+    EitherT.fromEither[Future](res)
   }
 
   override def sequencedEvents(
       limit: Option[Int] = None
   )(implicit traceContext: TraceContext): Future[Seq[PossiblyIgnoredSerializedEvent]] =
-    blocking(lock.synchronized {
+    Future.successful(blocking(lock.synchronized {
       // Always copy the elements, as the returned iterator will otherwise explode if the underlying collection is modified.
-      Future.successful(eventByTimestamp.values.take(limit.getOrElse(Int.MaxValue)).toList)
-    })
+      eventByTimestamp.values.take(limit.getOrElse(Int.MaxValue)).toList
+    }))
 
   override def doPrune(
       beforeAndIncluding: CantonTimestamp,

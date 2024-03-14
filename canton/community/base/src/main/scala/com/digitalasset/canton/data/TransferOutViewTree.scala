@@ -18,7 +18,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, LfWorkflowId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, LfWorkflowId, TransferCounter}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -339,7 +339,7 @@ object TransferOutView
       targetTimeProof: TimeProof,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   ): TransferOutView =
     TransferOutView(
       salt,
@@ -348,7 +348,7 @@ object TransferOutView
       targetDomain,
       targetTimeProof,
       targetProtocolVersion,
-      transferCounter.getOrElse(throw new IllegalArgumentException("Missing transfer counter.")),
+      transferCounter,
     )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
 
   private[this] def fromProtoV30(hashOps: HashOps, transferOutViewP: v30.TransferOutView)(

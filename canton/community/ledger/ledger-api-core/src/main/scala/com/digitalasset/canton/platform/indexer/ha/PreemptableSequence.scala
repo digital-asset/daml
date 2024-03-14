@@ -191,14 +191,19 @@ object PreemptableSequence {
       override def handle: Handle = resultHandle
     }
 
-    def release: Future[Unit] = blocking(synchronized {
-      releaseStack match {
-        case Nil => Future.unit
-        case x :: xs =>
-          releaseStack = xs
-          x().transformWith(_ => release)
+    def release: Future[Unit] = {
+      blocking(synchronized {
+        releaseStack match {
+          case Nil => None
+          case x :: xs =>
+            releaseStack = xs
+            Some((x, xs))
+        }
+      }) match {
+        case None => Future.unit
+        case Some((x, xs)) => x().transformWith(_ => release)
       }
-    })
+    }
 
     sequence(helper).transformWith(fResult => release.transform(_ => fResult)).onComplete {
       case Success(_) =>

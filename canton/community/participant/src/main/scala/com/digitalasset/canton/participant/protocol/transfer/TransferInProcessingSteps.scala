@@ -54,7 +54,6 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
   TransferCounter,
-  TransferCounterO,
   checked,
 }
 
@@ -585,7 +584,7 @@ private[transfer] class TransferInProcessingSteps(
       transferId: TransferId,
       rootHash: RootHash,
       isTransferringParticipant: Boolean,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       hostedStakeholders: List[LfPartyId],
   ): EitherT[Future, TransferProcessorError, LedgerSyncEvent.TransferredIn] = {
     val targetDomain = domainId
@@ -645,11 +644,7 @@ private[transfer] class TransferInProcessingSteps(
       workflowId = submitterMetadata.workflowId,
       isTransferringParticipant = isTransferringParticipant,
       hostedStakeholders = hostedStakeholders,
-      transferCounter = transferCounter.getOrElse(
-        // Default value for protocol version earlier than dev
-        // TODO(#15179) Adapt when releasing BFT
-        TransferCounter.MinValue
-      ),
+      transferCounter = transferCounter,
     )
   }
 }
@@ -672,7 +667,7 @@ object TransferInProcessingSteps {
       override val requestSequencerCounter: SequencerCounter,
       rootHash: RootHash,
       contract: SerializableContract,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       submitterMetadata: TransferSubmitterMetadata,
       creatingTransactionId: TransactionId,
       isTransferringParticipant: Boolean,
@@ -691,7 +686,7 @@ object TransferInProcessingSteps {
       submitterMetadata: TransferSubmitterMetadata,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
       targetMediator: MediatorsOfDomain,

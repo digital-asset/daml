@@ -116,6 +116,7 @@ class Phase37Synchronizer(
     *                  This filter can be different for each call of awaitConfirmed, but only the first valid filter
     *                  will complete with the pending request data.
     */
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def awaitConfirmed(requestType: RequestType)(
       requestId: RequestId,
       filter: PendingRequestDataOrReplayData[requestType.PendingRequestData] => Future[Boolean] =

@@ -58,9 +58,8 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.Policy
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{DiscardOps, LfPartyId, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{DiscardOps, LfPartyId, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
-import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
@@ -1280,12 +1279,12 @@ object AcsCommitmentProcessor extends HasLoggerName {
       def concatenate(
           contractHash: LfHash,
           contractId: LfContractId,
-          transferCounter: TransferCounterO,
+          transferCounter: TransferCounter,
       ): Array[Byte] =
         (
           contractHash.bytes.toByteString // hash always 32 bytes long per lf.crypto.Hash.underlyingLength
             concat contractId.encodeDeterministically
-            concat transferCounter.fold(ByteString.EMPTY)(TransferCounter.encodeDeterministically)
+            concat TransferCounter.encodeDeterministically(transferCounter)
         ).toByteArray
       import com.digitalasset.canton.lfPartyOrdering
       blocking {
@@ -1307,7 +1306,13 @@ object AcsCommitmentProcessor extends HasLoggerName {
               val sortedStakeholders =
                 SortedSet(stakeholdersAndTransferCounter.stakeholders.toSeq*)
               val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-              h.remove(concatenate(hash, cid, stakeholdersAndTransferCounter.transferCounter))
+              h.remove(
+                concatenate(
+                  hash,
+                  cid,
+                  stakeholdersAndTransferCounter.transferCounter,
+                )
+              )
               loggingContext.debug(
                 s"Removing from commitment deactivation cid $cid transferCounter ${stakeholdersAndTransferCounter.transferCounter}"
               )
@@ -1702,7 +1707,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         }
 
     def lookupChangeMetadata(
-        activations: Map[LfContractId, TransferCounterO]
+        activations: Map[LfContractId, TransferCounter]
     ): Future[AcsChange] = {
       for {
         // TODO(i9270) extract magic numbers
@@ -1734,7 +1739,10 @@ object AcsCommitmentProcessor extends HasLoggerName {
           namedLoggingContext.traceContext
         )
         activations = activeContracts.map { case (cid, (toc, transferCounter)) =>
-          (cid, transferCounter)
+          (
+            cid,
+            transferCounter,
+          )
         }
         change <- lookupChangeMetadata(activations)
       } yield {

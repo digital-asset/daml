@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
@@ -32,7 +33,6 @@ import com.digitalasset.canton.{
   LfPartyId,
   ScalaFuturesWithPatience,
   TransferCounter,
-  TransferCounterO,
 }
 import org.scalatest.AsyncTestSuite
 
@@ -45,8 +45,10 @@ private[protocol] trait ConflictDetectionHelpers {
 
   def parallelExecutionContext: ExecutionContext = executorService
 
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 2)
+
   def mkEmptyAcs(): ActiveContractStore =
-    new InMemoryActiveContractStore(testedProtocolVersion, loggerFactory)(
+    new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory)(
       parallelExecutionContext
     )
 
@@ -83,8 +85,7 @@ private[protocol] trait ConflictDetectionHelpers {
 
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   def insertEntriesAcs(
       acs: ActiveContractStore,
@@ -183,7 +184,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   def mkCommitSet(
       arch: Set[LfContractId] = Set.empty,
       create: Set[LfContractId] = Set.empty,
-      tfOut: Map[LfContractId, (DomainId, TransferCounterO)] = Map.empty,
+      tfOut: Map[LfContractId, (DomainId, TransferCounter)] = Map.empty,
       tfIn: Map[LfContractId, TransferId] = Map.empty,
   ): CommitSet = {
     val contractHash = ExampleTransactionFactory.lfHash(0)

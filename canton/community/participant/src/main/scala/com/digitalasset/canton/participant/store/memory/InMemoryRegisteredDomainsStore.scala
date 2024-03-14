@@ -33,31 +33,36 @@ class InMemoryRegisteredDomainsStore(override protected val loggerFactory: Named
 
   override def addMapping(alias: DomainAlias, domainId: DomainId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Unit] = blocking(lock.synchronized {
-    val swapped = for {
-      _ <- Option(domainAliasMap.get(alias)).fold(Either.right[Either[Error, Unit], Unit](())) {
-        oldDomainId =>
-          Left(
-            Either.cond(oldDomainId == domainId, (), DomainAliasAlreadyAdded(alias, oldDomainId))
-          )
-      }
-      _ <- Option(domainAliasMap.inverse.get(domainId))
-        .fold(Either.right[Either[Error, Unit], Unit](())) { oldAlias =>
-          Left(Either.cond(oldAlias == alias, (), DomainIdAlreadyAdded(domainId, oldAlias)))
+  ): EitherT[Future, Error, Unit] = {
+    val swapped = blocking(lock.synchronized {
+      for {
+        _ <- Option(domainAliasMap.get(alias)).fold(Either.right[Either[Error, Unit], Unit](())) {
+          oldDomainId =>
+            Left(
+              Either.cond(oldDomainId == domainId, (), DomainAliasAlreadyAdded(alias, oldDomainId))
+            )
         }
-    } yield {
-      val _ = domainAliasMap.put(alias, domainId)
-    }
+        _ <- Option(domainAliasMap.inverse.get(domainId))
+          .fold(Either.right[Either[Error, Unit], Unit](())) { oldAlias =>
+            Left(Either.cond(oldAlias == alias, (), DomainIdAlreadyAdded(domainId, oldAlias)))
+          }
+      } yield {
+        val _ = domainAliasMap.put(alias, domainId)
+      }
+    })
     EitherT.fromEither[Future](swapped.swap.getOrElse(Right(())))
-  })
+  }
 
   override def aliasToDomainIdMap(implicit
       traceContext: TraceContext
-  ): Future[Map[DomainAlias, DomainId]] = blocking {
-    lock.synchronized {
-      import scala.jdk.CollectionConverters.*
-      Future.successful(Map(domainAliasMap.asScala.toSeq*))
+  ): Future[Map[DomainAlias, DomainId]] = {
+    val map = blocking {
+      lock.synchronized {
+        import scala.jdk.CollectionConverters.*
+        Map(domainAliasMap.asScala.toSeq*)
+      }
     }
+    Future.successful(map)
   }
 
   override def close(): Unit = ()

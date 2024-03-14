@@ -12,7 +12,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.{ByteStringUtil, ResourceUtil}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, TransferCounter, TransferCounterO}
+import com.digitalasset.canton.{ProtoDeserializationError, TransferCounter}
 import com.google.protobuf.ByteString
 
 import java.io.{ByteArrayInputStream, InputStream}
@@ -20,7 +20,7 @@ import java.io.{ByteArrayInputStream, InputStream}
 final case class ActiveContract private (
     domainId: DomainId,
     contract: SerializableContract,
-    transferCounter: TransferCounterO,
+    transferCounter: TransferCounter,
 )(protocolVersion: ProtocolVersion)
     extends HasProtocolVersionedWrapper[ActiveContract]
     with HasDomainId
@@ -30,11 +30,7 @@ final case class ActiveContract private (
       protocolVersion.toProtoPrimitive,
       domainId.toProtoPrimitive,
       contract.toByteString(protocolVersion),
-      transferCounter
-        .getOrElse(
-          throw new IllegalStateException("Reassignment counter is required but was empty")
-        )
-        .toProtoPrimitive,
+      transferCounter.toProtoPrimitive,
     )
   }
 
@@ -69,7 +65,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
       domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
       contract <- SerializableContract.fromByteString(proto.contract)
       transferCounter = proto.reassignmentCounter
-      activeContract <- create(domainId, contract, Some(TransferCounter(transferCounter)))(
+      activeContract <- create(domainId, contract, TransferCounter(transferCounter))(
         protocolVersion
       ).leftMap(_.toProtoDeserializationError)
     } yield {
@@ -85,7 +81,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
   def create(
       domainId: DomainId,
       contract: SerializableContract,
-      transferCounter: TransferCounterO,
+      transferCounter: TransferCounter,
   )(
       protocolVersion: ProtocolVersion
   ): Either[InvalidActiveContract, ActiveContract] =
@@ -94,7 +90,7 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
         ActiveContract(
           domainId: DomainId,
           contract: SerializableContract,
-          transferCounter: TransferCounterO,
+          transferCounter: TransferCounter,
         )(protocolVersion)
       )
       .leftMap(iae => new InvalidActiveContract(iae.getMessage))

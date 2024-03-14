@@ -150,6 +150,8 @@ class InMemorySequencerBlockStore(
   )(implicit traceContext: TraceContext): Source[OrdinarySerializedEvent, NotUsed] =
     sequencerStore.readRange(member, startInclusive, endExclusive)
 
+  // TODO(#17726) Andreas: Figure out whether we can pull the readAtBlockTimestamp out
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
     blocking(blockToTimestampMap.synchronized {
       blockToTimestampMap.keys.maxOption match {

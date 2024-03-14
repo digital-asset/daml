@@ -124,6 +124,7 @@ class SequencerAggregator(
   ): Either[SequencerAggregatorError, Unit] =
     combine(messages).map(addEventToQueue)
 
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def combineAndMergeEvent(
       sequencerId: SequencerId,
       message: OrdinarySerializedEvent,

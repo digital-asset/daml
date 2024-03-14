@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
-import com.digitalasset.canton.{RequestCounter, TransferCounterO}
+import com.digitalasset.canton.{RequestCounter, TransferCounter}
 
 /** Stores the data for a transfer that needs to be passed from the source domain to the target domain. */
 final case class TransferData(
@@ -48,7 +48,7 @@ final case class TransferData(
 
   def sourceMediator: MediatorsOfDomain = transferOutRequest.mediator
 
-  def transferCounter: TransferCounterO = Some(transferOutRequest.transferCounter)
+  def transferCounter: TransferCounter = transferOutRequest.transferCounter
 
   def addTransferOutResult(result: DeliveredTransferOutResult): Option[TransferData] =
     mergeTransferOutResult(Some(result))

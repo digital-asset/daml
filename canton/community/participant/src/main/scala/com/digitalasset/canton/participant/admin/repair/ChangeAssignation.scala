@@ -73,7 +73,7 @@ private final class ChangeAssignation(
       source: Map[LfContractId, ContractState]
   )(implicit
       executionContext: ExecutionContext
-  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounterO)]]] =
+  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounter)]]] =
     EitherT.fromEither(
       contractIds
         .map(cid => (cid, source.get(cid.payload).map(_.status)))
@@ -105,20 +105,19 @@ private final class ChangeAssignation(
     )
 
   private def changingContractIds(
-      sourceContracts: List[ChangeAssignation.Data[(LfContractId, TransferCounterO)]],
+      sourceContracts: List[ChangeAssignation.Data[(LfContractId, TransferCounter)]],
       targetStatus: Map[LfContractId, ContractState],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounterO)]]] = {
+  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounter)]]] = {
     val filteredE =
       sourceContracts
         .traverse { case data @ ChangeAssignation.Data((cid, transferCounter), _, _) =>
           val targetStatusOfContract = targetStatus.get(cid).map(_.status)
           targetStatusOfContract match {
             case None | Some(ActiveContractStore.TransferredAway(_, _)) =>
-              transferCounter
-                .traverse(_.increment)
+              transferCounter.increment
                 .map(incrementedTc => data.copy(payload = (cid, incrementedTc)))
             case Some(targetState) =>
               Left(
@@ -169,13 +168,13 @@ private final class ChangeAssignation(
 
   private def readContractsFromSource(
       contractIdsWithTransferCounters: List[
-        ChangeAssignation.Data[(LfContractId, TransferCounterO)]
+        ChangeAssignation.Data[(LfContractId, TransferCounter)]
       ]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, List[
-    (SerializableContract, ChangeAssignation.Data[(LfContractId, TransferCounterO)])
+    (SerializableContract, ChangeAssignation.Data[(LfContractId, TransferCounter)])
   ]] =
     repairSource.domain.persistentState.contractStore
       .lookupManyUncached(contractIdsWithTransferCounters.map(_.payload._1))
@@ -186,7 +185,7 @@ private final class ChangeAssignation(
 
   private def readContracts(
       contractIdsWithTransferCounters: List[
-        ChangeAssignation.Data[(LfContractId, TransferCounterO)]
+        ChangeAssignation.Data[(LfContractId, TransferCounter)]
       ]
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
     Future,
@@ -200,9 +199,7 @@ private final class ChangeAssignation(
               data @ ChangeAssignation.Data((contractId, transferCounter), _, _),
             ) =>
           for {
-            transferCounter <- EitherT.fromEither[Future](
-              transferCounter.fold(TransferCounter.Genesis.increment)(Right(_))
-            )
+            transferCounter <- EitherT.fromEither[Future](Right(transferCounter))
             serializedTargetO <- EitherT.right(
               repairTarget.domain.persistentState.contractStore.lookupContract(contractId).value
             )
@@ -255,7 +252,7 @@ private final class ChangeAssignation(
           (
             contract.payload.contract.contractId,
             targetDomainId,
-            Some(contract.payload.transferCounter),
+            contract.payload.transferCounter,
             contract.sourceTimeOfChange,
           )
         }
@@ -268,7 +265,7 @@ private final class ChangeAssignation(
           (
             contract.payload.contract.contractId,
             sourceDomainId,
-            Some(contract.payload.transferCounter),
+            contract.payload.transferCounter,
             contract.targetTimeOfChange,
           )
         }

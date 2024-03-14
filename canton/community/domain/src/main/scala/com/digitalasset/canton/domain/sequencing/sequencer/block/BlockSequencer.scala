@@ -51,6 +51,7 @@ import com.digitalasset.canton.traffic.{
   TrafficControlErrors,
 }
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
@@ -104,10 +105,10 @@ class BlockSequencer(
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
-  noTracingLogger.info(
-    s"Subscribing to block source from ${stateManager.getHeadState.block.height}"
-  )
   private val (killSwitch, localEventsQueue, done) = {
+    val headState = stateManager.getHeadState
+    noTracingLogger.info(s"Subscribing to block source from ${headState.block.height}")
+
     val updateGenerator = new BlockUpdateGenerator(
       domainId,
       protocolVersion,
@@ -118,45 +119,40 @@ class BlockSequencer(
       orderingTimeFixMode,
       loggerFactory,
     )(CloseContext(cryptoApi))
+
+    val driverSource = blockSequencerOps
+      .subscribe()(TraceContext.empty)
+      .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+    val localSource = Source
+      .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
+      .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+    val combinedSource = Source
+      .combineMat(
+        driverSource,
+        localSource,
+      )(Merge(_))(Keep.both)
+    implicit val traceContext = TraceContext.empty
+    val combinedSourceWithBlockHandling =
+      combinedSource.statefulMapAsyncUSAndDrain(headState) { (headState, next) =>
+        next match {
+          case Right(blockEvents) =>
+            stateManager
+              .handleBlock(headState, updateGenerator.asBlockUpdate(blockEvents))
+              .map { nextHead =>
+                metrics.sequencerClient.handler.delay
+                  .updateValue((clock.now - nextHead.block.lastTs).toMillis)
+                nextHead -> ()
+              }
+          case Left(localEvent) =>
+            FutureUnlessShutdown.outcomeF(
+              stateManager
+                .handleLocalEvent(headState, localEvent)
+                .map(_ -> ())
+            )
+        }
+      }
     val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
-        val driverSource = blockSequencerOps
-          .subscribe()(TraceContext.empty)
-          .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
-        val localSource = Source
-          .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
-          .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
-        val combinedSource = Source
-          .combineMat(
-            driverSource,
-            localSource,
-          )(Merge(_))(Keep.both)
-        val combinedSourceWithBlockHandling = combinedSource
-          .mapAsync(
-            // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
-            parallelism = 1
-          ) {
-            case Right(blockEvents) =>
-              implicit val tc: TraceContext =
-                blockEvents.events.headOption.map(_.traceContext).getOrElse(TraceContext.empty)
-              logger.debug(
-                s"Handle block with height=${blockEvents.blockHeight} with num-events=${blockEvents.events.length}"
-              )
-              stateManager
-                .handleBlock(
-                  updateGenerator.asBlockUpdate(blockEvents)
-                )
-                .map { state =>
-                  metrics.sequencerClient.handler.delay
-                    .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
-                }
-                .onShutdown(
-                  logger.debug(
-                    s"Block with height=${blockEvents.blockHeight} wasn't handled because sequencer is shutting down"
-                  )
-                )
-            case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
-          }
         combinedSourceWithBlockHandling.toMat(Sink.ignore)(Keep.both)
       },
     )
@@ -427,7 +423,7 @@ class BlockSequencer(
     for {
       ledgerStatus <- blockSequencerOps.health
       isStorageActive = storage.isActive
-      _ = logger.debug(s"Storage active: ${storage.isActive}")
+      _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {
       if (!ledgerStatus.isActive) SequencerHealthStatus(isActive = false, ledgerStatus.description)
       else

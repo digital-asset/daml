@@ -21,7 +21,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.EitherUtil.condUnitE
-import com.digitalasset.canton.{LfPartyId, TransferCounterO}
+import com.digitalasset.canton.{LfPartyId, TransferCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -287,8 +287,8 @@ object TransferInValidation {
 
   final case class InconsistentTransferCounter(
       transferId: TransferId,
-      declaredTransferCounter: TransferCounterO,
-      expectedTransferCounter: TransferCounterO,
+      declaredTransferCounter: TransferCounter,
+      expectedTransferCounter: TransferCounter,
   ) extends TransferInValidationError {
     override def message: String =
       s"Cannot transfer-in $transferId: Transfer counter $declaredTransferCounter in transfer-in does not match $expectedTransferCounter from the transfer-out"

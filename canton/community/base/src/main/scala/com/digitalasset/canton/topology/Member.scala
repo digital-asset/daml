@@ -437,6 +437,9 @@ object SequencerId {
     val threeLetterId = String3.tryCreate("SEQ")
   }
 
+  implicit val sequencerIdOrdering: Ordering[SequencerId] =
+    Ordering.by(_.toString)
+
   def apply(identifier: Identifier, namespace: Namespace): SequencerId =
     SequencerId(UniqueIdentifier(identifier, namespace))
 

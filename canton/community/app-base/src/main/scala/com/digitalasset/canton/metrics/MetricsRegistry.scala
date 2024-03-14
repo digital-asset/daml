@@ -6,7 +6,6 @@ package com.digitalasset.canton.metrics
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.metrics.{HealthMetrics as DMHealth, HistogramDefinition}
-import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
@@ -149,9 +148,7 @@ final case class MetricsRegistry(
       case MetricsFactoryType.External =>
         new CantonOpenTelemetryMetricsFactory(
           meter,
-          globalMetricsContext = MetricsContext(
-            "canton_version" -> BuildInfo.version
-          ).merge(extraContext),
+          globalMetricsContext = extraContext,
         )
     }
   }

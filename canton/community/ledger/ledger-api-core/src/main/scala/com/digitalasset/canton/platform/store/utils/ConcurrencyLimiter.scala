@@ -23,9 +23,8 @@ class QueueBasedConcurrencyLimiter(
   private val waiting = mutable.Queue[Task]()
   private var running: Int = 0
 
-  override def execute[T](task: => Future[T]): Future[T] = blocking(synchronized {
+  override def execute[T](task: => Future[T]): Future[T] = {
     val promise = Promise[T]()
-
     val waitingTask = () => {
       task.andThen { case result =>
         blocking(synchronized {
@@ -36,18 +35,20 @@ class QueueBasedConcurrencyLimiter(
       }(executionContext).discard
     }
 
-    waiting.enqueue(waitingTask)
-    startTasks()
+    blocking(synchronized {
+      waiting.enqueue(waitingTask)
+      startTasks()
+    })
 
     promise.future
-  })
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))
-  private def startTasks(): Unit = blocking(synchronized {
+  private def startTasks(): Unit =
+    // No need to put this into a synchronized block because all call sites are inside synchronized blocks
     while (running < parallelism && waiting.nonEmpty) {
       val head = waiting.dequeue()
       running = running + 1
       head()
     }
-  })
 }
