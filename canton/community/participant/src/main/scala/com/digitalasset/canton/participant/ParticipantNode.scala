@@ -95,6 +95,8 @@ class ParticipantNodeBootstrap(
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
     skipRecipientsCheck: Boolean,
+    // Callback when the initialization of the participant node has been completed
+    setInitialized: () => Unit,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -376,7 +378,7 @@ class ParticipantNodeBootstrap(
             nodeHealthService.dependencies.map(_.toComponentStatus),
           )
       }
-    }
+    }.map { _ => setInitialized() }
 
   override def isActive: Boolean = storage.isActive
 
@@ -554,6 +556,7 @@ object ParticipantNodeBootstrap {
         persistentStateFactory = ParticipantNodePersistentStateFactory,
         skipRecipientsCheck = false,
         ledgerApiServerFactory = ledgerApiServerFactory,
+        setInitialized = () => (),
       )
 
     override protected def multiDomainEnabledForLedgerApiServer: Boolean = false
