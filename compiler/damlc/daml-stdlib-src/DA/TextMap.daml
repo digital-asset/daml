@@ -38,7 +38,11 @@ fromList : [(Text, a)] -> TextMap a
 fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 
 -- | Create a map from a list of key/value pairs with a combining
--- function. Examples:
+-- function. The combining function is only used when a key appears multiple
+-- times in the list and it takes two arguments: the first one is the new value
+-- being inserted at that key and the second one is the value accumulated so
+-- far at that key.
+-- Examples:
 --
 -- ```
 -- >>> fromListWithL (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
