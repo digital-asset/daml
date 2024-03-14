@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.sync
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.error.GrpcStatuses
 import com.daml.lf.CantonOnly
 import com.daml.lf.data.{Bytes, ImmArray}

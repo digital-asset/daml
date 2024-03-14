@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.packages
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId

@@ -7,7 +7,7 @@ import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.language.LanguageMajorVersion
-import com.daml.daml_lf_dev.DamlLf2
+import com.daml.lf2.archive.daml_lf_dev.DamlLf2
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

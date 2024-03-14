@@ -29,7 +29,7 @@ import           Data.Int
 import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
-import qualified Com.Daml.DamlLfDev.DamlLf2 as P
+import qualified Com.Daml.Lf2.Archive.DamlLfDev.DamlLf2 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
 

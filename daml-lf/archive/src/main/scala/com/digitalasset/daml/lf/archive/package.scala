@@ -3,7 +3,7 @@
 
 package com.daml.lf
 
-import com.daml.daml_lf_dev.{DamlLf, DamlLf2}
+import com.daml.lf2.archive.daml_lf_dev.{DamlLf, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.nameof.NameOf

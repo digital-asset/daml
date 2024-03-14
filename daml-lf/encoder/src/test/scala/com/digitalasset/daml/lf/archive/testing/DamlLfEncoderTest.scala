@@ -5,7 +5,7 @@ package com.daml.lf.testing.archive
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.daml_lf_dev.DamlLf2
+import com.daml.lf2.archive.daml_lf_dev.DamlLf2
 import com.daml.lf.archive.{
   ArchivePayload,
   Dar,

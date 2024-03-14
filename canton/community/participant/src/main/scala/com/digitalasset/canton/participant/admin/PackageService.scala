@@ -8,7 +8,7 @@ import cats.implicits.toBifunctorOps
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.lf.archive
 import com.daml.lf.archive.{DarParser, Decode, Error as LfArchiveError}

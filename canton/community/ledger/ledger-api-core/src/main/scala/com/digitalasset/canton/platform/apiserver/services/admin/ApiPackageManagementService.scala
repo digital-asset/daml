@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf2.archive.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlError
 import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v2.admin.package_management_service.*

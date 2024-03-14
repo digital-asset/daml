@@ -3,10 +3,10 @@
 This component contains the `.proto` definitions specifying the format
 in which Daml-LF packages are stored -- the Daml-LF archive. All the
 proto definitions are kept in the directory
-`src/protobuf/com/daml/daml_lf_dev/`
+`src/protobuf/com/daml/lf2/archive/daml_lf_dev/`
 
 The entry point definition is `Archive` in
-`src/protobuf/com/daml/daml_lf_dev/daml_lf.proto`.  `Archive`
+`src/protobuf/com/daml/lf2/archive/daml_lf_dev/daml_lf.proto`.  `Archive`
 contains some metadata about the actual archive (currently the hashing
 function and the hash), and then a binary blob containing the
 archive. The binary blob must be an `ArchivePayload` -- we keep it in

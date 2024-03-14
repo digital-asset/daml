@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.admin
 
 import better.files.*
 import cats.data.EitherT
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.archive
 import com.daml.lf.archive.DarParser
 import com.digitalasset.canton.BaseTest

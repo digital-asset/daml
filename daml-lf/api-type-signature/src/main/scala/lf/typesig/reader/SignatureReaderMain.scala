@@ -6,7 +6,7 @@ package com.daml.lf.typesig.reader
 import java.io.BufferedInputStream
 import java.nio.file.Files
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 
 object SignatureReaderMain extends App {
 

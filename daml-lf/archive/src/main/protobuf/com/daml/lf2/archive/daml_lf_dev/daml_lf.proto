@@ -4,10 +4,10 @@
 syntax = "proto3";
 package daml_lf_dev;
 
-option java_package = "com.daml.daml_lf_dev";
-option csharp_namespace = "Com.Daml.Daml_Lf_Dev.DamlLf";
+option java_package = "com.daml.lf2.archive.daml_lf_dev";
+option csharp_namespace = "Com.Daml.Lf2.Archive.Daml_Lf_Dev.DamlLf";
 
-import "com/daml/daml_lf_dev/daml_lf2.proto";
+import "com/daml/lf2/archive/daml_lf_dev/daml_lf2.proto";
 
 message ArchivePayload {
   // this is number 3 for historical reasons -- we had

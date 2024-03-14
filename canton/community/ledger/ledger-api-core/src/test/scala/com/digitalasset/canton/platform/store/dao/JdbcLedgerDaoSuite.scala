@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.lf.archive.{DarParser, Decode}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, PackageName, Party}

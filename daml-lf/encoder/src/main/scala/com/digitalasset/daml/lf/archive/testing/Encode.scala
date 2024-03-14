@@ -6,7 +6,7 @@ package archive.testing
 
 import com.daml.SafeProto
 import com.daml.crypto.MessageDigestPrototype
-import com.daml.daml_lf_dev.{DamlLf => PLF}
+import com.daml.lf2.archive.daml_lf_dev.{DamlLf => PLF}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}

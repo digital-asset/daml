@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store.db
 
 import cats.data.OptionT
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty

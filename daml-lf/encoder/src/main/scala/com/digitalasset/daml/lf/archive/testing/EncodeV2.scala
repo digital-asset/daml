@@ -4,7 +4,7 @@
 package com.daml.lf.archive
 package testing
 
-import com.daml.daml_lf_dev.{DamlLf2 => PLF}
+import com.daml.lf2.archive.daml_lf_dev.{DamlLf2 => PLF}
 import com.daml.lf.archive.testing.Encode.{EncodeError, expect}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._

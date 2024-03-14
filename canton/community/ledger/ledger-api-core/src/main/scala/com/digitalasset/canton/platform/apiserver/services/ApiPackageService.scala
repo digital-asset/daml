@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
+import com.daml.lf2.archive.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v2.package_service.{

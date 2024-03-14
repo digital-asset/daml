@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf.Archive
 import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.RetryInfoDetail

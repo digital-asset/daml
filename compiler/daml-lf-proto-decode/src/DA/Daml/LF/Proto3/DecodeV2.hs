@@ -19,7 +19,7 @@ import Data.Int
 import Text.Read
 import           Data.List
 import           DA.Daml.LF.Mangling
-import qualified Com.Daml.DamlLfDev.DamlLf2 as LF2
+import qualified Com.Daml.Lf2.Archive.DamlLfDev.DamlLf2 as LF2
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Set as S

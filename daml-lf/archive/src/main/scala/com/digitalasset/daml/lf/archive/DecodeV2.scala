@@ -5,7 +5,7 @@ package com.daml.lf
 package archive
 
 import java.util
-import com.daml.daml_lf_dev.{DamlLf2 => PLF}
+import com.daml.lf2.archive.daml_lf_dev.{DamlLf2 => PLF}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}

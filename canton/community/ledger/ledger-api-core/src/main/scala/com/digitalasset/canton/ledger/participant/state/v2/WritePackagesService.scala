@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.v2
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf2.archive.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -21,7 +21,7 @@ trait WritePackagesService {
     * message. See the comments on [[com.digitalasset.canton.ledger.participant.state.v2.ReadService.stateUpdates]] and [[com.digitalasset.canton.ledger.participant.state.v2.Update]] for
     * further details.
     *
-    * Note: we accept [[com.daml.daml_lf_dev.DamlLf.Archive]]s rather than parsed packages, because we want
+    * Note: we accept [[com.daml.lf2.archive.daml_lf_dev.DamlLf.Archive]]s rather than parsed packages, because we want
     * to be able to get the byte size of each individual ArchivePayload, which
     * is information that the read / index service need to provide. Moreover
     * this information should be consistent with the payload that the

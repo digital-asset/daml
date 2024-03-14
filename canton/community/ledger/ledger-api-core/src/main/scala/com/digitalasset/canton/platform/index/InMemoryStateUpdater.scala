@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.index
 
 import cats.implicits.{catsSyntaxSemigroup, toBifunctorOps}
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.HexString

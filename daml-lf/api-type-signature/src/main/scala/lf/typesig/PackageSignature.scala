@@ -8,7 +8,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import reader.Errors
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 import scalaz.std.either._
 import scalaz.syntax.bifunctor._

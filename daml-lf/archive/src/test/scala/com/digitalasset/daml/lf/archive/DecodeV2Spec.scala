@@ -11,7 +11,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.daml_lf_dev.DamlLf2
+import com.daml.lf2.archive.daml_lf_dev.DamlLf2
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers

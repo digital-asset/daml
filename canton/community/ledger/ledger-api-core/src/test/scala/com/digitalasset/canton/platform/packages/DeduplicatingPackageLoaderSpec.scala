@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.packages
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
 import com.daml.metrics.api.MetricName

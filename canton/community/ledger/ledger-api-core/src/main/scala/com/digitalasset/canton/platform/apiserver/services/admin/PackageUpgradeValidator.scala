@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf2.archive.daml_lf_dev.DamlLf.Archive
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref

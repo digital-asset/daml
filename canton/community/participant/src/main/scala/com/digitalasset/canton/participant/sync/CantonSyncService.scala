@@ -10,7 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.error.*
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{ImmArray, Ref}

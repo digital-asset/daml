@@ -7,7 +7,7 @@ package reader
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import scalaz.\/
 
 object DamlLfArchiveReader {

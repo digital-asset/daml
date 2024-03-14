@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index.v2
 
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf2.archive.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.ledger.api.domain.{PackageEntry, ParticipantOffset}
 import com.digitalasset.canton.logging.LoggingContextWithTrace

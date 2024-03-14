@@ -42,7 +42,7 @@ load("@os_info//:os_info.bzl", "is_windows")
         filegroup(
             name = "daml_lf_%s_archive_proto_srcs" % version,
             srcs = glob([
-                "src/{directory}/protobuf/com/daml/daml_lf_{version}/*.proto".format(
+                "src/{directory}/protobuf/com/daml/lf2/archive/daml_lf_{version}/*.proto".format(
                     directory = directory,
                     version = mangled_version,
                 ),
@@ -52,7 +52,7 @@ load("@os_info//:os_info.bzl", "is_windows")
         proto_jars(
             name = "daml_lf_%s_archive_proto" % version,
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            javadoc_root_packages = ["com.daml.daml_lf_%s" % mangled_version],
+            javadoc_root_packages = ["com.daml.lf2.archive.daml_lf_%s" % mangled_version],
             maven_artifact_prefix = "daml-lf-%s-archive" % version,
             maven_group = "com.daml",
             strip_import_prefix = "src/%s/protobuf" % directory,
@@ -68,15 +68,15 @@ load("@os_info//:os_info.bzl", "is_windows")
 genrule(
     name = "daml_lf_dev_archive_haskell_proto_src",
     srcs = ["daml_lf_dev_archive_proto_srcs"],
-    outs = ["Com/Daml/DamlLfDev/DamlLf.hs"] +
-           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in ["2"]],
+    outs = ["Com/Daml/Lf2/Archive/DamlLfDev/DamlLf.hs"] +
+           ["Com/Daml/Lf2/Archive/DamlLfDev/DamlLf%s.hs" % v.title() for v in ["2"]],
     cmd =
         "\n".join(
             [
                 """
                    $(location @proto3-suite//:compile-proto-file)  \
                      --includeDir daml-lf/archive/src/main/protobuf/        \
-                     --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
+                     --proto com/daml/lf2/archive/daml_lf_dev/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx
                 for vx in [""] + ["%s" % v for v in ["2"]]

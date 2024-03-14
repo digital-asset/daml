@@ -4,7 +4,7 @@
 package com.daml.lf.archive
 
 import com.daml.crypto.MessageDigestPrototype
-import com.daml.daml_lf_dev.{DamlLf,DamlLf2}
+import com.daml.lf2.archive.daml_lf_dev.{DamlLf, DamlLf2}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 
@@ -12,7 +12,7 @@ case class ArchivePayload(
     pkgId: PackageId,
     version: LanguageVersion,
     protoPkg: DamlLf2.Package,
-                         )
+)
 
 object Reader {
 
@@ -64,6 +64,6 @@ object Reader {
     for {
       majorVersion <- readArchiveVersion(payload)
       version <- majorVersion.toVersion(payload.getMinor).left.map(Error.Parsing)
-    } yield ArchivePayload(hash,  version, payload.getDamlLf2)
+    } yield ArchivePayload(hash, version, payload.getDamlLf2)
 
 }

@@ -3,7 +3,7 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.DamlLf2
+import com.daml.lf2.archive.daml_lf_dev.DamlLf2
 import com.daml.lf.language.{Ast, TypeOrdering}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

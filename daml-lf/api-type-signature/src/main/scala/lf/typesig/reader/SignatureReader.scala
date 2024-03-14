@@ -5,7 +5,7 @@ package com.daml.lf
 package typesig
 package reader
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.lf.archive.ArchivePayload
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._

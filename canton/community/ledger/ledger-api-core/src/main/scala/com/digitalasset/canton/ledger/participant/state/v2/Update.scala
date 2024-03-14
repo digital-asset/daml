@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.v2
 
-import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf2.archive.daml_lf_dev.DamlLf
 import com.daml.error.GrpcStatuses
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, Ref}
