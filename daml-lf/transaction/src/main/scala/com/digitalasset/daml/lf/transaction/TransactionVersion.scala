@@ -45,7 +45,7 @@ object TransactionVersion {
 
   private[lf] val minContractKeys = VDev
 
-  import Tests.GenMapTest()
+  private[lf] val minTextMap = VDev
 
   private[lf] val minChoiceAuthorizers = VDev
 
