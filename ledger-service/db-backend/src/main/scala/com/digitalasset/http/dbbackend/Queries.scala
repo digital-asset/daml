@@ -296,11 +296,24 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
         val NonEmpty(priorOffsets) = lastOffsets.filter { case (k, _) =>
           existingParties contains k
         }
+        val whereClause = sql"""
+          WHERE ${Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP))}
+            AND tpid = $tpid
+            AND last_offset = ${caseLookup(priorOffsets, fr"party")}"""
         Some(
-          sql"""UPDATE $ledgerOffsetTableName SET last_offset = $newOffset
-            WHERE ${Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP))}
-                  AND tpid = $tpid
-                  AND last_offset = ${caseLookup(priorOffsets, fr"party")}"""
+          (
+            // Acquire row locks in a determinisic order to avoid deadlocks in case of concurrent updates on the same rows.
+            sql"""
+              SELECT 1
+              FROM $ledgerOffsetTableName
+              $whereClause
+              ORDER BY party, tpid
+              FOR UPDATE""",
+            sql"""
+              UPDATE $ledgerOffsetTableName
+              SET last_offset = $newOffset
+              $whereClause""",
+          )
         )
       case _ => None
     }
@@ -310,7 +323,15 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
         else {
           insert.updateMany(newParties.toList.map(p => (p, tpid, newOffset)))
         }
-      updated <- update.cata(_.update.run, Applicative[ConnectionIO].pure(0))
+      updated <- update.cata(
+        { case (selectForUpdate, doUpdate) =>
+          for {
+            _ <- selectForUpdate.query.to[Vector]
+            count <- doUpdate.update.run,
+          } yield count
+        },
+        Applicative[ConnectionIO].pure(0),
+      )
     } yield { inserted + updated }
   }
 
