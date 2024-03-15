@@ -879,9 +879,14 @@ class AcsCommitmentProcessor(
     for {
       possibleCatchUpCmts <- store.getComputed(period, participantId)
     } yield {
-      possibleCatchUpCmts.forall { case (_period, commitment) =>
-        commitment == AcsCommitmentProcessor.emptyCommitment
-      }
+      val response = possibleCatchUpCmts.nonEmpty &&
+        possibleCatchUpCmts.forall { case (_period, commitment) =>
+          commitment == AcsCommitmentProcessor.emptyCommitment
+        }
+      logger.debug(
+        s"Period $period is a catch-up period $response with the computed catch-up commitments $possibleCatchUpCmts"
+      )
+      response
     }
   }
 
