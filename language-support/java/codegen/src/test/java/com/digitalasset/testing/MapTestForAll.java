@@ -58,7 +58,7 @@ public class MapTestForAll {
   @Test
   void genMap2Value2GenMap() {
     Box b = box();
-    assertEquals(Box.fromValue(b.toValue()), b);
+    assertEquals(Box.valueDecoder().decode(b.toValue()), b);
   }
 
   @Test
@@ -130,7 +130,7 @@ public class MapTestForAll {
   @Test
   void value2GenMap2value() {
     DamlRecord b = value();
-    assertEquals(Box.fromValue(b).toValue(), b);
+    assertEquals(Box.valueDecoder().decode(b).toValue(), b);
   }
 
   @Test

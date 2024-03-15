@@ -39,10 +39,11 @@ public class ParametrizedContractIdTest {
                                                     .setContractId("SomeID"))))))
             .build();
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
-    FixedContractId fromValue = FixedContractId.fromValue(dataRecord);
+    FixedContractId fromValue = FixedContractId.valueDecoder().decode(dataRecord);
     FixedContractId fromConstructor =
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
-    FixedContractId fromRoundTrip = FixedContractId.fromValue(fromConstructor.toValue());
+    FixedContractId fromRoundTrip =
+        FixedContractId.valueDecoder().decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);

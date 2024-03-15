@@ -3,6 +3,8 @@
 
 package com.daml;
 
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromList;
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
@@ -17,7 +19,6 @@ import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
@@ -86,7 +87,7 @@ public class ListTest {
             .build();
 
     DamlRecord record = DamlRecord.fromProto(protoListRecord);
-    MyListRecord fromRecord = MyListRecord.fromValue(record);
+    MyListRecord fromRecord = MyListRecord.valueDecoder().decode(record);
 
     MyListRecord fromCodegen =
         new MyListRecord(
@@ -94,7 +95,7 @@ public class ListTest {
             Collections.singletonList(Unit.getInstance()),
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
-    MyListRecord roundTripped = MyListRecord.fromValue(fromCodegen.toValue());
+    MyListRecord roundTripped = MyListRecord.valueDecoder().decode(fromCodegen.toValue());
 
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoListRecord);
@@ -185,7 +186,7 @@ public class ListTest {
             .build();
 
     DamlRecord record = DamlRecord.fromProto(protoListRecord);
-    MyListOfListRecord fromRecord = MyListOfListRecord.fromValue(record);
+    MyListOfListRecord fromRecord = MyListOfListRecord.valueDecoder().decode(record);
 
     MyListOfListRecord fromCodegen =
         new MyListOfListRecord(
@@ -236,7 +237,7 @@ public class ListTest {
             .build();
 
     DamlRecord record = DamlRecord.fromProto(protoColorListRecord);
-    ColorListRecord fromRecord = ColorListRecord.fromValue(record);
+    ColorListRecord fromRecord = ColorListRecord.valueDecoder().decode(record);
 
     ColorListRecord fromCodegen = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
 
@@ -277,12 +278,11 @@ public class ListTest {
 
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     ParameterizedListRecord<String> fromValue =
-        ParameterizedListRecord.fromValue(dataRecord, f -> f.asText().get().getValue());
+        ParameterizedListRecord.valueDecoder(fromText).decode(dataRecord);
     ParameterizedListRecord<String> fromConstructor =
         new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
     ParameterizedListRecord<String> fromRoundTrip =
-        ParameterizedListRecord.fromValue(
-            fromConstructor.toValue(Text::new), f -> f.asText().get().getValue());
+        ParameterizedListRecord.valueDecoder(fromText).decode(fromConstructor.toValue(Text::new));
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Text::new), dataRecord);
@@ -347,27 +347,7 @@ public class ListTest {
 
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     ParameterizedListRecord<List<String>> fromValue =
-        ParameterizedListRecord.fromValue(
-            dataRecord,
-            f ->
-                f
-                    .asList()
-                    .orElseThrow(
-                        () ->
-                            new IllegalArgumentException(
-                                "Expected list to be of type"
-                                    + " com.daml.ledger.javaapi.data.DamlList"))
-                    .stream()
-                    .map(
-                        f1 ->
-                            f1.asText()
-                                .orElseThrow(
-                                    () ->
-                                        new IllegalArgumentException(
-                                            "Expected list to be of type"
-                                                + " com.daml.ledger.javaapi.data.Text"))
-                                .getValue())
-                    .collect(Collectors.toList()));
+        ParameterizedListRecord.valueDecoder(fromList(fromText)).decode(dataRecord);
     ParameterizedListRecord<List<String>> fromConstructor =
         new ParameterizedListRecord<List<String>>(
             Arrays.asList(

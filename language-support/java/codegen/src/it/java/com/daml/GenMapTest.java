@@ -3,6 +3,8 @@
 
 package com.daml;
 
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromInt64;
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
@@ -46,9 +48,9 @@ public class GenMapTest {
     javaMap.put(Optional.of(42L), "Some(42)");
 
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
-    MapRecord fromValue = MapRecord.fromValue(dataRecord);
+    MapRecord fromValue = MapRecord.valueDecoder().decode(dataRecord);
     MapRecord fromConstructor = new MapRecord(javaMap);
-    MapRecord fromRoundTrip = MapRecord.fromValue(fromConstructor.toValue());
+    MapRecord fromRoundTrip = MapRecord.valueDecoder().decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
@@ -95,9 +97,9 @@ public class GenMapTest {
     javaMap.put(inner3Map, reverseMap(inner3Map));
 
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
-    MapMapRecord fromValue = MapMapRecord.fromValue(dataRecord);
+    MapMapRecord fromValue = MapMapRecord.valueDecoder().decode(dataRecord);
     MapMapRecord fromConstructor = new MapMapRecord(javaMap);
-    MapMapRecord fromRoundTrip = MapMapRecord.fromValue(fromConstructor.toValue());
+    MapMapRecord fromRoundTrip = MapMapRecord.valueDecoder().decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
@@ -112,11 +114,11 @@ public class GenMapTest {
             .getVariant();
 
     Variant dataVariant = Variant.fromProto(protoVariant);
-    TextVariant<?, ?> fromValue = TextVariant.fromValue(dataVariant);
     TextVariant<?, ?> fromConstructor = new TextVariant<>(Collections.singletonMap("key", "value"));
-    TextVariant<?, ?> fromRoundTrip = TextVariant.fromValue(fromConstructor.toValue());
+    TextVariant<?, ?> fromRoundTrip =
+        (TextVariant<?, ?>)
+            TextVariant.valueDecoder(fromText, fromInt64).decode(fromConstructor.toValue());
 
-    assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
     assertEquals(fromConstructor, fromRoundTrip);
   }
@@ -132,9 +134,12 @@ public class GenMapTest {
             .getVariant();
 
     Variant dataVariant = Variant.fromProto(protoVariant);
-    RecordVariant<?, ?> fromValue = RecordVariant.fromValue(dataVariant);
+    RecordVariant<?, ?> fromValue =
+        (RecordVariant<?, ?>) RecordVariant.valueDecoder(fromText, fromInt64).decode(dataVariant);
     RecordVariant<?, ?> fromConstructor = new RecordVariant<>(Collections.singletonMap("key", 42L));
-    RecordVariant<?, ?> fromRoundTrip = RecordVariant.fromValue(fromConstructor.toValue());
+    RecordVariant<?, ?> fromRoundTrip =
+        (RecordVariant<?, ?>)
+            RecordVariant.valueDecoder(fromText, fromInt64).decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
@@ -151,8 +156,8 @@ public class GenMapTest {
 
     Variant dataVariant = Variant.fromProto(protoVariant);
     ParameterizedVariant<String, Long> fromValue =
-        ParameterizedVariant.fromValue(
-            dataVariant, x -> x.asText().get().getValue(), x -> x.asInt64().get().getValue());
+        (ParameterizedVariant<String, Long>)
+            ParameterizedVariant.valueDecoder(fromText, fromInt64).decode(dataVariant);
     ParameterizedVariant<String, Long> fromConstructor =
         new ParameterizedVariant<>(Collections.singletonMap("key", 42L));
 
@@ -172,11 +177,12 @@ public class GenMapTest {
             .getRecord();
 
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
-    TemplateWithMap fromValue = TemplateWithMap.fromValue(dataRecord);
+    TemplateWithMap fromValue = TemplateWithMap.valueDecoder().decode(dataRecord);
     TemplateWithMap fromConstructor =
         new TemplateWithMap("party1", Collections.singletonMap(42L, "42"));
 
-    TemplateWithMap fromRoundTrip = TemplateWithMap.fromValue(fromConstructor.toValue());
+    TemplateWithMap fromRoundTrip =
+        TemplateWithMap.valueDecoder().decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);

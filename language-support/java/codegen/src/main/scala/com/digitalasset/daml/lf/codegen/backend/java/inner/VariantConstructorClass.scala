@@ -4,8 +4,6 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data.Value
-import com.daml.ledger.javaapi.data.codegen.{PrimitiveValueDecoders, ValueDecoder}
 import com.daml.lf.codegen.backend.java.{JavaEscaper, ObjectMethods}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig.{Type, TypeVar}
@@ -46,16 +44,13 @@ object VariantConstructorClass extends StrictLogging {
       val conversionMethods = distinctTypeVars(body, typeArgs) match {
         case IndexedSeq(params) =>
           List(
-            toValue(constructorName, params, body, variantFieldName),
-            deprecatedFromValue(params, params, variant, className),
+            toValue(constructorName, params, body, variantFieldName)
           )
         case IndexedSeq(usedParams, allParams) =>
           // usedParams is always subset of allParams
           List(
             toValue(constructorName, usedParams, body, variantFieldName),
-            deprecatedFromValue(usedParams, allParams, variant, className),
             toValue(constructorName, allParams, body, variantFieldName),
-            deprecatedFromValue(allParams, allParams, variant, className),
           )
       }
 
@@ -106,72 +101,6 @@ object VariantConstructorClass extends StrictLogging {
             CodeBlock.of("this.$L", fieldName),
             newNameGenerator,
           ),
-      )
-      .build()
-  }
-
-  // TODO #15120 delete
-  private def deprecatedFromValue(
-      typeParameters: IndexedSeq[String],
-      allTypeParameters: IndexedSeq[String],
-      variantClass: TypeName,
-      className: TypeName,
-  ) = {
-    val valueParam = ParameterSpec.builder(classOf[Value], "value$").build()
-
-    val extractorParams =
-      FromValueExtractorParameters.generate(typeParameters)
-
-    val converterParams =
-      extractorParams.functionParameterSpecs
-
-    val converterParamsNameSet = converterParams.map(_.name).toSet
-
-    val allConverterParams =
-      FromValueExtractorParameters.generate(allTypeParameters).functionParameterSpecs
-
-    val method = MethodSpec
-      .methodBuilder("fromValue")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .addTypeVariables(className.typeParameters)
-      .returns(className)
-      .addException(classOf[IllegalArgumentException])
-      .addParameter(valueParam)
-      .addParameters(converterParams.asJava)
-      .addAnnotation(classOf[Deprecated])
-      .addJavadoc(
-        "@deprecated since Daml $L; $L",
-        "2.5.0",
-        s"use {@code valueDecoder} instead",
-      )
-
-    val typeParamsValueDecoders = CodeBlock.join(
-      allConverterParams.map { param =>
-        if (converterParamsNameSet.contains(param.name))
-          CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
-        else
-          CodeBlock.of("$T.impossible()", classOf[PrimitiveValueDecoders])
-      }.asJava,
-      ",$W",
-    )
-
-    val classStaticAccessor = if (className.typeParameters.size > 0) {
-      val typeParameterList = CodeBlock.join(
-        className.typeParameters.asScala.map { param =>
-          CodeBlock.of("$T", param)
-        }.asJava,
-        ",$W",
-      )
-      CodeBlock.of("$T.<$L>", variantClass.rawType, typeParameterList)
-    } else CodeBlock.of("")
-
-    method
-      .addStatement(
-        "return ($T)$LvalueDecoder($L).decode($L)",
-        className,
-        classStaticAccessor,
-        typeParamsValueDecoders,
-        "value$",
       )
       .build()
   }
