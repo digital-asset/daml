@@ -4,16 +4,15 @@
 package com.daml.metrics.api.opentelemetry
 
 import java.util
-
 import io.opentelemetry.sdk.common.CompletableResultCode
+import io.opentelemetry.sdk.metrics.InstrumentType
 import io.opentelemetry.sdk.metrics.`export`.MetricExporter
-import io.opentelemetry.sdk.metrics.data.MetricData
+import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-//FIX ME
-abstract class Slf4jMetricExporter(
+class Slf4jMetricExporter(
     logger: Logger = LoggerFactory.getLogger("logging-metrics-exporter")
 ) extends MetricExporter {
 
@@ -29,4 +28,6 @@ abstract class Slf4jMetricExporter(
 
   override def shutdown(): CompletableResultCode = CompletableResultCode.ofSuccess()
 
+  override def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality =
+    AggregationTemporality.CUMULATIVE
 }
