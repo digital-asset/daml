@@ -5,7 +5,7 @@ package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
-import com.daml.metrics.{HealthMetrics as DMHealth, HistogramDefinition}
+import com.daml.metrics.{HealthMetrics, HistogramDefinition}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
@@ -21,6 +21,7 @@ import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 
 import java.io.File
+import java.util.concurrent.ScheduledExecutorService
 import scala.collection.concurrent.TrieMap
 
 final case class MetricsConfig(
@@ -117,7 +118,7 @@ final case class MetricsRegistry(
           MetricsRegistry.prefix,
           labeledMetricsFactory,
           new DamlGrpcServerMetrics(labeledMetricsFactory, "sequencer"),
-          new DMHealth(labeledMetricsFactory),
+          new HealthMetrics(labeledMetricsFactory),
         )
       },
     )
@@ -133,7 +134,7 @@ final case class MetricsRegistry(
           MetricsRegistry.prefix,
           labeledMetricsFactory,
           new DamlGrpcServerMetrics(labeledMetricsFactory, "mediator"),
-          new DMHealth(labeledMetricsFactory),
+          new HealthMetrics(labeledMetricsFactory),
         )
       },
     )
@@ -195,7 +196,7 @@ object MetricsRegistry extends LazyLogging {
       loggerFactory: NamedLoggerFactory,
   )(
       sdkMeterProviderBuilder: SdkMeterProviderBuilder
-  ): SdkMeterProviderBuilder = {
+  )(implicit scheduledExecutorService: ScheduledExecutorService): SdkMeterProviderBuilder = {
     if (config.reporters.isEmpty) {
       logger.info("No metrics reporters configured. Not starting metrics collection.")
     }
@@ -206,12 +207,12 @@ object MetricsRegistry extends LazyLogging {
           .builder()
           .setHost(hostname)
           .setPort(port.unwrap)
-          .newMetricReaderFactory()
+          .build()
         sdkMeterProviderBuilder.registerMetricReader(prometheusServer).discard
       case config: Csv =>
         sdkMeterProviderBuilder
           .registerMetricReader(
-            new CsvReporter(config, loggerFactory)
+            (new CsvReporter(config, loggerFactory)).reader
           )
           .discard
     }
