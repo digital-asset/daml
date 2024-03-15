@@ -51,8 +51,10 @@ object LanguageVersion {
     /** Guards in interfaces */
     val extendedInterfaces = v2_dev
 
-    /** BigNumeric */
+    /** TextMap */
     val textMap = v2_dev
+
+    /** BigNumeric */
     val bigNumeric = v2_dev
 
     val scenarios = v2_dev

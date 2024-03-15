@@ -32,7 +32,7 @@ class ValueSpec
     with ScalaCheckPropertyChecks {
   import ValueSpec._
 
-  "ContractID.V3.build" - {
+  "ContractID.V1.build" - {
 
     "rejects too long suffix" in {
 

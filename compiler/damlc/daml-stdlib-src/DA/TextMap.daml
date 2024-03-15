@@ -3,7 +3,7 @@
 
 {-# LANGUAGE CPP #-}
 
-#ifndef DAML_BIGNUMERIC
+#ifndef DAML_TEXTMAP
 -- | HIDE
 module DA.TextMap where
   
