@@ -3,30 +3,36 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.api.opentelemetry.Slf4jMetricExporter
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.metrics.{HealthMetrics, HistogramDefinition}
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.config.{ClientConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.metrics.{MediatorMetrics, SequencerMetrics}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.CantonOpenTelemetryMetricsFactory
-import com.digitalasset.canton.metrics.MetricsConfig.MetricsFilterConfig
-import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Prometheus}
+import com.digitalasset.canton.metrics.MetricsConfig.{JvmMetrics, MetricsFilterConfig}
+import com.digitalasset.canton.metrics.MetricsReporterConfig.{Csv, Logging, Prometheus}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.{DiscardOps, DomainAlias}
 import com.typesafe.scalalogging.LazyLogging
+import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
+import io.opentelemetry.instrumentation.runtimemetrics.java8.{Classes, Cpu, GarbageCollector, MemoryPools, Threads}
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
+import io.opentelemetry.sdk.metrics.`export`.{MetricExporter, MetricReader, PeriodicMetricReader}
 
 import java.io.File
 import java.util.concurrent.ScheduledExecutorService
 import scala.collection.concurrent.TrieMap
 
+
+
 final case class MetricsConfig(
     reporters: Seq[MetricsReporterConfig] = Seq.empty,
-    reportJvmMetrics: Boolean = false,
+    jvmMetrics: Option[JvmMetrics] = None,
     histograms: Seq[HistogramDefinition] = Seq.empty,
 )
 
@@ -40,6 +46,28 @@ object MetricsConfig {
     def matches(name: String): Boolean =
       name.startsWith(startsWith) && name.contains(contains) && name.endsWith(endsWith)
   }
+
+  /** Control and enable jvm metrics */
+  final case class JvmMetrics(
+                               classes: Boolean = true,
+                               cpu: Boolean = true,
+                               memoryPools: Boolean = true,
+                               threads: Boolean = true,
+                               gc: Boolean = true
+                             )
+
+  object JvmMetrics {
+    def setup(config: JvmMetrics, openTelemetry: OpenTelemetry): Unit = {
+
+      if(config.classes) Classes.registerObservers(openTelemetry)
+      if(config.cpu) Cpu.registerObservers(openTelemetry)
+      if(config.memoryPools) MemoryPools.registerObservers(openTelemetry)
+      if(config.threads) Threads.registerObservers(openTelemetry)
+      if(config.gc) GarbageCollector.registerObservers(openTelemetry)
+
+    }
+  }
+
 }
 
 sealed trait MetricsReporterConfig {
@@ -49,11 +77,8 @@ sealed trait MetricsReporterConfig {
 
 object MetricsReporterConfig {
 
-  final case class Prometheus(address: String = "localhost", port: Port = Port.tryCreate(9464))
-      extends MetricsReporterConfig {
-    // TODO(#16647): ensure prometheus metrics are filtered
-    override def filters: Seq[MetricsFilterConfig] = Seq.empty
-  }
+  final case class Prometheus(address: String = "localhost", port: Port = Port.tryCreate(9464), filters: Seq[MetricsFilterConfig] = Seq.empty)
+      extends MetricsReporterConfig
 
   /** CSV metrics reporter configuration
     *
@@ -72,9 +97,21 @@ object MetricsReporterConfig {
       filters: Seq[MetricsFilterConfig] = Seq.empty,
   ) extends MetricsReporterConfig
 
+  /** Log metrics reporter configuration
+   *
+   * This reporter will log the metrics in the given interval
+   *
+   * @param interval how often to log the metrics
+   * @param filters which metrics to include
+   */
+  final case class Logging(
+    interval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
+    filters: Seq[MetricsFilterConfig] = Seq.empty,
+    logAsInfo: Boolean = true
+  ) extends MetricsReporterConfig
+
 }
 final case class MetricsRegistry(
-    reportJVMMetrics: Boolean,
     meter: Meter,
     factoryType: MetricsFactoryType,
 ) extends AutoCloseable
@@ -83,13 +120,6 @@ final case class MetricsRegistry(
   private val participants = TrieMap[String, ParticipantMetrics]()
   private val sequencers = TrieMap[String, SequencerMetrics]()
   private val mediators = TrieMap[String, MediatorMetrics]()
-
-  // add default, system wide metrics to the metrics reporter
-  if (reportJVMMetrics) {
-    // TODO(#16647): re-enable jvm metrics
-    // registry.registerAll(new JvmMetricSet) // register Daml repo JvmMetricSet
-    // JvmMetricSet.registerObservers() // requires OpenTelemetry to have the global lib setup
-  }
 
   def forParticipant(name: String): ParticipantMetrics = {
     participants.getOrElseUpdate(
@@ -200,21 +230,27 @@ object MetricsRegistry extends LazyLogging {
     if (config.reporters.isEmpty) {
       logger.info("No metrics reporters configured. Not starting metrics collection.")
     }
-    config.reporters.foreach {
-      case Prometheus(hostname, port) =>
+    def buildPeriodicReader(exporter: MetricExporter, interval: NonNegativeFiniteDuration):  MetricReader = {
+      PeriodicMetricReader.builder(exporter).setExecutor(scheduledExecutorService).setInterval(interval.asJava).build()
+    }
+    config.reporters.map {
+      case Prometheus(hostname, port, _) =>
         logger.info(s"Exposing metrics for Prometheus on port $hostname:$port")
-        val prometheusServer = PrometheusHttpServer
+        PrometheusHttpServer
           .builder()
           .setHost(hostname)
           .setPort(port.unwrap)
           .build()
-        sdkMeterProviderBuilder.registerMetricReader(prometheusServer).discard
       case config: Csv =>
-        sdkMeterProviderBuilder
-          .registerMetricReader(
-            (new CsvReporter(config, loggerFactory)).reader
-          )
-          .discard
+        buildPeriodicReader(new CsvReporter(config, loggerFactory), config.interval)
+      case config: Logging =>
+        buildPeriodicReader(new Slf4jMetricExporter(
+          logAsInfo = config.logAsInfo,
+          logger = loggerFactory.getLogger(MetricsRegistry.getClass).underlying), config.interval)
+
+    }.zip(config.reporters).foreach {
+      case (reader, config) =>
+        sdkMeterProviderBuilder.registerMetricReader(FilteringMetricsReader.create(config.filters, reader)).discard
     }
     sdkMeterProviderBuilder
   }

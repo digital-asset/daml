@@ -13,15 +13,19 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class Slf4jMetricExporter(
-    logger: Logger = LoggerFactory.getLogger("logging-metrics-exporter")
+    logAsInfo: Boolean,
+    logger: Logger = LoggerFactory.getLogger("logging-metrics-exporter"),
 ) extends MetricExporter {
 
   override def `export`(
       metrics: util.Collection[MetricData]
   ): CompletableResultCode = {
-    logger.debug(s"Logging ${metrics.size()} metrics")
-    metrics.asScala.foreach(metricData => logger.debug(s"metric: $metricData"))
-    CompletableResultCode.ofSuccess()
+    (new CompletableResultCode()).whenComplete(() => {
+      metrics.asScala.foreach(metricData =>
+        if (logAsInfo) logger.info(s"$metricData")
+        else logger.debug(s"$metricData")
+      )
+    })
   }
 
   override def flush(): CompletableResultCode = CompletableResultCode.ofSuccess()

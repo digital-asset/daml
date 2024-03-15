@@ -7,7 +7,7 @@ import com.daml.metrics.HistogramDefinition
 import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
-import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
+import com.digitalasset.canton.metrics.{OpenTelemetryOnDemandMetricsReader}
 import com.digitalasset.canton.tracing.{NoopSpanExporter, TraceContext, TracingConfig}
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.propagation.ContextPropagators
@@ -15,11 +15,7 @@ import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter
 import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.metrics.{SdkMeterProvider, SdkMeterProviderBuilder}
-import io.opentelemetry.sdk.trace.`export`.{
-  BatchSpanProcessor,
-  BatchSpanProcessorBuilder,
-  SpanExporter,
-}
+import io.opentelemetry.sdk.trace.`export`.{BatchSpanProcessor, BatchSpanProcessorBuilder, SpanExporter}
 import io.opentelemetry.sdk.trace.samplers.Sampler
 import io.opentelemetry.sdk.trace.{SdkTracerProvider, SdkTracerProviderBuilder}
 
