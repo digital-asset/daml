@@ -51,7 +51,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * If the future returned by a call completes and observing the completion happens before another call,
   * then all changes of the former call must be ordered before all changes of the later call.</p>
   *
-  * <p>Bulk methods like [[ActiveContractStore.markContractsActive]] and [[ActiveContractStore.archiveContracts]]
+  * <p>Bulk methods like [[ActiveContractStore.markContractsCreated]] and [[ActiveContractStore.archiveContracts]]
   * generate one individual change for each contract.
   * So their changes may be interleaved with other calls.</p>
   *
@@ -84,15 +84,40 @@ trait ActiveContractStore
     *           <li>[[ActiveContractStore.ChangeAfterArchival]] if this creation is later than the earliest archival of the contract.</li>
     *         </ul>
     */
-  def markContractsActive(contracts: Seq[(LfContractId, TransferCounter)], toc: TimeOfChange)(
+  def markContractsCreated(contracts: Seq[(LfContractId, TransferCounter)], toc: TimeOfChange)(
       implicit traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit]
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    markContractsCreatedOrAdded(contracts, toc: TimeOfChange, isCreation = true)
 
-  /** Shorthand for `markContractsActive(Seq(contractId), toc)` */
-  def markContractActive(contract: (LfContractId, TransferCounter), toc: TimeOfChange)(implicit
+  /** Shorthand for `markContractsCreated(Seq(contract), toc)` */
+  def markContractCreated(contract: (LfContractId, TransferCounter), toc: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    markContractsActive(Seq(contract), toc)
+    markContractsCreatedOrAdded(Seq(contract), toc, isCreation = true)
+
+  /** Shorthand for `markContractAdded(Seq(contract), toc)` */
+  def markContractAdded(contract: (LfContractId, TransferCounter), toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    markContractsAdded(Seq(contract), toc: TimeOfChange)
+
+  /** Marks the given contracts as active from `timestamp` (inclusive) onwards.
+    *
+    * Unlike creation, add can be done several times in the life of a contract.
+    * It is intended to use from the repair service.
+    */
+  def markContractsAdded(contracts: Seq[(LfContractId, TransferCounter)], toc: TimeOfChange)(
+      implicit traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    markContractsCreatedOrAdded(contracts, toc: TimeOfChange, isCreation = false)
+
+  protected def markContractsCreatedOrAdded(
+      contracts: Seq[(LfContractId, TransferCounter)],
+      toc: TimeOfChange,
+      isCreation: Boolean, // true if create, false if add
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   /** Marks the given contracts as archived from `toc`'s timestamp (inclusive) onwards.
     *
@@ -126,13 +151,40 @@ trait ActiveContractStore
     */
   def archiveContracts(contractIds: Seq[LfContractId], toc: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit]
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    purgeOrArchiveContracts(contractIds, toc, isArchival = true)
 
-  /** Shorthand for `archiveContracts(Seq(contractId), toc)` */
+  /** Shorthand for `archiveContracts(Seq(cid), toc)` */
   def archiveContract(cid: LfContractId, toc: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     archiveContracts(Seq(cid), toc)
+
+  /** Shorthand for `purgeContracts(Seq(cid), toc)` */
+  def purgeContract(cid: LfContractId, toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    purgeOrArchiveContracts(Seq(cid), toc, isArchival = false)
+
+  /** Marks the given contracts as inactive from `timestamp` (inclusive) onwards.
+    *
+    * Unlike archival, purge can be done several times in the life of a contract.
+    * It is intended to use from the repair service.
+    */
+  def purgeContracts(contractIds: Seq[LfContractId], toc: TimeOfChange)(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+    purgeOrArchiveContracts(contractIds, toc, isArchival = false)
+
+  /** Depending on the `isArchival`, will archive (effect of a Daml transaction) or purge (repair service)
+    */
+  protected def purgeOrArchiveContracts(
+      contractIds: Seq[LfContractId],
+      toc: TimeOfChange,
+      isArchival: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   /** Returns the latest [[com.digitalasset.canton.participant.store.ActiveContractStore.Status]]
     * for the given contract IDs along with its [[com.digitalasset.canton.participant.util.TimeOfChange]].
@@ -315,24 +367,29 @@ object ActiveContractStore {
     def isTransfer: Boolean
   }
 
-  sealed trait TransferChangeDetail extends ActivenessChangeDetail {
-    def toTransferType: ActiveContractStore.TransferType
-    def remoteDomainIdx: Int
-    def transferCounter: TransferCounter
-
-    override def transferCounterO: Option[TransferCounter] = Some(transferCounter)
-    override def remoteDomainIdxO: Option[Int] = Some(remoteDomainIdx)
-
-    override def isTransfer: Boolean = true
-  }
-
   object ActivenessChangeDetail {
     val create: String36 = String36.tryCreate("create")
     val archive: String36 = String36.tryCreate("archive")
+    val add: String36 = String36.tryCreate("add")
+    val purge: String36 = String36.tryCreate("purge")
     val transferIn: String36 = String36.tryCreate("transfer-in")
     val transferOut: String36 = String36.tryCreate("transfer-out")
 
-    final case class Create(transferCounter: TransferCounter) extends ActivenessChangeDetail {
+    sealed trait HasTransferCounter extends ActivenessChangeDetail {
+      def transferCounter: TransferCounter
+      override def transferCounterO: Option[TransferCounter] = Some(transferCounter)
+      def toStateChangeType: StateChangeType = StateChangeType(contractChange, transferCounter)
+    }
+
+    sealed trait TransferChangeDetail extends HasTransferCounter {
+      def toTransferType: ActiveContractStore.TransferType
+      def remoteDomainIdx: Int
+      override def remoteDomainIdxO: Option[Int] = Some(remoteDomainIdx)
+
+      override def isTransfer: Boolean = true
+    }
+
+    final case class Create(transferCounter: TransferCounter) extends HasTransferCounter {
       override val name = ActivenessChangeDetail.create
       override def transferCounterO: Option[TransferCounter] = Some(transferCounter)
 
@@ -343,9 +400,17 @@ object ActiveContractStore {
       override def contractChange: ContractChange = ContractChange.Created
 
       override def isTransfer: Boolean = false
+    }
 
-      def toStateChangeType: StateChangeType = StateChangeType(contractChange, transferCounter)
+    final case class Add(transferCounter: TransferCounter) extends HasTransferCounter {
+      override val name = ActivenessChangeDetail.add
+      override def remoteDomainIdxO: Option[Int] = None
 
+      override def changeType: ChangeType = ChangeType.Activation
+
+      override def contractChange: ContractChange = ContractChange.Created
+
+      override def isTransfer: Boolean = false
     }
 
     /** The transfer counter for archivals stored in the acs is always None, because we cannot
@@ -364,6 +429,19 @@ object ActiveContractStore {
       override def isTransfer: Boolean = false
     }
 
+    case object Purge extends ActivenessChangeDetail {
+      override val name = ActivenessChangeDetail.purge
+      override def transferCounterO: Option[TransferCounter] = None
+
+      override def remoteDomainIdxO: Option[Int] = None
+
+      override def changeType: ChangeType = ChangeType.Deactivation
+
+      override def contractChange: ContractChange = ContractChange.Created
+
+      override def isTransfer: Boolean = false
+    }
+
     final case class TransferIn(transferCounter: TransferCounter, remoteDomainIdx: Int)
         extends TransferChangeDetail {
       override val name = ActivenessChangeDetail.transferIn
@@ -373,8 +451,6 @@ object ActiveContractStore {
         ActiveContractStore.TransferType.TransferIn
 
       override def contractChange: ContractChange = ContractChange.TransferredIn
-
-      def toStateChangeType: StateChangeType = StateChangeType(contractChange, transferCounter)
     }
 
     final case class TransferOut(transferCounter: TransferCounter, remoteDomainIdx: Int)
@@ -386,8 +462,6 @@ object ActiveContractStore {
         ActiveContractStore.TransferType.TransferOut
 
       override def contractChange: ContractChange = ContractChange.TransferredOut
-
-      def toStateChangeType: StateChangeType = StateChangeType(contractChange, transferCounter)
     }
 
     implicit val setParameterActivenessChangeDetail: SetParameter[ActivenessChangeDetail] =
@@ -410,6 +484,14 @@ object ActiveContractStore {
         ActivenessChangeDetail.Create(transferCounter)
       } else if (operationName == ActivenessChangeDetail.archive.str) {
         ActivenessChangeDetail.Archive
+      } else if (operationName == ActivenessChangeDetail.add.str) {
+        val transferCounter = transferCounterO.getOrElse(
+          throw new DbDeserializationException("transfer counter should be defined for an add")
+        )
+
+        ActivenessChangeDetail.Add(transferCounter)
+      } else if (operationName == ActivenessChangeDetail.purge.str) {
+        ActivenessChangeDetail.Purge
       } else if (operationName == "transfer-in" || operationName == "transfer-out") {
         val transferCounter = transferCounterO.getOrElse(
           throw new DbDeserializationException(
@@ -434,7 +516,10 @@ object ActiveContractStore {
   sealed trait AcsBaseError extends Product with Serializable
 
   /** Warning cases returned by the operations on the [[ActiveContractStore!]] */
-  sealed trait AcsWarning extends AcsBaseError
+  sealed trait AcsWarning extends AcsBaseError {
+    // List of toc involved in the error
+    def timeOfChanges: List[TimeOfChange]
+  }
 
   /** Error cases returned by the operations on the [[ActiveContractStore!]] */
   trait AcsError extends AcsBaseError
@@ -451,7 +536,9 @@ object ActiveContractStore {
       toc: TimeOfChange,
       detail1: ActivenessChangeDetail,
       detail2: ActivenessChangeDetail,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(toc)
+  }
 
   /** A contract is simultaneously archived and/or transferred out to possibly several source domains */
   final case class SimultaneousDeactivation(
@@ -459,35 +546,46 @@ object ActiveContractStore {
       toc: TimeOfChange,
       detail1: ActivenessChangeDetail,
       detail2: ActivenessChangeDetail,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(toc)
+  }
 
   /** The given contract is archived a second time, but with a different time of change. */
   final case class DoubleContractArchival(
       contractId: LfContractId,
       oldTime: TimeOfChange,
       newTime: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(oldTime, newTime)
+  }
 
   /** The given contract is created a second time, but with a different time of change. */
   final case class DoubleContractCreation(
       contractId: LfContractId,
       oldTime: TimeOfChange,
       newTime: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(oldTime, newTime)
+
+  }
 
   /** The state of a contract is changed before its `creation`. */
   final case class ChangeBeforeCreation(
       contractId: LfContractId,
       creation: TimeOfChange,
       change: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(creation, change)
+  }
 
   /** The state of a contract is changed after its `archival`. */
   final case class ChangeAfterArchival(
       contractId: LfContractId,
       archival: TimeOfChange,
       change: TimeOfChange,
-  ) extends AcsWarning
+  ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(archival, change)
+  }
 
   /** TransferCounter should increase monotonically with the time of change. */
   final case class TransferCounterShouldIncrease(
@@ -498,6 +596,8 @@ object ActiveContractStore {
       nextToc: TimeOfChange,
       strict: Boolean,
   ) extends AcsWarning {
+    override def timeOfChanges: List[TimeOfChange] = List(currentToc, nextToc)
+
     def reason: String =
       s"""The transfer counter $current of the contract state at $currentToc should be smaller than ${if (
           strict
@@ -531,6 +631,11 @@ object ActiveContractStore {
     override def prunable: Boolean = true
     override def pretty: Pretty[Archived.type] = prettyOfObject[Archived.type]
     // transfer counter remains None, because we do not write it back to the ACS
+  }
+
+  case object Purged extends Status {
+    override def prunable: Boolean = true
+    override def pretty: Pretty[Purged.type] = prettyOfObject[Purged.type]
   }
 
   /** The contract has been transferred out to the given `targetDomain` after it had resided on this domain.
@@ -574,7 +679,6 @@ object ActiveContractStore {
       timeOfChange: TimeOfChange,
       transferCounter: TransferCounter,
       latestBeforeO: Option[TransferCounterAtChangeInfo],
-      transferType: TransferType,
   ): Checked[Nothing, TransferCounterShouldIncrease, Unit] =
     latestBeforeO.flatMap { latestBefore =>
       latestBefore.transferCounter.map { previousTransferCounter =>
@@ -761,6 +865,7 @@ sealed trait ContractChange extends Product with Serializable with PrettyPrintin
 object ContractChange {
   case object Created extends ContractChange
   case object Archived extends ContractChange
+  case object Purged extends ContractChange
   case object TransferredOut extends ContractChange
   case object TransferredIn extends ContractChange
 }

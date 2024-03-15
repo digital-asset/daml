@@ -3,25 +3,10 @@
 
 package com.digitalasset.canton.util
 
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-
 import scala.annotation.tailrec
 import scala.util.Random
 
 object SeqUtil {
-
-  /** Splits the sequence `xs` after each element that satisfies `p` and returns the sequence of chunks */
-  def splitAfter[A](xs: Seq[A])(p: A => Boolean): Seq[NonEmpty[Seq[A]]] = {
-    @tailrec def go(acc: Seq[NonEmpty[Seq[A]]], rest: Seq[A]): Seq[NonEmpty[Seq[A]]] = {
-      val (before, next) = rest.span(!p(_))
-      NonEmpty.from(next) match {
-        case None => NonEmpty.from(before).fold(acc)(_ +: acc)
-        case Some(nextNE) =>
-          go(NonEmptyUtil.fromUnsafe(before :+ nextNE.head1) +: acc, nextNE.tail1)
-      }
-    }
-    go(Seq.empty, xs).reverse
-  }
 
   /** Picks a random subset of indices of size `size` from `xs` and returns a random permutation of the elements
     * at these indices.

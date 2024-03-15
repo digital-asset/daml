@@ -37,7 +37,7 @@ import pureconfig.configurable.{genericMapReader, genericMapWriter}
 import pureconfig.error.CannotConvert
 import pureconfig.generic.ProductHint
 import pureconfig.generic.semiauto.*
-import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter, ConvertHelpers}
+import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter}
 
 import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, FiniteDuration}

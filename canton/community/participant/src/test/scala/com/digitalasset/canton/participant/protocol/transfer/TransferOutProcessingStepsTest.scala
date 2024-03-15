@@ -582,7 +582,7 @@ final class TransferOutProcessingStepsTest
           contract,
         )
         _ <- persistentState.activeContractStore
-          .markContractsActive(
+          .markContractsCreated(
             Seq(contractId -> initialTransferCounter),
             TimeOfChange(RequestCounter(1), timeEvent.timestamp),
           )

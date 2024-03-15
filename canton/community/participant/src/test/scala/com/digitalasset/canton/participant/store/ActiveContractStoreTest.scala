@@ -35,7 +35,7 @@ import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{Checked, CheckedT}
+import com.digitalasset.canton.util.{Checked, CheckedT, MonadUtil}
 import com.digitalasset.canton.{BaseTest, LfPackageId, RequestCounter, TransferCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpecLike
@@ -74,13 +74,35 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
     val coid00 = ExampleTransactionFactory.suffixedId(0, 0)
     val coid01 = ExampleTransactionFactory.suffixedId(0, 1)
+    val coid02 = ExampleTransactionFactory.suffixedId(0, 2)
     val coid10 = ExampleTransactionFactory.suffixedId(1, 0)
     val coid11 = ExampleTransactionFactory.suffixedId(1, 1)
 
     val thousandOneContracts = (1 to 1001).map(ExampleTransactionFactory.suffixedId(0, _)).toSeq
 
     val rc = RequestCounter(0)
+    val rc2 = rc + 1
+    val rc3 = rc2 + 1
+    val rc4 = rc3 + 1
+    val rc5 = rc4 + 1
+    val rc6 = rc5 + 1
+
     val ts = CantonTimestamp.assertFromInstant(Instant.parse("2019-04-04T10:00:00.00Z"))
+    val ts2 = ts.addMicros(1)
+    val ts3 = ts2.plusMillis(1)
+    val ts4 = ts3.plusMillis(1)
+    val ts5 = ts4.plusMillis(1)
+    val ts6 = ts5.plusMillis(1)
+
+    // Domain with index 2
+    val domain1Idx = 2
+    val sourceDomain1 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+    val targetDomain1 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+
+    // Domain with index 3
+    val domain2Idx = 3
+    val sourceDomain2 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+    val targetDomain2 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
 
     behave like prunableByTime(mkAcs)
 
@@ -131,7 +153,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
       for {
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         fetch <- acs.fetchStates(Seq(coid00, coid01))
 
@@ -149,20 +171,16 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       }
     }
 
-    val rc2 = RequestCounter(1)
-    val ts2 = ts.addMicros(1)
-
     "creating and archiving a contract" in {
       val acs = mk()
-
       for {
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
+
         archived <- acs
           .archiveContract(coid00, TimeOfChange(rc2, ts2))
           .value
-
         snapshotTs1 <- acs.snapshot(ts2.addMicros(-1))
         snapshotTs2 <- acs.snapshot(ts2)
 
@@ -197,7 +215,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
       for {
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         archived <- acs.archiveContract(coid00, TimeOfChange(rc2, ts)).value
         fetch <- acs.fetchState(coid00)
@@ -216,7 +234,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
       for {
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         archived <- acs.archiveContract(coid00, TimeOfChange(rc, ts2)).value
         fetch <- acs.fetchState(coid00)
@@ -234,8 +252,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val acs = mk()
       val toc = TimeOfChange(rc, ts)
       for {
-        created1 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
-        created2 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
+        created1 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
+        created2 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
         fetch <- acs.fetchState(coid00)
       } yield {
         created1 shouldBe Symbol("successful")
@@ -251,11 +269,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         val acs = mk()
         val toc = TimeOfChange(rc, ts)
         for {
-          created1 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
+          created1 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
           archived <- acs
             .archiveContract(coid00, TimeOfChange(rc2, ts2))
             .value
-          created2 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
+          created2 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
           fetch <- acs.fetchState(coid00)
           snapshot <- acs.snapshot(ts2)
         } yield {
@@ -272,9 +290,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         val acs = mk()
         val toc = TimeOfChange(rc, ts)
         for {
-          created1 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
+          created1 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
           archived <- acs.archiveContract(coid00, toc).value
-          created2 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
+          created2 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
           fetch <- acs.fetchState(coid00)
           snapshot <- acs.snapshot(ts2.addMicros(-1))
         } yield {
@@ -293,7 +311,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc = TimeOfChange(rc, ts)
       val toc2 = TimeOfChange(rc, ts2)
       for {
-        created <- acs.markContractActive(coid00 -> initialTransferCounter, toc2).value
+        created <- acs.markContractCreated(coid00 -> initialTransferCounter, toc2).value
         archived <- acs.archiveContract(coid00, toc).value
         fetch <- acs.fetchState(coid00)
         snapshot <- acs.snapshot(ts2)
@@ -322,7 +340,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           .value
         fetch1 <- acs.fetchState(coid00)
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         fetch2 <- acs.fetchState(coid00)
         snapshot1 <- acs.snapshot(ts2.addMicros(-1))
@@ -350,7 +368,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc2 = TimeOfChange(rc2, ts2)
       for {
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         archived1 <- acs.archiveContract(coid00, toc2).value
         archived2 <- acs.archiveContract(coid00, toc2).value
@@ -376,7 +394,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc3 = TimeOfChange(rc2 + 1, ts2.plusMillis(1))
       for {
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         archived1 <- acs.archiveContract(coid00, toc2).value
         archived2 <- acs.archiveContract(coid00, toc).value
@@ -394,7 +412,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           archived3.isResult && archived3.nonaborts == Chain(
             DoubleContractArchival(coid00, toc, toc3)
           ),
-          "third archival reports error with updated timestamp",
+          "third archival reports error",
         )
         assert(
           fetch.contains(ContractState(Archived, toc3.rc, toc3.timestamp)),
@@ -403,18 +421,15 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       }
     }
 
-    val rc3 = RequestCounter(2L)
-    val ts3 = ts2.plusMillis(1)
-
     "several contracts can be inserted" in {
       val acs = mk()
       val toc = TimeOfChange(rc, ts)
       val toc3 = TimeOfChange(rc2, ts3)
       val toc2 = TimeOfChange(rc2, ts2)
       for {
-        created2 <- acs.markContractActive(coid01 -> initialTransferCounter, toc3).value
-        created1 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
-        created3 <- acs.markContractActive(coid10 -> initialTransferCounter, toc2).value
+        created2 <- acs.markContractCreated(coid01 -> initialTransferCounter, toc3).value
+        created1 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
+        created3 <- acs.markContractCreated(coid10 -> initialTransferCounter, toc2).value
         archived3 <- acs.archiveContract(coid10, toc3).value
         fetch <- acs.fetchStates(Seq(coid00, coid01, coid10))
         snapshot1 <- acs.snapshot(ts)
@@ -448,11 +463,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val tocTs = TimeOfChange(rc, ts.plusMillis(1))
       val tocRc = TimeOfChange(rc + 1, ts)
       for {
-        created1 <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
-        created2 <- acs.markContractActive(coid00 -> initialTransferCounter, tocTs).value
+        created1 <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
+        created2 <- acs.markContractCreated(coid00 -> initialTransferCounter, tocTs).value
         fetch2 <- acs.fetchState(coid00)
         snapshot <- acs.snapshot(ts.plusMillis(2))
-        created3 <- acs.markContractActive(coid00 -> initialTransferCounter, tocRc).value
+        created3 <- acs.markContractCreated(coid00 -> initialTransferCounter, tocRc).value
         fetch3 <- acs.fetchState(coid00)
       } yield {
         assert(created1.successful, "succeed")
@@ -463,7 +478,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
         withClue("fail if request counter differs") {
           created3 shouldBe Symbol("result")
-          created3.nonaborts.toList.toSet shouldBe Set(DoubleContractCreation(coid00, tocTs, tocRc))
+          created3.nonaborts.toList.toSet shouldBe Set(DoubleContractCreation(coid00, toc, tocRc))
         }
 
         assert(
@@ -492,7 +507,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         archived2 <- acs.archiveContract(coid00, tocTs).value
         archived3 <- acs.archiveContract(coid00, tocRc).value
         created <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         fetch <- acs.fetchState(coid00)
         snapshot1 <- acs.snapshot(ts3.addMicros(-2))
@@ -533,7 +548,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc = TimeOfChange(rc, ts)
       for {
         created <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(
               coid00 -> initialTransferCounter,
               coid01 -> initialTransferCounter,
@@ -563,7 +578,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val acs = mk()
       for {
         created <- acs
-          .markContractsActive(Seq.empty[(LfContractId, TransferCounter)], TimeOfChange(rc, ts))
+          .markContractsCreated(Seq.empty[(LfContractId, TransferCounter)], TimeOfChange(rc, ts))
           .value
       } yield assert(created.successful, "succeed")
     }
@@ -574,13 +589,13 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc2 = TimeOfChange(rc2, ts2)
       for {
         created1 <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(coid00 -> initialTransferCounter, coid01 -> initialTransferCounter),
             toc1,
           )
           .value
         created2 <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(
               coid00 -> initialTransferCounter,
               coid01 -> initialTransferCounter,
@@ -618,7 +633,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc2 = TimeOfChange(rc2, ts2)
       for {
         created <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(
               coid00 -> initialTransferCounter,
               coid01 -> initialTransferCounter,
@@ -659,17 +674,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       } yield {
         archived1 shouldBe Symbol("successful")
         archived2 shouldBe Symbol("isResult")
-        archived2.nonaborts should (equal(
-          Chain(
-            DoubleContractArchival(coid00, toc, toc2),
-            DoubleContractArchival(coid01, toc, toc2),
-          )
-        ) or equal(
-          Chain(
-            DoubleContractArchival(coid01, toc, toc2),
-            DoubleContractArchival(coid00, toc, toc2),
-          )
-        ))
+        archived2.nonaborts.toList.toSet shouldBe Set(
+          DoubleContractArchival(coid00, toc, toc2),
+          DoubleContractArchival(coid01, toc, toc2),
+        )
+
         fetch shouldBe Map(
           coid00 -> ContractState(
             Archived,
@@ -696,15 +705,167 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       } yield assert(archived.successful, "succeed")
     }
 
-    // Domain with index 2
-    val domain1Idx = 2
-    val sourceDomain1 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-    val targetDomain1 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+    "add" should {
+      "be idempotent" in {
+        val acs = mk()
+        val toc0 = TimeOfChange(rc, ts)
+        for {
+          add1 <- acs
+            .markContractAdded(coid00 -> initialTransferCounter, toc0)
+            .value
+          add2 <- acs
+            .markContractAdded(coid00 -> initialTransferCounter, toc0)
+            .value
+        } yield {
+          assert(add1.successful, "create is successful")
+          assert(add2.successful, "create is successful")
+        }
+      }
 
-    // Domain with index 3
-    val domain2Idx = 3
-    val sourceDomain2 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-    val targetDomain2 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+      "be rejected on active contract" in {
+        val acs = mk()
+        val toc0 = TimeOfChange(rc, ts)
+        val toc1 = TimeOfChange(rc + 1, ts.plusSeconds(1))
+        for {
+          added <- acs
+            .markContractsAdded(Seq(coid00 -> initialTransferCounter), toc0)
+            .value
+          created <- acs
+            .markContractCreated(coid01 -> initialTransferCounter, toc0)
+            .value
+          transferredIn <- acs
+            .transferInContract(
+              coid02,
+              toc0,
+              sourceDomain1,
+              initialTransferCounter + 1,
+            )
+            .value
+
+          addAdd <- acs.markContractAdded(coid00 -> initialTransferCounter, toc0).value
+          createAdd <- acs.markContractAdded(coid01 -> initialTransferCounter, toc1).value
+          tfInAdd <- acs.markContractAdded(coid02 -> initialTransferCounter, toc1).value
+        } yield {
+          assert(added.successful, "add is successful")
+          assert(created.successful, "create is successful")
+          assert(transferredIn.successful, "transfer-in is successful")
+
+          assert(addAdd.successful, "idempotent add is successful")
+          assert(
+            createAdd.nonaborts.toList
+              .contains(DoubleContractCreation(coid01, toc0, toc1)),
+            "cannot add an active contract",
+          )
+          assert(
+            tfInAdd.nonaborts.toList
+              .contains(DoubleContractCreation(coid02, toc0, toc1)),
+            "cannot add an active contract",
+          )
+        }
+      }
+    }
+
+    "purge" should {
+      "be idempotent" in {
+        val acs = mk()
+        val toc0 = TimeOfChange(rc, ts)
+        val toc1 = TimeOfChange(rc + 1, ts.plusSeconds(1))
+        for {
+          create <- acs.markContractCreated(coid00 -> initialTransferCounter, toc0).value
+          purge1 <- acs.purgeContract(coid00, toc1).value
+          purge2 <- acs.purgeContract(coid00, toc1).value
+        } yield {
+          assert(create.successful, "create is successful")
+          assert(purge1.successful, "purge1 is successful")
+          assert(purge2.successful, "purge2 is successful")
+        }
+      }
+    }
+
+    "purge/add" should {
+      "add should be allowed after a purge" in {
+        val acs = mk()
+        val toc0 = TimeOfChange(rc, ts)
+        val toc1 = TimeOfChange(rc + 1, ts.plusSeconds(1))
+        val toc2 = TimeOfChange(rc + 2, ts.plusSeconds(2))
+        for {
+          creates <- acs
+            .markContractsCreated(
+              Seq(
+                coid00 -> initialTransferCounter,
+                coid01 -> initialTransferCounter,
+                coid02 -> initialTransferCounter,
+              ),
+              toc0,
+            )
+            .value
+
+          archive <- acs.archiveContracts(Seq(coid00), toc1).value
+          purge <- acs.purgeContracts(Seq(coid01, coid02), toc1).value
+
+          addAfterArchive <- acs
+            .markContractAdded(coid00 -> initialTransferCounter, toc2)
+            .value
+
+          addAfterPurge <- acs
+            .markContractAdded(coid01 -> initialTransferCounter, toc2)
+            .value
+
+          createAfterPurge <- acs
+            .markContractCreated(coid02 -> initialTransferCounter, toc2)
+            .value
+        } yield {
+          assert(creates.successful, "create is successful")
+          assert(archive.successful, "archive is successful")
+          assert(purge.successful, "create is successful")
+
+          assert(
+            addAfterArchive.nonaborts.toList
+              .contains(ChangeAfterArchival(coid00, toc1, toc2)),
+            "cannot add an archived contract",
+          )
+          assert(addAfterPurge.successful, "add after purge is successful")
+          assert(
+            createAfterPurge.nonaborts.toList
+              .contains(DoubleContractCreation(coid02, toc0, toc2)),
+            "cannot create again an added contract",
+          )
+        }
+      }
+
+      "add and purge can be used repeatedly" in {
+        val acs = mk()
+        val tocCreate = TimeOfChange(rc, ts)
+        val cyclesCount = 5L // number of purge, add
+        for {
+          creates <- acs
+            .markContractCreated(coid00 -> initialTransferCounter, tocCreate)
+            .value
+
+          purgeAddResults <- MonadUtil.sequentialTraverse(0L until cyclesCount) { i =>
+            val shift = 2 * i + 1
+            for {
+              purge <- acs
+                .purgeContract(coid00, TimeOfChange(rc + shift, ts.plusSeconds(shift)))
+                .value
+              add <- acs
+                .markContractAdded(
+                  coid00 -> (initialTransferCounter + shift),
+                  TimeOfChange(rc + shift + 1, ts.plusSeconds(shift + 1)),
+                )
+                .value
+            } yield Seq(purge.successful, add.successful)
+          }
+
+          archiveToc = TimeOfChange(rc + 2 * cyclesCount + 1, ts.plusSeconds(2 * cyclesCount + 1))
+          archive <- acs.archiveContract(coid00, archiveToc).value
+        } yield {
+          assert(creates.successful, "create is successful")
+          assert(archive.successful, "archive is successful")
+          assert(purgeAddResults.flatten.forall(identity), "purges + adds are successful")
+        }
+      }
+    }
 
     "transfer-out makes a contract inactive" in {
       val acs = mk()
@@ -712,7 +873,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc2 = TimeOfChange(rc + 1, ts.plusSeconds(1))
       for {
         created <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(coid00 -> initialTransferCounter, coid01 -> initialTransferCounter),
             toc,
           )
@@ -786,7 +947,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc5 = TimeOfChange(rc + 6, ts.plusSeconds(7))
       val toc6 = TimeOfChange(rc + 7, ts.plusSeconds(70))
       for {
-        create <- acs.markContractActive(coid00 -> initialTransferCounter, toc1).value
+        create <- acs.markContractCreated(coid00 -> initialTransferCounter, toc1).value
         fetch0 <- acs.fetchState(coid00)
         out1 <- acs.transferOutContract(coid00, toc2, targetDomain2, tc1).value
         fetch1 <- acs.fetchState(coid00)
@@ -879,7 +1040,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         out2 <- acs.transferOutContract(coid00, toc4, targetDomain2, tc4).value
         in2 <- acs.transferInContract(coid00, toc5, sourceDomain2, tc5).value
         in1 <- acs.transferInContract(coid00, toc3, sourceDomain1, tc3).value
-        create <- acs.markContractActive(coid00 -> initialTransferCounter, toc1).value
+        create <- acs.markContractCreated(coid00 -> initialTransferCounter, toc1).value
         snapshot1 <- acs.snapshot(toc1.timestamp)
         snapshot2 <- acs.snapshot(toc2.timestamp)
         snapshot3 <- acs.snapshot(toc3.timestamp)
@@ -1034,6 +1195,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         )
       }
     }
+
     "complain about simultaneous archivals and transfer-outs" in {
       val acs = mk()
       val toc = TimeOfChange(rc, ts)
@@ -1067,7 +1229,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val acs = mk()
       val toc = TimeOfChange(rc, ts)
       for {
-        create <- acs.markContractActive(coid00 -> initialTransferCounter, toc).value
+        create <- acs.markContractCreated(coid00 -> initialTransferCounter, toc).value
         in <- acs.transferInContract(coid00, toc, sourceDomain1, initialTransferCounter).value
         fetch <- acs.fetchState(coid00)
       } yield {
@@ -1142,7 +1304,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc3 = TimeOfChange(rc + 3, ts.plusSeconds(2))
       val toc4 = TimeOfChange(rc + 2, ts.plusSeconds(3))
       for {
-        create <- acs.markContractActive(coid00 -> initialTransferCounter, toc3).value
+        create <- acs.markContractCreated(coid00 -> initialTransferCounter, toc3).value
         in1 <- acs.transferInContract(coid00, toc1, sourceDomain1, initialTransferCounter).value
         fetch3 <- acs.fetchState(coid00)
         in4 <- acs.transferInContract(coid00, toc4, sourceDomain2, tc3).value
@@ -1188,13 +1350,13 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc3 = TimeOfChange(rc3, ts3)
       for {
         _ <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(coid00 -> initialTransferCounter, coid01 -> initialTransferCounter),
             toc,
           )
           .value
         _ <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(coid10 -> initialTransferCounter, coid11 -> initialTransferCounter),
             toc,
           )
@@ -1203,7 +1365,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         _ <- acs.transferOutContract(coid11, toc2, targetDomain1, initialTransferCounter).value
         _ <- acs.archiveContracts(Seq(coid01), toc3).value
         _ <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(coid20 -> initialTransferCounter, coid21 -> initialTransferCounter),
             toc3,
           )
@@ -1305,14 +1467,14 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc2 = TimeOfChange(rc + 2, ts2)
 
       for {
-        _ <- acs.markContractActive(coid00 -> initialTransferCounter, toc1).value
+        _ <- acs.markContractCreated(coid00 -> initialTransferCounter, toc1).value
         _ <- acs
-          .markContractsActive(
+          .markContractsCreated(
             Seq(coid10 -> initialTransferCounter, coid11 -> initialTransferCounter),
             toc,
           )
           .value
-        _ <- acs.markContractActive(coid01 -> initialTransferCounter, toc2).value
+        _ <- acs.markContractCreated(coid01 -> initialTransferCounter, toc2).value
         snapshot <- acs.snapshot(ts2)
       } yield {
         val idOrdering = Ordering[LfContractId]
@@ -1334,7 +1496,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc32 = TimeOfChange(rc + 3, ts2)
       val toc4 = TimeOfChange(rc + 4, ts4)
       for {
-        _ <- valueOrFail(acs.markContractActive(coid00 -> initialTransferCounter, toc1))(
+        _ <- valueOrFail(acs.markContractCreated(coid00 -> initialTransferCounter, toc1))(
           s"create $coid00"
         )
         _ <- acs.transferInContract(coid00, toc0, sourceDomain1, initialTransferCounter).value
@@ -1356,7 +1518,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           s"archive $coid00 at $toc32"
         )
         _ <- valueOrFail(
-          acs.markContractActive(
+          acs.markContractCreated(
             coid00 -> initialTransferCounter,
             TimeOfChange(rc - 1, ts.plusSeconds(-1)),
           )
@@ -1378,14 +1540,14 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val toc3 = TimeOfChange(rc3, ts3)
       for {
         _ <- valueOrFail(
-          acs.markContractsActive(
+          acs.markContractsCreated(
             Seq(coid00 -> initialTransferCounter, coid01 -> initialTransferCounter),
             toc1,
           )
         )(
           s"create contracts at $toc1"
         )
-        _ <- valueOrFail(acs.markContractsActive(Seq(coid10 -> initialTransferCounter), toc2))(
+        _ <- valueOrFail(acs.markContractsCreated(Seq(coid10 -> initialTransferCounter), toc2))(
           s"create contracts at $toc2"
         )
         snapshot1 <- acs.contractSnapshot(Set(coid00, coid10), toc1.timestamp)
@@ -1516,13 +1678,6 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       }
     }
 
-    val rc4 = rc3 + 1
-    val ts4 = ts3.plusMillis(1)
-    val rc5 = rc4 + 1
-    val ts5 = ts4.plusMillis(1)
-    val rc6 = rc5 + 1
-    val ts6 = ts5.plusMillis(1)
-
     "return correct changes" in {
       val acs = mk()
       val toc1 = TimeOfChange(rc, ts)
@@ -1534,7 +1689,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
       for {
         _ <- valueOrFail(
-          acs.markContractsActive(
+          acs.markContractsCreated(
             Seq(coid00 -> initialTransferCounter, coid01 -> initialTransferCounter),
             toc1,
           )
@@ -1542,7 +1697,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           s"create contracts at $toc1"
         )
 
-        _ <- valueOrFail(acs.markContractsActive(Seq(coid10 -> initialTransferCounter), toc2))(
+        _ <- valueOrFail(acs.markContractsCreated(Seq(coid10 -> initialTransferCounter), toc2))(
           s"create contracts at $toc2"
         )
         _ <- valueOrFail(acs.archiveContract(coid01, toc2))(
@@ -1617,7 +1772,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       for {
         // Archived contract after creation has initialTransferCounter, or None in older proto versions
         created1 <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         archived1 <- acs.archiveContract(coid00, TimeOfChange(rc2, ts2)).value
         transferCounterSnapshot1 <- acs.bulkContractsTransferCounterSnapshot(Set(coid00), rc2)
@@ -1626,7 +1781,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assertion1 <- assertSnapshots(acs, ts, rc)(Some((coid00, initialTransferCounter)))
         // Archived contract after several transfer-ins has the last transfer-in counter, or None in older proto versions
         created2 <- acs
-          .markContractActive(coid01 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid01 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         transferOut2 <- acs
           .transferOutContract(coid01, TimeOfChange(rc2, ts2), targetDomain1, tc2)
@@ -1654,7 +1809,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       val acs = mk()
       for {
         created1 <- acs
-          .markContractActive(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
+          .markContractCreated(coid00 -> initialTransferCounter, TimeOfChange(rc, ts))
           .value
         transferIn1 <- acs
           .transferInContract(coid01, TimeOfChange(rc2, ts2), sourceDomain2, tc2)
@@ -1712,7 +1867,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
       def activateMaybeDeactivate(
           activate: ActiveContractStore => CheckedT[Future, AcsError, AcsWarning, Unit] = { acs =>
-            acs.markContractActive(coid00 -> initialTransferCounter, toc1)
+            acs.markContractCreated(coid00 -> initialTransferCounter, toc1)
           },
           deactivate: Option[ActiveContractStore => CheckedT[Future, AcsError, AcsWarning, Unit]] =
             None,
@@ -1789,7 +1944,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         for {
           _ <- addContractsToStore(contractStore, contracts)
 
-          activate = acs.markContractsActive(
+          activate = acs.markContractsCreated(
             contracts.map(_._1).map(cid => cid -> initialTransferCounter),
             toc1,
           )
@@ -1815,7 +1970,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         for {
           _ <- addContractsToStore(contractStore, List(coid00 -> packageId))
 
-          _ <- valueOrFail(acs.markContractActive(coid00 -> initialTransferCounter, toc1))(
+          _ <- valueOrFail(acs.markContractCreated(coid00 -> initialTransferCounter, toc1))(
             s"create contract at $toc1"
           )
 
@@ -1848,7 +2003,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         for {
           _ <- addContractsToStore(contractStore, contracts)
 
-          activate = acs.markContractsActive(
+          activate = acs.markContractsCreated(
             contracts.map(_._1).map(cid => cid -> initialTransferCounter),
             toc1,
           )

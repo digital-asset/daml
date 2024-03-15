@@ -9,6 +9,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
   Archived,
+  Purged,
   TransferredAway,
 }
 import com.digitalasset.canton.participant.store.memory.{
@@ -95,10 +96,10 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       .traverse(entries) {
         case (coid, toc, Active(_transferCounter)) =>
           acs
-            .markContractActive(coid -> initialTransferCounter, toc)
+            .markContractCreated(coid -> initialTransferCounter, toc)
             .value
-        case (coid, toc, Archived) =>
-          acs.archiveContract(coid, toc).value
+        case (coid, toc, Archived) => acs.archiveContract(coid, toc).value
+        case (coid, toc, Purged) => acs.purgeContracts(Seq(coid), toc).value
         case (coid, toc, TransferredAway(targetDomain, transferCounter)) =>
           acs.transferOutContract(coid, toc, targetDomain, transferCounter).value
       }
