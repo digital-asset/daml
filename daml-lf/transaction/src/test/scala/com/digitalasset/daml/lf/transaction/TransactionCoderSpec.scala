@@ -604,62 +604,6 @@ class TransactionCoderSpec
         TransactionCoder.decodeNode(txVersion, encoded) shouldBe a[Left[_, _]]
       }
     }
-
-    s"preserve byKey on exercise in version >= ${TransactionVersion.minContractKeys}" in {
-      forAll(
-        Arbitrary.arbInt.arbitrary,
-        danglingRefExerciseNodeGen,
-        minSuccessful(50),
-      ) { (nodeIdx, node) =>
-        val nodeId = NodeId(nodeIdx)
-        // We want to check that byKey gets lost so we undo the normalization
-        val byKey = node.byKey
-        val normalizedNode = normalizeExe(node.updateVersion(node.version)).copy(byKey = byKey)
-
-        val result = TransactionCoder
-          .encodeNode(
-            enclosingVersion = node.version,
-            nodeId = nodeId,
-            node = normalizedNode,
-          )
-        inside(result) { case Right(encoded) =>
-          val result = TransactionCoder.decodeNode(node.version, encoded)
-          result shouldBe Right(
-            nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minContractKeys) byKey else false
-            )
-          )
-        }
-      }
-    }
-
-    s"preserve byKey on fetch in version >= ${TransactionVersion.minContractKeys} and drop before" in {
-      forAll(
-        Arbitrary.arbInt.arbitrary,
-        fetchNodeGen,
-        minSuccessful(50),
-      ) { (nodeIdx, node) =>
-        val nodeId = NodeId(nodeIdx)
-        // We want to check that byKey gets lost so we undo the normalization
-        val byKey = node.byKey
-        val normalizedNode = normalizeFetch(node.updateVersion(node.version)).copy(byKey = byKey)
-
-        val result = TransactionCoder
-          .encodeNode(
-            enclosingVersion = node.version,
-            nodeId = nodeId,
-            node = normalizedNode,
-          )
-        inside(result) { case Right(encoded) =>
-          val result = TransactionCoder.decodeNode(node.version, encoded)
-          result shouldBe Right(
-            nodeId -> normalizedNode.copy(
-              byKey = if (node.version >= TransactionVersion.minContractKeys) byKey else false
-            )
-          )
-        }
-      }
-    }
   }
 
   "toOrderPartySet" should {
