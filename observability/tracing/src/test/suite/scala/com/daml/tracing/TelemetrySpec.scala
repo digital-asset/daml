@@ -6,7 +6,6 @@ package com.daml.tracing
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
-import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -158,13 +157,16 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
   }
 
   private def assertExceptionRecorded: Assertion = {
-    val evenAttributes = spanExporter.finishedEventAttributes
+    val evenAttributes = spanExporter.finishedEventAttributes.map { case (k, v) =>
+      (k.key.getKey, v)
+    }
     evenAttributes should contain(
-      SpanAttribute(SemanticAttributes.EXCEPTION_TYPE) -> anExceptionName
+      "exception.type" -> anExceptionName
     )
     evenAttributes should contain(
-      SpanAttribute(SemanticAttributes.EXCEPTION_MESSAGE) -> anExceptionMessage
+      "exception.message" -> anExceptionMessage
     )
+
   }
 }
 

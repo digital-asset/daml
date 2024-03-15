@@ -582,9 +582,6 @@ object CantonConfig {
     implicit val tracingConfigDisabledSpanExporterReader
         : ConfigReader[TracingConfig.Exporter.Disabled.type] =
       deriveReader[TracingConfig.Exporter.Disabled.type]
-    implicit val tracingConfigJaegerSpanExporterReader
-        : ConfigReader[TracingConfig.Exporter.Jaeger] =
-      deriveReader[TracingConfig.Exporter.Jaeger]
     implicit val tracingConfigZipkinSpanExporterReader
         : ConfigReader[TracingConfig.Exporter.Zipkin] =
       deriveReader[TracingConfig.Exporter.Zipkin]
@@ -1001,9 +998,6 @@ object CantonConfig {
     implicit val tracingConfigDisabledSpanExporterWriter
         : ConfigWriter[TracingConfig.Exporter.Disabled.type] =
       deriveWriter[TracingConfig.Exporter.Disabled.type]
-    implicit val tracingConfigJaegerSpanExporterWriter
-        : ConfigWriter[TracingConfig.Exporter.Jaeger] =
-      deriveWriter[TracingConfig.Exporter.Jaeger]
     implicit val tracingConfigZipkinSpanExporterWriter
         : ConfigWriter[TracingConfig.Exporter.Zipkin] =
       deriveWriter[TracingConfig.Exporter.Zipkin]
