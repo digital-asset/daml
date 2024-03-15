@@ -409,6 +409,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
+      if (lfValue.getIsTest) {
+        assertSince(LV.Features.scenarios, "is_test")
+      }
       val name = getInternedDottedName(lfValue.getNameWithType.getNameInternedDname)
       decodeType(lfValue.getNameWithType.getType) { typ =>
         decodeExpr(lfValue.getExpr, name.toString) { body =>
