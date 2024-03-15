@@ -1204,7 +1204,7 @@ class TransactionProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
     val txValidationResult = pendingRequestData.transactionValidationResult
-    val commitSet = txValidationResult.commitSet(pendingRequestData.requestId)(protocolVersion)
+    val commitSet = txValidationResult.commitSet(pendingRequestData.requestId)
 
     computeCommitAndContractsAndEvent(
       requestTime = pendingRequestData.requestTime,
@@ -1326,7 +1326,7 @@ class TransactionProcessingSteps(
         consumedInputsOfHostedParties = usedAndCreated.contracts.consumedInputsOfHostedStakeholders,
         transient = usedAndCreated.contracts.transient,
         createdContracts = createdContracts,
-      )(protocolVersion)
+      )
 
       commitAndContractsAndEvent <- computeCommitAndContractsAndEvent(
         requestTime = pendingRequestData.requestTime,

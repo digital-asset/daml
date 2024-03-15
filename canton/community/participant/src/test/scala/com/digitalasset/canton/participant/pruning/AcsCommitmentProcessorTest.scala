@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, NonNegativeDuration}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   ContractMetadataAndTransferCounter,
@@ -130,7 +131,7 @@ sealed trait AcsCommitmentProcessorBaseTest
           _ <- {
             if (lifespan.transferCounterAtActivation == TransferCounter.Genesis)
               acs
-                .markContractActive(
+                .markContractCreated(
                   cid -> initialTransferCounter,
                   TimeOfChange(RequestCounter(0), lifespan.activatedTs),
                 )
@@ -766,14 +767,15 @@ sealed trait AcsCommitmentProcessorBaseTest
     (contracts, acsChanges)
   }
 
-  val testHash: LfHash = ExampleTransactionFactory.lfHash(0)
+  protected val testHash: LfHash = ExampleTransactionFactory.lfHash(0)
 
   protected def withTestHash[A]: A => WithContractHash[A] = WithContractHash[A](_, testHash)
 
   protected def rt(timestamp: Int, tieBreaker: Int): RecordTime =
     RecordTime(ts(timestamp).forgetRefinement, tieBreaker.toLong)
 
-  val coid = (txId, discriminator) => ExampleTransactionFactory.suffixedId(txId, discriminator)
+  protected val coid = (txId, discriminator) =>
+    ExampleTransactionFactory.suffixedId(txId, discriminator)
 }
 
 class AcsCommitmentProcessorTest
@@ -2070,10 +2072,11 @@ class AcsCommitmentProcessorTest
           }
           _ <- processor.flush()
           outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
-          computed <- store.searchComputedBetween(
+          computedAll <- store.searchComputedBetween(
             CantonTimestamp.Epoch,
             timeProofs.lastOption.value,
           )
+          computed = computedAll.filter(_._2 != localId)
           received <- store.searchReceivedBetween(
             CantonTimestamp.Epoch,
             timeProofs.lastOption.value,
@@ -2083,7 +2086,8 @@ class AcsCommitmentProcessorTest
           // the only ticks with non-empty commitments are at 20 and 30, and they match the remote ones,
           // therefore there are 2 sends of commitments
           sequencerClient.requests.size shouldBe 2
-          assert(computed.size === 4)
+          // compute commitments only for interval ends 20 and 30
+          assert(computed.size === 2)
           assert(received.size === 5)
           // all local commitments were matched and can be pruned
           assert(outstanding == Some(toc(55).timestamp))
@@ -2264,10 +2268,11 @@ class AcsCommitmentProcessorTest
           )
 
           outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-          computed <- store.searchComputedBetween(
+          computedAll <- store.searchComputedBetween(
             CantonTimestamp.Epoch,
             timeProofs.lastOption.value,
           )
+          computed = computedAll.filter(_._2 != localId)
           received <- store.searchReceivedBetween(
             CantonTimestamp.Epoch,
             timeProofs.lastOption.value,
@@ -2280,7 +2285,8 @@ class AcsCommitmentProcessorTest
           // which means we send the fine-grained commitment 10-15
           // therefore, there should be 3 async sends in total
           sequencerClient.requests.size shouldBe 3
-          assert(computed.size === 4)
+          // compute commitments for interval ends 10, 20, and one for the mismatch at interval end 15
+          assert(computed.size === 3)
           assert(received.size === 5)
           // cannot prune past the mismatch
           assert(outstanding == Some(toc(30).timestamp))
@@ -2377,10 +2383,11 @@ class AcsCommitmentProcessorTest
           )
 
           outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
-          computed <- store.searchComputedBetween(
+          computedAll <- store.searchComputedBetween(
             CantonTimestamp.Epoch,
             timeProofs.lastOption.value,
           )
+          computed = computedAll.filter(_._2 != localId)
           received <- store.searchReceivedBetween(
             CantonTimestamp.Epoch,
             timeProofs.lastOption.value,
@@ -2395,14 +2402,302 @@ class AcsCommitmentProcessorTest
           // we only observed the interval 20-30, for which we already sent a commitment.
           // therefore, there should be 3 async sends in total
           sequencerClient.requests.size shouldBe 3
-          assert(computed.size === 4)
+          // compute commitments for interval ends 10, 20, and one for the mismatch at interval end 15
+          assert(computed.size === 3)
           assert(received.size === 5)
           // cannot prune past the mismatch 25-30, because there are no commitments that match past this point
           assert(outstanding == Some(toc(25).timestamp))
         }
       }
-    }
 
+      "not report errors about skipped commitments due to catch-up mode" in {
+
+        val reconciliationInterval = 5
+        val timeProofs =
+          (1L to 7)
+            .map(i => i * reconciliationInterval)
+            .map(CantonTimestamp.ofEpochSecond)
+            .toList
+        val contractSetup = Map(
+          // contract ID to stakeholders, creation and archival time
+          (
+            coid(0, 0),
+            (
+              Set(alice, bob, carol),
+              toc(1),
+              toc(36),
+              initialTransferCounter,
+              initialTransferCounter,
+            ),
+          )
+        )
+
+        val topology = Map(
+          localId -> Set(alice),
+          remoteId1 -> Set(bob),
+          remoteId2 -> Set(carol),
+        )
+
+        val (processor, store, sequencerClient, changes) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
+
+        val remoteCommitmentsFast = List(
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5)),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(5), ts(10)),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(10), ts(15)),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(15), ts(20)),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(20), ts(25)),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(25), ts(30)),
+        )
+
+        val remoteCommitmentsNormal = List(
+          (remoteId2, Map((coid(0, 0), initialTransferCounter)), ts(10), ts(15)),
+          (remoteId2, Map((coid(0, 0), initialTransferCounter)), ts(20), ts(25)),
+        )
+
+        for {
+          _ <- checkCatchUpModeCfgCorrect(processor)
+          remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
+          deliveredFast = remoteFast.map(cmt =>
+            (
+              cmt.message.period.toInclusive.plusSeconds(1),
+              List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+            )
+          )
+          // First ask for the remote commitments from remoteId1 to be processed,
+          // which are up to timestamp 30
+          // This causes the local participant to enter catch-up mode
+          _ <- deliveredFast
+            .parTraverse_ { case (ts, batch) =>
+              processor.processBatchInternal(ts.forgetRefinement, batch)
+            }
+            .onShutdown(fail())
+
+          _ = changes.foreach { case (ts, tb, change) =>
+            processor.publish(RecordTime(ts, tb.v), change)
+          }
+          _ <- processor.flush()
+
+          // Receive and process remote commitments from remoteId2, for skipped timestamps 10-15 and 20-25
+          // The local participant did not compute those commitments because of the catch-up mode, but should
+          // not error (in particular, not report NO_SHARED_CONTRACTS)
+          remoteNormal <- remoteCommitmentsNormal.parTraverse(commitmentMsg)
+          deliveredNormal = remoteNormal.map(cmt =>
+            (
+              cmt.message.period.toInclusive.plusSeconds(1),
+              List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+            )
+          )
+
+          _ <- deliveredNormal
+            .parTraverse_ { case (ts, batch) =>
+              processor.processBatchInternal(ts.forgetRefinement, batch)
+            }
+            .onShutdown(fail())
+          _ <- processor.flush()
+
+          outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
+          computed <- store.searchComputedBetween(
+            CantonTimestamp.Epoch,
+            timeProofs.lastOption.value,
+          )
+          computedCatchUp = computed.filter(_._2 == localId)
+          received <- store.searchReceivedBetween(
+            CantonTimestamp.Epoch,
+            timeProofs.lastOption.value,
+          )
+        } yield {
+          // there are four sends, at the end of each coarse-grained interval 10, 20, 30, and normal 35
+          sequencerClient.requests.size shouldBe 4
+          // compute commitments for interval ends (10, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
+          assert(computed.size === 11)
+          assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
+          assert(received.size === 8)
+          // cannot prune past the mismatch
+          assert(outstanding == Some(toc(25).timestamp))
+        }
+      }
+
+      "perform match for fine-grained commitments in case of mismatch at catch-up boundary" in {
+
+        val reconciliationInterval = 5
+        val timeProofs =
+          (1L to 7)
+            .map(i => i * reconciliationInterval)
+            .map(CantonTimestamp.ofEpochSecond)
+            .toList
+        val contractSetup = Map(
+          // contract ID to stakeholders, creation and archival time
+          (
+            coid(0, 0),
+            (
+              Set(alice, bob, carol),
+              toc(1),
+              toc(36),
+              initialTransferCounter,
+              initialTransferCounter,
+            ),
+          )
+        )
+
+        val topology = Map(
+          localId -> Set(alice),
+          remoteId1 -> Set(bob),
+          remoteId2 -> Set(carol),
+        )
+
+        val (processor, store, sequencerClient, changes) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+          )
+
+        val remoteCommitmentsFast = List(
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5)),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(5), ts(10)),
+          // coid (0,1) is not shared: the mismatch appears here, but is skipped initially during catch-up
+          // this commitment is buffered and checked later
+          (
+            remoteId1,
+            Map((coid(0, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
+            ts(10),
+            ts(15),
+          ),
+          // coid (0,1) is not shared, should cause a mismatch at catch-up boundary and fine-grained sending
+          (
+            remoteId1,
+            Map((coid(0, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
+            ts(15),
+            ts(20),
+          ),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(20), ts(25)),
+          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(25), ts(30)),
+        )
+
+        val remoteCommitmentsNormal = List(
+          (remoteId2, Map((coid(0, 0), initialTransferCounter)), ts(15), ts(20)),
+          // coid (0,2) is not shared, but does not cause a mismatch because we hadn't computed fine-grained
+          // commitments for remoteId2
+          (
+            remoteId2,
+            Map((coid(0, 0), initialTransferCounter), (coid(0, 2), initialTransferCounter)),
+            ts(10),
+            ts(15),
+          ),
+          (remoteId2, Map((coid(0, 0), initialTransferCounter)), ts(20), ts(25)),
+        )
+
+        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          {
+            for {
+              _ <- checkCatchUpModeCfgCorrect(processor)
+              remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
+              deliveredFast = remoteFast.map(cmt =>
+                (
+                  cmt.message.period.toInclusive.plusSeconds(1),
+                  List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+                )
+              )
+              // First ask for the remote commitments from remoteId1 to be processed,
+              // which are up to timestamp 30
+              // This causes the local participant to enter catch-up mode, and observe mismatch for timestamp 20,
+              // and fine-grained compute and send commitment 10-15
+              _ <- deliveredFast
+                .parTraverse_ { case (ts, batch) =>
+                  processor.processBatchInternal(ts.forgetRefinement, batch)
+                }
+                .onShutdown(fail())
+
+              _ = changes.foreach { case (ts, tb, change) =>
+                processor.publish(RecordTime(ts, tb.v), change)
+              }
+              _ <- processor.flush()
+
+              // Receive and process remote commitments from remoteId2, for skipped timestamps 10-15 and 20-25
+              // The local participant did not compute commitment 20-25 because of the catch-up mode, but should
+              // not error (in particular, not report NO_SHARED_CONTRACTS)
+              // The local participant computed commitment 10-15 because of the mismatch at 20, and should issue
+              // a mismatch for that period
+              remoteNormal <- remoteCommitmentsNormal.parTraverse(commitmentMsg)
+              deliveredNormal = remoteNormal.map(cmt =>
+                (
+                  cmt.message.period.toInclusive.plusSeconds(1),
+                  List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+                )
+              )
+
+              _ <- deliveredNormal
+                .parTraverse_ { case (ts, batch) =>
+                  processor.processBatchInternal(ts.forgetRefinement, batch)
+                }
+                .onShutdown(fail())
+              _ <- processor.flush()
+
+              outstanding <- store.noOutstandingCommitments(toc(30).timestamp)
+              computed <- store.searchComputedBetween(
+                CantonTimestamp.Epoch,
+                timeProofs.lastOption.value,
+              )
+              computedCatchUp = computed.filter(_._2 == localId)
+              received <- store.searchReceivedBetween(
+                CantonTimestamp.Epoch,
+                timeProofs.lastOption.value,
+              )
+            } yield {
+              // there are five sends, at the end of each coarse-grained interval 10, 15, 20, 30, and normal 35
+              sequencerClient.requests.size shouldBe 5
+              // compute commitments for interval ends (10, 15, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
+              assert(computed.size === 13)
+              assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
+              assert(received.size === 9)
+              // cannot prune past the mismatch
+              assert(outstanding == Some(toc(25).timestamp))
+            }
+          },
+          LogEntry.assertLogSeq(
+            Seq(
+              (
+                _.shouldBeCantonError(
+                  AcsCommitmentProcessor.Errors.MismatchError.CommitmentsMismatch,
+                  _ => succeed,
+                  _("remote") should (include(s"sender = $remoteId1") and include(
+                    "period = CommitmentPeriod(fromExclusive = 1970-01-01T00:00:15Z, toInclusive = 1970-01-01T00:00:20Z)"
+                  )),
+                ),
+                s"mismatch at interval 15-20 with ${remoteId1}",
+              ),
+              (
+                _.shouldBeCantonError(
+                  AcsCommitmentProcessor.Errors.MismatchError.CommitmentsMismatch,
+                  _ => succeed,
+                  _("remote") should (include(s"sender = $remoteId1") and include(
+                    "period = CommitmentPeriod(fromExclusive = 1970-01-01T00:00:10Z, toInclusive = 1970-01-01T00:00:15Z)"
+                  )),
+                ),
+                s"mismatch at interval 10-15 with buffered commitment from ${remoteId1}",
+              ),
+              (
+                _.shouldBeCantonError(
+                  AcsCommitmentProcessor.Errors.MismatchError.CommitmentsMismatch,
+                  _ => succeed,
+                  _("remote") should (include(s"sender = $remoteId2") and include(
+                    "period = CommitmentPeriod(fromExclusive = 1970-01-01T00:00:10Z, toInclusive = 1970-01-01T00:00:15Z)"
+                  )),
+                ),
+                s"mismatch at interval 10-15 with incoming commitment from ${remoteId2}",
+              ),
+            )
+          ),
+        )
+      }
+    }
     "caching commitments" should {
 
       "caches and computes correctly" in {

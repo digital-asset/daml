@@ -257,7 +257,7 @@ class ConflictDetectorTest
         cd = mkCd(acs)
 
         cr <- prefetchAndCheck(cd, rc, mkActivenessSet(create = Set(coid00)))
-        _ = acs.setCreateHook { (_, _) =>
+        _ = acs.setCreateAddHook { (_, _) =>
           // Insert the same request with a different activeness set while the ACS updates happen
           loggerFactory
             .assertInternalErrorAsync[IllegalConflictDetectionStateException](
@@ -312,7 +312,7 @@ class ConflictDetectorTest
         _ = checkContractState(cd, coid22, 0, 1, 0)(s"lock contract $coid22 for creation")
 
         toc = TimeOfChange(rc, ofEpochMilli(2))
-        _ = acs.setCreateHook { (coids, ToC) =>
+        _ = acs.setCreateAddHook { (coids, ToC) =>
           Future.successful {
             assert(coids.toSet == Set(coid21 -> initialTransferCounter) && ToC == toc)
             checkContractState(cd, coid21, active, toc, 0, 0, 1)(s"Contract $coid01 is active")
@@ -321,7 +321,7 @@ class ConflictDetectorTest
             )
           }
         }
-        _ = acs.setArchiveHook { (coids, ToC) =>
+        _ = acs.setArchivePurgeHook { (coids, ToC) =>
           Future.successful {
             assert(coids.toSet == Set(coid00) && ToC == toc)
             checkContractState(cd, coid00, Archived, toc, 0, 0, 1)(
@@ -460,7 +460,7 @@ class ConflictDetectorTest
         _ = checkContractState(cd, coid21, 1, 1 + 1, 0)(s"Contract $coid21 in creation is locked")
 
         // Check that the in-memory states of contracts are as expected after finalizing the first request, but before the updates are persisted
-        _ = acs.setCreateHook { (_, _) =>
+        _ = acs.setCreateAddHook { (_, _) =>
           Future.successful {
             checkContractState(cd, coid20, active, toc, 0, 1, 1)(s"Contract $coid20 remains locked")
             checkContractState(cd, coid21, 1, 1, 0)(
@@ -468,7 +468,7 @@ class ConflictDetectorTest
             )
           }
         }
-        _ = acs.setArchiveHook { (_, _) =>
+        _ = acs.setArchivePurgeHook { (_, _) =>
           Future.successful {
             checkContractState(cd, coid00, active, toc0, 1, 1, 0)(s"$coid00 remains locked once")
             checkContractState(cd, coid11, Archived, toc, 1, 0, 1)(s"$coid11 is being archived")
@@ -545,7 +545,7 @@ class ConflictDetectorTest
         )
 
         // Finalize first request and make sure that the in-memory states are up to date while the ACS updates are being written
-        _ = acs.setCreateHook { (_, _) =>
+        _ = acs.setCreateAddHook { (_, _) =>
           Future.successful {
             checkContractState(cd, coid01, active, toc1, 0, 1, 1)(
               s"Contract $coid01 is being created"
@@ -642,7 +642,7 @@ class ConflictDetectorTest
         }
 
         // Finalize second request
-        _ = acs.setArchiveHook { (_, _) =>
+        _ = acs.setArchivePurgeHook { (_, _) =>
           Future.successful {
             checkContractState(cd, coid00, Archived, toc1, 0, 1, 1)(
               s"Archival for $coid00 retains the lock for the other request"
@@ -678,7 +678,7 @@ class ConflictDetectorTest
         _ = assert(cr2 == mkActivenessResult(locked = Set(coid10)))
 
         // Finalize first request
-        _ = acs.setArchiveHook { (_, _) =>
+        _ = acs.setArchivePurgeHook { (_, _) =>
           Future.successful {
             checkContractState(cd, coid00, Archived, toc1, 0, 0, 1)(
               s"Double archived contract $coid00 has a pending write"
@@ -764,11 +764,9 @@ class ConflictDetectorTest
           .flatten
           .failOnShutdown
         _ = assert(
-          fin1.leftMap(_.toList.toSet) == Left(
-            Set(
-              AcsError(DoubleContractCreation(coid01, toc0, toc1)),
-              AcsError(ChangeAfterArchival(coid01, toc0, toc1)),
-            )
+          fin1.left.value.toList.toSet == Set(
+            AcsError(DoubleContractCreation(coid01, toc0, toc1)),
+            AcsError(ChangeAfterArchival(coid01, toc0, toc1)),
           )
         )
         _ <- checkContractState(acs, coid10, (active, toc1))(s"contract $coid10 is created")
@@ -867,7 +865,7 @@ class ConflictDetectorTest
         }
 
         // Finalize first request
-        _ = acs.setCreateHook { (_, _) =>
+        _ = acs.setCreateAddHook { (_, _) =>
           Future.successful {
             checkContractState(cd, coid00, Archived, toc1, 0, 0, 1)(
               s"Contract $coid00 has a pending creation, but remains archived"
@@ -1031,7 +1029,7 @@ class ConflictDetectorTest
           )
 
           // Finalize the second request
-          _ = acs.setArchiveHook((_, _) =>
+          _ = acs.setArchivePurgeHook((_, _) =>
             finalizeForthRequest(cd)
           ) // This runs while request 1's ACS updates are written
           finF1 <- cd.finalizeRequest(commitSet1, toc1).failOnShutdown
@@ -1098,7 +1096,7 @@ class ConflictDetectorTest
         _ = cr3 shouldBe actRes3
 
         // Finalize the first request and do a lot of stuff while the updates are being written
-        _ = acs.setArchiveHook((_, _) => storeHookRequest0(cd, acs))
+        _ = acs.setArchivePurgeHook((_, _) => storeHookRequest0(cd, acs))
         finF0 <- cd.finalizeRequest(commitSet0, toc0).failOnShutdown
         _ = finF0Complete.success(())
         fin0 <- finF0.failOnShutdown

@@ -18,7 +18,6 @@ import com.digitalasset.canton.protocol.{
   WithContractHash,
 }
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, TransferCounter}
 
 /** Describes the effect of a confirmation request on the active contracts, contract keys, and transfers.
@@ -103,7 +102,7 @@ object CommitSet {
       consumedInputsOfHostedParties: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       transient: Map[LfContractId, WithContractHash[Set[LfPartyId]]],
       createdContracts: Map[LfContractId, SerializableContract],
-  )(protocolVersion: ProtocolVersion)(implicit loggingContext: ErrorLoggingContext): CommitSet = {
+  )(implicit loggingContext: ErrorLoggingContext): CommitSet = {
     if (activenessResult.isSuccessful) {
       val archivals = (consumedInputsOfHostedParties ++ transient).map {
         case (cid, hostedStakeholders) =>

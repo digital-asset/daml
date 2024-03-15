@@ -54,6 +54,33 @@ object IterableUtil {
     generateBlocks(peek())
   }
 
+  /** Splits the sequence `xs` after each element that satisfies `p` and returns the sequence of chunks */
+  def splitAfter[A, CC[X] <: immutable.Iterable[X], C, B](
+      xs: IterableOps[A, CC, C & immutable.Iterable[A]]
+  )(p: A => Boolean): LazyList[NonEmpty[CC[A]]] = {
+    val iterator = xs.iterator
+
+    def go(): LazyList[NonEmpty[CC[A]]] = {
+      if (iterator.hasNext) {
+        val chunkBuilder = xs.iterableFactory.newBuilder[A]
+
+        @tailrec def addUntilP(): Unit = {
+          if (iterator.hasNext) {
+            val x = iterator.next()
+            chunkBuilder.addOne(x)
+            if (!p(x)) addUntilP()
+          }
+        }
+
+        addUntilP()
+        val block = chunkBuilder.result()
+        NonEmptyUtil.fromUnsafe(block) #:: go()
+      } else LazyList.empty
+    }
+
+    go()
+  }
+
   /** Returns the zipping of `elems` with `seq` where members `y` of `seq` are skipped if `!by(x, y)`
     * for the current member `x` from `elems`. Zipping stops when there are no more elements in `elems` or `seq`
     */

@@ -189,7 +189,7 @@ create table common_topology_dispatching (
 create type change_type as enum ('deactivation', 'activation');
 
 -- The specific operation type that introduced a contract change.
-create type operation_type as enum ('create', 'transfer-in', 'archive', 'transfer-out');
+create type operation_type as enum ('create', 'add', 'transfer-in', 'archive', 'purge', 'transfer-out');
 
 -- Maintains the status of contracts
 create table par_active_contracts (

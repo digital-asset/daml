@@ -36,6 +36,7 @@ import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolPr
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
   Archived,
+  Purged,
   TransferredAway,
 }
 import com.digitalasset.canton.participant.store.*
@@ -141,7 +142,7 @@ class TransferOutProcessingSteps(
             case Some(state) =>
               state.status match {
                 case Active(tc) => Right(tc)
-                case Archived | _: TransferredAway =>
+                case Archived | Purged | _: TransferredAway =>
                   Left(
                     TransferOutProcessorError.DeactivatedContract(contractId, status = state.status)
                   )

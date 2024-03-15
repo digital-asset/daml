@@ -32,15 +32,16 @@ import scala.concurrent.{ExecutionContext, Future}
 private[participant] class HookedAcs(private val acs: ActiveContractStore)(implicit
     val ec: ExecutionContext
 ) extends ActiveContractStore {
-  import HookedAcs.{noArchiveAction, noCreateAction, noTransferAction}
+  import HookedAcs.{noArchivePurgeAction, noCreateAddAction, noTransferAction}
 
-  private val nextCreateHook
+  private val nextCreateAddHook
       : AtomicReference[(Seq[(LfContractId, TransferCounter)], TimeOfChange) => Future[Unit]] =
     new AtomicReference[(Seq[(LfContractId, TransferCounter)], TimeOfChange) => Future[Unit]](
-      noCreateAction
+      noCreateAddAction
     )
-  private val nextArchiveHook: AtomicReference[(Seq[LfContractId], TimeOfChange) => Future[Unit]] =
-    new AtomicReference[(Seq[LfContractId], TimeOfChange) => Future[Unit]](noArchiveAction)
+  private val nextArchivePurgeHook
+      : AtomicReference[(Seq[LfContractId], TimeOfChange) => Future[Unit]] =
+    new AtomicReference[(Seq[LfContractId], TimeOfChange) => Future[Unit]](noArchivePurgeAction)
   private val nextTransferHook =
     new AtomicReference[
       (
@@ -55,12 +56,12 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
 
   override private[store] def indexedStringStore: IndexedStringStore = acs.indexedStringStore
 
-  def setCreateHook(
+  def setCreateAddHook(
       preCreate: (Seq[(LfContractId, TransferCounter)], TimeOfChange) => Future[Unit]
   ): Unit =
-    nextCreateHook.set(preCreate)
-  def setArchiveHook(preArchive: (Seq[LfContractId], TimeOfChange) => Future[Unit]): Unit =
-    nextArchiveHook.set(preArchive)
+    nextCreateAddHook.set(preCreate)
+  def setArchivePurgeHook(preArchive: (Seq[LfContractId], TimeOfChange) => Future[Unit]): Unit =
+    nextArchivePurgeHook.set(preArchive)
   def setTransferHook(
       preTransfer: (
           Seq[(LfContractId, TransferDomainId, TransferCounter, TimeOfChange)],
@@ -71,25 +72,27 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   def setFetchHook(preFetch: Iterable[LfContractId] => Future[Unit]): Unit =
     nextFetchHook.set(preFetch)
 
-  override def markContractsActive(
+  override def markContractsCreatedOrAdded(
       contracts: Seq[(LfContractId, TransferCounter)],
       toc: TimeOfChange,
+      isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
-    val preCreate = nextCreateHook.getAndSet(noCreateAction)
+    val preCreate = nextCreateAddHook.getAndSet(noCreateAddAction)
     preCreate(contracts, toc).flatMap { _ =>
-      acs.markContractsActive(contracts, toc).value
+      acs.markContractsCreated(contracts, toc).value
     }
   }
 
-  override def archiveContracts(
+  override def purgeOrArchiveContracts(
       contracts: Seq[LfContractId],
       toc: TimeOfChange,
+      isArchival: Boolean,
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
-    val preArchive = nextArchiveHook.getAndSet(noArchiveAction)
+    val preArchive = nextArchivePurgeHook.getAndSet(noArchivePurgeAction)
     preArchive(contracts, toc)
       .flatMap { _ =>
         acs.archiveContracts(contracts, toc).value
@@ -196,12 +199,12 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
 }
 
 object HookedAcs {
-  private val noCreateAction
+  private val noCreateAddAction
       : (Seq[(LfContractId, TransferCounter)], TimeOfChange) => Future[Unit] = { (_, _) =>
     Future.unit
   }
 
-  private val noArchiveAction: (Seq[LfContractId], TimeOfChange) => Future[Unit] = { (_, _) =>
+  private val noArchivePurgeAction: (Seq[LfContractId], TimeOfChange) => Future[Unit] = { (_, _) =>
     Future.unit
   }
 

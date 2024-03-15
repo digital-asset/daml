@@ -76,21 +76,22 @@ class ReferenceBlockOrderer(
       )
       .viaMat(KillSwitches.single)(Keep.right)
       .scanAsync(
-        (fromHeight - 1L, Seq[BlockOrderer.Block]())
-      ) { case ((lastHeight, _), _tick) =>
+        fromHeight -> Seq[BlockOrderer.Block]()
+      ) { case ((nextFromHeight, _), _tick) =>
         for {
           newBlocks <-
-            store.queryBlocks(lastHeight + 1L).map { timestampedBlocks =>
+            store.queryBlocks(nextFromHeight).map { timestampedBlocks =>
               val blocks = timestampedBlocks.map(_.block)
               if (logger.underlying.isDebugEnabled()) {
                 logger.debug(
-                  s"New blocks (${blocks.length}) at heights ${lastHeight + 1}, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
+                  s"New blocks (${blocks.length}) starting at height $nextFromHeight, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
                 )
               }
               blocks.lastOption.foreach { lastBlock =>
-                if (lastBlock.blockHeight != lastHeight + blocks.length) {
+                val expectedLastBlockHeight = nextFromHeight + blocks.length - 1
+                if (lastBlock.blockHeight != expectedLastBlockHeight) {
                   logger.warn(
-                    s"Last block height was expected to be ${lastHeight + blocks.length} but was ${lastBlock.blockHeight}. " +
+                    s"Last block height was expected to be $expectedLastBlockHeight but was ${lastBlock.blockHeight}. " +
                       "This might point to a gap in queried blocks (visible under debug logging) and cause the BlockSequencer subscription to become stuck."
                   )
                 }
@@ -98,9 +99,9 @@ class ReferenceBlockOrderer(
               blocks
             }
         } yield {
-          // Setting the "new lastHeight" watermark block height based on the number of new blocks seen
+          // Setting the "new nextFromHeight" watermark block height based on the number of new blocks seen
           // assumes that store.queryBlocks returns consecutive blocks with "no gaps". See #13539.
-          (lastHeight + newBlocks.size) -> newBlocks
+          (nextFromHeight + newBlocks.size) -> newBlocks
         }
       }
       .mapConcat(_._2)

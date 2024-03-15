@@ -31,8 +31,6 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import pureconfig.error.ConfigReaderFailures
 import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
 
-import java.net.InetSocketAddress
-import java.nio.file.Path
 import java.time.Duration
 import scala.annotation.nowarn
 import scala.reflect.{ClassTag, classTag}

@@ -73,36 +73,36 @@ private final class ChangeAssignation(
       source: Map[LfContractId, ContractState]
   )(implicit
       executionContext: ExecutionContext
-  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounter)]]] =
+  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounter)]]] = {
+    def errorUnlessSkipInactive(
+        cid: ChangeAssignation.Data[LfContractId],
+        reason: String,
+    ): Either[String, None.type] =
+      Either.cond(
+        skipInactive,
+        None,
+        s"Cannot change contract assignation: contract $cid $reason.",
+      )
+
     EitherT.fromEither(
       contractIds
         .map(cid => (cid, source.get(cid.payload).map(_.status)))
         .toList
         .traverse {
           case (cid, None) =>
-            Either.cond(
-              skipInactive,
-              None,
-              s"Contract $cid does not exist in source domain and cannot be moved.",
-            )
+            errorUnlessSkipInactive(cid, "does not exist in source domain")
           case (cid, Some(ActiveContractStore.Active(transferCounter))) =>
             Right(Some(cid.copy(payload = (cid.payload, transferCounter))))
           case (cid, Some(ActiveContractStore.Archived)) =>
-            Either.cond(
-              skipInactive,
-              None,
-              s"Contract $cid has been archived and cannot be moved.",
-            )
+            errorUnlessSkipInactive(cid, "has been archived")
+          case (cid, Some(ActiveContractStore.Purged)) =>
+            errorUnlessSkipInactive(cid, "has been purged")
           case (cid, Some(ActiveContractStore.TransferredAway(target, _transferCounter))) =>
-            Either
-              .cond(
-                skipInactive,
-                None,
-                s"Contract $cid has been transferred to $target and cannot be moved.",
-              )
+            errorUnlessSkipInactive(cid, s"has been transferred to $target")
         }
         .map(_.flatten)
     )
+  }
 
   private def changingContractIds(
       sourceContracts: List[ChangeAssignation.Data[(LfContractId, TransferCounter)]],
