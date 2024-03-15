@@ -1365,8 +1365,7 @@ message DefValue {
 
   Expr expr = 3;
 
-  bool is_test = 4;
-
+  bool is_test = 1000; // *Available in versions >= 2.dev*
 }
 
 message FeatureFlags {
