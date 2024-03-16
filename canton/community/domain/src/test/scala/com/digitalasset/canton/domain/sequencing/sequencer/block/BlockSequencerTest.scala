@@ -77,7 +77,7 @@ class BlockSequencerTest
     with RateLimitManagerTesting {
 
   "BlockSequencer" should {
-    "process a lot of blocks during catch up" in withEnv() { implicit env =>
+    "process a lot of blocks during catch up" in withEnv { implicit env =>
       env.fakeBlockSequencerOps.completed.future.map(_ => succeed)
     }
   }
@@ -87,16 +87,14 @@ class BlockSequencerTest
 
   private val N = 1_000_000
 
-  private def withEnv[T](
-      initial: Option[BlockEphemeralState] = None
-  )(test: Environment => Future[T]): Future[T] = {
-    val env = new Environment(initial)
+  private def withEnv[T](test: Environment => Future[T]): Future[T] = {
+    val env = new Environment
     complete {
       test(env)
     } lastly env.close()
   }
 
-  private class Environment(initial: Option[BlockEphemeralState] = None) extends AutoCloseable {
+  private class Environment extends AutoCloseable {
     private val actorSystem = ActorSystem()
     implicit val materializer: Materializer = Materializer(actorSystem)
 
@@ -149,10 +147,6 @@ class BlockSequencerTest
 
     private val store =
       new InMemorySequencerBlockStore(None, loggerFactory)
-    Await.result(
-      initial.fold(Future.unit)(store.setInitialState(_, None)),
-      1.second,
-    )
 
     private val balanceStore = new InMemoryTrafficBalanceStore(loggerFactory)
 
@@ -267,8 +261,10 @@ class BlockSequencerTest
         traceContext: com.digitalasset.canton.tracing.TraceContext
     ): scala.concurrent.Future[HeadState] = ???
     override def isMemberEnabled(member: com.digitalasset.canton.topology.Member): Boolean = ???
-    override def pruneLocalDatabase(timestamp: com.digitalasset.canton.data.CantonTimestamp)(
-        implicit traceContext: com.digitalasset.canton.tracing.TraceContext
+    override def updateInitialMemberCounters(
+        timestamp: com.digitalasset.canton.data.CantonTimestamp
+    )(implicit
+        traceContext: com.digitalasset.canton.tracing.TraceContext
     ): scala.concurrent.Future[Unit] = ???
     override def waitForAcknowledgementToComplete(
         member: com.digitalasset.canton.topology.Member,
@@ -281,6 +277,6 @@ class BlockSequencerTest
     ): scala.concurrent.Future[Unit] = ???
     override def waitForPruningToComplete(
         timestamp: com.digitalasset.canton.data.CantonTimestamp
-    ): scala.concurrent.Future[String] = ???
+    ): (Boolean, Future[Unit]) = ???
   }
 }

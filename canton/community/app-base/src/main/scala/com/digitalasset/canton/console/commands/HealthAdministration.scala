@@ -107,7 +107,7 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
     }))
 
   @Help.Summary("Check if the node is running")
-  def running(): Boolean =
+  def is_running(): Boolean =
     // in case the node is not reachable, we assume it is not running
     falseIfUnreachable(runningCommand)
 
@@ -128,7 +128,7 @@ abstract class HealthAdministrationCommon[S <: data.NodeStatus.Status](
   }
 
   @Help.Summary("Wait for the node to be running")
-  def wait_for_running(): Unit = waitFor(running())
+  def wait_for_running(): Unit = waitFor(is_running())
 
   @Help.Summary("Wait for the node to be initialized")
   def wait_for_initialized(): Unit = {

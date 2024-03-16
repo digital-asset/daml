@@ -9,19 +9,23 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
 import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService
 import com.digitalasset.canton.domain.admin.v30.{
-  InitializeSequencerRequest,
-  InitializeSequencerResponse,
-  InitializeSequencerVersionedRequest,
-  InitializeSequencerVersionedResponse,
+  InitializeSequencerFromGenesisStateRequest,
+  InitializeSequencerFromGenesisStateResponse,
+  InitializeSequencerFromOnboardingStateRequest,
+  InitializeSequencerFromOnboardingStateResponse,
 }
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
-  InitializeSequencerRequestX,
-  InitializeSequencerResponseX,
+  InitializeSequencerRequest,
+  InitializeSequencerResponse,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.OnboardingStateForSequencer
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
+import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,47 +38,67 @@ class GrpcSequencerInitializationServiceX(
 ) extends SequencerInitializationService
     with NamedLogging {
 
-  override def initializeSequencer(
-      requestP: InitializeSequencerRequest
-  ): Future[InitializeSequencerResponse] = {
+  override def initializeSequencerFromGenesisState(
+      request: InitializeSequencerFromGenesisStateRequest
+  ): Future[InitializeSequencerFromGenesisStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[Future, CantonError, InitializeSequencerResponse] = for {
-      request <- EitherT.fromEither[Future](
-        InitializeSequencerRequestX
-          .fromProtoV30(requestP)
+
+    val res: EitherT[Future, CantonError, InitializeSequencerFromGenesisStateResponse] = for {
+      topologyState <- EitherT.fromEither[Future](
+        StoredTopologyTransactionsX
+          .fromByteString(request.topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
+      domainParameters <- EitherT.fromEither[Future](
+        ProtoConverter
+          .parseRequired(
+            StaticDomainParameters.fromProtoV30,
+            "domain_parameters",
+            request.domainParameters,
+          )
+          .leftMap(ProtoDeserializationFailure.Wrap(_))
+      )
+      initializeRequest = InitializeSequencerRequest(topologyState, domainParameters, None)
       result <- handler
-        .initialize(request)
+        .initialize(initializeRequest)
         .leftMap(FailedToInitialiseDomainNode.Failure(_))
         .onShutdown(Left(FailedToInitialiseDomainNode.Shutdown())): EitherT[
         Future,
         CantonError,
-        InitializeSequencerResponseX,
+        InitializeSequencerResponse,
       ]
-    } yield result.toProtoV30
+    } yield InitializeSequencerFromGenesisStateResponse(result.replicated)
     mapErrNew(res)
   }
 
-  override def initializeSequencerVersioned(
-      requestP: InitializeSequencerVersionedRequest
-  ): Future[InitializeSequencerVersionedResponse] = {
+  override def initializeSequencerFromOnboardingState(
+      request: InitializeSequencerFromOnboardingStateRequest
+  ): Future[InitializeSequencerFromOnboardingStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[Future, CantonError, InitializeSequencerVersionedResponse] = for {
-      request <- EitherT.fromEither[Future](
-        InitializeSequencerRequestX
-          .fromProtoV30(requestP)
+    val res: EitherT[Future, CantonError, InitializeSequencerFromOnboardingStateResponse] = for {
+      onboardingState <- EitherT.fromEither[Future](
+        OnboardingStateForSequencer
+          // according to @rgugliel-da, this is safe to do here.
+          // the caller of this endpoint could get the onboarding state from various sequencers
+          // and compare them for byte-for-byte equality, to increase the confidence that this
+          // is safe to deserialize
+          .fromByteStringUnsafe(request.onboardingState)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
+      initializeRequest = InitializeSequencerRequest(
+        onboardingState.topologySnapshot,
+        onboardingState.staticDomainParameters,
+        Some(onboardingState.sequencerSnapshot),
+      )
       result <- handler
-        .initialize(request)
+        .initialize(initializeRequest)
         .leftMap(FailedToInitialiseDomainNode.Failure(_))
         .onShutdown(Left(FailedToInitialiseDomainNode.Shutdown())): EitherT[
         Future,
         CantonError,
-        InitializeSequencerResponseX,
+        InitializeSequencerResponse,
       ]
-    } yield InitializeSequencerVersionedResponse(result.replicated)
+    } yield InitializeSequencerFromOnboardingStateResponse(result.replicated)
     mapErrNew(res)
   }
 
@@ -82,8 +106,8 @@ class GrpcSequencerInitializationServiceX(
 
 object GrpcSequencerInitializationServiceX {
   trait Callback {
-    def initialize(request: InitializeSequencerRequestX)(implicit
+    def initialize(request: InitializeSequencerRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponseX]
+    ): EitherT[FutureUnlessShutdown, String, InitializeSequencerResponse]
   }
 }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -207,7 +206,8 @@ object ApiServiceOwner {
       loggerFactory
         .getTracedLogger(getClass)
         .info(
-          s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiService.port}."
+          s"Initialized API server listening to port = ${apiService.port} ${if (tls.isDefined) "using tls"
+            else "without tls"}."
         )
       apiService
     }

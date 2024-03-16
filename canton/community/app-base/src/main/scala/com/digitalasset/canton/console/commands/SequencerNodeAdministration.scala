@@ -3,19 +3,18 @@
 
 package com.digitalasset.canton.console.commands
 
-import cats.syntax.option.*
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.{
-  Initialize,
-  InitializeX,
+  InitializeFromGenesisState,
+  InitializeFromOnboardingState,
 }
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.console.Help
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponseX
+import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
   StoredTopologyTransactionsX,
@@ -42,6 +41,28 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
   }
 
   @Help.Summary(
+    "Download the onboarding state at a given point in time to bootstrap another sequencer"
+  )
+  def onboarding_state_at_timestamp(
+      timestamp: CantonTimestamp
+  ): ByteString = {
+    consoleEnvironment.run {
+      runner.adminCommand(EnterpriseSequencerAdminCommands.OnboardingState(Right(timestamp)))
+    }
+  }
+
+  @Help.Summary(
+    "Download the onboarding state for a given sequencer"
+  )
+  def onboarding_state_for_sequencer(
+      sequencerId: SequencerId
+  ): ByteString = {
+    consoleEnvironment.run {
+      runner.adminCommand(EnterpriseSequencerAdminCommands.OnboardingState(Left(sequencerId)))
+    }
+  }
+
+  @Help.Summary(
     "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
       "sequencer nodes being initialized at the same time as the corresponding domain node. " +
       "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
@@ -49,10 +70,10 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
   def assign_from_beginning(
       genesisState: Seq[GenericSignedTopologyTransactionX],
       domainParameters: StaticDomainParameters,
-  ): InitializeSequencerResponseX =
+  ): InitializeSequencerResponse =
     consoleEnvironment.run {
       runner.adminCommand(
-        InitializeX(
+        InitializeFromGenesisState(
           StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
             genesisState.map(signed =>
               StoredTopologyTransactionX(
@@ -62,9 +83,8 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
                 signed,
               )
             )
-          ),
+          ).toByteString(domainParameters.protocolVersion),
           domainParameters.toInternal,
-          None,
         )
       )
     }
@@ -72,13 +92,12 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
   def assign_from_beginning(
       genesisState: ByteString,
       domainParameters: StaticDomainParameters,
-  ): InitializeSequencerResponseX =
+  ): InitializeSequencerResponse =
     consoleEnvironment.run {
       runner.adminCommand(
-        Initialize(
+        InitializeFromGenesisState(
           genesisState,
           domainParameters.toInternal,
-          ByteString.empty(),
         )
       )
     }
@@ -87,14 +106,10 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
     "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
       "This is called as part of the sequencer.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
   )
-  def assign_from_snapshot(
-      topologySnapshot: GenericStoredTopologyTransactionsX,
-      sequencerSnapshot: SequencerSnapshot,
-      domainParameters: StaticDomainParameters,
-  ): InitializeSequencerResponseX =
+  def assign_from_onboarding_state(onboardingState: ByteString): InitializeSequencerResponse =
     consoleEnvironment.run {
       runner.adminCommand(
-        InitializeX(topologySnapshot, domainParameters.toInternal, sequencerSnapshot.some)
+        InitializeFromOnboardingState(onboardingState)
       )
     }
 

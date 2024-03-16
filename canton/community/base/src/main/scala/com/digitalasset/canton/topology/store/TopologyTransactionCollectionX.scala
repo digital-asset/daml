@@ -105,6 +105,16 @@ final case class StoredTopologyTransactionsX[+Op <: TopologyChangeOpX, +M <: Top
       }
       .getOrElse(this) // this case is triggered by `result` being empty
   }
+
+  def retainAuthorizedHistoryAndEffectiveProposals: StoredTopologyTransactionsX[Op, M] = {
+    // only retain transactions that are:
+    filter(tx =>
+      // * fully authorized
+      !tx.transaction.isProposal ||
+        // * proposals that are still effective
+        tx.validUntil.isEmpty
+    )
+  }
 }
 
 object StoredTopologyTransactionsX

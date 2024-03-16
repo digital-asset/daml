@@ -849,7 +849,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           .toRight("you need at least one sequencer")
         neMediators <- NonEmpty.from(mediators.distinct).toRight("you need at least one mediator")
         nodes = neOwners ++ neSequencers ++ neMediators
-        _ = EitherUtil.condUnitE(nodes.forall(_.health.running()), "all nodes must be running")
+        _ = EitherUtil.condUnitE(nodes.forall(_.health.is_running()), "all nodes must be running")
         ns <- expected_namespace(neOwners)
         expectedId = ns.map(ns => DomainId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive)))
         actualIdIfAllNodesAreInitialized <- expectedId.fold(

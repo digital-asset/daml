@@ -423,9 +423,8 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
               ),
             )
 
-            essentialStateTransactions <- store.findEssentialStateForMember(
-              tx2_OTK.mapping.member,
-              asOfInclusive = ts5,
+            essentialStateTransactions <- store.findEssentialStateAtSequencedTime(
+              asOfInclusive = SequencedTime(ts5)
             )
 
             upcomingTransactions <- store.findUpcomingEffectiveChanges(asOfInclusive = ts4)
@@ -459,11 +458,9 @@ trait TopologyStoreXTest extends AsyncWordSpec with TopologyStoreXTestBase {
             expectTransactions(
               essentialStateTransactions,
               Seq(
-                tx1_NSD_Proposal,
                 tx2_OTK,
                 tx3_IDD_Removal,
                 tx3_NSD,
-                tx3_PTP_Proposal,
                 tx4_DND,
                 tx4_OTK_Proposal,
                 tx5_PTP,

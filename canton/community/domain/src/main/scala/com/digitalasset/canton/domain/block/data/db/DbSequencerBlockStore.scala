@@ -24,6 +24,7 @@ import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager
   MemberSignedEvents,
   MemberTimestamps,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoint
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
   InternalSequencerPruningStatus,
@@ -190,24 +191,25 @@ class DbSequencerBlockStore(
       initial: BlockEphemeralState,
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val members = initial.state.status.members.toSeq
+    val members = initial.state.status.members
     val updateBlockHeight = updateBlockHeightDBIO(initial.latestBlock)
     val updateLowerBound =
       sequencerStore.saveLowerBoundDBIO(
         initial.state.status.lowerBound,
         maybeOnboardingTopologyEffectiveTimestamp,
       )
-    val writeInitialCounters = initial.state.heads.toSeq.map { case (member, counter) =>
-      initial.state.trafficState
-        .get(member)
-        .map { memberTrafficState =>
-          upsertMemberInitialStateWithTraffic(
-            member,
-            counter,
-            memberTrafficState,
-          )
-        }
-        .getOrElse(upsertMemberInitialState(member, counter))
+    val writeInitialCounters = initial.state.checkpoints.toSeq.map {
+      case (member, CounterCheckpoint(counter, _, _)) =>
+        initial.state.trafficState
+          .get(member)
+          .map { memberTrafficState =>
+            upsertMemberInitialStateWithTraffic(
+              member,
+              counter,
+              memberTrafficState,
+            )
+          }
+          .getOrElse(upsertMemberInitialState(member, counter))
     }
     val addMembers =
       members.map(member => sequencerStore.addMemberDBIO(member.member, member.registeredAt))

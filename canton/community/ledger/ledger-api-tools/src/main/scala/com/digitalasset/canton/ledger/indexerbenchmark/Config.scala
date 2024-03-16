@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.indexerbenchmark
 
 import com.daml.lf.data.Ref
-import com.daml.metrics.api.reporters.MetricsReporter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.config.Readers.*
@@ -22,7 +21,6 @@ import java.time.Duration
 final case class Config(
     updateCount: Option[Long],
     updateSource: String,
-    metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     indexServiceConfig: IndexServiceConfig,
     indexerConfig: IndexerConfig,
@@ -36,7 +34,6 @@ object Config {
   private[indexerbenchmark] val DefaultConfig: Config = Config(
     updateCount = None,
     updateSource = "",
-    metricsReporter = None,
     metricsReportingInterval = Duration.ofSeconds(1),
     indexServiceConfig = IndexServiceConfig(),
     indexerConfig = IndexerConfig(),
@@ -129,12 +126,6 @@ object Config {
           "Minimum value of the processed updates per second. If not satisfied the application will report an error."
         )
         .action((value, config) => config.copy(minUpdateRate = Some(value)))
-        .discard
-
-      opt[MetricsReporter]("metrics-reporter")
-        .optional()
-        .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
-        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
         .discard
 
       opt[Duration]("metrics-reporting-interval")

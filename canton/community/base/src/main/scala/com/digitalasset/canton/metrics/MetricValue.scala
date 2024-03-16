@@ -49,8 +49,8 @@ object MetricValue {
 
   import scala.jdk.CollectionConverters.*
 
-  implicit val prettyValueAtPercentile: Pretty[ValueAtQuantile] = prettyOfClass(
-    param("percentile", _.getQuantile.toString.unquoted),
+  implicit val prettyValueAtPercentile: Pretty[ValueAtPercentile] = prettyOfClass(
+    param("percentile", _.getPercentile.toString.unquoted),
     param("value", _.getValue.toString.unquoted),
   )
 
@@ -102,13 +102,13 @@ object MetricValue {
   final case class Summary(
       sum: Double,
       count: Long,
-      quantiles: Seq[ValueAtQuantile],
+      percentiles: Seq[ValueAtPercentile],
       attributes: Map[String, String],
   ) extends MetricValue {
     override def pretty: Pretty[Summary] = prettyOfClass(
       param("sum", _.sum.toString.unquoted),
       param("count", _.count),
-      param("quantiles", _.quantiles),
+      param("percentiles", _.percentiles),
       param(
         "attributes",
         _.attributes,
@@ -116,12 +116,12 @@ object MetricValue {
     )
 
     override def toCsvHeader(data: MetricData): String = {
-      (Seq("timestamp", "sum", "count") ++ quantiles.map(_.getQuantile).map(x => s"p$x%2.0f"))
+      (Seq("timestamp", "sum", "count") ++ percentiles.map(_.getPercentile).map(x => s"p$x%2.0f"))
         .mkString(",")
     }
 
     override def toCsvRow(ts: CantonTimestamp, data: MetricData): String = {
-      (Seq(ts.getEpochSecond.toString, sum.toString, count.toString) ++ quantiles.map(
+      (Seq(ts.getEpochSecond.toString, sum.toString, count.toString) ++ percentiles.map(
         _.getValue.toString
       ))
         .mkString(",")
@@ -193,7 +193,7 @@ object MetricValue {
     Summary(
       data.getSum,
       data.getCount,
-      data.getValues.asScala.toSeq,
+      data.getPercentileValues.asScala.toSeq,
       mapAttributes(data.getAttributes),
     )
   }

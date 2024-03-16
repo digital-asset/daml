@@ -582,6 +582,9 @@ object CantonConfig {
     implicit val tracingConfigDisabledSpanExporterReader
         : ConfigReader[TracingConfig.Exporter.Disabled.type] =
       deriveReader[TracingConfig.Exporter.Disabled.type]
+    implicit val tracingConfigJaegerSpanExporterReader
+        : ConfigReader[TracingConfig.Exporter.Jaeger] =
+      deriveReader[TracingConfig.Exporter.Jaeger]
     implicit val tracingConfigZipkinSpanExporterReader
         : ConfigReader[TracingConfig.Exporter.Zipkin] =
       deriveReader[TracingConfig.Exporter.Zipkin]
@@ -886,10 +889,6 @@ object CantonConfig {
       deriveReader[MetricsReporterConfig.Prometheus]
     lazy implicit val metricsConfigCsvReader: ConfigReader[MetricsReporterConfig.Csv] =
       deriveReader[MetricsReporterConfig.Csv]
-    lazy implicit val metricsConfigLoggingReader: ConfigReader[MetricsReporterConfig.Logging] =
-      deriveReader[MetricsReporterConfig.Logging]
-    lazy implicit val metricsConfigJvmConfigReader: ConfigReader[MetricsConfig.JvmMetrics] =
-      deriveReader[MetricsConfig.JvmMetrics]
     lazy implicit val metricsReporterConfigReader: ConfigReader[MetricsReporterConfig] =
       deriveReader[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigReader: ConfigReader[HistogramDefinition] =
@@ -1002,6 +1001,9 @@ object CantonConfig {
     implicit val tracingConfigDisabledSpanExporterWriter
         : ConfigWriter[TracingConfig.Exporter.Disabled.type] =
       deriveWriter[TracingConfig.Exporter.Disabled.type]
+    implicit val tracingConfigJaegerSpanExporterWriter
+        : ConfigWriter[TracingConfig.Exporter.Jaeger] =
+      deriveWriter[TracingConfig.Exporter.Jaeger]
     implicit val tracingConfigZipkinSpanExporterWriter
         : ConfigWriter[TracingConfig.Exporter.Zipkin] =
       deriveWriter[TracingConfig.Exporter.Zipkin]
@@ -1274,10 +1276,7 @@ object CantonConfig {
       deriveWriter[MetricsReporterConfig.Prometheus]
     lazy implicit val metricsConfigCsvWriter: ConfigWriter[MetricsReporterConfig.Csv] =
       deriveWriter[MetricsReporterConfig.Csv]
-    lazy implicit val metricsConfigLoggingWriter: ConfigWriter[MetricsReporterConfig.Logging] =
-      deriveWriter[MetricsReporterConfig.Logging]
-    lazy implicit val metricsConfigJvmMetricsWriter: ConfigWriter[MetricsConfig.JvmMetrics] =
-      deriveWriter[MetricsConfig.JvmMetrics]
+
     lazy implicit val metricsReporterConfigWriter: ConfigWriter[MetricsReporterConfig] =
       deriveWriter[MetricsReporterConfig]
     lazy implicit val histogramDefinitionConfigWriter: ConfigWriter[HistogramDefinition] =

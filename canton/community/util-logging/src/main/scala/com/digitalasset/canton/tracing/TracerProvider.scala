@@ -16,6 +16,7 @@ import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.{SimpleSpanProcessor, SpanExporter}
+import io.opentelemetry.semconv.resource.attributes.ResourceAttributes
 
 import java.util
 
@@ -57,7 +58,7 @@ private[tracing] class TracerProviderWithBuilder(
       .foldRight(Attributes.builder()) { case ((key, value), builder) =>
         builder.put(s"canton.$key", value)
       }
-      .put("service.name", name)
+      .put(ResourceAttributes.SERVICE_NAME, name)
       .build()
     val serviceNameResource = Resource.create(attrs)
     configuredOpenTelemetry.tracerProviderBuilder
@@ -69,7 +70,7 @@ private[tracing] class TracerProviderWithBuilder(
     OpenTelemetrySdk.builder
       .setPropagators(configuredOpenTelemetry.openTelemetry.getPropagators)
       .setMeterProvider(configuredOpenTelemetry.openTelemetry.getSdkMeterProvider)
-      .setLoggerProvider(configuredOpenTelemetry.openTelemetry.getSdkLoggerProvider)
+      .setLogEmitterProvider(configuredOpenTelemetry.openTelemetry.getSdkLogEmitterProvider)
       .setTracerProvider(tracerProvider)
       .build
 

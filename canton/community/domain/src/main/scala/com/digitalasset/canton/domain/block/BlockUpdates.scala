@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockUpdateGenerator.SignedEvents
-import com.digitalasset.canton.domain.block.data.{BlockInfo, EphemeralState}
+import com.digitalasset.canton.domain.block.data.{BlockInfo, BlockUpdateEphemeralState}
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdates
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.Member
@@ -73,7 +73,7 @@ final case class ChunkUpdate(
     signedEvents: Seq[SignedEvents] = Seq.empty,
     inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
     lastSequencerEventTimestamp: Option[CantonTimestamp],
-    state: EphemeralState,
+    state: BlockUpdateEphemeralState,
 ) {
   // ensure that all new members appear in the ephemeral state
   require(

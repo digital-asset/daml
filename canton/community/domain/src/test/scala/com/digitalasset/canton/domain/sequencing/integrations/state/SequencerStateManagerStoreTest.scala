@@ -113,7 +113,7 @@ trait SequencerStateManagerStoreTest
           head <- store.readAtBlockTimestamp(CantonTimestamp.Epoch)
         } yield {
           head.registeredMembers shouldBe empty
-          head.heads shouldBe empty
+          head.checkpoints shouldBe empty
         }
       }
 
@@ -140,13 +140,13 @@ trait SequencerStateManagerStoreTest
             head <- store.readAtBlockTimestamp(t2)
           } yield {
             stateAtT1.registeredMembers should contain.only(alice, bob)
-            stateAtT1.heads(alice) shouldBe SequencerCounter(0)
-            stateAtT1.heads.keys should contain only alice
+            stateAtT1.headCounter(alice) should contain(SequencerCounter(0))
+            stateAtT1.checkpoints.keys should contain only alice
 
             head.registeredMembers should contain.only(alice, bob, carlos)
-            head.heads(alice) shouldBe SequencerCounter(1)
-            head.heads(bob) shouldBe SequencerCounter(0)
-            head.heads.keys should not contain carlos
+            head.headCounter(alice) should contain(SequencerCounter(1))
+            head.headCounter(bob) should contain(SequencerCounter(0))
+            head.checkpoints.keys should not contain carlos
           }
         }
 
@@ -188,15 +188,15 @@ trait SequencerStateManagerStoreTest
             head <- store.readAtBlockTimestamp(t2)
           } yield {
             stateAtT1.registeredMembers should contain.only(alice, bob)
-            stateAtT1.heads(alice) shouldBe SequencerCounter(0)
-            stateAtT1.heads.keys should contain only alice
+            stateAtT1.headCounter(alice) should contain(SequencerCounter(0))
+            stateAtT1.checkpoints.keys should contain only alice
             stateAtT1.trafficState(alice) shouldBe trafficStateAlice
             stateAtT1.trafficState.keys should contain only alice
 
             head.registeredMembers should contain.only(alice, bob, carlos)
-            head.heads(alice) shouldBe SequencerCounter(1)
-            head.heads(bob) shouldBe SequencerCounter(0)
-            head.heads.keys should not contain carlos
+            head.headCounter(alice) should contain(SequencerCounter(1))
+            head.headCounter(bob) should contain(SequencerCounter(0))
+            head.checkpoints.keys should not contain carlos
             head.trafficState(alice) shouldBe trafficStateAlice2
             head.trafficState(bob) shouldBe trafficStateBob
             head.trafficState.keys should not contain carlos
@@ -217,7 +217,7 @@ trait SequencerStateManagerStoreTest
             head <- store.readAtBlockTimestamp(t2)
           } yield {
             head.registeredMembers should contain.only(alice, bob)
-            head.heads(alice) shouldBe SequencerCounter(0)
+            head.headCounter(alice) should contain(SequencerCounter(0))
           }
       }
 
@@ -323,7 +323,7 @@ trait SequencerStateManagerStoreTest
           _ <- store.addMember(alice, t1)
           state <- store.readAtBlockTimestamp(t1)
         } yield {
-          state.heads.get(alice) should be(None)
+          state.headCounter(alice) shouldBe None
         }
       }
     }
@@ -352,7 +352,7 @@ trait SequencerStateManagerStoreTest
           _ <- store.addEvents(Map(bob -> send(bob, SequencerCounter(0), t2, message)), Map.empty)
           _ <- store.addEvents(Map(bob -> send(bob, SequencerCounter(1), t3, message)), Map.empty)
           state <- store.readAtBlockTimestamp(t3)
-        } yield state.heads(bob) shouldBe SequencerCounter(1)
+        } yield state.headCounter(bob) should contain(SequencerCounter(1))
       }
     }
 

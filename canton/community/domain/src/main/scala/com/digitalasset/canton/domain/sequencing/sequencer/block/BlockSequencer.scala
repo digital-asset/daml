@@ -52,7 +52,7 @@ import com.digitalasset.canton.traffic.{
 }
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil}
+import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -95,6 +95,13 @@ class BlockSequencer(
     with FlagCloseableAsync {
 
   override def timeouts: ProcessingTimeout = processingTimeouts
+
+  private[sequencer] val pruningQueue = new SimpleExecutionQueue(
+    "block-sequencer-pruning-queue",
+    futureSupervisor,
+    timeouts,
+    loggerFactory,
+  )
 
   override lazy val rateLimitManager: Option[SequencerRateLimitManager] = Some(
     blockRateLimitManager
@@ -377,19 +384,37 @@ class BlockSequencer(
       traceContext: TraceContext
   ): EitherT[Future, PruningError, String] = {
 
-    val pruningF = futureSupervisor.supervised(
+    val (isNew, pruningF) = stateManager.waitForPruningToComplete(requestedTimestamp)
+    val supervisedPruningF = futureSupervisor.supervised(
       s"Waiting for local pruning operation at $requestedTimestamp to complete"
-    )(stateManager.waitForPruningToComplete(requestedTimestamp))
+    )(pruningF)
 
-    for {
-      status <- EitherT.right[PruningError](this.pruningStatus)
-      _ <- condUnitET[Future](
-        requestedTimestamp <= status.safePruningTimestamp,
-        UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
+    if (isNew)
+      for {
+        status <- EitherT.right[PruningError](this.pruningStatus)
+        _ <- condUnitET[Future](
+          requestedTimestamp <= status.safePruningTimestamp,
+          UnsafePruningPoint(requestedTimestamp, status.safePruningTimestamp): PruningError,
+        )
+        msg <- EitherT.right(
+          pruningQueue
+            .execute(store.prune(requestedTimestamp), s"pruning sequencer at $requestedTimestamp")
+            .unwrap
+            .map(
+              _.onShutdown(s"pruning at $requestedTimestamp canceled because we're shutting down")
+            )
+        )
+        _ <- EitherT.right(
+          placeLocalEvent(BlockSequencer.UpdateInitialMemberCounters(requestedTimestamp))
+        )
+        _ <- EitherT.right(supervisedPruningF)
+      } yield msg
+    else
+      EitherT.right(
+        supervisedPruningF.map(_ =>
+          s"Pruning at $requestedTimestamp is already happening due to an earlier request"
+        )
       )
-      _ <- EitherT.right(placeLocalEvent(BlockSequencer.Prune(requestedTimestamp)))
-      msg <- EitherT.right(pruningF)
-    } yield msg
   }
 
   private def placeLocalEvent(event: BlockSequencer.LocalEvent)(implicit
@@ -437,6 +462,7 @@ class BlockSequencer(
     import TraceContext.Implicits.Empty.*
     logger.debug(s"$name sequencer shutting down")
     Seq[AsyncOrSyncCloseable](
+      SyncCloseable("pruningQueue", pruningQueue.close()),
       SyncCloseable("stateManager.close()", stateManager.close()),
       SyncCloseable("localEventsQueue.complete", localEventsQueue.complete()),
       AsyncCloseable(
@@ -457,7 +483,7 @@ class BlockSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, TrafficState]] = {
     upToDateTrafficStatesForMembers(
-      stateManager.getHeadState.chunk.ephemeral.status.members.map(_.member),
+      stateManager.getHeadState.chunk.ephemeral.status.membersMap.keySet,
       Some(clock.now),
     ).map(_.view.mapValues(_.state).toMap)
   }
@@ -468,7 +494,7 @@ class BlockSequencer(
     * @param updateTimestamp optionally, timestamp at which to compute the traffic states
     */
   private def upToDateTrafficStatesForMembers(
-      requestedMembers: Seq[Member],
+      requestedMembers: Set[Member],
       updateTimestamp: Option[CantonTimestamp] = None,
   )(implicit
       traceContext: TraceContext
@@ -480,18 +506,16 @@ class BlockSequencer(
         case Some(parameters) =>
           // Use the head ephemeral state to get the known traffic states
           val headEphemeral = stateManager.getHeadState.chunk.ephemeral
-          val requestedMembersSet = requestedMembers.toSet
-
           // Filter by authenticated, enabled members that have been requested
-          val knownValidMembers = headEphemeral.status.members.collect {
-            case SequencerMemberStatus(m @ (_: ParticipantId | _: MediatorId), _, _, true)
-                if m.isAuthenticated && Option
-                  .when(requestedMembersSet.nonEmpty)(requestedMembersSet)
-                  .forall(_.contains(m)) =>
+          val disabledMembers = headEphemeral.status.disabledMembers
+          val knownValidMembers = headEphemeral.status.membersMap.keySet.collect {
+            case m @ (_: ParticipantId | _: MediatorId)
+                if !disabledMembers.contains(m) &&
+                  (requestedMembers.isEmpty || requestedMembers.contains(m)) =>
               m
           }
           // Log if we're missing any states
-          val missingMembers = requestedMembersSet.diff(knownValidMembers.toSet)
+          val missingMembers = requestedMembers.diff(knownValidMembers)
           if (missingMembers.nonEmpty)
             logger.info(
               s"No traffic state found for the following members: ${missingMembers.mkString(", ")}"
@@ -552,7 +576,7 @@ class BlockSequencer(
   override def trafficStatus(requestedMembers: Seq[Member])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] = {
-    upToDateTrafficStatesForMembers(requestedMembers)
+    upToDateTrafficStatesForMembers(requestedMembers.toSet)
       .map { updated =>
         updated.map { case (member, TrafficStateUpdateResult(state, balanceUpdateSerial)) =>
           MemberTrafficStatus(
@@ -572,5 +596,5 @@ object BlockSequencer {
 
   sealed trait LocalEvent
   final case class DisableMember(member: Member) extends LocalEvent
-  final case class Prune(timestamp: CantonTimestamp) extends LocalEvent
+  final case class UpdateInitialMemberCounters(timestamp: CantonTimestamp) extends LocalEvent
 }

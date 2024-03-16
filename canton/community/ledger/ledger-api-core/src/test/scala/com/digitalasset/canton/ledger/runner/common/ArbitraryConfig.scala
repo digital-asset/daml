@@ -8,7 +8,6 @@ import com.daml.lf.VersionRange
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.metrics.api.reporters.MetricsReporter
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
@@ -24,7 +23,6 @@ import org.scalacheck.Gen
 
 import java.io.File
 import java.net.InetSocketAddress
-import java.nio.file.Paths
 import java.time.Duration
 import java.time.temporal.ChronoUnit
 
@@ -77,23 +75,6 @@ object ArbitraryConfig {
     host <- Gen.alphaStr
     port <- Gen.chooseNum(1, 65535)
   } yield new InetSocketAddress(host, port)
-
-  val graphiteReporter: Gen[MetricsReporter] = for {
-    address <- inetSocketAddress
-    prefixStr <- Gen.alphaStr if prefixStr.nonEmpty
-    prefix <- Gen.option(prefixStr)
-  } yield MetricsReporter.Graphite(address, prefix)
-
-  val prometheusReporter: Gen[MetricsReporter] = for {
-    address <- inetSocketAddress
-  } yield MetricsReporter.Prometheus(address)
-
-  val csvReporter: Gen[MetricsReporter] = for {
-    path <- Gen.alphaStr
-  } yield MetricsReporter.Csv(Paths.get(path).toAbsolutePath)
-
-  val metricsReporter: Gen[MetricsReporter] =
-    Gen.oneOf(graphiteReporter, prometheusReporter, csvReporter, Gen.const(MetricsReporter.Console))
 
   val clientAuth = Gen.oneOf(ClientAuth.values().toList)
 

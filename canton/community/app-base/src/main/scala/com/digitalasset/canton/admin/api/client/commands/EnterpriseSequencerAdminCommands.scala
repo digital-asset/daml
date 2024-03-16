@@ -13,13 +13,9 @@ import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v30
-import com.digitalasset.canton.domain.sequencing.admin.grpc.{
-  InitializeSequencerRequestX,
-  InitializeSequencerResponseX,
-}
+import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
-import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
+import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
 
@@ -47,14 +43,11 @@ object EnterpriseSequencerAdminCommands {
       v30.SequencerPruningAdministrationServiceGrpc.stub(channel)
   }
 
-  final case class InitializeX(
-      topologySnapshot: GenericStoredTopologyTransactionsX,
-      domainParameters: com.digitalasset.canton.protocol.StaticDomainParameters,
-      sequencerSnapshot: Option[SequencerSnapshot],
-  ) extends GrpcAdminCommand[
-        v30.InitializeSequencerRequest,
-        v30.InitializeSequencerResponse,
-        InitializeSequencerResponseX,
+  final case class InitializeFromOnboardingState(onboardingState: ByteString)
+      extends GrpcAdminCommand[
+        v30.InitializeSequencerFromOnboardingStateRequest,
+        v30.InitializeSequencerFromOnboardingStateResponse,
+        InitializeSequencerResponse,
       ] {
     override type Svc = v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
 
@@ -65,32 +58,28 @@ object EnterpriseSequencerAdminCommands {
 
     override def submitRequest(
         service: v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
-        request: v30.InitializeSequencerRequest,
-    ): Future[v30.InitializeSequencerResponse] =
-      service.initializeSequencer(request)
+        request: v30.InitializeSequencerFromOnboardingStateRequest,
+    ): Future[v30.InitializeSequencerFromOnboardingStateResponse] =
+      service.initializeSequencerFromOnboardingState(request)
 
-    override def createRequest(): Either[String, v30.InitializeSequencerRequest] =
+    override def createRequest()
+        : Either[String, v30.InitializeSequencerFromOnboardingStateRequest] =
       Right(
-        InitializeSequencerRequestX(
-          topologySnapshot,
-          domainParameters,
-          sequencerSnapshot,
-        ).toProtoV30
+        v30.InitializeSequencerFromOnboardingStateRequest(onboardingState)
       )
 
     override def handleResponse(
-        response: v30.InitializeSequencerResponse
-    ): Either[String, InitializeSequencerResponseX] =
-      InitializeSequencerResponseX.fromProtoV30(response).leftMap(_.toString)
+        response: v30.InitializeSequencerFromOnboardingStateResponse
+    ): Either[String, InitializeSequencerResponse] =
+      Right(InitializeSequencerResponse(response.replicated))
   }
-  final case class Initialize(
+  final case class InitializeFromGenesisState(
       topologySnapshot: ByteString,
       domainParameters: com.digitalasset.canton.protocol.StaticDomainParameters,
-      sequencerSnapshot: ByteString,
   ) extends GrpcAdminCommand[
-        v30.InitializeSequencerVersionedRequest,
-        v30.InitializeSequencerVersionedResponse,
-        InitializeSequencerResponseX,
+        v30.InitializeSequencerFromGenesisStateRequest,
+        v30.InitializeSequencerFromGenesisStateResponse,
+        InitializeSequencerResponse,
       ] {
     override type Svc = v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
 
@@ -101,23 +90,22 @@ object EnterpriseSequencerAdminCommands {
 
     override def submitRequest(
         service: v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
-        request: v30.InitializeSequencerVersionedRequest,
-    ): Future[v30.InitializeSequencerVersionedResponse] =
-      service.initializeSequencerVersioned(request)
+        request: v30.InitializeSequencerFromGenesisStateRequest,
+    ): Future[v30.InitializeSequencerFromGenesisStateResponse] =
+      service.initializeSequencerFromGenesisState(request)
 
-    override def createRequest(): Either[String, v30.InitializeSequencerVersionedRequest] =
+    override def createRequest(): Either[String, v30.InitializeSequencerFromGenesisStateRequest] =
       Right(
-        v30.InitializeSequencerVersionedRequest(
+        v30.InitializeSequencerFromGenesisStateRequest(
           topologySnapshot = topologySnapshot,
           Some(domainParameters.toProtoV30),
-          sequencerSnapshot,
         )
       )
 
     override def handleResponse(
-        response: v30.InitializeSequencerVersionedResponse
-    ): Either[String, InitializeSequencerResponseX] =
-      Right(InitializeSequencerResponseX(response.replicated))
+        response: v30.InitializeSequencerFromGenesisStateResponse
+    ): Either[String, InitializeSequencerResponse] =
+      Right(InitializeSequencerResponse(response.replicated))
   }
 
   final case class Snapshot(timestamp: CantonTimestamp)
@@ -148,6 +136,47 @@ object EnterpriseSequencerAdminCommands {
           SequencerSnapshot
             .fromByteStringUnsafe(snapshot)
             .leftMap(_.toString)
+        case _ => Left("response is empty")
+      }
+
+    //  command will potentially take a long time
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+  }
+
+  final case class OnboardingState(memberOrTimestamp: Either[SequencerId, CantonTimestamp])
+      extends BaseSequencerAdministrationCommand[
+        v30.OnboardingStateRequest,
+        v30.OnboardingStateResponse,
+        ByteString,
+      ] {
+    override def createRequest(): Either[String, v30.OnboardingStateRequest] = {
+      Right(
+        v30.OnboardingStateRequest(request =
+          memberOrTimestamp.fold[v30.OnboardingStateRequest.Request](
+            member => v30.OnboardingStateRequest.Request.SequencerId(member.toProtoPrimitive),
+            timestamp => v30.OnboardingStateRequest.Request.Timestamp(timestamp.toProtoTimestamp),
+          )
+        )
+      )
+    }
+
+    override def submitRequest(
+        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: v30.OnboardingStateRequest,
+    ): Future[v30.OnboardingStateResponse] = service.onboardingState(request)
+
+    override def handleResponse(
+        response: v30.OnboardingStateResponse
+    ): Either[String, ByteString] =
+      response.value match {
+        case v30.OnboardingStateResponse.Value
+              .Failure(v30.OnboardingStateResponse.Failure(reason)) =>
+          Left(reason)
+        case v30.OnboardingStateResponse.Value
+              .Success(
+                v30.OnboardingStateResponse.Success(onboardingState)
+              ) =>
+          Right(onboardingState)
         case _ => Left("response is empty")
       }
 

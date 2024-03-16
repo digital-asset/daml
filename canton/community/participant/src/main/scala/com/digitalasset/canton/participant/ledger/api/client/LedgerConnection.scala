@@ -24,7 +24,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TracerProvider
-import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
+import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -57,7 +57,7 @@ object LedgerConnection {
       .builderFor(config.address, config.port.unwrap)
       .executor(ec)
       .intercept(
-        GrpcTelemetry.builder(tracerProvider.openTelemetry).build().newClientInterceptor()
+        GrpcTracing.builder(tracerProvider.openTelemetry).build().newClientInterceptor()
       )
     LedgerClient.withoutToken(builder.build(), clientConfig, loggerFactory)
   }

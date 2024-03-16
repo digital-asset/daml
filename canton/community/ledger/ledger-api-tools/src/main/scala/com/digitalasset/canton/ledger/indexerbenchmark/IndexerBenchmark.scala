@@ -4,12 +4,8 @@
 package com.digitalasset.canton.ledger.indexerbenchmark
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.JvmMetricSet
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
-import com.daml.metrics.api.testing.{InMemoryMetricsFactory, ProxyMetricsFactory}
 import com.daml.resources
-import com.daml.telemetry.OpenTelemetryOwner
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy}
@@ -20,7 +16,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.{
   Update,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.metrics.{CantonLabeledMetricsFactory, Metrics}
 import com.digitalasset.canton.platform.LedgerApiServer
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
@@ -65,9 +61,8 @@ class IndexerBenchmark extends NamedLogging {
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates)
-
+      val metrics = new Metrics(MetricName("noop"), CantonLabeledMetricsFactory.NoOpMetricsFactory)
       val resource = for {
-        metrics <- metricsResource(config).acquire()
         servicesExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
@@ -149,29 +144,6 @@ class IndexerBenchmark extends NamedLogging {
         Duration(5, "minute"),
       )
       .acquire()
-
-  private def metricsResource(config: Config) = {
-    OpenTelemetryOwner(setAsGlobal = true, config.metricsReporter, Seq.empty).flatMap {
-      openTelemetry =>
-        val openTelemetryFactory =
-          new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
-        val inMemoryMetricFactory = new InMemoryMetricsFactory
-        JvmMetricSet.registerObservers()
-        val metrics = new Metrics(
-          MetricName("test"),
-          new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
-        )
-        config.metricsReporter
-          .fold(ResourceOwner.unit) { _ =>
-            noTracingLogger.warn("metrics reporting is not supported yet")
-            ResourceOwner.unit
-          /*ResourceOwner
-              .forCloseable(() => reporter.register(metrics.registry))
-              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))*/
-          }
-          .map(_ => metrics)
-    }
-  }
 
   private[this] def createReadService(
       updates: Source[(Offset, Traced[Update]), NotUsed]
