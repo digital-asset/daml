@@ -167,7 +167,7 @@ object OracleAround {
       logger.info(s"Starting Oracle container $dockerImage / $dbName...")
       oracleContainer.start()
       logger.info(s"Started Oracle container $dockerImage / $dbName.")
-      val host: String = if (hostToNetwork) "localhost" else oracleContainer.getContainerIpAddress
+      val host: String = if (hostToNetwork) "localhost" else oracleContainer.getHost
       val port: Int = if (hostToNetwork) Config.defaultPort else oracleContainer.getFirstMappedPort
       logger.info(s"Using Oracle Container instance at $host:$port")
       OracleServer(

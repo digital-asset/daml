@@ -247,7 +247,7 @@ class PostgresTestContainerSetup(
     postgresContainer.getUsername,
     postgresContainer.getPassword,
     postgresContainer.getDatabaseName,
-    postgresContainer.getContainerIpAddress,
+    postgresContainer.getHost,
     postgresContainer.getFirstMappedPort,
   )
 
