@@ -16,14 +16,14 @@
 
 
 // Minor version history:
-// * 2.1 --  2024-03-18: Initial version
+// * 2.1 --  2024-08-03: Initial version
 // * dev (special staging area for the next version to be released)
 
 syntax = "proto3";
 package daml_lf_2;
 
-option java_package = "com.daml.daml_lf_dev";
-option csharp_namespace = "Com.Daml.Daml_Lf_Dev.DamlLf1";
+option java_package = "com.daml.daml_lf_2_1";
+option csharp_namespace = "Com.Daml.Daml_Lf_2_1.DamlLf2";
 
 // Canonical encoding in one-ofs for cases that carry no meaningful
 // values.
@@ -1400,7 +1400,7 @@ message UpgradedPackageId {
 message PackageMetadata {
   int32 name_interned_str = 1;
   int32 version_interned_str = 2;
-  UpgradedPackageId upgraded_package_id = 3; // *optional*
+  UpgradedPackageId upgraded_package_id = 3;
 }
 
 message Package {
