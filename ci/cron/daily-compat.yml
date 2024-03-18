@@ -184,16 +184,16 @@ jobs:
           git fetch
           git checkout origin/$(Build.SourceBranchName)
 
-          ci/refresh-canton.sh
+          version=$(ci/refresh-canton.sh)
 
-          branch="main-canton-update-$canton3_version"
+          branch="main-canton-update-$version"
 
           if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
                   git add build.sh canton
-                  open_pr "$branch" "update canton to $canton3_version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+                  open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az extension add --name azure-devops
                   trap "az devops logout" EXIT
                   echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
