@@ -54,4 +54,6 @@ class SymbolicPrivateCrypto(
         EncryptionKeyPair.create(id, CryptoKeyFormat.Symbolic, pubKey, privKey, scheme)
       )
     )
+
+  override def close(): Unit = ()
 }

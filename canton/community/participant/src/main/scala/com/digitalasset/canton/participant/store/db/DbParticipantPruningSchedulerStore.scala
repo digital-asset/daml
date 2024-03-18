@@ -40,18 +40,18 @@ final class DbParticipantPruningSchedulerStore(
     storage.update_(
       storage.profile match {
         case _: Profile.Postgres =>
-          sqlu"""insert into participant_pruning_schedules (cron, max_duration, retention, prune_internally_only)
+          sqlu"""insert into par_pruning_schedules (cron, max_duration, retention, prune_internally_only)
                      values (${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
                      on conflict (lock) do
                        update set cron = ${schedule.cron}, max_duration = ${schedule.maxDuration}, retention = ${schedule.retention},
                                   prune_internally_only = ${participantSchedule.pruneInternallyOnly}
                   """
         case _: Profile.H2 =>
-          sqlu"""merge into participant_pruning_schedules (lock, cron, max_duration, retention, prune_internally_only)
+          sqlu"""merge into par_pruning_schedules (lock, cron, max_duration, retention, prune_internally_only)
                      values (${singleRowLockValue}, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
                   """
         case _: Profile.Oracle =>
-          sqlu"""merge into participant_pruning_schedules pps
+          sqlu"""merge into par_pruning_schedules pps
                        using (
                          select ${schedule.cron} cron,
                                 ${schedule.maxDuration} max_duration,
@@ -74,7 +74,7 @@ final class DbParticipantPruningSchedulerStore(
 
   override def clearSchedule()(implicit tc: TraceContext): Future[Unit] = {
     storage.update_(
-      sqlu"""delete from participant_pruning_schedules""",
+      sqlu"""delete from par_pruning_schedules""",
       functionFullName,
     )
   }
@@ -84,7 +84,7 @@ final class DbParticipantPruningSchedulerStore(
   ): Future[Option[ParticipantPruningSchedule]] = {
     storage
       .query(
-        sql"""select cron, max_duration, retention, prune_internally_only from participant_pruning_schedules"""
+        sql"""select cron, max_duration, retention, prune_internally_only from par_pruning_schedules"""
           .as[(Cron, PositiveSeconds, PositiveSeconds, Boolean)]
           .headOption,
         functionFullName,
@@ -107,7 +107,7 @@ final class DbParticipantPruningSchedulerStore(
     EitherT {
       storage
         .update(
-          sqlu"""update participant_pruning_schedules set cron = $cron""",
+          sqlu"""update par_pruning_schedules set cron = $cron""",
           functionFullName,
         )
         .map(errorOnUpdateOfMissingSchedule("cron"))
@@ -119,7 +119,7 @@ final class DbParticipantPruningSchedulerStore(
     EitherT {
       storage
         .update(
-          sqlu"""update participant_pruning_schedules set max_duration = $maxDuration""",
+          sqlu"""update par_pruning_schedules set max_duration = $maxDuration""",
           functionFullName,
         )
         .map(errorOnUpdateOfMissingSchedule("max_duration"))
@@ -131,7 +131,7 @@ final class DbParticipantPruningSchedulerStore(
     EitherT {
       storage
         .update(
-          sqlu"""update participant_pruning_schedules set retention = $retention""",
+          sqlu"""update par_pruning_schedules set retention = $retention""",
           functionFullName,
         )
         .map(errorOnUpdateOfMissingSchedule("retention"))

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v2.event.CreatedEvent
+import com.daml.ledger.api.v2.value
 
 /** Utilities for modifying ledger api values, e.g. to make them suitable for importing into canton:
   *
@@ -63,9 +63,9 @@ object ValueRemapper {
         value.Value.Sum.Record(remapRecord(remapContractId, remapParty, record))
       case value.Value.Sum.List(value.List(seq)) =>
         value.Value.Sum.List(value.List(seq.map(remapValue(remapContractId, remapParty))))
-      case value.Value.Sum.Map(value.Map(entries)) =>
-        value.Value.Sum.Map(value.Map(entries.map { case value.Map.Entry(k, v) =>
-          value.Map.Entry(k, v.map(remapValue(remapContractId, remapParty)))
+      case value.Value.Sum.TextMap(value.TextMap(entries)) =>
+        value.Value.Sum.TextMap(value.TextMap(entries.map { case value.TextMap.Entry(k, v) =>
+          value.TextMap.Entry(k, v.map(remapValue(remapContractId, remapParty)))
         }))
       case value.Value.Sum.GenMap(value.GenMap(entries)) =>
         value.Value.Sum.GenMap(value.GenMap(entries.map { case value.GenMap.Entry(k, v) =>

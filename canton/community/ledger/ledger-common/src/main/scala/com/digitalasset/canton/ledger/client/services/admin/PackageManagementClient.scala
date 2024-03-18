@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.client.services.admin
 
-import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementServiceStub
-import com.daml.ledger.api.v1.admin.package_management_service.{
+import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementServiceStub
+import com.daml.ledger.api.v2.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
   UploadDarFileRequest,

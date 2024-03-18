@@ -6,10 +6,9 @@ package com.digitalasset.canton.participant.admin.inspection
 import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.foldable.*
-import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
@@ -61,7 +60,7 @@ import com.digitalasset.canton.{
   LedgerTransactionId,
   LfPartyId,
   RequestCounter,
-  TransferCounterO,
+  TransferCounter,
 }
 
 import java.io.OutputStream
@@ -134,7 +133,7 @@ final class SyncStateInspection(
       domainAlias: DomainAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AcsError, Map[LfContractId, (CantonTimestamp, TransferCounterO)]] = {
+  ): EitherT[Future, AcsError, Map[LfContractId, (CantonTimestamp, TransferCounter)]] = {
 
     for {
       state <- EitherT.fromEither[Future](
@@ -144,7 +143,7 @@ final class SyncStateInspection(
       )
 
       snapshotO <- EitherT.liftF(AcsInspection.getCurrentSnapshot(state).map(_.map(_.snapshot)))
-    } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, TransferCounterO)])(
+    } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, TransferCounter)])(
       _.toMap
     )
   }
@@ -509,7 +508,7 @@ final class SyncStateInspection(
 
   def locateOffset(
       numTransactions: Long
-  )(implicit traceContext: TraceContext): Future[Either[String, LedgerOffset]] = {
+  )(implicit traceContext: TraceContext): Future[Either[String, ParticipantOffset]] = {
 
     if (numTransactions <= 0L)
       throw new IllegalArgumentException(
@@ -519,20 +518,20 @@ final class SyncStateInspection(
     participantNodePersistentState.value.multiDomainEventLog
       .locateOffset(numTransactions - 1L)
       .toRight(s"Participant does not contain $numTransactions transactions.")
-      .map(UpstreamOffsetConvert.toLedgerOffset)
+      .map(UpstreamOffsetConvert.toParticipantOffset)
       .value
   }
 
   def getOffsetByTime(
       pruneUpTo: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[LedgerOffset]] =
+  )(implicit traceContext: TraceContext): Future[Option[ParticipantOffset]] =
     participantNodePersistentState.value.multiDomainEventLog
       .getOffsetByTimeUpTo(pruneUpTo)
-      .map(UpstreamOffsetConvert.toLedgerOffset)
+      .map(UpstreamOffsetConvert.toParticipantOffset)
       .value
 
   def lookupPublicationTime(
-      ledgerOffset: LedgerOffset
+      ledgerOffset: ParticipantOffset
   )(implicit traceContext: TraceContext): EitherT[Future, String, CantonTimestamp] = for {
     globalOffset <- EitherT.fromEither[Future](
       UpstreamOffsetConvert.ledgerOffsetToGlobalOffset(ledgerOffset)

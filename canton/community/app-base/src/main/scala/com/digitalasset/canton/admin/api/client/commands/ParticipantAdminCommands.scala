@@ -4,8 +4,8 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.implicits.*
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
@@ -736,11 +736,16 @@ object ParticipantAdminCommands {
       }
     }
 
-    final case class RegisterDomain(config: CDomainConnectionConfig)
+    final case class RegisterDomain(config: CDomainConnectionConfig, handshakeOnly: Boolean)
         extends Base[RegisterDomainRequest, RegisterDomainResponse, Unit] {
 
       override def createRequest(): Either[String, RegisterDomainRequest] =
-        Right(RegisterDomainRequest(add = Some(config.toProtoV30)))
+        Right(
+          RegisterDomainRequest(
+            add = Some(config.toProtoV30),
+            handshakeOnly = handshakeOnly,
+          )
+        )
 
       override def submitRequest(
           service: DomainConnectivityServiceStub,
@@ -964,9 +969,9 @@ object ParticipantAdminCommands {
         PruningServiceGrpc.stub(channel)
     }
 
-    final case class GetSafePruningOffsetCommand(beforeOrAt: Instant, ledgerEnd: LedgerOffset)
+    final case class GetSafePruningOffsetCommand(beforeOrAt: Instant, ledgerEnd: ParticipantOffset)
         extends Base[v30.GetSafePruningOffsetRequest, v30.GetSafePruningOffsetResponse, Option[
-          LedgerOffset
+          ParticipantOffset
         ]] {
 
       override def createRequest(): Either[String, v30.GetSafePruningOffsetRequest] =
@@ -976,7 +981,7 @@ object ParticipantAdminCommands {
             case Value.Absolute(value) => Right(value)
             case other => Left(s"Unable to convert ledger_end `$other` to absolute value")
           }
-        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoPrimitive), ledgerEnd)
+        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoTimestamp), ledgerEnd)
 
       override def submitRequest(
           service: PruningServiceStub,
@@ -985,17 +990,17 @@ object ParticipantAdminCommands {
 
       override def handleResponse(
           response: v30.GetSafePruningOffsetResponse
-      ): Either[String, Option[LedgerOffset]] = response.response match {
+      ): Either[String, Option[ParticipantOffset]] = response.response match {
         case v30.GetSafePruningOffsetResponse.Response.Empty => Left("Unexpected empty response")
 
         case v30.GetSafePruningOffsetResponse.Response.SafePruningOffset(offset) =>
-          Right(Some(UpstreamOffsetConvert.toLedgerOffset(offset)))
+          Right(Some(UpstreamOffsetConvert.toParticipantOffset(offset)))
 
         case v30.GetSafePruningOffsetResponse.Response.NoSafePruningOffset(_) => Right(None)
       }
     }
 
-    final case class PruneInternallyCommand(pruneUpTo: LedgerOffset)
+    final case class PruneInternallyCommand(pruneUpTo: ParticipantOffset)
         extends Base[v30.PruneRequest, v30.PruneResponse, Unit] {
       override def createRequest(): Either[String, PruneRequest] =
         pruneUpTo.value.absolute

@@ -412,7 +412,6 @@
 			| interface
 			| key
 			| maintainer
-			| daml
 			| exception
 			| for
 			| viewtype

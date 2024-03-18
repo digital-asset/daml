@@ -247,7 +247,7 @@ private[backend] object Conversions {
     SqlParser.get[String](name).map(DomainId.tryFromString)
 
   def traceContextOption(name: String)(implicit logger: Logger): RowParser[TraceContext] = {
-    import com.daml.ledger.api.v1.trace_context.TraceContext as ProtoTraceContext
+    import com.daml.ledger.api.v2.trace_context.TraceContext as ProtoTraceContext
     SqlParser
       .get[Array[Byte]](name)
       .map(traceContextBytes =>

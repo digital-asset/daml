@@ -13,7 +13,6 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
 
   override def resetAll(connection: Connection): Unit = {
     SQL"""
-      delete from lapi_configuration_entries cascade;
       delete from lapi_packages cascade;
       delete from lapi_package_entries cascade;
       delete from lapi_parameters cascade;

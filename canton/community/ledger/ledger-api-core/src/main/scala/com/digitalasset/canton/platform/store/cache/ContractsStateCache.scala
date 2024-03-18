@@ -43,7 +43,6 @@ object ContractStateValue {
       contract: Contract,
       stakeholders: Set[Party],
       createLedgerEffectiveTime: Timestamp,
-      agreementText: Option[String],
       signatories: Set[Party],
       globalKey: Option[GlobalKey],
       keyMaintainers: Option[Set[Party]],

@@ -1,0 +1,15 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LfDevNoContractIdsInKeys.Simple where
+
+-- Test that values of contract keys may not contain contract IDs
+
+template Simple
+  with
+    p: Party
+  where
+    signatory p
+
+newtype SimpleContractId = SimpleContractId (ContractId Simple)
+  deriving (Eq, Show)

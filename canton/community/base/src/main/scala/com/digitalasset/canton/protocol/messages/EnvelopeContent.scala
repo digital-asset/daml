@@ -23,7 +23,7 @@ final case class EnvelopeContent(message: UnsignedProtocolMessage)(
 }
 
 object EnvelopeContent
-    extends HasProtocolVersionedWithContextCompanion[EnvelopeContent, (HashOps, ProtocolVersion)] {
+    extends HasProtocolVersionedWithContextAndValidationCompanion[EnvelopeContent, HashOps] {
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
@@ -88,9 +88,7 @@ object EnvelopeContent
       bytes: Array[Byte]
   )(implicit cast: ProtocolMessageContentCast[M]): ParsingResult[M] = {
     for {
-      envelopeContent <- fromByteStringLegacy(protocolVersion)((hashOps, protocolVersion))(
-        ByteString.copyFrom(bytes)
-      )
+      envelopeContent <- fromByteString(hashOps, protocolVersion)(ByteString.copyFrom(bytes))
       message <- cast
         .toKind(envelopeContent.message)
         .toRight(

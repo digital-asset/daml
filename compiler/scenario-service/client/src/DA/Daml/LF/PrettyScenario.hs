@@ -965,8 +965,8 @@ prettyValue' lvl showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumDate d -> prettyDate d
   ValueSumOptional (Optional Nothing) -> text "none"
   ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' lvl True precHighest world v
-  ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyEntry lvl prec world) entries))
-  ValueSumGenMap (GenMap entries) -> "GenMap" <> brackets (fcommasep (mapV (prettyGenMapEntry lvl prec world) entries))
+  ValueSumTextMap (TextMap entries) -> "TextMap" <> brackets (fcommasep (mapV (prettyEntry lvl prec world) entries))
+  ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyMapEntry lvl prec world) entries))
   ValueSumUnserializable what -> ltext what
   where
     prettyField (Field label mbValue) =
@@ -975,15 +975,15 @@ prettyValue' lvl showRecordType prec world (Value (Just vsum)) = case vsum of
     precWith = 1
     precHighest = 9
 
-prettyGenMapEntry :: PrettyLevel -> Int -> LF.World -> GenMap_Entry -> Doc SyntaxClass
-prettyGenMapEntry lvl prec world (GenMap_Entry keyM valueM) =
+prettyMapEntry :: PrettyLevel -> Int -> LF.World -> Map_Entry -> Doc SyntaxClass
+prettyMapEntry lvl prec world (Map_Entry keyM valueM) =
     prettyMay "<missing key>" (prettyValue' lvl True prec world) keyM <> "->" <>
     prettyMay "<missing value>" (prettyValue' lvl True prec world) valueM
 
-prettyEntry :: PrettyLevel -> Int -> LF.World ->  Map_Entry -> Doc SyntaxClass
-prettyEntry lvl prec world (Map_Entry key (Just value)) =
+prettyEntry :: PrettyLevel -> Int -> LF.World ->  TextMap_Entry -> Doc SyntaxClass
+prettyEntry lvl prec world (TextMap_Entry key (Just value)) =
    ltext key <> "->" <> prettyValue' lvl True prec world value
-prettyEntry _ _ _ (Map_Entry key _) =
+prettyEntry _ _ _ (TextMap_Entry key _) =
    ltext key <> "-> <missing value>"
 
 prettyDate :: Int32 -> Doc a

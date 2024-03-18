@@ -47,6 +47,7 @@ final case class SerializableRawContractInstance private (
     LfHash.assertHashContractInstance(
       contractInstance.unversioned.template,
       contractInstance.unversioned.arg,
+      contractInstance.unversioned.packageName,
     )
 
   @unused // needed for lenses

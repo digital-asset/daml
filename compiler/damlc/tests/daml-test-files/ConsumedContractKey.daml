@@ -1,5 +1,7 @@
--- @ERROR range=27:1-27:32; no contract with that key was found
--- @ERROR range=37:1-37:29; consumed in same transaction
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=29:1-29:32; no contract with that key was found
+-- @ERROR range=39:1-39:29; consumed in same transaction
 module ConsumedContractKey where
 
 import Daml.Script

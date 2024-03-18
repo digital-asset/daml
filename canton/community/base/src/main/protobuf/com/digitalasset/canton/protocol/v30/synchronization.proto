@@ -18,11 +18,9 @@ message TypedSignedProtocolMessageContent {
 
   oneof some_signed_protocol_message {
     bytes confirmation_response = 2;
-    bytes transaction_result = 3;
-    bytes malformed_mediator_confirmation_request_result = 4;
-    bytes transfer_result = 5;
-    bytes acs_commitment = 6;
-    bytes set_traffic_balance = 7;
+    bytes confirmation_result = 3;
+    bytes acs_commitment = 4;
+    bytes set_traffic_balance = 5;
   }
 }
 

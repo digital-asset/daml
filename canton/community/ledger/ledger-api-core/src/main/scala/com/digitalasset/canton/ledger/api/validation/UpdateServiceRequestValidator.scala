@@ -4,8 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.transaction_filter.Filters
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,

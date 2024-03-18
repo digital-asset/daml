@@ -160,8 +160,8 @@ object TopologyStoreId {
     override def isDomainStore: Boolean = false
   }
 
-  def apply(fName: String): TopologyStoreId = fName match {
-    case "Authorized" => AuthorizedStore
+  def apply(fName: String): TopologyStoreId = fName.toLowerCase match {
+    case "authorized" => AuthorizedStore
     case domain => DomainStore(DomainId(UniqueIdentifier.tryFromProtoPrimitive(domain)))
   }
 

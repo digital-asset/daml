@@ -33,10 +33,8 @@ object LedgerBlockEvent extends HasLoggerName {
       signedSubmissionRequest: SignedContent[SubmissionRequest],
   ) extends LedgerBlockEvent
   final case class AddMember(member: Member) extends LedgerBlockEvent
-  final case class DisableMember(member: Member) extends LedgerBlockEvent
   final case class Acknowledgment(request: SignedContent[AcknowledgeRequest])
       extends LedgerBlockEvent
-  final case class Prune(timestamp: CantonTimestamp) extends LedgerBlockEvent
 
   def fromRawBlockEvent(
       protocolVersion: ProtocolVersion

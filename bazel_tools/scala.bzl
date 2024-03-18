@@ -581,7 +581,7 @@ def da_scala_library(name, scaladoc = True, override_scalacopts = None, **kwargs
     _create_scala_source_jar(name = name, **arguments)
     if scaladoc == True:
         _create_scaladoc_jar(name = name, override_scalacopts = override_scalacopts, **arguments)
-    _create_scala_repl(name = name, **kwargs)
+    _create_scala_repl(name = name, override_scalacopts = override_scalacopts, **kwargs)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

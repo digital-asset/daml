@@ -8,8 +8,8 @@ import cats.implicits.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
-import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, TestHash}
 import com.digitalasset.canton.data.ViewType.TransferOutViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -40,6 +40,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -59,13 +60,12 @@ import com.digitalasset.canton.{
   HasExecutorService,
   LedgerApplicationId,
   LedgerCommandId,
-  LedgerTransactionId,
   LfPackageId,
+  LfPackageName,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
   TransferCounter,
-  TransferCounterO,
 }
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -107,9 +107,10 @@ final class TransferOutProcessingStepsTest
 
   private val templateId =
     LfTemplateId.assertFromString("transferoutprocessingstepstestpackage:template:id")
+  private val packageName =
+    LfPackageName.assertFromString("transferoutprocessingstepstestpackagename")
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -126,16 +127,18 @@ final class TransferOutProcessingStepsTest
 
   private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(submittingParticipant)
 
-  private val multiDomainEventLog = mock[MultiDomainEventLog]
+  private lazy val multiDomainEventLog = mock[MultiDomainEventLog]
   private val clock = new WallClock(timeouts, loggerFactory)
-  private val persistentState =
-    new InMemorySyncDomainPersistentStateX(
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
+  private lazy val persistentState =
+    new InMemorySyncDomainPersistentState(
       clock,
       crypto,
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
       testedProtocolVersion,
       enableAdditionalConsistencyChecks = true,
       enableTopologyTransactionValidation = false,
+      indexedStringStore = indexedStringStore,
       loggerFactory,
       timeouts,
       futureSupervisor,
@@ -579,7 +582,7 @@ final class TransferOutProcessingStepsTest
           contract,
         )
         _ <- persistentState.activeContractStore
-          .markContractsActive(
+          .markContractsCreated(
             Seq(contractId -> initialTransferCounter),
             TimeOfChange(RequestCounter(1), timeEvent.timestamp),
           )
@@ -682,6 +685,7 @@ final class TransferOutProcessingStepsTest
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activeness set failed")
       } yield {
@@ -776,14 +780,15 @@ final class TransferOutProcessingStepsTest
       val state = mkState
       val contractHash = ExampleTransactionFactory.lfHash(0)
       val transferId = TransferId(sourceDomain, CantonTimestamp.Epoch)
-      val rootHash = mock[RootHash]
-      when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
+      val rootHash = TestHash.dummyRootHash
       val transferResult =
-        TransferResult.create(
+        ConfirmationResultMessage.create(
+          sourceDomain.id,
+          TransferOutViewType,
           RequestId(CantonTimestamp.Epoch),
-          Set(),
-          sourceDomain,
+          rootHash,
           Verdict.Approve(testedProtocolVersion),
+          Set(),
           testedProtocolVersion,
         )
 
@@ -800,8 +805,8 @@ final class TransferOutProcessingStepsTest
           cryptoSnapshot,
           testedProtocolVersion,
         )
-        deliver: Deliver[OpenEnvelope[SignedProtocolMessage[TransferOutResult]]] = {
-          val batch: Batch[OpenEnvelope[SignedProtocolMessage[TransferOutResult]]] =
+        deliver: Deliver[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] = {
+          val batch: Batch[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
             Batch.of(testedProtocolVersion, (signedResult, Recipients.cc(submittingParticipant)))
           Deliver.create(
             SequencerCounter(0),
@@ -809,6 +814,7 @@ final class TransferOutProcessingStepsTest
             sourceDomain.unwrap,
             Some(MessageId.tryCreate("msg-0")),
             batch,
+            None,
             testedProtocolVersion,
           )
         }
@@ -829,6 +835,7 @@ final class TransferOutProcessingStepsTest
           WithContractHash(contractId, contractHash),
           TransferCounter.Genesis,
           templateId = templateId,
+          packageName = packageName,
           transferringParticipant = false,
           submitterMetadata = submitterMetadata(submitter),
           transferId,
@@ -843,7 +850,7 @@ final class TransferOutProcessingStepsTest
           outProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(signedContent),
-              Right(transferResult),
+              transferResult.verdict,
               pendingOut,
               state.pendingTransferOutSubmissions,
               crypto.pureCrypto,

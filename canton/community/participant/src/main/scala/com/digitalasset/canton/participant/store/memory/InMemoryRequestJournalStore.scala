@@ -67,23 +67,27 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
           ),
         )
       )
-    else
-      blocking(requestTable.synchronized {
+    else {
+      // TODO(#17726) Why do we need the synchronized block here? The TrieMap is already thread-safe
+      //  and other places in this store do not synchronize when they access the requestTable.
+      val resultE = blocking(requestTable.synchronized {
         requestTable.get(rc) match {
-          case None => EitherT.leftT(UnknownRequestCounter(rc))
+          case None => Left(UnknownRequestCounter(rc))
           case Some(oldResult) =>
             if (oldResult.requestTimestamp != requestTimestamp)
-              EitherT.leftT(
+              Left(
                 InconsistentRequestTimestamp(rc, oldResult.requestTimestamp, requestTimestamp)
               )
             else if (oldResult.state == newState && oldResult.commitTime == commitTime)
-              EitherT.pure(())
+              Right(())
             else {
               requestTable.put(rc, oldResult.tryAdvance(newState, commitTime)).discard
-              EitherT.rightT(())
+              Right(())
             }
         }
       })
+      EitherT.fromEither(resultE)
+    }
 
   def delete(rc: RequestCounter)(implicit traceContext: TraceContext): Future[Unit] = {
     val oldState = requestTable.remove(rc)

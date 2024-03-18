@@ -8,6 +8,7 @@ import cats.instances.seq.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{
@@ -127,7 +128,7 @@ class TopologyStateProcessorX(
         val pendingWrites = transactions.map(MaybePending)
         val removes = pendingWrites
           .zip(duplicates)
-          .foldLeftM((Set.empty[MappingHash], Set.empty[TxHash])) {
+          .foldLeftM((Map.empty[MappingHash, PositiveInt], Set.empty[TxHash])) {
             case ((removeMappings, removeTxs), (tx, _noDuplicateFound @ None)) =>
               validateAndMerge(
                 effective,
@@ -166,11 +167,11 @@ class TopologyStateProcessorX(
       _ = validatedTx.zipWithIndex.foreach {
         case (ValidatedTopologyTransactionX(tx, None, _), idx) =>
           logger.info(
-            s"Storing topology transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.mapping} with ts=$effective (epsilon=${epsilon} ms)"
+            s"Storing topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=${epsilon} ms)"
           )
         case (ValidatedTopologyTransactionX(tx, Some(r), _), idx) =>
           logger.info(
-            s"Rejected transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.mapping} at ts=$effective (epsilon=${epsilon} ms) due to $r"
+            s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=${epsilon} ms) due to $r"
           )
       }
       _ <- outboxQueue match {
@@ -224,7 +225,7 @@ class TopologyStateProcessorX(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val hashes = NonEmpty.from(
       transactions
-        .map(x => x.transaction.mapping.uniqueKey)
+        .map(x => x.mapping.uniqueKey)
         .filterNot(txForMapping.contains)
         .toSet
     )
@@ -232,7 +233,7 @@ class TopologyStateProcessorX(
       store
         .findTransactionsForMapping(effective, _)
         .map(_.foreach { item =>
-          txForMapping.put(item.transaction.mapping.uniqueKey, MaybePending(item)).discard
+          txForMapping.put(item.mapping.uniqueKey, MaybePending(item)).discard
         })
     }
   }
@@ -253,7 +254,7 @@ class TopologyStateProcessorX(
     val hashes =
       NonEmpty.from(
         transactions
-          .map(x => x.transaction.hash)
+          .map(x => x.hash)
           .filterNot(proposalsForTx.contains)
           .toSet
       )
@@ -262,11 +263,11 @@ class TopologyStateProcessorX(
       store
         .findProposalsByTxHash(effective, _)
         .map(_.foreach { item =>
-          val txHash = item.transaction.hash
+          val txHash = item.hash
           // store the proposal
           proposalsForTx.put(txHash, MaybePending(item)).discard
           // maintain a map from mapping to txs
-          trackProposal(txHash, item.transaction.mapping.uniqueKey)
+          trackProposal(txHash, item.mapping.uniqueKey)
         })
     }
   }
@@ -276,11 +277,11 @@ class TopologyStateProcessorX(
       toValidate: GenericSignedTopologyTransactionX,
   ): Either[TopologyTransactionRejection, Unit] = inStore match {
     case Some(value) =>
-      val expected = value.transaction.serial.increment
+      val expected = value.serial.increment
       Either.cond(
-        expected == toValidate.transaction.serial,
+        expected == toValidate.serial,
         (),
-        TopologyTransactionRejection.SerialMismatch(expected, toValidate.transaction.serial),
+        TopologyTransactionRejection.SerialMismatch(expected, toValidate.serial),
       )
     case None => Right(())
   }
@@ -300,7 +301,7 @@ class TopologyStateProcessorX(
             .validateAndUpdateHeadAuthState(
               effective.value,
               Seq(toValidate),
-              inStore.map(tx => tx.transaction.mapping.uniqueKey -> tx).toList.toMap,
+              inStore.map(tx => tx.mapping.uniqueKey -> tx).toList.toMap,
               expectFullAuthorization,
             )
         )
@@ -322,7 +323,7 @@ class TopologyStateProcessorX(
       toValidate: GenericSignedTopologyTransactionX,
   ): (Boolean, GenericSignedTopologyTransactionX) = {
     inStore match {
-      case Some(value) if value.transaction.hash == toValidate.transaction.hash =>
+      case Some(value) if value.hash == toValidate.hash =>
         (true, value.addSignatures(toValidate.signatures.toSeq))
 
       case _ => (false, toValidate)
@@ -337,7 +338,7 @@ class TopologyStateProcessorX(
     Future.sequence(
       transactions.map { tx =>
         // skip duplication check for non-adds
-        if (tx.transaction.op == TopologyChangeOpX.Remove)
+        if (tx.operation == TopologyChangeOpX.Remove)
           Future.successful(None)
         else {
           // check that the transaction has not been added before (but allow it if it has a different version ...)
@@ -359,7 +360,7 @@ class TopologyStateProcessorX(
   private def mergeWithPendingProposal(
       toValidate: GenericSignedTopologyTransactionX
   ): GenericSignedTopologyTransactionX = {
-    proposalsForTx.get(toValidate.transaction.hash) match {
+    proposalsForTx.get(toValidate.hash) match {
       case None => toValidate
       case Some(existingProposal) =>
         toValidate.addSignatures(existingProposal.validatedTx.transaction.signatures.toSeq)
@@ -372,7 +373,7 @@ class TopologyStateProcessorX(
       expectFullAuthorization: Boolean,
   )(implicit traceContext: TraceContext): Future[GenericValidatedTopologyTransactionX] = {
     // get current valid transaction for the given mapping
-    val tx_inStore = txForMapping.get(txA.transaction.mapping.uniqueKey).map(_.currentTx)
+    val tx_inStore = txForMapping.get(txA.mapping.uniqueKey).map(_.currentTx)
     // first, merge a pending proposal with this transaction. we do this as it might
     // subsequently activate the given transaction
     val tx_mergedProposalSignatures = mergeWithPendingProposal(txA)
@@ -413,9 +414,9 @@ class TopologyStateProcessorX(
 
   private def determineRemovesAndUpdatePending(
       tx: MaybePending,
-      removeMappings: Set[MappingHash],
+      removeMappings: Map[MappingHash, PositiveInt],
       removeTxs: Set[TxHash],
-  )(implicit traceContext: TraceContext): (Set[MappingHash], Set[TxHash]) = {
+  )(implicit traceContext: TraceContext): (Map[MappingHash, PositiveInt], Set[TxHash]) = {
     val finalTx = tx.currentTx
     // UPDATE tx SET valid_until = effective WHERE storeId = XYZ
     //    AND valid_until is NULL and valid_from < effective
@@ -426,7 +427,7 @@ class TopologyStateProcessorX(
     } else if (finalTx.isProposal) {
       // if this is a proposal, we only delete the "previously existing proposal"
       // AND ((tx_hash = ..))
-      val txHash = finalTx.transaction.hash
+      val txHash = finalTx.hash
       proposalsForTx.put(txHash, tx).foreach { existingProposal =>
         // update currently pending (this is relevant in case we have proposals for the
         // same txs within a batch)
@@ -436,14 +437,14 @@ class TopologyStateProcessorX(
           s"Error state should be empty for ${existingProposal}",
         )
       }
-      trackProposal(txHash, finalTx.transaction.mapping.uniqueKey)
+      trackProposal(txHash, finalTx.mapping.uniqueKey)
       (removeMappings, removeTxs + txHash)
     } else {
       // if this is a sufficiently signed and valid transaction, we delete all existing proposals and the previous tx
       //  we can just use a mapping key: there can not be a future proposal, as it would violate the
       //  monotonically increasing check
       // AND ((mapping_key = ...) )
-      val mappingHash = finalTx.transaction.mapping.uniqueKey
+      val mappingHash = finalTx.mapping.uniqueKey
       txForMapping.put(mappingHash, tx).foreach { existingMapping =>
         // replace previous tx in case we have concurrent updates within the same timestamp
         existingMapping.expireImmediately.set(true)
@@ -470,7 +471,12 @@ class TopologyStateProcessorX(
       //   rules: if a namespace delegation is a root delegation, it won't be affected by the
       //          cascading deletion of its authorizer. this will allow us to roll namespace certs
       //          also, root cert authorization is only valid if serial == 1
-      (removeMappings + mappingHash, removeTxs)
+      (
+        removeMappings.updatedWith(mappingHash)(
+          Ordering[Option[PositiveInt]].max(_, Some(finalTx.serial))
+        ),
+        removeTxs,
+      )
     }
   }
 }

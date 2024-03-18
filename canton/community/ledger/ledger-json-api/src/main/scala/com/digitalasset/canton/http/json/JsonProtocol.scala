@@ -330,7 +330,7 @@ object JsonProtocol extends JsonProtocolLow {
         // the proper contract type ID right doesn't matter
         TemplateIdRequiredPkgFormat[domain.ContractTypeId],
       )
-    jsonFormat7(domain.ActiveContract.apply[ContractTypeId.Resolved, JsValue])
+    jsonFormat6(domain.ActiveContract.apply[ContractTypeId.Resolved, JsValue])
   }
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
@@ -422,7 +422,7 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val WorkflowIdFormat: JsonFormat[domain.WorkflowId] = taggedJsonFormat
 
   implicit def CommandMetaFormat[TmplId: JsonFormat]: JsonFormat[domain.CommandMeta[TmplId]] =
-    jsonFormat7(domain.CommandMeta.apply[TmplId])
+    jsonFormat8(domain.CommandMeta.apply[TmplId])
 
   // exposed for testing
   private[json] implicit val CommandMetaNoDisclosedFormat
@@ -437,7 +437,7 @@ object JsonProtocol extends JsonProtocolLow {
       override def read(json: JsValue): Option[List[NeverDC]] = None
       override def readSome(value: JsValue): Some[List[NeverDC]] = Some(List.empty)
     }
-    jsonFormat7(domain.CommandMeta.apply)
+    jsonFormat8(domain.CommandMeta.apply)
   }
 
   implicit val CreateCommandFormat: RootJsonFormat[
@@ -518,7 +518,7 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat3(domain.ExerciseResponse[JsValue])
 
   implicit val CreateCommandResponseFormat: RootJsonFormat[domain.CreateCommandResponse[JsValue]] =
-    jsonFormat8(domain.CreateCommandResponse[JsValue])
+    jsonFormat7(domain.CreateCommandResponse[JsValue])
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {

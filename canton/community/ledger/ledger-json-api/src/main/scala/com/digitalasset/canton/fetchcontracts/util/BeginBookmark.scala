@@ -16,7 +16,8 @@ sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
   def toLedgerApi(implicit ev: Off <~< domain.Offset): ParticipantOffset =
     this match {
       case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
-      case ParticipantBegin => ParticipantOffset(Boundary(ParticipantBoundary.PARTICIPANT_BEGIN))
+      case ParticipantBegin =>
+        ParticipantOffset(Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN))
     }
 
   def map[B](f: Off => B): BeginBookmark[B] = this match {

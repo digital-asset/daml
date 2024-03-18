@@ -1,0 +1,46 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module PackageSelection (main) where
+
+import UpgradeTestLib
+import qualified V1.PackageSelection as V1
+-- import qualified V2.PackageSelection as V2
+
+{- PACKAGE
+name: package-selection
+versions: 2
+-}
+
+{- MODULE
+package: package-selection
+contents: |
+  module PackageSelection where
+
+  template PackageSelectionTemplate
+    with
+      party: Party
+    where
+      signatory party
+-}
+
+main : Script ()
+main = tests
+  [ -- https://github.com/DACH-NY/canton/issues/14718
+    broken ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesUnvettedPackages)
+  ]
+
+packageSelectionChoosesUnvettedPackages : Script ()
+packageSelectionChoosesUnvettedPackages =
+  -- Unvet the v2 dar on all participants on the domain
+  withUnvettedDar "package-selection-2.0.0" $ do
+    a <- allocatePartyOn "alice" participant0
+    -- Attempt to create a v1 contract, without specifying package id, expecting that the v1 package will be selected as v2 is unvetted
+    res <- a `trySubmit` createCmd V1.PackageSelectionTemplate with party = a
+
+    -- What actually happens is the submitting participant chooses the v2 package, finds none of the participants on the domain have this package
+    -- and gives a NO_DOMAIN_FOR_SUBMISSION error
+    case res of
+      Right cid -> pure ()
+      _ -> assertFail $ "Expected success but got " <> show res
+

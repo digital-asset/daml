@@ -1,8 +1,13 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 
 module Tests.TextMapTest where
+
+#ifdef DAML_TEXTMAP  
+  
 import DA.TextMap
 
 data MapRecord = MapRecord
@@ -44,3 +49,5 @@ template TextMapTestTemplate
         mapVariant : MapVariant Int
     where
         signatory owner
+
+#endif

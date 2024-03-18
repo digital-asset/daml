@@ -18,9 +18,9 @@ trait DbDamlPackageStoreTest extends DamlPackageStoreTest {
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"delete from dar_packages",
-        sqlu"delete from daml_packages",
-        sqlu"delete from dars",
+        sqlu"delete from par_dar_packages",
+        sqlu"delete from par_daml_packages",
+        sqlu"delete from par_dars",
       ),
       functionFullName,
     )

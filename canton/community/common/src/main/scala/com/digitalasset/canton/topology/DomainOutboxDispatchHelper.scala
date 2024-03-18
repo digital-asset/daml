@@ -131,7 +131,7 @@ trait DomainOutboxDispatchHelperX extends DomainOutboxDispatchStoreSpecific {
       transactions: Seq[GenericSignedTopologyTransactionX]
   ): Future[Seq[GenericSignedTopologyTransactionX]] = {
     def notAlien(tx: GenericSignedTopologyTransactionX): Boolean = {
-      val mapping = tx.transaction.mapping
+      val mapping = tx.mapping
       mapping match {
         // TODO(#14048) add filter criteria here
         case _ => true
@@ -139,7 +139,7 @@ trait DomainOutboxDispatchHelperX extends DomainOutboxDispatchStoreSpecific {
     }
 
     def domainRestriction(tx: GenericSignedTopologyTransactionX): Boolean =
-      tx.transaction.mapping.restrictedToDomain.forall(_ == domainId)
+      tx.mapping.restrictedToDomain.forall(_ == domainId)
 
     Future.successful(
       transactions.filter(x => notAlien(x) && domainRestriction(x))

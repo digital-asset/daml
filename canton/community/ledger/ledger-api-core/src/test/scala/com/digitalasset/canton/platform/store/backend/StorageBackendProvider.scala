@@ -93,7 +93,6 @@ final case class TestBackend(
     ingestion: IngestionStorageBackend[_],
     parameter: ParameterStorageBackend,
     meteringParameter: MeteringParameterStorageBackend,
-    configuration: ConfigurationStorageBackend,
     party: PartyStorageBackend,
     packageBackend: PackageStorageBackend,
     completion: CompletionStorageBackend,
@@ -137,7 +136,6 @@ object TestBackend {
       ingestion = storageBackendFactory.createIngestionStorageBackend,
       parameter = storageBackendFactory.createParameterStorageBackend,
       meteringParameter = storageBackendFactory.createMeteringParameterStorageBackend,
-      configuration = storageBackendFactory.createConfigurationStorageBackend(ledgerEndCache),
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       packageBackend = storageBackendFactory.createPackageStorageBackend(ledgerEndCache),
       completion =

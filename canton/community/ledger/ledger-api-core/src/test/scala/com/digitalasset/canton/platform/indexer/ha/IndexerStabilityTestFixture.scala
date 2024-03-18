@@ -122,8 +122,7 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
             indexerLockId = lockIdSeed,
             indexerWorkerLockId = lockIdSeed + 1,
           ),
-          indexerDbDispatcherOverride =
-            None, // this test is meaningful for lock supporting DB backends, not H2
+          indexServiceDbDispatcher = None,
         ).acquire()
       } yield ReadServiceAndIndexer(readService, indexing)
     }
@@ -147,7 +146,13 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
         indexers <- Resource
           .sequence(
             (1 until indexerCount).toList
-              .map(createReaderAndIndexer(_, participantDataSourceConfig, servicesExecutionContext))
+              .map(
+                createReaderAndIndexer(
+                  _,
+                  participantDataSourceConfig,
+                  servicesExecutionContext,
+                )
+              )
           )
           .map(xs => Indexers(migratingIndexer +: xs.toList))
       } yield indexers

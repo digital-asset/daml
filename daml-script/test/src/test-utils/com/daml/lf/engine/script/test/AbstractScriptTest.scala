@@ -12,8 +12,9 @@ import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
-import com.daml.lf.language.{Ast, LanguageMajorVersion, StablePackages}
+import com.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.daml.lf.speedy.{ArrayList, SValue}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.value.Value
 import org.scalatest.Suite
 
@@ -32,8 +33,14 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       values = ArrayList(a, b),
     )
 
+  // TODO(https://github.com/digital-asset/daml/issues/18457): delete once test cases using keys
+  //  are split
+  override protected lazy val devMode = true
+
   lazy val darPath: Path = rlocation(
-    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dar")
+    // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
+    //  non-dev dar
+    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dev.dar")
   )
   lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
 

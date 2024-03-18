@@ -29,9 +29,10 @@ trait DbTopologyStoreXHelper {
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"delete from topology_transactions where store_id=${storeId.dbString}"
+        sqlu"delete from common_topology_transactions where store_id=${storeId.dbString}"
       ),
-      operationName = s"${this.getClass}: Delete topology_transactions for ${storeId.dbString}",
+      operationName =
+        s"${this.getClass}: Delete common_topology_transactions for ${storeId.dbString}",
     )
   }
 

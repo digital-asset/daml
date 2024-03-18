@@ -35,6 +35,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
@@ -66,10 +67,14 @@ ENGINE_TEST_FILES = \
 
 [
     daml_compile(
-        name = "BasicTests-{}".format(mangle_for_damlc(version)),
-        srcs = ["src/test/daml/BasicTests.daml"],
+        name = "{name}-{version}".format(
+            name = name,
+            version = mangle_for_damlc(version),
+        ),
+        srcs = ["src/test/daml/%s.daml" % name],
         target = version,
     )
+    for name in ENGINE_TEST_FILES
     for version in LF_DEV_VERSIONS
 ]
 
@@ -106,7 +111,16 @@ da_scala_test_suite(
         for name in ENGINE_TEST_FILES
         for major in LF_MAJOR_VERSIONS
     ] + [
-        ":BasicTests-{}.dar".format(mangle_for_damlc(version))
+        "{name}-{version}.dar".format(
+            name = prefix,
+            version = mangle_for_damlc(version),
+        )
+        for prefix in [
+            ":BasicTests",
+            ":Demonstrator",
+            "//daml-lf/tests:MultiKeys",
+            "//daml-lf/tests:Exceptions",
+        ]
         for version in LF_DEV_VERSIONS
     ],
     scala_deps = [
@@ -126,6 +140,7 @@ da_scala_test_suite(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",

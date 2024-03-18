@@ -3,13 +3,18 @@
 
 package com.digitalasset.canton.topology.client
 
-import com.digitalasset.canton.config.RequireTypes.PositiveLong
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
-final case class MemberTrafficControlState(totalExtraTrafficLimit: PositiveLong)
+final case class MemberTrafficControlState(
+    totalExtraTrafficLimit: PositiveLong,
+    serial: PositiveInt,
+    effectiveTimestamp: CantonTimestamp,
+)
 
 /** The subset of the topology client providing traffic state information */
 trait DomainTrafficControlStateClient {

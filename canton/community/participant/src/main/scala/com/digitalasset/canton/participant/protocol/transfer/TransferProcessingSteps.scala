@@ -59,13 +59,11 @@ trait TransferProcessingSteps[
     SubmissionParam,
     SubmissionResult,
     RequestViewType <: TransferViewType,
-    Result <: SignedProtocolMessageContent,
     PendingTransferType <: PendingTransfer,
 ] extends ProcessingSteps[
       SubmissionParam,
       SubmissionResult,
       RequestViewType,
-      Result,
       TransferProcessorError,
     ]
     with NamedLogging {
@@ -118,9 +116,9 @@ trait TransferProcessingSteps[
       case _: Approve =>
         com.google.rpc.status.Status(com.google.rpc.Code.OK_VALUE)
       case reject: MediatorReject =>
-        reject.rpcStatusWithoutLoggingContext()
+        reject.reason
       case reasons: ParticipantReject =>
-        reasons.keyEvent.rpcStatus()
+        reasons.keyEvent.reason
     }
     pendingSubmission.transferCompletion.success(status)
   }
@@ -184,6 +182,7 @@ trait TransferProcessingSteps[
 
   override def constructResponsesForMalformedPayloads(
       requestId: RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): Seq[ConfirmationResponse] =
     // TODO(i12926) This will crash the SyncDomain
@@ -254,7 +253,8 @@ trait TransferProcessingSteps[
     )
 
     rejectionReason.logWithContext(Map("requestId" -> pendingTransfer.requestId.toString))
-    val rejection = LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.rpcStatus())
+    val rejection =
+      LedgerSyncEvent.CommandRejected.FinalReason(rejectionReason.reason())
 
     val tse = completionInfoO.map(info =>
       TimestampedEvent(
@@ -340,7 +340,10 @@ object TransferProcessingSteps {
     def submitterMetadata: TransferSubmitterMetadata
   }
 
-  final case class RejectionArgs[T <: PendingTransfer](pendingTransfer: T, error: LocalReject)
+  final case class RejectionArgs[T <: PendingTransfer](
+      pendingTransfer: T,
+      error: TransactionRejection,
+  )
 
   trait TransferProcessorError
       extends WrapsProcessorError

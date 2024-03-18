@@ -127,23 +127,13 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         viewPosition,
         contractIdVersion,
       )
-    val unicumHash =
-      if (contractIdVersion == AuthenticatedContractIdVersionV2) {
-        computeUnicumV2Hash(
-          ledgerCreateTime = ledgerCreateTime,
-          metadata,
-          suffixedContractInstance = suffixedContractInstance,
-          contractSalt = contractSalt.unwrap,
-          contractIdVersion = contractIdVersion,
-        )
-      } else {
-        computeUnicumV1Hash(
-          ledgerCreateTime = ledgerCreateTime,
-          suffixedContractInstance = suffixedContractInstance,
-          contractSalt = contractSalt.unwrap,
-          contractIdVersion = contractIdVersion,
-        )
-      }
+    val unicumHash = computeUnicumV3Hash(
+      ledgerCreateTime = ledgerCreateTime,
+      metadata,
+      suffixedContractInstance = suffixedContractInstance,
+      contractSalt = contractSalt.unwrap,
+      contractIdVersion = contractIdVersion,
+    )
 
     contractSalt -> Unicum(unicumHash)
   }
@@ -166,53 +156,22 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       contractIdVersion: CantonContractIdVersion,
   ): Either[String, Unicum] = {
     val contractSaltSize = contractSalt.size
-    if (contractIdVersion == AuthenticatedContractIdVersionV2) {
-      Either.cond(
-        contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
-        Unicum(
-          computeUnicumV2Hash(
-            ledgerCreateTime,
-            metadata,
-            suffixedContractInstance,
-            contractSalt,
-            contractIdVersion,
-          )
-        ),
-        s"Invalid contract salt size ($contractSaltSize)",
-      )
-    } else {
-      Either.cond(
-        contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
-        Unicum(
-          computeUnicumV1Hash(
-            ledgerCreateTime,
-            suffixedContractInstance,
-            contractSalt,
-            contractIdVersion,
-          )
-        ),
-        s"Invalid contract salt size ($contractSaltSize)",
-      )
-    }
+    Either.cond(
+      contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
+      Unicum(
+        computeUnicumV3Hash(
+          ledgerCreateTime,
+          metadata,
+          suffixedContractInstance,
+          contractSalt,
+          contractIdVersion,
+        )
+      ),
+      s"Invalid contract salt size ($contractSaltSize)",
+    )
   }
 
-  private def computeUnicumV1Hash(
-      ledgerCreateTime: LedgerCreateTime,
-      suffixedContractInstance: SerializableRawContractInstance,
-      contractSalt: Salt,
-      contractIdVersion: CantonContractIdVersion,
-  ): Hash =
-    cryptoOps
-      .build(HashPurpose.Unicum)
-      // The salt's length is determined by the hash algorithm and the contract ID version determines the hash algorithm,
-      // so salts have fixed length.
-      .addWithoutLengthPrefix(contractSalt.forHashing)
-      .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.toInstant))
-      // The hash of the contract instance has a fixed length, so we do not need a length prefix
-      .addWithoutLengthPrefix(suffixedContractInstance.contractHash.bytes.toByteString)
-      .finish()
-
-  private def computeUnicumV2Hash(
+  private def computeUnicumV3Hash(
       ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,

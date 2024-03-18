@@ -1,0 +1,69 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module LfDevContractKeyThroughExercises where
+
+import Daml.Script
+import DA.Assert ((===))
+import qualified DA.Set as S
+import DA.Set (Set)
+
+template BasicKey
+  with
+    owners: Set Party
+  where
+    signatory owners
+    key owners: Set Party
+    maintainer key
+
+template KeyOps
+  with
+    signatories: Set Party
+    counterParty: Party
+
+  where
+    signatory signatories
+    observer counterParty
+
+    choice Accept: ContractId (KeyOps)
+      controller counterParty
+      do create this with signatories = S.insert counterParty signatories
+
+    nonconsuming choice
+      LookupGivenKey: Optional (ContractId BasicKey)
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor signatories
+            lookupByKey @BasicKey keyMaintainers
+
+-- @LEDGER run LfDevContractKeyThroughExercises.EXPECTED.ledger
+run = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  let
+    salice = S.singleton alice
+    aliceAndBob = S.insert bob salice
+
+  proposal <- submit alice $ createCmd KeyOps with signatories = salice, counterParty = bob
+  accepted <- submit bob $ exerciseCmd proposal Accept
+
+  lookupA1 <- submit alice $ exerciseCmd accepted LookupGivenKey with actor = alice, keyMaintainers = salice
+  lookupA1 === None
+
+  lookupB1 <- submit bob $ exerciseCmd accepted LookupGivenKey with actor = bob, keyMaintainers = salice
+  lookupB1 === None
+
+  cid <- submit alice $ createCmd BasicKey with owners = salice
+
+  lookupA2 <- submit alice $ exerciseCmd accepted LookupGivenKey with actor = alice, keyMaintainers = salice
+  lookupA2 === Some cid
+
+  _ <- submitMustFail bob $ exerciseCmd accepted LookupGivenKey with actor = bob, keyMaintainers = salice
+
+  pure ()

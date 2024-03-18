@@ -27,7 +27,6 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImpl.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.{
@@ -217,7 +216,7 @@ private[apiserver] object CommandServiceImpl {
       defaultTrackingTimeout: config.NonNegativeFiniteDuration,
       transactionServices: TransactionServices,
       timeProvider: TimeProvider,
-      ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+      maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -234,8 +233,7 @@ private[apiserver] object CommandServiceImpl {
       commandsValidator = commandsValidator,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationDuration = () =>
-        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
+      maxDeduplicationDuration = maxDeduplicationDuration.asJava,
       generateSubmissionId = SubmissionIdGenerator.Random,
       telemetry = telemetry,
       loggerFactory = loggerFactory,

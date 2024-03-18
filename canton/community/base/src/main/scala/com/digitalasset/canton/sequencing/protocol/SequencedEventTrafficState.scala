@@ -4,8 +4,10 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.apply.*
+import com.digitalasset.canton.config.RequireTypes
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveLong}
 import com.digitalasset.canton.domain.api.v30.SequencedEventTrafficState as SequencedEventTrafficStateP
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.RequiredTypesCodec.*
@@ -16,7 +18,7 @@ import slick.jdbc.GetResult
 final case class SequencedEventTrafficState(
     extraTrafficRemainder: NonNegativeLong,
     extraTrafficConsumed: NonNegativeLong,
-) {
+) extends PrettyPrinting {
   lazy val extraTrafficLimit: Option[PositiveLong] =
     PositiveLong.create((extraTrafficRemainder + extraTrafficConsumed).value).toOption
   def toProtoV30: SequencedEventTrafficStateP = {
@@ -26,6 +28,19 @@ final case class SequencedEventTrafficState(
     )
   }
 
+  def updateLimit(
+      newLimit: NonNegativeLong
+  ): Either[RequireTypes.InvariantViolation, SequencedEventTrafficState] = {
+    NonNegativeLong.create(newLimit.value - extraTrafficConsumed.value).map { newRemainder =>
+      copy(extraTrafficRemainder = newRemainder)
+    }
+  }
+  override def pretty: Pretty[SequencedEventTrafficState] = {
+    prettyOfClass(
+      param("extraTrafficRemainder", _.extraTrafficRemainder),
+      param("extraTrafficConsumed", _.extraTrafficConsumed),
+    )
+  }
 }
 
 object SequencedEventTrafficState {

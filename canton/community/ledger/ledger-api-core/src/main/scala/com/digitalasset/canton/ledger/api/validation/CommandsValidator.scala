@@ -5,15 +5,14 @@ package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.commands.Command
-import com.daml.ledger.api.v1.commands.Command.Command.{
+import com.daml.ledger.api.v2.commands.Command.Command.{
   Create as ProtoCreate,
   CreateAndExercise as ProtoCreateAndExercise,
   Empty as ProtoEmpty,
   Exercise as ProtoExercise,
   ExerciseByKey as ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.commands.{Command, Commands}
 import com.daml.lf.command.*
 import com.daml.lf.data.*
 import com.daml.lf.value.Value as Lf
@@ -47,7 +46,7 @@ final class CommandsValidator(
       commands: Commands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationDuration: Option[Duration],
+      maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Commands] =
@@ -231,44 +230,36 @@ final class CommandsValidator(
     */
   def validateDeduplicationPeriod(
       deduplicationPeriod: Commands.DeduplicationPeriod,
-      optMaxDeduplicationDuration: Option[Duration],
+      maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
-    optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
-      Left(
-        RequestValidationErrors.NotFound.LedgerConfiguration
-          .Reject()
-          .asGrpcError
-      )
-    ) { maxDeduplicationDuration =>
-      deduplicationPeriod match {
-        case Commands.DeduplicationPeriod.Empty =>
-          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
-        case Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
-          val deduplicationDuration = DurationConversion.fromProto(duration)
-          DeduplicationPeriodValidator
-            .validateNonNegativeDuration(deduplicationDuration)
-            .map(DeduplicationPeriod.DeduplicationDuration)
-        case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
-          Ref.HexString
-            .fromString(offset)
-            .fold(
-              _ =>
-                Left(
-                  RequestValidationErrors.NonHexOffset
-                    .Error(
-                      fieldName = "deduplication_period",
-                      offsetValue = offset,
-                      message =
-                        s"the deduplication offset has to be a hexadecimal string and not $offset",
-                    )
-                    .asGrpcError
-                ),
-              hexOffset =>
-                Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
-            )
-      }
+    deduplicationPeriod match {
+      case Commands.DeduplicationPeriod.Empty =>
+        Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
+      case Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
+        val deduplicationDuration = DurationConversion.fromProto(duration)
+        DeduplicationPeriodValidator
+          .validateNonNegativeDuration(deduplicationDuration)
+          .map(DeduplicationPeriod.DeduplicationDuration)
+      case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
+        Ref.HexString
+          .fromString(offset)
+          .fold(
+            _ =>
+              Left(
+                RequestValidationErrors.NonHexOffset
+                  .Error(
+                    fieldName = "deduplication_period",
+                    offsetValue = offset,
+                    message =
+                      s"the deduplication offset has to be a hexadecimal string and not $offset",
+                  )
+                  .asGrpcError
+              ),
+            hexOffset =>
+              Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
+          )
     }
 }
 

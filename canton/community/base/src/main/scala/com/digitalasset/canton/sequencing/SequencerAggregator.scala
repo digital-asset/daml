@@ -81,18 +81,11 @@ class SequencerAggregator(
     val message: OrdinarySerializedEvent = messages.head1
     val expectedMessageHash = hash(message)
     val hashes: NonEmpty[Set[Hash]] = messages.map(hash).toSet
-    val timestampsOfSigningKey = messages.map(_.signedEvent.timestampOfSigningKey).toSet
     for {
       _ <- Either.cond(
         hashes.forall(_ == expectedMessageHash),
         (),
         SequencerAggregatorError.NotTheSameContentHash(hashes),
-      )
-      expectedTimestampOfSigningKey = message.signedEvent.timestampOfSigningKey
-      _ <- Either.cond(
-        messages.forall(_.signedEvent.timestampOfSigningKey == expectedTimestampOfSigningKey),
-        (),
-        SequencerAggregatorError.NotTheSameTimestampOfSigningKey(timestampsOfSigningKey),
       )
     } yield {
       val combinedSignatures: NonEmpty[Seq[Signature]] = messages.flatMap(_.signedEvent.signatures)
@@ -131,6 +124,7 @@ class SequencerAggregator(
   ): Either[SequencerAggregatorError, Unit] =
     combine(messages).map(addEventToQueue)
 
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def combineAndMergeEvent(
       sequencerId: SequencerId,
       message: OrdinarySerializedEvent,
@@ -236,12 +230,6 @@ object SequencerAggregator {
         extends SequencerAggregatorError {
       override def pretty: Pretty[NotTheSameContentHash] =
         prettyOfClass(param("hashes", _.hashes))
-    }
-    final case class NotTheSameTimestampOfSigningKey(
-        timestamps: NonEmpty[Set[Option[CantonTimestamp]]]
-    ) extends SequencerAggregatorError {
-      override def pretty: Pretty[NotTheSameTimestampOfSigningKey] =
-        prettyOfClass(param("timestamps", _.timestamps))
     }
   }
 

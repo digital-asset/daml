@@ -1,0 +1,288 @@
+Transactions: 
+  TX 0 1970-01-01T00:00:00Z (LfDevContractKeys:99:11)
+  #0:0
+  │   consumed by: #8:0
+  │   referenced by #4:2, #5:2, #8:0
+  │   disclosed to (since): 'Alice' (0), 'Bob' (0)
+  └─> 'Alice' creates LfDevContractKeys:TextKey
+              with
+                p = 'Alice'; k = "some-key"; disclosedTo = ['Bob']
+  
+  TX 1 1970-01-01T00:00:00Z
+     mustFailAt actAs: {'Alice'} readAs: {} (LfDevContractKeys:106:3)
+  
+  TX 2 1970-01-01T00:00:00Z
+     mustFailAt actAs: {'Bob'} readAs: {} (LfDevContractKeys:113:3)
+  
+  TX 3 1970-01-01T00:00:00Z
+     mustFailAt actAs: {'Bob'} readAs: {} (LfDevContractKeys:115:3)
+  
+  TX 4 1970-01-01T00:00:00Z (LfDevContractKeys:118:11)
+  #4:0
+  │   consumed by: #4:1
+  │   referenced by #4:1
+  │   disclosed to (since): 'Alice' (4)
+  └─> 'Alice' creates LfDevContractKeys:Helper
+              with
+                p = 'Alice'
+  
+  #4:1
+  │   disclosed to (since): 'Alice' (4)
+  └─> 'Alice' exercises LookupByKey on #4:0 (LfDevContractKeys:Helper)
+              with
+                key =
+                  (DA.Types:Tuple2 with
+                     _1 = 'Alice'; _2 = "some-key")
+      children:
+      #4:2
+      │   disclosed to (since): 'Alice' (4)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "some-key"
+          found: #0:0
+  
+  TX 5 1970-01-01T00:00:00Z (LfDevContractKeys:122:18)
+  #5:0
+  │   consumed by: #5:1
+  │   referenced by #5:1
+  │   disclosed to (since): 'Alice' (5)
+  └─> 'Alice' creates LfDevContractKeys:Helper
+              with
+                p = 'Alice'
+  
+  #5:1
+  │   disclosed to (since): 'Alice' (5)
+  └─> 'Alice' exercises FetchByKey on #5:0 (LfDevContractKeys:Helper)
+              with
+                key =
+                  (DA.Types:Tuple2 with
+                     _1 = 'Alice'; _2 = "some-key")
+      children:
+      #5:2
+      │   disclosed to (since): 'Alice' (5)
+      └─> 'Alice' fetches #0:0 (LfDevContractKeys:TextKey)
+                  by key _1 = 'Alice'; _2 = "some-key"
+  
+  TX 6 1970-01-01T00:00:00Z (LfDevContractKeys:126:13)
+  #6:0
+  │   consumed by: #6:1
+  │   referenced by #6:1
+  │   disclosed to (since): 'Alice' (6)
+  └─> 'Alice' creates LfDevContractKeys:Helper
+              with
+                p = 'Alice'
+  
+  #6:1
+  │   disclosed to (since): 'Alice' (6)
+  └─> 'Alice' exercises LookupByKey on #6:0 (LfDevContractKeys:Helper)
+              with
+                key =
+                  (DA.Types:Tuple2 with
+                     _1 = 'Alice'; _2 = "blah")
+      children:
+      #6:2
+      │   disclosed to (since): 'Alice' (6)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "blah"
+          not found
+  
+  TX 7 1970-01-01T00:00:00Z (LfDevContractKeys:130:13)
+  #7:0
+  │   consumed by: #7:1
+  │   referenced by #7:1
+  │   disclosed to (since): 'Bob' (7)
+  └─> 'Bob' creates LfDevContractKeys:Helper
+            with
+              p = 'Bob'
+  
+  #7:1
+  │   disclosed to (since): 'Bob' (7)
+  └─> 'Bob' exercises LookupByKey on #7:0 (LfDevContractKeys:Helper)
+            with
+              key =
+                (DA.Types:Tuple2 with
+                   _1 = 'Bob'; _2 = "some-key")
+      children:
+      #7:2
+      │   disclosed to (since): 'Bob' (7)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Bob'; _2 = "some-key"
+          not found
+  
+  TX 8 1970-01-01T00:00:00Z (LfDevContractKeys:134:3)
+  #8:0
+  │   disclosed to (since): 'Alice' (8), 'Bob' (8)
+  └─> 'Alice' exercises TextKeyChoice on #0:0 (LfDevContractKeys:TextKey)
+  
+  TX 9 1970-01-01T00:00:00Z (LfDevContractKeys:137:13)
+  #9:0
+  │   consumed by: #9:1
+  │   referenced by #9:1
+  │   disclosed to (since): 'Alice' (9)
+  └─> 'Alice' creates LfDevContractKeys:Helper
+              with
+                p = 'Alice'
+  
+  #9:1
+  │   disclosed to (since): 'Alice' (9)
+  └─> 'Alice' exercises LookupByKey on #9:0 (LfDevContractKeys:Helper)
+              with
+                key =
+                  (DA.Types:Tuple2 with
+                     _1 = 'Alice'; _2 = "some-key")
+      children:
+      #9:2
+      │   disclosed to (since): 'Alice' (9)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "some-key"
+          not found
+  
+  TX 10 1970-01-01T00:00:00Z (LfDevContractKeys:143:11)
+  #10:0
+  │   consumed by: #11:0
+  │   referenced by #11:0
+  │   disclosed to (since): 'Alice' (10), 'Bob' (10)
+  └─> 'Alice' creates LfDevContractKeys:TextKey
+              with
+                p = 'Alice'; k = "some-key-2"; disclosedTo = ['Bob']
+  
+  TX 11 1970-01-01T00:00:00Z (LfDevContractKeys:148:13)
+  #11:0
+  │   disclosed to (since): 'Alice' (11), 'Bob' (11)
+  └─> 'Alice' exercises TextKeyChoice on #10:0 (LfDevContractKeys:TextKey)
+  
+  #11:1
+  │   consumed by: #11:2
+  │   referenced by #11:2
+  │   disclosed to (since): 'Alice' (11)
+  └─> 'Alice' creates LfDevContractKeys:Helper
+              with
+                p = 'Alice'
+  
+  #11:2
+  │   disclosed to (since): 'Alice' (11)
+  └─> 'Alice' exercises LookupByKey on #11:1 (LfDevContractKeys:Helper)
+              with
+                key =
+                  (DA.Types:Tuple2 with
+                     _1 = 'Alice'; _2 = "some-key-2")
+      children:
+      #11:3
+      │   disclosed to (since): 'Alice' (11)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "some-key-2"
+          not found
+  
+  TX 12 1970-01-01T00:00:00Z (LfDevContractKeys:154:19)
+  #12:0
+  │   referenced by #12:3
+  │   disclosed to (since): 'Alice' (12)
+  └─> 'Alice' creates LfDevContractKeys:TextKey
+              with
+                p = 'Alice'; k = "same-submit-key"; disclosedTo = []
+  
+  #12:1
+  │   consumed by: #12:2
+  │   referenced by #12:2
+  │   disclosed to (since): 'Alice' (12)
+  └─> 'Alice' creates LfDevContractKeys:Helper
+              with
+                p = 'Alice'
+  
+  #12:2
+  │   disclosed to (since): 'Alice' (12)
+  └─> 'Alice' exercises LookupByKey on #12:1 (LfDevContractKeys:Helper)
+              with
+                key =
+                  (DA.Types:Tuple2 with
+                     _1 = 'Alice'; _2 = "same-submit-key")
+      children:
+      #12:3
+      │   disclosed to (since): 'Alice' (12)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "same-submit-key"
+          found: #12:0
+  
+  TX 13 1970-01-01T00:00:00Z (LfDevContractKeys:164:25)
+  #13:0
+  │   referenced by #14:0
+  │   disclosed to (since): 'Alice' (13)
+  └─> 'Alice' creates LfDevContractKeys:CreateAndLookup
+              with
+                p = 'Alice'; k = "same-choice-key"
+  
+  TX 14 1970-01-01T00:00:00Z (LfDevContractKeys:168:3)
+  #14:0
+  │   disclosed to (since): 'Alice' (14)
+  └─> 'Alice' exercises Good on #13:0 (LfDevContractKeys:CreateAndLookup)
+      children:
+      #14:1
+      │   referenced by #14:2, #14:3
+      │   disclosed to (since): 'Alice' (14)
+      └─> 'Alice' creates LfDevContractKeys:TextKey
+                  with
+                    p = 'Alice'; k = "same-choice-key"; disclosedTo = []
+      
+      #14:2
+      │   disclosed to (since): 'Alice' (14)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "same-choice-key"
+          found: #14:1
+      
+      #14:3
+      │   disclosed to (since): 'Alice' (14)
+      └─> 'Alice' fetches #14:1 (LfDevContractKeys:TextKey)
+                  by key _1 = 'Alice'; _2 = "same-choice-key"
+  
+  TX 15 1970-01-01T00:00:00Z
+     mustFailAt actAs: {'Alice'} readAs: {} (LfDevContractKeys:171:3)
+  
+  TX 16 1970-01-01T00:00:00Z (LfDevContractKeys:175:10)
+  #16:0
+  │   referenced by #17:0, #18:2
+  │   disclosed to (since): 'Alice' (16)
+  └─> 'Alice' creates LfDevContractKeys:TextKey
+              with
+                p = 'Alice'; k = "non-consuming-choice"; disclosedTo = []
+  
+  TX 17 1970-01-01T00:00:00Z (LfDevContractKeys:180:3)
+  #17:0
+  │   disclosed to (since): 'Alice' (17)
+  └─> 'Alice' exercises TextKeyNonconsumingChoice on #16:0 (LfDevContractKeys:TextKey)
+  
+  TX 18 1970-01-01T00:00:00Z (LfDevContractKeys:182:12)
+  #18:0
+  │   consumed by: #18:1
+  │   referenced by #18:1
+  │   disclosed to (since): 'Alice' (18)
+  └─> 'Alice' creates LfDevContractKeys:Helper
+              with
+                p = 'Alice'
+  
+  #18:1
+  │   disclosed to (since): 'Alice' (18)
+  └─> 'Alice' exercises LookupByKey on #18:0 (LfDevContractKeys:Helper)
+              with
+                key =
+                  (DA.Types:Tuple2 with
+                     _1 = 'Alice'; _2 = "non-consuming-choice")
+      children:
+      #18:2
+      │   disclosed to (since): 'Alice' (18)
+      └─> lookupByKey LfDevContractKeys:TextKey
+          with key
+            _1 = 'Alice'; _2 = "non-consuming-choice"
+          found: #16:0
+  
+  TX 19 1970-01-01T00:00:00Z
+     mustFailAt actAs: {'Alice'} readAs: {} (LfDevContractKeys:187:3)
+
+Active contracts:  #12:0, #13:0, #14:1, #16:0
+
+Return value: {}

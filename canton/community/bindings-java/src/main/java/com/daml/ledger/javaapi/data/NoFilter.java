@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TransactionFilterOuterClass;
+import com.daml.ledger.api.v2.TransactionFilterOuterClass;
 
 public final class NoFilter extends Filter {
 

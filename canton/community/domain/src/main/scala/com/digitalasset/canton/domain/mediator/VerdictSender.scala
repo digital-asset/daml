@@ -11,28 +11,18 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoError}
-import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.sequencing.client.{
   SendCallback,
   SendResult,
   SendType,
   SequencerClientSend,
 }
-import com.digitalasset.canton.sequencing.protocol.{
-  AggregationRule,
-  Batch,
-  MediatorsOfDomain,
-  MemberRecipient,
-  OpenEnvelope,
-  ParticipantsOfParty,
-  Recipient,
-  Recipients,
-  SequencerErrors,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -42,6 +32,11 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Sends result messages to the informee participants of a request.
+  * The result message contains only one envelope addressed to a given informee participant.
+  * If the underlying request has several root hashes and is therefore rejected,
+  * the VerdictSender will send several batches (one per root hash).
+  */
 private[mediator] trait VerdictSender {
   def sendResult(
       requestId: RequestId,
@@ -203,7 +198,15 @@ private[mediator] class DefaultVerdictSender(
       )
       (informeesMap, informeesWithGroupAddressing) = result
       envelopes <- {
-        val result = request.createConfirmationResult(requestId, verdict, request.allInformees)
+        val result = ConfirmationResultMessage.create(
+          crypto.domainId,
+          request.viewType,
+          requestId,
+          request.rootHash,
+          verdict,
+          if (request.informeesArePublic) request.allInformees else Set.empty,
+          protocolVersion,
+        )
         val recipientSeq =
           informeesMap.keys.toSeq.map(MemberRecipient) ++ informeesWithGroupAddressing.toSeq
             .map(p => ParticipantsOfParty(PartyId.tryFromLfParty(p)))
@@ -309,70 +312,33 @@ private[mediator] class DefaultVerdictSender(
     // we send one rejection message to all participants, where each participant is in its own recipient group.
     // This ensures that participants do not learn from the list of recipients who else is involved in the transaction.
     // This can happen without a malicious submitter, e.g., if the topology has changed.
-    val recipientsByViewType =
-      rootHashMessages.groupBy(_.protocolMessage.viewType).mapFilter { rhms =>
-        val recipients = rhms
-          .flatMap(_.recipients.allRecipients.collect[Recipient] {
-            case p @ MemberRecipient(_: ParticipantId) => p
-            case participantsOfParty: ParticipantsOfParty => participantsOfParty
-          })
-          .toSet
-        NonEmpty.from(recipients.toSeq)
-      }
-    if (recipientsByViewType.nonEmpty) {
+    val recipientsByViewTypeAndRootHash =
+      rootHashMessages
+        .groupBy(m => m.protocolMessage.viewType -> m.protocolMessage.rootHash)
+        .mapFilter { rhms =>
+          val recipients = rhms
+            .flatMap(_.recipients.allRecipients.collect[Recipient] {
+              case p @ MemberRecipient(_: ParticipantId) => p
+              case participantsOfParty: ParticipantsOfParty => participantsOfParty
+            })
+            .toSet
+
+          NonEmpty.from(recipients.toSeq)
+        }
+    if (recipientsByViewTypeAndRootHash.nonEmpty) {
       for {
         snapshot <- crypto.awaitSnapshot(requestId.unwrap)
-        envs <- recipientsByViewType.toSeq
-          .parTraverse { case (viewType, flatRecipients) =>
-            // This is currently a bit messy. We need to a TransactionResultMessage or TransferXResult whenever possible,
-            // because that allows us to easily intercept and change the verdict in tests.
-            // However, in some cases, the required information is not available, so we fall back to MalformedMediatorConfirmationRequestResult.
-            // TODO(i11326): Remove unnecessary fields from the result message types, so we can get rid of MalformedMediatorConfirmationRequestResult and simplify this code.
-            val rejection = (viewType match {
-              case ViewType.TransactionViewType =>
-                requestO match {
-                  case Some(request @ InformeeMessage(_, _)) =>
-                    request.createConfirmationResult(
-                      requestId,
-                      rejectionReason,
-                      Set.empty,
-                    )
-                  // For other kinds of request, or if the request is unknown, we send a generic result
-                  case _ =>
-                    MalformedConfirmationRequestResult.tryCreate(
-                      requestId,
-                      crypto.domainId,
-                      viewType,
-                      rejectionReason,
-                      protocolVersion,
-                    )
-                }
-
-              case ViewType.TransferInViewType =>
-                TransferInResult.create(
-                  requestId,
-                  Set.empty,
-                  TargetDomainId(crypto.domainId),
-                  rejectionReason,
-                  protocolVersion,
-                )
-              case ViewType.TransferOutViewType =>
-                TransferOutResult.create(
-                  requestId,
-                  Set.empty,
-                  SourceDomainId(crypto.domainId),
-                  rejectionReason,
-                  protocolVersion,
-                )
-              case _: ViewType =>
-                MalformedConfirmationRequestResult.tryCreate(
-                  requestId,
-                  crypto.domainId,
-                  viewType,
-                  rejectionReason,
-                  protocolVersion,
-                )
-            }): ConfirmationResult
+        envs <- recipientsByViewTypeAndRootHash.toSeq
+          .parTraverse { case ((viewType, rootHash), flatRecipients) =>
+            val rejection = ConfirmationResultMessage.create(
+              crypto.domainId,
+              viewType,
+              requestId,
+              rootHash,
+              rejectionReason,
+              Set.empty,
+              protocolVersion,
+            )
 
             val recipients = Recipients.recipientGroups(flatRecipients.map(r => NonEmpty(Set, r)))
 
@@ -380,7 +346,7 @@ private[mediator] class DefaultVerdictSender(
               .trySignAndCreate(rejection, snapshot, protocolVersion)
               .map(_ -> recipients)
           }
-        batch = Batch.of(protocolVersion, envs*)
+        batches = envs.map(Batch.of(protocolVersion, _))
         // TODO(i13849): Review the case below: the check in sequencer has to be made stricter (not to allow rhms with inconsistent mediators from other than participant domain nodes)
         mediatorGroupO = // we always use RHMs to figure out the mediator group, to address rejections from a correct mediator that participants that received the RHMs expect
           rootHashMessages.headOption // one RHM is enough because sequencer checks that all RHMs specify the same mediator recipient
@@ -395,30 +361,32 @@ private[mediator] class DefaultVerdictSender(
                   )
                 }
             }
-        _ <- mediatorGroupO.traverse_ {
-          // if no mediator could be detected from RHMs, participants will also detect this and there's not need to send a reject
-          mediatorGroup =>
-            for {
-              aggregationRuleO <- groupAggregationRule(
-                snapshot.ipsSnapshot,
-                mediatorGroup,
-                protocolVersion,
-              )
-                .valueOr(reason =>
-                  ErrorUtil.invalidState(
-                    s"MediatorReject not sent. Failed to determine group aggregation rule for mediator $mediatorGroup due to: $reason"
-                  )
+        _ <- batches.parTraverse_ { batch =>
+          mediatorGroupO.traverse_ {
+            // if no mediator could be detected from RHMs, participants will also detect this and there's not need to send a reject
+            mediatorGroup =>
+              for {
+                aggregationRuleO <- groupAggregationRule(
+                  snapshot.ipsSnapshot,
+                  mediatorGroup,
+                  protocolVersion,
                 )
-              sendVerdict <- shouldSendVerdict(mediatorGroup, snapshot.ipsSnapshot)
-            } yield {
-              sendResultBatch(
-                requestId,
-                batch,
-                decisionTime,
-                aggregationRule = aggregationRuleO,
-                sendVerdict,
-              )
-            }
+                  .valueOr(reason =>
+                    ErrorUtil.invalidState(
+                      s"MediatorReject not sent. Failed to determine group aggregation rule for mediator $mediatorGroup due to: $reason"
+                    )
+                  )
+                sendVerdict <- shouldSendVerdict(mediatorGroup, snapshot.ipsSnapshot)
+              } yield {
+                sendResultBatch(
+                  requestId,
+                  batch,
+                  decisionTime,
+                  aggregationRule = aggregationRuleO,
+                  sendVerdict,
+                )
+              }
+          }
         }
       } yield ()
     } else Future.unit

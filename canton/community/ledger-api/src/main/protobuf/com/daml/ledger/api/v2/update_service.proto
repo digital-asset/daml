@@ -10,9 +10,9 @@ import "com/daml/ledger/api/v2/reassignment.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "UpdateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to read updates (transactions and reassignments) from the ledger.
 //
@@ -27,34 +27,32 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 // domain: updates which have greater offsets are happened after than updates with smaller
 // offsets for the same domain. Across different domains this is not guaranteed.
 service UpdateService {
-
   // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
   // For transactions it lists only creates and archives, but no other events.
   // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
-  rpc GetUpdates (GetUpdatesRequest) returns (stream GetUpdatesResponse);
+  rpc GetUpdates(GetUpdatesRequest) returns (stream GetUpdatesResponse);
 
   // Read the ledger's complete transaction tree stream and related reassignments for a set of parties.
   // The stream will be filtered only by the parties as wildcard parties.
   // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
-  rpc GetUpdateTrees (GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
+  rpc GetUpdateTrees(GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 
   // Lookup a transaction tree by the ID of an event that appears within it.
   // For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
-  rpc GetTransactionTreeByEventId (GetTransactionByEventIdRequest) returns (GetTransactionTreeResponse);
+  rpc GetTransactionTreeByEventId(GetTransactionByEventIdRequest) returns (GetTransactionTreeResponse);
 
   // Lookup a transaction tree by its ID.
   // For looking up a transaction instead of a transaction tree, please see GetTransactionById
-  rpc GetTransactionTreeById (GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
+  rpc GetTransactionTreeById(GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
 
   // Lookup a transaction by the ID of an event that appears within it.
-  rpc GetTransactionByEventId (GetTransactionByEventIdRequest) returns (GetTransactionResponse);
+  rpc GetTransactionByEventId(GetTransactionByEventIdRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by its ID.
-  rpc GetTransactionById (GetTransactionByIdRequest) returns (GetTransactionResponse);
+  rpc GetTransactionById(GetTransactionByIdRequest) returns (GetTransactionResponse);
 }
 
 message GetUpdatesRequest {
-
   // Beginning of the requested ledger section.
   // The response will only contain transactions whose offset is strictly greater than this.
   // Required
@@ -78,7 +76,6 @@ message GetUpdatesRequest {
 }
 
 message GetUpdatesResponse {
-
   // The update that matches the filter in the request.
   oneof update {
     Transaction transaction = 1;
@@ -87,7 +84,6 @@ message GetUpdatesResponse {
 }
 
 message GetUpdateTreesResponse {
-
   // The update that matches the filter in the request.
   oneof update {
     TransactionTree transaction_tree = 1;
@@ -96,7 +92,6 @@ message GetUpdateTreesResponse {
 }
 
 message GetTransactionByEventIdRequest {
-
   // The ID of a particular event.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
@@ -110,7 +105,6 @@ message GetTransactionByEventIdRequest {
 }
 
 message GetTransactionByIdRequest {
-
   // The ID of a particular transaction.
   // Must be a valid LedgerString (as describe in ``value.proto``).
   // Required
@@ -124,13 +118,11 @@ message GetTransactionByIdRequest {
 }
 
 message GetTransactionTreeResponse {
-
   // Required
   TransactionTree transaction = 1;
 }
 
 message GetTransactionResponse {
-
   // Required
   Transaction transaction = 1;
 }

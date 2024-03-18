@@ -15,8 +15,8 @@ import com.digitalasset.canton.crypto.store.{
 }
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.{DefaultDeserializationError, ProtoConverter}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.NoCopy
@@ -27,7 +27,10 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import monocle.Lens
+import monocle.macros.GenLens
 import slick.jdbc.GetResult
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -242,7 +245,7 @@ object SigningKeyScheme {
   val EdDsaSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, Ed25519)
   val EcDsaSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, EcDsaP256, EcDsaP384)
 
-  val allSchemes: NonEmpty[Set[SigningKeyScheme]] = NonEmpty.mk(Set, Ed25519, EcDsaP256, EcDsaP384)
+  val allSchemes: NonEmpty[Set[SigningKeyScheme]] = EdDsaSchemes ++ EcDsaSchemes
 
   def fromProtoEnum(
       field: String,
@@ -290,6 +293,15 @@ object SigningKeyPair {
     new SigningKeyPair(publicKey, privateKey)
   }
 
+  @VisibleForTesting
+  def wrongSigningKeyPairWithPublicKeyUnsafe(
+      publicKey: SigningPublicKey
+  ): SigningKeyPair = {
+    val privateKey =
+      new SigningPrivateKey(publicKey.id, publicKey.format, publicKey.key, publicKey.scheme)
+    new SigningKeyPair(publicKey, privateKey)
+  }
+
   def fromProtoV30(
       signingKeyPairP: v30.SigningKeyPair
   ): ParsingResult[SigningKeyPair] =
@@ -315,11 +327,20 @@ case class SigningPublicKey private[crypto] (
     scheme: SigningKeyScheme,
 ) extends PublicKey
     with PrettyPrinting
-    with NoCopy
     with HasVersionedWrapper[SigningPublicKey] {
   override val purpose: KeyPurpose = KeyPurpose.Signing
 
   override protected def companionObj = SigningPublicKey
+
+  // TODO(#15649): Make SigningPublicKey object invariant
+  protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
+    CryptoKeyValidation
+      .parseAndValidatePublicKey(
+        this,
+        errMsg =>
+          ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(errMsg)),
+      )
+      .map(_ => this)
 
   def toProtoV30: v30.SigningPublicKey =
     v30.SigningPublicKey(
@@ -349,13 +370,17 @@ object SigningPublicKey
     )
   )
 
-  private[this] def apply(
+  private[crypto] def create(
       id: Fingerprint,
       format: CryptoKeyFormat,
       key: ByteString,
       scheme: SigningKeyScheme,
-  ): SigningPrivateKey =
-    throw new UnsupportedOperationException("Use keypair generate or deserialization methods")
+  ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPublicKey] =
+    new SigningPublicKey(id, format, key, scheme).validated
+
+  @VisibleForTesting
+  val idUnsafe: Lens[SigningPublicKey, Fingerprint] =
+    GenLens[SigningPublicKey](_.id)
 
   def fromProtoV30(
       publicKeyP: v30.SigningPublicKey
@@ -364,7 +389,13 @@ object SigningPublicKey
       id <- Fingerprint.fromProtoPrimitive(publicKeyP.id)
       format <- CryptoKeyFormat.fromProtoEnum("format", publicKeyP.format)
       scheme <- SigningKeyScheme.fromProtoEnum("scheme", publicKeyP.scheme)
-    } yield new SigningPublicKey(id, format, publicKeyP.publicKey, scheme)
+      signingPublicKey <- SigningPublicKey.create(
+        id,
+        format,
+        publicKeyP.publicKey,
+        scheme,
+      )
+    } yield signingPublicKey
 
   def collect(initialKeys: Map[Member, Seq[PublicKey]]): Map[Member, Seq[SigningPublicKey]] =
     initialKeys.map { case (k, v) =>
@@ -378,6 +409,7 @@ final case class SigningPublicKeyWithName(
     override val name: Option[KeyName],
 ) extends PublicKeyWithName {
   type K = SigningPublicKey
+  override val id: Fingerprint = publicKey.id
 }
 
 object SigningPublicKeyWithName {
@@ -423,14 +455,6 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
   )
 
   override def name: String = "signing private key"
-
-  private[this] def apply(
-      id: Fingerprint,
-      format: CryptoKeyFormat,
-      key: ByteString,
-      scheme: SigningKeyScheme,
-  ): SigningPrivateKey =
-    throw new UnsupportedOperationException("Use keypair generate or deserialization methods")
 
   def fromProtoV30(
       privateKeyP: v30.SigningPrivateKey
@@ -540,6 +564,13 @@ object SignatureCheckError {
   final case class InvalidKeyError(message: String) extends SignatureCheckError {
     override def pretty: Pretty[InvalidKeyError] = prettyOfClass(unnamedParam(_.message.unquoted))
   }
+
+  final case class MemberGroupDoesNotExist(message: String) extends SignatureCheckError {
+    override def pretty: Pretty[MemberGroupDoesNotExist] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
+
   final case class GeneralError(error: Exception) extends SignatureCheckError {
     override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
   }

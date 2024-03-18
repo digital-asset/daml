@@ -4,6 +4,8 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
+import cats.syntax.foldable.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{DomainTimeTrackerConfig, TestingConfigInternal}
@@ -17,9 +19,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   Sequencer,
 }
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAdministrationService
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.*
@@ -27,6 +30,14 @@ import com.digitalasset.canton.sequencing.handlers.{
   DiscardIgnoredEvents,
   EnvelopeOpener,
   StripSignature,
+}
+import com.digitalasset.canton.sequencing.protocol.SequencedEvent
+import com.digitalasset.canton.sequencing.{
+  BoxedEnvelope,
+  HandlerResult,
+  SubscriptionStart,
+  UnsignedEnvelopeBox,
+  UnsignedProtocolEventHandler,
 }
 import com.digitalasset.canton.store.db.SequencerClientDiscriminator
 import com.digitalasset.canton.store.{
@@ -39,7 +50,8 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
 import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.traffic.TrafficControlProcessor
 import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -176,7 +188,49 @@ class SequencerRuntimeForSeparateNode(
         )
       )
 
-  private val eventHandler = StripSignature(topologyProcessor.createHandler(domainId))
+  private val topologyHandler = topologyProcessor.createHandler(domainId)
+  private val trafficProcessor =
+    new TrafficControlProcessor(
+      syncCrypto,
+      domainId,
+      sequencer.rateLimitManager.flatMap(_.balanceKnownUntil),
+      loggerFactory,
+    )
+
+  sequencer.rateLimitManager.foreach(_.balanceUpdateSubscriber.foreach(trafficProcessor.subscribe))
+
+  // TODO(i17434): Use topologyHandler.combineWith(trafficProcessorHandler)
+  private def handler(domainId: DomainId): UnsignedProtocolEventHandler =
+    new UnsignedProtocolEventHandler {
+      override def name: String = s"sequencer-runtime-$domainId"
+
+      override def subscriptionStartsAt(
+          start: SubscriptionStart,
+          domainTimeTracker: DomainTimeTracker,
+      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+        Seq(
+          topologyProcessor.subscriptionStartsAt(start, domainTimeTracker),
+          trafficProcessor.subscriptionStartsAt(start, domainTimeTracker),
+        ).sequence_
+
+      override def apply(
+          tracedEvents: BoxedEnvelope[UnsignedEnvelopeBox, DefaultOpenEnvelope]
+      ): HandlerResult =
+        tracedEvents.withTraceContext { implicit traceContext => events =>
+          NonEmpty.from(events).fold(HandlerResult.done)(handle)
+        }
+
+      private def handle(tracedEvents: NonEmpty[Seq[Traced[SequencedEvent[DefaultOpenEnvelope]]]])(
+          implicit traceContext: TraceContext
+      ): HandlerResult = {
+        for {
+          topology <- topologyHandler(Traced(tracedEvents))
+          _ <- trafficProcessor.handle(tracedEvents)
+        } yield topology
+      }
+    }
+
+  private val eventHandler = StripSignature(handler(domainId))
 
   private val sequencerAdministrationService =
     new GrpcSequencerAdministrationService(sequencer, client, loggerFactory)
@@ -225,6 +279,7 @@ class SequencerRuntimeForSeparateNode(
 
   override def onClosed(): Unit = {
     Lifecycle.close(
+      Lifecycle.toCloseableOption(sequencer.rateLimitManager),
       timeTracker,
       syncCrypto,
       topologyClient,

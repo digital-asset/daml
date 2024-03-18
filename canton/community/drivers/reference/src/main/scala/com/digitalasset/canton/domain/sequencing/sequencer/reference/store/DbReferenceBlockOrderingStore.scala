@@ -6,15 +6,18 @@ package com.digitalasset.canton.domain.sequencing.sequencer.reference.store
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockOrderer
 import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.DbReferenceBlockOrderingStore.deserializeBytes
+import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.TimestampedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
 import com.digitalasset.canton.tracing.{TraceContext, Traced, W3CTraceContext}
 import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.RetryUtil
@@ -28,6 +31,7 @@ import org.postgresql.util.PSQLException
 import slick.jdbc.{GetResult, SetParameter, TransactionIsolation}
 
 import java.util.UUID
+import scala.annotation.unused
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -53,6 +57,7 @@ class DbReferenceBlockOrderingStore(
       }
     )
 
+  @unused // used implicitly by database
   private implicit val requestSetParam: SetParameter[Traced[BlockOrderer.OrderedRequest]] =
     (v, pp) => {
       val traceContext = v.traceContext
@@ -77,22 +82,23 @@ class DbReferenceBlockOrderingStore(
     logger.debug(s"Storing an ordered request with UUID: $uuid")
 
     storage.update_(
-      (profile match {
+      profile match {
         case _: Postgres =>
-          (sqlu"""insert into blocks (id, request, uuid)
+          sqlu"""insert into blocks (id, request, uuid)
                  values ($blockHeight , $tracedRequest, $uuid)
                  on conflict (id) do nothing
-                 """)
+                 """
         case _: H2 =>
           sqlu"""merge into blocks (id, request, uuid)
                     values ($blockHeight, $tracedRequest, $uuid)
                       """
         case _: Oracle =>
           sys.error("reference sequencer does not support oracle database")
-      }),
+      },
       s"insert block with height $blockHeight",
     )
   }
+
   override def insertRequest(request: BlockOrderer.OrderedRequest)(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
@@ -141,7 +147,7 @@ class DbReferenceBlockOrderingStore(
         insertBlock(),
         new ExceptionRetryable {
           override def retryOK(
-              outcome: Try[_],
+              outcome: Try[?],
               logger: TracedLogger,
               lastErrorKind: Option[ErrorKind],
           )(implicit
@@ -167,14 +173,14 @@ class DbReferenceBlockOrderingStore(
       )
   }
 
-  override def countBlocks()(implicit
+  override def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Long] =
-    storage.query(sql"""select count(*) from blocks""".as[Long].head, "count blocks")
+  ): Future[Option[Long]] =
+    storage.query(sql"""select max(id) from blocks""".as[Option[Long]].head, "max block height")
 
   override def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext
-  ): Future[Seq[BlockOrderer.Block]] =
+  ): Future[Seq[TimestampedBlock]] =
     storage
       .query(
         sql"""select id, request, uuid from blocks where id >= $initialHeight order by id"""
@@ -197,20 +203,27 @@ class DbReferenceBlockOrderingStore(
           }
           ._2
         requestsUntilFirstGap.map { case (height, tracedRequest, uuid) =>
-          val blockRequests =
-            if (tracedRequest.value.tag == BatchTag)
-              proto.TracedBatchedBlockOrderingRequests
-                .parseFrom(
-                  tracedRequest.value.body.toByteArray
-                )
-                .requests
-                .map(DbReferenceBlockOrderingStore.fromProto)
-            else Seq(tracedRequest)
+          val (orderedRequests, lastTopologyTimestamp) =
+            if (tracedRequest.value.tag == BatchTag) {
+              val tracedBatchedBlockOrderingRequests = proto.TracedBatchedBlockOrderingRequests
+                .parseFrom(tracedRequest.value.body.toByteArray)
+              val batchedRequests =
+                tracedBatchedBlockOrderingRequests.requests
+                  .map(DbReferenceBlockOrderingStore.fromProto)
+              batchedRequests -> CantonTimestamp.ofEpochMicro(
+                tracedBatchedBlockOrderingRequests.lastTopologyTimestampEpochMicros
+              )
+            } else {
+              Seq(tracedRequest) -> SignedTopologyTransactionX.InitialTopologySequencingTime
+            }
           // Logging the UUID to be able to correlate the block on the write side.
           logger.debug(s"Retrieved block at height $height with UUID: $uuid")
-          BlockOrderer.Block(
-            height,
-            blockRequests,
+          val blockTimestamp =
+            CantonTimestamp.ofEpochMicro(tracedRequest.value.microsecondsSinceEpoch)
+          TimestampedBlock(
+            BlockOrderer.Block(height, orderedRequests),
+            blockTimestamp,
+            lastTopologyTimestamp,
           )
         }
       }

@@ -44,9 +44,6 @@ private[inner] object VariantClass extends StrictLogging {
         .addTypeVariables(typeArguments.map(TypeVariableName.get).asJava)
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).build())
         .addMethod(generateAbstractToValueSpec(typeArguments))
-        .addMethod(
-          generateDeprecatedFromValue(typeArguments, variantClassName)
-        )
         .addMethod(generateValueDecoder(typeArguments, constructorInfo, variantClassName))
         .addMethods(
           FromJsonGenerator.forVariant(variantClassName, typeArguments, constructorInfo).asJava
@@ -112,8 +109,9 @@ private[inner] object VariantClass extends StrictLogging {
     }
     builder
       .addStatement(
-        "throw new IllegalArgumentException($S)",
-        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of $constructorsAsString",
+        "throw new IllegalArgumentException($S + variant$$.getConstructor() + $S)",
+        "Found unknown constructor ",
+        s" for variant $variant, expected one of $constructorsAsString. This could be a failed variant downgrade.",
       )
   }
 
@@ -184,91 +182,6 @@ private[inner] object VariantClass extends StrictLogging {
       .addCode(decodeValueCodeBuilder.build())
       .endControlFlow("")
       .build()
-  }
-
-  private def generateDeprecatedFromValue(
-      typeArguments: IndexedSeq[String],
-      variantClassName: ClassName,
-  ): MethodSpec =
-    variantClassName.parameterized(typeArguments) match {
-      case variant: ClassName =>
-        generateDeprecatedConcreteFromValue(variant)
-      case variant: ParameterizedTypeName =>
-        generateDeprecatedParameterizedFromValue(variant)
-      case _ =>
-        throw new IllegalArgumentException("Required either ClassName or ParameterizedTypeName")
-    }
-
-  // TODO #15120 delete
-  private def generateDeprecatedConcreteFromValue(
-      t: ClassName
-  ): MethodSpec = {
-    logger.debug(s"Generating depreacted fromValue static method for $t")
-    initFromValueBuilder(t, "fromValue")
-      .addParameter(classOf[javaapi.data.Value], "value$")
-      .addAnnotation(classOf[Deprecated])
-      .addJavadoc(
-        "@deprecated since Daml $L; $L",
-        "2.5.0",
-        s"use {@code valueDecoder} instead",
-      )
-      .addStatement("$L", variantExtractor(t))
-      .addStatement(
-        "return valueDecoder().decode($L)",
-        "value$",
-      )
-      .build()
-  }
-
-  // TODO #15120 delete
-  private def generateDeprecatedParameterizedFromValue(
-      variant: ParameterizedTypeName
-  ): MethodSpec = {
-    logger.debug(s"Generating deprecated fromValue static method for $variant")
-    require(
-      variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
-      s"All type arguments of ${variant.rawType} must be generic",
-    )
-    val builder = initFromValueBuilder(variant, "fromValue")
-      .addParameter(classOf[javaapi.data.Value], "value$")
-
-    val typeVariablesExtractorParameters =
-      FromValueExtractorParameters.generate(
-        variant.typeArguments.asScala.map(_.toString).toIndexedSeq
-      )
-    builder
-      .addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
-      .addParameters(typeVariablesExtractorParameters.functionParameterSpecs.asJava)
-      .addAnnotation(classOf[Deprecated])
-      .addJavadoc(
-        "@deprecated since Daml $L; $L",
-        "2.5.0",
-        s"use {@code valueDecoder} instead",
-      )
-    val fromValueParams = CodeBlock.join(
-      typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
-        CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
-      }.asJava,
-      ",$W",
-    )
-
-    val classStaticAccessor = {
-      val typeParameterList = CodeBlock.join(
-        variant.typeArguments.asScala.map { param =>
-          CodeBlock.of("$T", param)
-        }.asJava,
-        ",$W",
-      )
-      CodeBlock.of("$T.<$L>", variant.rawType, typeParameterList)
-    }
-
-    builder.addStatement(
-      "return $LvalueDecoder($L).decode($L)",
-      classStaticAccessor,
-      fromValueParams,
-      "value$",
-    )
-    builder.build()
   }
 
   private def generateValueDecoder(

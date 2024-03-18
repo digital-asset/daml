@@ -304,7 +304,7 @@ class ParticipantTopologyDispatcherX(
         sequencerClientFactory,
         sequencerConnections,
         crypto,
-        config.topologyX,
+        config.topology,
         protocolVersion,
         expectedSequencers,
       )).run()
@@ -325,7 +325,7 @@ class ParticipantTopologyDispatcherX(
         domainId,
         participantId,
         clock,
-        config.topologyX,
+        config.topology,
         protocolVersion,
         timeouts,
         domainLoggerFactory,
@@ -473,7 +473,7 @@ private class DomainOnboardingOutboxX(
       initial: Seq[GenericSignedTopologyTransactionX]
   )(implicit traceContext: TraceContext): Either[DomainRegistryError, Unit] = {
     val (haveEncryptionKey, haveSigningKey) =
-      initial.map(_.transaction.mapping).foldLeft((false, false)) {
+      initial.map(_.mapping).foldLeft((false, false)) {
         case ((haveEncryptionKey, haveSigningKey), OwnerToKeyMappingX(`participantId`, _, keys)) =>
           (
             haveEncryptionKey || keys.exists(!_.isSigning),

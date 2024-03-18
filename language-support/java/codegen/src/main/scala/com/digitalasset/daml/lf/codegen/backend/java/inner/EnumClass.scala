@@ -32,7 +32,6 @@ private[inner] object EnumClass extends StrictLogging {
         .addField(generateValuesArray(enumeration))
         .addMethod(generateEnumsMapBuilder(className, enumeration))
         .addField(generateEnumsMap(className))
-        .addMethod(generateDeprecatedFromValue(className, enumeration))
         .addMethod(generateValueDecoder(className, enumeration))
         .addMethod(generateToValue)
         .addMethods(FromJsonGenerator.forEnum(className, "__enums$").asJava)
@@ -88,49 +87,25 @@ private[inner] object EnumClass extends StrictLogging {
     builder.build()
   }
 
-  // TODO #15120 delete
-  private def generateDeprecatedFromValue(
-      className: ClassName,
-      enumeration: typesig.Enum,
-  ): MethodSpec = {
-    logger.debug(s"Generating deprecated fromValue static method for $enumeration")
-
-    MethodSpec
-      .methodBuilder("fromValue")
-      .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
-      .returns(className)
-      .addParameter(classOf[javaapi.data.Value], "value$")
-      .addAnnotation(classOf[Deprecated])
-      .addJavadoc(
-        "@deprecated since Daml $L; $L",
-        "2.5.0",
-        s"use {@code valueDecoder} instead",
-      )
-      .addStatement(
-        "return valueDecoder().decode($L)",
-        "value$",
-      )
-      .build()
-  }
-
   private def generateValueDecoder(
       className: ClassName,
       enumeration: typesig.Enum,
   ): MethodSpec = {
     logger.debug(s"Generating valueDecoder static method for $enumeration")
-
+    val constructorsAsString = enumeration.constructors.mkString("[", ", ", "]")
     val valueDecoderCode = CodeBlock
       .builder()
       .addStatement(
         "$T constructor$$ = value$$.asEnum().orElseThrow(() -> new $T($S)).getConstructor()",
         classOf[String],
         classOf[IllegalArgumentException],
-        s"Expected DamlEnum to build an instance of the Enum ${className.simpleName()}",
+        s"Expected DamlEnum to build an instance of the Enum $className",
       )
       .addStatement(
-        "if (!__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$)",
+        "if (!__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$ + $S)",
         classOf[IllegalArgumentException],
-        s"Expected a DamlEnum with ${className.simpleName()} constructor, found ",
+        "Found unknown constructor ",
+        s" for enum $className, expected one of $constructorsAsString. This could be a failed enum downgrade.",
       )
       .addStatement("return __enums$$.get(constructor$$)")
 

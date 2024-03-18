@@ -61,6 +61,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest {
           DefaultTestIdentities.domainId,
           Some(msgId),
           Batch.empty(testedProtocolVersion),
+          None,
           testedProtocolVersion,
         )
       ),

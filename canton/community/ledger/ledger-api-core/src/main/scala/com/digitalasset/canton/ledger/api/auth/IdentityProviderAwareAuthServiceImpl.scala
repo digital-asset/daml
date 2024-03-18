@@ -102,8 +102,6 @@ class IdentityProviderAwareAuthServiceImpl(
       jwtPayload: AuthServiceJWTPayload
   ): Future[StandardJWTPayload] =
     jwtPayload match {
-      case _: CustomDamlJWTPayload =>
-        Future.failed(new Exception("Unexpected token payload format"))
       case payload: StandardJWTPayload =>
         Future.successful(payload)
     }

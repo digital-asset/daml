@@ -3,13 +3,13 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.daml.ledger.api.v1.event._
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.daml.ledger.api.v1.value
-import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
-import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created}
+import com.daml.ledger.api.v2.event._
+import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.Exercised
+import com.daml.ledger.api.v2.value
+import com.daml.ledger.api.v2.value.Value.Sum
+import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.google.protobuf.ByteString
@@ -36,6 +36,8 @@ import scala.jdk.OptionConverters._
 object TransactionGenerator {
 
   implicit def noShrink[A]: Shrink[A] = Shrink.shrinkAny
+
+  private val zeroTime = Instant.ofEpochSecond(0, 0)
 
   val nonEmptyId: Gen[String] = Gen
     .nonEmptyListOf(Arbitrary.arbChar.arbitrary)
@@ -209,6 +211,7 @@ object TransactionGenerator {
   val createdEventGen: Gen[(Created, data.CreatedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
+    packageName <- nonEmptyId
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaCreatedAtTimestamp, createdAtInstant) <- timestampGen
@@ -220,50 +223,63 @@ object TransactionGenerator {
   } yield (
     Created(
       CreatedEvent(
-        eventId,
-        contractId,
-        Some(scalaTemplateId),
-        contractKey.map(_._1),
-        Some(scalaRecord),
-        createdEventBlob,
-        interfaceViews.map(_._1),
-        signatories ++ observers,
-        signatories,
-        observers,
-        None, // agreementText, to be removed
-        Some(scalaCreatedAtTimestamp),
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        contractKey = contractKey.map(_._1),
+        createArguments = Some(scalaRecord),
+        createdEventBlob = createdEventBlob,
+        interfaceViews = interfaceViews.map(_._1),
+        witnessParties = signatories ++ observers,
+        signatories = signatories,
+        observers = observers,
+        createdAt = Some(scalaCreatedAtTimestamp),
+        packageName = packageName,
       )
     ),
     new data.CreatedEvent(
-      (signatories ++ observers).asJava,
-      eventId,
-      javaTemplateId,
-      contractId,
-      javaRecord,
-      createdEventBlob,
-      interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
-      interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
-      contractKey.map(_._2).toJava,
-      signatories.toSet.asJava,
-      observers.toSet.asJava,
-      createdAtInstant,
+      witnessParties = (signatories ++ observers).asJava,
+      eventId = eventId,
+      templateId = javaTemplateId,
+      packageName = packageName,
+      contractId = contractId,
+      arguments = javaRecord,
+      createdEventBlob = createdEventBlob,
+      interfaceViews =
+        interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
+      failedInterfaceViews =
+        interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
+      contractKey = contractKey.map(_._2).toJava,
+      signatories = signatories.toSet.asJava,
+      observers = observers.toSet.asJava,
+      createdAt = createdAtInstant,
     ),
   )
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {
     eventId <- nonEmptyId
+    pkgName <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
     parties <- Gen.listOf(nonEmptyId)
   } yield (
-    Archived(ArchivedEvent(eventId, contractId, Some(scalaTemplateId), parties)),
-    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, contractId),
+    Archived(
+      ArchivedEvent(
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        witnessParties = parties,
+        packageName = pkgName,
+      )
+    ),
+    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, pkgName, contractId),
   )
 
   val exercisedEventGen: Gen[(Exercised, data.ExercisedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
+    pkgName <- nonEmptyId
     mbInterfaceId <- Gen.option(identifierGen)
     scalaInterfaceId = mbInterfaceId.map(_._1)
     javaInterfaceId = mbInterfaceId.map(_._2)
@@ -277,23 +293,25 @@ object TransactionGenerator {
   } yield (
     Exercised(
       ExercisedEvent(
-        eventId,
-        contractId,
-        Some(scalaTemplateId),
-        scalaInterfaceId,
-        choice,
-        Some(scalaChoiceArgument),
-        actingParties,
-        consuming,
-        witnessParties,
-        Nil,
-        Some(scalaExerciseResult),
+        eventId = eventId,
+        contractId = contractId,
+        templateId = Some(scalaTemplateId),
+        interfaceId = scalaInterfaceId,
+        choice = choice,
+        choiceArgument = Some(scalaChoiceArgument),
+        actingParties = actingParties,
+        consuming = consuming,
+        witnessParties = witnessParties,
+        childEventIds = Nil,
+        exerciseResult = Some(scalaExerciseResult),
+        packageName = pkgName,
       )
     ),
     new data.ExercisedEvent(
       witnessParties.asJava,
       eventId,
       javaTemplateId,
+      pkgName,
       javaInterfaceId.toJava,
       contractId,
       choice,
@@ -344,6 +362,7 @@ object TransactionGenerator {
       offset,
       domainId,
       traceContext,
+      zeroTime,
     ),
   )
 
@@ -377,6 +396,7 @@ object TransactionGenerator {
       Collections.emptyList(),
       domainId,
       traceContext,
+      zeroTime,
     ),
   )
 

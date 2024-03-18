@@ -138,6 +138,11 @@ object TopologyMappingX {
       TrafficControlStateX,
     )
 
+    def fromString(code: String): ParsingResult[Code] =
+      all
+        .find(_.code == code)
+        .toRight(UnrecognizedEnum("TopologyMappingX.Code", code, all.map(_.code)))
+
     implicit val setParameterTopologyMappingCode: SetParameter[Code] =
       (v, pp) => pp.setInt(v.dbInt)
 
@@ -398,9 +403,9 @@ object NamespaceDelegationX {
 
   /** Returns true if the given transaction is a self-signed root certificate */
   def isRootCertificate(sit: GenericSignedTopologyTransactionX): Boolean = {
-    ((sit.transaction.op == TopologyChangeOpX.Replace && sit.transaction.serial == PositiveInt.one) ||
-      (sit.transaction.op == TopologyChangeOpX.Remove && sit.transaction.serial != PositiveInt.one)) &&
-    sit.transaction.mapping
+    ((sit.operation == TopologyChangeOpX.Replace && sit.serial == PositiveInt.one) ||
+      (sit.operation == TopologyChangeOpX.Remove && sit.serial != PositiveInt.one)) &&
+    sit.mapping
       .select[transaction.NamespaceDelegationX]
       .exists(ns =>
         sit.signatures.size == 1 &&
@@ -413,8 +418,8 @@ object NamespaceDelegationX {
   /** Returns true if the given transaction is a root delegation */
   def isRootDelegation(sit: GenericSignedTopologyTransactionX): Boolean = {
     isRootCertificate(sit) || (
-      sit.transaction.op == TopologyChangeOpX.Replace &&
-        sit.transaction.mapping
+      sit.operation == TopologyChangeOpX.Replace &&
+        sit.mapping
           .select[transaction.NamespaceDelegationX]
           .exists(ns => ns.isRootDelegation)
     )
@@ -893,9 +898,7 @@ object ParticipantDomainPermissionX {
       participantId <- ParticipantId.fromProtoPrimitive(value.participant, "participant")
       permission <- ParticipantPermission.fromProtoV30(value.permission)
       limits = value.limits.map(ParticipantDomainLimits.fromProtoV30)
-      loginAfter <- value.loginAfter.fold[ParsingResult[Option[CantonTimestamp]]](Right(None))(
-        CantonTimestamp.fromProtoPrimitive(_).map(_.some)
-      )
+      loginAfter <- value.loginAfter.traverse(CantonTimestamp.fromProtoPrimitive)
     } yield ParticipantDomainPermissionX(
       domainId,
       participantId,

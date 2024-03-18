@@ -24,8 +24,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eRecUpd |
       eVariantOrEnumCon |
       fullIdentifier ^^ EVal |
-      literal ^^ EPrimLit |
-      primCon ^^ EPrimCon |
+      literal ^^ EBuiltinLit |
+      primCon ^^ EBuiltinCon |
       scenario ^^ EScenario |
       update ^^ EUpdate |
       eList |
@@ -54,7 +54,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eObserverInterface |
       eChoiceController |
       eChoiceObserver |
-      (id ^? builtinFunctions) ^^ EBuiltin |
+      (id ^? builtinFunctions) ^^ EBuiltinFun |
       experimental |
       caseOf |
       id ^^ EVar |
@@ -76,18 +76,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     )
   }
 
-  private lazy val literal: Parsers.Parser[PrimLit] =
-    acceptMatch[PrimLit]("Number", { case Number(l) => PLInt64(l) }) |
-      acceptMatch("Numeric", { case Numeric(d) => PLNumeric(d) }) |
-      acceptMatch("Text", { case Text(s) => PLText(s) }) |
-      acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
-      acceptMatch("Date", { case Date(l) => PLDate(l) }) |
-      (id ^? roundingModes) ^^ PLRoundingMode
+  private lazy val literal: Parsers.Parser[BuiltinLit] =
+    acceptMatch[BuiltinLit]("Number", { case Number(l) => BLInt64(l) }) |
+      acceptMatch("Numeric", { case Numeric(d) => BLNumeric(d) }) |
+      acceptMatch("Text", { case Text(s) => BLText(s) }) |
+      acceptMatch("Timestamp", { case Timestamp(l) => BLTimestamp(l) }) |
+      acceptMatch("Date", { case Date(l) => BLDate(l) }) |
+      (id ^? roundingModes) ^^ BLRoundingMode
 
   private lazy val primCon =
-    Id("True") ^^^ PCTrue |
-      Id("False") ^^^ PCFalse |
-      (`(` ~ `)` ^^^ PCUnit)
+    Id("True") ^^^ BCTrue |
+      Id("False") ^^^ BCFalse |
+      (`(` ~ `)` ^^^ BCUnit)
 
   private lazy val eAppAgr: Parser[EAppAgr] =
     argTyp ^^ EAppTypArg |
@@ -299,7 +299,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val pattern: Parser[CasePat] =
     Id("_") ^^^ CPDefault |
-      primCon ^^ CPPrimCon |
+      primCon ^^ CPBuiltinCon |
       (`nil` ^^^ CPNil) |
       (`cons` ~>! id ~ id ^^ { case x1 ~ x2 => CPCons(x1, x2) }) |
       (`none` ^^^ CPNone) |
@@ -363,7 +363,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "SHA256_TEXT" -> BSHA256Text,
     "INT64_TO_TEXT" -> BInt64ToText,
     "NUMERIC_TO_TEXT" -> BNumericToText,
-    "TEXT_TO_TEXT" -> BTextToText,
     "TIMESTAMP_TO_TEXT" -> BTimestampToText,
     "PARTY_TO_TEXT" -> BPartyToText,
     "DATE_TO_TEXT" -> BDateToText,

@@ -17,7 +17,6 @@ import com.digitalasset.canton.serialization.{
   ProtocolVersionedMemoizedEvidence,
 }
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.{
   HasMemoizedProtocolVersionedWithContextCompanion,
   HasProtocolVersionedWrapper,
@@ -64,7 +63,7 @@ final case class SubmissionRequest private (
     messageId = messageId.toProtoPrimitive,
     isRequest = isRequest,
     batch = Some(batch.toProtoV30),
-    maxSequencingTime = Some(maxSequencingTime.toProtoPrimitive),
+    maxSequencingTime = maxSequencingTime.toProtoPrimitive,
     topologyTimestamp = topologyTimestamp.map(_.toProtoPrimitive),
     aggregationRule = aggregationRule.map(_.toProtoV30),
   )
@@ -167,20 +166,10 @@ object SubmissionRequest
 
   override def name: String = "submission request"
 
+  // TODO(i17584): revisit the consequences of no longer enforcing that
+  //  aggregated submissions with signed envelopes define a topology snapshot
   override lazy val invariants: Seq[protocol.SubmissionRequest.Invariant] =
-    Seq(topologyTimestampInvariant)
-
-  lazy val topologyTimestampInvariant = new Invariant {
-    override def validateInstance(
-        v: SubmissionRequest,
-        rpv: SubmissionRequest.ThisRepresentativeProtocolVersion,
-    ): Either[String, Unit] =
-      EitherUtil.condUnitE(
-        v.aggregationRule.isEmpty || v.topologyTimestamp.isDefined || v.batch.envelopes
-          .forall(_.signatures.isEmpty),
-        s"Submission request with signed envelopes has `aggregationRule` set, but `topologyTimestamp` is not defined. Please check that `topologyTimestamp` has been set for the submission.",
-      )
-  }
+    Seq.empty
 
   def create(
       sender: Member,
@@ -244,11 +233,7 @@ object SubmissionRequest
     for {
       sender <- Member.fromProtoPrimitive(senderP, "sender")
       messageId <- MessageId.fromProtoPrimitive(messageIdP)
-      maxSequencingTime <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "SubmissionRequest.maxSequencingTime",
-        maxSequencingTimeP,
-      )
+      maxSequencingTime <- CantonTimestamp.fromProtoPrimitive(maxSequencingTimeP)
       batch <- ProtoConverter.parseRequired(
         Batch.fromProtoV30(_, maxRequestSize),
         "SubmissionRequest.batch",

@@ -20,16 +20,18 @@ object FabricErrors extends FabricErrorGroup {
         |"""
     )
     @Resolution(
-      """Change the configuration of `startBlockHeight` for the Fabric sequencer when working
-        |with an existing (not fresh) Fabric network. Alternatively, wait until the sequencer has caught up to the head
-        | of the blockchain. """
+      """Wait until the sequencer has caught up to the head of the blockchain. Alternatively, if this is a fresh
+        |deployment, and not all blocks must be processed, consider restarting the sequencer with an updated
+        |`startBlockHeight` to skip ahead to a block height that is closer to the head of the blockchain. Note that for
+        |existing deployments, updating `startBlockHeight` won't have any effect since it is only used on fresh deployments.
+        |"""
     )
     object ManyBlocksBehindHead
         extends ErrorCode("FABRIC_MANY_BLOCKS_BEHIND_HEAD", BackgroundProcessDegradationWarning) {
       final case class Warn(currBlock: Long, blockchainHead: Long)(implicit
           val logger: ContextualizedErrorLogger
       ) extends SequencerBaseError.Impl(
-            s"The Fabric sequencer is ${blockchainHead - currBlock} blocks behind the head of the blockchain. This might take a while. Consider updating `start-block-height`."
+            s"The Fabric sequencer is ${blockchainHead - currBlock} blocks behind the head of the blockchain. Catch up might take a while. If this is a new deployment, and not all blocks need to be processed, consider restarting the sequencer with an updated `start-block-height` to skip ahead to a more recent block height."
           )
     }
 

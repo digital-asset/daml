@@ -51,7 +51,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
       val int64List = TApp(TBuiltin(BTList), int64)
 
       def int64Cons(nums: ImmArray[Long], tail: Expr): Expr =
-        ECons(int64, nums.map(i => EPrimLit(PLInt64(i))), tail)
+        ECons(int64, nums.map(i => EBuiltinLit(BLInt64(i))), tail)
 
       val int64Nil = ENil(int64)
       val concat =
@@ -68,7 +68,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                   EApp(
                     EApp(
                       EApp(
-                        EBuiltin(BFoldr),
+                        EBuiltinFun(BFoldr),
                         EAbs(
                           ("x", int64),
                           EAbs(
@@ -88,7 +88,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                 None,
               ),
             ),
-            EApp(EApp(EApp(EBuiltin(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
+            EApp(EApp(EApp(EBuiltinFun(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
           ),
           None,
         )
@@ -107,7 +107,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
     val t_int64List = TApp(TBuiltin(BTList), t_int64)
     val list = ECons(
       t_int64List,
-      (1 to 100000).map(i => EPrimLit(PLInt64(i.toLong))).to(ImmArray),
+      (1 to 100000).map(i => EBuiltinLit(BLInt64(i.toLong))).to(ImmArray),
       ENil(t_int64List),
     )
     var machine: Speedy.PureMachine = null

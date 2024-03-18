@@ -31,6 +31,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, ClientChannelBuilder}
+import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticatorImpl
 import com.digitalasset.canton.platform.LedgerApiServer
@@ -49,7 +50,6 @@ import com.digitalasset.canton.platform.indexer.{
 }
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.platform.store.packagemeta.InMemoryPackageMetadataStore
 import com.digitalasset.canton.protocol.UnicumGenerator
@@ -58,7 +58,7 @@ import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.{DiscardOps, LfPartyId}
 import io.grpc.ServerInterceptor
 import io.opentelemetry.api.trace.Tracer
-import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTracing
+import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
@@ -80,6 +80,7 @@ class StartableStoppableLedgerApiServer(
     dbConfig: DbSupport.DbConfig,
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
+    packageNameMapResolver: MutablePackageNameMapResolver,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     actorSystem: ActorSystem,
@@ -206,6 +207,14 @@ class StartableStoppableLedgerApiServer(
           tracer,
           loggerFactory,
         )
+      packageMetadataStore = new InMemoryPackageMetadataStore(
+        inMemoryState.packageMetadataView
+      )
+      _ <- ResourceOwner.forReleasable(() =>
+        packageNameMapResolver.setReference(() =>
+          packageMetadataStore.getSnapshot.getUpgradablePackageMap
+        )
+      )(_ => Future.successful(packageNameMapResolver.unset()))
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       dbSupport <- DbSupport
         .owner(
@@ -214,11 +223,6 @@ class StartableStoppableLedgerApiServer(
           dbConfig = dbConfig,
           loggerFactory = loggerFactory,
         )
-      indexerDbDispatcherOverride = Option.when(
-        dbSupport.storageBackendFactory == H2StorageBackendFactory
-      )(
-        dbSupport.dbDispatcher
-      )
       indexerHealth <- new IndexerServiceOwner(
         config.participantId,
         participantDataSourceConfig,
@@ -227,7 +231,6 @@ class StartableStoppableLedgerApiServer(
         config.metrics,
         inMemoryState,
         inMemoryStateUpdaterFlow,
-        Seq(),
         executionContext,
         tracer,
         loggerFactory,
@@ -241,7 +244,7 @@ class StartableStoppableLedgerApiServer(
           postgres = config.serverConfig.postgresDataSource,
         ),
         highAvailability = config.indexerHaConfig,
-        indexerDbDispatcherOverride = indexerDbDispatcherOverride,
+        indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
       )
       contractLoader <- {
         import config.cantonParameterConfig.ledgerApiServerParameters.contractLoader.*
@@ -294,10 +297,6 @@ class StartableStoppableLedgerApiServer(
         executionContext = executionContext,
         loggerFactory = loggerFactory,
       )
-
-      packageMetadataStore = new InMemoryPackageMetadataStore(
-        inMemoryState.packageMetadataView
-      )
       serializableContractAuthenticator = new SerializableContractAuthenticatorImpl(
         new UnicumGenerator(config.syncService.pureCryptoApi)
       )
@@ -321,7 +320,7 @@ class StartableStoppableLedgerApiServer(
         participantId = config.participantId,
         apiStreamShutdownTimeout = config.serverConfig.apiStreamShutdownTimeout,
         command = config.serverConfig.commandService,
-        configurationLoadTimeout = config.serverConfig.configurationLoadTimeout,
+        initSyncTimeout = config.serverConfig.initSyncTimeout,
         managementServiceTimeout = config.serverConfig.managementServiceTimeout,
         userManagement = config.serverConfig.userManagementService,
         tls = config.serverConfig.tls
@@ -346,6 +345,7 @@ class StartableStoppableLedgerApiServer(
         servicesExecutionContext = executionContext,
         checkOverloaded = config.syncService.checkOverloaded,
         ledgerFeatures = getLedgerFeatures,
+        maxDeduplicationDuration = config.maxDeduplicationDuration,
         authService = authService,
         jwtVerifierLoader = jwtVerifierLoader,
         jwtTimestampLeeway =
@@ -358,6 +358,7 @@ class StartableStoppableLedgerApiServer(
         upgradingEnabled = config.cantonParameterConfig.enableContractUpgrading,
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
+        disableUpgradeValidation = config.cantonParameterConfig.disableUpgradeValidation,
       )
       _ <- startHttpApiIfEnabled
       _ <- {
@@ -405,7 +406,7 @@ class StartableStoppableLedgerApiServer(
       config.loggerFactory,
       config.cantonParameterConfig.loggingConfig.api,
     ),
-    GrpcTracing
+    GrpcTelemetry
       .builder(config.tracerProvider.openTelemetry)
       .build()
       .newServerInterceptor(),

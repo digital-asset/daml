@@ -42,14 +42,15 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
   StoredTopologyTransactionsX,
   TimeQuery,
+  TopologyStoreId,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.TopologyMappingX.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransactionX.TxHash
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DiscardOps, config}
 import com.google.protobuf.ByteString
@@ -132,14 +133,15 @@ class TopologyAdministrationGroup(
     )
     def identity_transactions()
         : Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]] = {
-      val txs = instance.topology.transactions.list()
-      txs.result
-        .flatMap(tx =>
-          tx.transaction
-            .selectMapping[NamespaceDelegationX]
-            .orElse(tx.transaction.selectMapping[OwnerToKeyMappingX])
+      val excludeExceptTopologyMappings =
+        TopologyMappingX.Code.all.diff(Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code))
+      instance.topology.transactions
+        .list(
+          excludeMappings = excludeExceptTopologyMappings,
+          filterNamespace = instance.id.uid.namespace.filterString,
         )
-        .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
+        .result
+        .map(_.transaction)
     }
 
     @Help.Summary("Serializes node's topology identity transactions to a file")
@@ -147,19 +149,30 @@ class TopologyAdministrationGroup(
       "Transactions serialized this way should be loaded into another node with load_from_file"
     )
     def export_identity_transactions(file: String): Unit = {
-      instance.topology.transactions
-        .list()
-        .collectOfMapping(NamespaceDelegationX.code, OwnerToKeyMappingX.code)
-        .filter(_.transaction.mapping.namespace == instance.id.uid.namespace)
-        .writeToFile(file)
+      val excludeExceptTopologyMappings =
+        TopologyMappingX.Code.all.diff(Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code))
+      val bytes = instance.topology.transactions
+        .export_topology_snapshot(
+          excludeMappings = excludeExceptTopologyMappings,
+          filterNamespace = instance.id.uid.namespace.filterString,
+        )
+      writeToFile(file, bytes)
     }
 
     @Help.Summary("Loads topology transactions from a file into the specified topology store")
     @Help.Description("The file must contain data serialized by TopologyTransactionsX.")
-    def load_from_file(file: String, store: String): Unit = {
-      val txs = StoredTopologyTransactionsX.tryReadFromFile(file)
-      load(txs.signedTransactions.result, store)
+    def import_topology_snapshot_from(file: String, store: String): Unit = {
+      BinaryFileUtil.readByteStringFromFile(file).map(import_topology_snapshot(_, store)).valueOr {
+        err =>
+          throw new IllegalArgumentException(s"import_topology_snapshot failed: $err")
+      }
     }
+    def import_topology_snapshot(topologyTransactions: ByteString, store: String): Unit =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommandsX.Write.ImportTopologySnapshot(topologyTransactions, store)
+        )
+      }
 
     def load(transactions: Seq[GenericSignedTopologyTransactionX], store: String): Unit =
       consoleEnvironment.run {
@@ -199,8 +212,10 @@ class TopologyAdministrationGroup(
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
+        excludeMappings: Seq[TopologyMappingX.Code] = Nil,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
+        filterNamespace: String = "",
     ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
       consoleEnvironment
         .run {
@@ -213,10 +228,75 @@ class TopologyAdministrationGroup(
                 operation,
                 filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
                 protocolVersion.map(ProtocolVersion.tryCreate),
-              )
+              ),
+              excludeMappings = excludeMappings.map(_.code),
+              filterNamespace = filterNamespace,
             )
           )
         }
+    }
+
+    @Help.Summary("export topology snapshot")
+    @Help.Description(
+      """This command export the node's topology transactions as byte string.
+        |
+        |The arguments are:
+        |excludeMappings: a list of topology mapping codes to exclude from the export. If not provided, all mappings are included.
+        |filterNamespace: the namespace to filter the transactions by.
+        |protocolVersion: the protocol version used to serialize the topology transactions. If not provided, the latest protocol version is used.
+        |""".stripMargin
+    )
+    def export_topology_snapshot(
+        filterStore: String = AuthorizedStore.filterName,
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOpX] = None,
+        excludeMappings: Seq[TopologyMappingX.Code] = Nil,
+        filterAuthorizedKey: Option[Fingerprint] = None,
+        protocolVersion: Option[String] = None,
+        filterNamespace: String = "",
+    ): ByteString = {
+      consoleEnvironment
+        .run {
+          adminCommand(
+            TopologyAdminCommandsX.Read.ExportTopologySnapshot(
+              BaseQueryX(
+                filterStore,
+                proposals,
+                timeQuery,
+                operation,
+                filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
+                protocolVersion.map(ProtocolVersion.tryCreate),
+              ),
+              excludeMappings = excludeMappings.map(_.code),
+              filterNamespace = filterNamespace,
+            )
+          )
+        }
+    }
+    @Help.Summary("export topology snapshot to a file")
+    def export_topology_snapshot_to_file(
+        filterStore: String = AuthorizedStore.filterName,
+        proposals: Boolean = false,
+        outputFile: String = TopologyAdministrationX.exportTransactionsDefaultFile,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOpX] = None,
+        excludeMappings: Seq[TopologyMappingX.Code] = Nil,
+        filterAuthorizedKey: Option[Fingerprint] = None,
+        protocolVersion: Option[String] = None,
+        filterNamespace: String = "",
+    ): Unit = {
+      val bytes = export_topology_snapshot(
+        filterStore,
+        proposals,
+        timeQuery,
+        operation,
+        excludeMappings,
+        filterAuthorizedKey,
+        protocolVersion,
+        filterNamespace,
+      )
+      writeToFile(outputFile, bytes)
     }
 
     @Help.Summary("Find the latest transaction for a given mapping hash")
@@ -234,7 +314,7 @@ class TopologyAdministrationGroup(
     ): Option[StoredTopologyTransactionX[TopologyChangeOpX, M]] = {
       val latestAuthorized = list(filterStore = filterStore)
         .collectOfMapping[M]
-        .filter(_.transaction.mapping.uniqueKey == mappingHash)
+        .filter(_.mapping.uniqueKey == mappingHash)
         .result
       val latestProposal =
         if (includeProposals)
@@ -243,7 +323,7 @@ class TopologyAdministrationGroup(
             .filter(_.mapping.uniqueKey == mappingHash)
             .result
         else Seq.empty
-      (latestAuthorized ++ latestProposal).maxByOption(_.transaction.transaction.serial)
+      (latestAuthorized ++ latestProposal).maxByOption(_.serial)
     }
 
     @Help.Summary("Manage topology transaction purging", FeatureFlag.Preview)
@@ -1055,12 +1135,13 @@ class TopologyAdministrationGroup(
         store: String = AuthorizedStore.filterName,
     ): SignedTopologyTransactionX[TopologyChangeOpX, PartyToParticipantX] = {
 
-      val currentO = expectAtMostOneResult(
-        list(
-          filterStore = store,
-          filterParty = party.filterString,
-        ).filter(_.item.domainId == domainId)
-      )
+      val currentO = TopologyStoreId(store) match {
+        case TopologyStoreId.DomainStore(domainId, _) =>
+          expectAtMostOneResult(list(domainId, filterParty = party.filterString))
+
+        case TopologyStoreId.AuthorizedStore =>
+          expectAtMostOneResult(list_from_authorized(filterParty = party.filterString))
+      }
 
       val (existingPermissions, newSerial) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOpX.Remove =>
@@ -1158,14 +1239,13 @@ class TopologyAdministrationGroup(
       synchronisation.runAdminCommand(synchronize)(command)
     }
 
-    @Help.Summary("List party to participant mapping transactions")
+    @Help.Summary("List party to participant mapping transactions from domain store")
     @Help.Description(
       """List the party to participant mapping transactions present in the stores. Party to participant mappings
         |are topology transactions used to allocate a party to certain participants. The same party can be allocated
         |on several participants with different privileges.
 
-        filterStore: - "Authorized": Look in the node's authorized store.
-                     - "<domain-id>": Look in the specified domain store.
+        domainId: Domain to be considered
         proposals: Whether to query proposals instead of authorized transactions.
         timeQuery: The time query allows to customize the query by time. The following options are supported:
                    TimeQuery.HeadState (default): The most recent known state.
@@ -1179,7 +1259,7 @@ class TopologyAdministrationGroup(
         |"""
     )
     def list(
-        filterStore: String = "",
+        domain: DomainId,
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
@@ -1191,7 +1271,93 @@ class TopologyAdministrationGroup(
       adminCommand(
         TopologyAdminCommandsX.Read.ListPartyToParticipant(
           BaseQueryX(
-            filterStore,
+            filterStore = domain.filterString,
+            proposals,
+            timeQuery,
+            operation,
+            filterSigningKey,
+            protocolVersion.map(ProtocolVersion.tryCreate),
+          ),
+          filterParty,
+          filterParticipant,
+        )
+      )
+    }
+
+    @Help.Summary("List party to participant mapping transactions from the authorized store")
+    @Help.Description(
+      """List the party to participant mapping transactions present in the stores. Party to participant mappings
+        |are topology transactions used to allocate a party to certain participants. The same party can be allocated
+        |on several participants with different privileges.
+
+        proposals: Whether to query proposals instead of authorized transactions.
+        timeQuery: The time query allows to customize the query by time. The following options are supported:
+                   TimeQuery.HeadState (default): The most recent known state.
+                   TimeQuery.Snapshot(ts): The state at a certain point in time.
+                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
+        operation: Optionally, what type of operation the transaction should have.
+        filterParty: Filter for parties starting with the given filter string.
+        filterParticipant: Filter for participants starting with the given filter string.
+        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
+        protocolVersion: Export the topology transactions in the optional protocol version.
+        |"""
+    )
+    def list_from_authorized(
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOpX] = None,
+        filterParty: String = "",
+        filterParticipant: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): Seq[ListPartyToParticipantResult] = consoleEnvironment.run {
+      adminCommand(
+        TopologyAdminCommandsX.Read.ListPartyToParticipant(
+          BaseQueryX(
+            filterStore = AuthorizedStore.filterName,
+            proposals,
+            timeQuery,
+            operation,
+            filterSigningKey,
+            protocolVersion.map(ProtocolVersion.tryCreate),
+          ),
+          filterParty,
+          filterParticipant,
+        )
+      )
+    }
+
+    @Help.Summary("List party to participant mapping transactions from all stores")
+    @Help.Description(
+      """List the party to participant mapping transactions present in the stores. Party to participant mappings
+        |are topology transactions used to allocate a party to certain participants. The same party can be allocated
+        |on several participants with different privileges.
+
+        proposals: Whether to query proposals instead of authorized transactions.
+        timeQuery: The time query allows to customize the query by time. The following options are supported:
+                   TimeQuery.HeadState (default): The most recent known state.
+                   TimeQuery.Snapshot(ts): The state at a certain point in time.
+                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
+        operation: Optionally, what type of operation the transaction should have.
+        filterParty: Filter for parties starting with the given filter string.
+        filterParticipant: Filter for participants starting with the given filter string.
+        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
+        protocolVersion: Export the topology transactions in the optional protocol version.
+        |"""
+    )
+    def list_from_all(
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOpX] = None,
+        filterParty: String = "",
+        filterParticipant: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): Seq[ListPartyToParticipantResult] = consoleEnvironment.run {
+      adminCommand(
+        TopologyAdminCommandsX.Read.ListPartyToParticipant(
+          BaseQueryX(
+            filterStore = "",
             proposals,
             timeQuery,
             operation,
@@ -1809,14 +1975,116 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Propose changes to the mediator topology")
+    @Help.Description(
+      """
+     domainId: the target domain
+     group: the mediator group identifier
+     adds: The unique identifiers of the active mediators to add.
+     removes: The unique identifiers of the mediators that should no longer be active mediators.
+     observerAdds: The unique identifiers of the observer mediators to add.
+     observerRemoves: The unique identifiers of the mediators that should no longer be observer mediators.
+     updateThreshold: Optionally an updated value for the threshold of the mediator group.
+     await: optional timeout to wait for the proposal to be persisted in the specified topology store
+     mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                         sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                         when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                         satisfy the mapping's authorization requirements.
+     signedBy: the fingerprint of the key to be used to sign this proposal"""
+    )
+    def propose_delta(
+        domainId: DomainId,
+        group: NonNegativeInt,
+        adds: List[MediatorId] = Nil,
+        removes: List[MediatorId] = Nil,
+        observerAdds: List[MediatorId] = Nil,
+        observerRemoves: List[MediatorId] = Nil,
+        updateThreshold: Option[PositiveInt] = None,
+        await: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        mustFullyAuthorize: Boolean = false,
+        // TODO(#14056) don't use the instance's root namespace key by default.
+        //  let the grpc service figure out the right key to use, once that's implemented
+        signedBy: Option[Fingerprint] = Some(instance.id.uid.namespace.fingerprint),
+    ): Unit = {
+
+      MediatorGroupDeltaComputations
+        .verifyProposalConsistency(adds, removes, observerAdds, observerRemoves, updateThreshold)
+        .valueOr(err => throw new IllegalArgumentException(err))
+
+      def queryStore(proposals: Boolean): Option[MediatorDomainStateX] = expectAtMostOneResult(
+        list(
+          domainId.filterString,
+          group = Some(group),
+          operation = Some(TopologyChangeOpX.Replace),
+          proposals = proposals,
+        )
+      ).map(_.item)
+
+      val mdsO = queryStore(proposals = false)
+
+      MediatorGroupDeltaComputations
+        .verifyProposalAgainstCurrentState(
+          mdsO,
+          adds,
+          removes,
+          observerAdds,
+          observerRemoves,
+          updateThreshold,
+        )
+        .valueOr(err => throw new IllegalArgumentException(err))
+
+      val (threshold, active, observers) = mdsO match {
+        case Some(mds) =>
+          (
+            mds.threshold,
+            mds.active.forgetNE.concat(adds).diff(removes),
+            mds.observers.concat(observerAdds).diff(observerRemoves),
+          )
+        case None =>
+          (PositiveInt.one, adds, observerAdds)
+      }
+
+      propose(
+        domainId,
+        updateThreshold.getOrElse(threshold),
+        active,
+        observers,
+        group,
+        store = Some(domainId.filterString),
+        synchronize = None, // no synchronize - instead rely on await below
+        mustFullyAuthorize = mustFullyAuthorize,
+        signedBy = signedBy,
+      ).discard
+
+      await.foreach { timeout =>
+        ConsoleMacros.utils.retry_until_true(timeout) {
+          def areAllChangesPersisted(mds: MediatorDomainStateX): Boolean = {
+            adds.forall(mds.active.contains) && removes.forall(!mds.active.contains(_)) &&
+            observerAdds.forall(mds.observers.contains) && observerRemoves.forall(
+              !mds.observers.contains(_)
+            ) && updateThreshold.forall(_ == mds.threshold)
+          }
+
+          if (mustFullyAuthorize) {
+            queryStore(proposals = false).exists(areAllChangesPersisted)
+          } else {
+            // If the proposal does not need to be authorized, first check for proposals then for an authorized transaction
+            queryStore(proposals = true).exists(areAllChangesPersisted) || queryStore(proposals =
+              false
+            ).exists(areAllChangesPersisted)
+          }
+        }
+      }
+    }
+
+    @Help.Summary("Replace the mediator topology")
     @Help.Description("""
          domainId: the target domain
          threshold: the minimum number of mediators that need to come to a consensus for a message to be sent to other members.
          active: the list of mediators that will take part in the mediator consensus in this mediator group
          passive: the mediators that will receive all messages but will not participate in mediator consensus
          group: the mediator group identifier
-
-
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                 propagated to connected domains, if applicable.
                 - "<domain-id>": the topology transaction will be directly submitted to the specified domain without
@@ -2438,4 +2706,7 @@ class TopologyAdministrationGroup(
   private def expectExactlyOneResult[R](seq: Seq[R]): R = expectAtMostOneResult(seq).getOrElse(
     throw new IllegalStateException(s"Expected exactly one result, but found none")
   )
+}
+object TopologyAdministrationX {
+  val exportTransactionsDefaultFile: String = "canton-topology-transactions.gz"
 }

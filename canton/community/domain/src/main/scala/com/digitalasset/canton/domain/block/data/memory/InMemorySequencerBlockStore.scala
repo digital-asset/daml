@@ -7,14 +7,15 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.sequencing.integrations.state.InMemorySequencerStateManagerStore
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.{
   MemberCounters,
@@ -136,7 +137,7 @@ class InMemorySequencerBlockStore(
       traceContext: TraceContext
   ): Future[Unit] = {
     blockToTimestampMap
-      .put(block.height, block.lastTs -> block.latestTopologyClientTimestamp)
+      .put(block.height, block.lastTs -> block.latestSequencerEventTimestamp)
       .discard
     checkBlockInvariantIfEnabled(block.height)
     Future.unit
@@ -149,11 +150,13 @@ class InMemorySequencerBlockStore(
   )(implicit traceContext: TraceContext): Source[OrdinarySerializedEvent, NotUsed] =
     sequencerStore.readRange(member, startInclusive, endExclusive)
 
+  // TODO(#17726) Andreas: Figure out whether we can pull the readAtBlockTimestamp out
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
     blocking(blockToTimestampMap.synchronized {
       blockToTimestampMap.keys.maxOption match {
         case Some(height) =>
-          val (latestTs, latestTopologyClientTimestamp) =
+          val (latestTs, latestSequencerEventTimestamp) =
             blockToTimestampMap
               .get(height)
               .getOrElse(
@@ -167,7 +170,7 @@ class InMemorySequencerBlockStore(
             state <- sequencerStore.readAtBlockTimestamp(latestTs)
           } yield mergeWithInitialState(
             BlockEphemeralState(
-              BlockInfo(height, latestTs, latestTopologyClientTimestamp),
+              BlockInfo(height, latestTs, latestSequencerEventTimestamp),
               state,
             )
           )
@@ -184,8 +187,8 @@ class InMemorySequencerBlockStore(
       .find(_._2._1 >= timestamp)
       .fold[EitherT[Future, InvalidTimestamp, BlockEphemeralState]](
         EitherT.leftT(InvalidTimestamp(timestamp))
-      ) { case (blockHeight, (blockTimestamp, latestTopologyClientTs)) =>
-        val block = BlockInfo(blockHeight, blockTimestamp, latestTopologyClientTs)
+      ) { case (blockHeight, (blockTimestamp, latestSequencerEventTs)) =>
+        val block = BlockInfo(blockHeight, blockTimestamp, latestSequencerEventTs)
         EitherT.right(
           sequencerStore
             .readAtBlockTimestamp(blockTimestamp)
@@ -208,6 +211,11 @@ class InMemorySequencerBlockStore(
   ): Future[InternalSequencerPruningStatus] =
     sequencerStore.status()
 
+  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] =
+    Future.successful(sequencerStore.locatePruningTimestamp(skip))
+
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[String] = Future.successful(blocking(blockToTimestampMap.synchronized {
@@ -220,12 +228,12 @@ class InMemorySequencerBlockStore(
     )
     val lastBlockRemovedO = blocksToBeRemoved.maxByOption(_._1)
     // Update the initial state only if we have actually removed blocks
-    lastBlockRemovedO.foreach { case (height, (lastTs, latestTopologyClientTimestamp)) =>
+    lastBlockRemovedO.foreach { case (height, (lastTs, latestSequencerEventTimestamp)) =>
       initialState.getAndUpdate { state =>
         // the initial state holds the counters immediately before the ones sequencer actually supports from
         val newHeads = state.state.heads ++ result.newMinimumCountersSupported.fmap(_ - 1)
         BlockEphemeralState(
-          latestBlock = BlockInfo(height, lastTs, latestTopologyClientTimestamp),
+          latestBlock = BlockInfo(height, lastTs, latestSequencerEventTimestamp),
           state = state.state.copy(
             status = sequencerStore.statusSync(),
             inFlightAggregations = newInFlightAggregations,
@@ -265,12 +273,12 @@ class InMemorySequencerBlockStore(
       topologyClientMember: Member,
       blockHeight: Long,
   )(implicit traceContext: TraceContext): Unit = {
-    blockToTimestampMap.get(blockHeight).foreach { case (lastTs, latestTopologyClientTimestamp) =>
-      val currentBlock = BlockInfo(blockHeight, lastTs, latestTopologyClientTimestamp)
+    blockToTimestampMap.get(blockHeight).foreach { case (lastTs, latestSequencerEventTimestamp) =>
+      val currentBlock = BlockInfo(blockHeight, lastTs, latestSequencerEventTimestamp)
       val prevBlockHeightO = blockToTimestampMap.keys.filter(_ < blockHeight).maxOption
       val prevBlockO = prevBlockHeightO.map { height =>
-        val (prevLastTs, prevLatestTopologyClientTimestamp) = blockToTimestampMap(height)
-        BlockInfo(height, prevLastTs, prevLatestTopologyClientTimestamp)
+        val (prevLastTs, prevLatestSequencerEventTimestamp) = blockToTimestampMap(height)
+        BlockInfo(height, prevLastTs, prevLatestSequencerEventTimestamp)
       }
 
       val prevLastTs = prevBlockO.fold(CantonTimestamp.MinValue)(_.lastTs)

@@ -1,6 +1,6 @@
 # Simple Topology Example
 
-The simple topology example features a simple setup, starting two participants named `participant1` 
+The simple topology example features a simple setup, starting two participants named `participant1`
 and `participant2`, and a domain named `mydomain` in a single process.
 
 How to run the example is featured in the [getting started tutorial](
@@ -12,5 +12,5 @@ and test the connection.
 The simple topology example can be invoked using
 
 ```
-       ../../bin/canton -c simple-topology.conf --bootstrap simple-ping.canton 
+       ../../bin/canton -c simple-topology.conf --bootstrap simple-ping.canton
 ```

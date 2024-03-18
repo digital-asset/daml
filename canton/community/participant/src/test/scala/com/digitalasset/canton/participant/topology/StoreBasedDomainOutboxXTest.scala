@@ -154,11 +154,11 @@ class StoreBasedDomainOutboxXTest
                   additions = List(ValidatedTopologyTransactionX(x, rejections.next())),
                   // dumbed down version of how to "append" ValidatedTopologyTransactionXs:
                   removeMapping = Option
-                    .when(x.transaction.op == TopologyChangeOpX.Remove)(
-                      x.transaction.mapping.uniqueKey
+                    .when(x.operation == TopologyChangeOpX.Remove)(
+                      x.mapping.uniqueKey -> x.serial
                     )
                     .toList
-                    .toSet,
+                    .toMap,
                   removeTxs = Set.empty,
                 )
                 .flatMap(_ =>
@@ -205,7 +205,7 @@ class StoreBasedDomainOutboxXTest
     MonadUtil
       .sequentialTraverse(transactions)(tx =>
         manager.proposeAndAuthorize(
-          tx.op,
+          tx.operation,
           tx.mapping,
           tx.serial.some,
           signingKeys = Seq(publicKey.fingerprint),
@@ -391,8 +391,8 @@ class StoreBasedDomainOutboxXTest
         res.value shouldBe a[Seq[?]]
         handle.buffer.map(x =>
           (
-            x.transaction.op,
-            x.transaction.mapping.maybeUid.map(_.id),
+            x.operation,
+            x.mapping.maybeUid.map(_.id),
           )
         ) shouldBe Seq(
           (Replace, None),

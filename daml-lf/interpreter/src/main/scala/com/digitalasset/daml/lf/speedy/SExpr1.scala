@@ -25,7 +25,7 @@ private[speedy] object SExpr1 {
   final case class SEVal(ref: SDefinitionRef) extends SExpr
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltin) extends SExprAtomic
+  final case class SEBuiltin(b: SBuiltinFun) extends SExprAtomic
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
   final case class SEValue(v: SValue) extends SExprAtomic

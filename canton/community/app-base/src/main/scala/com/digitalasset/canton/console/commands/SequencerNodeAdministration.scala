@@ -5,7 +5,10 @@ package com.digitalasset.canton.console.commands
 
 import cats.syntax.option.*
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.InitializeX
+import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.{
+  Initialize,
+  InitializeX,
+}
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.console.Help
 import com.digitalasset.canton.data.CantonTimestamp
@@ -17,8 +20,13 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactionX,
   StoredTopologyTransactionsX,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.PositiveSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.{TopologyChangeOpX, TopologyMappingX}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransactionX,
+  TopologyChangeOpX,
+  TopologyMappingX,
+}
+import com.google.protobuf.ByteString
 
 class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
 
@@ -39,17 +47,17 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
       "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
   )
   def assign_from_beginning(
-      genesisState: Seq[PositiveSignedTopologyTransactionX],
+      genesisState: Seq[GenericSignedTopologyTransactionX],
       domainParameters: StaticDomainParameters,
   ): InitializeSequencerResponseX =
     consoleEnvironment.run {
       runner.adminCommand(
         InitializeX(
-          StoredTopologyTransactionsX[TopologyChangeOpX.Replace, TopologyMappingX](
+          StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
             genesisState.map(signed =>
               StoredTopologyTransactionX(
-                SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
-                EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
+                SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+                EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
                 None,
                 signed,
               )
@@ -61,9 +69,23 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
       )
     }
 
+  def assign_from_beginning(
+      genesisState: ByteString,
+      domainParameters: StaticDomainParameters,
+  ): InitializeSequencerResponseX =
+    consoleEnvironment.run {
+      runner.adminCommand(
+        Initialize(
+          genesisState,
+          domainParameters.toInternal,
+          ByteString.empty(),
+        )
+      )
+    }
+
   @Help.Summary(
     "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
-      "This is called as part of the domain.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
+      "This is called as part of the sequencer.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
   )
   def assign_from_snapshot(
       topologySnapshot: GenericStoredTopologyTransactionsX,

@@ -66,7 +66,7 @@ final case class ClosedEnvelope private (
     NonEmpty.from(signatures) match {
       case None =>
         EnvelopeContent
-          .fromByteStringLegacy(protocolVersion)((hashOps, protocolVersion))(bytes)
+          .fromByteString(hashOps, protocolVersion)(bytes)
           .map { envelopeContent =>
             OpenEnvelope(envelopeContent.message, recipients)(protocolVersion)
           }
@@ -221,13 +221,22 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
     snapshot.verifySignatures(hash, sender, signatures)
   }
 
-  def verifySignatures(
+  def verifyMediatorSignatures(
       snapshot: SyncCryptoApi,
       mediatorGroupIndex: MediatorGroupIndex,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifySignatures(hash, mediatorGroupIndex, signatures)
+    snapshot.verifyMediatorSignatures(hash, mediatorGroupIndex, signatures)
+  }
+
+  def verifySequencerSignatures(
+      snapshot: SyncCryptoApi,
+      content: ByteString,
+      signatures: NonEmpty[Seq[Signature]],
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+    val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
+    snapshot.verifySequencerSignatures(hash, signatures)
   }
 }

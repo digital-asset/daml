@@ -18,7 +18,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.index.v2.{
@@ -29,11 +28,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.digitalasset.canton.platform.store.entries.{
-  ConfigurationEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.digitalasset.canton.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -110,17 +105,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd()(implicit loggingContext: LoggingContextWithTrace): Future[LedgerEnd]
-
-  /** Looks up the current ledger configuration, if it has been set. */
-  def lookupLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[(Offset, Configuration)]]
-
-  /** Returns a stream of configuration entries. */
-  def getConfigurationEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-  )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, ConfigurationEntry), NotUsed]
 
   def transactionsReader: LedgerDaoTransactionsReader
 
@@ -231,18 +215,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * @return Ok when the operation was successful otherwise a Duplicate
     */
   def storePartyEntry(offset: Offset, partyEntry: PartyLedgerEntry)(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse]
-
-  /** Store a configuration change or rejection.
-    */
-  def storeConfigurationEntry(
-      offset: Offset,
-      recordedAt: Timestamp,
-      submissionId: String,
-      configuration: Configuration,
-      rejectionReason: Option[String],
-  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]
 

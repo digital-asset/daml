@@ -3,15 +3,8 @@
 
 package com.daml.metrics.api.testing
 
-import com.codahale.metrics.Snapshot
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
 import com.daml.metrics.api.{MetricName, MetricsContext}
-import com.daml.metrics.api.dropwizard.{
-  DropwizardCounter,
-  DropwizardHistogram,
-  DropwizardMeter,
-  DropwizardTimer,
-}
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryCounter,
   InMemoryHistogram,
@@ -71,7 +64,6 @@ trait MetricValues {
   class CounterValues(counter: Counter) {
 
     def value: Long = counter match {
-      case DropwizardCounter(_, metric) => metric.getCount
       case timer: InMemoryCounter => singleValueFromContexts(timer.markers.toMap).get()
       case other =>
         throw new IllegalArgumentException(s"Value not supported for $other")
@@ -81,7 +73,7 @@ trait MetricValues {
   class MeterValues(meter: Meter) {
 
     def value: Long = meter match {
-      case DropwizardMeter(_, metric) => metric.getCount
+
       case meter: InMemoryMeter =>
         val contextWithValues = meter.markers.view.mapValues(_.get()).toMap
         singleValueFromContexts(contextWithValues)
@@ -103,12 +95,6 @@ trait MetricValues {
 
   class HistogramValues(histogram: Histogram) {
 
-    def snapshot: Snapshot = histogram match {
-      case DropwizardHistogram(_, metric) => metric.getSnapshot
-      case other =>
-        throw new IllegalArgumentException(s"Snapshot not supported for $other")
-    }
-
     def values: Seq[Long] = histogram match {
       case histogram: InMemoryHistogram =>
         singleValueFromContexts(histogram.recordedValues)
@@ -129,14 +115,7 @@ trait MetricValues {
 
   class TimerValues(timer: Timer) {
 
-    def snapshot: Snapshot = timer match {
-      case DropwizardTimer(_, metric) => metric.getSnapshot
-      case other =>
-        throw new IllegalArgumentException(s"Snapshot not supported for $other")
-    }
-
     def count: Long = timer match {
-      case DropwizardTimer(_, metric) => metric.getCount
       case timer: InMemoryTimer =>
         singleValueFromContexts(timer.data.recordedValues.view.mapValues(_.size.toLong).toMap)
       case other =>

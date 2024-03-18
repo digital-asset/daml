@@ -8,7 +8,7 @@ import JsValueToApiValueConverter.mustBeApiRecord
 import com.digitalasset.canton.http.util.FutureUtil.either
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.{v2 as lav2}
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.domain.{ContractTypeId, HasTemplateId}
 import com.digitalasset.canton.http.{PackageService, domain}
@@ -29,7 +29,7 @@ class DomainJsonDecoder(
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,
-    jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value,
+    jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav2.value.Value,
     jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue,
 ) {
 
@@ -42,7 +42,7 @@ class DomainJsonDecoder(
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]] = {
+  ): ET[domain.CreateCommand[lav2.value.Record, ContractTypeId.Template.RequiredPkg]] = {
     val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
       fj <- either(
@@ -68,7 +68,7 @@ class DomainJsonDecoder(
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[F[lav1.value.Value]] = {
+  ): ET[F[lav2.value.Value]] = {
     for {
       damlLfId <- lookupLfType(fa, jwt)
       apiValue <- either(fa.traverse(jsValue => jsValueToApiValue(damlLfId, jsValue)))

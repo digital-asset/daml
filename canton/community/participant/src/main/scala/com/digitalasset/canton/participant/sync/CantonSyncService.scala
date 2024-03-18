@@ -78,6 +78,7 @@ import com.digitalasset.canton.participant.pruning.{NoOpPruningProcessor, Prunin
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.MissingConfigForAlias
 import com.digitalasset.canton.participant.store.MultiDomainEventLog.PublicationData
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceDomainBecamePassive,
   SyncServiceDomainDisabledUs,
@@ -737,13 +738,14 @@ class CantonSyncService(
     // Important to invoke recovery before we do anything else with persisted stores.
     recoverParticipantNodeState()
 
-    // Starting with Daml 1.1.0, the ledger api server requires the ledgers to publish their time model as the
-    // first event. Only do so on brand new ledgers without preexisting state.
-    logger.debug("Publishing time model configuration event if ledger is brand new")
+    // Publish the init event that will increase the offset of the participant. Thus, the ledger api server will
+    // not return responses that contain an offset being before the ledger begin. Only do so on brand new ledgers
+    // without preexisting events.
+    logger.debug("Publishing init event if ledger is brand new")
     parameters.processingTimeouts.default
-      .await("Publish time model configuration event if ledger is brand new")(
-        participantNodeEphemeralState.participantEventPublisher.publishTimeModelConfigNeededUpstreamOnlyIfFirst
-          .onShutdown(logger.debug("Aborted publishing of time model due to shutdown"))
+      .await("Publish init event if ledger is brand new")(
+        participantNodeEphemeralState.participantEventPublisher.publishInitNeededUpstreamOnlyIfFirst
+          .onShutdown(logger.debug("Aborted publishing of init due to shutdown"))
       )
   }
 
@@ -856,13 +858,6 @@ class CantonSyncService(
     } yield ()
   }
 
-  /** Removes a configured and disconnected domain.
-    *
-    * This is an unsafe operation as it changes the ledger offsets.
-    */
-  def purgeDomain(domain: DomainAlias): Either[SyncServiceError, Unit] =
-    throw new UnsupportedOperationException("This unsafe operation has not been implemented yet")
-
   /** Reconnect to all configured domains that have autoStart = true */
   def reconnectDomains(
       ignoreFailures: Boolean
@@ -888,7 +883,10 @@ class CantonSyncService(
         case Nil => EitherT.rightT(connected)
         case con :: rest =>
           for {
-            succeeded <- performDomainConnection(con, startSyncDomain = false).transform {
+            succeeded <- performDomainConnectionOrHandshake(
+              con,
+              connectDomain = ConnectDomain.ReconnectDomains,
+            ).transform {
               case Left(SyncServiceFailedDomainConnection(_, parent)) if ignoreFailures =>
                 // if the error is retryable, we'll reschedule an automatic retry so this domain gets connected eventually
                 if (parent.retryable.nonEmpty) {
@@ -907,7 +905,8 @@ class CantonSyncService(
                     )
                     .discard
                   scheduleReconnectAttempt(
-                    clock.now.plus(parameters.sequencerClient.startupConnectionRetryDelay.asJava)
+                    clock.now.plus(parameters.sequencerClient.startupConnectionRetryDelay.asJava),
+                    ConnectDomain.Connect,
                   )
                 } else {
                   logger.warn(
@@ -985,10 +984,10 @@ class CantonSyncService(
     } yield {
       if (connected != configs)
         logger.info(
-          s"Successfully re-connected to a subset of domains ${connected}, failed to connect to ${configs.toSet -- connected.toSet}"
+          s"Successfully re-connected to a subset of domains $connected, failed to connect to ${configs.toSet -- connected.toSet}"
         )
       else
-        logger.info(s"Successfully re-connected to domains ${connected}")
+        logger.info(s"Successfully re-connected to domains $connected")
       connected
     }
   }
@@ -1008,9 +1007,13 @@ class CantonSyncService(
   /** Connect the sync service to the given domain.
     * This method makes sure there can only be one connection in progress at a time.
     */
-  def connectDomain(domainAlias: DomainAlias, keepRetrying: Boolean)(implicit
+  def connectDomain(
+      domainAlias: DomainAlias,
+      keepRetrying: Boolean,
+      connectDomain: ConnectDomain,
+  )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, Boolean] =
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Boolean] = {
     domainConnectionConfigByAlias(domainAlias)
       .mapK(FutureUnlessShutdown.outcomeK)
       .leftMap(_ => SyncServiceError.SyncServiceUnknownDomain.Error(domainAlias))
@@ -1029,13 +1032,20 @@ class CantonSyncService(
             )
             .isEmpty
         } else true
-        attemptDomainConnection(domainAlias, keepRetrying = keepRetrying, initial = initial)
+        attemptDomainConnection(
+          domainAlias,
+          keepRetrying = keepRetrying,
+          initial = initial,
+          connectDomain = connectDomain,
+        )
       }
+  }
 
   private def attemptDomainConnection(
       domainAlias: DomainAlias,
       keepRetrying: Boolean,
       initial: Boolean,
+      connectDomain: ConnectDomain,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Boolean] = {
@@ -1043,7 +1053,10 @@ class CantonSyncService(
       if (keepRetrying && !attemptReconnect.isDefinedAt(domainAlias)) {
         EitherT.rightT[FutureUnlessShutdown, SyncServiceError](false)
       } else {
-        performDomainConnection(domainAlias, startSyncDomain = true).transform {
+        performDomainConnectionOrHandshake(
+          domainAlias,
+          connectDomain,
+        ).transform {
           case Left(SyncServiceError.SyncServiceFailedDomainConnection(_, err))
               if keepRetrying && err.retryable.nonEmpty =>
             if (initial)
@@ -1054,7 +1067,8 @@ class CantonSyncService(
                 s"Initial connection attempt to ${domainAlias} failed. Will keep on trying."
               )
             scheduleReconnectAttempt(
-              clock.now.plus(parameters.sequencerClient.startupConnectionRetryDelay.asJava)
+              clock.now.plus(parameters.sequencerClient.startupConnectionRetryDelay.asJava),
+              ConnectDomain.Connect,
             )
             Right(false)
           case Right(()) =>
@@ -1069,7 +1083,10 @@ class CantonSyncService(
     )
   }
 
-  private def scheduleReconnectAttempt(timestamp: CantonTimestamp): Unit = {
+  private def scheduleReconnectAttempt(
+      timestamp: CantonTimestamp,
+      connectDomain: ConnectDomain,
+  ): Unit = {
     def mergeLarger(cur: Option[CantonTimestamp], ts: CantonTimestamp): Option[CantonTimestamp] =
       cur match {
         case None => Some(ts)
@@ -1102,11 +1119,16 @@ class CantonSyncService(
           val domainAlias = item.alias
           logger.debug(s"Starting background reconnect attempt for $domainAlias")
           EitherTUtil.doNotAwaitUS(
-            attemptDomainConnection(item.alias, keepRetrying = true, initial = false),
+            attemptDomainConnection(
+              item.alias,
+              keepRetrying = true,
+              initial = false,
+              connectDomain = connectDomain,
+            ),
             s"Background reconnect to $domainAlias",
           )
         }
-        nextO.foreach(scheduleReconnectAttempt)
+        nextO.foreach(scheduleReconnectAttempt(_, connectDomain))
       },
       timestamp,
     )
@@ -1124,6 +1146,61 @@ class CantonSyncService(
     loggerFactory,
   )
 
+  private def performDomainConnectionOrHandshake(
+      domainAlias: DomainAlias,
+      connectDomain: ConnectDomain,
+      skipStatusCheck: Boolean = false,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
+    connectDomain match {
+      case ConnectDomain.HandshakeOnly =>
+        performDomainHandshake(domainAlias, skipStatusCheck = skipStatusCheck)
+      case _ =>
+        performDomainConnection(
+          domainAlias,
+          startSyncDomain = connectDomain.startSyncDomain,
+          skipStatusCheck = skipStatusCheck,
+        )
+    }
+  }
+
+  /** Perform handshake with the given domain. */
+  private def performDomainHandshake(
+      domainAlias: DomainAlias,
+      skipStatusCheck: Boolean = false,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
+    if (aliasManager.domainIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
+      logger.debug(s"Domain ${domainAlias.unwrap} already registered")
+      EitherT.rightT(())
+    } else {
+
+      logger.debug(s"Connecting to domain: ${domainAlias.unwrap}")
+      for {
+
+        domainConnectionConfig <- domainConnectionConfigByAlias(domainAlias)
+          .mapK(FutureUnlessShutdown.outcomeK)
+          .leftMap[SyncServiceError] { case MissingConfigForAlias(alias) =>
+            SyncServiceError.SyncServiceUnknownDomain.Error(alias)
+          }
+        // do not connect to a domain that is not active
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          domainConnectionConfig.status.isActive || skipStatusCheck,
+          SyncServiceError.SyncServiceDomainIsNotActive
+            .Error(domainAlias, domainConnectionConfig.status): SyncServiceError,
+        )
+        domainHandle <- EitherT(domainRegistry.connect(domainConnectionConfig.config))
+          .leftMap[SyncServiceError](err =>
+            SyncServiceError.SyncServiceFailedDomainConnection(domainAlias, err)
+          )
+
+        _ = domainHandle.close()
+      } yield ()
+    }
+  }
+
   /** Connect the sync service to the given domain. */
   private def performDomainConnection(
       domainAlias: DomainAlias,
@@ -1139,9 +1216,14 @@ class CantonSyncService(
         SyncServiceError.SyncServiceFailedDomainConnection(domainAlias, err)
       )
 
-    def handleCloseDegradation(syncDomain: SyncDomain)(err: CantonError) = {
-      syncDomain.failureOccurred(err)
-      disconnectDomain(domainAlias)
+    def handleCloseDegradation(syncDomain: SyncDomain, fatal: Boolean)(err: CantonError) = {
+      if (fatal && parameters.exitOnFatalFailures) {
+        FatalError.exitOnFatalError(err, logger)
+      } else {
+        // If the error is not fatal or the crash on fatal failures flag is off, then we report the unhealthy state and disconnect from the domain
+        syncDomain.failureOccurred(err)
+        disconnectDomain(domainAlias)
+      }
     }
 
     if (aliasManager.domainIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
@@ -1208,9 +1290,7 @@ class CantonSyncService(
         trafficStateController = new TrafficStateController(
           participantId,
           loggerFactory,
-          domainHandle.topologyClient,
           metrics.domainMetrics(domainAlias),
-          clock,
         )
 
         syncDomain = syncDomainFactory.create(
@@ -1235,6 +1315,7 @@ class CantonSyncService(
               trafficStateController,
               ephemeral.recordOrderPublisher,
               domainHandle.staticParameters.protocolVersion,
+              parameters.useNewTrafficControl,
             ),
           missingKeysAlerter,
           transferCoordination,
@@ -1247,13 +1328,12 @@ class CantonSyncService(
           domainLoggerFactory,
         )
 
-        // update list of connected domains
-        _ = connectedDomainsMap += (domainId -> syncDomain)
-
         _ = syncDomainHealth.set(syncDomain)
         _ = ephemeralHealth.set(syncDomain.ephemeral)
         _ = sequencerClientHealth.set(syncDomain.sequencerClient.healthComponent)
         _ = syncDomain.resolveUnhealthy()
+
+        _ = connectedDomainsMap += (domainId -> syncDomain)
 
         // Start sequencer client subscription only after sync domain has been added to connectedDomainsMap, e.g. to
         // prevent sending PartyAddedToParticipantEvents before the domain is available for command submission. (#2279)
@@ -1267,29 +1347,29 @@ class CantonSyncService(
           }
         _ = domainHandle.sequencerClient.completion.onComplete {
           case Success(denied: CloseReason.PermissionDenied) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainDisabledUs.Error(domainAlias, denied.cause)
             )
           case Success(CloseReason.BecamePassive) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainBecamePassive.Error(domainAlias)
             )
           case Success(error: CloseReason.UnrecoverableError) =>
             if (isClosing)
               disconnectDomain(domainAlias)
             else
-              handleCloseDegradation(syncDomain)(
+              handleCloseDegradation(syncDomain, fatal = true)(
                 SyncServiceDomainDisconnect.UnrecoverableError(domainAlias, error.cause)
               )
           case Success(error: CloseReason.UnrecoverableException) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, error.throwable)
             )
           case Success(CloseReason.ClientShutdown) =>
             logger.info(s"$domainAlias disconnected because sequencer client was closed")
             disconnectDomain(domainAlias)
           case Failure(exception) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, exception)
             )
         }
@@ -1379,12 +1459,6 @@ class CantonSyncService(
     connectedDomains.parTraverse_(disconnectDomain)
   }
 
-  /** Checks if a given party has any active contracts. */
-  def partyHasActiveContracts(
-      partyId: PartyId
-  )(implicit traceContext: TraceContext): Future[Boolean] =
-    stateInspection.partyHasActiveContracts(partyId)
-
   /** prepares a domain connection for migration: connect and wait until the topology state has been pushed
     * so we don't deploy against an empty domain
     */
@@ -1394,7 +1468,11 @@ class CantonSyncService(
     implicit tx => alias =>
       logger.debug(s"Preparing connection to $alias for migration")
       (for {
-        _ <- performDomainConnection(alias, startSyncDomain = true, skipStatusCheck = true)
+        _ <- performDomainConnectionOrHandshake(
+          alias,
+          ConnectDomain.Connect,
+          skipStatusCheck = true,
+        )
         success <- identityPusher
           .awaitIdle(alias, timeouts.unbounded.unwrap)
           .leftMap(reg => SyncServiceError.SyncServiceFailedDomainConnection(alias, reg))
@@ -1660,6 +1738,54 @@ class CantonSyncService(
 }
 
 object CantonSyncService {
+  sealed trait ConnectDomain extends Product with Serializable {
+    def startSyncDomain: Boolean
+
+    // Whether the domain is added in the `connectedDomainsMap` map
+    def markDomainAsConnected: Boolean
+  }
+  object ConnectDomain {
+    // Normal use case: do everything
+    case object Connect extends ConnectDomain {
+      override def startSyncDomain: Boolean = true
+
+      override def markDomainAsConnected: Boolean = true
+    }
+
+    /*
+    This is used with reconnectDomains.
+    Because of the comment
+      we need to start all domains concurrently in order to avoid the transfer processing
+    then we need to be able to delay starting the sync domain.
+     */
+    case object ReconnectDomains extends ConnectDomain {
+      override def startSyncDomain: Boolean = false
+
+      override def markDomainAsConnected: Boolean = true
+    }
+
+    /*
+      Register the domain
+      We also attempt to connect by default.
+     */
+    case object Register extends ConnectDomain {
+      override def startSyncDomain: Boolean = true
+
+      override def markDomainAsConnected: Boolean = true
+    }
+
+    /*
+      Used when we only want to do the handshake (get the domain parameters) and do not connect to the domain.
+      Use case: major upgrade for early mainnet (we want to be sure we don't process any transaction before
+      the ACS is imported).
+     */
+    case object HandshakeOnly extends ConnectDomain {
+      override def startSyncDomain: Boolean = false
+
+      override def markDomainAsConnected: Boolean = false
+    }
+  }
+
   trait Factory[+T <: CantonSyncService] {
     def create(
         participantId: ParticipantId,
@@ -2037,5 +2163,14 @@ object SyncServiceError extends SyncServiceErrorGroup {
     ) extends CantonError.Impl(
           cause = show"Cannot allocate a party without being connected to a domain"
         )
+  }
+
+  object InvalidArgument
+      extends ErrorCode(
+        id = "INVALID_ARGUMENT_SYNC_SERVICE",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(reason)
   }
 }

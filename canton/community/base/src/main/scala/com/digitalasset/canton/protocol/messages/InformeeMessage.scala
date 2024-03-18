@@ -3,13 +3,12 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{FullInformeeTree, Informee, ViewPosition, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
-import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
+import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -61,19 +60,6 @@ case class InformeeMessage(
       : Map[ViewPosition, (Set[Informee], NonNegativeInt)] =
     fullInformeeTree.informeesAndThresholdByViewPosition
 
-  override def createConfirmationResult(
-      requestId: RequestId,
-      verdict: Verdict,
-      recipientParties: Set[LfPartyId],
-  ): TransactionResultMessage =
-    TransactionResultMessage(
-      requestId,
-      verdict,
-      fullInformeeTree.tree.rootHash,
-      domainId,
-      protocolVersion,
-    )
-
   // Implementing a `toProto<version>` method allows us to compose serializable classes.
   // You should define the toProtoV30 method on the serializable class, because then it is easiest to find and use.
   // (Conversely, you should not define a separate proto converter class.)
@@ -97,6 +83,8 @@ case class InformeeMessage(
   override def pretty: Pretty[InformeeMessage] = prettyOfClass(unnamedParam(_.fullInformeeTree))
 
   @transient override protected lazy val companionObj: InformeeMessage.type = InformeeMessage
+
+  override def informeesArePublic: Boolean = false
 }
 
 object InformeeMessage

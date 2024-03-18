@@ -89,7 +89,7 @@ class DbInitializationStore(
     )
 
   private val idQuery =
-    sql"select identifier, namespace from node_id"
+    sql"select identifier, namespace from common_node_id"
       .as[(Identifier, Fingerprint)]
 
   override def setId(id: NodeId)(implicit traceContext: TraceContext): Future[Unit] =
@@ -107,13 +107,15 @@ class DbInitializationStore(
               )
               DbStorage.DbAction.unit
             } else
-              sqlu"insert into node_id(identifier, namespace) values(${id.identity.id},${id.identity.namespace.fingerprint})"
+              sqlu"insert into common_node_id(identifier, namespace) values(${id.identity.id},${id.identity.namespace.fingerprint})"
         } yield ()
       }.transactionally.withTransactionIsolation(Serializable),
       functionFullName,
     )
 
   override def throwIfNotDev(implicit traceContext: TraceContext): Future[Boolean] =
-    storage.query(sql"SELECT test_column FROM node_id".as[Int], functionFullName).map(_ => true)
+    storage
+      .query(sql"SELECT test_column FROM common_node_id".as[Int], functionFullName)
+      .map(_ => true)
 
 }

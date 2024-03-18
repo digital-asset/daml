@@ -7,19 +7,21 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.lf.engine.Engine
 import com.daml.tracing.DefaultOpenTelemetry
+import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.ledger.configuration.{LedgerId, LedgerTimeModel}
+import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.admin.MutablePackageNameMapResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.apiserver.*
@@ -28,44 +30,33 @@ import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.tracing.{NoTracing, TracerProvider}
-import com.digitalasset.canton.{LedgerParticipantId, checked}
 import org.apache.pekko.actor.ActorSystem
 
-import java.time.Duration as JDuration
 import scala.util.{Failure, Success}
 
 /** Wrapper of ledger API server to manage start, stop, and erasing of state.
   */
 object CantonLedgerApiServerWrapper extends NoTracing {
-  // TODO(#3262): Once upstream supports multi-domain in Daml 2.0, configure maximum tolerance time model.
-  @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
-  val maximumToleranceTimeModel: LedgerTimeModel = checked(
-    LedgerTimeModel(
-      avgTransactionLatency = JDuration.ZERO,
-      minSkew = JDuration.ofDays(365),
-      maxSkew = JDuration.ofDays(365),
-    ).get
-  )
-
   final case class IndexerLockIds(mainLockId: Int, workerLockId: Int)
 
   /** Config for ledger API server and indexer
     *
-    * @param serverConfig          ledger API server configuration
-    * @param jsonApiConfig         JSON API configuration
-    * @param indexerConfig         indexer configuration
-    * @param indexerLockIds        Optional lock IDs to be used for indexer HA
-    * @param ledgerId              unique ledger id used by the ledger API server
-    * @param participantId         unique participant id used e.g. for a unique ledger API server index db name
-    * @param engine                daml engine shared with Canton for performance reasons
-    * @param syncService           canton sync service implementing both read and write services
-    * @param storageConfig         canton storage config so that indexer can share the participant db
-    * @param cantonParameterConfig configurations meant to be overridden primarily in tests (applying to all participants)
-    * @param testingTimeService    an optional service during testing for advancing time, participant-specific
-    * @param adminToken            canton admin token for ledger api auth
-    * @param loggerFactory         canton logger factory
-    * @param tracerProvider        tracer provider for open telemetry grpc injection
-    * @param metrics               upstream metrics module
+    * @param serverConfig             ledger API server configuration
+    * @param jsonApiConfig            JSON API configuration
+    * @param indexerConfig            indexer configuration
+    * @param indexerLockIds           Optional lock IDs to be used for indexer HA
+    * @param ledgerId                 unique ledger id used by the ledger API server
+    * @param participantId            unique participant id used e.g. for a unique ledger API server index db name
+    * @param engine                   daml engine shared with Canton for performance reasons
+    * @param syncService              canton sync service implementing both read and write services
+    * @param storageConfig            canton storage config so that indexer can share the participant db
+    * @param cantonParameterConfig    configurations meant to be overridden primarily in tests (applying to all participants)
+    * @param testingTimeService       an optional service during testing for advancing time, participant-specific
+    * @param adminToken               canton admin token for ledger api auth
+    * @param loggerFactory            canton logger factory
+    * @param tracerProvider           tracer provider for open telemetry grpc injection
+    * @param metrics                  upstream metrics module
+    * @param maxDeduplicationDuration maximum time window during which commands can be deduplicated.
     */
   final case class Config(
       serverConfig: LedgerApiServerConfig,
@@ -85,6 +76,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       metrics: Metrics,
       jsonApiMetrics: HttpApiMetrics,
       meteringReportKey: MeteringReportKey,
+      maxDeduplicationDuration: NonNegativeFiniteDuration,
   ) extends NamedLogging {
     override def logger: TracedLogger = super.logger
 
@@ -101,6 +93,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       config: Config,
       startLedgerApiServer: Boolean,
       futureSupervisor: FutureSupervisor,
+      packageNameMapResolver: MutablePackageNameMapResolver,
   )(implicit
       ec: ExecutionContextIdlenessExecutorService,
       actorSystem: ActorSystem,
@@ -137,6 +130,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
             dbConfig = dbConfig,
             telemetry = new DefaultOpenTelemetry(config.tracerProvider.openTelemetry),
             futureSupervisor = futureSupervisor,
+            packageNameMapResolver = packageNameMapResolver,
           )
         val startFUS = for {
           _ <-

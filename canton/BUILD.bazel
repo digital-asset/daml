@@ -2,29 +2,31 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
-load(
-    "//bazel_tools:scala.bzl",
-    "kind_projector_plugin",
-    "scala_source_jar",
-    "scaladoc_jar",
-)
-load("//bazel_tools:java.bzl", "da_java_library")
-load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_macro_library", "da_scala_test_suite", "scaladoc_jar")
-load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
-load("@os_info//:os_info.bzl", "is_windows")
-load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
-load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
-load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
     "jar_jar",
 )
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
+load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:java.bzl", "da_java_library")
+load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_macro_library",
+    "da_scala_test_suite",
+    "kind_projector_plugin",
+    "scala_source_jar",
+    "scaladoc_jar",
+)
+load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
+load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
+load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 ### build-info ###
 
@@ -178,15 +180,13 @@ da_scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
-        "@maven//:io_opentelemetry_opentelemetry_exporter_jaeger",
-        "@maven//:io_opentelemetry_opentelemetry_exporter_otlp_trace",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_otlp",
         "@maven//:io_opentelemetry_opentelemetry_exporter_zipkin",
         "@maven//:io_opentelemetry_opentelemetry_sdk",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_logs",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
-        "@maven//:io_opentelemetry_opentelemetry_semconv",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
@@ -226,16 +226,6 @@ scala_library(
 
 ### community/ledger/ledger-common ###
 
-proto_jars(
-    name = "community_ledger_ledger-common_configuration_proto",
-    srcs = glob(["community/ledger/ledger-common/src/main/protobuf/**/*.proto"]),
-    maven_artifact_prefix = "ledger.configuration.protobuf",
-    maven_group = "com.daml",
-    deps = [
-        "@com_google_protobuf//:duration_proto",
-    ],
-)
-
 da_scala_library(
     name = "community_ledger_ledger-common",
     srcs = glob([
@@ -259,7 +249,6 @@ da_scala_library(
         "//test-common/canton:__subpackages__",
     ],
     deps = [
-        ":community_ledger_ledger-common_configuration_proto_java",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":ledger_api_proto_scala",
@@ -290,7 +279,6 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
@@ -330,7 +318,10 @@ proto_gen(
         "flat_package",
         "grpc",
     ],
-    visibility = ["//daml-script:__subpackages__"],
+    visibility = [
+        "//daml-lf/validation:__subpackages__",
+        "//daml-script:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -346,6 +337,7 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
+    visibility = ["//daml-lf/validation:__subpackages__"],
 )
 
 ### community/base ###
@@ -386,6 +378,7 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//daml-script:__subpackages__"],
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
@@ -423,6 +416,7 @@ scala_library(
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",
@@ -594,7 +588,6 @@ scala_library(
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-common",
-        ":community_ledger_ledger-common_configuration_proto_java",
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -717,7 +710,6 @@ scala_library(
         "//observability/pekko-http-metrics",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_auth0_java_jwt",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -734,10 +726,10 @@ scala_library(
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_http_2_13",
         "@maven//:org_apache_pekko_pekko_http_core_2_13",
-        "@maven//:org_parboiled_parboiled_2_13",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_13",
     ],
 )
 
@@ -828,6 +820,7 @@ scala_library(
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_postgresql_postgresql",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_13",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
@@ -1095,14 +1088,11 @@ scala_library(
         "-Xsource:3",
         "-language:postfixOps",
     ],
-    # we use "warn" because it seems detect incorrectly that :community_admin-api" is unused
-    unused_dependency_checker_mode = "warn",
+    unused_dependency_checker_mode = "error",
     runtime_deps = [":community_reference-driver"],
     deps = [
         ":bindings-java",
-        ":community_admin-api",
         ":community_base",
-        ":community_buildinfo",
         ":community_common",
         ":community_domain",
         ":community_ledger_ledger-api-core",
@@ -1158,7 +1148,9 @@ scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_telemetry_java8",
         "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_common",
         "@maven//:io_opentelemetry_opentelemetry_exporter_otlp_common",
         "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
         "@maven//:io_opentelemetry_opentelemetry_sdk",
@@ -1490,7 +1482,7 @@ genrule(
 filegroup(
     name = "ledger-api-protos-fg",
     srcs = glob(
-        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/*.proto"] + [
+        [
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
         ],
     ),
@@ -1499,8 +1491,6 @@ filegroup(
 
 # Minimal set of ledger-api services we need for hs-bindings
 ledger_api_haskellpb_sources = [
-    # V2.PackageService depends on V1, so we still include it here
-    "V1/PackageService.hs",
     "V2/PackageService.hs",
 ]
 
@@ -1511,15 +1501,16 @@ genrule(
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg",
     ],
-    outs = ["Com/Daml/Ledger/Api/" + b for b in ledger_api_haskellpb_sources],
+    outs = ["Com/Daml/Ledger/Api/V2/PackageService.hs"],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto $${src#*community/ledger-api/src/main/protobuf/} \
+                --proto com/daml/ledger/api/v2/$$(basename $$src) \
                 --out $(@D)
+            cp -ruv $(@D)/Com/Daml/Ledger/Api/V2/* $(@D)
         done
     """,
     tools = [
@@ -1530,8 +1521,8 @@ genrule(
 filegroup(
     name = "ledger-api-protos-fg-admin",
     srcs = glob(
-        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/admin/*.proto"],
-        exclude = ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/admin/participant_pruning_service.proto"],  # TODO: haskell grpc client for participant pruning
+        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/*.proto"],
+        exclude = ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/participant_pruning_service.proto"],  # TODO: haskell grpc client for participant pruning
     ),
     visibility = ["//visibility:private"],
 )
@@ -1551,14 +1542,14 @@ genrule(
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-admin",
     ],
-    outs = ["Com/Daml/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
+    outs = ["Com/Daml/Ledger/Api/V2/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """
         for src in $(locations :ledger-api-protos-fg-admin); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v1/admin/$$(basename $$src) \
+                --proto com/daml/ledger/api/v2/admin/$$(basename $$src) \
                 --out $(@D)
         done
     """,

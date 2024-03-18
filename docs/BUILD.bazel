@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
@@ -400,7 +400,10 @@ java_binary(
 daml_test(
     name = "ledger-api-daml-test",
     srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
-    deps = ["//daml-script/daml:daml-script.dar"],
+    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
+    #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
+    target = "2.dev",
+    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
 )
 
 daml_test(
@@ -434,7 +437,10 @@ daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
     srcs = glob(["source/daml/code-snippets/**/*.daml"]),
-    deps = ["//daml-script/daml:daml-script.dar"],
+    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
+    #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
+    target = "2.dev",
+    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
 )
 
 [
@@ -484,7 +490,10 @@ daml_test(
             "source/daml/intro/daml/daml-intro-13/**",
         ],
     ),
-    deps = ["//daml-script/daml:daml-script.dar"],
+    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
+    #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
+    target = "2.dev",
+    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
 )
 
 daml_test(

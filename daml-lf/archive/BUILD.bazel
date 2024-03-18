@@ -69,10 +69,7 @@ genrule(
     name = "daml_lf_dev_archive_haskell_proto_src",
     srcs = ["daml_lf_dev_archive_proto_srcs"],
     outs = ["Com/Daml/DamlLfDev/DamlLf.hs"] +
-           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in [
-               "1",
-               "2",
-           ]],
+           ["Com/Daml/DamlLfDev/DamlLf%s.hs" % v.title() for v in ["2"]],
     cmd =
         "\n".join(
             [
@@ -82,10 +79,7 @@ genrule(
                      --proto com/daml/daml_lf_dev/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx
-                for vx in [""] + ["%s" % v for v in [
-                    "1",
-                    "2",
-                ]]
+                for vx in [""] + ["%s" % v for v in ["2"]]
             ],
         ),
     tools = [
@@ -129,7 +123,6 @@ da_scala_library(
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

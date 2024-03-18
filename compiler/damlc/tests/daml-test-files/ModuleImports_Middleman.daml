@@ -3,7 +3,7 @@
 
 -- This test checks that we produce an $$imports value including all modules from which this one imports orphan instances.
 -- @SINCE-LF 2.1
--- @QUERY-LF $pkg | .modules[] | select(lf::get_dotted_name($pkg) == ["ModuleImports_Middleman"]) | .values[].name_with_type | select(lf::get_value_name($pkg) == ["$$$$imports"]) | lf::norm_imports($pkg) | any(. == {package: null, module: ["ModuleImports_OrphanInstance"]})
+-- @QUERY-LF $pkg | .modules[] | select(lf::get_dotted_name($pkg) == ["ModuleImports_Middleman"]) | .values[].name_with_type | select(lf::get_value_name($pkg) == ["$$$$imports"]) | lf::norm_imports($pkg) | any(. == {module: ["ModuleImports_OrphanInstance"]})
 
 module ModuleImports_Middleman () where
 

@@ -258,7 +258,6 @@ private[platform] object InMemoryStateUpdater {
               stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
               eventOffset = createdEvent.eventOffset,
               eventSequentialId = createdEvent.eventSequentialId,
-              agreementText = createdEvent.createAgreementText,
               signatories = createdEvent.createSignatories,
               keyMaintainers = createdEvent.createKeyMaintainers,
               driverMetadata = createdEvent.driverMetadata.map(_.toByteArray),
@@ -321,7 +320,6 @@ private[platform] object InMemoryStateUpdater {
           createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
           createSignatories = create.signatories,
           createObservers = create.stakeholders.diff(create.signatories),
-          createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
           createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
@@ -337,6 +335,7 @@ private[platform] object InMemoryStateUpdater {
           contractId = exercise.targetCoid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = exercise.templateId,
+          packageName = exercise.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
@@ -389,7 +388,7 @@ private[platform] object InMemoryStateUpdater {
       offset = offset,
       events = events.toVector,
       completionDetails = completionDetails,
-      domainId = Some(txAccepted.domainId.toProtoPrimitive), // TODO(i15280)
+      domainId = Some(txAccepted.domainId.toProtoPrimitive),
       recordTime = txAccepted.recordTime,
     )
   }
@@ -489,7 +488,6 @@ private[platform] object InMemoryStateUpdater {
               createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
               createSignatories = create.signatories,
               createObservers = create.stakeholders.diff(create.signatories),
-              createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
               createKeyHash = create.keyOpt.map(_.globalKey.hash),
               createKey = create.keyOpt.map(_.globalKey),
               createKeyMaintainers = create.keyOpt.map(_.maintainers),

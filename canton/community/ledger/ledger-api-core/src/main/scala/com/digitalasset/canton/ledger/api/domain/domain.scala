@@ -11,7 +11,6 @@ import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.value.Value as Lf
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import scalaz.@@
@@ -110,38 +109,9 @@ final case class Commands(
       indicateOmittedFields,
     )
   }
-
 }
 
-sealed trait DisclosedContract extends Product with Serializable {
-  def templateId: Ref.TypeConName
-  def contractId: Lf.ContractId
-  def argument: Value
-  def createdAt: Timestamp
-  def keyHash: Option[crypto.Hash]
-  def driverMetadata: Bytes
-
-  def toLf: LfDisclosedContract =
-    LfDisclosedContract(
-      templateId,
-      contractId,
-      argument,
-      keyHash,
-    )
-}
-
-// TODO(#15058): Remove usages and logic associated with the old means of providing
-//               the disclosed contract create argument payload in command submission
-final case class NonUpgradableDisclosedContract(
-    templateId: Ref.TypeConName,
-    contractId: Lf.ContractId,
-    argument: Value,
-    createdAt: Timestamp,
-    keyHash: Option[crypto.Hash],
-    driverMetadata: Bytes,
-) extends DisclosedContract
-
-final case class UpgradableDisclosedContract(
+final case class DisclosedContract(
     templateId: Ref.TypeConName,
     packageName: Ref.PackageName,
     contractId: Lf.ContractId,
@@ -153,7 +123,15 @@ final case class UpgradableDisclosedContract(
     keyMaintainers: Option[Set[Ref.Party]],
     keyValue: Option[Value],
     driverMetadata: Bytes,
-) extends DisclosedContract
+) {
+  def toLf: LfDisclosedContract =
+    LfDisclosedContract(
+      templateId,
+      contractId,
+      argument,
+      keyHash,
+    )
+}
 
 object Commands {
 
@@ -174,22 +152,6 @@ object Commands {
       "deduplicationPeriod" -> commands.deduplicationPeriod,
     )
   }
-}
-
-/** Configuration entry describes a change to the current configuration. */
-sealed abstract class ConfigurationEntry extends Product with Serializable
-
-object ConfigurationEntry {
-  final case class Accepted(
-      submissionId: String,
-      configuration: Configuration,
-  ) extends ConfigurationEntry
-
-  final case class Rejected(
-      submissionId: String,
-      rejectionReason: String,
-      proposedConfiguration: Configuration,
-  ) extends ConfigurationEntry
 }
 
 sealed abstract class PackageEntry() extends Product with Serializable

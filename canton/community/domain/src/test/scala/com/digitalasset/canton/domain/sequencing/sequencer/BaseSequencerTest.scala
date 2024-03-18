@@ -27,8 +27,15 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
   domainManager,
   participant1,
   participant2,
+  sequencerIdX,
 }
-import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  DomainMember,
+  Member,
+  SequencerId,
+  UnauthenticatedMemberId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TrafficControlErrors
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
@@ -145,8 +152,10 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
         traceContext: TraceContext
     ): EitherT[Future, String, SequencerSnapshot] =
       ???
-    override def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] =
-      ???
+    override protected val localSequencerMember: DomainMember = sequencerIdX
+    override protected def disableMemberInternal(member: Member)(implicit
+        traceContext: TraceContext
+    ): Future[Unit] = Future.unit
     override protected def healthInternal(implicit
         traceContext: TraceContext
     ): Future[SequencerHealthStatus] = Future.successful(SequencerHealthStatus(isActive = true))
@@ -154,12 +163,12 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       ???
     override def trafficStatus(members: Seq[Member])(implicit
         traceContext: TraceContext
-    ): Future[SequencerTrafficStatus] = ???
+    ): FutureUnlessShutdown[SequencerTrafficStatus] = ???
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
     override def setTrafficBalance(
         member: Member,
-        serial: NonNegativeLong,
+        serial: PositiveInt,
         totalTrafficBalance: NonNegativeLong,
         sequencerClient: SequencerClient,
     )(implicit
@@ -169,6 +178,11 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       TrafficControlErrors.TrafficControlError,
       CantonTimestamp,
     ] = ???
+
+    override def trafficStates(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Map[Member, TrafficState]] =
+      FutureUnlessShutdown.pure(Map.empty)
   }
 
   Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>
@@ -239,6 +253,21 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
 
       status shouldBe badHealth
 
+    }
+  }
+
+  "disableMember" should {
+    "disableMember should only allow disabling non-local sequencer member" in {
+      val sequencer = new StubSequencer(Set(participant1))
+      for {
+        _ <- sequencer.disableMember(participant1).valueOrFail("Can disable regular member")
+        err <- sequencer.disableMember(sequencerIdX).leftOrFail("Fail to disable local sequencer")
+        _ <- sequencer
+          .disableMember(SequencerId(UniqueIdentifier.tryFromProtoPrimitive("seq::other")))
+          .valueOrFail("Can disable other sequencer")
+      } yield {
+        err.asGrpcError.getMessage should include("CANNOT_DISABLE_LOCAL_SEQUENCER_MEMBER")
+      }
     }
   }
 }

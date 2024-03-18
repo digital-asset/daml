@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.reference
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, QueryCostMonitoringConfig, StorageConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
 import com.digitalasset.canton.domain.block.{
@@ -29,7 +29,6 @@ import io.grpc.BindableService
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -68,8 +67,7 @@ class ReferenceBlockOrderer(
 
   override def subscribe(fromHeight: Long)(implicit
       traceContext: TraceContext
-  ): Source[BlockOrderer.Block, KillSwitch] = {
-    val lastTimestampCell = new AtomicReference(CantonTimestamp.Epoch)
+  ): Source[BlockOrderer.Block, KillSwitch] =
     Source
       .tick(
         initialDelay = 0.milli,
@@ -77,42 +75,36 @@ class ReferenceBlockOrderer(
         (),
       )
       .viaMat(KillSwitches.single)(Keep.right)
-      .mapAsync(1)(_ => store.countBlocks().map(_ - 1L))
       .scanAsync(
-        (fromHeight - 1L, Seq[BlockOrderer.Block]())
-      ) { case ((lastHeight, _), currentHeight) =>
+        fromHeight -> Seq[BlockOrderer.Block]()
+      ) { case ((nextFromHeight, _), _tick) =>
         for {
           newBlocks <-
-            if (currentHeight > lastHeight) {
-              store.queryBlocks(lastHeight + 1L).map { blocks =>
-                if (logger.underlying.isDebugEnabled()) {
-                  logger.debug(
-                    s"New blocks (${blocks.length}) at heights ${lastHeight + 1} to $currentHeight, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
+            store.queryBlocks(nextFromHeight).map { timestampedBlocks =>
+              val blocks = timestampedBlocks.map(_.block)
+              if (logger.underlying.isDebugEnabled()) {
+                logger.debug(
+                  s"New blocks (${blocks.length}) starting at height $nextFromHeight, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
+                )
+              }
+              blocks.lastOption.foreach { lastBlock =>
+                val expectedLastBlockHeight = nextFromHeight + blocks.length - 1
+                if (lastBlock.blockHeight != expectedLastBlockHeight) {
+                  logger.warn(
+                    s"Last block height was expected to be $expectedLastBlockHeight but was ${lastBlock.blockHeight}. " +
+                      "This might point to a gap in queried blocks (visible under debug logging) and cause the BlockSequencer subscription to become stuck."
                   )
                 }
-                blocks.lastOption.foreach { lastBlock =>
-                  if (lastBlock.blockHeight != lastHeight + blocks.length) {
-                    logger.warn(
-                      s"Last block height was expected to be ${lastHeight + blocks.length} but was ${lastBlock.blockHeight}. " +
-                        "This might point to a gap in queried blocks (visible under debug logging) and cause the BlockSequencer subscription to become stuck."
-                    )
-                  }
-                }
-                blocks
               }
-            } else {
-              Future.successful(Seq.empty[BlockOrderer.Block])
+              blocks
             }
-          timeAdjustedBlocks = adjustTime(lastTimestampCell, newBlocks)
-        } yield (
-          // Setting the "new lastHeight" watermark block height based on the number of new blocks seen
+        } yield {
+          // Setting the "new nextFromHeight" watermark block height based on the number of new blocks seen
           // assumes that store.queryBlocks returns consecutive blocks with "no gaps". See #13539.
-          lastHeight + timeAdjustedBlocks.length,
-          timeAdjustedBlocks,
-        )
+          (nextFromHeight + newBlocks.size) -> newBlocks
+        }
       }
       .mapConcat(_._2)
-  }
 
   override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] = {
     val isStorageActive = storage.isActive
@@ -159,30 +151,6 @@ class ReferenceBlockOrderer(
         )
       )
   }
-
-  // The BFT ordering service must assign strictly monotonically increasing timestamps to events,
-  //  thus `BlockUpdateGenerator` process them in "validate-only" mode.
-  //  However, the current reference-based fake doesn't generate strictly monotonically increasing
-  //  timestamps; rather, they are deterministically shifted on the read path by the following
-  //  logic.
-  private def adjustTime(
-      lastTimestampCell: AtomicReference[CantonTimestamp],
-      blocks: Seq[BlockOrderer.Block],
-  ): Seq[BlockOrderer.Block] =
-    blocks.map { block =>
-      block.copy(requests = block.requests.map { request =>
-        val sequencingTimestamp = lastTimestampCell.updateAndGet { lastTimestamp =>
-          val lastTimestampMicros = lastTimestamp.underlying.micros
-          val requestMicros = request.value.microsecondsSinceEpoch
-          if (requestMicros > lastTimestampMicros)
-            CantonTimestamp.assertFromLong(requestMicros)
-          else
-            lastTimestamp.immediateSuccessor
-        }
-        val sequencingMicros = sequencingTimestamp.underlying.micros
-        request.copy(value = request.value.copy(microsecondsSinceEpoch = sequencingMicros))
-      })
-    }
 }
 
 object ReferenceBlockOrderer {
@@ -195,43 +163,47 @@ object ReferenceBlockOrderer {
       storage: StorageConfigT,
       pollInterval: config.NonNegativeFiniteDuration =
         config.NonNegativeFiniteDuration.ofMillis(100),
+      logQueryCost: Option[QueryCostMonitoringConfig] = None,
   )
 
-  private[sequencer] def storeMultipleRequest(
+  final case class TimestampedRequest(tag: String, body: ByteString, timestamp: CantonTimestamp)
+
+  private[sequencer] def storeBatch(
       blockHeight: Long,
       timestamp: CantonTimestamp,
+      lastTopologyTimestamp: CantonTimestamp,
       sendQueue: SimpleExecutionQueue,
       store: ReferenceBlockOrderingStore,
-      requests: Seq[Traced[(String, ByteString)]],
+      requests: Seq[Traced[TimestampedRequest]],
   )(implicit
       executionContext: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
       traceContext: TraceContext,
   ): Future[Unit] = {
-    val (tag, body) = requests.headOption
-      .filter(_ => requests.sizeIs == 1)
-      .map { head =>
-        head.value
-      }
-      .getOrElse {
-        val body = {
-          val traceparent = traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
-          TracedBatchedBlockOrderingRequests(
-            traceparent,
-            requests.map { case traced @ Traced((tag, body)) =>
-              val traceparent = traced.traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
-              TracedBlockOrderingRequest(traceparent, tag, body, microsecondsSinceEpoch = 0)
-            },
-          )
-        }.toByteString
-        (BatchTag, body)
-      }
+    val batchTraceparent = traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
+    val body =
+      TracedBatchedBlockOrderingRequests
+        .of(
+          batchTraceparent,
+          requests.map { case traced @ Traced(request) =>
+            val requestTraceparent =
+              traced.traceContext.asW3CTraceContext.map(_.parent).getOrElse("")
+            TracedBlockOrderingRequest(
+              requestTraceparent,
+              request.tag,
+              request.body,
+              request.timestamp.toMicros,
+            )
+          },
+          lastTopologyTimestamp.toMicros,
+        )
+        .toByteString
 
     sendQueue
       .execute(
         store.insertRequestWithHeight(
           blockHeight,
-          BlockOrderer.OrderedRequest(timestamp.toMicros, tag, body),
+          BlockOrderer.OrderedRequest(timestamp.toMicros, BatchTag, body),
         ),
         s"send request at $timestamp",
       )

@@ -17,10 +17,6 @@ private[inner] object TemplateMethods {
   ): (Vector[MethodSpec], Seq[(ClassName, String)]) = {
     val constructor = ConstructorGenerator.generateConstructor(fields)
     val conversionMethods = distinctTypeVars(fields, IndexedSeq.empty[String]).flatMap { params =>
-      val deprecatedFromValue = FromValueGenerator.generateDeprecatedFromValueForRecordLike(
-        className,
-        params,
-      )
       val valueDecoder = FromValueGenerator.generateContractCompanionValueDecoder(
         className,
         params,
@@ -47,7 +43,7 @@ private[inner] object TemplateMethods {
             .build(),
         isPublic = false,
       )
-      List(deprecatedFromValue, valueDecoder, toValue, privateGetValueDecoder)
+      List(valueDecoder, toValue, privateGetValueDecoder)
     }
     val contractFilterMethod = MethodSpec
       .methodBuilder("contractFilter")

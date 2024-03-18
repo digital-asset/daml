@@ -119,26 +119,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           with TransactionRoutingError
     }
 
-    @Explanation(
-      """The WorkflowID defined in the transaction metadata is not a valid domain alias."""
-    )
-    @Resolution(
-      """Check that the workflow ID (if specified) corresponds to a valid domain alias.
-        A typical rejection reason is a too-long domain alias. """
-    )
-    object InvalidDomainAlias
-        extends ErrorCode(
-          id = "INVALID_DOMAIN_ALIAS",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
-
-      final case class Error(problem: String)
-          extends TransactionErrorImpl(
-            cause = "Unable to parse workflow ID."
-          )
-          with TransactionRoutingError
-    }
-
+    // TODO(i17634): remove or adapt description
     @Explanation(
       """The WorkflowID defined in the transaction metadata contains an invalid domain id."""
     )
@@ -241,7 +222,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
 
       final case class NotAllowed(unknownSubmitter: LfPartyId)
           extends TransactionErrorImpl(
-            cause = "This participant can not submit as the given submitter on any connected domain"
+            cause = "This participant cannot submit as the given submitter on any connected domain"
           )
           with TransactionRoutingError
 
@@ -411,7 +392,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       """This error indicates that the transaction is referring to contracts whose domain is not currently known."""
     )
     @Resolution(
-      "Ensure all transfer operations on contracts used by the transaction have completed."
+      "Ensure all transfer operations on contracts used by the transaction have completed and check connectivity to domains."
     )
     object UnknownContractDomains
         extends ErrorCode(
@@ -422,7 +403,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(contractIds: List[String])
           extends TransactionErrorImpl(
             cause =
-              s"The domains for the contracts $contractIds are currently unknown due to contract transfers."
+              s"The domains for the contracts $contractIds are currently unknown due to ongoing contract transfers or disconnected domains"
           )
           with TransactionRoutingError {
         override def resources: Seq[(ErrorResource, String)] = Seq(

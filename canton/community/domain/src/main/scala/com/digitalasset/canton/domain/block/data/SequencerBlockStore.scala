@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.db.DbSequencerBlockStore
@@ -26,7 +27,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.TrafficState
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfDomain,
+  Deliver,
+  SequencersOfDomain,
+  TrafficState,
+}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -89,6 +95,13 @@ trait SequencerBlockStore extends AutoCloseable {
 
   def pruningStatus()(implicit traceContext: TraceContext): Future[InternalSequencerPruningStatus]
 
+  /** Locate a timestamp relative to the earliest available event based on a skip index starting at 0.
+    * Useful to monitor the progress of pruning and for pruning in batches.
+    * @return The timestamp of the (skip+1)'th event if it exists, None otherwise.
+    */
+  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]]
   def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[String]
@@ -155,10 +168,10 @@ trait SequencerBlockStore extends AutoCloseable {
     * If there are neither events nor registrations in the current block, the two are equal.
     * </li>
     * <li>If the previous block is defined,
-    * the [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]] of the
+    * the [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]] of the
     * its [[com.digitalasset.canton.domain.block.data.BlockEphemeralState]]
     * is no later than the one of the current block. In particular,
-    * if [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]]
+    * if [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]]
     * is defined in the previous block, then so is it in the successor block.
     * If it is defined in the successor block, then it is the same as in the predecessor block
     * unless the block contains events addressed to the sequencer's topology client.
@@ -170,7 +183,7 @@ trait SequencerBlockStore extends AutoCloseable {
     * and the block contains member registrations.
     * </li>
     * <li>All events in the block addressed to the `topologyClientMember` have timestamps of at most
-    * [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]] of the current block.
+    * [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]] of the current block.
     * </li>
     * </ul>
     *
@@ -202,7 +215,7 @@ trait SequencerBlockStore extends AutoCloseable {
         s"The last event timestamp ${currentBlock.lastTs} in the current block ${currentBlock.height} is before the last event timestamp ${prevBlock.lastTs} of the previous block",
       )
 
-      (prevBlock.latestTopologyClientTimestamp, currentBlock.latestTopologyClientTimestamp) match {
+      (prevBlock.latestSequencerEventTimestamp, currentBlock.latestSequencerEventTimestamp) match {
         case (Some(prevTs), Some(currTs)) =>
           ErrorUtil.requireState(
             prevTs <= currTs,
@@ -254,22 +267,34 @@ trait SequencerBlockStore extends AutoCloseable {
         )
     }
 
-    val topologyEventsInBlock = allEventsInBlock.get(topologyClientMember)
+    // Keep only the events addressed to the sequencer that advance `latestSequencerEventTimestamp`.
+    // TODO(i17741): write a security test that checks proper behavior when a sequencer is targeted directly
+    val topologyEventsInBlock = allEventsInBlock
+      .get(topologyClientMember)
+      .map(_.filter(_.signedEvent.content match {
+        case Deliver(_, _, _, _, batch, _) =>
+          val recipients = batch.allRecipients
+          recipients.contains(SequencersOfDomain) || recipients.contains(AllMembersOfDomain)
+        case _ => false
+      }))
+      .flatMap(NonEmpty.from)
+
     topologyEventsInBlock match {
       case None =>
         // For the initial state, the latest topology client timestamp
         // may be set even though the block does not contain events and we don't know the previous block any more
         prevBlockO.foreach { prevBlock =>
           ErrorUtil.requireState(
-            prevBlock.latestTopologyClientTimestamp == currentBlock.latestTopologyClientTimestamp,
-            s"The latest topology client timestamp for block ${currentBlock.height} changed from ${prevBlock.latestTopologyClientTimestamp} to ${currentBlock.latestTopologyClientTimestamp}, but the block contains no events for $topologyClientMember",
+            prevBlock.latestSequencerEventTimestamp == currentBlock.latestSequencerEventTimestamp,
+            s"The latest topology client timestamp for block ${currentBlock.height} changed from ${prevBlock.latestSequencerEventTimestamp} to ${currentBlock.latestSequencerEventTimestamp}, but the block contains no events for $topologyClientMember",
           )
         }
       case Some(topologyEvents) =>
         val lastEvent = topologyEvents.toNEF.maximumBy(_.timestamp)
+
         ErrorUtil.requireState(
-          currentBlock.latestTopologyClientTimestamp.contains(lastEvent.timestamp),
-          s"The latest topology client timestamp for block ${currentBlock.height} is ${currentBlock.latestTopologyClientTimestamp}, but the last event in the block to $topologyClientMember is at ${lastEvent.timestamp}",
+          currentBlock.latestSequencerEventTimestamp.contains(lastEvent.timestamp),
+          s"The latest topology client timestamp for block ${currentBlock.height} is ${currentBlock.latestSequencerEventTimestamp}, but the last event in the block to $topologyClientMember is at ${lastEvent.timestamp}",
         )
     }
 

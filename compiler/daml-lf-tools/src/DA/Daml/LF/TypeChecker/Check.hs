@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | This module contains the Daml-LF type checker.
 --
@@ -219,28 +220,17 @@ typeOfBuiltin = \case
   BERoundingMode _   -> pure TRoundingMode
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
-  BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
-  BELessGeneric      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
-  BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
-  BEGreaterGeneric   -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
-  BEGreaterEqGeneric -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
-  BEEqual     btype  -> pure $ tComparison btype
-  BELess      btype  -> pure $ tComparison btype
-  BELessEq    btype  -> pure $ tComparison btype
-  BEGreater   btype  -> pure $ tComparison btype
-  BEGreaterEq btype  -> pure $ tComparison btype
+  BEEqual     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BELess      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BELessEq    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BEGreater   -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
+  BEGreaterEq -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
   BEContractIdToText -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
   BECodePointsToText -> pure $ TList TInt64 :-> TText
-  BEPartyToQuotedText -> pure $ TParty :-> TText
   BETextToParty    -> pure $ TText :-> TOptional TParty
   BETextToInt64    -> pure $ TText :-> TOptional TInt64
   BETextToCodePoints -> pure $ TText :-> TList TInt64
-  BEEqualNumeric     -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BELessNumeric      -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BELessEqNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BEGreaterNumeric   -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
-  BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BEMulNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
@@ -300,16 +290,12 @@ typeOfBuiltin = \case
   BEDateToUnixDays -> pure $ TDate :-> TInt64
   BEUnixDaysToDate -> pure $ TInt64 :-> TDate
   BETrace -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> tAlpha
-  BEEqualContractId -> pure $
-    TForall (alpha, KStar) $
-    TContractId tAlpha :-> TContractId tAlpha :-> TBool
   BECoerceContractId -> do
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
 
   BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
 
   where
-    tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
     tBinop typ = typ :-> typ :-> typ
 
 checkRecCon :: MonadGamma m => TypeConApp -> [(FieldName, Expr)] -> m ()
@@ -704,7 +690,7 @@ typeOf' :: MonadGamma m => Expr -> m Type
 typeOf' = \case
   EVar var -> lookupExprVar var
   EVal val -> dvalType <$> inWorld (lookupValue val)
-  EBuiltin bexpr -> typeOfBuiltin bexpr
+  EBuiltinFun bexpr -> typeOfBuiltin bexpr
   ERecCon typ recordExpr -> checkRecCon typ recordExpr $> typeConAppToType typ
   ERecProj typ field rec -> typeOfRecProj typ field rec
   ERecUpd typ field record update -> typeOfRecUpd typ field record update

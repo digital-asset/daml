@@ -9,12 +9,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockUpdateGenerator.SignedEvents
-import com.digitalasset.canton.domain.block.data.BlockInfo
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
+import com.digitalasset.canton.domain.block.data.{BlockInfo, EphemeralState}
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdates
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.MapsUtil
 
 /** A series of changes from processing the chunks of updates within a block. */
@@ -41,7 +39,7 @@ final case class PartialBlockUpdate(
   * the updates in all earlier [[ChunkUpdate]]s. In particular:
   * - [[com.digitalasset.canton.domain.block.data.BlockInfo.lastTs]] must be at least the
   *   one from the last chunk or previous block
-  * - [[com.digitalasset.canton.domain.block.data.BlockInfo.latestTopologyClientTimestamp]]
+  * - [[com.digitalasset.canton.domain.block.data.BlockInfo.latestSequencerEventTimestamp]]
   *   must be at least the one from the last chunk or previous block.
   * - [[com.digitalasset.canton.domain.block.data.BlockInfo.height]] must be exactly one higher
   *   than the previous block
@@ -60,25 +58,21 @@ final case class CompleteBlockUpdate(
   *  - counter values for each member should be continuous
   *
   * @param newMembers Members that were added along with the timestamp that they are considered registered from.
-  * @param membersDisabled Members that were disabled.
   * @param acknowledgements The highest valid acknowledged timestamp for each member in the block.
   * @param invalidAcknowledgements All invalid acknowledgement timestamps in the block for each member.
   * @param signedEvents New sequenced events for members.
   * @param inFlightAggregationUpdates The updates to the in-flight aggregation states.
   *                             Does not include the clean-up of expired aggregations.
-  * @param pruningRequests Upper bound timestamps to prune the sequencer's local state.
-  * @param lastTopologyClientTimestamp The highest timestamp of an event in `events` addressed to the sequencer's topology client, if any.
+  * @param lastSequencerEventTimestamp The highest timestamp of an event in `events` addressed to the sequencer, if any.
   * @param state Updated ephemeral state to be used for processing subsequent chunks.
   */
 final case class ChunkUpdate(
     newMembers: Map[Member, CantonTimestamp] = Map.empty,
-    membersDisabled: Seq[Member] = Seq.empty,
     acknowledgements: Map[Member, CantonTimestamp] = Map.empty,
     invalidAcknowledgements: Seq[(Member, CantonTimestamp, BaseError)] = Seq.empty,
     signedEvents: Seq[SignedEvents] = Seq.empty,
     inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
-    pruningRequests: Seq[Traced[CantonTimestamp]] = Seq.empty,
-    lastTopologyClientTimestamp: Option[CantonTimestamp],
+    lastSequencerEventTimestamp: Option[CantonTimestamp],
     state: EphemeralState,
 ) {
   // ensure that all new members appear in the ephemeral state

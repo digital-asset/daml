@@ -171,12 +171,13 @@ trait BaseTest
   def eventually[T](
       timeUntilSuccess: FiniteDuration = 20.seconds,
       maxPollInterval: FiniteDuration = 5.seconds,
-  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, true)(testCode)
-
-  def eventuallyNoException[T](
-      timeUntilSuccess: FiniteDuration = 20.seconds,
-      maxPollInterval: FiniteDuration = 5.seconds,
-  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, false)(testCode)
+      retryOnTestFailuresOnly: Boolean = true,
+  )(testCode: => T): T =
+    BaseTest.eventually(
+      timeUntilSuccess,
+      maxPollInterval,
+      retryOnTestFailuresOnly = retryOnTestFailuresOnly,
+    )(testCode)
 
   /** Keeps evaluating `testCode` until it fails or a timeout occurs.
     * @return the result the last evaluation of `testCode`
@@ -186,28 +187,14 @@ trait BaseTest
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   def always[T](durationOfSuccess: FiniteDuration = 2.seconds, pollIntervalMs: Long = 10)(
       testCode: => T
-  ): T = {
-    require(
-      durationOfSuccess >= Duration.Zero,
-      s"The timeout must not be negative, but is $durationOfSuccess",
-    )
-    require(pollIntervalMs >= 0)
-    val deadline = durationOfSuccess.fromNow
-    while (deadline.hasTimeLeft()) {
-      testCode
-      Threading.sleep(pollIntervalMs)
-    }
-    testCode
-  }
+  ): T = BaseTest.always(durationOfSuccess, pollIntervalMs)(testCode)
 
   def eventuallyForever[T](
       timeUntilSuccess: FiniteDuration = 2.seconds,
       durationOfSuccess: FiniteDuration = 2.seconds,
       pollIntervalMs: Long = 10,
-  )(testCode: => T): T = {
-    eventually(timeUntilSuccess)(testCode)
-    always(durationOfSuccess, pollIntervalMs)(testCode)
-  }
+  )(testCode: => T): T =
+    BaseTest.eventuallyForever(timeUntilSuccess, durationOfSuccess, pollIntervalMs)(testCode)
 
   /** Converts an EitherT into a Future, failing in case of a [[scala.Left$]]. */
   def valueOrFail[F[_], A, B](e: EitherT[F, A, B])(
@@ -329,6 +316,37 @@ trait BaseTest
 
 object BaseTest {
 
+  /** Keeps evaluating `testCode` until it fails or a timeout occurs.
+    * @return the result the last evaluation of `testCode`
+    * @throws java.lang.Throwable if `testCode` terminates with a throwable
+    * @throws java.lang.IllegalArgumentException if `timeout` or `pollIntervalMs` is negative
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.While"))
+  def always[T](durationOfSuccess: FiniteDuration = 2.seconds, pollIntervalMs: Long = 10)(
+      testCode: => T
+  ): T = {
+    require(
+      durationOfSuccess >= Duration.Zero,
+      s"The timeout must not be negative, but is $durationOfSuccess",
+    )
+    require(pollIntervalMs >= 0)
+    val deadline = durationOfSuccess.fromNow
+    while (deadline.hasTimeLeft()) {
+      testCode
+      Threading.sleep(pollIntervalMs)
+    }
+    testCode
+  }
+
+  def eventuallyForever[T](
+      timeUntilSuccess: FiniteDuration = 2.seconds,
+      durationOfSuccess: FiniteDuration = 2.seconds,
+      pollIntervalMs: Long = 10,
+  )(testCode: => T): T = {
+    eventually(timeUntilSuccess)(testCode)
+    always(durationOfSuccess, pollIntervalMs)(testCode)
+  }
+
   /** Keeps evaluating `testCode` until it succeeds or a timeout occurs.
     * @throws org.scalatest.exceptions.TestFailedException if `testCode` keeps throwing such an exception even after `timeout`
     * @throws java.lang.Throwable if `testCode` throws any other throwable
@@ -369,6 +387,11 @@ object BaseTest {
     }
     testCode // try one last time and throw exception, if assertion keeps failing
   }
+
+  def eventuallyNoException[T](
+      timeUntilSuccess: FiniteDuration = 20.seconds,
+      maxPollInterval: FiniteDuration = 5.seconds,
+  )(testCode: => T): T = BaseTest.eventually(timeUntilSuccess, maxPollInterval, false)(testCode)
 
   // Uses SymbolicCrypto for the configured crypto schemes
   lazy val defaultStaticDomainParameters: StaticDomainParameters =

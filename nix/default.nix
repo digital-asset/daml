@@ -124,7 +124,6 @@ in rec {
 
     yapf = pkgs.python38Packages.yapf;
 
-    pex = pkgs.python38Packages.pex;
     pipenv = pkgs.pipenv;
 
     pre-commit = pkgs.pre-commit;
@@ -191,7 +190,7 @@ in rec {
     openssl = pkgs.openssl.bin;
     tar = bazel_dependencies.gnutar;
 
-    semver = pkgs.callPackage ./tools/semver-tool {};
+    semver = pkgs.semver-tool;
 
     undmg = pkgs.undmg;
 

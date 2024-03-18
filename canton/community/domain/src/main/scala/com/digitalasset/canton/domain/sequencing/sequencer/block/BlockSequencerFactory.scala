@@ -4,27 +4,44 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block
 
 import cats.data.EitherT
+import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.block.data.{BlockEphemeralState, SequencerBlockStore}
 import com.digitalasset.canton.domain.block.{BlockSequencerStateManager, UninitializedBlockHeight}
+import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.TestingInterceptor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitManager,
+  SequencerTrafficConfig,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   Sequencer,
   SequencerFactory,
   SequencerHealthConfig,
   SequencerInitialState,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.BalanceUpdateClient
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.traffic.{
+  BalanceUpdateClientImpl,
+  BalanceUpdateClientTopologyImpl,
+  EnterpriseSequencerRateLimitManager,
+  TrafficBalanceManager,
+}
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -35,10 +52,11 @@ abstract class BlockSequencerFactory(
     health: Option[SequencerHealthConfig],
     storage: Storage,
     protocolVersion: ProtocolVersion,
-    topologyClientMember: Member,
+    sequencerId: SequencerId,
     nodeParameters: CantonNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
+    metrics: SequencerMetrics,
 )(implicit ec: ExecutionContext)
     extends SequencerFactory
     with NamedLogging {
@@ -47,8 +65,15 @@ abstract class BlockSequencerFactory(
     storage,
     protocolVersion,
     nodeParameters.processingTimeouts,
-    if (nodeParameters.enableAdditionalConsistencyChecks) Some(topologyClientMember) else None,
+    if (nodeParameters.enableAdditionalConsistencyChecks) Some(sequencerId) else None,
     loggerFactory,
+  )
+
+  private val balanceStore = TrafficBalanceStore(
+    storage,
+    nodeParameters.processingTimeouts,
+    loggerFactory,
+    nodeParameters.batchingConfig.aggregator,
   )
 
   protected val name: String
@@ -58,18 +83,17 @@ abstract class BlockSequencerFactory(
   protected def createBlockSequencer(
       name: String,
       domainId: DomainId,
-      sequencerId: SequencerId,
       cryptoApi: DomainSyncCryptoClient,
-      topologyClientMember: Member,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
+      balanceStore: TrafficBalanceStore,
       storage: Storage,
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
       clock: Clock,
       driverClock: Clock,
       protocolVersion: ProtocolVersion,
-      rateLimitManager: Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,
@@ -83,21 +107,33 @@ abstract class BlockSequencerFactory(
       snapshot: SequencerInitialState,
       sequencerId: SequencerId,
   )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
-    val members = snapshot.snapshot.status.members.map(_.member)
-    for {
-      _ <- EitherT.cond[Future](
-        members.contains(sequencerId) && snapshot.snapshot.heads.contains(
-          sequencerId
-        ),
-        (),
-        "Given snapshot must contain sequencer member",
+    val initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
+    logger.debug(s"Storing sequencers initial state: $initialBlockState")
+    val result = for {
+      _ <- store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
+      _ <- snapshot.snapshot.trafficBalances.parTraverse_(balanceStore.store)
+      _ = logger.debug(
+        s"from snapshot: ticking traffic balance manager with ${snapshot.latestSequencerEventTimestamp}"
       )
-      initialBlockState = BlockEphemeralState.fromSequencerInitialState(snapshot)
-      _ = logger.debug(s"Storing sequencers initial state: $initialBlockState")
-      _ <- EitherT.right(
-        store.setInitialState(initialBlockState, snapshot.initialTopologyEffectiveTimestamp)
-      )
+      _ <- snapshot.latestSequencerEventTimestamp
+        .traverse(ts => balanceStore.setInitialTimestamp(ts))
     } yield ()
+
+    EitherT.right(result)
+  }
+
+  @VisibleForTesting
+  protected def makeRateLimitManager(
+      balanceUpdateClient: BalanceUpdateClient,
+      futureSupervisor: FutureSupervisor,
+  ): SequencerRateLimitManager = {
+    new EnterpriseSequencerRateLimitManager(
+      balanceUpdateClient,
+      loggerFactory,
+      futureSupervisor,
+      nodeParameters.processingTimeouts,
+      metrics,
+    )
   }
 
   override final def create(
@@ -107,7 +143,7 @@ abstract class BlockSequencerFactory(
       driverClock: Clock,
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      rateLimitManager: Option[SequencerRateLimitManager],
+      trafficConfig: SequencerTrafficConfig,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -131,6 +167,39 @@ abstract class BlockSequencerFactory(
       s"Creating $name sequencer at block height $initialBlockHeight"
     )
 
+    val balanceManager = new TrafficBalanceManager(
+      balanceStore,
+      clock,
+      trafficConfig,
+      futureSupervisor,
+      metrics,
+      nodeParameters.processingTimeouts,
+      loggerFactory,
+    )
+
+    //  Start auto pruning of traffic balances
+    FutureUtil.doNotAwaitUnlessShutdown(
+      balanceManager.startAutoPruning,
+      "Auto pruning of traffic balances",
+    )
+    def newTrafficBalanceClient = new BalanceUpdateClientImpl(balanceManager, loggerFactory)
+
+    // Old balance client from topology
+    def topologyTrafficBalanceClient = {
+      implicit val closeContext = CloseContext(domainSyncCryptoApi)
+      new BalanceUpdateClientTopologyImpl(
+        domainSyncCryptoApi,
+        protocolVersion,
+        loggerFactory,
+      )
+    }
+
+    val balanceUpdateClient =
+      if (nodeParameters.useNewTrafficControl) newTrafficBalanceClient
+      else topologyTrafficBalanceClient
+
+    val rateLimitManager = makeRateLimitManager(balanceUpdateClient, futureSupervisor)
+
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
     val stateManagerF = {
@@ -143,18 +212,21 @@ abstract class BlockSequencerFactory(
         nodeParameters.enableAdditionalConsistencyChecks,
         nodeParameters.processingTimeouts,
         domainLoggerFactory,
+        rateLimitManager,
       )
     }
 
-    stateManagerF.map { stateManager =>
+    for {
+      _ <- balanceManager.initialize
+      stateManager <- stateManagerF
+    } yield {
       val sequencer = createBlockSequencer(
         name,
         domainId,
-        sequencerId,
         domainSyncCryptoApi,
-        topologyClientMember,
         stateManager,
         store,
+        balanceStore,
         storage,
         futureSupervisor,
         health,

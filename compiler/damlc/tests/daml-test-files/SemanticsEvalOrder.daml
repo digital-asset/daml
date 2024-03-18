@@ -15,7 +15,6 @@
 module SemanticsEvalOrder where
 
 import Daml.Script
-import ScriptAssertHelpers
 
 -- @ERROR EvTyAbsErasableErr OK
 evTyAbsErasableErr : Script ()
@@ -242,7 +241,7 @@ evUpdCreateErr1 = script do
     createCmd (T_EvUpdCreateErr1 p)
   abort "EvUpdCreateErr1 failed (3)"
 
--- @ERROR range=255:1-255:16; Template precondition violated
+-- @ERROR range=254:1-254:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
@@ -289,60 +288,6 @@ evUpdCreateErr3_1 = script do
   submit p do
     createCmd (T_EvUpdCreateErr3_1 p)
   abort "EvUpdCreateErr3_1 failed"
-
--- @ERROR EvUpdCreateErr3_2 OK
-template T_EvUpdCreateErr3_2
-  with
-    p : Party
-  where
-    ensure True
-    signatory p
-    observer (error @Party "EvUpdCreateErr3_2 OK")
-    key error @Party "EvUpdCreateErr3_2 failed" : Party
-    maintainer error @Party "EvUpdCreateErr3_2 failed"
-
-evUpdCreateErr3_2 : Script ()
-evUpdCreateErr3_2 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T_EvUpdCreateErr3_2 p)
-  abort "EvUpdCreateErr3_2 failed"
-
--- @ERROR EvUpdCreateWithKeyErr1 OK
-template T_EvUpdCreateWithKeyErr1
-  with
-    p : Party
-  where
-    ensure True
-    signatory p
-    observer [] : [Party]
-    key error @Party "EvUpdCreateWithKeyErr1 OK" : Party
-    maintainer error @Party "EvUpdCreateWithKeyErr1 failed"
-
-evUpdCreateWithKeyErr1 : Script ()
-evUpdCreateWithKeyErr1 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T_EvUpdCreateWithKeyErr1 p)
-  abort "EvUpdCreateWithKeyErr1 failed"
-
--- @ERROR EvUpdCreateWithKeyErr2 OK
-template T_EvUpdCreateWithKeyErr2
-  with
-    p : Party
-  where
-    ensure True
-    signatory p
-    observer [] : [Party]
-    key p : Party
-    maintainer error @Party "EvUpdCreateWithKeyErr2 OK"
-
-evUpdCreateWithKeyErr2 : Script ()
-evUpdCreateWithKeyErr2 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T_EvUpdCreateWithKeyErr2 p)
-  abort "EvUpdCreateWithKeyErr2 failed"
 
 -- | `choice ... controller P ...` doesn't add `P` as observer.
 -- This test is here to contrast with the previous.
@@ -485,45 +430,3 @@ badActorCheck = script do
   p2 <- allocateParty "Bob"
   submit p1 do createAndExerciseCmd (T_BadActorCheck p1 p2) C_BadActorCheck
   error "BadActorCheck failed"
-
--- @ERROR Couldn't see contract with key ()
-template T_EvUpdFetchByKeyErr
-  with
-    p : Party
-  where
-    signatory p
-    key () : ()
-    maintainer (error @Party "EvUpdFetchByKeyErr OK")
-
-evUpdFetchByKeyErr : Script ()
-evUpdFetchByKeyErr = script do
-  p <- allocateParty "Alice"
-  canSeeKey @T_EvUpdFetchByKeyErr p ()
-  abort "EvUpdFetchByKeyErr failed"
-
-template T_EvUpdFetchByKeyErrContract
-  with
-    p : Party
-  where
-    signatory p
-    key () : ()
-    maintainer (error @Party "EvUpdFetchByKeyErrContract OK")
-
--- Caller contract to ensure above follows correct evalation path
--- @ERROR EvUpdFetchByKeyErrContract OK
-template T_EvUpdFetchByKeyErrCaller
-  with
-    p : Party
-  where
-    signatory p
-    choice DoFetch : ()
-      controller p
-      do
-        fetchByKey @T_EvUpdFetchByKeyErrContract ()
-        pure ()
-
-evUpdFetchByKeyErrContract : Script ()
-evUpdFetchByKeyErrContract = script do
-  p <- allocateParty "Alice"
-  p `submit` createAndExerciseCmd (T_EvUpdFetchByKeyErrCaller p) DoFetch
-  abort "EvUpdFetchByKeyErrContract failed"

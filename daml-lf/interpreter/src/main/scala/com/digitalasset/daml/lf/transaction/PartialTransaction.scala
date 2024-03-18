@@ -287,7 +287,7 @@ private[speedy] case class PartialTransaction(
   }
 
   private[this] def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
-    if (version < TxVersion.minByKey) {
+    if (version < TxVersion.minContractKeys) {
       false
     } else {
       byKey

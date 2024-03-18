@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import cats.implicits.toTraverseOps
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent, InterfaceView}
-import com.daml.ledger.api.v1.value.{
+import com.daml.ledger.api.v2.event.{CreatedEvent, ExercisedEvent, InterfaceView}
+import com.daml.ledger.api.v2.value.{
   Identifier as ApiIdentifier,
   Record as ApiRecord,
   Value as ApiValue,
@@ -296,7 +296,6 @@ final class LfValueTranslation(
             templateId = templateId,
             packageName = packageName,
             arg = createArgument.unversioned,
-            agreementText = raw.partial.agreementText.getOrElse(""),
             signatories = signatories,
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
@@ -417,7 +416,6 @@ final class LfValueTranslation(
             templateId = createdEvent.templateId,
             packageName = createdEvent.packageName,
             arg = createArgument.unversioned,
-            agreementText = createdEvent.agreementText.getOrElse(""),
             signatories = signatories,
             stakeholders = signatories ++ observers,
             keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),

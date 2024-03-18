@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.commands.DisclosedContract
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.commands.DisclosedContract
+import com.daml.ledger.api.v2.value.Identifier
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.{
   FatContractInstance,
@@ -73,7 +73,6 @@ object DisclosedContractCreator {
         templateId = lf.templateId,
         packageName = packageName,
         arg = lf.createArg,
-        agreementText = "",
         signatories = api.signatories,
         stakeholders = api.stakeholders,
         keyOpt = Some(lf.keyWithMaintainers),

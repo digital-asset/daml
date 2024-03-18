@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.TraceContextOuterClass;
+import com.daml.ledger.api.v2.TraceContextOuterClass;
 import com.daml.ledger.api.v2.TransactionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -30,6 +30,8 @@ public final class Transaction {
 
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
+  @NonNull private final Instant recordTime;
+
   public Transaction(
       @NonNull String updateId,
       @NonNull String commandId,
@@ -38,7 +40,8 @@ public final class Transaction {
       @NonNull List<@NonNull Event> events,
       @NonNull String offset,
       @NonNull String domainId,
-      TraceContextOuterClass.@NonNull TraceContext traceContext) {
+      TraceContextOuterClass.@NonNull TraceContext traceContext,
+      @NonNull Instant recordTime) {
     this.updateId = updateId;
     this.commandId = commandId;
     this.workflowId = workflowId;
@@ -47,6 +50,7 @@ public final class Transaction {
     this.offset = offset;
     this.domainId = domainId;
     this.traceContext = traceContext;
+    this.recordTime = recordTime;
   }
 
   @NonNull
@@ -88,6 +92,11 @@ public final class Transaction {
     return traceContext;
   }
 
+  @NonNull
+  public Instant getRecordTime() {
+    return recordTime;
+  }
+
   public static Transaction fromProto(TransactionOuterClass.Transaction transaction) {
     Instant effectiveAt =
         Instant.ofEpochSecond(
@@ -104,7 +113,8 @@ public final class Transaction {
         events,
         transaction.getOffset(),
         transaction.getDomainId(),
-        transaction.getTraceContext());
+        transaction.getTraceContext(),
+        Utils.instantFromProto(transaction.getRecordTime()));
   }
 
   public TransactionOuterClass.Transaction toProto() {
@@ -121,6 +131,7 @@ public final class Transaction {
         .setOffset(offset)
         .setDomainId(domainId)
         .setTraceContext(traceContext)
+        .setRecordTime(Utils.instantToProto(recordTime))
         .build();
   }
 
@@ -148,6 +159,8 @@ public final class Transaction {
         + '\''
         + ", traceContext="
         + traceContext
+        + ", recordTime="
+        + recordTime
         + '}';
   }
 
@@ -163,13 +176,22 @@ public final class Transaction {
         && Objects.equals(events, that.events)
         && Objects.equals(offset, that.offset)
         && Objects.equals(domainId, that.domainId)
-        && Objects.equals(traceContext, that.traceContext);
+        && Objects.equals(traceContext, that.traceContext)
+        && Objects.equals(recordTime, that.recordTime);
   }
 
   @Override
   public int hashCode() {
 
     return Objects.hash(
-        updateId, commandId, workflowId, effectiveAt, events, offset, domainId, traceContext);
+        updateId,
+        commandId,
+        workflowId,
+        effectiveAt,
+        events,
+        offset,
+        domainId,
+        traceContext,
+        recordTime);
   }
 }

@@ -5,14 +5,13 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.RpcProtoExtractors
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
 import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
-import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.tracing.DefaultOpenTelemetry
@@ -260,7 +259,7 @@ class CommandServiceImplSpec
       commandsValidator = commandsValidator,
       currentLedgerTime = () => Instant.EPOCH,
       currentUtcTime = () => Instant.EPOCH,
-      maxDeduplicationDuration = () => Some(maxDeduplicationDuration),
+      maxDeduplicationDuration = maxDeduplicationDuration,
       generateSubmissionId = () => submissionId,
       telemetry = telemetry,
       loggerFactory = loggerFactory,

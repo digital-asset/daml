@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.sequencing.protocol
 
-import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.crypto.{CryptoPureApi, TestHash}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{RequestId, TargetDomainId}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.DefaultTestIdentities.domainId
@@ -22,11 +22,13 @@ class SequencedEventTest extends BaseTestWordSpec {
       // there's no significance to this choice of message beyond it being easy to construct
       val message =
         SignedProtocolMessage.from(
-          TransferResult.create(
+          ConfirmationResultMessage.create(
+            domainId,
+            ViewType.TransferOutViewType,
             RequestId(CantonTimestamp.now()),
-            Set.empty,
-            TargetDomainId(domainId),
+            TestHash.dummyRootHash,
             Verdict.Approve(testedProtocolVersion),
+            Set.empty,
             testedProtocolVersion,
           ),
           testedProtocolVersion,
@@ -43,6 +45,7 @@ class SequencedEventTest extends BaseTestWordSpec {
           domainId,
           Some(MessageId.tryCreate("some-message-id")),
           batch,
+          Some(CantonTimestamp.ofEpochSecond(1)),
           testedProtocolVersion,
         )
 

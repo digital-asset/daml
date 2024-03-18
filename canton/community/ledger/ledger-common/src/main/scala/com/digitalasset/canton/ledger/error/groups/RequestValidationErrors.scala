@@ -82,29 +82,6 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     }
 
     @Explanation(
-      "The ledger configuration could not be retrieved. This could happen due to incomplete initialization of the participant or due to an internal system error."
-    )
-    @Resolution("Contact the participant operator.")
-    object LedgerConfiguration
-        extends ErrorCode(
-          id = "LEDGER_CONFIGURATION_NOT_FOUND",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
-
-      final case class Reject()(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = "The ledger configuration could not be retrieved."
-          )
-
-      final case class RejectWithMessage(message: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends DamlErrorWithDefiniteAnswer(
-            cause = s"The ledger configuration could not be retrieved: ${message}."
-          )
-    }
-
-    @Explanation(
       "The queried template or interface ids do not exist."
     )
     @Resolution(
@@ -163,6 +140,26 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(
             cause =
               s"The following package names do not match upgradable packages uploaded on this participant: [${unknownPackageNames
+                  .mkString(", ")}]."
+          )
+    }
+
+    @Explanation(
+      "The queried type reference for the specified package name and template qualified-name does not reference any template uploaded on this participant"
+    )
+    @Resolution(
+      "Use a template qualified-name referencing already uploaded template-ids or ask the participant operator to upload the necessary packages."
+    )
+    object NoTemplatesForPackageNameAndQualifiedName
+        extends ErrorCode(
+          id = "NO_TEMPLATES_FOR_PACKAGE_NAME_AND_QUALIFIED_NAME",
+          category = ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class Reject(noKnownReferences: Set[(Ref.PackageName, Ref.QualifiedName)])(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause =
+              s"The following package-name/template qualified-name pairs do not reference any template-id uploaded on this participant: [${noKnownReferences
                   .mkString(", ")}]."
           )
     }

@@ -292,7 +292,7 @@ class RecoveringIndexerIntegrationSpec
           indexerConfig.ingestionParallelism.unwrap
         ),
         highAvailability = HaConfig(),
-        indexerDbDispatcherOverride = Some(dbSupport.dbDispatcher),
+        indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
       )(materializer, traceContext)
     } yield (participantState._2, dbSupport)
   }

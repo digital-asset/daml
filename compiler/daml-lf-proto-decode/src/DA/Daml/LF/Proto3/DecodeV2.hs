@@ -1,7 +1,6 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module DA.Daml.LF.Proto3.DecodeV2
@@ -12,7 +11,6 @@ module DA.Daml.LF.Proto3.DecodeV2
 
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
-import qualified DA.Daml.LF.Proto3.Util as Util
 import Data.Coerce
 import Control.Monad
 import Control.Monad.Except
@@ -79,32 +77,6 @@ decodeMangledString t = (decoded, unmangledOrErr)
     where !decoded = decodeString t
           unmangledOrErr = unmangleIdentifier decoded
 
--- | Decode a string that will be interned in Daml-LF 1.7 and onwards.
--- At the protobuf level, we represent internable non-empty lists of strings
--- by a repeatable string and a number. If there's at least one string,
--- then the number must not be set, i.e. zero. If there are no strings,
--- then the number is treated as an index into the interning table.
-decodeInternableStrings :: V.Vector TL.Text -> Int32 -> Decode ([T.Text], Either String [UnmangledIdentifier])
-decodeInternableStrings strs id
-    | V.null strs = lookupDottedName id
-    | id == 0 =
-      let decodedStrs = map decodeString (V.toList strs)
-          unmangled = mapM unmangleIdentifier decodedStrs
-      in pure (decodedStrs, unmangled)
-    | otherwise = throwError $ ParseError "items and interned id both set for string list"
-
--- | Decode the name of a syntactic object, e.g., a variable or a data
--- constructor. These strings are mangled to escape special characters. All
--- names will be interned in Daml-LF 1.7 and onwards.
-decodeName
-    :: Util.EitherLike TL.Text Int32 e
-    => (T.Text -> a) -> Maybe e -> Decode a
-decodeName wrapName mbStrOrId = mayDecode "name" mbStrOrId $ \strOrId -> do
-    unmangledOrErr <- case Util.toEither strOrId of
-        Left str -> pure $ snd $ decodeMangledString str
-        Right strId -> snd <$> lookupString strId
-    decodeNameString wrapName unmangledOrErr
-
 decodeNameId :: (T.Text -> a) -> Int32 -> Decode a
 decodeNameId wrapName strId = do
     (_, s) <- lookupString strId
@@ -117,14 +89,10 @@ decodeNameString wrapName unmangledOrErr =
         Right (UnmangledIdentifier unmangled) -> pure $ wrapName unmangled
 
 -- | Decode the multi-component name of a syntactic object, e.g., a type
--- constructor. All compononents are mangled. Dotted names will be interned
--- in Daml-LF 1.7 and onwards.
-decodeDottedName :: Util.EitherLike LF2.DottedName Int32 e
-                 => ([T.Text] -> a) -> Maybe e -> Decode a
-decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
-    (_, unmangledOrErr) <- case Util.toEither dottedNameOrId of
-        Left (LF2.DottedName mangledV) -> decodeInternableStrings mangledV 0
-        Right dnId -> lookupDottedName dnId
+-- constructor. All compononents are mangled. Dotted names will be interned.
+decodeDottedName :: ([T.Text] -> a) -> Int32 -> Decode a
+decodeDottedName wrapDottedName dNameId = do
+    (_, unmangledOrErr) <- lookupDottedName dNameId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right unmangled -> pure $ wrapDottedName (coerce unmangled)
@@ -136,24 +104,24 @@ decodeDottedNameId wrapDottedName dnId = do
     Left err -> throwError $ ParseError err
     Right unmangled -> pure $ wrapDottedName (coerce unmangled)
 
--- | Decode the name of a top-level value. The name is mangled and will be
+-- | Decode the name of a top-level value. The name is mangled and Iwill be
 -- interned in Daml-LF 1.7 and onwards.
-decodeValueName :: String -> V.Vector TL.Text -> Int32 -> Decode ExprValName
-decodeValueName ident mangledV dnId = do
-    (mangled, unmangledOrErr) <- decodeInternableStrings mangledV dnId
+decodeValueName :: String -> Int32 -> Decode ExprValName
+decodeValueName ident dnId = do
+    (mangled, unmangledOrErr) <- lookupDottedName dnId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right [UnmangledIdentifier unmangled] -> pure $ ExprValName unmangled
       Right [] -> throwError $ MissingField ident
       Right _ ->
-          throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
+          throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangled
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
 -- interned in Daml-LF 1.7 and onwards.
 decodeValName :: LF2.ValName -> Decode (Qualified ExprValName)
 decodeValName LF2.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
-  name <- decodeValueName "valNameName" valNameNameDname valNameNameInternedDname
+  name <- decodeValueName "valNameName" valNameNameInternedDname
   pure $ Qualified pref mname name
 
 -- | Decode a reference to a package. Package names are not mangled. Package
@@ -162,7 +130,6 @@ decodePackageRef :: LF2.PackageRef -> Decode PackageRef
 decodePackageRef (LF2.PackageRef pref) =
     mayDecode "packageRefSum" pref $ \case
         LF2.PackageRefSumSelf _ -> asks selfPackageRef
-        LF2.PackageRefSumPackageIdStr pkgId -> pure $ PRImport $ PackageId $ decodeString pkgId
         LF2.PackageRefSumPackageIdInternedStr strId -> PRImport . PackageId . fst <$> lookupString strId
 
 ------------------------------------------------------------------------
@@ -251,7 +218,7 @@ decodeDefTypeSyn :: LF2.DefTypeSyn -> Decode DefTypeSyn
 decodeDefTypeSyn LF2.DefTypeSyn{..} =
   DefTypeSyn
     <$> traverse decodeLocation defTypeSynLocation
-    <*> decodeDottedName TypeSynName defTypeSynName
+    <*> decodeDottedName TypeSynName defTypeSynNameInternedDname
     <*> traverse decodeTypeVarWithKind (V.toList defTypeSynParams)
     <*> mayDecode "typeSynType" defTypeSynType decodeType
 
@@ -266,7 +233,7 @@ decodeDefDataType :: LF2.DefDataType -> Decode DefDataType
 decodeDefDataType LF2.DefDataType{..} =
   DefDataType
     <$> traverse decodeLocation defDataTypeLocation
-    <*> decodeDottedName TypeConName defDataTypeName
+    <*> decodeDottedName TypeConName defDataTypeNameInternedDname
     <*> pure (IsSerializable defDataTypeSerializable)
     <*> traverse decodeTypeVarWithKind (V.toList defDataTypeParams)
     <*> mayDecode "dataTypeDataCons" defDataTypeDataCons decodeDataCons
@@ -277,23 +244,18 @@ decodeDataCons = \case
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
   LF2.DefDataTypeDataConsVariant (LF2.DefDataType_Fields fs) ->
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
-  LF2.DefDataTypeDataConsEnum (LF2.DefDataType_EnumConstructors cs cIds) -> do
-    unmangledOrErr <- if
-      | V.null cIds -> pure $ map (snd . decodeMangledString) (V.toList cs)
-      | V.null cs -> mapM (fmap snd . lookupString) (V.toList cIds)
-      | otherwise -> throwError $ ParseError "strings and interned string ids both set for enum constructor"
+  LF2.DefDataTypeDataConsEnum (LF2.DefDataType_EnumConstructors cIds) -> do
+    unmangledOrErr <- mapM (fmap snd . lookupString) (V.toList cIds)
     DataEnum <$> mapM (decodeNameString VariantConName) unmangledOrErr
   LF2.DefDataTypeDataConsInterface LF2.Unit -> pure DataInterface
 
 decodeDefValueNameWithType :: LF2.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF2.DefValue_NameWithType{..} = (,)
-  <$> decodeValueName "defValueName" defValue_NameWithTypeNameDname defValue_NameWithTypeNameInternedDname
+  <$> decodeValueName "defValueName" defValue_NameWithTypeNameInternedDname
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF2.DefValue -> Decode DefValue
-decodeDefValue (LF2.DefValue mbBinder mbBody noParties isTest mbLoc) = do
-  when (not noParties) $
-    throwError (ParseError "DefValue uses unsupported no_party_literals flag")
+decodeDefValue (LF2.DefValue mbLoc mbBinder mbBody isTest) = do
   DefValue
     <$> traverse decodeLocation mbLoc
     <*> mayDecode "defValueName" mbBinder decodeDefValueNameWithType
@@ -302,16 +264,16 @@ decodeDefValue (LF2.DefValue mbBinder mbBody noParties isTest mbLoc) = do
 
 decodeDefTemplate :: LF2.DefTemplate -> Decode Template
 decodeDefTemplate LF2.DefTemplate{..} = do
-  tplParam <- decodeName ExprVarName defTemplateParam
+  tplParam <- decodeNameId ExprVarName defTemplateParamInternedStr
   Template
     <$> traverse decodeLocation defTemplateLocation
-    <*> decodeDottedName TypeConName defTemplateTycon
+    <*> decodeDottedName TypeConName defTemplateTyconInternedDname
     <*> pure tplParam
     <*> mayDecode "defTemplatePrecond" defTemplatePrecond decodeExpr
     <*> mayDecode "defTemplateSignatories" defTemplateSignatories decodeExpr
     <*> mayDecode "defTemplateObservers" defTemplateObservers decodeExpr
     <*> decodeNM DuplicateChoice decodeChoice defTemplateChoices
-    <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
+    <*> mapM decodeDefTemplateKey defTemplateKey
     <*> decodeNM DuplicateImplements decodeDefTemplateImplements defTemplateImplements
 
 decodeDefTemplateImplements :: LF2.DefTemplate_Implements -> Decode TemplateImplements
@@ -330,103 +292,37 @@ decodeInterfaceInstanceMethod LF2.InterfaceInstanceBody_InterfaceInstanceMethod{
   <$> decodeMethodName interfaceInstanceBody_InterfaceInstanceMethodMethodInternedName
   <*> mayDecode "interfaceInstanceBody_InterfaceInstanceMethodValue" interfaceInstanceBody_InterfaceInstanceMethodValue decodeExpr
 
-decodeDefTemplateKey :: ExprVarName -> LF2.DefTemplate_DefKey -> Decode TemplateKey
-decodeDefTemplateKey templateParam LF2.DefTemplate_DefKey{..} = do
+decodeDefTemplateKey :: LF2.DefTemplate_DefKey -> Decode TemplateKey
+decodeDefTemplateKey LF2.DefTemplate_DefKey{..} = do
   typ <- mayDecode "defTemplate_DefKeyType" defTemplate_DefKeyType decodeType
-  key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr (decodeKeyExpr templateParam)
+  key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr decodeExpr
   maintainers <- mayDecode "defTemplate_DefKeyMaintainers" defTemplate_DefKeyMaintainers decodeExpr
   return (TemplateKey typ key maintainers)
-
-decodeKeyExpr :: ExprVarName -> LF2.DefTemplate_DefKeyKeyExpr -> Decode Expr
-decodeKeyExpr templateParam = \case
-    LF2.DefTemplate_DefKeyKeyExprKey simpleKeyExpr ->
-        decodeSimpleKeyExpr templateParam simpleKeyExpr
-    LF2.DefTemplate_DefKeyKeyExprComplexKey keyExpr ->
-        decodeExpr keyExpr
-
-decodeSimpleKeyExpr :: ExprVarName -> LF2.KeyExpr -> Decode Expr
-decodeSimpleKeyExpr templateParam LF2.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum $ \case
-  LF2.KeyExprSumProjections LF2.KeyExpr_Projections{..} ->
-    foldM
-      (\rec_ LF2.KeyExpr_Projection{..} ->
-        ERecProj
-          <$> mayDecode "KeyExpr_ProjectionTyCon" keyExpr_ProjectionTycon decodeTypeConApp
-          <*> decodeName FieldName keyExpr_ProjectionField
-          <*> pure rec_)
-      (EVar templateParam) keyExpr_ProjectionsProjections
-  LF2.KeyExprSumRecord LF2.KeyExpr_Record{..} ->
-    ERecCon
-      <$> mayDecode "keyExpr_RecordTycon" keyExpr_RecordTycon decodeTypeConApp
-      <*> mapM (decodeFieldWithSimpleKeyExpr templateParam) (V.toList keyExpr_RecordFields)
-
-decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF2.KeyExpr_RecordField -> Decode (FieldName, Expr)
-decodeFieldWithSimpleKeyExpr templateParam LF2.KeyExpr_RecordField{..} =
-  (,)
-  <$> decodeName FieldName keyExpr_RecordFieldField
-  <*> mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeSimpleKeyExpr templateParam)
 
 decodeChoice :: LF2.TemplateChoice -> Decode TemplateChoice
 decodeChoice LF2.TemplateChoice{..} =
   TemplateChoice
     <$> traverse decodeLocation templateChoiceLocation
-    <*> decodeName ChoiceName templateChoiceName
+    <*> decodeNameId ChoiceName templateChoiceNameInternedStr
     <*> pure templateChoiceConsuming
     <*> mayDecode "templateChoiceControllers" templateChoiceControllers decodeExpr
     <*> traverse decodeExpr templateChoiceObservers
     <*> traverse decodeExpr templateChoiceAuthorizers
-    <*> decodeName ExprVarName templateChoiceSelfBinder
+    <*> decodeNameId ExprVarName templateChoiceSelfBinderInternedStr
     <*> mayDecode "templateChoiceArgBinder" templateChoiceArgBinder decodeVarWithType
     <*> mayDecode "templateChoiceRetType" templateChoiceRetType decodeType
     <*> mayDecode "templateChoiceUpdate" templateChoiceUpdate decodeExpr
 
 decodeBuiltinFunction :: LF2.BuiltinFunction -> Decode BuiltinExpr
 decodeBuiltinFunction = \case
-  LF2.BuiltinFunctionEQUAL -> pure BEEqualGeneric
-  LF2.BuiltinFunctionLESS -> pure BELessGeneric
-  LF2.BuiltinFunctionLESS_EQ -> pure BELessEqGeneric
-  LF2.BuiltinFunctionGREATER -> pure BEGreaterGeneric
-  LF2.BuiltinFunctionGREATER_EQ -> pure BEGreaterEqGeneric
-
-  LF2.BuiltinFunctionEQUAL_INT64 -> pure (BEEqual BTInt64)
-  LF2.BuiltinFunctionEQUAL_NUMERIC -> pure BEEqualNumeric
-  LF2.BuiltinFunctionEQUAL_TEXT -> pure (BEEqual BTText)
-  LF2.BuiltinFunctionEQUAL_TIMESTAMP -> pure (BEEqual BTTimestamp)
-  LF2.BuiltinFunctionEQUAL_DATE -> pure (BEEqual BTDate)
-  LF2.BuiltinFunctionEQUAL_PARTY -> pure (BEEqual BTParty)
-  LF2.BuiltinFunctionEQUAL_BOOL -> pure (BEEqual BTBool)
-  LF2.BuiltinFunctionEQUAL_TYPE_REP -> pure (BEEqual BTTypeRep)
-
-  LF2.BuiltinFunctionLEQ_INT64 -> pure (BELessEq BTInt64)
-  LF2.BuiltinFunctionLEQ_NUMERIC -> pure BELessEqNumeric
-  LF2.BuiltinFunctionLEQ_TEXT -> pure (BELessEq BTText)
-  LF2.BuiltinFunctionLEQ_TIMESTAMP -> pure (BELessEq BTTimestamp)
-  LF2.BuiltinFunctionLEQ_DATE -> pure (BELessEq BTDate)
-  LF2.BuiltinFunctionLEQ_PARTY -> pure (BELessEq BTParty)
-
-  LF2.BuiltinFunctionLESS_INT64 -> pure (BELess BTInt64)
-  LF2.BuiltinFunctionLESS_NUMERIC -> pure BELessNumeric
-  LF2.BuiltinFunctionLESS_TEXT -> pure (BELess BTText)
-  LF2.BuiltinFunctionLESS_TIMESTAMP -> pure (BELess BTTimestamp)
-  LF2.BuiltinFunctionLESS_DATE -> pure (BELess BTDate)
-  LF2.BuiltinFunctionLESS_PARTY -> pure (BELess BTParty)
-
-  LF2.BuiltinFunctionGEQ_INT64 -> pure (BEGreaterEq BTInt64)
-  LF2.BuiltinFunctionGEQ_NUMERIC -> pure BEGreaterEqNumeric
-  LF2.BuiltinFunctionGEQ_TEXT -> pure (BEGreaterEq BTText)
-  LF2.BuiltinFunctionGEQ_TIMESTAMP -> pure (BEGreaterEq BTTimestamp)
-  LF2.BuiltinFunctionGEQ_DATE -> pure (BEGreaterEq BTDate)
-  LF2.BuiltinFunctionGEQ_PARTY -> pure (BEGreaterEq BTParty)
-
-  LF2.BuiltinFunctionGREATER_INT64 -> pure (BEGreater BTInt64)
-  LF2.BuiltinFunctionGREATER_NUMERIC -> pure BEGreaterNumeric
-  LF2.BuiltinFunctionGREATER_TEXT -> pure (BEGreater BTText)
-  LF2.BuiltinFunctionGREATER_TIMESTAMP -> pure (BEGreater BTTimestamp)
-  LF2.BuiltinFunctionGREATER_DATE -> pure (BEGreater BTDate)
-  LF2.BuiltinFunctionGREATER_PARTY -> pure (BEGreater BTParty)
+  LF2.BuiltinFunctionEQUAL -> pure BEEqual
+  LF2.BuiltinFunctionLESS -> pure BELess
+  LF2.BuiltinFunctionLESS_EQ -> pure BELessEq
+  LF2.BuiltinFunctionGREATER -> pure BEGreater
+  LF2.BuiltinFunctionGREATER_EQ -> pure BEGreaterEq
 
   LF2.BuiltinFunctionINT64_TO_TEXT -> pure (BEToText BTInt64)
   LF2.BuiltinFunctionNUMERIC_TO_TEXT -> pure BENumericToText
-  LF2.BuiltinFunctionTEXT_TO_TEXT -> pure (BEToText BTText)
   LF2.BuiltinFunctionTIMESTAMP_TO_TEXT -> pure (BEToText BTTimestamp)
   LF2.BuiltinFunctionPARTY_TO_TEXT -> pure (BEToText BTParty)
   LF2.BuiltinFunctionDATE_TO_TEXT -> pure (BEToText BTDate)
@@ -437,7 +333,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionTEXT_TO_INT64 -> pure BETextToInt64
   LF2.BuiltinFunctionTEXT_TO_NUMERIC -> pure BETextToNumeric
   LF2.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
-  LF2.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> pure BEPartyToQuotedText
 
   LF2.BuiltinFunctionADD_NUMERIC   -> pure BEAddNumeric
   LF2.BuiltinFunctionSUB_NUMERIC   -> pure BESubNumeric
@@ -490,7 +385,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionNUMERIC_TO_INT64 -> pure BENumericToInt64
 
   LF2.BuiltinFunctionTRACE -> pure BETrace
-  LF2.BuiltinFunctionEQUAL_CONTRACT_ID -> pure BEEqualContractId
   LF2.BuiltinFunctionCOERCE_CONTRACT_ID -> pure BECoerceContractId
 
   LF2.BuiltinFunctionTYPE_REP_TYCON_NAME -> pure BETypeRepTyConName
@@ -504,29 +398,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> pure BEShiftRightBigNumeric
   LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> pure BEBigNumericToNumeric
   LF2.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> pure BENumericToBigNumeric
-
-  LF2.BuiltinFunctionADD_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionSUB_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionMUL_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionDIV_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionROUND_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionLEQ_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionLESS_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionGEQ_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionGREATER_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionDECIMAL_TO_TEXT -> unsupportedDecimal
-  LF2.BuiltinFunctionINT64_TO_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionDECIMAL_TO_INT64 -> unsupportedDecimal
-  LF2.BuiltinFunctionEQUAL_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionTEXT_TO_DECIMAL -> unsupportedDecimal
-
-  LF2.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY -> error "The builin TEXT_TO_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionMUL_NUMERIC_LEGACY -> error "The builin MUL_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionDIV_NUMERIC_LEGACY -> error "The builin DIV_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionCAST_NUMERIC_LEGACY -> error "The builin CAST_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionSHIFT_NUMERIC_LEGACY -> error "The builin SHIFT_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionINT64_TO_NUMERIC_LEGACY -> error "The builin INT64_TO_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> error "The builin BIGNUMERIC_TO_NUMERIC_LEGACY is not supported by LF 2.x"
 
 decodeLocation :: LF2.Location -> Decode SourceLoc
 decodeLocation (LF2.Location mbModRef mbRange) = do
@@ -544,19 +415,18 @@ decodeExpr (LF2.Expr mbLoc exprSum) = case mbLoc of
 
 decodeExprSum :: Maybe LF2.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
-  LF2.ExprSumVarStr var -> EVar <$> decodeNameString ExprVarName (snd $ decodeMangledString var)
   LF2.ExprSumVarInternedStr strId -> EVar <$> decodeNameId ExprVarName strId
   LF2.ExprSumVal val -> EVal <$> decodeValName val
-  LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
+  LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltinFun <$> decodeBuiltinFunction bi
   LF2.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
-  LF2.ExprSumPrimCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
-    LF2.PrimConCON_UNIT -> BEUnit
-    LF2.PrimConCON_TRUE -> BEBool True
-    LF2.PrimConCON_FALSE -> BEBool False
+  LF2.ExprSumBuiltinCon (Proto.Enumerated (Right con)) -> pure $ EBuiltinFun $ case con of
+    LF2.BuiltinConCON_UNIT -> BEUnit
+    LF2.BuiltinConCON_TRUE -> BEBool True
+    LF2.BuiltinConCON_FALSE -> BEBool False
 
-  LF2.ExprSumPrimCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumPrimCon" num)
-  LF2.ExprSumPrimLit lit ->
-    EBuiltin <$> decodePrimLit lit
+  LF2.ExprSumBuiltinCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltinCon" num)
+  LF2.ExprSumBuiltinLit lit ->
+    EBuiltinFun <$> decodeBuiltinLit lit
   LF2.ExprSumRecCon (LF2.Expr_RecCon mbTycon fields) ->
     ERecCon
       <$> mayDecode "Expr_RecConTycon" mbTycon decodeTypeConApp
@@ -564,33 +434,33 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumRecProj (LF2.Expr_RecProj mbTycon field mbRecord) ->
     ERecProj
       <$> mayDecode "Expr_RecProjTycon" mbTycon decodeTypeConApp
-      <*> decodeName FieldName field
+      <*> decodeNameId FieldName field
       <*> mayDecode "Expr_RecProjRecord" mbRecord decodeExpr
   LF2.ExprSumRecUpd (LF2.Expr_RecUpd mbTycon field mbRecord mbUpdate) ->
     ERecUpd
       <$> mayDecode "Expr_RecUpdTycon" mbTycon decodeTypeConApp
-      <*> decodeName FieldName field
+      <*> decodeNameId FieldName field
       <*> mayDecode "Expr_RecUpdRecord" mbRecord decodeExpr
       <*> mayDecode "Expr_RecUpdUpdate" mbUpdate decodeExpr
   LF2.ExprSumVariantCon (LF2.Expr_VariantCon mbTycon variant mbArg) ->
     EVariantCon
       <$> mayDecode "Expr_VariantConTycon" mbTycon decodeTypeConApp
-      <*> decodeName VariantConName variant
+      <*> decodeNameId VariantConName variant
       <*> mayDecode "Expr_VariantConVariantArg" mbArg decodeExpr
   LF2.ExprSumEnumCon (LF2.Expr_EnumCon mbTypeCon dataCon) ->
     EEnumCon
       <$> mayDecode "Expr_EnumConTycon" mbTypeCon decodeTypeConName
-      <*> decodeName VariantConName dataCon
+      <*> decodeNameId VariantConName dataCon
   LF2.ExprSumStructCon (LF2.Expr_StructCon fields) ->
     EStructCon
       <$> mapM decodeFieldWithExpr (V.toList fields)
   LF2.ExprSumStructProj (LF2.Expr_StructProj field mbStruct) ->
     EStructProj
-      <$> decodeName FieldName field
+      <$> decodeNameId FieldName field
       <*> mayDecode "Expr_StructProjStruct" mbStruct decodeExpr
   LF2.ExprSumStructUpd (LF2.Expr_StructUpd field mbStruct mbUpdate) ->
     EStructUpd
-      <$> decodeName FieldName field
+      <$> decodeNameId FieldName field
       <*> mayDecode "Expr_StructUpdStruct" mbStruct decodeExpr
       <*> mayDecode "Expr_StructUpdUpdate" mbUpdate decodeExpr
   LF2.ExprSumApp (LF2.Expr_App mbFun args) -> do
@@ -725,7 +595,7 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF2.UpdateSumExercise LF2.Update_Exercise{..} ->
     fmap EUpdate $ UExercise
       <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName
-      <*> decodeName ChoiceName update_ExerciseChoice
+      <*> decodeNameId ChoiceName update_ExerciseChoiceInternedStr
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
   LF2.UpdateSumSoftExercise LF2.Update_SoftExercise{} ->
@@ -818,24 +688,24 @@ decodeCaseAlt LF2.CaseAlt{..} = do
     LF2.CaseAltSumVariant LF2.CaseAlt_Variant{..} ->
       CPVariant
         <$> mayDecode "caseAlt_VariantCon" caseAlt_VariantCon decodeTypeConName
-        <*> decodeName VariantConName caseAlt_VariantVariant
-        <*> decodeName ExprVarName caseAlt_VariantBinder
+        <*> decodeNameId VariantConName caseAlt_VariantVariantInternedStr
+        <*> decodeNameId ExprVarName caseAlt_VariantBinderInternedStr
     LF2.CaseAltSumEnum LF2.CaseAlt_Enum{..} ->
       CPEnum
         <$> mayDecode "caseAlt_DataCon" caseAlt_EnumCon decodeTypeConName
-        <*> decodeName VariantConName caseAlt_EnumConstructor
-    LF2.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
-      LF2.PrimConCON_UNIT -> CPUnit
-      LF2.PrimConCON_TRUE -> CPBool True
-      LF2.PrimConCON_FALSE -> CPBool False
-    LF2.CaseAltSumPrimCon (Proto.Enumerated (Left idx)) ->
-      throwError (UnknownEnum "CaseAltSumPrimCon" idx)
+        <*> decodeNameId VariantConName caseAlt_EnumConstructorInternedStr
+    LF2.CaseAltSumBuiltinCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
+      LF2.BuiltinConCON_UNIT -> CPUnit
+      LF2.BuiltinConCON_TRUE -> CPBool True
+      LF2.BuiltinConCON_FALSE -> CPBool False
+    LF2.CaseAltSumBuiltinCon (Proto.Enumerated (Left idx)) ->
+      throwError (UnknownEnum "CaseAltSumBuiltinCon" idx)
     LF2.CaseAltSumNil LF2.Unit -> pure CPNil
     LF2.CaseAltSumCons LF2.CaseAlt_Cons{..} ->
-      CPCons <$> decodeName ExprVarName caseAlt_ConsVarHead <*> decodeName ExprVarName caseAlt_ConsVarTail
+      CPCons <$> decodeNameId ExprVarName caseAlt_ConsVarHeadInternedStr <*> decodeNameId ExprVarName caseAlt_ConsVarTailInternedStr
     LF2.CaseAltSumOptionalNone LF2.Unit -> pure CPNone
     LF2.CaseAltSumOptionalSome LF2.CaseAlt_OptionalSome{..} ->
-      CPSome <$> decodeName ExprVarName caseAlt_OptionalSomeVarBody
+      CPSome <$> decodeNameId ExprVarName caseAlt_OptionalSomeVarBodyInternedStr
   body <- mayDecode "caseAltBody" caseAltBody decodeExpr
   pure $ CaseAlternative pat body
 
@@ -848,39 +718,33 @@ decodeBinding (LF2.Binding mbBinder mbBound) =
 decodeTypeVarWithKind :: LF2.TypeVarWithKind -> Decode (TypeVarName, Kind)
 decodeTypeVarWithKind LF2.TypeVarWithKind{..} =
   (,)
-    <$> decodeName TypeVarName typeVarWithKindVar
+    <$> decodeNameId TypeVarName typeVarWithKindVarInternedStr
     <*> mayDecode "typeVarWithKindKind" typeVarWithKindKind decodeKind
 
 decodeVarWithType :: LF2.VarWithType -> Decode (ExprVarName, Type)
 decodeVarWithType LF2.VarWithType{..} =
   (,)
-    <$> decodeName ExprVarName varWithTypeVar
+    <$> decodeNameId ExprVarName varWithTypeVarInternedStr
     <*> mayDecode "varWithTypeType" varWithTypeType decodeType
 
-decodePrimLit :: LF2.PrimLit -> Decode BuiltinExpr
-decodePrimLit (LF2.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
-  LF2.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
-  LF2.PrimLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit . fst
-  LF2.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
-  LF2.PrimLitSumTextStr x -> pure $ BEText $ decodeString x
-  LF2.PrimLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
-  LF2.PrimLitSumPartyStr _ ->
-      throwError (ParseError "Party literals are not supported")
-  LF2.PrimLitSumPartyInternedStr _ ->
-      throwError (ParseError "Party literals are not supported")
-  LF2.PrimLitSumDate days -> pure $ BEDate days
-  LF2.PrimLitSumRoundingMode enum -> case enum of
+decodeBuiltinLit :: LF2.BuiltinLit -> Decode BuiltinExpr
+decodeBuiltinLit (LF2.BuiltinLit mbSum) = mayDecode "builtinLitSum" mbSum $ \case
+  LF2.BuiltinLitSumInt64 sInt -> pure $ BEInt64 sInt
+  LF2.BuiltinLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit . fst
+  LF2.BuiltinLitSumTimestamp sTime -> pure $ BETimestamp sTime
+  LF2.BuiltinLitSumTextInternedStr strId ->  BEText . fst <$> lookupString strId
+  LF2.BuiltinLitSumDate days -> pure $ BEDate days
+  LF2.BuiltinLitSumRoundingMode enum -> case enum of
     Proto.Enumerated (Right mode) -> pure $ case mode of
-       LF2.PrimLit_RoundingModeUP -> BERoundingMode LitRoundingUp
-       LF2.PrimLit_RoundingModeDOWN -> BERoundingMode LitRoundingDown
-       LF2.PrimLit_RoundingModeCEILING -> BERoundingMode LitRoundingCeiling
-       LF2.PrimLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
-       LF2.PrimLit_RoundingModeHALF_UP -> BERoundingMode LitRoundingHalfUp
-       LF2.PrimLit_RoundingModeHALF_DOWN -> BERoundingMode LitRoundingHalfDown
-       LF2.PrimLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven
-       LF2.PrimLit_RoundingModeUNNECESSARY -> BERoundingMode LitRoundingUnnecessary
-    Proto.Enumerated (Left idx) -> throwError (UnknownEnum "PrimLitSumRoundingMode" idx)
-  LF2.PrimLitSumDecimalStr _ -> unsupportedDecimal
+       LF2.BuiltinLit_RoundingModeUP -> BERoundingMode LitRoundingUp
+       LF2.BuiltinLit_RoundingModeDOWN -> BERoundingMode LitRoundingDown
+       LF2.BuiltinLit_RoundingModeCEILING -> BERoundingMode LitRoundingCeiling
+       LF2.BuiltinLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
+       LF2.BuiltinLit_RoundingModeHALF_UP -> BERoundingMode LitRoundingHalfUp
+       LF2.BuiltinLit_RoundingModeHALF_DOWN -> BERoundingMode LitRoundingHalfDown
+       LF2.BuiltinLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven
+       LF2.BuiltinLit_RoundingModeUNNECESSARY -> BERoundingMode LitRoundingUnnecessary
+    Proto.Enumerated (Left idx) -> throwError (UnknownEnum "BuiltinLitSumRoundingMode" idx)
 
 decodeNumericLit :: T.Text -> Decode BuiltinExpr
 decodeNumericLit (T.unpack -> str) = case readMaybe str of
@@ -896,30 +760,29 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
 
-decodePrim :: LF2.PrimType -> Decode BuiltinType
-decodePrim = \case
-  LF2.PrimTypeINT64 -> pure BTInt64
-  LF2.PrimTypeNUMERIC -> pure BTNumeric
-  LF2.PrimTypeTEXT    -> pure BTText
-  LF2.PrimTypeTIMESTAMP -> pure BTTimestamp
-  LF2.PrimTypePARTY   -> pure BTParty
-  LF2.PrimTypeUNIT    -> pure BTUnit
-  LF2.PrimTypeBOOL    -> pure BTBool
-  LF2.PrimTypeLIST    -> pure BTList
-  LF2.PrimTypeUPDATE  -> pure BTUpdate
-  LF2.PrimTypeSCENARIO -> pure BTScenario
-  LF2.PrimTypeDATE -> pure BTDate
-  LF2.PrimTypeCONTRACT_ID -> pure BTContractId
-  LF2.PrimTypeOPTIONAL -> pure BTOptional
-  LF2.PrimTypeTEXTMAP -> pure BTTextMap
-  LF2.PrimTypeGENMAP -> pure BTGenMap
-  LF2.PrimTypeARROW -> pure BTArrow
-  LF2.PrimTypeANY -> pure BTAny
-  LF2.PrimTypeTYPE_REP -> pure BTTypeRep
-  LF2.PrimTypeROUNDING_MODE -> pure BTRoundingMode
-  LF2.PrimTypeBIGNUMERIC -> pure BTBigNumeric
-  LF2.PrimTypeANY_EXCEPTION -> pure BTAnyException
-  LF2.PrimTypeDECIMAL -> unsupportedDecimal
+decodeBuiltin :: LF2.BuiltinType -> Decode BuiltinType
+decodeBuiltin = \case
+  LF2.BuiltinTypeINT64 -> pure BTInt64
+  LF2.BuiltinTypeNUMERIC -> pure BTNumeric
+  LF2.BuiltinTypeTEXT    -> pure BTText
+  LF2.BuiltinTypeTIMESTAMP -> pure BTTimestamp
+  LF2.BuiltinTypePARTY   -> pure BTParty
+  LF2.BuiltinTypeUNIT    -> pure BTUnit
+  LF2.BuiltinTypeBOOL    -> pure BTBool
+  LF2.BuiltinTypeLIST    -> pure BTList
+  LF2.BuiltinTypeUPDATE  -> pure BTUpdate
+  LF2.BuiltinTypeSCENARIO -> pure BTScenario
+  LF2.BuiltinTypeDATE -> pure BTDate
+  LF2.BuiltinTypeCONTRACT_ID -> pure BTContractId
+  LF2.BuiltinTypeOPTIONAL -> pure BTOptional
+  LF2.BuiltinTypeTEXTMAP -> pure BTTextMap
+  LF2.BuiltinTypeGENMAP -> pure BTGenMap
+  LF2.BuiltinTypeARROW -> pure BTArrow
+  LF2.BuiltinTypeANY -> pure BTAny
+  LF2.BuiltinTypeTYPE_REP -> pure BTTypeRep
+  LF2.BuiltinTypeROUNDING_MODE -> pure BTRoundingMode
+  LF2.BuiltinTypeBIGNUMERIC -> pure BTBigNumeric
+  LF2.BuiltinTypeANY_EXCEPTION -> pure BTAnyException
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =
@@ -932,16 +795,16 @@ decodeTypeLevelNat m =
 decodeType :: LF2.Type -> Decode Type
 decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF2.TypeSumVar (LF2.Type_Var var args) ->
-    decodeWithArgs args $ TVar <$> decodeName TypeVarName var
+    decodeWithArgs args $ TVar <$> decodeNameId TypeVarName var
   LF2.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
   LF2.TypeSumCon (LF2.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF2.TypeSumSyn (LF2.Type_Syn mbSyn args) ->
     TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynName <*> traverse decodeType (V.toList args)
-  LF2.TypeSumPrim (LF2.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
-    decodeWithArgs args $ TBuiltin <$> decodePrim prim
-  LF2.TypeSumPrim (LF2.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
-    throwError (UnknownEnum "Prim" idx)
+  LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Right prim)) args) -> do
+    decodeWithArgs args $ TBuiltin <$> decodeBuiltin prim
+  LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Left idx)) _args) ->
+    throwError (UnknownEnum "Builtin" idx)
   LF2.TypeSumForall (LF2.Type_Forall binders mbBody) -> do
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
@@ -958,13 +821,13 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
 decodeFieldWithType :: (T.Text -> a) -> LF2.FieldWithType -> Decode (a, Type)
 decodeFieldWithType wrapName (LF2.FieldWithType name mbType) =
   (,)
-    <$> decodeName wrapName name
+    <$> decodeNameId wrapName name
     <*> mayDecode "fieldWithTypeType" mbType decodeType
 
 decodeFieldWithExpr :: LF2.FieldWithExpr -> Decode (FieldName, Expr)
 decodeFieldWithExpr (LF2.FieldWithExpr name mbExpr) =
   (,)
-    <$> decodeName FieldName name
+    <$> decodeNameId FieldName name
     <*> mayDecode "fieldWithExprExpr" mbExpr decodeExpr
 
 decodeTypeConApp :: LF2.Type_Con -> Decode TypeConApp
@@ -976,20 +839,20 @@ decodeTypeConApp LF2.Type_Con{..} =
 decodeTypeSynName :: LF2.TypeSynName -> Decode (Qualified TypeSynName)
 decodeTypeSynName LF2.TypeSynName{..} = do
   (pref, mname) <- mayDecode "typeSynNameModule" typeSynNameModule decodeModuleRef
-  syn <- decodeDottedName TypeSynName typeSynNameName
+  syn <- decodeDottedName TypeSynName typeSynNameNameInternedDname
   pure $ Qualified pref mname syn
 
 decodeTypeConName :: LF2.TypeConName -> Decode (Qualified TypeConName)
 decodeTypeConName LF2.TypeConName{..} = do
   (pref, mname) <- mayDecode "typeConNameModule" typeConNameModule decodeModuleRef
-  con <- decodeDottedName TypeConName typeConNameName
+  con <- decodeDottedName TypeConName typeConNameNameInternedDname
   pure $ Qualified pref mname con
 
 decodeModuleRef :: LF2.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF2.ModuleRef{..} =
   (,)
     <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
-    <*> decodeDottedName ModuleName moduleRefModuleName
+    <*> decodeDottedName ModuleName moduleRefModuleNameInternedDname
 
 ------------------------------------------------------------------------
 -- Helpers
@@ -1017,6 +880,3 @@ decodeSet mkDuplicateError decode1 xs = do
         if S.member item accum
           then throwError (mkDuplicateError item)
           else pure (S.insert item accum)
-
-unsupportedDecimal :: Decode a
-unsupportedDecimal = throwError (ParseError "Decimal is unsupported in LF >= 1.8")

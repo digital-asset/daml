@@ -9,12 +9,13 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, StablePackages}
-import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.lf.speedy.SBuiltinFun.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
@@ -568,14 +569,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "TEXT_TO_TEXT" - {
-      "is idempotent" in {
-        forEvery(strings) { s =>
-          eval(e""" TEXT_TO_TEXT "$s" """) shouldBe Right(SText(s))
-        }
-      }
-    }
-
     "Text binary operations computes proper results" in {
 
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
@@ -709,27 +702,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         }
       }
     }
-
-    "TEXT_TO_TIMESTAMP" - {
-      "works as expected" in {
-        val testCases =
-          Table[String](
-            "timestamp",
-            "2000-12-31T22:59:59.900Z",
-            "2000-12-31T22:59:59.990Z",
-            "2000-12-31T22:59:59.999Z",
-            "2000-12-31T22:59:59.999900Z",
-            "2000-12-31T22:59:59.999990Z",
-            "2000-12-31T22:59:59.999999Z",
-            "2000-12-31T23:00:00Z",
-          )
-
-        forEvery(testCases) { s =>
-          eval(e"TEXT_TO_TEXT $s") shouldBe Right(SText(s))
-        }
-      }
-    }
-
   }
 
   "Date operations" - {
@@ -1357,7 +1329,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val builtin = e"""TEXT_TO_INT64"""
 
         forEvery(testCases) { (input, output) =>
-          eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(
+          eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(
             SOptional(output)
           )
         }
@@ -1429,7 +1401,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       val builtin = e"""TEXT_TO_NUMERIC @10 ${w(10)}"""
 
       forEvery(testCases) { (input, output) =>
-        eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(SOptional(output))
+        eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(SOptional(output))
       }
     }
 
@@ -1439,7 +1411,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     "throw DamlArithmeticException with proper name and argument" in {
 
-      import SBuiltin._
+      import SBuiltinFun._
       import Numeric.Scale.{MinValue => MinScale, MaxValue => MaxScale}
       import java.math.BigDecimal
 
@@ -1564,7 +1536,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "SBCrash" - {
     "throws an exception" in {
-      inside(eval(SEApp(SEBuiltin(SBCrash("test message")), Array(SUnit)))) {
+      inside(eval(SEApp(SEBuiltinFun(SBCrash("test message")), Array(SUnit)))) {
         case Left(SErrorCrash(_, message)) =>
           message should endWith("test message")
       }
@@ -1673,7 +1645,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           evalOnLedger(
             SELet1(
               contractInfoSExpr,
-              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId, None)), Array(SELocS(1))),
+              SEAppAtomic(
+                SEBuiltinFun(SBCacheDisclosedContract(contractId, None)),
+                Array(SELocS(1)),
+              ),
             ),
             getContract = Map(
               contractId -> Versioned(
@@ -1724,7 +1699,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             SELet1(
               contractInfoSExpr,
               SEAppAtomic(
-                SEBuiltin(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
+                SEBuiltinFun(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
                 Array(SELocS(1)),
               ),
             ),

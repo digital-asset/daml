@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
@@ -62,25 +61,6 @@ final case class TransferOutMediatorMessage(
 
   override def minimumThreshold(informees: Set[Informee]): NonNegativeInt = NonNegativeInt.one
 
-  override def createConfirmationResult(
-      requestId: RequestId,
-      verdict: Verdict,
-      recipientParties: Set[LfPartyId],
-  ): ConfirmationResult with SignedProtocolMessageContent = {
-    val informees = commonData.stakeholders ++ commonData.adminParties
-    require(
-      recipientParties.subsetOf(informees),
-      "Recipient parties of the transfer-out result are neither stakeholders nor admin parties",
-    )
-    TransferResult.create(
-      requestId,
-      informees,
-      commonData.sourceDomain,
-      verdict,
-      protocolVersion.v,
-    )
-  }
-
   def toProtoV30: v30.TransferOutMediatorMessage =
     v30.TransferOutMediatorMessage(
       tree = Some(tree.toProtoV30),
@@ -98,6 +78,8 @@ final case class TransferOutMediatorMessage(
 
   @transient override protected lazy val companionObj: TransferOutMediatorMessage.type =
     TransferOutMediatorMessage
+
+  override def informeesArePublic: Boolean = true
 }
 
 object TransferOutMediatorMessage

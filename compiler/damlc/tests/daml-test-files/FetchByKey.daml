@@ -1,5 +1,7 @@
--- @ERROR range=32:1-32:11; Attempt to fetch or exercise by key
--- @ERROR range=36:1-36:11; Attempt to fetch or exercise by key
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=34:1-34:11; Attempt to fetch or exercise by key
+-- @ERROR range=38:1-38:11; Attempt to fetch or exercise by key
 module FetchByKey where
 
 import Daml.Script

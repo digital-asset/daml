@@ -11,7 +11,6 @@ import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
-import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.TransactionMetering
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
@@ -19,7 +18,7 @@ import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.google.protobuf.ByteString
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 import java.util.UUID
 
 /** Except where specified, values should be treated as opaque
@@ -38,9 +37,6 @@ private[store] object StorageBackendTestValues {
 
   def timestampFromInstant(i: Instant): Timestamp = Timestamp.assertFromInstant(i)
   val someTime: Timestamp = timestampFromInstant(Instant.now())
-
-  val someConfiguration: Configuration =
-    Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofHours(23))
 
   val someParticipantId: ParticipantId = ParticipantId(
     Ref.ParticipantId.assertFromString("participant")
@@ -73,19 +69,6 @@ private[store] object StorageBackendTestValues {
 
   private val serializableTraceContext: Array[Byte] =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
-
-  def dtoConfiguration(
-      offset: Offset,
-      configuration: Configuration = someConfiguration,
-  ): DbDto.ConfigurationEntry =
-    DbDto.ConfigurationEntry(
-      ledger_offset = offset.toHexString,
-      recorded_at = someTime.micros,
-      submission_id = "submission_id",
-      typ = JdbcLedgerDao.acceptType,
-      configuration = Configuration.encode(configuration).toByteArray,
-      rejection_reason = None,
-    )
 
   def dtoPartyEntry(
       offset: Offset,
@@ -164,7 +147,6 @@ private[store] object StorageBackendTestValues {
       create_argument = someSerializedDamlLfValue,
       create_signatories = Set(signatory),
       create_observers = Set(observer),
-      create_agreement_text = None,
       create_key_value = createKey,
       create_key_maintainers = createKeyMaintainer.map(Set(_)),
       create_key_hash = keyHash,
@@ -209,6 +191,7 @@ private[store] object StorageBackendTestValues {
       event_id = EventId(transactionId, NodeId(0)).toLedgerString,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
+      package_name = somePackageName,
       flat_event_witnesses = if (consuming) Set(signatory) else Set.empty,
       tree_event_witnesses = Set(signatory, actor),
       create_key_value = None,
@@ -253,7 +236,6 @@ private[store] object StorageBackendTestValues {
       create_argument = someSerializedDamlLfValue,
       create_signatories = Set(signatory),
       create_observers = Set(observer),
-      create_agreement_text = Some("agreement"),
       create_key_value = None,
       create_key_maintainers = None,
       create_key_hash = None,
@@ -291,6 +273,7 @@ private[store] object StorageBackendTestValues {
       submitter = Option(someParty),
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
+      package_name = somePackageName,
       flat_event_witnesses = Set(signatory, observer),
       event_sequential_id = eventSequentialId,
       source_domain_id = sourceDomainId,

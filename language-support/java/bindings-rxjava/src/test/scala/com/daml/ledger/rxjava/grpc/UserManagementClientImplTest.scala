@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc
 
-import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.api.v2.admin.{user_management_service => proto}
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.LedgerServices

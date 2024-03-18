@@ -20,7 +20,7 @@ trait LocalNodeConfig extends NodeConfig {
   def crypto: CryptoConfig
   def sequencerClient: SequencerClientConfig
   def monitoring: NodeMonitoringConfig
-  def topologyX: TopologyXConfig
+  def topology: TopologyConfig
 
   def parameters: LocalNodeParametersConfig
 
@@ -31,6 +31,7 @@ trait LocalNodeParametersConfig {
 
   /** Various cache sizes */
   def caching: CachingConfigs
+  def useNewTrafficControl: Boolean
 }
 
 trait CommunityLocalNodeConfig extends LocalNodeConfig {

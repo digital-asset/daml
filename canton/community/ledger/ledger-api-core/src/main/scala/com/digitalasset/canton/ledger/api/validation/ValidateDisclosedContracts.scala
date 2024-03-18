@@ -4,11 +4,13 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.commands.{DisclosedContract as ProtoDisclosedContract}
-import com.daml.ledger.api.v2.commands.{Commands as ProtoCommands}
+import com.daml.ledger.api.v2.commands.{
+  Commands as ProtoCommands,
+  DisclosedContract as ProtoDisclosedContract,
+}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.TransactionCoder
-import com.digitalasset.canton.ledger.api.domain.{DisclosedContract, UpgradableDisclosedContract}
+import com.digitalasset.canton.ledger.api.domain.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.requireContractId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
@@ -85,7 +87,7 @@ class ValidateDisclosedContracts {
         )
       } yield {
         import fatContractInstance.*
-        UpgradableDisclosedContract(
+        DisclosedContract(
           contractId = validatedContractId,
           templateId = templateId,
           packageName = packageName,

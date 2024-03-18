@@ -35,11 +35,12 @@ abstract class DatabaseSequencerApiTest extends NonBftDomainSequencerApiTest {
     // passed downstream)
     DatabaseSequencer.single(
       TestDatabaseSequencerConfig(),
+      None,
       DefaultProcessingTimeouts.testing,
       new MemoryStorage(loggerFactory, timeouts),
       clock,
       domainId,
-      topologyClientMember,
+      sequencerId,
       testedProtocolVersion,
       crypto,
       metrics,

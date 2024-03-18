@@ -18,6 +18,9 @@ data OptionalAtEnd = OptionalAtEnd
     d : Optional Text
   deriving (Show, Eq)
 
+data MyVariant = MyVariant1 Text | MyVariant2 Int deriving (Show, Eq)
+data MyEnum = MyEnum1 | MyEnum2 deriving (Show, Eq)
+
 -- Not part of the test but the codegen filters out
 -- data definitions which are not used in a template
 template UpgradeTestTemplate
@@ -25,5 +28,7 @@ template UpgradeTestTemplate
         p : Party
         noOptional : NoOptional
         optionalAtEnd : OptionalAtEnd
+        myVariant : MyVariant
+        myEnum : MyEnum
     where
         signatory p

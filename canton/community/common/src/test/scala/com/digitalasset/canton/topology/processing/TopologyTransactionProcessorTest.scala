@@ -12,17 +12,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcastX.Broadcast
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreXHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreX}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  DomainId,
-  Identifier,
-  UniqueIdentifier,
-}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -57,13 +52,14 @@ abstract class TopologyTransactionProcessorXTest
   private def fetch(
       store: TopologyStoreX[TopologyStoreId],
       timestamp: CantonTimestamp,
+      isProposal: Boolean = false,
   ): List[TopologyMappingX] = {
     store
       .findPositiveTransactions(
         asOf = timestamp,
         asOfInclusive = false,
-        isProposal = false,
-        types = TopologyMappingX.Code.all,
+        isProposal = isProposal,
+        types = TopologyMappingX.Code.all.toSeq,
         None,
         None,
       )
@@ -342,6 +338,174 @@ abstract class TopologyTransactionProcessorXTest
 
       // the latest non-rejected transaction should still be the one
       checkMds(ts(2).immediateSuccessor, expectedSignatures = 4, expectedValidFrom = ts(1))
+    }
+
+    /* This tests the following scenario for transactions with
+     * - the same mapping unique key
+     * - a signature threshold of 2 to fully authorize the transaction
+     *
+     * 1. process transaction(serial=1, isProposal=false, signatures=2/3)
+     * 2. process transaction(serial=2, isProposal=true, signatures=1/3)
+     * 3. process late signature(serial=1, isProposal=false, signatures=3/3
+     * 4. check that the proposal has not been expired
+     * 5. process transaction(serial=2, isProposal=false, signatures=2/3)
+     * 6. check that serial=2 expires serial=1
+     *
+     * Triggered by CN-10532
+     */
+    "correctly handle additional signatures after new proposals have arrived" in {
+      import SigningKeys.{ec as _, *}
+      val dnsNamespace =
+        DecentralizedNamespaceDefinitionX.computeNamespace(Set(ns1, ns7, ns8))
+      val domainId = DomainId(UniqueIdentifier(Identifier.tryCreate("test-domain"), dnsNamespace))
+
+      val dns = mkAddMultiKey(
+        DecentralizedNamespaceDefinitionX
+          .create(
+            dnsNamespace,
+            PositiveInt.two,
+            NonEmpty(Set, ns1, ns7, ns8),
+          )
+          .value,
+        NonEmpty(Set, key1, key7, key8),
+      )
+
+      // mapping and transactions for serial=1
+      val mdsMapping1 = MediatorDomainStateX
+        .create(
+          domainId,
+          NonNegativeInt.zero,
+          PositiveInt.one,
+          active = Seq(DefaultTestIdentities.mediatorIdX),
+          observers = Seq.empty,
+        )
+        .value
+      val mds1_k1k7 = mkAddMultiKey(
+        mdsMapping1,
+        NonEmpty(Set, key1, key7),
+        serial = PositiveInt.one,
+      )
+      val mds1_k8_late_signature =
+        mkAdd(mdsMapping1, key8, isProposal = true, serial = PositiveInt.one)
+
+      // mapping and transactions for serial=2
+      val mdsMapping2 = MediatorDomainStateX
+        .create(
+          domainId,
+          NonNegativeInt.zero,
+          PositiveInt.two,
+          active =
+            Seq(DefaultTestIdentities.mediatorIdX, MediatorId(Identifier.tryCreate("med2"), ns7)),
+          observers = Seq.empty,
+        )
+        .value
+      val mds2_k1_proposal =
+        mkAdd(mdsMapping2, signingKey = key1, serial = PositiveInt.two, isProposal = true)
+      // this transaction is marked as proposal, but the merging of the signatures k1 and k7 will result
+      // in a fully authorized transaction
+      val mds2_k7_proposal =
+        mkAdd(mdsMapping2, signingKey = key7, serial = PositiveInt.two, isProposal = true)
+
+      val (proc, store) = mk()
+
+      def checkMds(
+          ts: CantonTimestamp,
+          transactionToLookUp: GenericSignedTopologyTransactionX,
+          expectedSignatures: Int,
+          expectedValidFrom: CantonTimestamp,
+      ) = {
+        val mdsInStore = store
+          .findStored(ts, transactionToLookUp, includeRejected = false)
+          .futureValue
+          .value
+
+        mdsInStore.mapping shouldBe transactionToLookUp.mapping
+        mdsInStore.transaction.signatures.forgetNE.toSeq should have size (expectedSignatures.toLong)
+        mdsInStore.validUntil shouldBe None
+        mdsInStore.validFrom shouldBe EffectiveTime(expectedValidFrom)
+      }
+
+      // setup: namespaces and initial mediator state
+      val block0 = List[GenericSignedTopologyTransactionX](
+        ns1k1_k1,
+        ns7k7_k7,
+        ns8k8_k8,
+        dns,
+        mds1_k1k7,
+      )
+      process(proc, ts(0), 0L, block0)
+      validate(fetch(store, ts(0).immediateSuccessor), block0)
+      checkMds(
+        ts(0).immediateSuccessor,
+        transactionToLookUp = mds1_k1k7,
+        expectedSignatures = 2,
+        expectedValidFrom = ts(0),
+      )
+
+      // process the first proposal
+      val block1 = List(mds2_k1_proposal)
+      process(proc, ts(1), 1L, block1)
+      validate(fetch(store, ts(1).immediateSuccessor), block0)
+      // there's only the MDS proposal in the entire topology store
+      validate(fetch(store, ts(1).immediateSuccessor, isProposal = true), block1)
+      // we find the fully authorized transaction with 2 signatures
+      checkMds(
+        ts(1).immediateSuccessor,
+        transactionToLookUp = mds1_k1k7,
+        expectedSignatures = 2,
+        expectedValidFrom = ts(0),
+      )
+      // we find the proposal with serial=2
+      checkMds(
+        ts(1).immediateSuccessor,
+        transactionToLookUp = mds2_k1_proposal,
+        expectedSignatures = 1,
+        expectedValidFrom = ts(1),
+      )
+
+      // process the late additional signature for serial=1
+      val block2 = List(mds1_k8_late_signature)
+      process(proc, ts(2), 2L, block2)
+      // the fully authorized mappings haven't changed since block0, only the MDS signatures
+      validate(fetch(store, ts(2).immediateSuccessor), block0)
+      validate(fetch(store, ts(2).immediateSuccessor, isProposal = true), block1)
+      // we find the fully authorized transaction with 3 signatures
+      checkMds(
+        ts(2).immediateSuccessor,
+        transactionToLookUp = mds1_k8_late_signature,
+        expectedSignatures = 3,
+        // since serial=1 got signatures updated, the updated transaction is valid as of ts(2)
+        expectedValidFrom = ts(2),
+      )
+      // we still find the proposal. This was failing in CN-10532
+      checkMds(
+        ts(2).immediateSuccessor,
+        transactionToLookUp = mds2_k1_proposal,
+        expectedSignatures = 1,
+        expectedValidFrom = ts(1),
+      )
+
+      // process another signature for serial=2 to fully authorize it
+      val block3 = List(mds2_k7_proposal)
+      process(proc, ts(3), 3L, block3)
+      // the initial MDS mapping has now been overridden by the fully authorized serial=2 in block3
+      validate(fetch(store, ts(3).immediateSuccessor), block0.init ++ block3)
+      // there are no more proposals
+      validate(fetch(store, ts(3).immediateSuccessor, isProposal = true), List.empty)
+      // find the serial=2 mapping with 2 signatures
+      checkMds(
+        ts(3).immediateSuccessor,
+        transactionToLookUp = mds2_k7_proposal,
+        expectedSignatures = 2,
+        expectedValidFrom = ts(3),
+      )
+      store
+        .findStored(asOfExclusive = ts(3).immediateSuccessor, mds1_k1k7)
+        .futureValue
+        .value
+        .validUntil
+        .value
+        .value shouldBe ts(3)
     }
 
   }

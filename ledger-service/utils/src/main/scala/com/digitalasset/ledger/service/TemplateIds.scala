@@ -6,7 +6,7 @@ package com.daml.ledger.service
 import com.daml.lf.data.Ref
 import com.daml.lf.typesig.PackageSignature
 import PackageSignature.TypeDecl.Template
-import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v2.value.Identifier
 
 object TemplateIds {
   def getTemplateIds(packages: Set[PackageSignature]): Set[Identifier] =

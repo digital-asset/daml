@@ -87,7 +87,7 @@ object GrpcParticipantRepairService {
           UniqueIdentifier.fromProtoPrimitive_(party).map(PartyId(_).toLf)
         )
         timestamp <- request.timestamp
-          .traverse(CantonTimestamp.fromProtoPrimitive)
+          .traverse(CantonTimestamp.fromProtoTimestamp)
           .leftMap(_.message)
         contractDomainRenames <- validateContractDomainRenames(
           request.contractDomainRenames,

@@ -10,8 +10,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
-import com.digitalasset.canton.protocol.messages.{ConfirmationResponse, LocalReject}
-import com.digitalasset.canton.protocol.{RequestId, RootHash}
+import com.digitalasset.canton.protocol.messages.ConfirmationResponse
+import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{MediatorsOfDomain, Recipients}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -39,8 +39,7 @@ class BadRootHashMessagesRequestProcessor(
       protocolVersion,
     ) {
 
-  /** Sends a [[com.digitalasset.canton.protocol.messages.Malformed]]
-    * for the given [[com.digitalasset.canton.protocol.RootHash]] with the given `rejectionReason`.
+  /** Sends `reject` for the given `rootHash`.
     * Also ticks the record order publisher.
     */
   def sendRejectionAndTerminate(
@@ -48,19 +47,20 @@ class BadRootHashMessagesRequestProcessor(
       timestamp: CantonTimestamp,
       rootHash: RootHash,
       mediator: MediatorsOfDomain,
-      reject: LocalReject,
+      reject: LocalRejectError,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
       for {
-        snapshot <- crypto.snapshotUS(timestamp)
+        snapshot <- crypto.awaitSnapshotUS(timestamp)
         requestId = RequestId(timestamp)
+        _ = reject.log()
         rejection = checked(
           ConfirmationResponse.tryCreate(
             requestId = requestId,
             sender = participantId,
             viewPositionO = None,
-            localVerdict = reject,
-            rootHash = Some(rootHash),
+            localVerdict = reject.toLocalReject(protocolVersion),
+            rootHash = rootHash,
             confirmingParties = Set.empty,
             domainId = domainId,
             protocolVersion = protocolVersion,

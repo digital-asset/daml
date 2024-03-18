@@ -5,10 +5,10 @@ package com.digitalasset.canton.participant.admin
 
 import cats.implicits.{toBifunctorOps, toFunctorFilterOps}
 import com.daml.error.utils.DecodedCantonError
-import com.daml.ledger.api.v1.event.Event.Event
-import com.daml.ledger.api.v1.event.CreatedEvent as ScalaCreatedEvent
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.DeduplicationDuration
+import com.daml.ledger.api.v2.event.Event.Event
+import com.daml.ledger.api.v2.event.CreatedEvent as ScalaCreatedEvent
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.ledger.api.v2.state_service.ActiveContract
 import com.daml.ledger.api.v2.transaction.Transaction
@@ -178,6 +178,7 @@ object PingService {
     TopologyErrors.NoDomainOnWhichAllSubmittersCanSubmit,
     TopologyErrors.InformeesNotActive,
     TopologyErrors.NoCommonDomain,
+    TopologyErrors.UnknownContractDomains, // required for restart tests
     RequestValidationErrors.NotFound.Package,
   ).map(_.id)
 
@@ -301,7 +302,7 @@ object PingService {
       val res = for {
         domainId <- DomainId.fromProtoPrimitive(scalaTx.domainId, "domainId")
         effectiveP <- ProtoConverter.required("effectiveAt", scalaTx.effectiveAt)
-        effective <- CantonTimestamp.fromProtoPrimitive(effectiveP)
+        effective <- CantonTimestamp.fromProtoTimestamp(effectiveP)
       } yield {
         // process archived
         processArchivedEvents(
@@ -430,7 +431,7 @@ object PingService {
             target <- DomainId.fromProtoPrimitive(event.target, "target")
             created <- ProtoConverter.required("createdEvent", event.createdEvent)
             createdAt <- ProtoConverter.parseRequired(
-              CantonTimestamp.fromProtoPrimitive,
+              CantonTimestamp.fromProtoTimestamp,
               "createdEvent.createdAt",
               created.createdAt,
             )
@@ -460,7 +461,7 @@ object PingService {
           createEvent <- event.createdEvent.toRight(s"Empty created event for ${event}???")
           createdAt <- ProtoConverter
             .parseRequired(
-              CantonTimestamp.fromProtoPrimitive,
+              CantonTimestamp.fromProtoTimestamp,
               "createdAt",
               createEvent.createdAt,
             )

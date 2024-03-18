@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata, ViewType}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -54,7 +54,6 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
   TransferCounter,
-  TransferCounterO,
   config,
 }
 import org.scalatest.wordspec.AsyncWordSpec
@@ -1336,7 +1335,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
     )
   }
 
-  private val initialTransferCounter: TransferCounterO = Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   val seedGenerator = new SeedGenerator(pureCryptoApi)
 
@@ -1417,7 +1416,7 @@ object TransferStoreTest extends EitherValues with NoTracing {
       creatingTransactionId: TransactionId = transactionId1,
       contract: SerializableContract = contract,
       transferOutGlobalOffset: Option[GlobalOffset] = None,
-  ) =
+  ): Future[TransferData] =
     mkTransferDataForDomain(
       transferId,
       sourceMediator,
@@ -1434,10 +1433,14 @@ object TransferStoreTest extends EitherValues with NoTracing {
 
       val mediatorMessage =
         transferData.transferOutRequest.tree.mediatorMessage(Signature.noSignature)
-      val result = mediatorMessage.createConfirmationResult(
+      val result = ConfirmationResultMessage.create(
+        mediatorMessage.domainId,
+        ViewType.TransferOutViewType,
         requestId,
+        mediatorMessage.rootHash,
         Verdict.Approve(BaseTest.testedProtocolVersion),
         mediatorMessage.allInformees,
+        BaseTest.testedProtocolVersion,
       )
       val signedResult =
         SignedProtocolMessage.from(
@@ -1447,19 +1450,19 @@ object TransferStoreTest extends EitherValues with NoTracing {
         )
       val batch =
         Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
-      val deliver =
-        Deliver.create(
-          SequencerCounter(1),
-          CantonTimestamp.ofEpochMilli(10),
-          transferData.sourceDomain.unwrap,
-          Some(MessageId.tryCreate("1")),
-          batch,
-          BaseTest.testedProtocolVersion,
-        )
+      val deliver = Deliver.create(
+        SequencerCounter(1),
+        CantonTimestamp.ofEpochMilli(10),
+        transferData.sourceDomain.unwrap,
+        Some(MessageId.tryCreate("1")),
+        batch,
+        Some(transferData.transferOutTimestamp),
+        BaseTest.testedProtocolVersion,
+      )
       SignedContent(
         deliver,
         sign("TransferOutResult-sequencer"),
-        Some(transferData.transferOutTimestamp),
+        None,
         BaseTest.testedProtocolVersion,
       )
     }

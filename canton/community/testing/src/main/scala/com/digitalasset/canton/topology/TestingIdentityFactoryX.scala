@@ -280,7 +280,7 @@ class TestingIdentityFactoryX(
     val updateF = store.update(
       SequencedTime(CantonTimestamp.Epoch.immediatePredecessor),
       EffectiveTime(CantonTimestamp.Epoch.immediatePredecessor),
-      removeMapping = Set.empty,
+      removeMapping = Map.empty,
       removeTxs = Set.empty,
       additions = transactions,
     )(TraceContext.empty)
@@ -629,7 +629,7 @@ class TestingOwnerWithKeysX(
     import trans.transaction as tx
     mkTrans(
       TopologyTransactionX(
-        tx.op,
+        tx.operation,
         serial,
         tx.mapping,
         tx.representativeProtocolVersion.representative,
@@ -673,7 +673,7 @@ class TestingOwnerWithKeysX(
     mkRemove[TopologyMappingX](
       tx.mapping,
       NonEmpty(Set, SigningKeys.key1),
-      tx.transaction.serial.increment,
+      tx.serial.increment,
     )
 
   def mkRemove[M <: TopologyMappingX](

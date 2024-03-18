@@ -135,38 +135,38 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
   "expression parser" should {
 
     "parses properly primitiveCons" in {
-      val testCases = Table[String, PrimCon](
+      val testCases = Table[String, BuiltinCon](
         "string to parse" -> "expected primitive constructor",
-        "()" -> PCUnit,
-        "False" -> PCFalse,
-        "True" -> PCTrue,
+        "()" -> BCUnit,
+        "False" -> BCFalse,
+        "True" -> BCTrue,
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimCon(expectedCons))
+        parseExpr(stringToParse) shouldBe Right(EBuiltinCon(expectedCons))
       )
     }
 
     "parses properly literal" in {
 
-      val testCases = Table[String, PrimLit](
+      val testCases = Table[String, BuiltinLit](
         "string to parse" -> "expected literal",
-        "1" -> PLInt64(1),
-        "-2" -> PLInt64(-2),
-        "1.0000000000" -> PLNumeric(Numeric.assertFromBigDecimal(10, BigDecimal.ONE)),
-        "1.0" -> PLNumeric(Numeric.assertFromBigDecimal(1, BigDecimal.ONE)),
-        "-10.00" -> PLNumeric(Numeric.assertFromBigDecimal(2, BigDecimal.TEN.negate)),
-        """"some text"""" -> PLText("some text"),
-        """ " \n\r\"\\ " """ -> PLText(" \n\r\"\\ "),
-        """ "français" """ -> PLText("français"),
-        "1970-01-02" -> PLDate(Time.Date.assertFromDaysSinceEpoch(1)),
-        "1970-01-01T00:00:00.000001Z" -> PLTimestamp(Time.Timestamp.assertFromLong(1)),
-        "1970-01-01T00:00:01Z" -> PLTimestamp(Time.Timestamp.assertFromLong(1000000)),
-        "ROUNDING_UP" -> PLRoundingMode(java.math.RoundingMode.UP),
+        "1" -> BLInt64(1),
+        "-2" -> BLInt64(-2),
+        "1.0000000000" -> BLNumeric(Numeric.assertFromBigDecimal(10, BigDecimal.ONE)),
+        "1.0" -> BLNumeric(Numeric.assertFromBigDecimal(1, BigDecimal.ONE)),
+        "-10.00" -> BLNumeric(Numeric.assertFromBigDecimal(2, BigDecimal.TEN.negate)),
+        """"some text"""" -> BLText("some text"),
+        """ " \n\r\"\\ " """ -> BLText(" \n\r\"\\ "),
+        """ "français" """ -> BLText("français"),
+        "1970-01-02" -> BLDate(Time.Date.assertFromDaysSinceEpoch(1)),
+        "1970-01-01T00:00:00.000001Z" -> BLTimestamp(Time.Timestamp.assertFromLong(1)),
+        "1970-01-01T00:00:01Z" -> BLTimestamp(Time.Timestamp.assertFromLong(1000000)),
+        "ROUNDING_UP" -> BLRoundingMode(java.math.RoundingMode.UP),
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimLit(expectedCons))
+        parseExpr(stringToParse) shouldBe Right(EBuiltinLit(expectedCons))
       )
     }
 
@@ -223,7 +223,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "APPEND_TEXT" -> BAppendText,
         "INT64_TO_TEXT" -> BInt64ToText,
         "NUMERIC_TO_TEXT" -> BNumericToText,
-        "TEXT_TO_TEXT" -> BTextToText,
         "TIMESTAMP_TO_TEXT" -> BTimestampToText,
         "PARTY_TO_TEXT" -> BPartyToText,
         "DATE_TO_TEXT" -> BDateToText,
@@ -246,7 +245,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
-        parseExpr(stringToParse) shouldBe Right(EBuiltin(expectedBuiltin))
+        parseExpr(stringToParse) shouldBe Right(EBuiltinFun(expectedBuiltin))
       )
     }
 
@@ -318,11 +317,11 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "let _:Int64 = 2 in 3" ->
           ELet(Binding(None, t"Int64", e"2"), e"3"),
         "case e of () -> ()" ->
-          ECase(e"e", ImmArray(CaseAlt(CPPrimCon(PCUnit), e"()"))),
+          ECase(e"e", ImmArray(CaseAlt(CPBuiltinCon(BCUnit), e"()"))),
         "case e of True -> False" ->
-          ECase(e"e", ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"))),
+          ECase(e"e", ImmArray(CaseAlt(CPBuiltinCon(BCTrue), e"False"))),
         "case e of False -> True" ->
-          ECase(e"e", ImmArray(CaseAlt(CPPrimCon(PCFalse), e"True"))),
+          ECase(e"e", ImmArray(CaseAlt(CPBuiltinCon(BCFalse), e"True"))),
         "case e of Nil -> True" ->
           ECase(e"e", ImmArray(CaseAlt(CPNil, e"True"))),
         "case e of Cons h t -> Mod:f h t" ->
@@ -336,7 +335,10 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "case e of True -> False | False -> True" ->
           ECase(
             e"e",
-            ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True")),
+            ImmArray(
+              CaseAlt(CPBuiltinCon(BCTrue), e"False"),
+              CaseAlt(CPBuiltinCon(BCFalse), e"True"),
+            ),
           ),
         "to_any_exception @Mod:E exception" ->
           EToAnyException(E, e"exception"),
@@ -452,7 +454,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
       )
 
       forEvery(testCases)((stringToParse, expectedMode) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimLit(PLRoundingMode(expectedMode)))
+        parseExpr(stringToParse) shouldBe Right(EBuiltinLit(BLRoundingMode(expectedMode)))
       )
 
     }

@@ -134,7 +134,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
 
     // make an expression of any given type...
     def mk(ty: Type): Expr = {
-      EApp(ETyApp(EBuiltin(BError), ty), EPrimLit(PLText("message")))
+      EApp(ETyApp(EBuiltinFun(BError), ty), EBuiltinLit(BLText("message")))
     }
 
     def theType: Type = unitT

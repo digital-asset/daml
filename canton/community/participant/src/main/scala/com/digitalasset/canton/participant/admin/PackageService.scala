@@ -9,21 +9,25 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.error.DamlError
+import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.lf.archive
 import com.daml.lf.archive.{DarParser, Decode, Error as LfArchiveError}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast.Package
-import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose}
 import com.digitalasset.canton.error.CantonError
-import com.digitalasset.canton.ledger.error.PackageServiceErrors
+import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.{
   CannotRemoveOnlyDarForPackage,
@@ -36,16 +40,19 @@ import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.DamlPackageStore.readPackageId
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, PathUtils}
+import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId, LfPackageName, LfPackageVersion}
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
 import java.nio.file.Paths
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipInputStream
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -70,6 +77,8 @@ class PackageService(
     hashOps: HashOps,
     packageOps: PackageOps,
     metrics: ParticipantMetrics,
+    disableUpgradeValidation: Boolean,
+    packageNameMapResolver: PackageNameMapResolver,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -80,6 +89,11 @@ class PackageService(
 
   private val packageLoader = new DeduplicatingPackageLoader()
   private val packagesDarsStore = dependencyResolver.damlPackageStore
+  private val packageUpgradeValidator = new PackageUpgradeValidator(
+    implicit contextualizedErrorLogger => packageNameMapResolver.getPackageNameMap,
+    loggingContextWithTrace => pkgId => getLfArchive(pkgId)(loggingContextWithTrace.traceContext),
+    loggerFactory,
+  )
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -334,14 +348,13 @@ class PackageService(
     val ret: EitherT[FutureUnlessShutdown, DamlError, Hash] = for {
       lengthValidatedName <- EitherT
         .fromEither[FutureUnlessShutdown](
-          String255
-            .create(darName, Some("DAR file name"))
+          String255.create(darName, Some("DAR file name"))
         )
         .leftMap(PackageServiceErrors.Reading.InvalidDarFileName.Error(_))
       dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))
         .mapK(FutureUnlessShutdown.outcomeK)
       // Validate the packages before storing them in the DAR store or the package store
-      _ <- validateArchives(dar.all).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- validateArchives(dar).mapK(FutureUnlessShutdown.outcomeK)
       _ <- storeValidatedPackagesAndSyncEvent(
         dar.all,
         lengthValidatedName.asString1GB,
@@ -379,20 +392,31 @@ class PackageService(
         .map(_.toRight(s"No such dar ${darId}").flatMap(PackageService.darToLf))
     )
 
-  private def validateArchives(archives: List[DamlLf.Archive])(implicit
+  private def validateArchives(archives: archive.Dar[DamlLf.Archive])(implicit
       traceContext: TraceContext
   ): EitherT[Future, DamlError, Unit] =
     for {
-      packages <- archives
+      mainPackage <- catchUpstreamErrors(Decode.decodeArchive(archives.main))
+      dependencies <- archives.dependencies
         .parTraverse(archive => catchUpstreamErrors(Decode.decodeArchive(archive)))
-        .map(_.toMap)
       _ <- EitherT.fromEither[Future](
         engine
-          .validatePackages(packages)
+          .validatePackages((mainPackage :: dependencies).toMap)
           .leftMap(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
+      _ <-
+        if (disableUpgradeValidation) {
+          logger.info(s"Skipping upgrade validation for package ${mainPackage._1}.")
+          EitherT.rightT[Future, DamlError](())
+        } else
+          EitherT
+            .right[DamlError](
+              packageUpgradeValidator.validateUpgrade(mainPackage)(
+                LoggingContextWithTrace(loggerFactory)
+              )
+            )
     } yield ()
 
   def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
@@ -513,4 +537,37 @@ object PackageService {
       )
   }
 
+}
+
+// TODO(#17635): Remove this inverse mutable reference wrapper
+//               with the unification of the Ledger API and Admin API package services
+sealed trait PackageNameMapResolver {
+  def getPackageNameMap(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[DamlError, Map[LfPackageId, (LfPackageName, LfPackageVersion)]]
+}
+
+final class MutablePackageNameMapResolver extends PackageNameMapResolver {
+  private val ref
+      : AtomicReference[Option[() => Map[LfPackageId, (LfPackageName, LfPackageVersion)]]] =
+    new AtomicReference(None)
+  def getPackageNameMap(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[DamlError, Map[LfPackageId, (LfPackageName, LfPackageVersion)]] =
+    ref
+      .get()
+      .map(_())
+      .toRight(CommonErrors.ServiceNotRunning.Reject("PackageNameMapResolver"))
+
+  def setReference(f: () => Map[LfPackageId, (LfPackageName, LfPackageVersion)]): Unit =
+    ref.set(Some(f))
+
+  def unset(): Unit = ref.set(None)
+}
+
+object PackageNameMapResolverForTesting extends PackageNameMapResolver {
+  override def getPackageNameMap(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[DamlError, Map[PackageId, (LfPackageName, LfPackageVersion)]] =
+    Right(Map.empty)
 }

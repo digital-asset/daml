@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.{
   ParticipantMetering,
@@ -33,11 +32,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
   TransactionStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
-import com.digitalasset.canton.platform.store.entries.{
-  ConfigurationEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.digitalasset.canton.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.tracing.TraceContext
@@ -182,16 +177,6 @@ object ParameterStorageBackend {
   )
 }
 
-trait ConfigurationStorageBackend {
-  def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)]
-  def configurationEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, ConfigurationEntry)]
-}
-
 trait PartyStorageBackend {
   def partyEntries(
       startExclusive: Offset,
@@ -255,7 +240,6 @@ object ContractStorageBackend {
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
       ledgerEffectiveTime: Timestamp,
-      agreementText: Option[String],
       signatories: Set[Party],
       createKey: Option[Array[Byte]],
       createKeyCompression: Option[Int],
@@ -374,7 +358,6 @@ object EventStorageBackend {
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],
-      agreementText: Option[String],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
       createKeyMaintainers: Set[String],
@@ -405,6 +388,7 @@ object EventStorageBackend {
       reassignmentCounter: Long,
       contractId: String,
       templateId: Identifier,
+      packageName: PackageName,
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
       traceContext: Option[Array[Byte]],

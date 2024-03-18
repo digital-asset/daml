@@ -5,31 +5,64 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/package_service.proto";
-
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+message ListPackagesResponse {
+  // The IDs of all Daml-LF packages supported by the server.
+  // Each element must be a valid PackageIdString (as described in ``value.proto``).
+  // Required
+  repeated string package_ids = 1;
+}
+
+message GetPackageResponse {
+  // The hash function we use to calculate the hash.
+  // Required
+  HashFunction hash_function = 1;
+
+  // Contains a ``daml_lf`` ArchivePayload. See further details in ``daml_lf.proto``.
+  // Required
+  bytes archive_payload = 2;
+
+  // The hash of the archive payload, can also used as a ``package_id``.
+  // Must be a valid PackageIdString (as described in ``value.proto``).
+  // Required
+  string hash = 3;
+}
+
+message GetPackageStatusResponse {
+  // The status of the package.
+  PackageStatus package_status = 1;
+}
+
+enum PackageStatus {
+  // The server is not aware of such a package.
+  PACKAGE_STATUS_UNSPECIFIED = 0;
+
+  // The server is able to execute Daml commands operating on this package.
+  PACKAGE_STATUS_REGISTERED = 1;
+}
+
+enum HashFunction {
+  HASH_FUNCTION_SHA256 = 0;
+}
 
 // Allows clients to query the Daml-LF packages that are supported by the server.
 service PackageService {
-
   // Returns the identifiers of all supported packages.
-  rpc ListPackages (ListPackagesRequest) returns (com.daml.ledger.api.v1.ListPackagesResponse);
+  rpc ListPackages(ListPackagesRequest) returns (ListPackagesResponse);
 
   // Returns the contents of a single package.
-  rpc GetPackage (GetPackageRequest) returns (com.daml.ledger.api.v1.GetPackageResponse);
+  rpc GetPackage(GetPackageRequest) returns (GetPackageResponse);
 
   // Returns the status of a single package.
-  rpc GetPackageStatus (GetPackageStatusRequest) returns (com.daml.ledger.api.v1.GetPackageStatusResponse);
-
+  rpc GetPackageStatus(GetPackageStatusRequest) returns (GetPackageStatusResponse);
 }
 
-message ListPackagesRequest {
-}
+message ListPackagesRequest {}
 
 message GetPackageRequest {
-
   // The ID of the requested package.
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required
@@ -37,7 +70,6 @@ message GetPackageRequest {
 }
 
 message GetPackageStatusRequest {
-
   // The ID of the requested package.
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required

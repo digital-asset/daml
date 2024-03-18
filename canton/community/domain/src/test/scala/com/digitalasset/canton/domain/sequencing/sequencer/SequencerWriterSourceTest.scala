@@ -84,7 +84,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
 
     class InMemoryStoreWithTimeAdvancement(lFactory: NamedLoggerFactory)(implicit
         ec: ExecutionContext
-    ) extends InMemorySequencerStore(lFactory)(ec) {
+    ) extends InMemorySequencerStore(testedProtocolVersion, lFactory)(ec) {
       private val timeAdvancement = new AtomicReference[java.time.Duration](java.time.Duration.ZERO)
 
       def setClockAdvanceBeforeSavePayloads(duration: java.time.Duration): Unit =

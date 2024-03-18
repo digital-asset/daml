@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.participant.protocol.submission.routing
 
+import cats.data.EitherT
 import com.daml.lf.data.Ref.Party
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
@@ -11,19 +13,27 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[routing] final case class ContractsDomainData(
-    withDomainData: Seq[ContractData],
-    withoutDomainData: Seq[LfContractId],
+private[routing] final case class ContractsDomainData private (
+    withDomainData: Seq[ContractData]
 ) {
   val domains: Set[DomainId] = withDomainData.map(_.domain).toSet
 }
 
 private[routing] object ContractsDomainData {
+  /*
+  For each contract, looks at which domain the contract is currently assigned to.
+  If the lookup succeeds for every contract, returns a right. Otherwise, returns a
+  left containing all the contracts that could not be found.
+   */
   def create(
       domainStateProvider: DomainStateProvider,
       contractRoutingParties: Map[LfContractId, Set[Party]],
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ContractsDomainData] = {
-    domainStateProvider
+      disclosedContracts: Seq[LfContractId],
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, NonEmpty[Seq[LfContractId]], ContractsDomainData] = {
+    val result = domainStateProvider
       .getDomainsOfContracts(contractRoutingParties.keySet.toSeq)
       .map { domainMap =>
         // Collect domains of input contracts, ignoring contracts that cannot be found in the ACS.
@@ -37,8 +47,11 @@ private[routing] object ContractsDomainData {
             }
           }
 
-        ContractsDomainData(good, bad)
+        // We need to diff disclosedContracts because they will not be found in the stores
+        NonEmpty.from(bad.diff(disclosedContracts)).toLeft(good).map(ContractsDomainData(_))
       }
+
+    EitherT(result)
   }
 }
 

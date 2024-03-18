@@ -5,10 +5,9 @@ package com.digitalasset.canton.platform
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext}
-import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.api.domain.LedgerId
@@ -37,7 +36,6 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   DbConfig,
   ParticipantDataSourceConfig,
 }
-import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.dao.events.ContractLoader
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import org.apache.pekko.NotUsed
@@ -114,11 +112,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             ),
             loggerFactory = loggerFactory,
           )
-        indexerDbDispatcherOverride = Option.when(
-          dbSupport.storageBackendFactory == H2StorageBackendFactory
-        )(
-          dbSupport.dbDispatcher
-        )
         _indexerHealth <- new IndexerServiceOwner(
           participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),
           participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl),
@@ -135,7 +128,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             indexerConfig.ingestionParallelism.unwrap
           ),
           highAvailability = HaConfig(),
-          indexerDbDispatcherOverride = indexerDbDispatcherOverride,
+          indexServiceDbDispatcher = Some(dbSupport.dbDispatcher),
         )
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
@@ -156,11 +149,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = Metrics.ForTesting,
           servicesExecutionContext = ec,
-          // TODO(#14706): revert to new Engine() once the default engine config supports only 2.x
           engine = new Engine(
-            EngineConfig(allowedLanguageVersions =
-              VersionRange(LanguageVersion.v2_1, LanguageVersion.v2_1)
-            )
+            EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
           ),
           inMemoryState = inMemoryState,
           tracer = NoReportingTracerProvider.tracer,

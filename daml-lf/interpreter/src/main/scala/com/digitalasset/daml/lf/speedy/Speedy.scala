@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LookupError, StablePackages, Util => AstUtil}
+import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.language.LanguageVersionRangeOps._
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -18,6 +18,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.SArithmeticError
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{
@@ -1651,7 +1652,7 @@ private[lf] object Speedy {
   private[speedy] final case class KBuiltin[Q] private (
       machine: Machine[Q],
       savedBase: Int,
-      builtin: SBuiltin,
+      builtin: SBuiltinFun,
       actuals: util.ArrayList[SValue],
   ) extends Kont[Q]
       with SomeArrayEquals
@@ -1668,7 +1669,7 @@ private[lf] object Speedy {
   object KBuiltin {
     def apply[Q](
         machine: Machine[Q],
-        builtin: SBuiltin,
+        builtin: SBuiltinFun,
         actuals: util.ArrayList[SValue],
     ): KBuiltin[Q] =
       KBuiltin(machine, machine.markBase(), builtin, actuals)
@@ -1698,8 +1699,8 @@ private[lf] object Speedy {
       case SValue.SBool(b) =>
         alts.find { alt =>
           alt.pattern match {
-            case SCPPrimCon(PCTrue) => b
-            case SCPPrimCon(PCFalse) => !b
+            case SCPBuiltinCon(BCTrue) => b
+            case SCPBuiltinCon(BCFalse) => !b
             case SCPDefault => true
             case _ => false
           }
@@ -1742,7 +1743,7 @@ private[lf] object Speedy {
       case SValue.SUnit =>
         alts.find { alt =>
           alt.pattern match {
-            case SCPPrimCon(PCUnit) => true
+            case SCPBuiltinCon(BCUnit) => true
             case SCPDefault => true
             case _ => false
           }

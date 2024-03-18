@@ -12,11 +12,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConf
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerHealthConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, DomainTopologyManagerId, Member, SequencerId}
+import com.digitalasset.canton.topology.{DomainId, DomainTopologyManagerId, SequencerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -33,7 +34,7 @@ class DriverBlockSequencerFactory[C](
     health: Option[SequencerHealthConfig],
     storage: Storage,
     protocolVersion: ProtocolVersion,
-    topologyClientMember: Member,
+    sequencerId: SequencerId,
     nodeParameters: CantonNodeParameters,
     metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
@@ -43,10 +44,11 @@ class DriverBlockSequencerFactory[C](
       health: Option[SequencerHealthConfig],
       storage,
       protocolVersion,
-      topologyClientMember,
+      sequencerId,
       nodeParameters,
       loggerFactory,
       testingInterceptor,
+      metrics,
     ) {
 
   override protected final lazy val name: String = sequencerDriverFactory.name
@@ -57,18 +59,17 @@ class DriverBlockSequencerFactory[C](
   override protected final def createBlockSequencer(
       name: String,
       domainId: DomainId,
-      sequencerId: SequencerId,
       cryptoApi: DomainSyncCryptoClient,
-      topologyClientMember: Member,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
+      balanceStore: TrafficBalanceStore,
       storage: Storage,
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
       clock: Clock,
       driverClock: Clock,
       protocolVersion: ProtocolVersion,
-      rateLimitManager: Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,
@@ -91,11 +92,11 @@ class DriverBlockSequencerFactory[C](
       ),
       name,
       domainId,
-      initialBlockHeight,
       cryptoApi,
-      topologyClientMember,
+      sequencerId,
       stateManager,
       store,
+      balanceStore,
       storage,
       futureSupervisor,
       health,
@@ -120,7 +121,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       health: Option[SequencerHealthConfig],
       storage: Storage,
       protocolVersion: ProtocolVersion,
-      topologyClientMember: Member,
+      sequencerId: SequencerId,
       nodeParameters: CantonNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -143,7 +144,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       health,
       storage,
       protocolVersion,
-      topologyClientMember,
+      sequencerId,
       nodeParameters,
       metrics,
       loggerFactory,
@@ -159,7 +160,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       health: Option[SequencerHealthConfig],
       storage: Storage,
       protocolVersion: ProtocolVersion,
-      topologyClientMember: Member,
+      sequencerId: SequencerId,
       nodeParameters: CantonNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -170,7 +171,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       health,
       storage,
       protocolVersion,
-      topologyClientMember,
+      sequencerId,
       nodeParameters,
       metrics,
       loggerFactory,

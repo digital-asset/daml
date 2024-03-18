@@ -59,9 +59,13 @@ private[participant] class JournalGarbageCollector(
             domainId,
             checkForOutstandingCommitments = false,
           )
-        _ <- safeToPruneTsO.fold(Future.unit)(ts =>
-          prune(ts.minusSeconds(journalGarbageCollectionDelay.duration.toSeconds))
-        )
+        _ <- safeToPruneTsO.fold(Future.unit) { ts =>
+          val maxDelay = (ts - CantonTimestampSecond.MinValue).toSeconds
+          val cappedJournalGarbageCollectionDelay =
+            journalGarbageCollectionDelay.duration.toSeconds.min(maxDelay)
+
+          prune(ts.minusSeconds(cappedJournalGarbageCollectionDelay))
+        }
       } yield ()
     }
   }

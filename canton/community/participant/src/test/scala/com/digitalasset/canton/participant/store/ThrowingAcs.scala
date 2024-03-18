@@ -14,9 +14,10 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.{LfContractId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
+import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.{RequestCounter, TransferCounterO}
+import com.digitalasset.canton.{RequestCounter, TransferCounter}
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,31 +26,41 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
     extends ActiveContractStore {
   private[this] type M = Checked[AcsError, AcsWarning, Unit]
 
-  override def markContractsActive(
-      contracts: Seq[(LfContractId, TransferCounterO)],
+  override private[store] def indexedStringStore: IndexedStringStore = throw new RuntimeException(
+    "I should not be called"
+  )
+
+  override def markContractsCreatedOrAdded(
+      contracts: Seq[(LfContractId, TransferCounter)],
       toc: TimeOfChange,
+      isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    CheckedT(Future.failed[M](mk(s"createContracts for $contracts at $toc")))
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+    val operation = if (isCreation) "create contracts" else "add contracts"
+    CheckedT(Future.failed[M](mk(s"$operation for $contracts at $toc")))
+  }
 
-  override def archiveContracts(
+  override def purgeOrArchiveContracts(
       contracts: Seq[LfContractId],
       toc: TimeOfChange,
+      isArchival: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    CheckedT(Future.failed[M](mk(s"archiveContracts for $contracts at $toc")))
+  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+    val operation = if (isArchival) "archive contracts" else "purge contracts"
+    CheckedT(Future.failed[M](mk(s"$operation for $contracts at $toc")))
+  }
 
   override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, TransferCounterO, TimeOfChange)]
+      transferIns: Seq[(LfContractId, SourceDomainId, TransferCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     CheckedT(Future.failed[M](mk(s"transferInContracts for $transferIns")))
 
   override def transferOutContracts(
-      transferOuts: Seq[(LfContractId, TargetDomainId, TransferCounterO, TimeOfChange)]
+      transferOuts: Seq[(LfContractId, TargetDomainId, TransferCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
@@ -68,12 +79,12 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounterO)]] =
+  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]] =
     Future.failed(mk(s"snapshot at $timestamp"))
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, TransferCounterO)]] =
+  ): Future[SortedMap[LfContractId, (RequestCounter, TransferCounter)]] =
     Future.failed(mk(s"snapshot at $rc"))
 
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
@@ -88,8 +99,8 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, TransferCounterO]] =
-    Future.failed[Map[LfContractId, TransferCounterO]](
+  ): Future[Map[LfContractId, TransferCounter]] =
+    Future.failed[Map[LfContractId, TransferCounter]](
       mk(
         s"bulkContractsTransferCounterSnapshot for $contractIds up to but not including $requestCounter"
       )

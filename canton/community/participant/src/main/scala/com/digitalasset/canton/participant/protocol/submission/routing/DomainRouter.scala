@@ -33,7 +33,6 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.Configur
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.{
   NotConnectedToAllContractDomains,
   SubmitterAlwaysStakeholder,
-  UnknownContractDomains,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
   MalformedInputErrors,
@@ -47,7 +46,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{DomainAlias, LfKeyResolver, LfPartyId}
+import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -60,7 +59,6 @@ import scala.concurrent.{ExecutionContext, Future}
   *               The inner future completes after the submission has been sequenced or if it will never be sequenced.
   */
 class DomainRouter(
-    domainIdResolver: DomainAlias => Option[DomainId],
     submit: DomainId => (
         SubmitterInfo,
         TransactionMeta,
@@ -136,10 +134,9 @@ class DomainRouter(
       transactionData <- TransactionData.create(
         submitterInfo,
         transaction,
-        transactionMeta.workflowId,
         snapshotProvider,
-        domainIdResolver,
         contractRoutingParties,
+        inputDisclosedContracts.map(_.contractId),
         optDomainId,
       )
 
@@ -147,7 +144,7 @@ class DomainRouter(
 
       inputDomains = transactionData.inputContractsDomainData.domains
 
-      isMultiDomainTx <- EitherT.liftF(isMultiDomainTx(inputDomains, transactionData.informees))
+      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees)
 
       domainRankTarget <-
         if (!isMultiDomainTx) {
@@ -185,19 +182,15 @@ class DomainRouter(
 
   private def allInformeesOnDomain(
       informees: Set[LfPartyId]
-  )(domainId: DomainId)(implicit traceContext: TraceContext): Future[Boolean] = {
-    snapshotProvider
-      .getTopologySnapshotFor(domainId)
-      .bimap(
-        (err: UnableToQueryTopologySnapshot.Failed) => {
-          logger.warn(
-            s"Unable to get topology snapshot to check whether informees are hosted on the domain: $err"
-          )
-          Future.successful(false)
-        },
-        _.allHaveActiveParticipants(informees).value.map(_.isRight),
+  )(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, UnableToQueryTopologySnapshot.Failed, Boolean] =
+    for {
+      snapshot <- EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(domainId))
+      allInformeesOnDomain <- EitherT.liftF(
+        snapshot.allHaveActiveParticipants(informees).bimap(_ => false, _ => true).merge
       )
-  }.merge
+    } yield allInformeesOnDomain
 
   private def chooseDomainForMultiDomain(
       domainSelector: DomainSelector
@@ -215,20 +208,20 @@ class DomainRouter(
   private def isMultiDomainTx(
       inputDomains: Set[DomainId],
       informees: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Boolean] = {
-    if (inputDomains.sizeCompare(2) >= 0) Future.successful(true)
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, UnableToQueryTopologySnapshot.Failed, Boolean] =
+    if (inputDomains.sizeCompare(2) >= 0) EitherT.rightT(true)
     else
       inputDomains.toList
         .parTraverse(allInformeesOnDomain(informees)(_))
         .map(!_.forall(identity))
-  }
 
   private def checkValidityOfMultiDomain(
       transactionData: TransactionData
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     val inputContractsDomainData = transactionData.inputContractsDomainData
 
-    val allContractsHaveDomainData: Boolean = inputContractsDomainData.withoutDomainData.isEmpty
     val contractData = inputContractsDomainData.withDomainData
     val contractsDomainNotConnected = contractData.filter { contractData =>
       snapshotProvider.getTopologySnapshotFor(contractData.domain).left.exists { _ =>
@@ -247,14 +240,6 @@ class DomainRouter(
       _ <- EitherTUtil.condUnitET[Future](
         submitterNotBeingStakeholder.isEmpty,
         SubmitterAlwaysStakeholder.Error(submitterNotBeingStakeholder.map(_.id)),
-      )
-
-      // Check: all contracts have domain data
-      _ <- EitherTUtil.condUnitET[Future](
-        allContractsHaveDomainData, {
-          val ids = inputContractsDomainData.withoutDomainData.map(_.show)
-          UnknownContractDomains.Error(ids.toList)
-        },
       )
 
       // Check: connected domains
@@ -293,7 +278,6 @@ object DomainRouter {
         loggerFactory,
       )
 
-    val domainIdResolver = recoveredDomainOfAlias(connectedDomains, domainAliasManager) _
     val domainStateProvider = new DomainStateProviderImpl(connectedDomains)
     val domainRankComputation = new DomainRankComputation(
       participantId = participantId,
@@ -317,7 +301,6 @@ object DomainRouter {
     )
 
     new DomainRouter(
-      domainIdResolver,
       submit(connectedDomains),
       transfer,
       domainStateProvider,
@@ -327,15 +310,6 @@ object DomainRouter {
       timeouts,
       loggerFactory,
     )
-  }
-
-  private def recoveredDomainOfAlias(
-      connectedDomains: ConnectedDomainsLookup,
-      domainAliasManager: DomainAliasManager,
-  )(domainAlias: DomainAlias): Option[DomainId] = {
-    domainAliasManager
-      .domainIdForAlias(domainAlias)
-      .filter(domainId => connectedDomains.get(domainId).exists(_.ready))
   }
 
   private def priorityOfDomain(

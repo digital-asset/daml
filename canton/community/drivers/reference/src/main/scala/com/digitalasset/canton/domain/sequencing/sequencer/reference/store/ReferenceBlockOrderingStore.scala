@@ -5,16 +5,18 @@ package com.digitalasset.canton.domain.sequencing.sequencer.reference.store
 
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.{Counter, PeanoTreeQueue}
+import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
 import com.digitalasset.canton.domain.block.BlockOrderer
 import com.digitalasset.canton.domain.block.BlockOrderingSequencer.BatchTag
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.{
   BlockCounter,
   CounterDiscriminator,
+  TimestampedBlock,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -29,20 +31,20 @@ trait ReferenceBlockOrderingStore {
       traceContext: TraceContext
   ): Future[Unit]
 
-  def countBlocks()(implicit
+  def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Long]
+  ): Future[Option[Long]]
 
   def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext
-  ): Future[Seq[BlockOrderer.Block]]
+  ): Future[Seq[TimestampedBlock]]
 }
 
 object ReferenceBlockOrderingStore {
   case object CounterDiscriminator
   type CounterDiscriminator = CounterDiscriminator.type
   type BlockCounter = Counter[CounterDiscriminator]
-  val BlockCounter = Counter[CounterDiscriminator]
+  val BlockCounter: Long => Counter[CounterDiscriminator] = Counter[CounterDiscriminator]
 
   def apply(storage: Storage, timeouts: ProcessingTimeout, loggerFactory: NamedLoggerFactory)(
       implicit executionContext: ExecutionContext
@@ -53,12 +55,18 @@ object ReferenceBlockOrderingStore {
       case dbStorage: DbStorage =>
         new DbReferenceBlockOrderingStore(dbStorage, timeouts, loggerFactory)
     }
+
+  final case class TimestampedBlock(
+      block: BlockOrderer.Block,
+      timestamp: CantonTimestamp,
+      lastTopologyTimestamp: CantonTimestamp,
+  )
 }
 
 class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore {
   import java.util.concurrent.ConcurrentLinkedDeque
 
-  private val deque = new ConcurrentLinkedDeque[Seq[Traced[BlockOrderer.OrderedRequest]]]()
+  private val deque = new ConcurrentLinkedDeque[Traced[BlockOrderer.OrderedRequest]]()
   private val peanoQueue =
     new PeanoTreeQueue[CounterDiscriminator, BlockOrderer.OrderedRequest](BlockCounter(0L))
 
@@ -71,20 +79,10 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
 
   private def insertRequestInternal(
       request: BlockOrderer.OrderedRequest
-  )(implicit traceContext: TraceContext): Unit = blocking(deque.synchronized {
-
-    val blockRequests =
-      if (request.tag == BatchTag)
-        proto.TracedBatchedBlockOrderingRequests
-          .parseFrom(
-            request.body.toByteArray
-          )
-          .requests
-          .map(DbReferenceBlockOrderingStore.fromProto)
-      else Seq(Traced(request))
-
-    deque.add(blockRequests).discard
-  })
+  )(implicit traceContext: TraceContext): Unit =
+    blocking(deque.synchronized {
+      deque.add(Traced(request)).discard
+    })
 
   def insertRequestWithHeight(blockHeight: Long, request: BlockOrderer.OrderedRequest)(implicit
       traceContext: TraceContext
@@ -106,33 +104,57 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
     Future.unit
   }
 
-  override def countBlocks()(implicit
+  override def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Long] = Future.successful(deque.size().toLong)
+  ): Future[Option[Long]] = Future.successful(Option.when(!deque.isEmpty)(deque.size().toLong - 1))
 
   /** Query available blocks starting with the specified initial height.
     * The blocks need to be returned in consecutive block-height order i.e. contain no "gaps".
     */
   override def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext
-  ): Future[Seq[BlockOrderer.Block]] = Future.successful(queryBlocksInternal(initialHeight))
+  ): Future[Seq[TimestampedBlock]] = Future.successful(queryBlocksInternal(initialHeight))
 
-  private[sequencer] def queryBlocksInternal(initialHeight: Long): Seq[BlockOrderer.Block] =
+  private[sequencer] def queryBlocksInternal(initialHeight: Long): Seq[TimestampedBlock] =
     if (initialHeight >= 0)
       blocking(
         deque.synchronized {
           // Get the last elements up until initial height
           val iterator = deque.descendingIterator()
           val initial = math.max(initialHeight, 0)
-          val requests = (initial until deque.size().toLong).map(_ => iterator.next()).reverse
-          requests.zip(LazyList.from(initial.toInt)).map { case (tracedRequest, height) =>
-            BlockOrderer
-              .Block(
-                height.toLong,
-                tracedRequest,
+          val requestsWithTimestampsAndLastTopologyTimestamps =
+            (initial until deque.size().toLong)
+              .map(_ => iterator.next())
+              .reverse
+              .map { request =>
+                if (request.value.tag == BatchTag) {
+                  val tracedBatchedBlockOrderingRequests = proto.TracedBatchedBlockOrderingRequests
+                    .parseFrom(request.value.body.toByteArray)
+                  val batchedRequests = tracedBatchedBlockOrderingRequests.requests
+                    .map(DbReferenceBlockOrderingStore.fromProto)
+                  (
+                    request.value.microsecondsSinceEpoch,
+                    batchedRequests,
+                    CantonTimestamp.ofEpochMicro(
+                      tracedBatchedBlockOrderingRequests.lastTopologyTimestampEpochMicros
+                    ),
+                  )
+                } else
+                  (
+                    request.value.microsecondsSinceEpoch,
+                    Seq(request),
+                    SignedTopologyTransactionX.InitialTopologySequencingTime,
+                  )
+              }
+          requestsWithTimestampsAndLastTopologyTimestamps.zip(LazyList.from(initial.toInt)).map {
+            case ((blockTimestamp, tracedRequests, lastTopologyTimestamp), blockHeight) =>
+              TimestampedBlock(
+                BlockOrderer.Block(blockHeight.toLong, tracedRequests),
+                CantonTimestamp.ofEpochMicro(blockTimestamp),
+                lastTopologyTimestamp,
               )
           }
         }
       )
-    else Seq()
+    else Seq.empty
 }

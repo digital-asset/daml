@@ -77,9 +77,11 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
           | The participants will continue attempting to establish a domain connection."""
     )
     def reconnect_all(ignoreFailures: Boolean = true): Unit = {
-      val _ = ConsoleCommandResult.runAll(participants)(
-        ParticipantCommands.domains.reconnect_all(_, ignoreFailures = ignoreFailures)
-      )
+      ConsoleCommandResult
+        .runAll(participants)(
+          ParticipantCommands.domains.reconnect_all(_, ignoreFailures = ignoreFailures)
+        )
+        .discard
     }
 
     @Help.Summary("Disconnect from all connected domains")
@@ -95,9 +97,11 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         .discard
 
     @Help.Summary("Register and potentially connect to domain")
-    def register(config: DomainConnectionConfig): Unit =
+    def register(config: DomainConnectionConfig, handshakeOnly: Boolean = false): Unit =
       ConsoleCommandResult
-        .runAll(participants)(ParticipantCommands.domains.register(_, config))
+        .runAll(participants)(
+          ParticipantCommands.domains.register(_, config, handshakeOnly = handshakeOnly)
+        )
         .discard
 
     @Help.Summary("Register and potentially connect to new local domain")

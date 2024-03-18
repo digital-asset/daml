@@ -34,13 +34,13 @@ final class DbPruningSchedulerStore(
     storage.update_(
       storage.profile match {
         case _: Profile.Postgres =>
-          sqlu"""insert into pruning_schedules (node_type, cron, max_duration, retention)
+          sqlu"""insert into common_pruning_schedules (node_type, cron, max_duration, retention)
                      values ($nodeCode, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention})
                      on conflict (node_type) do
                        update set cron = ${schedule.cron}, max_duration = ${schedule.maxDuration}, retention = ${schedule.retention}
                   """
         case _: Profile.Oracle | _: Profile.H2 =>
-          sqlu"""merge into pruning_schedules using dual
+          sqlu"""merge into common_pruning_schedules using dual
                      on (node_type = $nodeCode)
                      when matched then
                        update set cron = ${schedule.cron}, max_duration = ${schedule.maxDuration}, retention = ${schedule.retention}
@@ -55,7 +55,7 @@ final class DbPruningSchedulerStore(
 
   override def clearSchedule()(implicit tc: TraceContext): Future[Unit] =
     storage.update_(
-      sqlu"""delete from pruning_schedules where node_type = $nodeCode""",
+      sqlu"""delete from common_pruning_schedules where node_type = $nodeCode""",
       functionFullName,
     )
 
@@ -65,7 +65,7 @@ final class DbPruningSchedulerStore(
     storage
       .query(
         sql"""select cron, max_duration, retention
-             from pruning_schedules where node_type = $nodeCode"""
+             from common_pruning_schedules where node_type = $nodeCode"""
           .as[(Cron, PositiveSeconds, PositiveSeconds)]
           .headOption,
         functionFullName,
@@ -85,7 +85,7 @@ final class DbPruningSchedulerStore(
     EitherT {
       storage
         .update(
-          sqlu"""update pruning_schedules set cron = $cron where node_type = $nodeCode""",
+          sqlu"""update common_pruning_schedules set cron = $cron where node_type = $nodeCode""",
           functionFullName,
         )
         .map(errorOnUpdateOfMissingSchedule("cron"))
@@ -97,7 +97,7 @@ final class DbPruningSchedulerStore(
     EitherT {
       storage
         .update(
-          sqlu"""update pruning_schedules set max_duration = $maxDuration where node_type = $nodeCode""",
+          sqlu"""update common_pruning_schedules set max_duration = $maxDuration where node_type = $nodeCode""",
           functionFullName,
         )
         .map(errorOnUpdateOfMissingSchedule("max_duration"))
@@ -109,7 +109,7 @@ final class DbPruningSchedulerStore(
     EitherT {
       storage
         .update(
-          sqlu"""update pruning_schedules set retention = $retention where node_type = $nodeCode""",
+          sqlu"""update common_pruning_schedules set retention = $retention where node_type = $nodeCode""",
           functionFullName,
         )
         .map(errorOnUpdateOfMissingSchedule("retention"))

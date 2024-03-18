@@ -85,30 +85,6 @@ _choice$_K$Archive
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-instance DA.Internal.Desugar.HasExerciseByKey K (Party,
-                                                 Int) DA.Internal.Desugar.Archive (()) where
-  _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
-instance DA.Internal.Desugar.HasKey K (Party, Int) where
-  key this@K {..}
-    = userWrittenTuple (p, v)
-    where
-        _ = this
-instance DA.Internal.Desugar.HasMaintainer K (Party, Int) where
-  _maintainer _ key
-    = DA.Internal.Desugar.toParties
-        ((DA.Internal.Record.getField @"_1" key))
-    where
-        _ = key
-instance DA.Internal.Desugar.HasFetchByKey K (Party, Int) where
-  fetchByKey = GHC.Types.primitive @"UFetchByKey"
-instance DA.Internal.Desugar.HasLookupByKey K (Party, Int) where
-  lookupByKey = GHC.Types.primitive @"ULookupByKey"
-instance DA.Internal.Desugar.HasToAnyContractKey K (Party,
-                                                    Int) where
-  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
-instance DA.Internal.Desugar.HasFromAnyContractKey K (Party,
-                                                      Int) where
-  _fromAnyContractKey = GHC.Types.primitive @"EFromAnyContractKey"
 data GHC.Types.DamlTemplate => T
   = T {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -139,31 +115,6 @@ instance DA.Internal.Record.SetField "cid" UncatchableTry (ContractId K) where
   setField
     = DA.Internal.Record.setFieldPrim
         @"cid" @UncatchableTry @ContractId K
-data TransientDuplicate
-  = TransientDuplicate {i : Int}
-  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.GetField "i" TransientDuplicate Int where
-  getField
-    = DA.Internal.Record.getFieldPrim @"i" @TransientDuplicate @Int
-instance DA.Internal.Record.SetField "i" TransientDuplicate Int where
-  setField
-    = DA.Internal.Record.setFieldPrim @"i" @TransientDuplicate @Int
-data NonTransientDuplicate
-  = NonTransientDuplicate {i : Int}
-  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.GetField "i" NonTransientDuplicate Int where
-  getField
-    = DA.Internal.Record.getFieldPrim @"i" @NonTransientDuplicate @Int
-instance DA.Internal.Record.SetField "i" NonTransientDuplicate Int where
-  setField
-    = DA.Internal.Record.setFieldPrim @"i" @NonTransientDuplicate @Int
-data RollbackKey
-  = RollbackKey {i : Int}
-  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-instance DA.Internal.Record.GetField "i" RollbackKey Int where
-  getField = DA.Internal.Record.getFieldPrim @"i" @RollbackKey @Int
-instance DA.Internal.Record.SetField "i" RollbackKey Int where
-  setField = DA.Internal.Record.setFieldPrim @"i" @RollbackKey @Int
 data RollbackArchive
   = RollbackArchive {i : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -273,36 +224,6 @@ instance DA.Internal.Desugar.HasFromAnyChoice T UncatchableTry (()) where
 instance DA.Internal.Desugar.HasChoiceController T UncatchableTry where
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver T UncatchableTry where
-  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise T TransientDuplicate (()) where
-  exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice T TransientDuplicate (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice T TransientDuplicate (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController T TransientDuplicate where
-  _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver T TransientDuplicate where
-  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise T NonTransientDuplicate (()) where
-  exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice T NonTransientDuplicate (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice T NonTransientDuplicate (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController T NonTransientDuplicate where
-  _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver T NonTransientDuplicate where
-  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise T RollbackKey (()) where
-  exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice T RollbackKey (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice T RollbackKey (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController T RollbackKey where
-  _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver T RollbackKey where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise T RollbackArchive (()) where
   exercise = GHC.Types.primitive @"UExercise"
@@ -454,103 +375,6 @@ _choice$_T$UncatchableTry
                         \case
                           (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some E)
                             -> DA.Internal.Desugar.Some pure ()
-                          _ -> DA.Internal.Desugar.None)
-_choice$_T$TransientDuplicate :
-  (DA.Internal.Desugar.NonConsuming T,
-   T -> TransientDuplicate -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.Optional (T
-                                 -> TransientDuplicate -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (T
-                                 -> TransientDuplicate -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.ContractId T
-   -> T -> TransientDuplicate -> DA.Internal.Desugar.Update (()))
-_choice$_T$TransientDuplicate
-  = (DA.Internal.Desugar.NonConsuming, 
-     \ this@T {..}
-       -> DA.Internal.Desugar.bypassReduceLambda
-            \ arg@TransientDuplicate {..}
-              -> let _ = this in
-                 let _ = arg in DA.Internal.Desugar.toParties (p), 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
-     \ self this@T {..}
-       -> DA.Internal.Desugar.bypassReduceLambda
-            \ arg@TransientDuplicate {..}
-              -> let _ = self in
-                 let _ = this in
-                 let _ = arg
-                 in
-                   do DA.Internal.Desugar._tryCatch
-                        \ _
-                          -> do create (K p i)
-                                create (K p i)
-                                throw E
-                        \case
-                          (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some E)
-                            -> DA.Internal.Desugar.Some pure ()
-                          _ -> DA.Internal.Desugar.None)
-_choice$_T$NonTransientDuplicate :
-  (DA.Internal.Desugar.NonConsuming T,
-   T -> NonTransientDuplicate -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.Optional (T
-                                 -> NonTransientDuplicate -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (T
-                                 -> NonTransientDuplicate -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.ContractId T
-   -> T -> NonTransientDuplicate -> DA.Internal.Desugar.Update (()))
-_choice$_T$NonTransientDuplicate
-  = (DA.Internal.Desugar.NonConsuming, 
-     \ this@T {..}
-       -> DA.Internal.Desugar.bypassReduceLambda
-            \ arg@NonTransientDuplicate {..}
-              -> let _ = this in
-                 let _ = arg in DA.Internal.Desugar.toParties (p), 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
-     \ self this@T {..}
-       -> DA.Internal.Desugar.bypassReduceLambda
-            \ arg@NonTransientDuplicate {..}
-              -> let _ = self in
-                 let _ = this in
-                 let _ = arg
-                 in
-                   do DA.Internal.Desugar._tryCatch
-                        \ _
-                          -> do create (K p i)
-                                throw E
-                        \case
-                          (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some E)
-                            -> DA.Internal.Desugar.Some pure ()
-                          _ -> DA.Internal.Desugar.None)
-_choice$_T$RollbackKey :
-  (DA.Internal.Desugar.NonConsuming T,
-   T -> RollbackKey -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.Optional (T
-                                 -> RollbackKey -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (T
-                                 -> RollbackKey -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.ContractId T
-   -> T -> RollbackKey -> DA.Internal.Desugar.Update (()))
-_choice$_T$RollbackKey
-  = (DA.Internal.Desugar.NonConsuming, 
-     \ this@T {..}
-       -> DA.Internal.Desugar.bypassReduceLambda
-            \ arg@RollbackKey {..}
-              -> let _ = this in
-                 let _ = arg in DA.Internal.Desugar.toParties (p), 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
-     \ self this@T {..}
-       -> DA.Internal.Desugar.bypassReduceLambda
-            \ arg@RollbackKey {..}
-              -> let _ = self in
-                 let _ = this in
-                 let _ = arg
-                 in
-                   do DA.Internal.Desugar._tryCatch
-                        \ _
-                          -> do create (K p i)
-                                throw E
-                        \case
-                          (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some E)
-                            -> DA.Internal.Desugar.Some create (K p i) >> pure ()
                           _ -> DA.Internal.Desugar.None)
 _choice$_T$RollbackArchive :
   (DA.Internal.Desugar.NonConsuming T,
@@ -806,16 +630,6 @@ handledArithmeticError
       do p <- allocateParty "p"
          r <- submit p $ createAndExerciseCmd (T p) CatchArithmeticError
          r === 42
-duplicateKey
-  = script
-      do p <- allocateParty "p"
-         submitMustFail p
-           $ createAndExerciseCmd (T p) (TransientDuplicate 0)
-         submit p $ createCmd (K p 1)
-         submitMustFail p
-           $ createAndExerciseCmd (T p) (NonTransientDuplicate 1)
-         submit p $ createAndExerciseCmd (T p) (RollbackKey 2)
-         pure ()
 rollbackArchive
   = script
       do p <- allocateParty "p"

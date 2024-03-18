@@ -4,8 +4,8 @@
 package com.digitalasset.canton.logging.pretty
 
 import cats.Show.Shown
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
 import com.daml.ledger.javaapi.data.Party
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.lf.data.Ref
@@ -16,8 +16,8 @@ import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
+import com.digitalasset.canton.ledger.offset
 import com.digitalasset.canton.ledger.participant.state.v2.ChangeId
-import com.digitalasset.canton.ledger.{configuration, offset}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
@@ -153,18 +153,19 @@ trait PrettyInstances {
 
   implicit def prettyLedgerString: Pretty[Ref.LedgerString] = prettyOfString(id => id: String)
 
-  implicit val prettyLedgerBoundary: Pretty[LedgerBoundary] = {
-    case LedgerBoundary.LEDGER_BEGIN => Tree.Literal("LEDGER_BEGIN")
-    case LedgerBoundary.LEDGER_END => Tree.Literal("LEDGER_END")
-    case LedgerBoundary.Unrecognized(value) => Tree.Literal(s"Unrecognized($value)")
+  implicit val prettyLedgerBoundary: Pretty[ParticipantBoundary] = {
+    case ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN =>
+      Tree.Literal("PARTICIPANT_BOUNDARY_BEGIN")
+    case ParticipantBoundary.PARTICIPANT_BOUNDARY_END => Tree.Literal("PARTICIPANT_BOUNDARY_END")
+    case ParticipantBoundary.Unrecognized(value) => Tree.Literal(s"Unrecognized($value)")
   }
 
-  implicit val prettyLedgerOffset: Pretty[LedgerOffset] = {
-    case LedgerOffset(LedgerOffset.Value.Absolute(absolute)) =>
+  implicit val prettyLedgerOffset: Pretty[ParticipantOffset] = {
+    case ParticipantOffset(ParticipantOffset.Value.Absolute(absolute)) =>
       Tree.Apply("AbsoluteOffset", Iterator(Tree.Literal(absolute)))
-    case LedgerOffset(LedgerOffset.Value.Boundary(boundary)) =>
+    case ParticipantOffset(ParticipantOffset.Value.Boundary(boundary)) =>
       Tree.Apply("Boundary", Iterator(boundary.toTree))
-    case LedgerOffset(LedgerOffset.Value.Empty) => Tree.Literal("Empty")
+    case ParticipantOffset(ParticipantOffset.Value.Empty) => Tree.Literal("Empty")
   }
 
   implicit val prettyReadServiceOffset: Pretty[offset.Offset] = prettyOfString(
@@ -219,10 +220,13 @@ trait PrettyInstances {
   implicit def prettyLfIdentifier: Pretty[com.daml.lf.data.Ref.Identifier] =
     prettyOfString(id => show"${id.packageId}:${id.qualifiedName}")
 
+  implicit def prettyLfPackageName: Pretty[com.daml.lf.data.Ref.PackageName] =
+    prettyOfString(packageName => show"${packageName.toString}")
+
   implicit def prettyLfContractId: Pretty[LfContractId] = prettyOfString {
     case LfContractId.V1(discriminator, suffix)
         // Shorten only Canton contract ids
-        if suffix.startsWith(AuthenticatedContractIdVersionV2.versionPrefixBytes) =>
+        if suffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes) =>
       val prefixBytesSize = CantonContractIdVersion.versionPrefixBytesSize
 
       val cantonVersionPrefix = suffix.slice(0, prefixBytesSize)
@@ -254,18 +258,6 @@ trait PrettyInstances {
   implicit def prettyLfGlobalKey: Pretty[LfGlobalKey] = prettyOfClass(
     param("templateId", _.templateId),
     param("hash", _.hash.toHexString.readableHash),
-  )
-
-  implicit def prettyLedgerTimeModel: Pretty[configuration.LedgerTimeModel] = prettyOfClass(
-    param("avgTransactionLatency", _.avgTransactionLatency),
-    param("minSkew", _.minSkew),
-    param("maxSkew", _.maxSkew),
-  )
-
-  implicit def prettyLedgerConfiguration: Pretty[configuration.Configuration] = prettyOfClass(
-    param("generation", _.generation),
-    param("maxDeduplicationDuration", _.maxDeduplicationDuration),
-    param("timeModel", _.timeModel),
   )
 
   implicit def prettyV2DeduplicationPeriod: Pretty[DeduplicationPeriod] =

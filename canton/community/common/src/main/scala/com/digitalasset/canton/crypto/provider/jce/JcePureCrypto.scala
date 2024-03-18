@@ -5,11 +5,12 @@ package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
+import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.HkdfError.HkdfInternalError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
 import com.digitalasset.canton.crypto.provider.CryptoKeyConverter
-import com.digitalasset.canton.crypto.provider.jce.JceSecurityProvider.bouncyCastleProvider
 import com.digitalasset.canton.crypto.provider.tink.TinkJavaConverter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.{
@@ -20,7 +21,7 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
-import com.google.crypto.tink.subtle.EllipticCurves.{CurveType, EcdsaEncoding}
+import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
 import com.google.crypto.tink.subtle.*
 import com.google.crypto.tink.{Aead, PublicKeySign, PublicKeyVerify}
@@ -31,8 +32,9 @@ import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.digests.SHA256Digest
-import org.bouncycastle.crypto.generators.HKDFBytesGenerator
-import org.bouncycastle.crypto.params.HKDFParameters
+import org.bouncycastle.crypto.generators.{Argon2BytesGenerator, HKDFBytesGenerator}
+import org.bouncycastle.crypto.params.{Argon2Parameters, HKDFParameters}
+import org.bouncycastle.jcajce.provider.asymmetric.edec.BCEdDSAPublicKey
 import org.bouncycastle.jce.spec.IESParameterSpec
 import sun.security.ec.ECPrivateKeyImpl
 
@@ -74,16 +76,20 @@ class JcePureCrypto(
     javaKeyConverter: JceJavaConverter,
     override val defaultSymmetricKeyScheme: SymmetricKeyScheme,
     override val defaultHashAlgorithm: HashAlgorithm,
+    override val defaultPbkdfScheme: PbkdfScheme,
     override val loggerFactory: NamedLoggerFactory,
 ) extends CryptoPureApi
     with ShowUtil
     with NamedLogging {
 
+  // TODO(#15632): Make these real caches with an eviction rule
   // Cache for the java key conversion results
-  private val javaPublicKeyCache: TrieMap[Fingerprint, Either[JavaKeyConversionError, JPublicKey]] =
+  private val javaPublicKeyCache
+      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, JPublicKey]] =
     TrieMap.empty
   private val javaPrivateKeyCache
-      : TrieMap[Fingerprint, Either[JavaKeyConversionError, JPrivateKey]] = TrieMap.empty
+      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, JPrivateKey]] =
+    TrieMap.empty
 
   private lazy val tinkJavaConverter = new TinkJavaConverter
   private lazy val keyConverter = new CryptoKeyConverter(tinkJavaConverter, javaKeyConverter)
@@ -118,19 +124,80 @@ class JcePureCrypto(
     val keySizeInBits = 2048
   }
 
-  private def checkKeyFormat[E](
-      expected: CryptoKeyFormat,
-      actual: CryptoKeyFormat,
-      errFn: String => E,
-  ): Either[E, Unit] =
-    Either.cond(expected == actual, (), errFn(s"Expected key format $expected, but got $actual"))
-
-  private def convertKey[E](
+  /** Parses and converts a public key to a java public key.
+    * We store the deserialization result in a cache.
+    *
+    * @return Either an error or the converted java private key
+    */
+  private def parseAndGetPublicKey[E](
       publicKey: PublicKey,
-      expected: CryptoKeyFormat,
       errFn: String => E,
-  ): Either[E, PublicKey] =
-    keyConverter.convert(publicKey, expected).leftMap(errFn)
+  ): Either[E, JPublicKey] = {
+    val keyFormat = publicKey.format
+
+    def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] = {
+      for {
+        formatToConvertTo <- publicKey match {
+          case _: EncryptionPublicKey => Right(CryptoKeyFormat.Der)
+          case SigningPublicKey(_, _, _, scheme) =>
+            scheme match {
+              case SigningKeyScheme.Ed25519 => Right(CryptoKeyFormat.Raw)
+              case SigningKeyScheme.EcDsaP256 | SigningKeyScheme.EcDsaP384 =>
+                Right(CryptoKeyFormat.Der)
+            }
+          case _ => Left(KeyParseAndValidateError(s"Unsupported key type"))
+        }
+        /* Convert key to the expected format that can be interpreted by this crypto provider (i.e. JCE): DER or RAW.
+         * Finally convert the key to a java key, which can be cached and used for future crypto operations.
+         */
+        pubKey <- keyConverter
+          .convert(publicKey, formatToConvertTo)
+          .leftMap(KeyParseAndValidateError)
+        // convert key to java key
+        jPublicKey <- javaKeyConverter
+          .toJava(pubKey)
+          .map(_._2)
+          .leftMap(err =>
+            KeyParseAndValidateError(s"Failed to convert public key to java key: $err")
+          )
+      } yield jPublicKey
+    }
+
+    def getFromCacheOrDeserializeKey: Either[E, JPublicKey] =
+      javaPublicKeyCache
+        .getOrElseUpdate(
+          publicKey.id,
+          convertToFormatAndGenerateJavaPublicKey,
+        )
+        .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
+
+    if (Jce.supportedCryptoKeyFormats.contains(keyFormat))
+      getFromCacheOrDeserializeKey
+    else Left(errFn(s"$keyFormat key format not supported"))
+  }
+
+  /** Parses and converts an asymmetric private key to a java private key.
+    * We store the deserialization result in a cache.
+    *
+    * @return Either an error or the converted java private key
+    */
+  private def parseAndGetPrivateKey[E, T <: JPrivateKey](
+      privateKey: PrivateKey,
+      checker: PartialFunction[JPrivateKey, Either[E, T]],
+      errFn: String => E,
+  ): Either[E, T] =
+    for {
+      privateKey <- javaPrivateKeyCache
+        .getOrElseUpdate(
+          privateKey.id,
+          toJava(privateKey)
+            .leftMap(err =>
+              KeyParseAndValidateError(s"Failed to convert private key to java key: ${err.show}")
+            ),
+        )
+        .leftMap(err => errFn(s"Failed to deserialize ${privateKey.format} private key: $err"))
+      checkedPrivateKey <- checker(privateKey)
+    } yield checkedPrivateKey
 
   private def encryptAes128Gcm(
       plaintext: ByteString,
@@ -180,84 +247,76 @@ class JcePureCrypto(
     }
   }
 
-  private def ensureFormat(
-      key: CryptoKey,
-      format: CryptoKeyFormat,
-  ): Either[JavaKeyConversionError, Unit] =
-    Either.cond(
-      key.format == format,
-      (),
-      JavaKeyConversionError.UnsupportedKeyFormat(key.format, format),
-    )
-
-  private def toJavaEcDsa(
-      privateKey: PrivateKey,
-      curveType: CurveType,
-  ): Either[JavaKeyConversionError, JPrivateKey] =
-    for {
-      _ <- ensureFormat(privateKey, CryptoKeyFormat.Der)
-      ecPrivateKey <- Either
-        .catchOnly[GeneralSecurityException](
-          EllipticCurves.getEcPrivateKey(curveType, privateKey.key.toByteArray)
-        )
-        .leftMap(JavaKeyConversionError.GeneralError)
-      _ =
-        // There exists a race condition in ECPrivateKey before java 15
-        if (Runtime.version.feature < 15)
-          ecPrivateKey match {
-            case pk: ECPrivateKeyImpl =>
-              /* Force the initialization of the private key's internal array data structure.
-               * This prevents concurrency problems later on during decryption, while generating the shared secret,
-               * due to a race condition in getArrayS.
-               */
-              pk.getArrayS.discard
-            case _ => ()
-          }
-    } yield ecPrivateKey
-
   private def toJava(privateKey: PrivateKey): Either[JavaKeyConversionError, JPrivateKey] = {
 
-    def convert(
-        format: CryptoKeyFormat,
+    def convertFromPkcs8(
         pkcs8PrivateKey: Array[Byte],
         keyInstance: String,
-    ): Either[JavaKeyConversionError, JPrivateKey] =
+    ): Either[JavaKeyConversionError, JPrivateKey] = {
+      val pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
       for {
-        _ <- Either.cond(
-          privateKey.format == format,
-          (),
-          JavaKeyConversionError.UnsupportedKeyFormat(privateKey.format, format),
-        )
-        pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
         keyFactory <- Either
           .catchOnly[NoSuchAlgorithmException](KeyFactory.getInstance(keyInstance, "BC"))
           .leftMap(JavaKeyConversionError.GeneralError)
         javaPrivateKey <- Either
           .catchOnly[InvalidKeySpecException](keyFactory.generatePrivate(pkcs8KeySpec))
           .leftMap(err => JavaKeyConversionError.InvalidKey(show"$err"))
+        _ =
+          // There exists a race condition in ECPrivateKey before java 15
+          if (Runtime.version.feature < 15)
+            javaPrivateKey match {
+              case pk: ECPrivateKeyImpl =>
+                /* Force the initialization of the private key's internal array data structure.
+                 * This prevents concurrency problems later on during decryption, while generating the shared secret,
+                 * due to a race condition in getArrayS.
+                 */
+                pk.getArrayS.discard
+              case _ => ()
+            }
       } yield javaPrivateKey
+    }
 
     (privateKey: @unchecked) match {
       case sigKey: SigningPrivateKey =>
         sigKey.scheme match {
-          case SigningKeyScheme.Ed25519 =>
+          case SigningKeyScheme.Ed25519 if sigKey.format == CryptoKeyFormat.Raw =>
             val privateKeyInfo = new PrivateKeyInfo(
               new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519),
               new DEROctetString(privateKey.key.toByteArray),
             )
-            convert(CryptoKeyFormat.Raw, privateKeyInfo.getEncoded, "Ed25519")
-
-          case SigningKeyScheme.EcDsaP256 => toJavaEcDsa(privateKey, CurveType.NIST_P256)
-          case SigningKeyScheme.EcDsaP384 => toJavaEcDsa(privateKey, CurveType.NIST_P384)
+            convertFromPkcs8(privateKeyInfo.getEncoded, "Ed25519")
+          case SigningKeyScheme.EcDsaP256 if sigKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case SigningKeyScheme.EcDsaP384 if sigKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case _ =>
+            Either.left[JavaKeyConversionError, JPrivateKey](
+              JavaKeyConversionError.UnsupportedKeyFormat(
+                sigKey.format, {
+                  sigKey.scheme match {
+                    case SigningKeyScheme.Ed25519 => CryptoKeyFormat.Raw
+                    case SigningKeyScheme.EcDsaP256 => CryptoKeyFormat.Der
+                    case SigningKeyScheme.EcDsaP384 => CryptoKeyFormat.Der
+                  }
+                },
+              )
+            )
         }
       case encKey: EncryptionPrivateKey =>
         encKey.scheme match {
-          case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-            toJavaEcDsa(privateKey, CurveType.NIST_P256)
-          case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
-            convert(CryptoKeyFormat.Der, privateKey.key.toByteArray, "EC")
-          case EncryptionKeyScheme.Rsa2048OaepSha256 =>
-            convert(CryptoKeyFormat.Der, privateKey.key.toByteArray, "RSA")
+          case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm
+              if encKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc
+              if encKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case EncryptionKeyScheme.Rsa2048OaepSha256 if encKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "RSA")
+          case _ =>
+            Either.left[JavaKeyConversionError, JPrivateKey](
+              JavaKeyConversionError.UnsupportedKeyFormat(encKey.format, CryptoKeyFormat.Der)
+            )
+
         }
     }
   }
@@ -267,22 +326,11 @@ class JcePureCrypto(
       hashType: HashType,
   ): Either[SigningError, PublicKeySign] =
     for {
-      _ <- checkKeyFormat(CryptoKeyFormat.Der, signingKey.format, SigningError.InvalidSigningKey)
-      javaPrivateKey <- javaPrivateKeyCache
-        .getOrElseUpdate(
-          signingKey.id,
-          toJava(signingKey),
-        )
-        .leftMap(err =>
-          SigningError.InvalidSigningKey(s"Failed to convert signing private key: $err")
-        )
-
-      ecPrivateKey <- javaPrivateKey match {
-        case k: ECPrivateKey => Right(k)
-        case _ =>
-          Left(SigningError.InvalidSigningKey(s"Signing private key is not an EC private key"))
-      }
-
+      ecPrivateKey <- parseAndGetPrivateKey(
+        signingKey,
+        { case k: ECPrivateKey => Right(k) },
+        SigningError.InvalidSigningKey,
+      )
       signer <- Either
         .catchOnly[GeneralSecurityException](
           new EcdsaSignJce(ecPrivateKey, hashType, EcdsaEncoding.DER)
@@ -295,22 +343,7 @@ class JcePureCrypto(
       hashType: HashType,
   ): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      pubKey <- convertKey(
-        publicKey,
-        CryptoKeyFormat.Der,
-        SignatureCheckError.InvalidKeyError,
-      )
-      javaPublicKey <- javaPublicKeyCache
-        .getOrElseUpdate(
-          pubKey.id,
-          javaKeyConverter
-            .toJava(pubKey)
-            .map(_._2),
-        )
-        .leftMap(err =>
-          SignatureCheckError.InvalidKeyError(s"Failed to convert signing public key: $err")
-        )
-
+      javaPublicKey <- parseAndGetPublicKey(publicKey, SignatureCheckError.InvalidKeyError)
       ecPublicKey <- javaPublicKey match {
         case k: ECPublicKey => Right(k)
         case _ =>
@@ -372,9 +405,9 @@ class JcePureCrypto(
     signingKey.scheme match {
       case SigningKeyScheme.Ed25519 =>
         for {
-          _ <- checkKeyFormat(
-            CryptoKeyFormat.Raw,
+          _ <- CryptoKeyValidation.ensureFormat(
             signingKey.format,
+            Set(CryptoKeyFormat.Raw),
             SigningError.InvalidSigningKey,
           )
           signer <- Either
@@ -420,13 +453,17 @@ class JcePureCrypto(
       _ <- publicKey.scheme match {
         case SigningKeyScheme.Ed25519 =>
           for {
-            pubKey <- convertKey(
+            javaPublicKey <- parseAndGetPublicKey(
               publicKey,
-              CryptoKeyFormat.Raw,
               SignatureCheckError.InvalidKeyError,
             )
+            ed25519PublicKey <- javaPublicKey match {
+              case k: BCEdDSAPublicKey =>
+                Right(k.getPointEncoding)
+              case _ => Left(SignatureCheckError.InvalidKeyError("Not an Ed25519 public key"))
+            }
             verifier <- Either
-              .catchOnly[GeneralSecurityException](new Ed25519Verify(pubKey.key.toByteArray))
+              .catchOnly[GeneralSecurityException](new Ed25519Verify(ed25519PublicKey))
               .leftMap(err =>
                 SignatureCheckError.InvalidKeyError(show"Failed to get signer for Ed25519: $err")
               )
@@ -458,42 +495,20 @@ class JcePureCrypto(
     )
   }
 
-  private def checkDerFormatAndGetPublicKey[T <: JPublicKey](
-      encPubKey: EncryptionPublicKey,
-      checker: PartialFunction[JPublicKey, Either[EncryptionError, T]],
-  ): Either[EncryptionError, T] = {
-    for {
-      pubKey <- convertKey(
-        encPubKey,
-        CryptoKeyFormat.Der,
-        EncryptionError.InvalidEncryptionKey,
-      )
-      javaPublicKey <- javaPublicKeyCache
-        .getOrElseUpdate(
-          pubKey.id,
-          javaKeyConverter
-            .toJava(pubKey)
-            .map(_._2),
-        )
-        .leftMap(err => EncryptionError.InvalidEncryptionKey(err.toString))
-      publicKey <- checker(javaPublicKey)
-    } yield publicKey
-  }
-
   private def encryptWithEciesP256HmacSha256Aes128Cbc[M <: HasVersionedToByteString](
       message: ByteString,
       publicKey: EncryptionPublicKey,
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      ecPublicKey <- checkDerFormatAndGetPublicKey[ECPublicKey](
-        publicKey,
-        { case k: ECPublicKey =>
+      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
+      ecPublicKey <- javaPublicKey match {
+        case k: ECPublicKey =>
           checkEcKeyInCurve(k, publicKey.id).leftMap(err =>
             EncryptionError.InvalidEncryptionKey(err)
           )
-        },
-      )
+        case _ => Left(EncryptionError.InvalidEncryptionKey("Not an EC public key"))
+      }
       /* this encryption scheme makes use of AES-128-CBC as a DEM (Data Encapsulation Method)
        * and therefore we need to generate a IV/nonce of 16bytes as the IV for CBC mode.
        */
@@ -502,7 +517,10 @@ class JcePureCrypto(
       encrypter <- Either
         .catchOnly[GeneralSecurityException] {
           val cipher = Cipher
-            .getInstance(EciesP256HmacSha256Aes128CbcParams.jceInternalName, bouncyCastleProvider)
+            .getInstance(
+              EciesP256HmacSha256Aes128CbcParams.jceInternalName,
+              JceSecurityProvider.bouncyCastleProvider,
+            )
           cipher.init(
             Cipher.ENCRYPT_MODE,
             ecPublicKey,
@@ -532,12 +550,12 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      rsaPublicKey <- checkDerFormatAndGetPublicKey[RSAPublicKey](
-        publicKey,
-        { case k: RSAPublicKey =>
+      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
+      rsaPublicKey <- javaPublicKey match {
+        case k: RSAPublicKey =>
           checkRsaKeySize(k, publicKey.id).leftMap(err => EncryptionError.InvalidEncryptionKey(err))
-        },
-      )
+        case _ => Left(EncryptionError.InvalidEncryptionKey("Not a RSA public key"))
+      }
       encrypter <- Either
         .catchOnly[GeneralSecurityException] {
           val cipher = Cipher
@@ -564,14 +582,17 @@ class JcePureCrypto(
     publicKey.scheme match {
       case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
         for {
-          ecPublicKey <- checkDerFormatAndGetPublicKey[ECPublicKey](
+          javaPublicKey <- parseAndGetPublicKey(
             publicKey,
-            { case k: ECPublicKey =>
+            EncryptionError.InvalidEncryptionKey,
+          )
+          ecPublicKey <- javaPublicKey match {
+            case k: ECPublicKey =>
               checkEcKeyInCurve(k, publicKey.id).leftMap(err =>
                 EncryptionError.InvalidEncryptionKey(err)
               )
-            },
-          )
+            case _ => Left(EncryptionError.InvalidEncryptionKey("Not an EC public key"))
+          }
           encrypter <- Either
             .catchOnly[GeneralSecurityException](
               new EciesAeadHkdfHybridEncrypt(
@@ -659,33 +680,17 @@ class JcePureCrypto(
       deserialize: ByteString => Either[DeserializationError, M]
   ): Either[DecryptionError, M] = {
 
-    def checkDerFormatAndGetPrivateKey[T <: JPrivateKey](
-        checker: PartialFunction[JPrivateKey, Either[DecryptionError, T]]
-    ): Either[DecryptionError, T] =
-      for {
-        _ <- checkKeyFormat(
-          CryptoKeyFormat.Der,
-          privateKey.format,
-          DecryptionError.InvalidEncryptionKey,
-        )
-        javaPrivateKey <- javaPrivateKeyCache
-          .getOrElseUpdate(
-            privateKey.id,
-            toJava(privateKey),
-          )
-          .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
-        privateKey <- checker(javaPrivateKey)
-      } yield privateKey
-
     privateKey.scheme match {
       case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
         for {
-          ecPrivateKey <- checkDerFormatAndGetPrivateKey(
+          ecPrivateKey <- parseAndGetPrivateKey(
+            privateKey,
             { case k: ECPrivateKey =>
               checkEcKeyInCurve(k, privateKey.id).leftMap(err =>
                 DecryptionError.InvalidEncryptionKey(err)
               )
-            }
+            },
+            DecryptionError.InvalidEncryptionKey,
           )
           decrypter <- Either
             .catchOnly[GeneralSecurityException](
@@ -708,12 +713,14 @@ class JcePureCrypto(
         } yield message
       case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
         for {
-          ecPrivateKey <- checkDerFormatAndGetPrivateKey[ECPrivateKey](
+          ecPrivateKey <- parseAndGetPrivateKey(
+            privateKey,
             { case k: ECPrivateKey =>
               checkEcKeyInCurve(k, privateKey.id).leftMap(err =>
                 DecryptionError.InvalidEncryptionKey(err)
               )
-            }
+            },
+            DecryptionError.InvalidEncryptionKey,
           )
           /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
            * that gets  pre-appended to the ciphertext.
@@ -732,7 +739,7 @@ class JcePureCrypto(
               val cipher = Cipher
                 .getInstance(
                   EciesP256HmacSha256Aes128CbcParams.jceInternalName,
-                  bouncyCastleProvider,
+                  JceSecurityProvider.bouncyCastleProvider,
                 )
               cipher.init(
                 Cipher.DECRYPT_MODE,
@@ -752,12 +759,14 @@ class JcePureCrypto(
         } yield message
       case EncryptionKeyScheme.Rsa2048OaepSha256 =>
         for {
-          rsaPrivateKey <- checkDerFormatAndGetPrivateKey[RSAPrivateKey](
+          rsaPrivateKey <- parseAndGetPrivateKey(
+            privateKey,
             { case k: RSAPrivateKey =>
               checkRsaKeySize(k, privateKey.id).leftMap(err =>
                 DecryptionError.InvalidEncryptionKey(err)
               )
-            }
+            },
+            DecryptionError.InvalidEncryptionKey,
           )
           decrypter <- Either
             .catchOnly[GeneralSecurityException] {
@@ -798,9 +807,9 @@ class JcePureCrypto(
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         for {
-          _ <- checkKeyFormat(
-            CryptoKeyFormat.Raw,
+          _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
+            Set(CryptoKeyFormat.Raw),
             EncryptionError.InvalidSymmetricKey,
           )
           encryptedBytes <- encryptAes128Gcm(
@@ -817,9 +826,9 @@ class JcePureCrypto(
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         for {
-          _ <- checkKeyFormat(
-            CryptoKeyFormat.Raw,
+          _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
+            Set(CryptoKeyFormat.Raw),
             DecryptionError.InvalidSymmetricKey,
           )
           plaintext <- decryptAes128Gcm(encrypted.ciphertext, symmetricKey.key)
@@ -882,4 +891,42 @@ class JcePureCrypto(
 
   override protected def generateRandomBytes(length: Int): Array[Byte] =
     JceSecureRandom.generateRandomBytes(length)
+
+  override def deriveSymmetricKey(
+      password: String,
+      symmetricKeyScheme: SymmetricKeyScheme,
+      pbkdfScheme: PbkdfScheme,
+      saltO: Option[SecureRandomness],
+  ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey] = {
+    pbkdfScheme match {
+      case mode: PbkdfScheme.Argon2idMode1.type =>
+        val salt = saltO.getOrElse(generateSecureRandomness(pbkdfScheme.defaultSaltLengthInBytes))
+
+        val params = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
+          .withIterations(mode.iterations)
+          .withMemoryAsKB(mode.memoryInKb)
+          .withParallelism(mode.parallelism)
+          .withSalt(salt.unwrap.toByteArray)
+          .build()
+
+        val argon2 = new Argon2BytesGenerator()
+        argon2.init(params)
+
+        val keyLength = symmetricKeyScheme.keySizeInBytes
+        val keyBytes = new Array[Byte](keyLength)
+        val keyLen = argon2.generateBytes(password.toCharArray, keyBytes)
+
+        val key =
+          SymmetricKey(CryptoKeyFormat.Raw, ByteString.copyFrom(keyBytes), symmetricKeyScheme)
+
+        Either.cond(
+          keyLen == keyLength,
+          PasswordBasedEncryptionKey(key = key, salt = salt),
+          PasswordBasedEncryptionError.PbkdfOutputLengthInvalid(
+            expectedLength = keyLength,
+            actualLength = keyLen,
+          ),
+        )
+    }
+  }
 }

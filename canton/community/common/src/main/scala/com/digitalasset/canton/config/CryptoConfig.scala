@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{
   EncryptionKeyScheme,
   HashAlgorithm,
+  PbkdfScheme,
   SigningKeyScheme,
   SymmetricKeyScheme,
 }
@@ -42,13 +43,16 @@ trait CryptoConfig {
 
   /** the hash algorithm configuration */
   def hash: CryptoSchemeConfig[HashAlgorithm]
+
+  /** the password-based key derivation function configuration */
+  def pbkdf: CryptoSchemeConfig[PbkdfScheme]
 }
 
 final case class CommunityCryptoConfig(
-    provider: CommunityCryptoProvider =
-      CommunityCryptoProvider.Tink, // TODO(i12244): Migrate to JCE.
+    provider: CommunityCryptoProvider = CommunityCryptoProvider.Jce,
     signing: CryptoSchemeConfig[SigningKeyScheme] = CryptoSchemeConfig(),
     encryption: CryptoSchemeConfig[EncryptionKeyScheme] = CryptoSchemeConfig(),
     symmetric: CryptoSchemeConfig[SymmetricKeyScheme] = CryptoSchemeConfig(),
     hash: CryptoSchemeConfig[HashAlgorithm] = CryptoSchemeConfig(),
+    pbkdf: CryptoSchemeConfig[PbkdfScheme] = CryptoSchemeConfig(),
 ) extends CryptoConfig

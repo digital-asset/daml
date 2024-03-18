@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.ledger.client.services
 
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryServiceStub
-import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.event_query_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractIdResponse,
+}
 import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.Future
@@ -27,7 +29,7 @@ class EventQueryServiceClient(service: EventQueryServiceStub) {
 
 //  TODO(#16065)
 //  def getEventsByContractKey(
-//      contractKey: com.daml.ledger.api.v1.value.Value,
+//      contractKey: com.daml.ledger.api.v2.value.Value,
 //      templateId: Identifier,
 //      requestingParties: Seq[String],
 //      continuationToken: String,

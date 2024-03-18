@@ -13,7 +13,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.InputStream
-import java.net.ConnectException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.security.Security
@@ -109,44 +108,6 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
       IOUtils.toString(actual, StandardCharsets.UTF_8) shouldBe "private-key-123"
     }
 
-    "fail on missing secretsUrl when private key is encrypted ('.enc' file extension)" in {
-      // given
-      val keyFilePath = Files.createTempFile("private-key", ".enc")
-      Files.write(keyFilePath, "private-key-123".getBytes())
-      assume(Files.readAllBytes(keyFilePath) sameElements "private-key-123".getBytes)
-      val keyFile = keyFilePath.toFile
-      val tested = TlsConfiguration.Empty
-
-      // when
-      val e = intercept[PrivateKeyDecryptionException] {
-        val _: InputStream = tested.prepareKeyInputStream(keyFile)
-      }
-
-      // then
-      e.getCause shouldBe a[IllegalStateException]
-      e.getCause.getMessage should endWith("cannot decrypt keyFile without secretsUrl.")
-    }
-
-    "attempt to decrypt private key using by fetching decryption params from an url" in {
-      // given
-      val keyFilePath = Files.createTempFile("private-key", ".enc")
-      Files.write(keyFilePath, "private-key-123".getBytes())
-      assume(Files.readAllBytes(keyFilePath) sameElements "private-key-123".getBytes)
-      val keyFile = keyFilePath.toFile
-      val tested = TlsConfiguration.Empty.copy(
-        secretsUrl = Some(() => throw new ConnectException("Mocked url 123"))
-      )
-
-      // when
-      val e = intercept[PrivateKeyDecryptionException] {
-        val _: InputStream = tested.prepareKeyInputStream(keyFile)
-      }
-
-      // then We are not interested in decryption details (as that part is tested elsewhere).
-      // We only want to verify that the decryption code path was hit (as opposed to the no-decryption code path when private key is in plaintext)
-      e.getCause shouldBe a[ConnectException]
-      e.getCause.getMessage shouldBe "Mocked url 123"
-    }
   }
 
   private def configWithProtocols(minTls: Option[TlsVersion]): Option[TlsConfiguration] = {

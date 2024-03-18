@@ -31,7 +31,8 @@ object CantonNodeParameters {
     def batchingConfig: BatchingConfig
     def nonStandardConfig: Boolean
     def dbMigrateAndStart: Boolean
-
+    def useNewTrafficControl: Boolean
+    def exitOnFatalFailures: Boolean
   }
   object General {
     final case class Impl(
@@ -47,6 +48,8 @@ object CantonNodeParameters {
         batchingConfig: BatchingConfig,
         nonStandardConfig: Boolean,
         dbMigrateAndStart: Boolean,
+        useNewTrafficControl: Boolean,
+        exitOnFatalFailures: Boolean,
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -83,6 +86,9 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def batchingConfig: BatchingConfig = general.batchingConfig
   override def nonStandardConfig: Boolean = general.nonStandardConfig
   override def dbMigrateAndStart: Boolean = general.dbMigrateAndStart
+  override def useNewTrafficControl: Boolean = general.useNewTrafficControl
+  override def exitOnFatalFailures: Boolean = general.exitOnFatalFailures
+
 }
 
 trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {

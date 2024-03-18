@@ -55,10 +55,14 @@ class SerializationDeserializationTest
       generatorsProtocol,
       generatorsProtocolSeq,
     )
+    val generatorsTrafficData = new GeneratorsTrafficData(
+      version
+    )
 
     import generatorsData.*
     import generatorsMessages.*
     import generatorsTransferData.*
+    import generatorsTrafficData.*
     import generatorsVerdict.*
     import generatorsLocalVerdict.*
     import generatorsProtocol.*
@@ -77,10 +81,8 @@ class SerializationDeserializationTest
         testProtocolVersionedWithCtx(SignedProtocolMessage, version)
 
         testProtocolVersioned(LocalVerdict)
-        testProtocolVersioned(TransferResult)
-        testProtocolVersioned(MalformedConfirmationRequestResult)
         testProtocolVersionedWithCtx(EnvelopeContent, (TestHash, version))
-        testMemoizedProtocolVersioned(TransactionResultMessage)
+        testMemoizedProtocolVersioned(ConfirmationResultMessage)
 
         testProtocolVersioned(AcknowledgeRequest)
         testProtocolVersioned(AggregationRule)

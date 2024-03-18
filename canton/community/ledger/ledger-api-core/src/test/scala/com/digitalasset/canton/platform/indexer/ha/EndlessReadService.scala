@@ -11,7 +11,7 @@ import com.daml.lf.transaction.test.{TestNodeBuilder, TreeTransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerId}
+import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   CompletionInfo,
@@ -55,7 +55,7 @@ final case class EndlessReadService(
   )
 
   /** Produces the following stream of updates:
-    *    1. a config change
+    *    1. an init update
     *    1. a party allocation
     *    1. a package upload
     *    1. a transaction that creates a contract
@@ -74,11 +74,8 @@ final case class EndlessReadService(
         .fromIterator(() => Iterator.from(startIndex))
         .map {
           case i @ 1 =>
-            offset(i) -> Update.ConfigurationChanged(
-              recordTime(i),
-              submissionId(i),
-              participantId,
-              configuration,
+            offset(i) -> Update.Init(
+              recordTime(i)
             )
           case i @ 2 =>
             offset(i) -> Update.PartyAddedToParticipant(
@@ -158,7 +155,6 @@ object EndlessReadService {
   val ledgerId: LedgerId = "EndlessReadService"
   val participantId: Ref.ParticipantId =
     Ref.ParticipantId.assertFromString("EndlessReadServiceParticipant")
-  val configuration: Configuration = Configuration.reasonableInitialConfiguration
   val party: Ref.Party = Ref.Party.assertFromString("operator")
   val applicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("Application")
   val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")

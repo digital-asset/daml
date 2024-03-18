@@ -28,14 +28,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
-import com.digitalasset.canton.{
-  BaseTest,
-  DomainAlias,
-  HasExecutionContext,
-  LfPackageId,
-  LfPartyId,
-  LfWorkflowId,
-}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageId, LfPartyId}
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -244,16 +237,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
     }
 
     "a domain is prescribed" when {
-      "return correct response when prescribed domain is the current one" in {
-        val selector = selectorForExerciseByInterface(
-          prescribedDomainAlias = Some("da")
-        )
-
-        selector.forSingleDomain.futureValue shouldBe defaultDomainRank
-        selector.forMultiDomain.futureValue shouldBe defaultDomainRank
-      }
-
-      "return correct response when prescribed domain as a domain ID is the current one" in {
+      "return correct response when prescribed submitter domain ID is the current one" in {
         val selector = selectorForExerciseByInterface(
           prescribedDomainId = Some(da)
         )
@@ -262,38 +246,9 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         selector.forMultiDomain.futureValue shouldBe defaultDomainRank
       }
 
-      "return correct response when prescribed submitter domain ID is the current one" in {
-        val selector = selectorForExerciseByInterface(
-          prescribedSubmitterDomainId = Some(da)
-        )
-
-        selector.forSingleDomain.futureValue shouldBe defaultDomainRank
-        selector.forMultiDomain.futureValue shouldBe defaultDomainRank
-      }
-
-      "return correct response when prescribed submitter domain ID is the current one (precedence over prescribed alias)" in {
-        val selector = selectorForExerciseByInterface(
-          prescribedDomainAlias = Some("acme"),
-          prescribedSubmitterDomainId = Some(da),
-        )
-
-        selector.forSingleDomain.futureValue shouldBe defaultDomainRank
-        selector.forMultiDomain.futureValue shouldBe defaultDomainRank
-      }
-
-      "return correct response when prescribed submitter domain ID is the current one (precedence over prescribed domain ID)" in {
-        val selector = selectorForExerciseByInterface(
-          prescribedDomainId = Some(acme),
-          prescribedSubmitterDomainId = Some(da),
-        )
-
-        selector.forSingleDomain.futureValue shouldBe defaultDomainRank
-        selector.forMultiDomain.futureValue shouldBe defaultDomainRank
-      }
-
       "return an error when prescribed domain is incorrect" in {
         val selector = selectorForExerciseByInterface(
-          prescribedDomainAlias = Some("acme"),
+          prescribedDomainId = Some(acme),
           connectedDomains = Set(acme, da),
         )
 
@@ -314,7 +269,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       "propose transfers when needed" in {
         val selector = selectorForExerciseByInterface(
-          prescribedDomainAlias = Some("acme"),
+          prescribedDomainId = Some(acme),
           connectedDomains = Set(acme, da),
           admissibleDomains = NonEmpty.mk(Set, acme, da),
         )
@@ -430,9 +385,7 @@ private[routing] object DomainSelectorTest {
     private val defaultAdmissibleDomains: NonEmpty[Set[DomainId]] =
       NonEmpty.mk(Set, da)
 
-    private val defaultPrescribedDomainAlias: Option[String] = None
     private val defaultPrescribedDomainId: Option[DomainId] = None
-    private val defaultPrescribedSubmitterDomainId: Option[DomainId] = None
 
     private val defaultDomainProtocolVersion: DomainId => ProtocolVersion = _ =>
       BaseTest.testedProtocolVersion
@@ -443,9 +396,7 @@ private[routing] object DomainSelectorTest {
           defaultDomainOfContracts,
         connectedDomains: Set[DomainId] = Set(defaultDomain),
         admissibleDomains: NonEmpty[Set[DomainId]] = defaultAdmissibleDomains,
-        prescribedDomainAlias: Option[String] = defaultPrescribedDomainAlias,
         prescribedDomainId: Option[DomainId] = defaultPrescribedDomainId,
-        prescribedSubmitterDomainId: Option[DomainId] = defaultPrescribedSubmitterDomainId,
         domainProtocolVersion: DomainId => ProtocolVersion = defaultDomainProtocolVersion,
         transactionVersion: TransactionVersion = fixtureTransactionVersion,
         vettedPackages: Seq[LfPackageId] = ExerciseByInterface.correctPackages,
@@ -466,9 +417,7 @@ private[routing] object DomainSelectorTest {
         domainOfContracts,
         connectedDomains,
         admissibleDomains,
-        prescribedDomainAlias,
         prescribedDomainId,
-        prescribedSubmitterDomainId,
         domainProtocolVersion,
         vettedPackages,
         exerciseByInterface.tx,
@@ -483,7 +432,6 @@ private[routing] object DomainSelectorTest {
           defaultDomainOfContracts,
         connectedDomains: Set[DomainId] = Set(defaultDomain),
         admissibleDomains: NonEmpty[Set[DomainId]] = defaultAdmissibleDomains,
-        prescribedDomainAlias: Option[String] = defaultPrescribedDomainAlias,
         domainProtocolVersion: DomainId => ProtocolVersion = defaultDomainProtocolVersion,
         vettedPackages: Seq[LfPackageId] = ExerciseByInterface.correctPackages,
         inputContractStakeholders: Map[LfContractId, Set[Ref.Party]] = Map.empty,
@@ -506,8 +454,6 @@ private[routing] object DomainSelectorTest {
         domainOfContracts,
         connectedDomains,
         admissibleDomains,
-        prescribedDomainAlias,
-        None,
         None,
         domainProtocolVersion,
         vettedPackages,
@@ -522,8 +468,6 @@ private[routing] object DomainSelectorTest {
         domainOfContracts: Seq[LfContractId] => Map[LfContractId, DomainId],
         connectedDomains: Set[DomainId],
         admissibleDomains: NonEmpty[Set[DomainId]],
-        prescribedDomainAlias: Option[String],
-        prescribedDomainId: Option[DomainId],
         prescribedSubmitterDomainId: Option[DomainId],
         domainProtocolVersion: DomainId => ProtocolVersion,
         vettedPackages: Seq[LfPackageId],
@@ -558,13 +502,6 @@ private[routing] object DomainSelectorTest {
           Future.successful(domainOfContracts(coids))
       }
 
-      private val domainAliasResolver: DomainAlias => Option[DomainId] = alias =>
-        Some(
-          DomainId(
-            UniqueIdentifier(Identifier.tryCreate(alias.unwrap), DefaultTestIdentities.namespace)
-          )
-        )
-
       private val domainRankComputation = new DomainRankComputation(
         participantId = submitterParticipantId,
         priorityOfDomain = priorityOfDomain,
@@ -576,17 +513,10 @@ private[routing] object DomainSelectorTest {
         .create(
           submitters = Set(signatory),
           transaction = tx,
-          workflowIdO = prescribedDomainAlias
-            .map(LfWorkflowId.assertFromString)
-            .orElse(
-              prescribedDomainId
-                .map(domainId => s"workflow data domain-id:${domainId.toProtoPrimitive}")
-                .map(LfWorkflowId.assertFromString)
-            ),
           domainStateProvider = TestDomainStateProvider,
-          domainIdResolver = domainAliasResolver,
           contractRoutingParties = inputContractStakeholders,
-          submitterDomainId = prescribedSubmitterDomainId,
+          prescribedDomainId = prescribedSubmitterDomainId,
+          disclosedContracts = Nil,
         )
 
       private val domainSelector: EitherT[Future, TransactionRoutingError, DomainSelector] =

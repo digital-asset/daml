@@ -254,7 +254,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   // Leaves for various types
   private def alt: CaseAlt = CaseAlt(CPNil, exp)
-  private def exp: Expr = EPrimLit(PLText("exp"))
+  private def exp: Expr = EBuiltinLit(BLText("exp"))
   private def ty: Type = TVar(Name.assertFromString("ty"))
   private def binder: (ExprVarName, Type) = (varname, ty)
   private def tvBinder: (TypeVarName, Kind) = (tvar, KStar)

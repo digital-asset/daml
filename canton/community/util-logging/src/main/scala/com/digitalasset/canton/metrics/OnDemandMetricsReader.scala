@@ -4,8 +4,9 @@
 package com.digitalasset.canton.metrics
 
 import io.opentelemetry.sdk.common.CompletableResultCode
+import io.opentelemetry.sdk.metrics.InstrumentType
 import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
-import io.opentelemetry.sdk.metrics.`export`.{MetricProducer, MetricReader, MetricReaderFactory}
+import io.opentelemetry.sdk.metrics.`export`.{MetricProducer, CollectionRegistration, MetricReader}
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference
@@ -24,22 +25,19 @@ object OnDemandMetricsReader {
 }
 
 class OpenTelemetryOnDemandMetricsReader
-    extends MetricReaderFactory
-    with MetricReader
+    extends MetricReader
     with OnDemandMetricsReader {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private val optionalProducer = new AtomicReference[Option[MetricProducer]](None)
+  private val optionalProducer = new AtomicReference[Option[CollectionRegistration]](None)
 
-  override def apply(producer: MetricProducer): MetricReader = {
-    optionalProducer.set(Some(producer))
-    this
-  }
+  override def register(registration: CollectionRegistration): Unit =
+    optionalProducer.set(Some(registration))
 
-  override def getPreferredTemporality: AggregationTemporality = AggregationTemporality.CUMULATIVE
+  override def forceFlush(): CompletableResultCode = CompletableResultCode.ofSuccess()
 
-  override def flush(): CompletableResultCode = CompletableResultCode.ofSuccess()
+  override def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality = AggregationTemporality.CUMULATIVE
 
   override def shutdown(): CompletableResultCode = {
     optionalProducer.set(None)
@@ -57,5 +55,6 @@ class OpenTelemetryOnDemandMetricsReader
         Seq.empty
       }
   }
+
 
 }

@@ -42,7 +42,7 @@ object TopUpEvent {
       limit <- ProtoConverter.parsePositiveLong(topUp.extraTrafficLimit)
       serial <- ProtoConverter.parsePositiveInt(topUp.serial)
       validFrom <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
+        CantonTimestamp.fromProtoTimestamp,
         "effective_at",
         topUp.effectiveAt,
       )
@@ -61,7 +61,7 @@ final case class TopUpEvent(
 ) {
   def toProtoV30: TopUpEventP = {
     TopUpEventP(
-      Some(validFromInclusive.toProtoPrimitive),
+      Some(validFromInclusive.toProtoTimestamp),
       serial = serial.value,
       extraTrafficLimit = limit.value,
     )

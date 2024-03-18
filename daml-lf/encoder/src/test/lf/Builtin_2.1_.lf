@@ -37,18 +37,6 @@ module BuiltinMod {
     FOLDL;
   val foldr: forall (a: *) (b: *). (a -> b -> b) -> b -> List a -> b =
     FOLDR;
-  val textmapEmpty: forall (a: *). TextMap a =
-    TEXTMAP_EMPTY;
-  val textmapInsert: forall (a: *). Text -> a -> TextMap a -> TextMap a =
-    TEXTMAP_INSERT;
-  val textmapLookup: forall (a: *). Text -> TextMap a -> Option a =
-    TEXTMAP_LOOKUP;
-  val textmapDelete: forall (a: *). Text -> TextMap a -> TextMap a =
-    TEXTMAP_DELETE;
-  val textmapToList: forall (a: *). TextMap a -> List <key: Text, value: a> =
-    TEXTMAP_TO_LIST;
-  val textmapSize: forall (a: *). TextMap a -> Int64 =
-    TEXTMAP_SIZE;
   val genmapEmpty: forall (a: *) (b: *). GenMap a b =
     GENMAP_EMPTY;
   val genmapInsert: forall (a: *) (b: *). a -> b -> GenMap a b -> GenMap a b =
@@ -75,8 +63,6 @@ module BuiltinMod {
     TIMESTAMP_TO_TEXT;
   val partyToText: Party -> Text =
     PARTY_TO_TEXT;
-  val textToText: Text -> Text =
-    TEXT_TO_TEXT;
   val contractIdToText: forall (a: *). ContractId a -> Option Text =
     CONTRACT_ID_TO_TEXT;
   val codePointsToText: List Int64 -> Text =

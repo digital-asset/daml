@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc

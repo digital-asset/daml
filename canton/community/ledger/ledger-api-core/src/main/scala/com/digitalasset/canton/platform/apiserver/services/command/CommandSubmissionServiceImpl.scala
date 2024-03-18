@@ -15,8 +15,7 @@ import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequ
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
-import com.digitalasset.canton.ledger.configuration.Configuration
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -31,7 +30,6 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.SeedService
-import com.digitalasset.canton.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
@@ -57,7 +55,6 @@ private[apiserver] object CommandSubmissionServiceImpl {
       commandsValidator: CommandsValidator,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
@@ -71,7 +68,6 @@ private[apiserver] object CommandSubmissionServiceImpl {
     writeService,
     timeProvider,
     timeProviderType,
-    ledgerConfigurationSubscription,
     seedService,
     commandExecutor,
     checkOverloaded,
@@ -85,7 +81,6 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     writeService: state.WriteService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
-    ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     checkOverloaded: TraceContext => Option[state.SubmissionResult],
@@ -129,18 +124,9 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
 
-      val evaluatedCommand = ledgerConfigurationSubscription
-        .latestConfiguration() match {
-        case Some(ledgerConfiguration) =>
-          evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
-            .transform(handleSubmissionResult)
-        case None =>
-          Future.failed(
-            RequestValidationErrors.NotFound.LedgerConfiguration
-              .Reject()
-              .asGrpcError
-          )
-      }
+      val evaluatedCommand =
+        evaluateAndSubmit(seedService.nextSeed(), request.commands)
+          .transform(handleSubmissionResult)
       evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
     }
 
@@ -179,7 +165,6 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   private def evaluateAndSubmit(
       submissionSeed: crypto.Hash,
       commands: ApiCommands,
-      ledgerConfig: Configuration,
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
@@ -189,20 +174,18 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       case None =>
         for {
           result <- withSpan("ApiSubmissionService.evaluate") { _ => _ =>
-            commandExecutor.execute(commands, submissionSeed, ledgerConfig)
+            commandExecutor.execute(commands, submissionSeed)
           }
           transactionInfo <- handleCommandExecutionResult(result)
-          submissionResult <- submitTransaction(
-            transactionInfo,
-            ledgerConfig,
+          submissionResult <- submitTransactionWithDelay(
+            transactionInfo
           )
         } yield submissionResult
     }
   }
 
-  private def submitTransaction(
-      transactionInfo: CommandExecutionResult,
-      ledgerConfig: Configuration,
+  private def submitTransactionWithDelay(
+      transactionInfo: CommandExecutionResult
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[state.SubmissionResult] =
@@ -212,7 +195,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
         // If the ledger time of the transaction is far in the future (farther than the expected latency),
         // the submission to the WriteService is delayed.
         val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
-          .minus(ledgerConfig.timeModel.avgTransactionLatency)
+          .minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
         val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
         if (submissionDelay.isNegative)
           submitTransaction(transactionInfo)

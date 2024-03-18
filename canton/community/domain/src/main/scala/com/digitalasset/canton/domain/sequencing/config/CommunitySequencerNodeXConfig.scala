@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.config
 
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.domain.config.CommunityPublicServerConfig
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommunitySequencerConfig,
   SequencerHealthConfig,
@@ -27,7 +28,8 @@ final case class CommunitySequencerNodeXConfig(
     override val parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
     override val health: SequencerHealthConfig = SequencerHealthConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
-    override val topologyX: TopologyXConfig = TopologyXConfig(),
+    override val topology: TopologyConfig = TopologyConfig(),
+    override val trafficConfig: SequencerTrafficConfig = SequencerTrafficConfig(),
 ) extends SequencerNodeConfigCommon(
       init,
       publicApi,
@@ -41,6 +43,7 @@ final case class CommunitySequencerNodeXConfig(
       parameters,
       health,
       monitoring,
+      trafficConfig,
     )
     with ConfigDefaults[DefaultPorts, CommunitySequencerNodeXConfig] {
 
@@ -49,9 +52,9 @@ final case class CommunitySequencerNodeXConfig(
   override def withDefaults(ports: DefaultPorts): CommunitySequencerNodeXConfig = {
     this
       .focus(_.publicApi.internalPort)
-      .modify(ports.sequencerXPublicApiPort.setDefaultPort)
+      .modify(ports.sequencerPublicApiPort.setDefaultPort)
       .focus(_.adminApi.internalPort)
-      .modify(ports.sequencerXAdminApiPort.setDefaultPort)
+      .modify(ports.sequencerAdminApiPort.setDefaultPort)
   }
 }
 

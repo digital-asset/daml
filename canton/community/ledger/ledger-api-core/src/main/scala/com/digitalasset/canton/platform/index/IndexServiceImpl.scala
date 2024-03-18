@@ -22,7 +22,6 @@ import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.api.domain.ConfigurationEntry.Accepted
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -34,7 +33,6 @@ import com.digitalasset.canton.ledger.api.domain.{
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.offset.Offset
@@ -60,8 +58,10 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerReadDao,
 }
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import com.digitalasset.canton.platform.{ApiOffset, Party, PruneBuffers, TemplatePartiesFilter}
+import com.digitalasset.canton.util.EitherUtil
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -264,8 +264,9 @@ private[index] class IndexServiceImpl(
   ): Source[GetActiveContractsResponse, NotUsed] = {
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
     foldToSource {
+      val currentPackageMetadata = packageMetadataView.current()
       for {
-        _ <- checkUnknownIdentifiers(transactionFilter, packageMetadataView.current()).left
+        _ <- checkUnknownIdentifiers(transactionFilter, currentPackageMetadata).left
           .map(_.asGrpcError)
         endOffset = ledgerEnd()
         activeAt = activeAtO.getOrElse(endOffset)
@@ -276,7 +277,7 @@ private[index] class IndexServiceImpl(
             transactionFilterProjection(
               transactionFilter,
               verbose,
-              packageMetadataView.current(),
+              currentPackageMetadata,
               alwaysPopulateArguments = false,
             ).toList
           ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
@@ -387,55 +388,6 @@ private[index] class IndexServiceImpl(
       .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPackageEntries)))
       .mapError(shutdownError)
       .map(_._2.toDomain)
-
-  /** Looks up the current configuration, if set, and the offset from which
-    * to subscribe to further configuration changes.
-    * The offset is internal and not exposed over Ledger API.
-    */
-  override def lookupConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
-    ledgerDao
-      .lookupLedgerConfiguration()
-      .map(
-        _.map { case (offset, config) => (toAbsolute(offset), config) }
-      )(directEc)
-
-  /** Looks up the current configuration, if set, and continues to stream configuration changes.
-    */
-  override def getLedgerConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[LedgerConfiguration, NotUsed] = {
-    Source
-      .future(lookupConfiguration())
-      .flatMapConcat { optResult =>
-        val offset = optResult.map(_._1)
-        val foundConfig = optResult.map(_._2)
-
-        val initialConfig = Source(foundConfig.toList)
-        val configStream = configurationEntries(offset).collect {
-          case (_, Accepted(_, configuration)) => configuration
-        }
-        initialConfig
-          .concat(configStream)
-          .map(cfg => LedgerConfiguration(cfg.maxDeduplicationDuration))
-      }
-  }
-
-  /** Retrieve configuration entries. */
-  override def configurationEntries(startExclusive: Option[ParticipantOffset.Absolute])(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(domain.ParticipantOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
-    Source
-      .future(concreteOffset(startExclusive))
-      .flatMapConcat(
-        dispatcher()
-          .startingAt(_, RangeSource(ledgerDao.getConfigurationEntries))
-          .mapError(shutdownError)
-          .map { case (offset, config) =>
-            toAbsolute(offset) -> config.toDomain
-          }
-      )
 
   override def prune(
       pruneUpToInclusive: Offset,
@@ -564,17 +516,30 @@ object IndexServiceImpl {
     val unknownPackageNames = Set.newBuilder[Ref.PackageName]
     val unknownTemplateIds = Set.newBuilder[Identifier]
     val unknownInterfaceIds = Set.newBuilder[Identifier]
+    val packageNamesWithNoTemplatesForQualifiedNameBuilder =
+      Set.newBuilder[(Ref.PackageName, Ref.QualifiedName)]
+
+    def checkTypeConRef(typeConRef: TypeConRef): Unit = typeConRef match {
+      case TypeConRef(PackageRef.Name(packageName), qualifiedName) =>
+        metadata.packageNameMap.get(packageName) match {
+          case Some(PackageResolution(_, allPackageIdsForName))
+              if !allPackageIdsForName.view
+                .map(Ref.Identifier(_, qualifiedName))
+                .exists(metadata.templates) =>
+            packageNamesWithNoTemplatesForQualifiedNameBuilder += (packageName -> qualifiedName)
+          case None => unknownPackageNames += packageName
+          case _ => ()
+        }
+
+      case TypeConRef(PackageRef.Id(packageId), qName) =>
+        val templateId = Identifier(packageId, qName)
+        if (!metadata.templates.contains(templateId)) unknownTemplateIds += templateId
+    }
 
     domainTransactionFilter.filtersByParty.iterator
       .flatMap(_._2.inclusive.iterator)
       .foreach { case InclusiveFilters(templateFilters, interfaceFilters) =>
-        templateFilters.iterator.map(_.templateTypeRef).foreach {
-          case TypeConRef(PackageRef.Name(packageName), _) =>
-            if (!metadata.packageNameMap.contains(packageName)) unknownPackageNames += packageName
-          case TypeConRef(PackageRef.Id(packageId), qName) =>
-            val templateId = Identifier(packageId, qName)
-            if (!metadata.templates.contains(templateId)) unknownTemplateIds += templateId
-        }
+        templateFilters.iterator.map(_.templateTypeRef).foreach(checkTypeConRef)
         interfaceFilters.iterator.map(_.interfaceId).foreach { interfaceId =>
           if (!metadata.interfaces.contains(interfaceId)) unknownInterfaceIds += interfaceId
         }
@@ -583,16 +548,22 @@ object IndexServiceImpl {
     val packageNames = unknownPackageNames.result()
     val templateIds = unknownTemplateIds.result()
     val interfaceIds = unknownInterfaceIds.result()
+    val packageNamesWithNoTemplatesForQualifiedName =
+      packageNamesWithNoTemplatesForQualifiedNameBuilder.result()
 
     for {
-      _ <- Either.cond(
+      _ <- EitherUtil.condUnitE(
         packageNames.isEmpty,
-        (),
         RequestValidationErrors.NotFound.PackageNamesNotFound.Reject(packageNames),
       )
-      _ <- Either.cond(
-        templateIds.isEmpty & interfaceIds.isEmpty,
-        (),
+      _ <- EitherUtil.condUnitE(
+        packageNamesWithNoTemplatesForQualifiedName.isEmpty,
+        RequestValidationErrors.NotFound.NoTemplatesForPackageNameAndQualifiedName.Reject(
+          packageNamesWithNoTemplatesForQualifiedName
+        ),
+      )
+      _ <- EitherUtil.condUnitE(
+        templateIds.isEmpty && interfaceIds.isEmpty,
         RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound
           .Reject(unknownTemplatesOrInterfaces =
             (templateIds.view.map(Left(_)) ++ interfaceIds.view.map(Right(_))).toSeq

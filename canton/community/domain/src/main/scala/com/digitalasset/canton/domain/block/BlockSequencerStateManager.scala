@@ -17,13 +17,14 @@ import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   BlockUpdateClosureWithHeight,
+  EphemeralState,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.error.SequencerBaseError
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
@@ -76,12 +77,14 @@ trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
   def isMemberEnabled(member: Member): Boolean
 
   def handleBlock(
-      updateClosure: BlockUpdateClosureWithHeight
-  ): FutureUnlessShutdown[BlockEphemeralState]
+      currentHeadState: HeadState,
+      updateClosure: BlockUpdateClosureWithHeight,
+  ): FutureUnlessShutdown[HeadState]
 
   def handleLocalEvent(
-      event: BlockSequencer.LocalEvent
-  )(implicit traceContext: TraceContext): Future[Unit]
+      currentHeadState: HeadState,
+      event: BlockSequencer.LocalEvent,
+  )(implicit traceContext: TraceContext): Future[HeadState]
 
   def pruneLocalDatabase(
       timestamp: CantonTimestamp
@@ -113,6 +116,7 @@ class BlockSequencerStateManager(
     override val maybeLowerTopologyTimestampBound: Option[CantonTimestamp],
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    rateLimitManager: SequencerRateLimitManager,
 )(implicit executionContext: ExecutionContext, closeContext: CloseContext)
     extends BlockSequencerStateManagerBase
     with NamedLogging {
@@ -129,6 +133,7 @@ class BlockSequencerStateManager(
     import TraceContext.Implicits.Empty.*
     val headBlock =
       timeouts.unbounded.await(s"Reading the head of the $domainId sequencer state")(store.readHead)
+    logger.debug(s"Initialized the block sequencer with head block ${headBlock.latestBlock}")
     HeadState.fullyProcessed(headBlock)
   })
 
@@ -163,14 +168,13 @@ class BlockSequencerStateManager(
     headState.get().chunk.ephemeral.status.members.exists(s => s.enabled && s.member == member)
 
   override def handleBlock(
-      updateClosure: BlockUpdateClosureWithHeight
-  ): FutureUnlessShutdown[BlockEphemeralState] = {
+      currentHeadState: HeadState,
+      updateClosure: BlockUpdateClosureWithHeight,
+  ): FutureUnlessShutdown[HeadState] = {
     implicit val traceContext: TraceContext = updateClosure.blockTraceContext
     closeContext.context.performUnlessClosingUSF("handleBlock") {
 
-      val blockEphemeralState = {
-        headState.get().blockEphemeralState
-      }
+      val blockEphemeralState = currentHeadState.blockEphemeralState
       checkInvariantIfEnabled(blockEphemeralState)
       val height = updateClosure.height
       val lastBlockHeight = blockEphemeralState.latestBlock.height
@@ -182,7 +186,7 @@ class BlockSequencerStateManager(
         logger.debug(s"Skipping update with height $height since it was already processed. ")(
           traceContext
         )
-        FutureUnlessShutdown.pure(blockEphemeralState)
+        FutureUnlessShutdown.pure(currentHeadState)
       } else if (lastBlockHeight > block.UninitializedBlockHeight && height > lastBlockHeight + 1) {
         val msg =
           s"Received block of height $height while the last processed block only had height $lastBlockHeight. " +
@@ -192,15 +196,20 @@ class BlockSequencerStateManager(
       } else
         updateClosure
           .updateGenerator(blockEphemeralState)
-          .flatMap(handleUpdate)
+          .flatMap(handleUpdate(currentHeadState, _))
     }
   }
 
   override def handleLocalEvent(
-      event: BlockSequencer.LocalEvent
-  )(implicit traceContext: TraceContext): Future[Unit] = event match {
-    case BlockSequencer.DisableMember(member) => locallyDisableMember(member)
-    case BlockSequencer.Prune(timestamp) => pruneLocalDatabase(timestamp)
+      priorHead: HeadState,
+      event: BlockSequencer.LocalEvent,
+  )(implicit traceContext: TraceContext): Future[HeadState] = event match {
+    case BlockSequencer.DisableMember(member) => locallyDisableMember(priorHead, member)
+    case BlockSequencer.Prune(timestamp) =>
+      pruneLocalDatabase(timestamp).map { (_: Unit) =>
+        // Pruning does not change the head state
+        priorHead
+      }
   }
 
   override def pruneLocalDatabase(
@@ -306,8 +315,9 @@ class BlockSequencerStateManager(
   }
 
   private def locallyDisableMember(
-      member: Member
-  )(implicit traceContext: TraceContext): Future[Unit] =
+      priorHead: HeadState,
+      member: Member,
+  )(implicit traceContext: TraceContext): Future[HeadState] =
     store
       .partialBlockUpdate(
         newMembers = Map(),
@@ -319,13 +329,13 @@ class BlockSequencerStateManager(
       )
       .map { _ =>
         import monocle.macros.syntax.lens.*
-        val head = getHeadState
-        val memebersMap = head.chunk.ephemeral.status.membersMap
-        val newHead = head
+        val memebersMap = priorHead.chunk.ephemeral.status.membersMap
+        val newHead = priorHead
           .focus(_.chunk.ephemeral.status.membersMap)
           .replace(memebersMap.updated(member, memebersMap(member).copy(enabled = false)))
-        updateHeadState(head, newHead)
+        updateHeadState(priorHead, newHead)
         resolveWaitingForMemberDisablement(member)
+        newHead
       }
 
   private def updateMemberCounterSupportedAfter(member: Member, counter: SequencerCounter)(implicit
@@ -342,10 +352,9 @@ class BlockSequencerStateManager(
         }.discard
       )
 
-  private def handleChunkUpdate(update: ChunkUpdate)(implicit
+  private def handleChunkUpdate(priorHead: HeadState, update: ChunkUpdate)(implicit
       batchTraceContext: TraceContext
-  ): Future[Unit] = {
-    val priorHead = headState.get()
+  ): Future[HeadState] = {
     val priorState = priorHead.chunk
     val chunkNumber = priorState.chunkNumber + 1
     assert(
@@ -357,10 +366,10 @@ class BlockSequencerStateManager(
       s"Events in chunk $chunkNumber have timestamp lower than in the previous chunk or block",
     )
     assert(
-      update.lastTopologyClientTimestamp.forall(last =>
-        priorState.latestTopologyClientTimestamp.forall(_ < last)
+      update.lastSequencerEventTimestamp.forall(last =>
+        priorState.latestSequencerEventTimestamp.forall(_ < last)
       ),
-      s"The last topology client timestamp ${update.lastTopologyClientTimestamp} in chunk $chunkNumber must be later than the previous chunk's or block's latest topology client timestamp at ${priorState.latestTopologyClientTimestamp}",
+      s"The last sequencer's event timestamp ${update.lastSequencerEventTimestamp} in chunk $chunkNumber must be later than the previous chunk's or block's latest sequencer event timestamp at ${priorState.latestSequencerEventTimestamp}",
     )
 
     def checkFirstSequencerCounters: Boolean = {
@@ -388,7 +397,7 @@ class BlockSequencerStateManager(
       chunkNumber,
       update.state,
       lastTs,
-      update.lastTopologyClientTimestamp.orElse(priorState.latestTopologyClientTimestamp),
+      update.lastSequencerEventTimestamp.orElse(priorState.latestSequencerEventTimestamp),
     )
 
     logger.debug(s"Adding block updates for chunk $chunkNumber to store")
@@ -397,7 +406,7 @@ class BlockSequencerStateManager(
         newMembers = update.newMembers,
         events = update.signedEvents,
         acknowledgments = update.acknowledgements,
-        membersDisabled = update.membersDisabled,
+        membersDisabled = Seq.empty,
         inFlightAggregationUpdates = update.inFlightAggregationUpdates,
         update.state.trafficState,
       )
@@ -408,21 +417,13 @@ class BlockSequencerStateManager(
             case (member, tombstone) if tombstone.isTombstone => member -> tombstone.counter
           }
       ) { case (member, counter) => updateMemberCounterSupportedAfter(member, counter) }
-      _ <- // Advance the supported counters before we delete the data of the old counters
-        if (update.pruningRequests.nonEmpty)
-          store.initialMemberCounters.map(initial => countersSupportedAfter.set(initial))
-        else Future.unit
-      _ <- Future.sequence(update.pruningRequests.map(_.withTraceContext {
-        pruneTraceContext => ts =>
-          logger.debug("Performing sequencer pruning on local state")(pruneTraceContext)
-          store.prune(ts)(pruneTraceContext).map(resolveSequencerPruning(ts, _))
-      }))
     } yield {
       // head state update must happen before member counters are updated
       // as otherwise, if we have a registration in between counter-signalling and head-state,
       // the dispatcher will be initialised with the old head state but not be notified about
       // a change.
-      updateHeadState(priorHead, priorHead.copy(chunk = newState))
+      val newHead = priorHead.copy(chunk = newState)
+      updateHeadState(priorHead, newHead)
       signalMemberCountersToDispatchers(newState.ephemeral)
       resolveWaitingForNewMembers(newState.ephemeral)
       resolveWaitingForMemberDisablement(newState.ephemeral)
@@ -432,15 +433,15 @@ class BlockSequencerStateManager(
       update.invalidAcknowledgements.foreach { case (member, timestamp, error) =>
         invalidAcknowledgement(member, timestamp, error)
       }
+      newHead
     }
   }
 
-  private def handleUpdate(update: BlockUpdates)(implicit
+  private def handleUpdate(priorHeadState: HeadState, update: BlockUpdates)(implicit
       blockTraceContext: TraceContext
-  ): FutureUnlessShutdown[BlockEphemeralState] = {
+  ): FutureUnlessShutdown[HeadState] = {
 
-    def handleComplete(newBlock: BlockInfo): Future[BlockEphemeralState] = {
-      val priorHead = headState.get
+    def handleComplete(priorHead: HeadState, newBlock: BlockInfo): Future[HeadState] = {
       val chunkState = priorHead.chunk
 
       assert(
@@ -448,7 +449,7 @@ class BlockSequencerStateManager(
         s"The block's last timestamp must be at least the last timestamp of the last chunk",
       )
       assert(
-        chunkState.latestTopologyClientTimestamp <= newBlock.latestTopologyClientTimestamp,
+        chunkState.latestSequencerEventTimestamp <= newBlock.latestSequencerEventTimestamp,
         s"The block's latest topology client timestamp must be at least the last chunk's latest topology client timestamp",
       )
 
@@ -465,24 +466,37 @@ class BlockSequencerStateManager(
         _ <- store.finalizeBlockUpdate(newBlock)
       } yield {
         updateHeadState(priorHead, newHead)
-        newState
+        // Use lastTs here under the following assumptions:
+        // 1. lastTs represents the timestamp of the last sequenced "send" event of the last block successfully processed
+        //    Specifically, it is the last of the timestamps in the block passed to the rate limiter in the B.U.G for consumed and traffic updates methods.
+        //    After setting safeForPruning to this timestamp, we will not be able to request balances from the balance manager prior to this timestamp.
+        // 2. This does not impose restrictions on the use of lastSequencerEventTimestamp when calling the rate limiter.
+        //    Meaning it should be possible to use an old lastSequencerEventTimestamp when calling the rate limiter, even if it is older than lastTs here.
+        //    If this changes, we we will need to use lastSequencerEventTimestamp here instead.
+        // 3. TODO(i15837): Under some HA failover scenarios, this may not be sufficient. Mainly because finalizeBlockUpdate above does not
+        //    use synchronous commits for DB replicas. This has for consequence that theoretically a block could be finalized but not appear
+        //    in the DB replica, while the pruning will be visible in the replica. This would lead the BUG to requesting balances for that block when
+        //    reprocessing it, which would fail because the balances have been pruned. This needs to be considered when implementing HA for the BlockSequencer.
+        rateLimitManager.safeForPruning(newHead.block.lastTs)
+        newHead
       }
     }
 
     def step(
-        updates: BlockUpdates
-    ): FutureUnlessShutdown[Either[BlockUpdates, BlockEphemeralState]] = {
+        headAndUpdates: (HeadState, BlockUpdates)
+    ): FutureUnlessShutdown[Either[(HeadState, BlockUpdates), HeadState]] = {
+      val (priorHead, updates) = headAndUpdates
       updates match {
         case PartialBlockUpdate(chunk, continuation) =>
           FutureUnlessShutdown
-            .outcomeF(handleChunkUpdate(chunk))
-            .flatMap((_: Unit) => continuation.map(Left(_)))
+            .outcomeF(handleChunkUpdate(priorHead, chunk))
+            .flatMap(nextHead => continuation.map(upds => Left(nextHead -> upds)))
         case CompleteBlockUpdate(block) =>
-          FutureUnlessShutdown.outcomeF(handleComplete(block)).map(Right(_))
+          FutureUnlessShutdown.outcomeF(handleComplete(priorHead, block)).map(Right(_))
       }
     }
 
-    Monad[FutureUnlessShutdown].tailRecM(update)(step)
+    Monad[FutureUnlessShutdown].tailRecM(priorHeadState -> update)(step)
   }
 
   private def updateHeadState(prior: HeadState, next: HeadState)(implicit
@@ -677,6 +691,7 @@ object BlockSequencerStateManager {
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      rateLimitManager: SequencerRateLimitManager,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -697,6 +712,7 @@ object BlockSequencerStateManager {
         maybeLowerTopologyTimestampBound = maybeLowerTopologyTimestampBound,
         timeouts = timeouts,
         loggerFactory = loggerFactory,
+        rateLimitManager = rateLimitManager,
       )
     }
 
@@ -708,7 +724,7 @@ object BlockSequencerStateManager {
       chunkNumber: Long,
       ephemeral: EphemeralState,
       lastTs: CantonTimestamp,
-      latestTopologyClientTimestamp: Option[CantonTimestamp],
+      latestSequencerEventTimestamp: Option[CantonTimestamp],
   )
 
   object ChunkState {
@@ -719,7 +735,7 @@ object BlockSequencerStateManager {
         initialChunkCounter,
         block.state,
         block.latestBlock.lastTs,
-        block.latestBlock.latestTopologyClientTimestamp,
+        block.latestBlock.latestSequencerEventTimestamp,
       )
   }
 

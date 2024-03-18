@@ -11,8 +11,6 @@ import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
-import com.digitalasset.canton.ledger.configuration.Configuration
-import com.digitalasset.canton.logging.pretty.PrettyInstances.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
 import com.google.rpc.status.Status as RpcStatus
@@ -35,33 +33,24 @@ sealed trait Update extends Product with Serializable with PrettyPrinting {
 
 object Update {
 
-  /** Signal that the current [[com.digitalasset.canton.ledger.configuration.Configuration]] has changed. */
-  final case class ConfigurationChanged(
-      recordTime: Timestamp,
-      submissionId: Ref.SubmissionId,
-      participantId: Ref.ParticipantId,
-      newConfiguration: Configuration,
+  /** Signal used only to increase the offset of the participant in the initialization stage. */
+  final case class Init(
+      recordTime: Timestamp
   ) extends Update {
 
-    override def pretty: Pretty[ConfigurationChanged] =
+    override def pretty: Pretty[Init] =
       prettyOfClass(
         param("recordTime", _.recordTime),
-        param("configuration", _.newConfiguration),
         indicateOmittedFields,
       )
 
   }
 
-  object ConfigurationChanged {
-    implicit val `ConfigurationChanged to LoggingValue`: ToLoggingValue[ConfigurationChanged] = {
-      case ConfigurationChanged(recordTime, submissionId, participantId, newConfiguration) =>
-        LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime),
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.configGeneration(newConfiguration.generation),
-          Logging.maxDeduplicationDuration(newConfiguration.maxDeduplicationDuration),
-        )
+  object Init {
+    implicit val `Init to LoggingValue`: ToLoggingValue[Init] = { case Init(recordTime) =>
+      LoggingValue.Nested.fromEntries(
+        Logging.recordTime(recordTime)
+      )
     }
   }
 
@@ -428,8 +417,8 @@ object Update {
   }
 
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
-    case update: ConfigurationChanged =>
-      ConfigurationChanged.`ConfigurationChanged to LoggingValue`.toLoggingValue(update)
+    case update: Init =>
+      Init.`Init to LoggingValue`.toLoggingValue(update)
     case update: PartyAddedToParticipant =>
       PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
     case update: PartyAllocationRejected =>

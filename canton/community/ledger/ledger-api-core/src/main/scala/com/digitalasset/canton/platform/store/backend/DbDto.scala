@@ -30,7 +30,6 @@ object DbDto {
       create_argument: Array[Byte],
       create_signatories: Set[String],
       create_observers: Set[String],
-      create_agreement_text: Option[String],
       create_key_value: Option[Array[Byte]],
       create_key_maintainers: Option[Set[String]],
       create_key_hash: Option[String],
@@ -56,6 +55,7 @@ object DbDto {
       event_id: String,
       contract_id: String,
       template_id: String,
+      package_name: String,
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_key_value: Option[Array[Byte]],
@@ -86,7 +86,6 @@ object DbDto {
       create_argument: Array[Byte],
       create_signatories: Set[String],
       create_observers: Set[String],
-      create_agreement_text: Option[String],
       create_key_value: Option[Array[Byte]],
       create_key_maintainers: Option[Set[String]],
       create_key_hash: Option[String],
@@ -111,6 +110,7 @@ object DbDto {
       submitter: Option[String],
       contract_id: String,
       template_id: String,
+      package_name: String,
       flat_event_witnesses: Set[String],
       event_sequential_id: Long,
       source_domain_id: String,
@@ -120,15 +120,6 @@ object DbDto {
       assignment_exclusivity: Option[Long],
       trace_context: Array[Byte],
       record_time: Long,
-  ) extends DbDto
-
-  final case class ConfigurationEntry(
-      ledger_offset: String,
-      recorded_at: Long,
-      submission_id: String,
-      typ: String,
-      configuration: Array[Byte],
-      rejection_reason: Option[String],
   ) extends DbDto
 
   final case class PackageEntry(

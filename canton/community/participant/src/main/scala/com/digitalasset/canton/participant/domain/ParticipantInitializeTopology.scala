@@ -10,7 +10,7 @@ import com.digitalasset.canton.common.domain.{
   RegisterTopologyTransactionHandle,
   SequencerBasedRegisterTopologyTransactionHandleX,
 }
-import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout, TopologyXConfig}
+import com.digitalasset.canton.config.{DomainTimeTrackerConfig, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -91,7 +91,10 @@ abstract class ParticipantInitializeTopologyCommon[TX, State](
       s"Unauthenticated member $unauthenticatedMember will register initial topology transactions on behalf of participant $participantId"
     )
 
-    def pushTopologyAndVerify(client: SequencerClient, domainTimeTracker: DomainTimeTracker) = {
+    def pushTopologyAndVerify(
+        client: SequencerClient,
+        domainTimeTracker: DomainTimeTracker,
+    ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
       val handle = createHandler(client, unauthenticatedMember)
 
       val eventHandler = new OrdinaryApplicationHandler[ClosedEnvelope] {
@@ -125,7 +128,8 @@ abstract class ParticipantInitializeTopologyCommon[TX, State](
           MonadUtil.sequentialTraverseMonoid(openEvents) {
             _.withTraceContext { implicit traceContext =>
               {
-                case Deliver(_, _, _, _, batch) => handle.processor(Traced(batch.envelopes))
+                // TODO(#13883) Check that the topology timestamp is none
+                case Deliver(_, _, _, _, batch, _) => handle.processor(Traced(batch.envelopes))
                 case _ => HandlerResult.done
               }
             }
@@ -213,7 +217,7 @@ class ParticipantInitializeTopologyX(
     sequencerClientFactory: SequencerClientFactory,
     connections: SequencerConnections,
     crypto: Crypto,
-    config: TopologyXConfig,
+    config: TopologyConfig,
     protocolVersion: ProtocolVersion,
     expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
 ) extends ParticipantInitializeTopologyCommon[

@@ -7,7 +7,7 @@ import cats.implicits.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -32,27 +32,30 @@ object TransferResultHelpers {
     )
 
     val result =
-      TransferResult.create(
+      ConfirmationResultMessage.create(
+        sourceDomain.id,
+        ViewType.TransferOutViewType,
         RequestId(CantonTimestamp.Epoch),
-        Set(),
-        sourceDomain,
+        TestHash.dummyRootHash,
         Verdict.Approve(protocolVersion),
+        Set(),
         protocolVersion,
       )
-    val signedResult: SignedProtocolMessage[TransferOutResult] =
+    val signedResult: SignedProtocolMessage[ConfirmationResultMessage] =
       Await.result(
         SignedProtocolMessage.trySignAndCreate(result, cryptoSnapshot, protocolVersion),
         10.seconds,
       )
-    val batch: Batch[OpenEnvelope[SignedProtocolMessage[TransferOutResult]]] =
+    val batch: Batch[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
       Batch.of(protocolVersion, (signedResult, Recipients.cc(participantId)))
-    val deliver: Deliver[OpenEnvelope[SignedProtocolMessage[TransferOutResult]]] =
+    val deliver: Deliver[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
       Deliver.create(
         SequencerCounter(0),
         CantonTimestamp.Epoch,
         sourceDomain.unwrap,
         Some(MessageId.tryCreate("msg-0")),
         batch,
+        None,
         protocolVersion,
       )
     val signature =
@@ -70,11 +73,14 @@ object TransferResultHelpers {
     transferOutResult
   }
 
-  def transferInResult(targetDomain: TargetDomainId): TransferInResult = TransferResult.create(
-    RequestId(CantonTimestamp.Epoch),
-    Set(),
-    targetDomain,
-    Verdict.Approve(BaseTest.testedProtocolVersion),
-    BaseTest.testedProtocolVersion,
-  )
+  def transferInResult(targetDomain: TargetDomainId): ConfirmationResultMessage =
+    ConfirmationResultMessage.create(
+      targetDomain.id,
+      ViewType.TransferInViewType,
+      RequestId(CantonTimestamp.Epoch),
+      TestHash.dummyRootHash,
+      Verdict.Approve(BaseTest.testedProtocolVersion),
+      Set(),
+      BaseTest.testedProtocolVersion,
+    )
 }

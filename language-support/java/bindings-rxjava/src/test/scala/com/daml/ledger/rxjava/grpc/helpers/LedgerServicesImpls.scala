@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForUpdateIdResponse,
 }
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v1.package_service.{
+import com.daml.ledger.api.v2.package_service.{
   GetPackageResponse,
   GetPackageStatusResponse,
   ListPackagesResponse,

@@ -4,12 +4,15 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.reference.store
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockOrderer
+import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.TimestampedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceSequencerDriverStore.{
   sequencedAcknowledgement,
   sequencedRegisterMember,
   sequencedSend,
 }
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX
 import com.digitalasset.canton.tracing.{TraceContext, Traced, W3CTraceContext}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -33,13 +36,11 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
   val traceContext3: TraceContext =
     W3CTraceContext("00-7a5e6a5c6f8d8646adce33d4f0b1c3b1-8546d5a6a5f6c5b6-01").toTraceContext
 
-  def b(
-      height: Long,
-      tracedEvent: Traced[BlockOrderer.OrderedRequest],
-  ): BlockOrderer.Block =
-    BlockOrderer.Block(
-      height,
-      Seq(tracedEvent),
+  private def block(height: Long, tracedEvent: Traced[BlockOrderer.OrderedRequest]) =
+    TimestampedBlock(
+      BlockOrderer.Block(height, Seq(tracedEvent)),
+      CantonTimestamp.ofEpochMicro(tracedEvent.value.microsecondsSinceEpoch),
+      SignedTopologyTransactionX.InitialTopologySequencingTime,
     )
 
   def referenceBlockOrderingStore(mk: () => ReferenceBlockOrderingStore): Unit = {
@@ -48,11 +49,13 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
       "increment counter when inserting block" in {
         val sut = mk()
         for {
-          count <- sut.countBlocks()
-          _ = count shouldBe 0
+          count <- sut.maxBlockHeight()
+          _ = count shouldBe None
           _ <- sut.insertRequest(event1)
-          count2 <- sut.countBlocks()
-        } yield count2 shouldBe 1
+          count2 <- sut.maxBlockHeight()
+        } yield {
+          count2 shouldBe Some(0)
+        }
       }
     }
     "queryBlocks" should {
@@ -65,8 +68,8 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
           result1 <- sut.queryBlocks(-1)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
-            b(0L, Traced(event1)(traceContext1)),
-            b(1L, Traced(event2)(traceContext2)),
+            block(0L, Traced(event1)(traceContext1)),
+            block(1L, Traced(event2)(traceContext2)),
           )
           result1 shouldBe empty
         }
@@ -82,10 +85,10 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
           result1 <- sut.queryBlocks(2)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
-            b(1L, Traced(event2)(traceContext2)),
-            b(2L, Traced(event3)(traceContext3)),
+            block(1L, Traced(event2)(traceContext2)),
+            block(2L, Traced(event3)(traceContext3)),
           )
-          result1 should contain only b(2L, Traced(event3)(traceContext3))
+          result1 should contain only block(2L, Traced(event3)(traceContext3))
         }
       }
     }
@@ -102,10 +105,10 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
           result1 <- sut.queryBlocks(2)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
-            b(1L, Traced(event2)(traceContext2)),
-            b(2L, Traced(event3)(traceContext3)),
+            block(1L, Traced(event2)(traceContext2)),
+            block(2L, Traced(event3)(traceContext3)),
           )
-          result1 should contain only b(2L, Traced(event3)(traceContext3))
+          result1 should contain only block(2L, Traced(event3)(traceContext3))
         }
       }
       "support gaps" in {
@@ -115,16 +118,16 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
           _ <- sut.insertRequestWithHeight(2L, event3)(traceContext3)
           result0 <- sut.queryBlocks(0)
           _ = result0 should contain theSameElementsInOrderAs Seq(
-            b(0L, Traced(event1)(traceContext1))
+            block(0L, Traced(event1)(traceContext1))
           )
           _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
 
           result1 <- sut.queryBlocks(0)
         } yield {
           result1 should contain theSameElementsInOrderAs Seq(
-            b(0L, Traced(event1)(traceContext1)),
-            b(1L, Traced(event2)(traceContext2)),
-            b(2L, Traced(event3)(traceContext3)),
+            block(0L, Traced(event1)(traceContext1)),
+            block(1L, Traced(event2)(traceContext2)),
+            block(2L, Traced(event3)(traceContext3)),
           )
         }
       }
@@ -137,8 +140,8 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
           result0 <- sut.queryBlocks(0)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
-            b(0L, Traced(event1)(traceContext1)),
-            b(1L, Traced(event2)(traceContext2)),
+            block(0L, Traced(event1)(traceContext1)),
+            block(1L, Traced(event2)(traceContext2)),
           )
         }
       }

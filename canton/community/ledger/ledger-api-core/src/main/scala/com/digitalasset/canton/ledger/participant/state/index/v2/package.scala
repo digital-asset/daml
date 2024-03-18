@@ -4,30 +4,11 @@
 package com.digitalasset.canton.ledger.participant.state.index
 
 import com.daml.lf.data.Ref
-import com.daml.lf.value.Value
 import com.digitalasset.canton.ledger.api.domain.*
-
-import java.time.Duration
 
 package v2 {
 
   import com.daml.lf.data.Time.Timestamp
-
-  object AcsUpdateEvent {
-
-    final case class Create(
-        transactionId: TransactionId,
-        eventId: EventId,
-        contractId: Value.ContractId,
-        templateId: Ref.Identifier,
-        argument: Value.VersionedValue,
-        stakeholders: Set[Ref.Party],
-        contractKey: Option[Value.VersionedValue],
-        signatories: Set[Ref.Party],
-        observers: Set[Ref.Party],
-        agreementText: String,
-    )
-  }
 
   /** Information provided by the submitter of changes submitted to the ledger.
     *
@@ -81,8 +62,6 @@ package v2 {
       recordTime: Timestamp,
       workflowId: WorkflowId,
   )
-
-  final case class LedgerConfiguration(maxDeduplicationDuration: Duration)
 
   /** Meta-data of a Daml-LF package
     *

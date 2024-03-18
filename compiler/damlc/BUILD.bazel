@@ -41,7 +41,6 @@ damlc_data = [
     "//compiler/damlc/pkg-db",
     "//compiler/damlc/stable-packages",
     "//compiler/damlc:daml-base-anchors.json",
-    "//compiler/repl-service/server:repl_service_jar",
     "//compiler/scenario-service/server:scenario_service_jar",
 ]
 
@@ -122,7 +121,6 @@ package_app(
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
-        "//compiler/repl-service/server:repl_service_jar",
         "//compiler/scenario-service/server:scenario_service_jar",
         "@static_asset_d3plus//:js/d3.min.js",
         "@static_asset_d3plus//:js/d3plus.min.js",
@@ -242,7 +240,6 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-rule-types",
-        "//compiler/repl-service/client",
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//compiler/scenario-service/protos:test_results_haskell_proto",
@@ -371,6 +368,7 @@ daml_doc_test(
         "DA/Experimental/*.daml",
         "DA/Internal/Scenario.daml",
         "DA/Scenario.daml",
+        "DA/TextMap.daml",
         "DA/Time/Types.daml",
         "LibraryModules.daml",
     ],

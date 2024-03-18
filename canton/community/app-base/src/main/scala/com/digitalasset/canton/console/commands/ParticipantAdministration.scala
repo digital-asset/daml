@@ -6,7 +6,6 @@ package com.digitalasset.canton.console.commands
 import cats.implicits.toBifunctorOps
 import cats.syntax.option.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.{
@@ -53,7 +52,6 @@ import com.digitalasset.canton.participant.admin.grpc.TransferSearchResult
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.TimestampedEvent
-import com.digitalasset.canton.platform.apiserver.services.ApiConversions
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -162,10 +160,16 @@ private[console] object ParticipantCommands {
       // architecture-handbook-entry-end: OnboardParticipantToConfig
     }
 
-    def register(runner: AdminCommandRunner, config: DomainConnectionConfig) =
+    def register(
+        runner: AdminCommandRunner,
+        config: DomainConnectionConfig,
+        handshakeOnly: Boolean,
+    ) =
       runner.adminCommand(
-        ParticipantAdminCommands.DomainConnectivity.RegisterDomain(config)
+        ParticipantAdminCommands.DomainConnectivity
+          .RegisterDomain(config, handshakeOnly = handshakeOnly)
       )
+
     def reconnect(runner: AdminCommandRunner, domainAlias: DomainAlias, retry: Boolean) = {
       runner.adminCommand(
         ParticipantAdminCommands.DomainConnectivity.ConnectDomain(domainAlias, retry)
@@ -531,7 +535,7 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
-  def prune(pruneUpTo: LedgerOffset): Unit =
+  def prune(pruneUpTo: ParticipantOffset): Unit =
     consoleEnvironment.run(
       ledgerApiCommand(LedgerApiCommands.ParticipantPruningService.Prune(pruneUpTo))
     )
@@ -543,16 +547,15 @@ class ParticipantPruningAdministrationGroup(
   def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
-        ledgerApiCommand(LedgerApiV2Commands.StateService.LedgerEnd())
+        ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
       )
       consoleEnvironment
         .run(
           adminCommand(
             ParticipantAdminCommands.Pruning
-              .GetSafePruningOffsetCommand(beforeOrAt, ApiConversions.toV1(ledgerEnd))
+              .GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
           )
         )
-        .map(ledgerOffset => ApiConversions.toV2(ledgerOffset))
     }
   }
 
@@ -571,7 +574,7 @@ class ParticipantPruningAdministrationGroup(
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
   // Consider adding an "Enterprise" annotation if we end up having more enterprise-only commands than this lone enterprise command.
-  def prune_internally(pruneUpTo: LedgerOffset): Unit =
+  def prune_internally(pruneUpTo: ParticipantOffset): Unit =
     check(FeatureFlag.Preview) {
       consoleEnvironment.run(
         adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpTo))
@@ -627,7 +630,7 @@ class ParticipantPruningAdministrationGroup(
       |the event. Returns ``None`` if no such offset exists.
     """
   )
-  def get_offset_by_time(upToInclusive: Instant): Option[LedgerOffset] =
+  def get_offset_by_time(upToInclusive: Instant): Option[ParticipantOffset] =
     consoleEnvironment.run(
       adminCommand(
         ParticipantAdminCommands.Inspection.LookupOffsetByTime(
@@ -636,7 +639,7 @@ class ParticipantPruningAdministrationGroup(
       )
     ) match {
       case "" => None
-      case offset => Some(LedgerOffset(LedgerOffset.Value.Absolute(offset)))
+      case offset => Some(ParticipantOffset(ParticipantOffset.Value.Absolute(offset)))
     }
 
   @Help.Summary("Identify the participant ledger offset to prune up to.", FeatureFlag.Preview)
@@ -646,12 +649,12 @@ class ParticipantPruningAdministrationGroup(
       |returns the offset of the first transaction (if the ledger is non-empty).
     """
   )
-  def locate_offset(n: Long): LedgerOffset =
+  def locate_offset(n: Long): ParticipantOffset =
     check(FeatureFlag.Preview) {
       val rawOffset = consoleEnvironment.run(
         adminCommand(ParticipantAdminCommands.Inspection.LookupOffsetByIndex(n))
       )
-      LedgerOffset(LedgerOffset.Value.Absolute(rawOffset))
+      ParticipantOffset(ParticipantOffset.Value.Absolute(rawOffset))
     }
 
 }
@@ -1036,7 +1039,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           domain - A local domain or sequencer reference
           alias - The name you will be using to refer to this domain. Can not be changed anymore.
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
-          certificatesPath - Path to TLS certificate files to use as a trust anchor.
+          maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
           priority - The priority of the domain. The higher the more likely a domain will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
@@ -1058,6 +1061,67 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority,
       )
       connectFromConfig(config, synchronize)
+    }
+
+    @Help.Summary(
+      "Macro to register a locally configured domain given by reference"
+    )
+    @Help.Description("""
+        The arguments are:
+          domain - A local domain or sequencer reference
+          alias - The name you will be using to refer to this domain. Can not be changed anymore.
+          handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
+          priority - The priority of the domain. The higher the more likely a domain will be used.
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def register(
+        domain: SequencerNodeReference,
+        alias: DomainAlias,
+        handshakeOnly: Boolean = false,
+        maxRetryDelayMillis: Option[Long] = None,
+        priority: Int = 0,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): Unit = {
+      val config = ParticipantCommands.domains.reference_to_config(
+        NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
+        alias,
+        manualConnect = false,
+        maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
+        priority,
+      )
+      register_with_config(config, handshakeOnly = handshakeOnly, synchronize)
+    }
+
+    @Help.Summary(
+      "Macro to register a locally configured domain given by reference"
+    )
+    @Help.Description("""
+        The arguments are:
+          config - Config for the domain connection
+          handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
+        """)
+    def register_with_config(
+        config: DomainConnectionConfig,
+        handshakeOnly: Boolean,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): Unit = {
+      val current = this.config(config.domain)
+      // if the config is not found, then we register the domain
+      if (current.isEmpty) {
+        // register the domain configuration
+        consoleEnvironment.run {
+          ParticipantCommands.domains.register(runner, config, handshakeOnly = handshakeOnly)
+        }
+      }
+      synchronize.foreach { timeout =>
+        ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
+      }
     }
 
     def connect_local_bft(
@@ -1124,12 +1188,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronize: Option[NonNegativeDuration],
     ): Unit = {
       val current = this.config(config.domain)
-      // if the config did not change, we'll just treat this as idempotent, otherwise, we'll use register to fail
       if (current.isEmpty) {
         // architecture-handbook-entry-begin: OnboardParticipantConnect
         // register the domain configuration
         consoleEnvironment.run {
-          ParticipantCommands.domains.register(runner, config)
+          ParticipantCommands.domains.register(runner, config, handshakeOnly = false)
         }
         if (!config.manualConnect) {
           reconnect(config.domain.unwrap, retry = false).discard
@@ -1138,7 +1201,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         }
         // architecture-handbook-entry-end: OnboardParticipantConnect
       } else if (!config.manualConnect) {
-        val _ = reconnect(config.domain, retry = false)
+        reconnect(config.domain, retry = false).discard
         modify(config.domain.unwrap, _.copy(manualConnect = false))
       }
       synchronize.foreach { timeout =>
@@ -1470,7 +1533,7 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
             timeout,
             0,
             domainId,
-            workflowId,
+            "",
             id,
           )
       )
@@ -1484,11 +1547,10 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
       domainId: Option[DomainId] = None,
-      workflowId: String = "",
       id: String = "",
   ): Duration = {
     val adminApiRes: Either[String, Duration] =
-      ping_internal(participantId, timeout, domainId, workflowId, id)
+      ping_internal(participantId, timeout, domainId, "", id)
     consoleEnvironment.runE(
       adminApiRes.leftMap { reason =>
         s"Unable to ping $participantId within ${LoggerUtil
@@ -1506,10 +1568,9 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
       domainId: Option[DomainId] = None,
-      workflowId: String = "",
       id: String = "",
   ): Option[Duration] = check(FeatureFlag.Testing) {
-    ping_internal(participantId, timeout, domainId, workflowId, id).toOption
+    ping_internal(participantId, timeout, domainId, "", id).toOption
   }
 }
 

@@ -7,8 +7,10 @@ import Daml.Script
 import DA.Optional(fromSome)
 
 -- Tests for various(all) different forms of authorization failure detected during execution.
--- Five kinds of authorization failure are tested here.
--- Two others (NoSignatories and NoControllers) are tested in separate files, because the expected error message doesn't contain any indication of which testcase causes it.
+-- Three kinds of authorization failure are tested here.
+-- Three others (NoSignatories, NoControllers) are tested in separate files, because the expected
+-- error message doesn't contain any indication of which testcase causes it.
+-- Two others are tested in AuthFailureWithKey, because keys are only supported in dev.
 
 template TheContract1
   with
@@ -16,31 +18,13 @@ template TheContract1
   where
     signatory s
 
--- @ERROR range=21:1-21:30; failed due to a missing authorization from 'Ivy'
+-- @ERROR range=23:1-23:30; failed due to a missing authorization from 'Ivy'
 t1_CreateMissingAuthorization : Script ()
 t1_CreateMissingAuthorization = script do
   mach <- allocateParty "Mach"
   ivy <- allocateParty "Ivy"
   mach `submit` createCmd (TheContract1 with s = ivy)
   abort "t1 finished"
-
-template TheContract2
-  with
-    s : Party
-    m : Party
-    id : Int
-  where
-    signatory s
-    key (m, id) : (Party, Int)
-    maintainer key._1
-
--- @ERROR range=39:1-39:37; failed due to that some parties are maintainers but not signatories: 'Bob'
-t2_MaintainersNotSubsetOfSignatories : Script ()
-t2_MaintainersNotSubsetOfSignatories = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
-  alice `submit` createCmd (TheContract2 with s = alice; m = bob; id = 100)
-  abort "t2 finished"
 
 template TheContract3
   with
@@ -70,7 +54,7 @@ template Test3
       controller bob
       do fetch @TheContract3 cid
 
--- @ERROR range=75:1-75:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
+-- @ERROR range=59:1-59:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
 t3_FetchMissingAuthorization : Script ()
 t3_FetchMissingAuthorization = script do
   alice <- allocateParty "Alice"
@@ -86,51 +70,19 @@ t3_FetchMissingAuthorization = script do
 
 template TheContract4
   with
-    ss : [Party]
-    ms : [Party]
-    os : [Party]
-    id : Int
-  where
-    signatory ss
-    key (ms, id) : ([Party], Int)
-    maintainer key._1
-    observer os
-
-template Test4
-  with
-    bob : Party
-    contractKey : ([Party], Int)
-  where
-    signatory bob
-    choice Call4 : Optional (ContractId TheContract4)
-      controller bob
-      do lookupByKey @TheContract4 contractKey
-
--- @ERROR range=111:1-111:35; failed due to a missing authorization from 'Alice'
-t4_LookupByKeyMissingAuthorization : Script ()
-t4_LookupByKeyMissingAuthorization = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
-  alice `submit`
-    createCmd (TheContract4 with ss = [alice]; ms = [alice]; os = [bob]; id = 100)
-  _ <- bob `submit` createAndExerciseCmd (Test4 bob ([alice],100)) Call4
-  abort "t4 finished"
-
-template TheContract5
-  with
     s : Party
   where
     signatory s
-    choice TheChoice5 : () with
+    choice TheChoice4 : () with
         cs : [Party]
       controller cs
       do return ()
 
--- @ERROR range=131:1-131:32; failed due to a missing authorization from 'Bob'
-t5_ExerciseMissingAuthorization : Script ()
-t5_ExerciseMissingAuthorization = script do
+-- @ERROR range=83:1-83:32; failed due to a missing authorization from 'Bob'
+t4_ExerciseMissingAuthorization : Script ()
+t4_ExerciseMissingAuthorization = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
-  cid <- alice `submit` createCmd (TheContract5 with s = alice)
-  alice `submit` exerciseCmd cid TheChoice5 with cs = [bob]
-  abort "t5 finished"
+  cid <- alice `submit` createCmd (TheContract4 with s = alice)
+  alice `submit` exerciseCmd cid TheChoice4 with cs = [bob]
+  abort "t4 finished"

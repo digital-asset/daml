@@ -8,22 +8,21 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
+  EphemeralState,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState.counterToCheckpoint
+import com.digitalasset.canton.domain.sequencing.integrations.state.DbSequencerStateManagerStore
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.{
   MemberCounters,
   MemberSignedEvents,
   MemberTimestamps,
-}
-import com.digitalasset.canton.domain.sequencing.integrations.state.{
-  DbSequencerStateManagerStore,
-  EphemeralState,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
@@ -100,7 +99,7 @@ class DbSequencerBlockStore(
       storage.query(
         for {
           heightAndTimestamp <-
-            (sql"""select height, latest_event_ts, latest_topology_client_ts from sequencer_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
+            (sql"""select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
               .as[BlockInfo]
               .headOption
           state <- heightAndTimestamp match {
@@ -244,14 +243,14 @@ class DbSequencerBlockStore(
   ): resource.DbStorage.DbAction.All[Unit] = {
     (storage.profile match {
       case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into sequencer_initial_state(member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp) values
+        sqlu"""merge into seq_initial_state(member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp) values
                ($member, $counter, ${trafficState.extraTrafficRemainder}, ${trafficState.extraTrafficConsumed}, ${trafficState.baseTrafficRemainder}, ${trafficState.timestamp})"""
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into sequencer_initial_state(member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp) values
+        sqlu"""insert into seq_initial_state(member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp) values
                 ($member, $counter, ${trafficState.extraTrafficRemainder}, ${trafficState.extraTrafficConsumed}, ${trafficState.baseTrafficRemainder}, ${trafficState.timestamp})
                  on conflict (member) do update set counter = $counter"""
       case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into sequencer_initial_state inits
+        sqlu"""merge into seq_initial_state inits
                  using (
                   select
                     $member member,
@@ -281,16 +280,16 @@ class DbSequencerBlockStore(
   ): resource.DbStorage.DbAction.All[Unit] =
     (storage.profile match {
       case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into sequencer_initial_state as sis using (values ($member, $counter, NULL, NULL, NULL, NULL))
+        sqlu"""merge into seq_initial_state as sis using (values ($member, $counter, NULL, NULL, NULL, NULL))
                  mis (member, counter, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp)
                    on sis.member = mis.member
                    when matched and mis.counter > sis.counter then update set counter = mis.counter
                    when not matched then insert values(mis.member, mis.counter, mis.extra_traffic_remainder, mis.extra_traffic_consumed, mis.base_traffic_remainder, mis.sequenced_timestamp);"""
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into sequencer_initial_state as sis (member, counter) values ($member, $counter)
+        sqlu"""insert into seq_initial_state as sis (member, counter) values ($member, $counter)
                  on conflict (member) do update set counter = excluded.counter where sis.counter < excluded.counter"""
       case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into sequencer_initial_state inits
+        sqlu"""merge into seq_initial_state inits
                  using (
                   select
                     $member member,
@@ -338,29 +337,29 @@ class DbSequencerBlockStore(
     storage.query(initialMemberCountersDBIO, functionFullName).map(_.toMap)
 
   private def initialMemberCountersDBIO =
-    sql"select member, counter from sequencer_initial_state".as[(Member, SequencerCounter)]
+    sql"select member, counter from seq_initial_state".as[(Member, SequencerCounter)]
 
   private def initialMemberTrafficStateDBIO =
-    sql"select member, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp from sequencer_initial_state"
+    sql"select member, extra_traffic_remainder, extra_traffic_consumed, base_traffic_remainder, sequenced_timestamp from seq_initial_state"
       .as[(Member, Option[TrafficState])]
 
   private def updateBlockHeightDBIO(block: BlockInfo)(implicit traceContext: TraceContext) =
     insertVerifyingConflicts(
       storage,
-      "sequencer_block_height ( height )",
-      sql"""sequencer_block_height (height, latest_event_ts, latest_topology_client_ts)
-            values (${block.height}, ${block.lastTs}, ${block.latestTopologyClientTimestamp})""",
-      sql"select latest_event_ts, latest_topology_client_ts from sequencer_block_height where height = ${block.height}"
+      "seq_block_height ( height )",
+      sql"""seq_block_height (height, latest_event_ts, lastet_sequencer_event_ts)
+            values (${block.height}, ${block.lastTs}, ${block.latestSequencerEventTimestamp})""",
+      sql"select latest_event_ts, lastet_sequencer_event_ts from seq_block_height where height = ${block.height}"
         .as[(CantonTimestamp, Option[CantonTimestamp])]
         .head,
     )(
-      { case (lastEventTs, latestTopologyClientTs) =>
-        // Allow updates to `latestTopologyClientTs` if it was not set before.
+      { case (lastEventTs, latestSequencerEventTs) =>
+        // Allow updates to `latestSequencerEventTs` if it was not set before.
         lastEventTs == block.lastTs &&
-        (latestTopologyClientTs.isEmpty || latestTopologyClientTs == block.latestTopologyClientTimestamp)
+        (latestSequencerEventTs.isEmpty || latestSequencerEventTs == block.latestSequencerEventTimestamp)
       },
-      { case (lastEventTs, latestTopologyClientTs) =>
-        s"Block height row for [${block.height}] had existing timestamp [$lastEventTs] and topology client timestamp [$latestTopologyClientTs], but we are attempting to insert [${block.lastTs}] and [${block.latestTopologyClientTimestamp}]"
+      { case (lastEventTs, latestSequencerEventTs) =>
+        s"Block height row for [${block.height}] had existing timestamp [$lastEventTs] and topology client timestamp [$latestSequencerEventTs], but we are attempting to insert [${block.lastTs}] and [${block.latestSequencerEventTimestamp}]"
       },
     )
 
@@ -369,11 +368,23 @@ class DbSequencerBlockStore(
   ): Future[InternalSequencerPruningStatus] =
     sequencerStore.status()
 
+  override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] = storage
+    .querySingle(
+      sql"""select ts from seq_state_manager_events order by ts #${storage.limit(
+          1,
+          skipItems = skip.value.toLong,
+        )}""".as[CantonTimestamp].headOption,
+      functionFullName,
+    )
+    .value
+
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[String] = for {
     (count, maxHeight) <- storage.query(
-      sql"select count(*), max(height) from sequencer_block_height where latest_event_ts < $requestedTimestamp "
+      sql"select count(*), max(height) from seq_block_height where latest_event_ts < $requestedTimestamp "
         .as[(Long, Long)]
         .head,
       functionFullName,
@@ -389,14 +400,14 @@ class DbSequencerBlockStore(
       }
     _ <- storage.queryAndUpdate(
       DBIO.seq(
-        sqlu"delete from sequencer_block_height where height < $maxHeight" +: writeInitialCounters: _*
+        sqlu"delete from seq_block_height where height < $maxHeight" +: writeInitialCounters: _*
       ),
       functionFullName,
     )
     _ <- sequencerStore.pruneExpiredInFlightAggregations(requestedTimestamp)
     _ <- checkBlockInvariantIfEnabled(maxHeight)
   } yield {
-    // the first element (with lowest height) in the sequencer_block_height can either represent an actual existing block
+    // the first element (with lowest height) in the seq_block_height can either represent an actual existing block
     // in the database in the case where we've never pruned and also not started this sequencer from a snapshot.
     // In this case we want to count that as a removed block now.
     // The other case is when we've started from a snapshot or have pruned before, and the first element of this table
@@ -458,17 +469,17 @@ class DbSequencerBlockStore(
   private[this] def readBlockInfo(
       height: Long
   ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    sql"select height, latest_event_ts, latest_topology_client_ts from sequencer_block_height where height = $height"
+    sql"select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height where height = $height"
       .as[BlockInfo]
       .headOption
 
   private[this] def readLatestBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"select height, latest_event_ts, latest_topology_client_ts from sequencer_block_height order by height desc " ++ topRow)
+    (sql"select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height order by height desc " ++ topRow)
       .as[BlockInfo]
       .headOption
 
   private[this] def readFirstBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"select height, latest_event_ts, latest_topology_client_ts from sequencer_block_height order by height asc " ++ topRow)
+    (sql"select height, latest_event_ts, lastet_sequencer_event_ts from seq_block_height order by height asc " ++ topRow)
       .as[BlockInfo]
       .headOption
 

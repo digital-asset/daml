@@ -45,6 +45,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{submitter, su
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -80,8 +81,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -94,7 +94,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     )
   }
 
-  private val identityFactory = TestingTopologyX()
+  private lazy val identityFactory = TestingTopologyX()
     .withDomains(sourceDomain.unwrap)
     .withReversedTopology(
       Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
@@ -102,7 +102,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .build(loggerFactory)
 
-  private val cryptoSnapshot =
+  private lazy val cryptoSnapshot =
     identityFactory
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
@@ -112,20 +112,23 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
   private val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
-  private val transferInProcessingSteps =
+  private lazy val transferInProcessingSteps =
     testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)
+
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
   private def statefulDependencies
       : Future[(SyncDomainPersistentState, SyncDomainEphemeralState)] = {
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val persistentState =
-      new InMemorySyncDomainPersistentStateX(
+      new InMemorySyncDomainPersistentState(
         clock,
         crypto,
         IndexedDomain.tryCreate(targetDomain.unwrap, 1),
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
         enableTopologyTransactionValidation = false,
+        indexedStringStore = indexedStringStore,
         loggerFactory = loggerFactory,
         timeouts = timeouts,
         futureSupervisor = futureSupervisor,
@@ -452,6 +455,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activeness set failed")
       } yield {
@@ -480,6 +484,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activeness set did not return a left")
       } yield {
@@ -508,6 +513,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activenss set did not return a left")
       } yield {
@@ -662,7 +668,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
                 testedProtocolVersion,
               )
             ),
-            Right(inRes),
+            inRes.verdict,
             pendingRequestData,
             state.pendingTransferInSubmissions,
             crypto.pureCrypto,

@@ -115,7 +115,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           t"Text" ->
             // Note that in UTF8  "｡" < "😂" but in UTF16 "｡" > "😂"
             List("a bit of text", "some other text", "some other text again", "｡", "😂")
-              .map(t => Ast.EPrimLit(Ast.PLText(t))),
+              .map(t => Ast.EBuiltinLit(Ast.BLText(t))),
           t"Date" -> List(e"1969-07-21", e"1970-01-01", e"2020-02-02"),
           t"Timestamp" -> List(
             e"1969-07-21T02:56:15.000000Z",
@@ -136,29 +136,29 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               e"type_rep @Unit",
               e"type_rep @Bool",
               e"type_rep @Int64",
-              e"type_rep @Text",
+              e"type_rep @Date",
               e"type_rep @Timestamp",
               e"type_rep @Party",
-              e"type_rep @Date",
+              e"type_rep @Text",
               e"type_rep @Any",
               e"type_rep @TypeRep",
               e"type_rep @Mod:Template",
             ),
           t"Mod:TypRep" ->
             List(
-              e"type_rep @(List Mod:Template)",
-              e"type_rep @(Update Mod:Template)",
-              e"type_rep @(Scenario Mod:Template)",
+              e"type_rep @(Numeric 0)",
               e"type_rep @(ContractId Mod:Template)",
               e"type_rep @(Option Mod:Template)",
+              e"type_rep @(List Mod:Template)",
+              e"type_rep @(Update Mod:Template)",
               e"type_rep @(TextMap Mod:Template)",
-              e"type_rep @(Numeric 0)",
+              e"type_rep @(Scenario Mod:Template)",
               e"type_rep @(Mod:Box Mod:Template)",
             ),
           t"Mod:TypRep" ->
             List(
-              e"type_rep @(Arrow Mod:Template  Mod:Template)",
               e"type_rep @(GenMap Mod:Template  Mod:Template)",
+              e"type_rep @(Arrow Mod:Template  Mod:Template)",
               e"type_rep @(Mod:Tuple Mod:Template  Mod:Template)",
             ),
           t"Mod:TypeRep" ->
@@ -189,10 +189,10 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             ),
           t"Mod:TypeRep" ->
             List(
-              e"type_rep @(List Unit)",
-              e"type_rep @(List Int64)",
               e"type_rep @(Option Unit)",
               e"type_rep @(Option Int64)",
+              e"type_rep @(List Unit)",
+              e"type_rep @(List Int64)",
             ),
           t"Mod:TypeRep" ->
             List(
@@ -420,7 +420,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       def etApps(e: Expr, types: Type*) =
         types.foldLeft(e)(ETyApp)
 
-      def text(s: String) = EPrimLit(PLText(s))
+      def text(s: String) = EBuiltinLit(BLText(s))
 
       val eitherT = t"Mod:Either"
       val TTyCon(eitherTyCon) = eitherT
@@ -448,13 +448,13 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         if (es.isEmpty) ENil(t) else ECons(t, es.to(ImmArray), ENil(t))
 
       def textMap(T: Type)(entries: (String, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BTextMapEmpty), T)) { case ((key, value), acc) =>
-          eApps(etApps(EBuiltin(BTextMapInsert), T), text(key), value, acc)
+        entries.foldRight(etApps(EBuiltinFun(BTextMapEmpty), T)) { case ((key, value), acc) =>
+          eApps(etApps(EBuiltinFun(BTextMapInsert), T), text(key), value, acc)
         }
 
       def genMap(kT: Type, vT: Type)(entries: (Expr, Expr)*) =
-        entries.foldRight(etApps(EBuiltin(BGenMapEmpty), kT, vT)) { case ((key, value), acc) =>
-          eApps(etApps(EBuiltin(BGenMapInsert), kT, vT), key, value, acc)
+        entries.foldRight(etApps(EBuiltinFun(BGenMapEmpty), kT, vT)) { case ((key, value), acc) =>
+          eApps(etApps(EBuiltinFun(BGenMapInsert), kT, vT), key, value, acc)
         }
 
       def tupleS(fst: Expr, snd: Expr) =
@@ -678,7 +678,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 cidBinder2,
                 Ast.EAbs(
                   cidBinder3,
-                  Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltin(bi), t), x), y),
+                  Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltinFun(bi), t), x), y),
                   None,
                 ),
                 None,

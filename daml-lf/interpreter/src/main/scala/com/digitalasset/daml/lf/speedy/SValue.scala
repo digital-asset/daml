@@ -117,7 +117,7 @@ object SValue {
 
   /** "Primitives" that can be applied. */
   sealed abstract class Prim
-  final case class PBuiltin(b: SBuiltin) extends Prim
+  final case class PBuiltin(b: SBuiltinFun) extends Prim
 
   /** A closure consisting of an expression together with the values the
     * expression is closing over.
@@ -231,15 +231,25 @@ object SValue {
   final case class SList(list: FrontStack[SValue]) extends SValue
 
   // We make the constructor private to ensure entries are sorted using `SMap Ordering`
+  // and all value are comparable.
   final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
       with NoCopy {
 
-    def insert(key: SValue, value: SValue): SMap =
+    def insert(key: SValue, value: SValue): SMap = {
+      SMap.comparable(key)
       SMap(isTextMap, entries.updated(key, value))
+    }
 
-    def delete(key: SValue): SMap =
+    def delete(key: SValue): SMap = {
+      SMap.comparable(key)
       SMap(isTextMap, entries - key)
+    }
+
+    def get(key: SValue): Option[SValue] = {
+      SMap.comparable(key)
+      entries.get(key)
+    }
 
   }
 
@@ -260,25 +270,30 @@ object SValue {
     def fromOrderedEntries(
         isTextMap: Boolean,
         entries: Iterable[(SValue, SValue)],
-    ): SMap = SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
+    ): SMap = {
+      entries.foreach { case (k, _) => comparable(k) }
+      SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
+    }
 
     /** Build an SMap from an iterator over SValue key/value pairs.
       *
       * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
       * If keys are duplicate, the last overrides the firsts
       */
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap =
+    def apply(isTextMap: Boolean, entries: Iterable[(SValue, SValue)]): SMap = {
+      entries.foreach { case (k, _) => comparable(k) }
       SMap(
         isTextMap,
-        entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
+        entries.to(TreeMap),
       )
+    }
 
     /** Build an SMap from a vararg sequence of SValue key/value pairs.
       *
       * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
       */
     def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
-      SMap(isTextMap: Boolean, entries.iterator)
+      SMap(isTextMap: Boolean, entries)
   }
 
   // represents Any And AnyException
@@ -329,11 +344,11 @@ object SValue {
     }
   }
 
-  // NOTE(JM): We are redefining PrimLit here so it can be unified
+  // NOTE(JM): We are redefining BuiltinLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
-  sealed abstract class SPrimLit extends SValue with Equals
-  final case class SInt64(value: Long) extends SPrimLit
-  final case class SNumeric(value: Numeric) extends SPrimLit
+  sealed abstract class SBuiltinLit extends SValue with Equals
+  final case class SInt64(value: Long) extends SBuiltinLit
+  final case class SNumeric(value: Numeric) extends SBuiltinLit
   object SNumeric {
     def fromBigDecimal(scale: Numeric.Scale, x: java.math.BigDecimal) =
       Numeric.fromBigDecimal(scale, x) match {
@@ -343,7 +358,7 @@ object SValue {
           overflowUnderflow
       }
   }
-  final class SBigNumeric private (val value: java.math.BigDecimal) extends SPrimLit {
+  final class SBigNumeric private (val value: java.math.BigDecimal) extends SBuiltinLit {
     override def canEqual(that: Any): Boolean = that match {
       case _: SBigNumeric => true
       case _ => false
@@ -385,16 +400,16 @@ object SValue {
     def checkScale(s: Long): Either[String, Int] =
       Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
   }
-  final case class SText(value: String) extends SPrimLit
-  final case class STimestamp(value: Time.Timestamp) extends SPrimLit
-  final case class SParty(value: Party) extends SPrimLit
-  final case class SBool(value: Boolean) extends SPrimLit
+  final case class SText(value: String) extends SBuiltinLit
+  final case class STimestamp(value: Time.Timestamp) extends SBuiltinLit
+  final case class SParty(value: Party) extends SBuiltinLit
+  final case class SBool(value: Boolean) extends SBuiltinLit
   object SBool {
     def apply(value: Boolean): SBool = if (value) SValue.True else SValue.False
   }
-  final case object SUnit extends SPrimLit
-  final case class SDate(value: Time.Date) extends SPrimLit
-  final case class SContractId(value: V.ContractId) extends SPrimLit
+  final case object SUnit extends SBuiltinLit
+  final case class SDate(value: Time.Date) extends SBuiltinLit
+  final case class SContractId(value: V.ContractId) extends SBuiltinLit
   final case class STypeRep(ty: Type) extends SValue
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue

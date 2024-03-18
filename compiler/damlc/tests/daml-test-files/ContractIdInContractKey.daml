@@ -4,7 +4,9 @@
 -- This tests that the ContractId type is not allowed to be in a
 -- contract key at compile time.
 
--- @ERROR range=15:10-17:29; contract key type should not contain ContractId
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=17:10-19:29; contract key type should not contain ContractId
 module ContractIdInContractKey where
 
 template Contract with

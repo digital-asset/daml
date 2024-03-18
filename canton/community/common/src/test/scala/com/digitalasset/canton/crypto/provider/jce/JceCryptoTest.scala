@@ -22,12 +22,14 @@ class JceCryptoTest
     with EncryptionTest
     with PrivateKeySerializationTest
     with HkdfTest
+    with PasswordBasedEncryptionTest
     with RandomTest
-    with JavaPublicKeyConverterTest {
+    with JavaPublicKeyConverterTest
+    with PublicKeyValidationTest {
 
   "JceCrypto" can {
 
-    def jceCrypto(): Future[Crypto] = {
+    def jceCrypto(): Future[Crypto] =
       new CommunityCryptoFactory()
         .create(
           CommunityCryptoConfig(provider = Jce),
@@ -39,7 +41,6 @@ class JceCryptoTest
           NoReportingTracerProvider,
         )
         .valueOr(err => throw new RuntimeException(s"failed to create crypto: $err"))
-    }
 
     behave like signingProvider(Jce.signing.supported, jceCrypto())
     behave like encryptionProvider(
@@ -105,5 +106,17 @@ class JceCryptoTest
       new TinkJavaConverter,
     )
 
+    behave like pbeProvider(
+      Jce.pbkdf.valueOrFail("no PBKDF schemes configured").supported,
+      Jce.symmetric.supported,
+      jceCrypto().map(_.pureCrypto),
+    )
+
+    behave like publicKeyValidationProvider(
+      Jce.signing.supported,
+      Jce.encryption.supported,
+      Jce.supportedCryptoKeyFormats,
+      jceCrypto(),
+    )
   }
 }

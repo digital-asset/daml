@@ -28,12 +28,8 @@ import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.attribute.PosixFilePermission.{OWNER_READ, OWNER_WRITE}
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.*
 
 class SecretKeyAdministration(
     instance: InstanceReference,
@@ -308,19 +304,32 @@ class SecretKeyAdministration(
   }
 
   @Help.Summary("Upload (load and import) a key pair from file")
-  def upload(filename: String, name: Option[String]): Unit = {
+  @Help.Description(
+    """Upload the previously downloaded key pair from a file.
+      |filename: The name of the file holding the key pair
+      |name: The (optional) descriptive name of the key pair
+      |password: Optional password to decrypt an encrypted key pair"""
+  )
+  def upload_from(filename: String, name: Option[String], password: Option[String] = None): Unit = {
     val keyPair = BinaryFileUtil.tryReadByteStringFromFile(filename)
-    upload(keyPair, name)
+    upload(keyPair, name, password)
   }
 
   @Help.Summary("Upload a key pair")
+  @Help.Description(
+    """Upload the previously downloaded key pair.
+      |pairBytes: The binary representation of a previously downloaded key pair
+      |name: The (optional) descriptive name of the key pair
+      |password: Optional password to decrypt an encrypted key pair"""
+  )
   def upload(
       pairBytes: ByteString,
       name: Option[String],
+      password: Option[String] = None,
   ): Unit =
     consoleEnvironment.run {
       adminCommand(
-        VaultAdminCommands.ImportKeyPair(pairBytes, name)
+        VaultAdminCommands.ImportKeyPair(pairBytes, name, password)
       )
     }
 
@@ -329,41 +338,38 @@ class SecretKeyAdministration(
   @Help.Description(
     """Download the key pair with the private and public key in its binary representation.
       |fingerprint: The identifier of the key pair to download
-      |protocolVersion: The (optional) protocol version that defines the serialization of the key pair"""
+      |protocolVersion: The (optional) protocol version that defines the serialization of the key pair
+      |password: Optional password to encrypt the exported key pair with"""
   )
   def download(
       fingerprint: Fingerprint,
       protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      password: Option[String] = None,
   ): ByteString = {
     check(FeatureFlag.Preview) {
       consoleEnvironment.run {
         adminCommand(
-          VaultAdminCommands.ExportKeyPair(fingerprint, protocolVersion)
+          VaultAdminCommands.ExportKeyPair(fingerprint, protocolVersion, password)
         )
       }
     }
   }
 
-  protected def writeToFile(outputFile: String, bytes: ByteString): Unit = {
-    val file = new File(outputFile)
-    file.createNewFile()
-    // only current user has permissions with the file
-    try {
-      Files.setPosixFilePermissions(file.toPath, Set(OWNER_READ, OWNER_WRITE).asJava)
-    } catch {
-      // the above will throw on non-posix systems such as windows
-      case _: UnsupportedOperationException =>
-    }
-    BinaryFileUtil.writeByteStringToFile(outputFile, bytes)
-  }
-
   @Help.Summary("Download key pair and save it to a file")
+  @Help.Description(
+    """Download the key pair with the private and public key in its binary representation and store it in a file.
+      |fingerprint: The identifier of the key pair to download
+      |outputFile: The name of the file to store the key pair in
+      |protocolVersion: The (optional) protocol version that defines the serialization of the key pair
+      |password: Optional password to encrypt the exported key pair with"""
+  )
   def download_to(
       fingerprint: Fingerprint,
       outputFile: String,
       protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      password: Option[String] = None,
   ): Unit = {
-    writeToFile(outputFile, download(fingerprint, protocolVersion))
+    writeToFile(outputFile, download(fingerprint, protocolVersion, password))
   }
 
   @Help.Summary("Delete private key")
@@ -414,12 +420,10 @@ class PublicKeyAdministration(
   @Help.Summary(
     "Load a public key from a file and store it together with a name used to provide some context to that key."
   )
-  def upload(filename: String, name: Option[String]): Fingerprint = consoleEnvironment.run {
-    BinaryFileUtil.readByteStringFromFile(filename) match {
-      case Right(bytes) => adminCommand(VaultAdminCommands.ImportPublicKey(bytes, name))
-      case Left(err) => throw new IllegalArgumentException(err)
+  def upload_from(filename: String, name: Option[String]): Fingerprint =
+    BinaryFileUtil.readByteStringFromFile(filename).map(upload(_, name)).valueOr { err =>
+      throw new IllegalArgumentException(err)
     }
-  }
 
   @Help.Summary("Download public key")
   def download(
@@ -487,16 +491,19 @@ class PublicKeyAdministration(
       filterDomain: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
-  ): Seq[ListKeyOwnersResult] = consoleEnvironment.run {
-    adminCommand(
-      TopologyAdminCommands.Aggregation.ListKeyOwners(
-        filterDomain = filterDomain,
-        filterKeyOwnerType = Some(keyOwner.code),
-        filterKeyOwnerUid = keyOwner.uid.toProtoPrimitive,
-        asOf,
-        limit,
+  ): Seq[ListKeyOwnersResult] = {
+    println(s"keyOwner.uid.toProtoPrimitive = ${keyOwner.uid.toProtoPrimitive}")
+    consoleEnvironment.run {
+      adminCommand(
+        TopologyAdminCommands.Aggregation.ListKeyOwners(
+          filterDomain = filterDomain,
+          filterKeyOwnerType = Some(keyOwner.code),
+          filterKeyOwnerUid = keyOwner.uid.toProtoPrimitive,
+          asOf,
+          limit,
+        )
       )
-    )
+    }
   }
 }
 
@@ -545,6 +552,7 @@ class LocalSecretKeyAdministration(
   override def download(
       fingerprint: Fingerprint,
       protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      password: Option[String] = None,
   ): ByteString =
     TraceContext.withNewTraceContext { implicit traceContext =>
       val cmd = for {
@@ -570,7 +578,18 @@ class LocalSecretKeyAdministration(
             new EncryptionKeyPair(pub, pkey)
           case _ => sys.error("public and private keys must have same purpose")
         }
-        keyPairBytes = keyPair.toByteString(protocolVersion)
+
+        // Encrypt the keypair if a password is provided
+        keyPairBytes = password match {
+          case Some(password) =>
+            crypto.pureCrypto
+              .encryptWithPassword(keyPair, password, protocolVersion)
+              .fold(
+                err => sys.error(s"Failed to encrypt key pair for export: $err"),
+                _.toByteString(protocolVersion),
+              )
+          case None => keyPair.toByteString(protocolVersion)
+        }
       } yield keyPairBytes
       run(cmd, "exporting key pair")
     }
@@ -580,9 +599,10 @@ class LocalSecretKeyAdministration(
       fingerprint: Fingerprint,
       outputFile: String,
       protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      password: Option[String] = None,
   ): Unit =
     run(
-      EitherT.rightT(writeToFile(outputFile, download(fingerprint, protocolVersion))),
+      EitherT.rightT(writeToFile(outputFile, download(fingerprint, protocolVersion, password))),
       "saving key pair to file",
     )
 

@@ -33,8 +33,16 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
       extends ProtoDeserializationError
   final case class StringConversionError(message: String) extends ProtoDeserializationError
   final case class UnrecognizedField(message: String) extends ProtoDeserializationError
-  final case class UnrecognizedEnum(field: String, value: Int) extends ProtoDeserializationError {
-    override val message = s"Unrecognized value `$value` in enum field `$field`"
+  final case class UnrecognizedEnum(field: String, value: String, validValues: Seq[String])
+      extends ProtoDeserializationError {
+    private val validValuesMessage =
+      if (validValues.nonEmpty) s"\nValid values are: ${validValues.toSet.mkString(", ")}" else ""
+    override val message =
+      s"Unrecognized value `$value` in enum field `$field`" + validValuesMessage
+  }
+  object UnrecognizedEnum {
+    def apply(field: String, value: Int): UnrecognizedEnum =
+      UnrecognizedEnum(field, value.toString, Nil)
   }
   final case class FieldNotSet(field: String) extends ProtoDeserializationError {
     override val message = s"Field `$field` is not set"

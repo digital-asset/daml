@@ -59,7 +59,7 @@ case class SerializableContract(
       // Even though [[ContractMetadata]] also implements `HasVersionedWrapper`, we explicitly use Protobuf V30
       // -> we only use `UntypedVersionedMessage` when required and not for 'regularly' nested Protobuf messages
       metadata = Some(metadata.toProtoV30),
-      ledgerCreateTime = Some(ledgerCreateTime.toProtoPrimitive),
+      ledgerCreateTime = ledgerCreateTime.ts.toProtoPrimitive,
       // Contract salt can be empty for contracts created in protocol versions < 4.
       contractSalt = contractSalt.map(_.toProtoV30),
     )
@@ -100,7 +100,7 @@ object SerializableContract
 
   // Ledger time of the "repair transaction" creating the contract
   final case class LedgerCreateTime(ts: CantonTimestamp) extends AnyVal {
-    def toProtoPrimitive: Timestamp = ts.toProtoPrimitive
+    def toProtoPrimitive: Timestamp = ts.toProtoTimestamp
     def toInstant: Instant = ts.toInstant
     def toLf: LfTimestamp = ts.toLf
   }
@@ -175,7 +175,7 @@ object SerializableContract
       contractIdP: String,
       rawP: ByteString,
       metadataP: Option[v30.SerializableContract.Metadata],
-      ledgerCreateTime: Option[Timestamp],
+      ledgerCreateTime: Long,
       contractSaltO: Option[crypto.v30.Salt],
   ): ParsingResult[SerializableContract] =
     for {
@@ -186,9 +186,7 @@ object SerializableContract
       metadata <- ProtoConverter
         .required("metadata", metadataP)
         .flatMap(ContractMetadata.fromProtoV30)
-      ledgerTime <- ProtoConverter
-        .required("ledger_create_time", ledgerCreateTime)
-        .flatMap(CantonTimestamp.fromProtoPrimitive)
+      ledgerTime <- CantonTimestamp.fromProtoPrimitive(ledgerCreateTime)
       contractSalt <- contractSaltO.traverse(Salt.fromProtoV30)
     } yield SerializableContract(
       contractId,

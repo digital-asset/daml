@@ -10,12 +10,12 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.EventLogId.DomainEventLogId
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.protocol.TargetDomainId
-import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.memory.{
   InMemorySendTrackerStore,
   InMemorySequencedEventStore,
   InMemorySequencerCounterTrackerStore,
 }
+import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStoreX
@@ -24,13 +24,14 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-class InMemorySyncDomainPersistentStateX(
+class InMemorySyncDomainPersistentState(
     clock: Clock,
     crypto: Crypto,
     override val domainId: IndexedDomain,
     val protocolVersion: ProtocolVersion,
     override val enableAdditionalConsistencyChecks: Boolean,
     enableTopologyTransactionValidation: Boolean,
+    indexedStringStore: IndexedStringStore,
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
@@ -41,7 +42,8 @@ class InMemorySyncDomainPersistentStateX(
 
   val eventLog = new InMemorySingleDimensionEventLog(DomainEventLogId(domainId), loggerFactory)
   val contractStore = new InMemoryContractStore(loggerFactory)
-  val activeContractStore = new InMemoryActiveContractStore(protocolVersion, loggerFactory)
+  val activeContractStore =
+    new InMemoryActiveContractStore(indexedStringStore, protocolVersion, loggerFactory)
   val transferStore = new InMemoryTransferStore(TargetDomainId(domainId.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)

@@ -3,19 +3,9 @@
 
 package com.digitalasset.canton.sequencing.handlers
 
-import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.sequencing.protocol.{Deliver, Envelope}
-import com.digitalasset.canton.sequencing.{
-  EnvelopeHandler,
-  HandlerResult,
-  OrdinaryApplicationHandler,
-  UnsignedApplicationHandler,
-  UnsignedEnvelopeBox,
-}
+import com.digitalasset.canton.sequencing.protocol.Envelope
+import com.digitalasset.canton.sequencing.{OrdinaryApplicationHandler, UnsignedApplicationHandler}
 import com.digitalasset.canton.tracing.Traced
-import com.digitalasset.canton.util.MonadUtil
-
-import scala.concurrent.ExecutionContext
 
 /** Removes the [[com.digitalasset.canton.sequencing.protocol.SignedContent]] wrapper before providing to a handler */
 object StripSignature {
@@ -25,24 +15,4 @@ object StripSignature {
     handler.replace(events =>
       handler(events.map(_.map(e => Traced(e.signedEvent.content)(e.traceContext))))
     )
-}
-
-object StripOrdinaryEnvelopeBox {
-  def apply(
-      handler: EnvelopeHandler
-  )(implicit ec: ExecutionContext): OrdinaryApplicationHandler[DefaultOpenEnvelope] = {
-    StripSignature(
-      handler.replace[UnsignedEnvelopeBox, DefaultOpenEnvelope](box =>
-        MonadUtil.sequentialTraverseMonoid(box.value)(
-          _.withTraceContext { implicit traceContext =>
-            {
-              case Deliver(_, _, _, _, batch) => handler(Traced(batch.envelopes))
-              case _ => HandlerResult.done
-            }
-          }
-        )
-      )
-    )
-  }
-
 }

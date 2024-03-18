@@ -24,7 +24,7 @@ import DA.Daml.LF.Ast.TypeLevelNat
 data ExprF expr
   = EVarF        !ExprVarName
   | EValF        !(Qualified ExprValName)
-  | EBuiltinF    !BuiltinExpr
+  | EBuiltinFunF    !BuiltinExpr
   | ERecConF     !TypeConApp ![(FieldName, expr)]
   | ERecProjF    !TypeConApp !FieldName !expr
   | ERecUpdF     !TypeConApp !FieldName !expr !expr
@@ -191,7 +191,7 @@ instance Recursive Expr where
   project = \case
     EVar        a     -> EVarF          a
     EVal        a     -> EValF          a
-    EBuiltin    a     -> EBuiltinF      a
+    EBuiltinFun a     -> EBuiltinFunF   a
     ERecCon     a b   -> ERecConF       a b
     ERecProj    a b c -> ERecProjF      a b c
     ERecUpd   a b c d -> ERecUpdF     a b c d
@@ -238,7 +238,7 @@ instance Corecursive Expr where
   embed = \case
     EVarF        a     -> EVar          a
     EValF        a     -> EVal          a
-    EBuiltinF    a     -> EBuiltin      a
+    EBuiltinFunF    a     -> EBuiltinFun      a
     ERecConF     a b   -> ERecCon       a b
     ERecProjF    a b c -> ERecProj      a b c
     ERecUpdF   a b c d -> ERecUpd     a b c d

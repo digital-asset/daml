@@ -71,7 +71,9 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     ).sorted
     iterators.packageNames.toList.sorted shouldBe List(
       "25.1",
+      "50.1",
       "87.1",
+      "94.1",
     ).sorted
   }
 
@@ -111,7 +113,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       create_argument = Array.empty,
       create_signatories = Set("32", "33", "34"),
       create_observers = Set("35", "36", "37"),
-      create_agreement_text = Some("38"),
       create_key_value = None,
       create_key_maintainers = Some(Set("32", "33")),
       create_key_hash = Some("39"),
@@ -136,6 +137,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       event_id = "48",
       contract_id = "49",
       template_id = "50",
+      package_name = "50.1",
       flat_event_witnesses = Set("51", "52", "53"),
       tree_event_witnesses = Set("54", "55", "56"),
       exercise_argument = Array.empty,
@@ -170,14 +172,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       domain_id = "domain4",
       trace_context = serializableTraceContext,
     ),
-    DbDto.ConfigurationEntry(
-      ledger_offset = "75",
-      recorded_at = 1,
-      submission_id = "76",
-      typ = "77",
-      configuration = Array.empty,
-      rejection_reason = Some("78"),
-    ),
     DbDto.Package(
       package_id = "79",
       upload_id = "80",
@@ -207,7 +201,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       create_argument = Array.empty,
       create_signatories = Set("90", "91"),
       create_observers = Set("92", "93"),
-      create_agreement_text = None,
       create_key_value = None,
       create_key_maintainers = Some(Set("91")),
       create_key_hash = None,
@@ -231,6 +224,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       submitter = Option("s2"),
       contract_id = "",
       template_id = "94",
+      package_name = "94.1",
       flat_event_witnesses = Set("95", "96"),
       event_sequential_id = 0,
       source_domain_id = "domain7",

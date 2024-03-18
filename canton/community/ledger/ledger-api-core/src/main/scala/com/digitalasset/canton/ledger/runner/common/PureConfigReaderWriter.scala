@@ -5,10 +5,9 @@ package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.lf.data.Ref
-import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.ports.Port
 import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
-import com.digitalasset.canton.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
+import com.digitalasset.canton.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optConvertEnabled,
   optProductHint,
@@ -25,11 +24,7 @@ import com.digitalasset.canton.platform.config.{
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
-import com.digitalasset.canton.platform.indexer.{
-  IndexerConfig,
-  IndexerStartupMode,
-  PackageMetadataViewConfig,
-}
+import com.digitalasset.canton.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.digitalasset.canton.platform.store.DbSupport.{
   ConnectionPoolConfig,
   DataSourceProperties,
@@ -42,7 +37,7 @@ import pureconfig.configurable.{genericMapReader, genericMapWriter}
 import pureconfig.error.CannotConvert
 import pureconfig.generic.ProductHint
 import pureconfig.generic.semiauto.*
-import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter, ConvertHelpers}
+import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter}
 
 import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -65,32 +60,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
         .collect { case d: FiniteDuration => d }
         .map(_.toJava)
         .toRight(CannotConvert(str, Duration.getClass.getName, s"Could not convert $str"))
-    }
-
-  implicit val metricReporterReader: ConfigReader[MetricsReporter] = {
-    ConfigReader.fromString[MetricsReporter](ConvertHelpers.catchReadError { s =>
-      MetricsReporter.parseMetricsReporter(s)
-    })
-  }
-  implicit val metricReporterWriter: ConfigWriter[MetricsReporter] =
-    ConfigWriter.toString {
-      case MetricsReporter.Console => "console"
-      case MetricsReporter.Csv(directory) => s"csv://${directory.toAbsolutePath.toString}"
-      case MetricsReporter.Graphite(address, prefix) =>
-        s"graphite://${address.getHostName}:${address.getPort}/${prefix.getOrElse("")}"
-      case MetricsReporter.Prometheus(address) =>
-        s"prometheus://${address.getHostName}:${address.getPort}"
-    }
-
-  implicit val secretsUrlReader: ConfigReader[SecretsUrl] =
-    ConfigReader.fromString[SecretsUrl] { url =>
-      Right(SecretsUrl.fromString(url))
-    }
-
-  implicit val secretsUrlWriter: ConfigWriter[SecretsUrl] =
-    ConfigWriter.toString {
-      case SecretsUrl.FromUrl(url) if !secure => url.toString
-      case _ => ReplaceSecretWithString
     }
 
   implicit val clientAuthReader: ConfigReader[ClientAuth] =
@@ -191,27 +160,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val rateLimitingConfigConvert: ConfigConvert[Option[RateLimitingConfig]] =
     optConvertEnabled(deriveConvert[RateLimitingConfig])
-
-  implicit val validateAndStartConvert: ConfigConvert[IndexerStartupMode.ValidateAndStart.type] =
-    deriveConvert[IndexerStartupMode.ValidateAndStart.type]
-
-  implicit val MigrateOnEmptySchemaAndStartReader
-      : ConfigConvert[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type] =
-    deriveConvert[IndexerStartupMode.MigrateOnEmptySchemaAndStart.type]
-
-  implicit val migrateAndStartConvert: ConfigConvert[IndexerStartupMode.MigrateAndStart.type] =
-    deriveConvert[IndexerStartupMode.MigrateAndStart.type]
-
-  implicit val validateAndWaitOnlyHint: ProductHint[IndexerStartupMode.ValidateAndWaitOnly] =
-    ProductHint[IndexerStartupMode.ValidateAndWaitOnly](allowUnknownKeys = false)
-
-  implicit val validateAndWaitOnlyConvert: ConfigConvert[IndexerStartupMode.ValidateAndWaitOnly] =
-    deriveConvert[IndexerStartupMode.ValidateAndWaitOnly]
-  implicit val justStartOnlyConvert: ConfigConvert[IndexerStartupMode.JustStart.type] =
-    deriveConvert[IndexerStartupMode.JustStart.type]
-
-  implicit val indexerStartupModeConvert: ConfigConvert[IndexerStartupMode] =
-    deriveConvert[IndexerStartupMode]
 
   implicit val haConfigHint: ProductHint[HaConfig] =
     ProductHint[HaConfig](allowUnknownKeys = false)

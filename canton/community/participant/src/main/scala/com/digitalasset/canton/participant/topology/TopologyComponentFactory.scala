@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
   ProcessingTimeout,
-  TopologyXConfig,
+  TopologyConfig,
 }
 import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -78,6 +78,7 @@ trait TopologyComponentFactory {
       trafficStateController: TrafficStateController,
       recordOrderPublisher: RecordOrderPublisher,
       protocolVersion: ProtocolVersion,
+      useNewTrafficControl: Boolean,
   ): TopologyTransactionProcessorCommon.Factory
 
 }
@@ -91,7 +92,7 @@ class TopologyComponentFactoryX(
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
     batching: BatchingConfig,
-    topologyXConfig: TopologyXConfig,
+    topologyXConfig: TopologyConfig,
     topologyStore: TopologyStoreX[DomainStore],
     loggerFactory: NamedLoggerFactory,
 ) extends TopologyComponentFactory {
@@ -104,6 +105,7 @@ class TopologyComponentFactoryX(
       trafficStateController: TrafficStateController,
       recordOrderPublisher: RecordOrderPublisher,
       protocolVersion: ProtocolVersion,
+      useNewTrafficControl: Boolean,
   ): TopologyTransactionProcessorCommon.Factory = new TopologyTransactionProcessorCommon.Factory {
     override def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
@@ -136,7 +138,10 @@ class TopologyComponentFactoryX(
         case _ =>
           throw new IllegalStateException("passed wrong type. coding bug")
       }
-      processor.subscribe(new TrafficStateTopUpSubscription(trafficStateController, loggerFactory))
+      if (!useNewTrafficControl)
+        processor.subscribe(
+          new TrafficStateTopUpSubscription(trafficStateController, loggerFactory)
+        )
       processor
     }
   }

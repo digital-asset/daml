@@ -217,6 +217,8 @@ class SequencersTransportState(
       })
     }.onShutdown(())
 
+  // TODO(#17726) Figure out whether the synchronization is needed for the whole block and if so refactor into a semaphore!
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def changeTransport(
       sequencerTransports: SequencerTransports[?]
   )(implicit traceContext: TraceContext): Future[Unit] = blocking(lock.synchronized {

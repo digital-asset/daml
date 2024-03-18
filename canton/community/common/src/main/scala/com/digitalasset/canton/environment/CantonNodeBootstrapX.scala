@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.FatalError
 import com.digitalasset.canton.health.{GrpcHealthReporter, HealthService}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -95,7 +96,7 @@ abstract class CantonNodeBootstrapX[
       // TODO(#14048) bubble this up into env ensuring that the node is properly deregistered from env if we fail during
       //   async startup. (node should be removed from running nodes)
       //   we can't call node.close() here as this thing is executed within a performUnlessClosing, so we'd deadlock
-      logger.error("Should be closing node due to startup failure")
+      FatalError.exitOnFatalError(s"startup of node $name failed", logger)
     }
     override val queue: SimpleExecutionQueue = initQueue
     override def ec: ExecutionContext = CantonNodeBootstrapX.this.executionContext
@@ -215,7 +216,7 @@ abstract class CantonNodeBootstrapX[
         clock,
         crypto,
         authorizedStore,
-        config.topologyX.enableTopologyTransactionValidation,
+        config.topology.enableTopologyTransactionValidation,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -379,7 +380,7 @@ abstract class CantonNodeBootstrapX[
         .map { res =>
           val done = res.result
             .filterNot(_.transaction.isProposal)
-            .map(_.transaction.transaction.mapping)
+            .map(_.mapping)
             .exists {
               case OwnerToKeyMappingX(`myMember`, None, keys) =>
                 // stage is clear if we have a general signing key and possibly also an encryption key

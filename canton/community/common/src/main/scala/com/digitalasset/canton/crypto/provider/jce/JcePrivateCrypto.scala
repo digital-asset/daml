@@ -152,4 +152,5 @@ class JcePrivateCrypto(
 
   }
 
+  override def close(): Unit = ()
 }

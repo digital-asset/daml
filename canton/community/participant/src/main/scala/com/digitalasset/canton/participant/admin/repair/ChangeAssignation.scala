@@ -73,52 +73,51 @@ private final class ChangeAssignation(
       source: Map[LfContractId, ContractState]
   )(implicit
       executionContext: ExecutionContext
-  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounterO)]]] =
+  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounter)]]] = {
+    def errorUnlessSkipInactive(
+        cid: ChangeAssignation.Data[LfContractId],
+        reason: String,
+    ): Either[String, None.type] =
+      Either.cond(
+        skipInactive,
+        None,
+        s"Cannot change contract assignation: contract $cid $reason.",
+      )
+
     EitherT.fromEither(
       contractIds
         .map(cid => (cid, source.get(cid.payload).map(_.status)))
         .toList
         .traverse {
           case (cid, None) =>
-            Either.cond(
-              skipInactive,
-              None,
-              s"Contract $cid does not exist in source domain and cannot be moved.",
-            )
+            errorUnlessSkipInactive(cid, "does not exist in source domain")
           case (cid, Some(ActiveContractStore.Active(transferCounter))) =>
             Right(Some(cid.copy(payload = (cid.payload, transferCounter))))
           case (cid, Some(ActiveContractStore.Archived)) =>
-            Either.cond(
-              skipInactive,
-              None,
-              s"Contract $cid has been archived and cannot be moved.",
-            )
+            errorUnlessSkipInactive(cid, "has been archived")
+          case (cid, Some(ActiveContractStore.Purged)) =>
+            errorUnlessSkipInactive(cid, "has been purged")
           case (cid, Some(ActiveContractStore.TransferredAway(target, _transferCounter))) =>
-            Either
-              .cond(
-                skipInactive,
-                None,
-                s"Contract $cid has been transferred to $target and cannot be moved.",
-              )
+            errorUnlessSkipInactive(cid, s"has been transferred to $target")
         }
         .map(_.flatten)
     )
+  }
 
   private def changingContractIds(
-      sourceContracts: List[ChangeAssignation.Data[(LfContractId, TransferCounterO)]],
+      sourceContracts: List[ChangeAssignation.Data[(LfContractId, TransferCounter)]],
       targetStatus: Map[LfContractId, ContractState],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounterO)]]] = {
+  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, TransferCounter)]]] = {
     val filteredE =
       sourceContracts
         .traverse { case data @ ChangeAssignation.Data((cid, transferCounter), _, _) =>
           val targetStatusOfContract = targetStatus.get(cid).map(_.status)
           targetStatusOfContract match {
             case None | Some(ActiveContractStore.TransferredAway(_, _)) =>
-              transferCounter
-                .traverse(_.increment)
+              transferCounter.increment
                 .map(incrementedTc => data.copy(payload = (cid, incrementedTc)))
             case Some(targetState) =>
               Left(
@@ -169,13 +168,13 @@ private final class ChangeAssignation(
 
   private def readContractsFromSource(
       contractIdsWithTransferCounters: List[
-        ChangeAssignation.Data[(LfContractId, TransferCounterO)]
+        ChangeAssignation.Data[(LfContractId, TransferCounter)]
       ]
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, String, List[
-    (SerializableContract, ChangeAssignation.Data[(LfContractId, TransferCounterO)])
+    (SerializableContract, ChangeAssignation.Data[(LfContractId, TransferCounter)])
   ]] =
     repairSource.domain.persistentState.contractStore
       .lookupManyUncached(contractIdsWithTransferCounters.map(_.payload._1))
@@ -186,7 +185,7 @@ private final class ChangeAssignation(
 
   private def readContracts(
       contractIdsWithTransferCounters: List[
-        ChangeAssignation.Data[(LfContractId, TransferCounterO)]
+        ChangeAssignation.Data[(LfContractId, TransferCounter)]
       ]
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
     Future,
@@ -200,9 +199,7 @@ private final class ChangeAssignation(
               data @ ChangeAssignation.Data((contractId, transferCounter), _, _),
             ) =>
           for {
-            transferCounter <- EitherT.fromEither[Future](
-              transferCounter.fold(TransferCounter.Genesis.increment)(Right(_))
-            )
+            transferCounter <- EitherT.fromEither[Future](Right(transferCounter))
             serializedTargetO <- EitherT.right(
               repairTarget.domain.persistentState.contractStore.lookupContract(contractId).value
             )
@@ -255,7 +252,7 @@ private final class ChangeAssignation(
           (
             contract.payload.contract.contractId,
             targetDomainId,
-            Some(contract.payload.transferCounter),
+            contract.payload.transferCounter,
             contract.sourceTimeOfChange,
           )
         }
@@ -268,7 +265,7 @@ private final class ChangeAssignation(
           (
             contract.payload.contract.contractId,
             sourceDomainId,
-            Some(contract.payload.transferCounter),
+            contract.payload.transferCounter,
             contract.targetTimeOfChange,
           )
         }
@@ -345,6 +342,7 @@ private final class ChangeAssignation(
         submitter = None,
         contractId = contract.payload.contract.contractId,
         templateId = Option(contract.payload.contract.contractInstance.unversioned.template),
+        packageName = contract.payload.contract.contractInstance.unversioned.packageName,
         contractStakeholders = contract.payload.contract.metadata.stakeholders,
         transferId = transferId,
         targetDomain = targetDomainId,

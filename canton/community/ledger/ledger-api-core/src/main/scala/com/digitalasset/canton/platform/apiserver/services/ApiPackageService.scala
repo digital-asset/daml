@@ -5,19 +5,17 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  GetPackageStatusResponse,
-  HashFunction as APIHashFunction,
-  ListPackagesResponse,
-  PackageStatus,
-}
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v2.package_service.{
   GetPackageRequest,
+  GetPackageResponse,
   GetPackageStatusRequest,
+  GetPackageStatusResponse,
+  HashFunction as APIHashFunction,
   ListPackagesRequest,
+  ListPackagesResponse,
   PackageServiceGrpc,
+  PackageStatus,
 }
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
@@ -105,9 +103,9 @@ private[apiserver] final class ApiPackageService(
           .listLfPackages()
           .map { packages =>
             val result = if (packages.contains(packageId)) {
-              PackageStatus.REGISTERED
+              PackageStatus.PACKAGE_STATUS_REGISTERED
             } else {
-              PackageStatus.UNKNOWN
+              PackageStatus.PACKAGE_STATUS_UNSPECIFIED
             }
             GetPackageStatusResponse(result)
           }
@@ -137,7 +135,7 @@ private[apiserver] final class ApiPackageService(
 
   private def toGetPackageResponse(archive: Archive): GetPackageResponse = {
     val hashFunction = archive.getHashFunction match {
-      case HashFunction.SHA256 => APIHashFunction.SHA256
+      case HashFunction.SHA256 => APIHashFunction.HASH_FUNCTION_SHA256
       case _ => APIHashFunction.Unrecognized(-1)
     }
     GetPackageResponse(

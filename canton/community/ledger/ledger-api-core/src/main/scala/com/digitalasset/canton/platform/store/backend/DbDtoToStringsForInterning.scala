@@ -36,6 +36,8 @@ object DbDtoToStringsForInterning {
     dbDto match {
       case dbDto: DbDto.EventCreate => Iterator(dbDto.package_name)
       case dbDto: DbDto.EventAssign => Iterator(dbDto.package_name)
+      case dbDto: DbDto.EventExercise => Iterator(dbDto.package_name)
+      case dbDto: DbDto.EventUnassign => Iterator(dbDto.package_name)
       case _ => Iterator.empty
     }
 

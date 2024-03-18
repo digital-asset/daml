@@ -40,16 +40,16 @@ class DbRegisteredDomainsStore(
       val insert = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
           sqlu"""
-        insert into participant_domains(alias, domain_id)
+        insert into par_domains(alias, domain_id)
         values ($alias, $domainId)
         on conflict do nothing
         """
         case _ =>
           sqlu"""
-        insert into participant_domains(alias, domain_id)
+        insert into par_domains(alias, domain_id)
         select $alias, $domainId from dual
-        where not exists (select * from participant_domains where domain_id = $domainId)
-          and not exists (select * from participant_domains where alias = $alias)
+        where not exists (select * from par_domains where domain_id = $domainId)
+          and not exists (select * from par_domains where alias = $alias)
           """
       }
 
@@ -63,7 +63,7 @@ class DbRegisteredDomainsStore(
           // We may have inserted the row even if the row count is lower. So check whether the row is actually there.
           doubleAlias <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select domain_id from participant_domains where alias = $alias".as[DomainId],
+              sql"select domain_id from par_domains where alias = $alias".as[DomainId],
               functionFullName,
             )
           )
@@ -81,7 +81,7 @@ class DbRegisteredDomainsStore(
           )
           doubleDomainId <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select alias from participant_domains where domain_id = $domainId"
+              sql"select alias from par_domains where domain_id = $domainId"
                 .as[DomainAlias],
               functionFullName,
             )
@@ -103,7 +103,7 @@ class DbRegisteredDomainsStore(
   ): Future[Map[DomainAlias, DomainId]] =
     storage
       .query(
-        sql"""select alias, domain_id from participant_domains"""
+        sql"""select alias, domain_id from par_domains"""
           .as[(DomainAlias, DomainId)]
           .map(_.toMap),
         functionFullName,

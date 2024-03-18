@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.{
   CryptoKeyFormat,
   EncryptionKeyScheme,
   HashAlgorithm,
+  PbkdfScheme,
   SigningKeyScheme,
   SymmetricKeyScheme,
 }
@@ -24,5 +25,7 @@ object SymbolicCryptoProvider {
   val supportedHashAlgorithms: NonEmpty[Set[HashAlgorithm]] = NonEmpty.mk(Set, HashAlgorithm.Sha256)
   val supportedCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]] =
     NonEmpty.mk(Set, CryptoKeyFormat.Symbolic)
+  val supportedPbkdfSchemes: NonEmpty[Set[PbkdfScheme]] =
+    NonEmpty.mk(Set, PbkdfScheme.Argon2idMode1)
 
 }

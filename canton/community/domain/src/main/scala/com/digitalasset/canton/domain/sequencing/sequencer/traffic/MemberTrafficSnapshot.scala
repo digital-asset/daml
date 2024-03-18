@@ -22,7 +22,7 @@ final case class MemberTrafficSnapshot(
       extraTrafficRemainder = state.extraTrafficRemainder.value,
       extraTrafficConsumed = state.extraTrafficConsumed.value,
       baseTrafficRemainder = state.baseTrafficRemainder.value,
-      sequencingTimestamp = Some(state.timestamp.toProtoPrimitive),
+      sequencingTimestamp = state.timestamp.toProtoPrimitive,
     )
   }
 }
@@ -36,11 +36,7 @@ object MemberTrafficSnapshot {
       extraTrafficRemainder <- ProtoConverter.parseNonNegativeLong(snapshotP.extraTrafficRemainder)
       extraTrafficConsumed <- ProtoConverter.parseNonNegativeLong(snapshotP.extraTrafficConsumed)
       baseTrafficRemainder <- ProtoConverter.parseNonNegativeLong(snapshotP.baseTrafficRemainder)
-      timestamp <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoPrimitive,
-        "sequencing_timestamp",
-        snapshotP.sequencingTimestamp,
-      )
+      timestamp <- CantonTimestamp.fromProtoPrimitive(snapshotP.sequencingTimestamp)
     } yield MemberTrafficSnapshot(
       member,
       TrafficState(

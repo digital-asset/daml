@@ -4,7 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.{Absolute, Boundary}
 import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.StateServiceAuthorization
@@ -58,7 +58,7 @@ final class StateServiceImpl(
         .map[GetLedgerEndResponse](t =>
           GetLedgerEndResponse(Option(ParticipantOffset(Absolute(t.offset))))
         )
-        .last(GetLedgerEndResponse(Option(ParticipantOffset(Boundary(PARTICIPANT_BEGIN)))))
+        .last(GetLedgerEndResponse(Option(ParticipantOffset(Boundary(PARTICIPANT_BOUNDARY_BEGIN)))))
     result.subscribe(promise.success _, promise.failure _)
     promise.future
   }

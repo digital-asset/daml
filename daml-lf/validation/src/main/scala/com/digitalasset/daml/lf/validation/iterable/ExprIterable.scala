@@ -12,7 +12,7 @@ private[validation] object ExprIterable {
 
   private[iterable] def iterator(x: Expr): Iterator[Expr] = {
     x match {
-      case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EEnumCon(_, _) |
+      case EVar(_) | EBuiltinFun(_) | EBuiltinCon(_) | EBuiltinLit(_) | EVal(_) | EEnumCon(_, _) |
           // stupid formatter !
           ETypeRep(_) | EExperimental(_, _) =>
         Iterator.empty

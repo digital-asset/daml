@@ -72,7 +72,7 @@ class DbInFlightSubmissionStore(
     val query =
       sql"""
         select change_id_hash, submission_id, submission_domain, message_id, root_hash_hex, sequencing_timeout, tracking_data, trace_context
-        from in_flight_submission where submission_domain = $domainId and sequencing_timeout <= $observedSequencingTime
+        from par_in_flight_submission where submission_domain = $domainId and sequencing_timeout <= $observedSequencingTime
         """.as[InFlightSubmission[UnsequencedSubmission]]
     storage.query(query, "lookup unsequenced in-flight submission")
   }
@@ -84,7 +84,7 @@ class DbInFlightSubmissionStore(
     val query =
       sql"""
         select change_id_hash, submission_id, submission_domain, message_id, root_hash_hex, sequencer_counter, sequencing_time, trace_context
-        from in_flight_submission where submission_domain = $domainId and sequencing_time <= $sequencingTimeInclusive
+        from par_in_flight_submission where submission_domain = $domainId and sequencing_time <= $sequencingTimeInclusive
         """.as[InFlightSubmission[SequencedSubmission]]
     storage.query(query, "lookup sequenced in-flight submission")
   }
@@ -95,7 +95,7 @@ class DbInFlightSubmissionStore(
     val query =
       sql"""
         select change_id_hash, submission_id, submission_domain, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
-        from in_flight_submission where submission_domain = $domainId and message_id = $messageId
+        from par_in_flight_submission where submission_domain = $domainId and message_id = $messageId
         #${storage.limit(1)}
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
     storage.query(query, "lookup in-flight submission by message id")
@@ -107,7 +107,7 @@ class DbInFlightSubmissionStore(
     val query =
       sql"""
         select min(sequencing_time), min(sequencing_timeout)
-        from in_flight_submission where submission_domain = $domainId
+        from par_in_flight_submission where submission_domain = $domainId
         """.as[(Option[CantonTimestamp], Option[CantonTimestamp])].headOption
     storage
       .query(query, "lookup earliest in-flight submission")
@@ -147,7 +147,7 @@ class DbInFlightSubmissionStore(
       rootHash: RootHash,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val updateQuery =
-      sqlu"""update in_flight_submission
+      sqlu"""update par_in_flight_submission
              set root_hash_hex = $rootHash
              where submission_domain = ${submission.submissionDomain} and change_id_hash = ${submission.changeIdHash}
                and sequencing_timeout is not null and root_hash_hex is null
@@ -161,7 +161,7 @@ class DbInFlightSubmissionStore(
       submissions: Map[MessageId, SequencedSubmission],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val updateQuery =
-      """update in_flight_submission
+      """update par_in_flight_submission
          set sequencing_timeout = null, tracking_data = null, sequencer_counter = ?, sequencing_time = ?
          where submission_domain = ? and message_id = ? and sequencing_timeout is not null
       """
@@ -208,7 +208,7 @@ class DbInFlightSubmissionStore(
           }
 
           val action = DbStorage.bulkOperation_(
-            """update in_flight_submission
+            """update par_in_flight_submission
                set sequencing_timeout = null, tracking_data = null, sequencer_counter = ?, sequencing_time = ?
                where root_hash_hex = ? and (sequencing_timeout is not null or ? < sequencing_time)
             """,
@@ -245,7 +245,7 @@ class DbInFlightSubmissionStore(
     val (byId, bySequencing) = submissions.toList.map(_.toEither).separate
 
     val byIdQuery =
-      "delete from in_flight_submission where submission_domain = ? and message_id = ?"
+      "delete from par_in_flight_submission where submission_domain = ? and message_id = ?"
     val batchById = DbStorage.bulkOperation_(byIdQuery, byId, storage.profile) { pp => submission =>
       val InFlightByMessageId(domainId, messageId) = submission
       pp >> domainId
@@ -253,7 +253,7 @@ class DbInFlightSubmissionStore(
     }
 
     val bySequencingQuery =
-      "delete from in_flight_submission where submission_domain = ? and sequencing_time = ? and sequencer_counter = ?"
+      "delete from par_in_flight_submission where submission_domain = ? and sequencing_time = ? and sequencer_counter = ?"
     val batchBySequencing =
       DbStorage.bulkOperation_(bySequencingQuery, bySequencing, storage.profile) {
         pp => submission =>
@@ -282,7 +282,7 @@ class DbInFlightSubmissionStore(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val updateQuery =
       sqlu"""
-          update in_flight_submission
+          update par_in_flight_submission
           set sequencing_timeout = ${newSequencingInfo.timeout}, tracking_data = ${newSequencingInfo.trackingData}
           where change_id_hash = $changeIdHash and submission_domain = $submissionDomain and message_id = $messageId
             and sequencing_timeout >= ${newSequencingInfo.timeout}
@@ -344,7 +344,7 @@ class DbInFlightSubmissionStore(
   ): DbAction.ReadTransactional[Option[InFlightSubmission[SubmissionSequencingInfo]]] =
     sql"""
         select change_id_hash, submission_id, submission_domain, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
-        from in_flight_submission where change_id_hash = $changeIdHash
+        from par_in_flight_submission where change_id_hash = $changeIdHash
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
 }
 
@@ -451,7 +451,7 @@ object DbInFlightSubmissionStore {
     ): DBIOAction[Array[Int], NoStream, Effect.All] = {
       val insertQuery = storage.profile match {
         case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-          """insert into in_flight_submission(
+          """insert into par_in_flight_submission(
                change_id_hash, submission_id,
                submission_domain, message_id, root_hash_hex,
                sequencing_timeout, sequencer_counter, sequencing_time, tracking_data,
@@ -462,7 +462,7 @@ object DbInFlightSubmissionStore {
                      ?)
              on conflict do nothing"""
         case _: DbStorage.Profile.Oracle =>
-          """merge into in_flight_submission
+          """merge into par_in_flight_submission
                using (
                  select
                    ? change_id_hash, ? submission_id,
@@ -533,7 +533,7 @@ object DbInFlightSubmissionStore {
           import DbStorage.Implicits.BuilderChain.*
           val query = sql"""
               select change_id_hash, submission_id, submission_domain, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
-              from in_flight_submission where """ ++ inClause
+              from par_in_flight_submission where """ ++ inClause
           query.as[InFlightSubmission[SubmissionSequencingInfo]]
       }
     }

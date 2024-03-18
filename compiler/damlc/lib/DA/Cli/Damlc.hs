@@ -17,12 +17,7 @@ import Control.Exception.Safe (catchIO)
 import Control.Monad.Except (forM, forM_, liftIO, unless, void, when)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
-import DA.Bazel.Runfiles (Resource(..),
-                          locateResource,
-                          mainWorkspace,
-                          resourcesPath,
-                          runfilesPathPrefix,
-                          setRunfilesEnv)
+import DA.Bazel.Runfiles (setRunfilesEnv)
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Options (Debug(..),
                        EnableMultiPackage(..),
@@ -95,14 +90,11 @@ import DA.Daml.Project.Types
       unsafeResolveReleaseVersion)
 import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Assistant.Util (wrapErr)
-import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
-import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader (dalfPaths,
                           mainDalf,
@@ -154,7 +146,6 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                getSdkVersion,
                                multiPackageConfigName,
                                projectConfigName,
-                               sdkVersionEnvVar,
                                withExpectProjectRoot,
                                withProjectRoot,
                                damlAssistantIsSet)
@@ -217,17 +208,15 @@ import "ghc-lib-parser" DynFlags (DumpFlag(..),
 import GHC.Conc (getNumProcessors)
 import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
-import Options.Applicative.Extended (flagYesNoAuto, optionOnce, strOptionOnce)
+import Options.Applicative.Extended (flagYesNoAuto, strOptionOnce)
 import Options.Applicative ((<|>),
                             CommandFields,
                             Mod,
                             Parser,
                             ParserInfo(..),
                             ParserResult(..),
-                            auto,
                             command,
                             defaultPrefs,
-                            eitherReader,
                             execParserPure,
                             flag,
                             flag',
@@ -238,7 +227,6 @@ import Options.Applicative ((<|>),
                             helper,
                             info,
                             internal,
-                            liftA2,
                             long,
                             many,
                             metavar,
@@ -246,9 +234,6 @@ import Options.Applicative ((<|>),
                             prefs,
                             progDesc,
                             renderFailure,
-                            short,
-                            str,
-                            strArgument,
                             subparser,
                             switch,
                             value)
@@ -261,8 +246,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Process (StdStream(..),
-                      CreateProcess(..),
+import System.Process (CreateProcess(..),
                       proc,
                       withCreateProcess,
                       waitForProcess,
@@ -277,7 +261,6 @@ import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
 import qualified SdkVersion.Class
-import "ghc-lib-parser" Util (looksLikePackageName)
 import Text.Regex.TDFA
 
 import qualified Development.IDE.Core.Service as IDE
@@ -311,7 +294,6 @@ data CommandName =
   | MergeDars
   | Package
   | Test
-  | Repl
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
@@ -529,104 +511,6 @@ cmdBuildParser numProcessors =
         <*> multiPackageBuildAllOpt
         <*> multiPackageNoCacheOpt
         <*> multiPackageLocationOpt
-
-cmdRepl :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
-cmdRepl numProcessors =
-    command "repl" $ info (helper <*> cmd) $
-    progDesc "Launch the Daml REPL." <>
-    fullDesc
-  where
-    cmd =
-        execRepl
-            <$> many (strArgument (help "DAR to load in the repl" <> metavar "DAR"))
-            <*> many packageImport
-            <*> optional
-                  ((,) <$> strOptionOnce (long "ledger-host" <> help "Host of the ledger API")
-                       <*> strOptionOnce (long "ledger-port" <> help "Port of the ledger API")
-                  )
-            <*> accessTokenFileFlag
-            <*> optional
-                  (ReplClient.ApplicationId <$>
-                     strOptionOnce
-                       (long "application-id" <>
-                        help "Application ID used for command submissions"
-                       )
-                  )
-            <*> sslConfig
-            <*> optional
-                    (optionOnce auto $
-                        long "max-inbound-message-size" <>
-                        help "Optional max inbound message size in bytes."
-                    )
-            <*> timeModeFlag
-            <*> projectOpts "daml repl"
-            <*> optionsParser
-                  numProcessors
-                  (EnableScenarioService False)
-                  (pure Nothing)
-                  disabledDlintUsageParser
-            <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
-            -- This is useful for tests and `bazel run`.
-
-    packageImport = Options.Applicative.option readPackage $
-        long "import"
-        <> short 'i'
-        <> help "Import modules of these packages into the REPL"
-        <> metavar "PACKAGE"
-      where
-        readPackage = eitherReader $ \s -> do
-            let pkg@(name, _) = splitUnitId (stringToUnitId s)
-                strName = T.unpack . LF.unPackageName $ name
-            unless (looksLikePackageName strName) $
-                Left $ "Illegal package name: " ++ strName
-            pure pkg
-    accessTokenFileFlag = optional . optionOnce str $
-        long "access-token-file"
-        <> metavar "TOKEN_PATH"
-        <> help "Path to the token-file for ledger authorization"
-
-    sslConfig :: Parser (Maybe ReplClient.ClientSSLConfig)
-    sslConfig = do
-        tls <- switch $ mconcat
-            [ long "tls"
-            , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
-            ]
-        mbCACert <- optional $ strOptionOnce $ mconcat
-            [ long "cacrt"
-            , help "The crt file to be used as the trusted root CA."
-            ]
-        mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
-            (strOptionOnce $ mconcat
-                 [ long "pem"
-                 , help "The pem file to be used as the private key in mutual authentication."
-                 ]
-            )
-            (strOptionOnce $ mconcat
-                 [ long "crt"
-                 , help "The crt file to be used as the cert chain in mutual authentication."
-                 ]
-            )
-        return $ case (tls, mbCACert, mbClientKeyCertPair) of
-            (False, Nothing, Nothing) -> Nothing
-            (_, _, _) -> Just ReplClient.ClientSSLConfig
-                { serverRootCert = mbCACert
-                , clientSSLKeyCertPair = mbClientKeyCertPair
-                , clientMetadataPlugin = Nothing
-                }
-
-    timeModeFlag :: Parser ReplClient.ReplTimeMode
-    timeModeFlag =
-        (flag' ReplClient.ReplWallClock $ mconcat
-            [ short 'w'
-            , long "wall-clock-time"
-            , help "Use wall clock time (UTC). (this is the default)"
-            ])
-        <|> (flag ReplClient.ReplWallClock ReplClient.ReplStatic $ mconcat
-            [ short 's'
-            , long "static-time"
-            , help "Use static time."
-            ])
-
 
 cmdClean :: Mod CommandFields Command
 cmdClean =
@@ -1337,74 +1221,6 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
 
             pure $ makeReturn ownPid True
 
-execRepl
-    :: SdkVersion.Class.SdkVersioned
-    => [FilePath]
-    -> [(LF.PackageName, Maybe LF.PackageVersion)]
-    -> Maybe (String, String)
-    -> Maybe FilePath
-    -> Maybe ReplClient.ApplicationId
-    -> Maybe ReplClient.ClientSSLConfig
-    -> Maybe ReplClient.MaxInboundMessageSize
-    -> ReplClient.ReplTimeMode
-    -> ProjectOpts
-    -> Options
-    -> FilePath
-    -> Command
-execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode projectOpts opts scriptDar = Command Repl (Just projectOpts) effect
-  where
-        toPackageFlag (LF.PackageName name, Nothing) =
-            ExposePackage "--import" (PackageArg $ T.unpack name) (ModRenaming True [])
-        toPackageFlag (name, mbVer) =
-            ExposePackage "--import" (UnitIdArg (pkgNameVersion name mbVer)) (ModRenaming True [])
-        pkgFlags = [ toPackageFlag pkg | pkg <- importPkgs ]
-        effect = do
-            -- We change directory so make this absolute
-            dars <- mapM makeAbsolute dars
-            opts <- pure opts
-                { optScenarioService = EnableScenarioService False
-                , optPackageImports = optPackageImports opts ++ pkgFlags
-                }
-            logger <- getLogger opts "repl"
-            jar <- locateResource Resource
-                -- //compiler/repl-service/server:repl_service_jar
-                { resourcesPath = "repl-service.jar"
-                  -- In a packaged application, this is stored directly underneath
-                  -- the resources directory because it's the target's only output.
-                  -- See @bazel_tools/packaging/packaging.bzl@.
-                , runfilesPathPrefix = mainWorkspace </> "compiler" </> "repl-service" </> "server"
-                }
-            let replClientOptions =
-                    ReplClient.Options
-                        jar
-                        mbLedgerConfig
-                        mbAuthToken
-                        mbAppId
-                        mbSslConf
-                        mbMaxInboundMessageSize
-                        timeMode
-                        (LF.versionMajor (optDamlLfVersion opts))
-                        Inherit
-            ReplClient.withReplClient replClientOptions $ \replHandle ->
-                withTempDir $ \dir ->
-                withCurrentDirectory dir $ do
-                sdkVer <- fromMaybe SdkVersion.Class.sdkVersion <$> lookupEnv sdkVersionEnvVar
-                writeFileUTF8 "daml.yaml" $ unlines $
-                    [ "sdk-version: " <> sdkVer
-                    , "name: repl"
-                    , "version: 0.0.1"
-                    , "source: ."
-                    , "dependencies:"
-                    , "- daml-prim"
-                    , "- daml-stdlib"
-                    , "- " <> show scriptDar
-                    , "data-dependencies:"
-                    ] ++ ["- " <> show dar | dar <- dars]
-                installDepsAndInitPackageDb opts (InitPkgDb True)
-                replLogger <- Repl.newReplLogger
-                withDamlIdeState opts logger (Repl.replEventLogger replLogger)
-                    (Repl.runRepl importPkgs opts replHandle replLogger)
-
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiPackageCleanAll -> Command
 execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
@@ -1665,7 +1481,6 @@ options numProcessors =
       <> cmdValidateDar
       <> cmdDocTest numProcessors
       <> cmdLint numProcessors
-      <> cmdRepl numProcessors
       )
     <|> subparser
       (internal -- internal commands
@@ -1842,7 +1657,6 @@ cmdUseDamlYamlArgs = \case
   MergeDars -> False -- just reads the dars
   Package -> False -- deprecated
   Test -> True
-  Repl -> True
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

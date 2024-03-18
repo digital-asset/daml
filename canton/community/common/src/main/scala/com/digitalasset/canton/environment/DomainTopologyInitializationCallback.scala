@@ -4,15 +4,15 @@
 package com.digitalasset.canton.environment
 
 import cats.data.EitherT
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
 import com.digitalasset.canton.sequencing.protocol.TopologyStateForInitRequest
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX.GenericStoredTopologyTransactionsX
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.store.TopologyStoreX
+import com.digitalasset.canton.topology.transaction.{DomainTrustCertificateX, MediatorDomainStateX}
+import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -51,11 +51,57 @@ class StoreBasedDomainTopologyInitializationCallback(
       _ <- EitherT.liftF(
         topologyStore.bootstrap(response.topologyTransactions.value)
       )
-      _ <- EitherT.liftF(
-        response.topologyTransactions.value.lastChangeTimestamp
-          .map(updateTopologyClientHead(topologyClient, protocolVersion, _))
-          .getOrElse(Future.unit)
-      )
+
+      timestampsFromOnboardingTransactions <- member match {
+        case participantId @ ParticipantId(_) =>
+          val fromOnboardingTransaction = response.topologyTransactions.value.result
+            .dropWhile(storedTx =>
+              !storedTx
+                .selectMapping[DomainTrustCertificateX]
+                .exists(dtc =>
+                  dtc.mapping.participantId == participantId && !dtc.transaction.isProposal
+                )
+            )
+            .map(storedTx => storedTx.sequenced -> storedTx.validFrom)
+          EitherT.fromEither[Future](
+            Either.cond(
+              fromOnboardingTransaction.nonEmpty,
+              fromOnboardingTransaction,
+              s"no domain trust certificate by $participantId found",
+            )
+          )
+        case mediatorId @ MediatorId(_) =>
+          val fromOnboardingTransaction = response.topologyTransactions.value.result
+            .dropWhile(storedTx =>
+              !storedTx
+                .selectMapping[MediatorDomainStateX]
+                .exists(mds =>
+                  mds.mapping.allMediatorsInGroup
+                    .contains(mediatorId) && !mds.transaction.isProposal
+                )
+            )
+            .map(storedTx => storedTx.sequenced -> storedTx.validFrom)
+
+          EitherT.fromEither[Future](
+            Either.cond(
+              fromOnboardingTransaction.nonEmpty,
+              fromOnboardingTransaction,
+              s"no mediator state including $mediatorId found",
+            )
+          )
+        case unexpectedMemberType =>
+          EitherT.leftT[Future, Seq[(SequencedTime, EffectiveTime)]](
+            s"unexpected member type: $unexpectedMemberType"
+          )
+      }
+
+      // Update the topology client head not only with the onboarding transaction, but all subsequent topology
+      // transactions as well. This ensures that the topology client can serve topology snapshots at timestamps between
+      // post-onboarding topology changes.
+      _ = timestampsFromOnboardingTransactions
+        .foreach { case (sequenced, effective) =>
+          updateTopologyClientHead(topologyClient, sequenced, effective)
+        }
     } yield {
       response.topologyTransactions.value
     }
@@ -63,35 +109,20 @@ class StoreBasedDomainTopologyInitializationCallback(
 
   private def updateTopologyClientHead(
       topologyClient: DomainTopologyClientWithInit,
-      protocolVersion: ProtocolVersion,
-      timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext, ec: ExecutionContext): Future[Unit] = {
-    // first update the head with the timestamp immediately after the last topology change update.
-    // this let's us find the transaction with the dynamic domain parameters (specifically, the topology change delay)
-    val tsNext = EffectiveTime(timestamp.immediateSuccessor)
+      st: SequencedTime,
+      et: EffectiveTime,
+  )(implicit traceContext: TraceContext): Unit = {
     topologyClient.updateHead(
-      tsNext,
-      tsNext.toApproximate,
+      et,
+      st.toApproximate,
       potentialTopologyChange = true,
     )
-
-    // fetch the topology change delay from the dynamic domain parameters
-    topologyClient
-      .awaitSnapshot(tsNext.value)
-      .flatMap(
-        _.findDynamicDomainParametersOrDefault(
-          protocolVersion,
-          warnOnUsingDefault = false,
-        )
+    if (et.value != st.value) {
+      topologyClient.updateHead(
+        et,
+        et.toApproximate,
+        potentialTopologyChange = true,
       )
-      .map { params =>
-        // update the client with the proper topology change delay
-        val withTopoChangeDelay = EffectiveTime(timestamp.plus(params.topologyChangeDelay.duration))
-        topologyClient.updateHead(
-          withTopoChangeDelay,
-          withTopoChangeDelay.toApproximate,
-          potentialTopologyChange = true,
-        )
-      }
+    }
   }
 }

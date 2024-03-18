@@ -19,7 +19,7 @@ import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Aeson as A
 import Data.Aeson ((.:), (.:?))
-import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
+import qualified Com.Daml.Ledger.Api.V2.Admin.PartyManagementService as LL
 
 getParticipantId :: LedgerService ParticipantId
 getParticipantId =

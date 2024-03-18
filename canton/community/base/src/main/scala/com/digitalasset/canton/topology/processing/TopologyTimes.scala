@@ -11,7 +11,7 @@ import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 final case class EffectiveTime(value: CantonTimestamp) {
   def toApproximate: ApproximateTime = ApproximateTime(value)
 
-  def toProtoPrimitive: ProtoTimestamp = value.toProtoPrimitive
+  def toProtoPrimitive: ProtoTimestamp = value.toProtoTimestamp
   def toLf: LfTimestamp = value.toLf
   def max(that: EffectiveTime): EffectiveTime =
     EffectiveTime(value.max(that.value))
@@ -22,7 +22,7 @@ object EffectiveTime {
   implicit val orderingEffectiveTime: Ordering[EffectiveTime] =
     Ordering.by[EffectiveTime, CantonTimestamp](_.value)
   def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[EffectiveTime] =
-    CantonTimestamp.fromProtoPrimitive(ts).map(EffectiveTime(_))
+    CantonTimestamp.fromProtoTimestamp(ts).map(EffectiveTime(_))
 }
 
 final case class ApproximateTime(value: CantonTimestamp)
@@ -34,7 +34,9 @@ object ApproximateTime {
 }
 
 final case class SequencedTime(value: CantonTimestamp) {
-  def toProtoPrimitive: ProtoTimestamp = value.toProtoPrimitive
+  def toApproximate: ApproximateTime = ApproximateTime(value)
+
+  def toProtoPrimitive: ProtoTimestamp = value.toProtoTimestamp
   def toLf: LfTimestamp = value.toLf
 }
 object SequencedTime {
@@ -42,5 +44,5 @@ object SequencedTime {
   implicit val orderingSequencedTime: Ordering[SequencedTime] =
     Ordering.by[SequencedTime, CantonTimestamp](_.value)
   def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[SequencedTime] =
-    CantonTimestamp.fromProtoPrimitive(ts).map(SequencedTime(_))
+    CantonTimestamp.fromProtoTimestamp(ts).map(SequencedTime(_))
 }

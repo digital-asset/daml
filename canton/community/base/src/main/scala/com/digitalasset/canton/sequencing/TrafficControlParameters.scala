@@ -62,7 +62,7 @@ object TrafficControlParameters {
   val DefaultMaxBaseTrafficAccumulationDuration: time.NonNegativeFiniteDuration =
     time.NonNegativeFiniteDuration.apply(time.PositiveSeconds.tryOfMinutes(10L))
   val DefaultSetBalanceRequestSubmissionWindowSize: time.PositiveFiniteDuration =
-    time.PositiveFiniteDuration.tryOfMinutes(5L)
+    time.PositiveFiniteDuration.tryOfMinutes(4L)
 
   def fromProtoV30(
       proto: protoV30.TrafficControlParameters

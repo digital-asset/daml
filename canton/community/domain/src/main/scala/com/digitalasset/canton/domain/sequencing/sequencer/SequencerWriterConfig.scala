@@ -127,12 +127,12 @@ object SequencerWriterConfig {
       override val payloadQueueSize: Int = 1000,
       override val payloadWriteBatchMaxSize: Int = 50,
       override val payloadWriteBatchMaxDuration: NonNegativeFiniteDuration =
-        NonNegativeFiniteDuration.ofMillis(50),
+        NonNegativeFiniteDuration.ofMillis(5),
       override val payloadWriteMaxConcurrency: Int = 4,
       override val payloadToEventMargin: NonNegativeFiniteDuration = DefaultPayloadTimestampMargin,
       override val eventWriteBatchMaxSize: Int = 100,
       override val eventWriteBatchMaxDuration: NonNegativeFiniteDuration =
-        NonNegativeFiniteDuration.ofMillis(50),
+        NonNegativeFiniteDuration.ofMillis(5),
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
       override val maxSqlInListSize: PositiveNumeric[Int] = DefaultMaxSqlInListSize,
   ) extends SequencerWriterConfig

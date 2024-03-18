@@ -5,18 +5,17 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/event.proto";
-import "com/daml/ledger/api/v1/trace_context.proto";
-import "com/daml/ledger/api/v1/value.proto";
+import "com/daml/ledger/api/v2/event.proto";
+import "com/daml/ledger/api/v2/trace_context.proto";
+import "com/daml/ledger/api/v2/value.proto";
 import "google/protobuf/timestamp.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "ReassignmentOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Complete view of an on-ledger reassignment.
 message Reassignment {
-
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
@@ -50,18 +49,16 @@ message Reassignment {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  com.daml.ledger.api.v1.TraceContext trace_context = 7;
+  com.daml.ledger.api.v2.TraceContext trace_context = 7;
 
   // The time at which the reassignment was recorded. The record time refers to the source/target
   // domain for an unassign/assign event respectively.
   // Required
   google.protobuf.Timestamp record_time = 8;
-
 }
 
 // Records that a contract has been unassigned, and it becomes unusable on the source domain
 message UnassignedEvent {
-
   // The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
   // For one contract the (unassign_id, source domain) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -75,7 +72,7 @@ message UnassignedEvent {
 
   //  The template of the reassigned contract.
   //  Required
-  com.daml.ledger.api.v1.Identifier template_id = 3;
+  com.daml.ledger.api.v2.Identifier template_id = 3;
 
   // The ID of the source domain
   // Must be a valid domain ID
@@ -108,11 +105,14 @@ message UnassignedEvent {
   // The parties that are notified of this event.
   // Required
   repeated string witness_parties = 9;
+
+  // The package name of the contract.
+  // Required
+  string package_name = 10;
 }
 
 // Records that a contract has been assigned, and it can be used on the target domain.
 message AssignedEvent {
-
   // The ID of the source domain.
   // Must be a valid domain ID.
   // Required
@@ -143,5 +143,5 @@ message AssignedEvent {
   uint64 reassignment_counter = 5;
 
   // Required
-  com.daml.ledger.api.v1.CreatedEvent created_event = 6;
+  com.daml.ledger.api.v2.CreatedEvent created_event = 6;
 }

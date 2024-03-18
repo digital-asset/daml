@@ -9,7 +9,7 @@ import com.daml.error.ErrorsAssertions
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.ErrorDetails.RetryInfoDetail
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v1.admin.package_management_service.{
+import com.daml.ledger.api.v2.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
 }
@@ -32,6 +32,11 @@ import com.digitalasset.canton.ledger.participant.state.index.v2.{
 import com.digitalasset.canton.ledger.participant.state.v2.SubmissionResult
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
+import com.digitalasset.canton.platform.store.packagemeta.{
+  PackageMetadata,
+  PackageMetadataSnapshot,
+  PackageMetadataStore,
+}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.{BaseTest, DiscardOps}
 import com.google.protobuf.ByteString
@@ -121,7 +126,13 @@ class ApiPackageManagementServiceSpec
         )
       ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 
-      val (mockDarReader, mockEngine, mockIndexTransactionsService, mockIndexPackagesService) =
+      val (
+        mockDarReader,
+        mockEngine,
+        mockIndexTransactionsService,
+        mockIndexPackagesService,
+        mockPackageMetadataStore,
+      ) =
         mockedServices()
       val promise = Promise[Unit]()
 
@@ -138,6 +149,7 @@ class ApiPackageManagementServiceSpec
       val apiPackageManagementService = ApiPackageManagementService.createApiService(
         mockIndexPackagesService,
         mockIndexTransactionsService,
+        mockPackageMetadataStore,
         writeService,
         Duration.Zero,
         mockEngine,
@@ -145,6 +157,7 @@ class ApiPackageManagementServiceSpec
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
         telemetry = NoOpTelemetry,
         loggerFactory = loggerFactory,
+        disableUpgradeValidation = false,
       )
 
       promise.future.map(_ => apiPackageManagementService.close()).discard
@@ -183,8 +196,13 @@ class ApiPackageManagementServiceSpec
 
   }
 
-  private def mockedServices()
-      : (GenDarReader[Archive], Engine, IndexTransactionsService, IndexPackagesService) = {
+  private def mockedServices(): (
+      GenDarReader[Archive],
+      Engine,
+      IndexTransactionsService,
+      IndexPackagesService,
+      PackageMetadataStore,
+  ) = {
     val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
       .thenReturn(Right(new Dar[Archive](anArchive, List.empty)))
@@ -207,16 +225,35 @@ class ApiPackageManagementServiceSpec
           PackageEntry.PackageUploadAccepted(aSubmissionId, Timestamp.Epoch)
         )
       )
-    (mockDarReader, mockEngine, mockIndexTransactionsService, mockIndexPackagesService)
+
+    val mockPackageMetadataStore = mock[PackageMetadataStore]
+    when(mockPackageMetadataStore.getSnapshot).thenReturn(
+      new PackageMetadataSnapshot(PackageMetadata())
+    )
+
+    (
+      mockDarReader,
+      mockEngine,
+      mockIndexTransactionsService,
+      mockIndexPackagesService,
+      mockPackageMetadataStore,
+    )
   }
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
-    val (mockDarReader, mockEngine, mockIndexTransactionsService, mockIndexPackagesService) =
+    val (
+      mockDarReader,
+      mockEngine,
+      mockIndexTransactionsService,
+      mockIndexPackagesService,
+      mockPackageMetadataStore,
+    ) =
       mockedServices()
 
     ApiPackageManagementService.createApiService(
       mockIndexPackagesService,
       mockIndexTransactionsService,
+      mockPackageMetadataStore,
       TestWritePackagesService(testTelemetrySetup.tracer),
       Duration.Zero,
       mockEngine,
@@ -224,6 +261,7 @@ class ApiPackageManagementServiceSpec
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
       loggerFactory = loggerFactory,
+      disableUpgradeValidation = false,
     )
   }
 }
@@ -235,8 +273,7 @@ object ApiPackageManagementServiceSpec {
     val pkg = Ast.GenPackage[Expr](
       Map.empty,
       Set.empty,
-      // TODO(#14706): revert to LanguageVersion.default once default's major version is 2
-      LanguageVersion.v2_1,
+      LanguageVersion.default,
       Ast.PackageMetadata(
         Ref.PackageName.assertFromString("aPackage"),
         Ref.PackageVersion.assertFromString("0.0.0"),
@@ -245,8 +282,7 @@ object ApiPackageManagementServiceSpec {
     )
     Encode.encodeArchive(
       Ref.PackageId.assertFromString("-pkgId-") -> pkg,
-      // TODO(#14706): revert to LanguageVersion.default once default's major version is 2
-      LanguageVersion.v2_1,
+      LanguageVersion.default,
     )
   }
 

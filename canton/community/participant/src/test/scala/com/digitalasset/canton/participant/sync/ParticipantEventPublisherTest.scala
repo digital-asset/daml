@@ -29,7 +29,6 @@ import com.digitalasset.canton.{BaseTest, RequestCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.time.Duration
 import java.util.UUID
 import scala.concurrent.Future
 
@@ -65,7 +64,6 @@ class ParticipantEventPublisherTest extends AsyncWordSpec with BaseTest {
       Eval.now(eventLog),
       Eval.now(multiDomainEventLog),
       clock,
-      Eval.now(Duration.ofDays(1)),
       timeouts,
       futureSupervisor,
       loggerFactory,

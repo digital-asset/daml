@@ -30,13 +30,7 @@ import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.TimeoutResult
 import com.digitalasset.canton.participant.protocol.conflictdetection.{CommitSet, RequestTracker}
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
-import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmission,
-  InFlightSubmissionTracker,
-  SequencedSubmission,
-  SubmissionTrackingData,
-  UnsequencedSubmission,
-}
+import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.protocol.validation.{
   PendingTransaction,
   RecipientsValidator,
@@ -46,7 +40,6 @@ import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.sync.TimestampedEvent
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.protocol.messages.Verdict.Approve
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
@@ -76,21 +69,18 @@ import scala.util.{Failure, Success}
   * @tparam SubmissionParam  The bundled submission parameters
   * @tparam SubmissionResult The bundled submission results
   * @tparam RequestViewType     The type of view trees used by the request
-  * @tparam Result           The specific type of the result message
   * @tparam SubmissionError  The type of errors that occur during submission processing
   */
 abstract class ProtocolProcessor[
     SubmissionParam,
     SubmissionResult,
     RequestViewType <: ViewType,
-    Result <: ConfirmationResult with SignedProtocolMessageContent,
     SubmissionError <: WrapsProcessorError,
 ](
     private[protocol] val steps: ProcessingSteps[
       SubmissionParam,
       SubmissionResult,
       RequestViewType,
-      Result,
       SubmissionError,
     ],
     inFlightSubmissionTracker: InFlightSubmissionTracker,
@@ -102,8 +92,7 @@ abstract class ProtocolProcessor[
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
 )(implicit
-    ec: ExecutionContext,
-    resultCast: SignedMessageContentCast[Result],
+    ec: ExecutionContext
 ) extends AbstractMessageProcessor(
       ephemeral,
       crypto,
@@ -518,7 +507,9 @@ abstract class ProtocolProcessor[
                 NonEmpty(
                   List,
                   Set.empty[LfPartyId] ->
-                    LocalReject.TimeRejects.LocalTimeout.Reject(protocolVersion),
+                    LocalRejectError.TimeRejects.LocalTimeout
+                      .Reject()
+                      .toLocalReject(protocolVersion),
                 ),
                 protocolVersion,
               ),
@@ -797,6 +788,7 @@ abstract class ProtocolProcessor[
                   rc,
                   sc,
                   ts,
+                  rootHash,
                   handleRequestData,
                   mediator,
                   snapshot,
@@ -959,6 +951,7 @@ abstract class ProtocolProcessor[
             malformedPayloads,
             snapshot,
             mediator,
+            submitterMetadataO,
           )
           .mapK(FutureUnlessShutdown.outcomeK)
         _ <- trackAndSendResponses(
@@ -1150,6 +1143,7 @@ abstract class ProtocolProcessor[
       rc: RequestCounter,
       sc: SequencerCounter,
       ts: CantonTimestamp,
+      rootHash: RootHash,
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
@@ -1169,7 +1163,11 @@ abstract class ProtocolProcessor[
 
         _ = ephemeral.requestTracker.tick(sc, ts)
 
-        responses = steps.constructResponsesForMalformedPayloads(requestId, malformedPayloads)
+        responses = steps.constructResponsesForMalformedPayloads(
+          requestId,
+          rootHash,
+          malformedPayloads,
+        )
         recipients = Recipients.cc(mediatorGroup)
         messages <- EitherT.right(responses.parTraverse { response =>
           signResponse(snapshot, response).map(_ -> recipients)
@@ -1183,44 +1181,6 @@ abstract class ProtocolProcessor[
         _ <- EitherT.right[steps.RequestError](terminateRequest(rc, sc, ts, ts))
       } yield ()
     }
-  }
-
-  override def processMalformedMediatorConfirmationRequestResult(
-      timestamp: CantonTimestamp,
-      sequencerCounter: SequencerCounter,
-      signedResultBatch: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-  )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatch.event.content
-    val ts = content.timestamp
-
-    val processedET = performUnlessClosingEitherU(functionFullName) {
-      val malformedMediatorConfirmationRequestEnvelopes = content.batch.envelopes
-        .mapFilter(
-          ProtocolMessage.select[SignedProtocolMessage[MalformedConfirmationRequestResult]]
-        )
-      require(
-        malformedMediatorConfirmationRequestEnvelopes.sizeCompare(1) == 0,
-        steps.requestKind + " result contains multiple malformed mediator confirmation request envelopes",
-      )
-      val malformedMediatorConfirmationRequest =
-        malformedMediatorConfirmationRequestEnvelopes(0).protocolMessage
-      val requestId = malformedMediatorConfirmationRequest.message.requestId
-      val sc = content.counter
-
-      logger.info(
-        show"Got malformed confirmation result for ${steps.requestKind.unquoted} request at $requestId."
-      )
-
-      performResultProcessing(
-        signedResultBatch,
-        Left(malformedMediatorConfirmationRequest),
-        requestId,
-        ts,
-        sc,
-      )
-    }
-
-    toHandlerResult(ts, processedET)
   }
 
   private def toHandlerResult(
@@ -1238,9 +1198,9 @@ abstract class ProtocolProcessor[
   }
 
   override def processResult(
-      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val content = signedResultBatchE.event.content
+    val content = event.event.content
     val ts = content.timestamp
     val sc = content.counter
 
@@ -1249,7 +1209,7 @@ abstract class ProtocolProcessor[
     ) {
       val resultEnvelopes =
         content.batch.envelopes
-          .mapFilter(ProtocolMessage.select[SignedProtocolMessage[Result]])
+          .mapFilter(ProtocolMessage.select[SignedProtocolMessage[ConfirmationResultMessage]])
       ErrorUtil.requireArgument(
         resultEnvelopes.sizeCompare(1) == 0,
         steps.requestKind + " result contains multiple such messages",
@@ -1262,7 +1222,7 @@ abstract class ProtocolProcessor[
         show"Got result for ${steps.requestKind.unquoted} request at $requestId: $resultEnvelopes"
       )
 
-      performResultProcessing(signedResultBatchE, Right(result), requestId, ts, sc)
+      performResultProcessing(event, result, requestId, ts, sc)
     }
 
     toHandlerResult(ts, processedET)
@@ -1270,11 +1230,8 @@ abstract class ProtocolProcessor[
 
   @VisibleForTesting
   private[protocol] def performResultProcessing(
-      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[
-        SignedProtocolMessage[MalformedConfirmationRequestResult],
-        SignedProtocolMessage[Result],
-      ],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      result: SignedProtocolMessage[ConfirmationResultMessage],
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1324,7 +1281,7 @@ abstract class ProtocolProcessor[
         },
       )
       _ <- EitherT.cond[Future](
-        resultTs > participantDeadline || !resultE.merge.message.verdict.isTimeoutDeterminedByMediator,
+        resultTs > participantDeadline || !result.message.verdict.isTimeoutDeterminedByMediator,
         (), {
           SyncServiceAlarm
             .Warn(
@@ -1339,8 +1296,8 @@ abstract class ProtocolProcessor[
       asyncResult <-
         if (!precedesCleanReplay(requestId))
           performResultProcessing2(
-            signedResultBatchE,
-            resultE,
+            event,
+            result,
             requestId,
             resultTs,
             sc,
@@ -1358,11 +1315,8 @@ abstract class ProtocolProcessor[
     * The inner `EitherT` corresponds to the subsequent async stage.
     */
   private[this] def performResultProcessing2(
-      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[
-        SignedProtocolMessage[MalformedConfirmationRequestResult],
-        SignedProtocolMessage[Result],
-      ],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      result: SignedProtocolMessage[ConfirmationResultMessage],
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1370,14 +1324,14 @@ abstract class ProtocolProcessor[
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, steps.ResultError, EitherT[FutureUnlessShutdown, steps.ResultError, Unit]] = {
-    val unsignedResultE = resultE.fold(x => Left(x.message), y => Right(y.message))
+    val unsignedResult = result.message
 
     def filterInvalidSignature(
         pendingRequestData: PendingRequestDataOrReplayData[steps.requestType.PendingRequestData]
     ): Future[Boolean] =
       for {
         snapshot <- crypto.awaitSnapshot(requestId.unwrap)
-        res <- resultE.merge.verifySignature(snapshot, pendingRequestData.mediator.group).value
+        res <- result.verifyMediatorSignatures(snapshot, pendingRequestData.mediator.group).value
       } yield {
         res match {
           case Left(err) =>
@@ -1399,22 +1353,17 @@ abstract class ProtocolProcessor[
         ]
     ): Future[Boolean] = Future.successful {
       val invalidO = for {
-        case TransactionResultMessage(
-          requestId,
-          _verdict,
-          resultRootHash,
-          _domainId,
-        ) <- unsignedResultE.toOption
         case WrappedPendingRequestData(pendingRequestData) <- Some(pendingRequestDataOrReplayData)
         case PendingTransaction(txId, _, _, _, _, requestTime, _, _, _, _) <- Some(
           pendingRequestData
         )
 
         txRootHash = txId.toRootHash
+        resultRootHash = unsignedResult.rootHash
         if resultRootHash != txRootHash
       } yield {
         val cause =
-          s"Received a transaction result message at $requestTime from ${pendingRequestData.mediator} " +
+          s"Received a confirmation result message at $resultTs from ${pendingRequestData.mediator} " +
             s"for $requestId with an invalid root hash $resultRootHash instead of $txRootHash. Discarding message..."
         SyncServiceAlarm.Warn(cause).report()
       }
@@ -1469,8 +1418,8 @@ abstract class ProtocolProcessor[
           }
       ).flatMap { pendingRequestDataOrReplayData =>
         performResultProcessing3(
-          signedResultBatchE,
-          unsignedResultE,
+          event,
+          unsignedResult.verdict,
           requestId,
           resultTs,
           sc,
@@ -1486,8 +1435,8 @@ abstract class ProtocolProcessor[
 
   // The processing in this method is done in the asynchronous part of the processing
   private[this] def performResultProcessing3(
-      signedResultBatchE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      resultE: Either[MalformedConfirmationRequestResult, Result],
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
+      verdict: Verdict,
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1496,8 +1445,6 @@ abstract class ProtocolProcessor[
         steps.requestType.PendingRequestData
       ],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, steps.ResultError, Unit] = {
-    val verdict = resultE.merge.verdict
-
     val PendingRequestData(requestCounter, requestSequencerCounter, _) =
       pendingRequestDataOrReplayData
     val cleanReplay = isCleanReplay(requestCounter, pendingRequestDataOrReplayData)
@@ -1509,8 +1456,8 @@ abstract class ProtocolProcessor[
           for {
             commitSetAndContractsAndEvent <- steps
               .getCommitSetAndContractsToBeStoredAndEvent(
-                signedResultBatchE,
-                resultE,
+                event,
+                verdict,
                 pendingRequestData,
                 steps.pendingSubmissions(ephemeral),
                 crypto.pureCrypto,
@@ -1523,10 +1470,7 @@ abstract class ProtocolProcessor[
               eventO,
             ) = commitSetAndContractsAndEvent
 
-            val isApproval = verdict match {
-              case _: Approve => true
-              case _ => false
-            }
+            val isApproval = verdict.isApprove
 
             if (!isApproval && commitSetOF.isDefined)
               throw new RuntimeException("Negative verdicts entail an empty commit set")
@@ -1831,6 +1775,8 @@ object ProtocolProcessor {
     override def requestSequencerCounter: SequencerCounter = unwrap.requestSequencerCounter
     override def isCleanReplay: Boolean = false
     override def mediator: MediatorsOfDomain = unwrap.mediator
+
+    override def rootHashO: Option[RootHash] = unwrap.rootHashO
   }
 
   final case class CleanReplayData(
@@ -1839,6 +1785,8 @@ object ProtocolProcessor {
       override val mediator: MediatorsOfDomain,
   ) extends PendingRequestDataOrReplayData[Nothing] {
     override def isCleanReplay: Boolean = true
+
+    override def rootHashO: Option[RootHash] = None
   }
 
   sealed trait ProcessorError extends Product with Serializable with PrettyPrinting

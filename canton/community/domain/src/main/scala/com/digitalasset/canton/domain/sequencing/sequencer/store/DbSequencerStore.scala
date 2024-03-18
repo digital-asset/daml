@@ -15,12 +15,11 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommitMode,
-  InFlightAggregations,
   SequencerMemberStatus,
   SequencerPruningStatus,
+  SequencerSnapshot,
 }
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -34,7 +33,7 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -647,7 +646,8 @@ class DbSequencerStore(
   }
 
   override def fetchWatermark(
-      instanceIndex: Int
+      instanceIndex: Int,
+      maxRetries: Int = retry.Forever,
   )(implicit traceContext: TraceContext): Future[Option[Watermark]] =
     storage
       .querySingle(
@@ -671,6 +671,7 @@ class DbSequencerStore(
           }
         },
         functionFullName,
+        maxRetries,
       )
       .value
 
@@ -834,7 +835,7 @@ class DbSequencerStore(
 
   override def readStateAtTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[EphemeralState] = {
+  )(implicit traceContext: TraceContext): Future[SequencerSnapshot] = {
     def h2PostgresQueryMemberCheckpoints(
         memberContainsBefore: String,
         memberContainsAfter: String,
@@ -847,12 +848,12 @@ class DbSequencerStore(
         -- the max counter for each member will be either the number of events -1 (because the index is 0 based)
         -- or the checkpoint counter + number of events after that checkpoint
         -- the timestamp for a member will be the maximum between the highest event timestamp and the checkpoint timestamp (if it exists)
-        select sequencer_members.member, coalesce(checkpoints.counter, - 1) + count(events.ts), coalesce(max(events.ts), checkpoints.ts), checkpoints.latest_topology_client_ts
+        select sequencer_members.member, coalesce(checkpoints.counter, - 1) + count(events.ts), coalesce(max(events.ts), checkpoints.ts), checkpoints.lastet_sequencer_event_ts
         from sequencer_members
         left join (
             -- if the member has checkpoints, let's find the one latest one that's still before or at the given timestamp.
             -- using checkpoints is essential for cases where the db has been pruned
-            select member, max(counter) as counter, max(ts) as ts, max(latest_topology_client_ts) as latest_topology_client_ts
+            select member, max(counter) as counter, max(ts) as ts, max(lastet_sequencer_event_ts) as lastet_sequencer_event_ts
             from sequencer_counter_checkpoints
             where ts <= $timestamp
             group by member
@@ -877,7 +878,7 @@ class DbSequencerStore(
                  and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
                 ))
           )
-        group by (sequencer_members.member, checkpoints.counter, checkpoints.ts, checkpoints.latest_topology_client_ts)
+        group by (sequencer_members.member, checkpoints.counter, checkpoints.ts, checkpoints.lastet_sequencer_event_ts)
         """
     }
 
@@ -902,14 +903,25 @@ class DbSequencerStore(
     } yield counters
 
     for {
-      statusAtTimestamp <- status(timestamp)
       checkpointsAtTimestamp <- storage.query(query.transactionally, functionFullName)
-    } yield EphemeralState(
-      Map(): InFlightAggregations,
-      statusAtTimestamp.toInternal,
-      checkpointsAtTimestamp.toMap,
-      Map(),
-    )
+      lastTs = checkpointsAtTimestamp
+        .map(_._2.timestamp)
+        .maxOption
+        .getOrElse(CantonTimestamp.MinValue)
+      statusAtTimestamp <- status(lastTs)
+    } yield {
+      val checkpoints = checkpointsAtTimestamp.toMap
+      SequencerSnapshot(
+        lastTs,
+        checkpoints.fmap(_.counter),
+        statusAtTimestamp,
+        Map.empty,
+        None,
+        protocolVersion,
+        Map.empty,
+        Seq.empty,
+      )
+    }
   }
 
   override def deleteEventsPastWatermark(
@@ -939,32 +951,32 @@ class DbSequencerStore(
   ): EitherT[Future, SaveCounterCheckpointError, Unit] = {
 
     EitherT {
-      val CounterCheckpoint(counter, ts, latestTopologyClientTimestamp) = checkpoint
+      val CounterCheckpoint(counter, ts, latestSequencerEventTimestamp) = checkpoint
       CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger)(
         combinedCloseContext =>
           storage.queryAndUpdate(
             for {
               _ <- profile match {
                 case _: Postgres =>
-                  sqlu"""insert into sequencer_counter_checkpoints (member, counter, ts, latest_topology_client_ts)
-             values ($memberId, $counter, $ts, $latestTopologyClientTimestamp)
+                  sqlu"""insert into sequencer_counter_checkpoints (member, counter, ts, lastet_sequencer_event_ts)
+             values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
              on conflict (member, counter) do nothing
              """
                 case _: H2 =>
                   sqlu"""merge into sequencer_counter_checkpoints using dual
                     on member = $memberId and counter = $counter
                     when not matched then
-                      insert (member, counter, ts, latest_topology_client_ts)
-                      values ($memberId, $counter, $ts, $latestTopologyClientTimestamp)
+                      insert (member, counter, ts, lastet_sequencer_event_ts)
+                      values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
                   """
                 case _: Oracle =>
                   sqlu""" insert /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( sequencer_counter_checkpoints ( member, counter ) ) */
-            into sequencer_counter_checkpoints (member, counter, ts, latest_topology_client_ts)
-          values ($memberId, $counter, $ts, $latestTopologyClientTimestamp)
+            into sequencer_counter_checkpoints (member, counter, ts, lastet_sequencer_event_ts)
+          values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
           """
               }
               id <- sql"""
-            select ts, latest_topology_client_ts
+            select ts, lastet_sequencer_event_ts
               from sequencer_counter_checkpoints
               where member = $memberId and counter = $counter
               """
@@ -982,13 +994,13 @@ class DbSequencerStore(
             )
           )
 
-        case Some((storedTs, storedLatestTopologyClientTimestampO)) =>
+        case Some((storedTs, storedLatestSequencerEventTimestampO)) =>
           Either.cond(
-            storedTs == ts && (storedLatestTopologyClientTimestampO == latestTopologyClientTimestamp || storedLatestTopologyClientTimestampO.isEmpty),
+            storedTs == ts && (storedLatestSequencerEventTimestampO == latestSequencerEventTimestamp || storedLatestSequencerEventTimestampO.isEmpty),
             (),
             SaveCounterCheckpointError.CounterCheckpointInconsistent(
               storedTs,
-              storedLatestTopologyClientTimestampO,
+              storedLatestSequencerEventTimestampO,
             ),
           )
       }
@@ -1001,7 +1013,7 @@ class DbSequencerStore(
     storage
       .query(
         sql"""
-           select counter, ts, latest_topology_client_ts
+           select counter, ts, lastet_sequencer_event_ts
            from sequencer_counter_checkpoints
            where member = $memberId
              and counter < $counter

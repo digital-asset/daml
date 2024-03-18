@@ -243,8 +243,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case TBuiltin(bType) =>
           val (proto, typs) =
             builtinTypeInfoMap(bType).proto -> args
-          builder.setPrim(
-            PLF.Type.Prim.newBuilder().setPrim(proto).accumulateLeft(typs)(_ addArgs _)
+          builder.setBuiltin(
+            PLF.Type.Builtin.newBuilder().setBuiltin(proto).accumulateLeft(typs)(_ addArgs _)
           )
         case TApp(_, _) =>
           sys.error("unexpected error")
@@ -456,27 +456,27 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       builder.build()
     }
 
-    private implicit def encodePrimCon(primCon: PrimCon): PLF.PrimCon =
-      primCon match {
-        case PCTrue => PLF.PrimCon.CON_TRUE
-        case PCFalse => PLF.PrimCon.CON_FALSE
-        case PCUnit => PLF.PrimCon.CON_UNIT
+    private implicit def encodeBuiltinCon(builtinCon: BuiltinCon): PLF.BuiltinCon =
+      builtinCon match {
+        case BCTrue => PLF.BuiltinCon.CON_TRUE
+        case BCFalse => PLF.BuiltinCon.CON_FALSE
+        case BCUnit => PLF.BuiltinCon.CON_UNIT
       }
 
-    private implicit def encodePrimLit(primLit: PrimLit): PLF.PrimLit = {
-      val builder = PLF.PrimLit.newBuilder()
-      primLit match {
-        case PLInt64(value) =>
+    private implicit def encodeBuiltinLit(builtinLit: BuiltinLit): PLF.BuiltinLit = {
+      val builder = PLF.BuiltinLit.newBuilder()
+      builtinLit match {
+        case BLInt64(value) =>
           builder.setInt64(value)
-        case PLNumeric(value) =>
+        case BLNumeric(value) =>
           builder.setNumericInternedStr(stringsTable.insert(Numeric.toString(value)))
-        case PLText(value) =>
+        case BLText(value) =>
           setString(value, builder.setTextInternedStr)
-        case PLTimestamp(value) =>
+        case BLTimestamp(value) =>
           builder.setTimestamp(value.micros)
-        case PLDate(date) =>
+        case BLDate(date) =>
           builder.setDate(date.days)
-        case PLRoundingMode(rounding) =>
+        case BLRoundingMode(rounding) =>
           builder.setRoundingModeValue(rounding.ordinal())
       }
       builder.build()
@@ -496,8 +496,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setCon(tyCon)
           setString(con, b.setConstructorInternedStr)
           builder.setEnum(b)
-        case CPPrimCon(primCon) =>
-          builder.setPrimCon(primCon)
+        case CPBuiltinCon(builtinCon) =>
+          builder.setBuiltinCon(builtinCon)
         case CPNil =>
           builder.setNil(unit)
         case CPCons(head, tail) =>
@@ -541,12 +541,12 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           setString(value, builder.setVarInternedStr)
         case EVal(value) =>
           builder.setVal(value)
-        case EBuiltin(value) =>
+        case EBuiltinFun(value) =>
           builder.setBuiltin(value)
-        case EPrimCon(primCon) =>
-          builder.setPrimCon(primCon)
-        case EPrimLit(primLit) =>
-          builder.setPrimLit(primLit)
+        case EBuiltinCon(builtinCon) =>
+          builder.setBuiltinCon(builtinCon)
+        case EBuiltinLit(builtinLit) =>
+          builder.setBuiltinLit(builtinLit)
         case ERecCon(tyCon, fields) =>
           builder.setRecCon(
             PLF.Expr.RecCon.newBuilder().setTycon(tyCon).accumulateLeft(fields)(_ addFields _)
@@ -593,7 +593,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case ETyApps(expr: Expr, typs0) =>
           expr match {
-            case EBuiltin(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
+            case EBuiltinFun(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
               val typs = typs0.toSeq.toList
               builder.setBuiltin(indirectBuiltinFunctionMap(builtin)(typs).proto)
             case _ =>
@@ -635,7 +635,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case ENone(typ) =>
           builder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
+          builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setValue(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr, builder).setLocation(loc)
         case EUpdate(u) =>
@@ -852,11 +852,13 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
 
     private implicit def encodeValueDef(nameWithDef: (DottedName, DValue)): PLF.DefValue = {
       val (dottedName, value) = nameWithDef
+      if (value.isTest) {
+        assertSince(LV.Features.scenarios, "Value.isTest")
+      }
       PLF.DefValue
         .newBuilder()
         .setNameWithType(dottedName -> value.typ)
         .setExpr(value.body)
-        .setNoPartyLiterals(true)
         .setIsTest(value.isTest)
         .build()
     }
@@ -892,7 +894,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       PLF.DefTemplate.DefKey
         .newBuilder()
         .setType(key.typ)
-        .setComplexKey(key.body)
+        .setKeyExpr(key.body)
         .setMaintainers(key.maintainers)
         .build()
 

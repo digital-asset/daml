@@ -459,7 +459,7 @@ natSynTCon = LF.Qualified
     , qualObject = LF.TypeConName [tconName]
     }
     where
-        packageId = "eb6926e50bb83fbc8f3e154c7c88b1219b31a3c0b812f26b276d46e212c2dd71"
+        packageId = "e5411f3d75f072b944bd88e652112a14a3d409c491fd9a51f5f6eede6d3a3348"
         moduleName = ["DA", "Internal", "NatSyn"]
         tconName = "NatSyn"
 
@@ -533,7 +533,7 @@ mkMetadataStub :: LF.ExprValName -> LF.Type -> LF.DefValue
 mkMetadataStub n t = LF.DefValue
     { dvalLocation = Nothing
     , dvalBinder = (n,t)
-    , dvalBody = LF.EBuiltin LF.BEError `LF.ETyApp` t
-        `LF.ETmApp` LF.EBuiltin (LF.BEText "undefined")
+    , dvalBody = LF.EBuiltinFun LF.BEError `LF.ETyApp` t
+        `LF.ETmApp` LF.EBuiltinFun (LF.BEText "undefined")
     , dvalIsTest = LF.IsTest False
     }

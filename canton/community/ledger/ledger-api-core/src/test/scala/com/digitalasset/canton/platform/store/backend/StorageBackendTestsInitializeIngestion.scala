@@ -34,61 +34,51 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   {
     val dtos = Vector(
-      // 1: config change
-      dtoConfiguration(offset(1), someConfiguration),
-      // 2: party allocation
-      dtoPartyEntry(offset(2), "party1"),
-      // 3: package upload
-      dtoPackage(offset(3)),
-      dtoPackageEntry(offset(3)),
+      // 1: party allocation
+      dtoPartyEntry(offset(1), "party1"),
+      // 2: package upload
+      dtoPackage(offset(2)),
+      dtoPackageEntry(offset(2)),
     )
-    it should "delete overspill entries - config, parties, packages" in {
+    it should "delete overspill entries - parties, packages" in {
       fixture(
         dtos1 = dtos,
-        lastOffset1 = 3L,
+        lastOffset1 = 2L,
         lastEventSeqId1 = 0L,
         dtos2 = Vector(
-          // 4: config change
-          dtoConfiguration(offset(4), someConfiguration),
-          // 5: party allocation
-          dtoPartyEntry(offset(5), "party2"),
-          // 6: package upload
-          dtoPackage(offset(6)),
-          dtoPackageEntry(offset(6)),
+          // 3: party allocation
+          dtoPartyEntry(offset(3), "party2"),
+          // 4: package upload
+          dtoPackage(offset(4)),
+          dtoPackageEntry(offset(4)),
         ),
-        lastOffset2 = 6L,
+        lastOffset2 = 4L,
         lastEventSeqId2 = 0L,
         checkContentsBefore = () => {
           val parties = executeSql(backend.party.knownParties)
-          val config = executeSql(backend.configuration.ledgerConfiguration)
           val packages = executeSql(backend.packageBackend.lfPackages)
           parties should have length 1
           packages should have size 1
-          config shouldBe Some(offset(1) -> someConfiguration)
         },
         checkContentsAfter = () => {
           val parties = executeSql(backend.party.knownParties)
-          val config = executeSql(backend.configuration.ledgerConfiguration)
           val packages = executeSql(backend.packageBackend.lfPackages)
           parties should have length 1
           packages should have size 1
-          config shouldBe Some(offset(1) -> someConfiguration)
         },
       )
     }
 
-    it should "delete overspill entries written before first ledger end update - config, parties, packages" in {
+    it should "delete overspill entries written before first ledger end update - parties, packages" in {
       fixtureOverspillEntriesPriorToFirstLedgerEndUpdate(
         dtos = dtos,
         lastOffset = 3,
         lastEventSeqId = 0L,
         checkContentsAfter = () => {
           val parties2 = executeSql(backend.party.knownParties)
-          val config2 = executeSql(backend.configuration.ledgerConfiguration)
           val packages2 = executeSql(backend.packageBackend.lfPackages)
           parties2 shouldBe empty
           packages2 shouldBe empty
-          config2 shouldBe empty
         },
       )
     }
