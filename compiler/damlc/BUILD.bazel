@@ -368,6 +368,7 @@ daml_doc_test(
         "DA/Experimental/*.daml",
         "DA/Internal/Scenario.daml",
         "DA/Scenario.daml",
+        "DA/TextMap.daml",
         "DA/Time/Types.daml",
         "LibraryModules.daml",
     ],

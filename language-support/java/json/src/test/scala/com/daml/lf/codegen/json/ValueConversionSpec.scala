@@ -28,7 +28,7 @@ class ValueConversionSpec extends AnyWordSpec with Matchers with ScalaCheckPrope
           variantGen,
           recordGen,
           valueOptionalGen,
-          valueMapGen,
+          valueTextMapGen,
           valueGenMapGen,
         )
       forAll(valueGen(nested))(testRoundTrip)
