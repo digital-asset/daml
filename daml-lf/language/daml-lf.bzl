@@ -125,7 +125,7 @@ def lf_version_is_dev(versionStr):
     return _minor_str(versionStr) == "dev"
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
-SUPPORTED_PROTO_STABLE_LF_VERSIONS = []
+SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["2.1"]
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
