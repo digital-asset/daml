@@ -1,6 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ViewPatterns #-}
 
 module DA.Daml.Project.Config
     ( DamlConfig
@@ -35,6 +36,7 @@ import Data.Generics.Uniplate.Data (transformM, universe)
 import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Yaml as Y
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Yaml ((.:?))
 import Data.Either.Extra
 import Data.Foldable
@@ -137,33 +139,46 @@ interpolateEnvVariables env str =
           pure $ prefix <> T.pack envVarValue
     _ -> Left "Impossible incorrect regex submatches"
 
+-- Reads the `environment-variable-interpolation` field as a boolean, defaulting to true if missing
+readVariableInterpolationField :: Y.Value -> Bool
+readVariableInterpolationField = \case
+  Y.Object (KeyMap.lookup "environment-variable-interpolation" -> Just (Y.Bool b)) -> b
+  _ -> True
+
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
 -- Also performs environment variable interpolation on all string fields in the form of ${ENV_VAR}.
--- TODO: ensure everything that reads the daml.yaml uses this, e.g. assistant for daml.yaml, multi-package for dependencies, etc.
+-- TODO: Known limitation - fields intended to be boolean or numbers will be transformed to strings if they are provided by env var
+--   We do not use any fields of these types in daml.yaml (to my knowledge) or multi-package.yaml, so this isn't an issue *yet*
 readConfigWithEnv :: Y.FromJSON b => Text -> FilePath -> IO b
 readConfigWithEnv name path = do
   configE <- runExceptT $ do
     (configValue :: Y.Value) <- ExceptT $ Y.decodeFileEither path
+    let shouldInterpolate = readVariableInterpolationField configValue
     env <- liftIO getEnvironment
-    configValueTransformed <- 
-      except $ flip transformM configValue $ \case
-        Y.String str -> bimap Y.AesonException Y.String $ interpolateEnvVariables env str
-        v -> pure v
+    
+    configValueTransformed <-
+      if shouldInterpolate
+        then except $ flip transformM configValue $ \case
+               Y.String str -> bimap Y.AesonException Y.String $ interpolateEnvVariables env str
+               v -> pure v
+        else pure configValue
     case fromJSON configValueTransformed of
       Success x -> pure x
       Error str -> throwE $ Y.AesonException str
   fromRightM (throwIO . ConfigFileInvalid name) configE
 
 -- Checks if a config uses environment variable interpolation
--- Will return False if the file does not exist, rather than throwing an error.
+-- Will return False if the file does not exist, doesn't parse or disables interpolation, rather than throwing an error.
 configUsesEnvironmentVariables :: FilePath -> IO Bool
 configUsesEnvironmentVariables path =
   fmap (fromRight False) $ runExceptT $ do
     (configValue :: Y.Value) <- ExceptT $ Y.decodeFileEither path
-    pure $ flip any (universe configValue) $ \case
-      Y.String str -> str =~ envVarPattern
-      _ -> False
+    let shouldInterpolate = readVariableInterpolationField configValue
+        hasVariables = flip any (universe configValue) $ \case
+          Y.String str -> str =~ envVarPattern
+          _ -> False
+    pure $ shouldInterpolate && hasVariables
 
 -- | Determine pinned sdk version from project config, if it exists.
 releaseVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe UnresolvedReleaseVersion)
