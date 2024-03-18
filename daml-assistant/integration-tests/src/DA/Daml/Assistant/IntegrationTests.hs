@@ -523,8 +523,8 @@ cantonTests = testGroup "daml sandbox"
                     | isMac = "script -q -- tty.txt " <> cmd
                     | otherwise = concat ["script -q -c '", cmd, "'"]
                 input =
-                    [ "sandbox.health.running"
-                    , "local.health.running"
+                    [ "sandbox.health.is_running"
+                    , "local.health.is_running"
                     , "exit" -- This "exit" is necessary on Linux, otherwise the REPL expects more input.
                              -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
                     ]
