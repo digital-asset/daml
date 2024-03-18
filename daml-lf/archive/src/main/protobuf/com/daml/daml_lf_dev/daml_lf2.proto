@@ -16,7 +16,7 @@
 
 
 // Minor version history:
-// * 2.1 --  2024-08-03: Initial version
+// * 2.1 --  2024-03-18: Initial version
 // * dev (special staging area for the next version to be released)
 
 syntax = "proto3";
@@ -1400,7 +1400,7 @@ message UpgradedPackageId {
 message PackageMetadata {
   int32 name_interned_str = 1;
   int32 version_interned_str = 2;
-  UpgradedPackageId upgraded_package_id = 3;
+  UpgradedPackageId upgraded_package_id = 3; // *optional*
 }
 
 message Package {

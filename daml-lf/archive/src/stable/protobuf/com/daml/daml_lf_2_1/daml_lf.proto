@@ -28,9 +28,6 @@ enum HashFunction {
 message Archive {
   HashFunction hash_function = 1;
 
-  // deprecated field (bytes hash = 2), replaced by
-  // field 4.
-
   // Must be an encoded ArchivePayload. We store it as `bytes` to
   // simplify hashing and in future signing.
   bytes payload = 3;
