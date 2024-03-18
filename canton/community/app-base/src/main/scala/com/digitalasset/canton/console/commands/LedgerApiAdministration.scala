@@ -2289,7 +2289,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
     // way to get the record time of the transaction to pass to the parties.list call.
     val domainPartiesAndParticipants = {
       consoleEnvironment.participants.all.iterator
-        .filter(x => x.health.running() && x.health.initialized() && x.name == name)
+        .filter(x => x.health.is_running() && x.health.initialized() && x.name == name)
         .flatMap(_.parties.list(filterDomain = txDomain.filterString))
         .toSet
     }
@@ -2330,7 +2330,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
           for {
             participantReference <-
               consoleEnvironment.participants.all
-                .filter(x => x.health.running() && x.health.initialized())
+                .filter(x => x.health.is_running() && x.health.initialized())
                 .find(identityIs(_, pd.participant))
             _ <- pd.domains.find(_.domain == txDomain)
           } yield participantReference

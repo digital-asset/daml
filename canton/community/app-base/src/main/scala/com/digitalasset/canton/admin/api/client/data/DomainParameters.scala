@@ -29,7 +29,7 @@ import com.digitalasset.canton.time.{
 }
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
-import com.digitalasset.canton.crypto as DomainCrypto
+import com.digitalasset.canton.{config, crypto as DomainCrypto}
 import com.google.common.annotations.VisibleForTesting
 import io.scalaland.chimney.dsl.*
 
@@ -147,6 +147,9 @@ final case class DynamicDomainParameters(
     trafficControlParameters: Option[TrafficControlParameters],
     onboardingRestriction: OnboardingRestriction,
 ) {
+
+  def decisionTimeout: config.NonNegativeFiniteDuration =
+    confirmationResponseTimeout + mediatorReactionTimeout
 
   if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
     throw new InvalidDynamicDomainParameters(

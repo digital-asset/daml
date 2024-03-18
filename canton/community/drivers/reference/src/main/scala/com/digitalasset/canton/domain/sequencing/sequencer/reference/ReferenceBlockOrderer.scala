@@ -82,7 +82,7 @@ class ReferenceBlockOrderer(
           newBlocks <-
             store.queryBlocks(nextFromHeight).map { timestampedBlocks =>
               val blocks = timestampedBlocks.map(_.block)
-              if (logger.underlying.isDebugEnabled()) {
+              if (logger.underlying.isDebugEnabled() && blocks.nonEmpty) {
                 logger.debug(
                   s"New blocks (${blocks.length}) starting at height $nextFromHeight, specifically at ${blocks.map(_.blockHeight).mkString(",")}"
                 )

@@ -7,7 +7,10 @@ package com.digitalasset.canton.domain.admin.v30;
 
 import "com/digitalasset/canton/admin/traffic/v30/member_traffic_status.proto";
 import "com/digitalasset/canton/domain/admin/v30/sequencer_initialization_snapshot.proto";
+import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
 
 // administration service for sequencer instances
 service SequencerAdministrationService {
@@ -26,6 +29,10 @@ service SequencerAdministrationService {
 
   // fetch a snapshot of the sequencer state based on the given timestamp
   rpc Snapshot(SnapshotRequest) returns (SnapshotResponse);
+
+  // Fetch the onboarding state for a given sequencer.
+  // the returned bytestring can be used directly to initialize the given sequencer later on
+  rpc OnboardingState(OnboardingStateRequest) returns (OnboardingStateResponse);
 
   // Disable members at the sequencer. Will prevent existing and new instances from connecting, and permit removing their data.
   rpc DisableMember(DisableMemberRequest) returns (DisableMemberResponse);
@@ -73,6 +80,37 @@ message SnapshotResponse {
     // Used for sequencers running protocol version CNTestNet or higher.
     VersionedSuccess versioned_success = 3;
   }
+}
+
+message OnboardingStateRequest {
+  oneof request {
+    // The sequencer for which to fetch the onboarding state
+    string sequencer_id = 1;
+    // The effective time the should be "contained" in the sequencer snapshot
+    google.protobuf.Timestamp timestamp = 2;
+  }
+}
+
+message OnboardingStateResponse {
+  message Success {
+    // versioned OnboardingStateForSequencer
+    bytes onboarding_state_for_sequencer = 1;
+  }
+  message Failure {
+    string reason = 1;
+  }
+  oneof value {
+    Success success = 1;
+    Failure failure = 2;
+  }
+}
+
+message OnboardingStateForSequencer {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
+
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_snapshot = 1;
+  com.digitalasset.canton.protocol.v30.StaticDomainParameters static_domain_parameters = 2;
+  SequencerSnapshot sequencer_snapshot = 3;
 }
 
 message PruningStatusRequest {}

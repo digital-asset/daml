@@ -6,20 +6,30 @@ package com.digitalasset.canton.domain.sequencing.service
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
+import cats.syntax.functor.*
+import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin.v30
+import com.digitalasset.canton.domain.admin.v30.OnboardingStateRequest.Request
 import com.digitalasset.canton.domain.admin.v30.{
   SetTrafficBalanceRequest,
   SetTrafficBalanceResponse,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
+import com.digitalasset.canton.domain.sequencing.sequencer.{OnboardingStateForSequencer, Sequencer}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.time.DomainTimeTracker
+import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreX
+import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.{Status, StatusRuntimeException}
@@ -29,6 +39,10 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcSequencerAdministrationService(
     sequencer: Sequencer,
     sequencerClient: SequencerClient,
+    topologyStore: TopologyStoreX[DomainStore],
+    topologyClient: DomainTopologyClient,
+    domainTimeTracker: DomainTimeTracker,
+    staticDomainParameters: StaticDomainParameters,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -90,6 +104,90 @@ class GrpcSequencerAdministrationService(
             )
           ),
       )
+  }
+
+  override def onboardingState(
+      request: v30.OnboardingStateRequest
+  ): Future[v30.OnboardingStateResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val parseMemberOrTimestamp = request.request match {
+      case Request.Empty => Left(FieldNotSet("sequencer_id"): ProtoDeserializationError)
+      case Request.SequencerId(sequencerId) =>
+        SequencerId
+          .fromProtoPrimitive(sequencerId, "sequencer_id")
+          .map(Left(_))
+
+      case Request.Timestamp(referenceEffectiveTime) =>
+        CantonTimestamp.fromProtoTimestamp(referenceEffectiveTime).map(Right(_))
+    }
+    (for {
+      memberOrTimestamp <- EitherT.fromEither[Future](parseMemberOrTimestamp).leftMap(_.toString)
+      referenceEffective <- memberOrTimestamp match {
+        case Left(sequencerId) =>
+          EitherT(
+            topologyStore
+              .findFirstSequencerStateForSequencer(sequencerId)
+              .map(txOpt =>
+                txOpt
+                  .map(stored => stored.validFrom)
+                  .toRight(s"Did not find onboarding topology transaction for $sequencerId")
+              )
+          )
+        case Right(timestamp) =>
+          EitherT.rightT[Future, String](EffectiveTime(timestamp))
+      }
+
+      _ <- domainTimeTracker
+        .awaitTick(referenceEffective.value)
+        .map(EitherT.right[String](_).void)
+        .getOrElse(EitherTUtil.unit[String])
+
+      /* find the sequencer snapshot that contains a sequenced timestamp that is >= to the reference/onboarding effective time
+       if we take the sequencing time here, we might miss out topology transactions between sequencerSnapshot.lastTs and effectiveTime
+       in the following scenario:
+        t0: onboarding sequenced time
+        t1: sequencerSnapshot.lastTs
+        t2: sequenced time of some topology transaction
+        t3: onboarding effective time
+
+        Therefore, if we find the sequencer snapshot that "contains" the onboarding effective time,
+        and we then use this snapshot's lastTs as the reference sequenced time for fetching the topology snapshot,
+        we can be sure that
+        a) the topology snapshot contains all topology transactions sequenced up to including the onboarding effective time
+        b) the topology snapshot might contain a few more transactions between the onboarding effective time and the last sequenced time in the block
+        c) the sequencer snapshot will contain the correct counter for the onboarding sequencer
+        d) the onboarding sequencer will properly subscribe from its own minimum counter that it gets initialized with from the sequencer snapshot
+       */
+
+      sequencerSnapshot <- sequencer.snapshot(referenceEffective.value)
+
+      topologySnapshot <- EitherT.right[String](
+        topologyStore.findEssentialStateAtSequencedTime(SequencedTime(sequencerSnapshot.lastTs))
+      )
+    } yield (topologySnapshot, sequencerSnapshot))
+      .fold[v30.OnboardingStateResponse](
+        error =>
+          v30.OnboardingStateResponse(
+            v30.OnboardingStateResponse.Value.Failure(
+              v30.OnboardingStateResponse.Failure(error)
+            )
+          ),
+        { case (topologySnapshot, sequencerSnapshot) =>
+          v30.OnboardingStateResponse(
+            v30.OnboardingStateResponse.Value.Success(
+              v30.OnboardingStateResponse.Success(
+                OnboardingStateForSequencer(
+                  topologySnapshot,
+                  staticDomainParameters,
+                  sequencerSnapshot,
+                  staticDomainParameters.protocolVersion,
+                ).toByteString
+              )
+            )
+          )
+        },
+      )
+
   }
 
   override def disableMember(

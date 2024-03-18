@@ -104,9 +104,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       additional,
       trafficState,
       trafficBalances,
-    )(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
+    )(protocolVersionRepresentativeFor(protocolVersion))
 
   def unimplemented(protocolVersion: ProtocolVersion): SequencerSnapshot = SequencerSnapshot(
     CantonTimestamp.MinValue,

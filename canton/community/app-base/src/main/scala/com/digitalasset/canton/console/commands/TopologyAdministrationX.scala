@@ -10,8 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommandsX
 import com.digitalasset.canton.admin.api.client.data.topologyx.*
 import com.digitalasset.canton.admin.api.client.data.{
-  DynamicDomainParameters as ConsoleDynamicDomainParameters,
-  TrafficControlParameters,
+  DynamicDomainParameters as ConsoleDynamicDomainParameters
 }
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
 import com.digitalasset.canton.config.{NonNegativeDuration, RequireTypes}
@@ -33,7 +32,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{BaseQueryX, TopologyStore}
@@ -2371,7 +2369,7 @@ class TopologyAdministrationGroup(
       waitForParameters(TopologyAdministrationGroup.this)
       waitForParticipants
         .filter(p =>
-          p.health.running() && p.health.initialized() && p.domains.is_connected(domainId)
+          p.health.is_running() && p.health.initialized() && p.domains.is_connected(domainId)
         )
         .map(_.topology)
         .foreach(waitForParameters)
@@ -2433,38 +2431,6 @@ class TopologyAdministrationGroup(
         ).discard
       }
     }
-
-    @Help.Summary(
-      "Update the confirmation response timeout (for participants) in the dynamic domain parameters"
-    )
-    def set_confirmation_response_timeout(
-        domainId: DomainId,
-        timeout: config.NonNegativeFiniteDuration,
-    ): Unit = propose_update(domainId, _.update(confirmationResponseTimeout = timeout))
-
-    @Help.Summary("Update the mediator reaction timeout in the dynamic domain parameters")
-    def set_mediator_reaction_timeout(
-        domainId: DomainId,
-        timeout: config.NonNegativeFiniteDuration,
-    ): Unit = propose_update(domainId, _.update(mediatorReactionTimeout = timeout))
-
-    @Help.Summary("Update the transfer exclusivity timeout in the dynamic domain parameters")
-    def set_transfer_exclusivity_timeout(
-        domainId: DomainId,
-        timeout: config.NonNegativeFiniteDuration,
-    ): Unit = propose_update(domainId, _.update(transferExclusivityTimeout = timeout))
-
-    @Help.Summary("Update the topology change delay in the dynamic domain parameters")
-    def set_topology_change_delay(
-        domainId: DomainId,
-        delay: config.NonNegativeFiniteDuration,
-    ): Unit = propose_update(domainId, _.update(topologyChangeDelay = delay))
-
-    @Help.Summary("Update the onboarding restrictions")
-    def set_onboarding_restrictions(
-        domainId: DomainId,
-        restriction: OnboardingRestriction,
-    ): Unit = propose_update(domainId, _.update(onboardingRestriction = restriction))
 
     @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
     @Help.Description(
@@ -2625,61 +2591,6 @@ class TopologyAdministrationGroup(
         force = true,
       )
     }
-
-    @Help.Summary("Update the mediator deduplication timeout in the dynamic domain parameters")
-    def set_mediator_deduplication_timeout(
-        domainId: DomainId,
-        timeout: config.NonNegativeFiniteDuration,
-    ): Unit = propose_update(domainId, _.update(mediatorDeduplicationTimeout = timeout))
-
-    @Help.Summary("Update the reconciliation interval in the dynamic domain parameters")
-    def set_reconciliation_interval(
-        domainId: DomainId,
-        interval: config.PositiveDurationSeconds,
-    ): Unit = propose_update(domainId, _.update(reconciliationInterval = interval))
-
-    @Help.Summary(
-      "Update the maximum rate of confirmation requests per participant in the dynamic domain parameters"
-    )
-    def set_confirmation_requests_max_rate(
-        domainId: DomainId,
-        rate: NonNegativeInt,
-    ): Unit = propose_update(domainId, _.update(confirmationRequestsMaxRate = rate))
-
-    @Help.Summary("Update the maximum request size in the dynamic domain parameters")
-    @Help.Description(
-      """The update won't have any effect until the sequencers are restarted."""
-    )
-    def set_max_request_size(
-        domainId: DomainId,
-        size: NonNegativeInt,
-    ): Unit = propose_update(domainId, _.update(maxRequestSize = size))
-
-    @Help.Summary(
-      "Update the sequencer aggregate submission timeout in the dynamic domain parameters"
-    )
-    def set_sequencer_aggregate_submission_timeout(
-        domainId: DomainId,
-        timeout: config.NonNegativeFiniteDuration,
-    ): Unit =
-      propose_update(domainId, _.update(sequencerAggregateSubmissionTimeout = timeout))
-
-    @Help.Summary(
-      "Update the `trafficControlParameters` in the dynamic domain parameters"
-    )
-    def set_traffic_control_parameters(
-        domainId: DomainId,
-        trafficControlParameters: TrafficControlParameters,
-    ): Unit = propose_update(
-      domainId,
-      _.update(trafficControlParameters = Some(trafficControlParameters)),
-    )
-
-    @Help.Summary(
-      "Clear the traffic control parameters in the dynamic domain parameters"
-    )
-    def clear_traffic_control_parameters(domainId: DomainId): Unit =
-      propose_update(domainId, _.update(trafficControlParameters = None))
   }
 
   @Help.Summary("Inspect topology stores")

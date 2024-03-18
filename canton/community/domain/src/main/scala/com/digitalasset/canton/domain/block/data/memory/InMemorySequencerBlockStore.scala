@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.block.data.memory
 
 import cats.data.EitherT
+import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
@@ -80,9 +81,8 @@ class InMemorySequencerBlockStore(
       _ <- Future.traverse(initial.state.status.members.sortBy(_.registeredAt))(m =>
         for {
           _ <- sequencerStore.addMember(m.member, m.registeredAt)
-          _ <- m.lastAcknowledged match {
-            case Some(ts) => sequencerStore.acknowledge(m.member, ts)
-            case _ => Future.unit
+          _ <- m.lastAcknowledged.traverse_ { ts =>
+            sequencerStore.acknowledge(m.member, ts)
           }
           _ <- if (m.enabled) Future.unit else sequencerStore.disableMember(m.member)
         } yield ()
@@ -254,7 +254,7 @@ class InMemorySequencerBlockStore(
   ): Future[Unit] =
     Future.successful(initialState.getAndUpdate { previousState =>
       // Don't update member counter if specified counter is less than or equal that previous counter.
-      val prevCounter = previousState.state.heads.get(member)
+      val prevCounter = previousState.state.headCounter(member)
       if (prevCounter.exists(_ >= counterLastUnsupported)) previousState
       else
         previousState

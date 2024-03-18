@@ -51,4 +51,24 @@ public interface ValueDecoder<Data> {
   default ContractId<Data> fromContractId(String contractId) {
     throw new IllegalArgumentException("Cannot create contract id for this data type");
   }
+
+  // TODO(i15640) delete
+  /**
+   * @deprecated since Daml 2.5.0; it is only used in deprecated fromValue method of all generated
+   *     data class
+   */
+  @Deprecated
+  static <A> ValueDecoder<A> fromFunction(Function<Value, A> fromValue) {
+    return new ValueDecoder<>() {
+      @Override
+      public A decode(Value value) {
+        return fromValue.apply(value);
+      }
+
+      @Override
+      public ContractId<A> fromContractId(String contractId) {
+        return new ContractId<>(contractId);
+      }
+    };
+  }
 }

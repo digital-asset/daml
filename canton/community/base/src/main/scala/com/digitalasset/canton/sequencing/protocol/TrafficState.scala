@@ -7,6 +7,7 @@ import cats.syntax.apply.*
 import com.digitalasset.canton.config.RequireTypes
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveLong}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.store.db.RequiredTypesCodec.nonNegativeLongOptionGetResult
 import slick.jdbc.{GetResult, SetParameter}
 
@@ -16,7 +17,7 @@ final case class TrafficState(
     extraTrafficConsumed: NonNegativeLong,
     baseTrafficRemainder: NonNegativeLong,
     timestamp: CantonTimestamp,
-) {
+) extends PrettyPrinting {
   lazy val extraTrafficLimit: Option[PositiveLong] =
     PositiveLong.create((extraTrafficRemainder + extraTrafficConsumed).value).toOption
 
@@ -36,6 +37,13 @@ final case class TrafficState(
   def toSequencedEventTrafficState: SequencedEventTrafficState = SequencedEventTrafficState(
     extraTrafficRemainder = extraTrafficRemainder,
     extraTrafficConsumed = extraTrafficConsumed,
+  )
+
+  override def pretty: Pretty[TrafficState] = prettyOfClass(
+    param("timestamp", _.timestamp),
+    param("extra traffic remainder", _.extraTrafficRemainder),
+    param("extra traffic consumed", _.extraTrafficConsumed),
+    param("base traffic remainder", _.baseTrafficRemainder),
   )
 }
 

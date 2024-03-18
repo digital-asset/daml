@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.domain.admin.v30;
 
 import "com/digitalasset/canton/protocol/v30/sequencing.proto";
-import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 
 // Service allowing a Domain node to initialize the sequencer instance.
 // Should typically only be exposed to the domain node and not all clients
@@ -17,39 +16,31 @@ service SequencerInitializationService {
   // and will immediately attempt to use it.
   // If the request is received after the sequencer has been successfully initialized it should return successfully
   // if the domain_id matches the domain that the sequencer has been initialized for, otherwise it should fail.
-  rpc InitializeSequencer(InitializeSequencerRequest) returns (InitializeSequencerResponse);
-  rpc InitializeSequencerVersioned(InitializeSequencerVersionedRequest) returns (InitializeSequencerVersionedResponse);
+  rpc InitializeSequencerFromGenesisState(InitializeSequencerFromGenesisStateRequest) returns (InitializeSequencerFromGenesisStateResponse);
+  rpc InitializeSequencerFromOnboardingState(InitializeSequencerFromOnboardingStateRequest) returns (InitializeSequencerFromOnboardingStateResponse);
 }
 
 // Includes sufficient detail for:
 //  - the sequencer to generate its own key to return the public key to the domain node
 //  - topology and additional bootstrap information
-message InitializeSequencerRequest {
+message InitializeSequencerFromGenesisStateRequest {
   // a topology snapshot up until (including) the point where this sequencer is becoming active on the domain
   // the topology snapshot will be persisted in the domain store of the sequencer
-  com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_snapshot = 1;
+  bytes topology_snapshot = 1;
 
   com.digitalasset.canton.protocol.v30.StaticDomainParameters domain_parameters = 2;
-
-  // optional - snapshot to initialize sequencer from, as a versioned SequencerSnapshot of version v1 or higher
-  bytes snapshot = 3;
 }
 
-message InitializeSequencerResponse {
+message InitializeSequencerFromGenesisStateResponse {
   // Indicate if the initialized sequencer is replicated
   bool replicated = 1;
 }
 
-message InitializeSequencerVersionedRequest {
-  bytes topology_snapshot = 1;
-
-  com.digitalasset.canton.protocol.v30.StaticDomainParameters domain_parameters = 2;
-
-  // optional - snapshot to initialize sequencer from, as a versioned SequencerSnapshot of version v1 or higher
-  bytes snapshot = 3;
+message InitializeSequencerFromOnboardingStateRequest {
+  bytes onboarding_state = 1;
 }
 
-message InitializeSequencerVersionedResponse {
+message InitializeSequencerFromOnboardingStateResponse {
   // Indicate if the initialized sequencer is replicated
   bool replicated = 1;
 }

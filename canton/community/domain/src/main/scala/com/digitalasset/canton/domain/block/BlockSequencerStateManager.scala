@@ -86,7 +86,7 @@ trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
       event: BlockSequencer.LocalEvent,
   )(implicit traceContext: TraceContext): Future[HeadState]
 
-  def pruneLocalDatabase(
+  def updateInitialMemberCounters(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Unit]
 
@@ -94,7 +94,7 @@ trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
   def waitForMemberToBeDisabled(member: Member): Future[Unit]
 
   /** Wait for the sequencer pruning request to have been processed and get the returned message */
-  def waitForPruningToComplete(timestamp: CantonTimestamp): Future[String]
+  def waitForPruningToComplete(timestamp: CantonTimestamp): (Boolean, Future[Unit])
 
   /** Wait for the member's acknowledgement to have been processed */
   def waitForAcknowledgementToComplete(member: Member, timestamp: CantonTimestamp)(implicit
@@ -123,9 +123,8 @@ class BlockSequencerStateManager(
 
   import BlockSequencerStateManager.*
 
-  private val memberRegistrationPromises = TrieMap[Member, Promise[CantonTimestamp]]()
   private val memberDisablementPromises = TrieMap[Member, Promise[Unit]]()
-  private val sequencerPruningPromises = TrieMap[CantonTimestamp, Promise[String]]()
+  private val sequencerPruningPromises = TrieMap[CantonTimestamp, Promise[Unit]]()
   private val memberAcknowledgementPromises =
     TrieMap[Member, NonEmpty[SortedMap[CantonTimestamp, Traced[Promise[Unit]]]]]()
 
@@ -164,8 +163,10 @@ class BlockSequencerStateManager(
     headState.get().chunk.ephemeral.registeredMembers.contains(member)
 
   /** Check whether a member is currently enabled based on the latest state. */
-  override def isMemberEnabled(member: Member): Boolean =
-    headState.get().chunk.ephemeral.status.members.exists(s => s.enabled && s.member == member)
+  override def isMemberEnabled(member: Member): Boolean = {
+    val headStatus = headState.get().chunk.ephemeral.status
+    headStatus.membersMap.contains(member) && !headStatus.disabledMembers.contains(member)
+  }
 
   override def handleBlock(
       currentHeadState: HeadState,
@@ -205,28 +206,32 @@ class BlockSequencerStateManager(
       event: BlockSequencer.LocalEvent,
   )(implicit traceContext: TraceContext): Future[HeadState] = event match {
     case BlockSequencer.DisableMember(member) => locallyDisableMember(priorHead, member)
-    case BlockSequencer.Prune(timestamp) =>
-      pruneLocalDatabase(timestamp).map { (_: Unit) =>
+    case BlockSequencer.UpdateInitialMemberCounters(timestamp) =>
+      updateInitialMemberCounters(timestamp).map { (_: Unit) =>
         // Pruning does not change the head state
         priorHead
       }
   }
 
-  override def pruneLocalDatabase(
+  override def updateInitialMemberCounters(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Unit] = for {
-    msg <- store.prune(timestamp)
     initialCounters <- store.initialMemberCounters
   } yield {
     countersSupportedAfter.set(initialCounters)
-    resolveSequencerPruning(timestamp, msg)
+    resolveSequencerPruning(timestamp)
   }
 
   override def waitForMemberToBeDisabled(member: Member): Future[Unit] =
     memberDisablementPromises.getOrElseUpdate(member, Promise[Unit]()).future
 
-  override def waitForPruningToComplete(timestamp: CantonTimestamp): Future[String] =
-    sequencerPruningPromises.getOrElseUpdate(timestamp, Promise[String]()).future
+  override def waitForPruningToComplete(timestamp: CantonTimestamp): (Boolean, Future[Unit]) = {
+    val newPromise = Promise[Unit]()
+    val (isNew, promise) = sequencerPruningPromises
+      .putIfAbsent(timestamp, newPromise)
+      .fold((true, newPromise))(oldPromise => (false, oldPromise))
+    (isNew, promise.future)
+  }
 
   override def waitForAcknowledgementToComplete(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -329,10 +334,9 @@ class BlockSequencerStateManager(
       )
       .map { _ =>
         import monocle.macros.syntax.lens.*
-        val memebersMap = priorHead.chunk.ephemeral.status.membersMap
         val newHead = priorHead
-          .focus(_.chunk.ephemeral.status.membersMap)
-          .replace(memebersMap.updated(member, memebersMap(member).copy(enabled = false)))
+          .focus(_.chunk.ephemeral.status.disabledMembers)
+          .modify(_ incl member)
         updateHeadState(priorHead, newHead)
         resolveWaitingForMemberDisablement(member)
         newHead
@@ -380,7 +384,7 @@ class BlockSequencerStateManager(
             MapsUtil.mergeWith(_, _)((first, _) => first)
           )
       firstSequencerCounterByMember.forall { case (member, firstSequencerCounter) =>
-        priorState.ephemeral.heads.getOrElse(member, SequencerCounter.Genesis - 1L) ==
+        priorState.ephemeral.headCounter(member).getOrElse(SequencerCounter.Genesis - 1L) ==
           firstSequencerCounter - 1L
       }
     }
@@ -393,9 +397,10 @@ class BlockSequencerStateManager(
     val lastTs =
       (update.signedEvents.view.flatMap(_.values.map(_.timestamp)) ++
         update.newMembers.values).maxOption.getOrElse(priorState.lastTs)
+
     val newState = ChunkState(
       chunkNumber,
-      update.state,
+      priorState.ephemeral.mergeBlockUpdateEphemeralState(update.state),
       lastTs,
       update.lastSequencerEventTimestamp.orElse(priorState.latestSequencerEventTimestamp),
     )
@@ -425,7 +430,6 @@ class BlockSequencerStateManager(
       val newHead = priorHead.copy(chunk = newState)
       updateHeadState(priorHead, newHead)
       signalMemberCountersToDispatchers(newState.ephemeral)
-      resolveWaitingForNewMembers(newState.ephemeral)
       resolveWaitingForMemberDisablement(newState.ephemeral)
       update.acknowledgements.foreach { case (member, timestamp) =>
         resolveAcknowledgements(member, timestamp)
@@ -515,19 +519,8 @@ class BlockSequencerStateManager(
       newState: EphemeralState
   ): Unit = {
     dispatchers.toList.foreach { case (member, dispatcher) =>
-      newState.heads.get(member) match {
-        case Some(counter) =>
-          dispatcher.signalNewHead(counter + 1L)
-        case None =>
-      }
-    }
-  }
-
-  private def resolveWaitingForNewMembers(newState: EphemeralState): Unit = {
-    // if any members that we're waiting to see are now registered members, complete those promises.
-    newState.status.members foreach { registeredMember =>
-      memberRegistrationPromises.remove(registeredMember.member) foreach { promise =>
-        promise.success(registeredMember.registeredAt)
+      newState.headCounter(member).foreach { counter =>
+        dispatcher.signalNewHead(counter + 1L)
       }
     }
   }
@@ -535,16 +528,15 @@ class BlockSequencerStateManager(
   private def resolveWaitingForMemberDisablement(newState: EphemeralState): Unit = {
     // if any members that we're waiting to see disabled are now disabled members, complete those promises.
     memberDisablementPromises.keys
-      .map(newState.status.membersMap(_))
-      .filterNot(_.enabled)
-      .map(_.member) foreach (resolveWaitingForMemberDisablement)
+      .filter(newState.status.disabledMembers.contains)
+      .foreach(resolveWaitingForMemberDisablement)
   }
 
   private def resolveWaitingForMemberDisablement(disabledMember: Member): Unit =
     memberDisablementPromises.remove(disabledMember) foreach { promise => promise.success(()) }
 
-  private def resolveSequencerPruning(timestamp: CantonTimestamp, pruningMsg: String): Unit = {
-    sequencerPruningPromises.remove(timestamp) foreach { promise => promise.success(pruningMsg) }
+  private def resolveSequencerPruning(timestamp: CantonTimestamp): Unit = {
+    sequencerPruningPromises.remove(timestamp) foreach { promise => promise.success(()) }
   }
 
   /** Resolves all outstanding acknowledgements up to the given timestamp.
@@ -637,7 +629,7 @@ class BlockSequencerStateManager(
       // and then add 1 to the counter head when setting the new dispatcher index
       // So empty means we pass Genesis counter (0), everything else is counter + 1 (so the first msg is signalled 1)
       val head =
-        headState.get().chunk.ephemeral.heads.get(member) match {
+        headState.get().chunk.ephemeral.headCounter(member) match {
           case Some(counter) =>
             logger.debug(
               s"Creating dispatcher for [$member] from head=${counter + 1L}"
@@ -667,7 +659,7 @@ class BlockSequencerStateManager(
     // the order is: updateHead, signalDispatchers
     // the race is therefore makeDispatcher, updateHead, signalDispatchers, update dispatchers
     // to avoid a blocking lock, we just poke the newly generated dispatcher if necessary
-    headState.get().chunk.ephemeral.heads.get(member).foreach { counter =>
+    headState.get().chunk.ephemeral.headCounter(member).foreach { counter =>
       if (dispatcher.getHead() != counter + 1) {
         dispatcher.signalNewHead(counter + 1)
       }

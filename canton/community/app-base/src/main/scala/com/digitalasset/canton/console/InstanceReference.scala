@@ -544,7 +544,7 @@ abstract class ParticipantReference(
     val connected = domains.list_connected().map(_.domainId).toSet
     // for every participant
     consoleEnvironment.participants.all
-      .filter(p => p.health.running() && p.health.initialized())
+      .filter(p => p.health.is_running() && p.health.initialized())
       .foreach { participant =>
         // for every domain this participant is connected to as well
         participant.domains.list_connected().foreach {

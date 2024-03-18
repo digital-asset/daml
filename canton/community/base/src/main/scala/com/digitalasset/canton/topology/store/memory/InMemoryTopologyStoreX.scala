@@ -33,6 +33,7 @@ import com.google.common.annotations.VisibleForTesting
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.math.Ordering.Implicits.*
 
 class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
     val storeId: StoreId,
@@ -372,6 +373,30 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
     )
   }
 
+  override def findFirstSequencerStateForSequencer(
+      sequencerId: SequencerId
+  )(implicit
+      traceContext: TraceContext
+  ): Future[
+    Option[StoredTopologyTransactionX[TopologyChangeOpX.Replace, SequencerDomainStateX]]
+  ] = {
+    filteredState(
+      blocking(synchronized(topologyTransactionStore.toSeq)),
+      entry =>
+        !entry.transaction.isProposal &&
+          entry.operation == TopologyChangeOpX.Replace &&
+          entry.mapping
+            .select[SequencerDomainStateX]
+            .exists(m => m.allSequencers.contains(sequencerId)),
+    ).map(
+      _.collectOfType[TopologyChangeOpX.Replace]
+        .collectOfMapping[SequencerDomainStateX]
+        .result
+        .sortBy(_.serial)
+        .headOption
+    )
+  }
+
   override def findFirstMediatorStateForMediator(
       mediatorId: MediatorId
   )(implicit
@@ -419,7 +444,7 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
 
   }
 
-  override def findEssentialStateForMember(member: Member, asOfInclusive: CantonTimestamp)(implicit
+  override def findEssentialStateAtSequencedTime(asOfInclusive: SequencedTime)(implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactionsX] = {
     // asOfInclusive is the effective time of the transaction that onboarded the member.
@@ -428,10 +453,12 @@ class InMemoryTopologyStoreX[+StoreId <: TopologyStoreId](
       blocking(synchronized {
         topologyTransactionStore.toSeq
       }),
-      entry => entry.sequenced.value <= asOfInclusive,
+      entry => entry.sequenced <= asOfInclusive,
     ).map(
       // 2. transform the result such that the validUntil fields are set as they were at maxEffective time of the snapshot
       _.asSnapshotAtMaxEffectiveTime
+        // and remove proposals that have been superseded by full authorized transactions
+        .retainAuthorizedHistoryAndEffectiveProposals
     )
   }
 

@@ -35,7 +35,11 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessorCommon
-import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
+import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.{
+  TopologyStateForInitializationService,
+  TopologyStoreX,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.ServerServiceDefinition
@@ -108,6 +112,7 @@ trait SequencerNodeBootstrapCommon[
       domainId: DomainId,
       sequencerId: SequencerId,
       staticMembersToRegister: Seq[Member],
+      topologyStore: TopologyStoreX[DomainStore],
       topologyClient: DomainTopologyClientWithInit,
       topologyProcessor: TopologyTransactionProcessorCommon,
       topologyManagerStatus: Option[TopologyManagerStatus],
@@ -158,6 +163,7 @@ trait SequencerNodeBootstrapCommon[
         arguments.metrics,
         domainId,
         syncCrypto,
+        topologyStore,
         topologyClient,
         topologyProcessor,
         topologyManagerStatus,

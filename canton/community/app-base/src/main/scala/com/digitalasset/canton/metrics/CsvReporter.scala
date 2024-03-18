@@ -21,9 +21,14 @@ import scala.concurrent.blocking
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
-class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLoggerFactory) extends MetricExporter
+class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLoggerFactory)(implicit
+    scheduledExecutorService: ScheduledExecutorService
+) extends MetricExporter
     with NamedLogging
     with NoTracing {
+
+  val reader: MetricReader =
+    PeriodicMetricReader.builder(this).setExecutor(scheduledExecutorService).setInterval(config.interval.asJava).build()
 
   private val running = new AtomicBoolean(true)
   private val files = new TrieMap[String, (FileWriter, BufferedWriter)]
@@ -31,7 +36,11 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
 
   def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality = AggregationTemporality.CUMULATIVE
 
-
+  private def includeMetric(data: MetricData): Boolean = {
+    data.getName.nonEmpty && (config.filters.isEmpty || config.filters.exists(
+      _.matches(data.getName)
+    ))
+  }
 
   override def flush(): CompletableResultCode = {
     (new CompletableResultCode()).whenComplete(() => {
@@ -60,10 +69,10 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
     lock.synchronized {
       if (running.get()) {
         val ts = CantonTimestamp.now()
-        val converted = metrics.asScala.flatMap { data =>
+        val filtered = metrics.asScala.filter(includeMetric).flatMap { data =>
           MetricValue.fromMetricData(data).map { value => (value, data) }
         }
-        converted.foreach { case (value, metadata) => writeRow(ts, value, metadata) }
+        filtered.foreach { case (value, metadata) => writeRow(ts, value, metadata) }
       }
     }
   })
