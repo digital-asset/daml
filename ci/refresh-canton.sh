@@ -8,7 +8,7 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$DIR/.."
 
 if [ -z "${GITHUB_TOKEN:-}" ]; then
-  echo "This script requires GITHUB_TOKEN to be a valid GitHub token with read access to DACH-NY/canton."
+  echo "> This script requires GITHUB_TOKEN to be a valid GitHub token with read access to DACH-NY/canton." >&2
   exit 1
 fi
 
@@ -20,9 +20,9 @@ CANTON_DIR=${1:-//unset}
 
 if [ "//unset" = "$CANTON_DIR" ]; then
   CANTON_DIR=$(realpath "$DIR/../.canton")
-  echo "Using '$CANTON_DIR' as '\$1' was not provided." >&2
+  echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
   if ! [ -d "$CANTON_DIR" ]; then
-    echo "Cloning canton for the first time, this may take a while..." >&2
+    echo "> Cloning canton for the first time, this may take a while..." >&2
     git clone git@github.com:DACH-NY/canton.git "$CANTON_DIR" >$LOG 2>&1
   fi
   (
@@ -33,7 +33,7 @@ if [ "//unset" = "$CANTON_DIR" ]; then
 fi
 
 if ! [ -d "$CANTON_DIR" ]; then
-  echo "CANTON_DIR '$CANTON_DIR' does not seem to exist."
+  echo "> CANTON_DIR '$CANTON_DIR' does not seem to exist." >&2
   exit 1
 fi
 
@@ -52,5 +52,12 @@ for path in community daml-common-staging README.md; do
     fi
   done
 done
+
+commit_sha_8=$(git -C "$CANTON_DIR" log -n1 --format=%h --abbrev=8 HEAD)
+commit_date=$(git -C "$CANTON_DIR" log -n1 --format=%cd --date=format:%Y%m%d HEAD)
+number_of_commits=$(git -C "$CANTON_DIR" rev-list --count HEAD)
+is_modified=$(if ! git -C "$CANTON_DIR" diff-index --quiet HEAD; then echo "-dirty"; fi)
+
+echo $commit_date.$number_of_commits.v$commit_sha_8$is_modified
 
 trap - EXIT
