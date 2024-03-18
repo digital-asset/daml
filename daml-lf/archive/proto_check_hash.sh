@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-set -ex
+set -e
 
 declare -a checkSums=(
  "1c44a789914665751f62951a1cc7b7ccba9da2c66021017b48d4fac3c7024409
