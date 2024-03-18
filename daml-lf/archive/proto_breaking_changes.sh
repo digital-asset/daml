@@ -11,7 +11,7 @@ readonly config_file="${arch_dir}/buf.yaml"
 readonly stable_dir="${arch_dir}/src/stable/protobuf"
 readonly main_dir="${arch_dir}/src/main/protobuf"
 
-#We check the directories contains exactly 2 proto files
+# We check the directories contains exactly 2 proto files
 for dir in "${stable_dir}" "${main_dir}"; do
    find "${dir}/" -follow -name '*.proto' | wc -l | grep -x 2
 done
