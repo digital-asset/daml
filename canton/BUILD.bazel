@@ -1147,7 +1147,6 @@ scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
-        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_telemetry_java8",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_exporter_common",
         "@maven//:io_opentelemetry_opentelemetry_exporter_otlp_common",
