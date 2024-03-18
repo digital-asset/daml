@@ -45,7 +45,7 @@ trait PostgresAround {
       logger.info(s"Starting PostgreSQL Container...")
       container.start()
       logger.info(s"PostgreSQL Container started.")
-      val hostName = container.getContainerIpAddress
+      val hostName = container.getHost
       val port = container.getFirstMappedPort
       server.set(
         PostgresServer(

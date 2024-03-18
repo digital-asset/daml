@@ -143,6 +143,8 @@ class TinkPrivateCrypto private (
       )
     } yield keypair
   }
+
+  override def close(): Unit = ()
 }
 
 object TinkPrivateCrypto {

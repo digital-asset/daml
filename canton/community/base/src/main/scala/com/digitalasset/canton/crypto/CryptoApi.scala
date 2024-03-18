@@ -68,7 +68,8 @@ class Crypto(
         )
     } yield publicKey
 
-  override def onClosed(): Unit = Lifecycle.close(cryptoPrivateStore, cryptoPublicStore)(logger)
+  override def onClosed(): Unit =
+    Lifecycle.close(privateCrypto, cryptoPrivateStore, cryptoPublicStore)(logger)
 }
 
 trait CryptoPureApi
@@ -88,7 +89,7 @@ object CryptoPureApiError {
   }
 }
 
-trait CryptoPrivateApi extends EncryptionPrivateOps with SigningPrivateOps
+trait CryptoPrivateApi extends EncryptionPrivateOps with SigningPrivateOps with AutoCloseable
 trait CryptoPrivateStoreApi
     extends CryptoPrivateApi
     with EncryptionPrivateStoreOps

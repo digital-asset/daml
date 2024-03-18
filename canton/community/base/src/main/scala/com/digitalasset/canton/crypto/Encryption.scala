@@ -141,7 +141,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit tc: TraceContext): EitherT[Future, DecryptionError, M] =
     store
-      .decryptionKey(encryptedMessage.encryptedFor)(TraceContext.todo)
+      .decryptionKey(encryptedMessage.encryptedFor)
       .leftMap(storeError => DecryptionError.KeyStoreError(storeError.show))
       .subflatMap(_.toRight(DecryptionError.UnknownEncryptionKey(encryptedMessage.encryptedFor)))
       .subflatMap(encryptionKey =>
