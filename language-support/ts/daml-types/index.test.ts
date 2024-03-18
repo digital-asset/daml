@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Optional, Text, memo, Map, emptyMap } from "./index";
 import _ from "lodash";
+import * as jtv from "@mojotech/json-type-validation";
 
 function makeArr<T>(it: Iterator<T, undefined, undefined>): T[] {
   const r: T[] = [];
@@ -32,6 +33,15 @@ describe("@daml/types", () => {
     expect(dict.decoder.run([[]]).ok).toBe(false);
     expect(dict.decoder.run([null]).ok).toBe(false);
   });
+
+  it("optional record field", () => {
+    const dict = jtv.object({x: Optional(Text).decoder});
+    expect(dict.runWithException({})).toStrictEqual({x: null});
+    expect(dict.runWithException({x: null})).toStrictEqual({x: null});
+    expect(dict.runWithException({x: "abc"})).toStrictEqual({x: "abc"});
+  });
+
+
   it("genmap", () => {
     const { encode, decoder } = Map(Text, Text);
     const decode = (u: unknown): Map<Text, Text> => decoder.runWithException(u);
