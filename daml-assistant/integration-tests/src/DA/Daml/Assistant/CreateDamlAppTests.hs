@@ -188,9 +188,13 @@ patchTsDependencies uiDir packageJsonFile = do
                   , depName `elem` depNames
                   ] `KM.union`
                 dependencies
-          let newPackageJson =
-                Object $
-                KM.insert "dependencies" (Object patchedDeps) packageJson
+          let t1 = KM.insert "dependencies" (Object patchedDeps) packageJson
+          let newPackageJson = case KM.lookup "scripts" packageJson of
+                Just (Object oldScripts) -> do
+                  let t2 = KM.insert "start" "react-scripts start" oldScripts
+                  let t3 = KM.insert "build" "react-scripts build" t2
+                  Object $ KM.insert "scripts" (Object t3) t1
+                _ -> Object t1
           p <- getPermissions packageJsonFile
           setPermissions packageJsonFile (setOwnerWritable True p)
           BSL.writeFile packageJsonFile (encode newPackageJson)

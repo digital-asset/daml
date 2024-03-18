@@ -287,9 +287,13 @@ patchTsDependencies uiDir packageJsonFile = do
                    , depName `elem` depNames
                    ]) `KM.union`
                 dependencies
-          let newPackageJson =
-                Aeson.Object $
-                KM.insert "dependencies" (Aeson.Object patchedDeps) packageJson
+          let t1 = KM.insert "dependencies" (Aeson.Object patchedDeps) packageJson
+          let newPackageJson = case KM.lookup "scripts" packageJson of
+                Just (Aeson.Object oldScripts) -> do
+                  let t2 = KM.insert "start" "react-scripts start" oldScripts
+                  let t3 = KM.insert "build" "react-scripts build" t2
+                  Aeson.Object $ KM.insert "scripts" (Aeson.Object t3) t1
+                _ -> Aeson.Object t1
           -- Make sure we have write permissions before writing
           p <- getPermissions packageJsonFile
           setPermissions packageJsonFile (setOwnerWritable True p)
