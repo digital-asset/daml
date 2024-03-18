@@ -6,7 +6,7 @@ set -euo pipefail
 
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
+cd "$DIR"
 
 execution_log_postfix=${1:-}${2:-}
 test_mode=${3:-main}

@@ -79,6 +79,9 @@ jobs:
     - template: upload-bazel-metrics.yml
     - bash: |
         set -euo pipefail
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         eval "$(./dev-env/bin/dade-assist)"
         bazel build //release:release
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
@@ -196,7 +199,7 @@ jobs:
         targetPath: $(Build.StagingDirectory)/platform-independence/macos/
     - bash: |
         set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
+        eval "$(sdk/dev-env/bin/dade-assist)"
 
         DIR1=$(mktemp -d)
         DIR2=$(mktemp -d)
@@ -258,7 +261,7 @@ jobs:
   steps:
     - checkout: self
       fetchTags: true
-    - bash: ci/check-protobuf-stability.sh
+    - bash: sdk/ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
 - job: collect_build_data_failed

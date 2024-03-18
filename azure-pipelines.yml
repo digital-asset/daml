@@ -72,6 +72,9 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
@@ -113,6 +116,9 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
@@ -122,6 +128,9 @@ jobs:
     - bash: |
         set -euo pipefail
 
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
@@ -142,6 +151,9 @@ jobs:
     - bash: |
         set -euo pipefail
         source $(bash-lib)
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         msg=$(git log -n1 --format=%b HEAD | head -1)
