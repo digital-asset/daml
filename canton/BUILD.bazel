@@ -1150,6 +1150,7 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_exporter_common",
         "@maven//:io_opentelemetry_opentelemetry_exporter_otlp_common",
         "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
+        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_telemetry_java8",
         "@maven//:io_opentelemetry_opentelemetry_sdk",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
