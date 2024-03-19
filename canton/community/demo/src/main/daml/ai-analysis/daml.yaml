@@ -1,4 +1,4 @@
-sdk-version: 2.9.0-snapshot.20240313.12681.0.vd88ed4d2
+sdk-version: 2.9.0-snapshot.20240315.12686.0.vb456e137
 name: ai-analysis
 source: AIAnalysis.daml
 init-script: AIAnalysis:setup
