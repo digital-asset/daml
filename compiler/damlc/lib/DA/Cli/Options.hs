@@ -262,6 +262,15 @@ enableScenariosOpt = EnableScenarios <$>
             "Enable/disable support for scenarios as a language feature. \
             \If disabled, defining top-level scenarios is a compile-time error"
 
+enableInterfacesOpt :: Parser EnableInterfaces
+enableInterfacesOpt = EnableInterfaces <$>
+    flagYesNoAuto "enable-interfaces" False desc internal
+    where
+        desc =
+            "Enable/disable support for interfaces as a language feature. \
+            \If disabled, defining interfaces and interface instances is a compile-time error. \
+            \Off by default."
+
 allowLargeTuplesOpt :: Parser AllowLargeTuples
 allowLargeTuplesOpt = AllowLargeTuples <$>
     flagYesNoAuto "disable-warn-large-tuples" False desc internal
@@ -426,6 +435,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
     optEnableScenarios <- enableScenariosOpt
+    optEnableInterfaces <- enableInterfacesOpt
     optAllowLargeTuples <- allowLargeTuplesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
 
