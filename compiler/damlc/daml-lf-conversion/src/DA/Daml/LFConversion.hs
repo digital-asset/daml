@@ -677,6 +677,7 @@ convertInterface env mc intName ib =
 
     convertDefInterfaceDataType :: ConvertM Definition
     convertDefInterfaceDataType = do
+      checkInterfacesEnabled env
       unless (null (tyConTyVars tyCon)) do
         unhandled "interface type constructor with type parameters" tyCon
       pure $ DDataType DefDataType
@@ -1164,6 +1165,7 @@ convertInterfaceInstance ::
   -> InterfaceInstanceBinds
   -> ConvertM TemplateImplements
 convertInterfaceInstance parent env iib = withRange (iibLoc iib) do
+  checkInterfacesEnabled env
   interfaceQualTypeCon <- qualifyInterfaceCon (iibInterface iib)
   templateQualTypeCon <- qualifyTemplateCon (iibTemplate iib)
   checkParent templateQualTypeCon
@@ -2643,6 +2645,18 @@ ctorLabels con =
     = map convFieldName lbls
   flv = tyConFlavour (dataConTyCon con)
   lbls = dataConFieldLabels con
+
+---------------------------------------------------------------------
+-- Checks
+
+checkInterfacesEnabled :: Env -> ConvertM ()
+checkInterfacesEnabled env =
+  unless (getEnableInterfaces (envEnableInterfaces env)) do
+    unsupported
+      "Interfaces are forbidden by default. To enable them, add \
+      \`--enable-interfaces=yes` to `build-options` in the project's \
+      \`daml.yaml` file."
+      ()
 
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS
