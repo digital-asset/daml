@@ -24,8 +24,8 @@ import com.digitalasset.canton.http.Endpoints
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1 as lav1
-import lav1.value.Value as ApiValue
+import com.daml.ledger.api.{v2 as lav2}
+import lav2.value.Value as ApiValue
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.std.option.*
 import scalaz.{-\/, EitherT, Traverse, \/, \/-}
@@ -82,14 +82,12 @@ private[http] final class RouteSetup(
     } yield domain.OkResponse(jsVal)
 
   def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
-      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): EitherT[Future, Error, (Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => withJwtPayload[JsValue, P](x).leftMap(it => it: Error))
 
   def withJwtPayload[A, P](fa: (Jwt, A))(implicit
-      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
   ): EitherT[Future, Error, (Jwt, P, A)] =
     decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient).map(t2 =>
@@ -99,7 +97,6 @@ private[http] final class RouteSetup(
   def inputAndJwtPayload[P](
       req: HttpRequest
   )(implicit
-      createFromCustomToken: CreateFromCustomToken[P],
       createFromUserToken: CreateFromUserToken[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): EitherT[Future, Error, (Jwt, P, String)] =

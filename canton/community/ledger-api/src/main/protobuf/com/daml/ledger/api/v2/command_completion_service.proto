@@ -9,9 +9,9 @@ import "com/daml/ledger/api/v2/checkpoint.proto";
 import "com/daml/ledger/api/v2/completion.proto";
 import "com/daml/ledger/api/v2/participant_offset.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "CommandCompletionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to observe the status of their submissions.
 // Commands may be submitted via the Command Submission Service.
@@ -28,13 +28,11 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
 service CommandCompletionService {
-
   // Subscribe to command completion events.
-  rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
+  rpc CompletionStream(CompletionStreamRequest) returns (stream CompletionStreamResponse);
 }
 
 message CompletionStreamRequest {
-
   // Only completions of commands submitted with the same application_id will be visible in the stream.
   // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Required unless authentication is used with a user token or a custom token specifying an application-id.
@@ -54,7 +52,6 @@ message CompletionStreamRequest {
 }
 
 message CompletionStreamResponse {
-
   // This checkpoint may be used to restart consumption.  The
   // checkpoint belongs to the completion in this response.
   // Required

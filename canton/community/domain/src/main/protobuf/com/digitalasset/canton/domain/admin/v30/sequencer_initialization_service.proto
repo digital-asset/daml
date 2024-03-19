@@ -18,6 +18,7 @@ service SequencerInitializationService {
   // If the request is received after the sequencer has been successfully initialized it should return successfully
   // if the domain_id matches the domain that the sequencer has been initialized for, otherwise it should fail.
   rpc InitializeSequencer(InitializeSequencerRequest) returns (InitializeSequencerResponse);
+  rpc InitializeSequencerVersioned(InitializeSequencerVersionedRequest) returns (InitializeSequencerVersionedResponse);
 }
 
 // Includes sufficient detail for:
@@ -35,6 +36,20 @@ message InitializeSequencerRequest {
 }
 
 message InitializeSequencerResponse {
+  // Indicate if the initialized sequencer is replicated
+  bool replicated = 1;
+}
+
+message InitializeSequencerVersionedRequest {
+  bytes topology_snapshot = 1;
+
+  com.digitalasset.canton.protocol.v30.StaticDomainParameters domain_parameters = 2;
+
+  // optional - snapshot to initialize sequencer from, as a versioned SequencerSnapshot of version v1 or higher
+  bytes snapshot = 3;
+}
+
+message InitializeSequencerVersionedResponse {
   // Indicate if the initialized sequencer is replicated
   bool replicated = 1;
 }

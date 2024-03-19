@@ -9,7 +9,7 @@ import com.daml.lf.data.{ImmArray, Struct}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, PackageInterface}
 import com.daml.lf.speedy.Compiler.{ProfilingMode, StackTraceMode, CompilationError}
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.{SExpr => t}
@@ -196,7 +196,7 @@ private[lf] final class PhaseOne(
         Return(env.lookupExprVar(name))
       case EVal(ref) =>
         Return(SEVal(t.LfDefRef(ref)))
-      case EBuiltin(bf) =>
+      case EBuiltinFun(bf) =>
         Return(compileBuiltin(env, bf))
       case EBuiltinCon(con) =>
         Return(compileBuiltinCon(con))
@@ -403,7 +403,6 @@ private[lf] final class PhaseOne(
           case BAppendText => SBAppendText
 
           case BInt64ToText => SBToText
-          case BTextToText => SBToText
           case BTimestampToText => SBToText
           case BPartyToText => SBToText
           case BDateToText => SBToText

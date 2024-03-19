@@ -28,7 +28,7 @@ final case class CommunitySequencerNodeXConfig(
     override val parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
     override val health: SequencerHealthConfig = SequencerHealthConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
-    override val topologyX: TopologyXConfig = TopologyXConfig(),
+    override val topology: TopologyConfig = TopologyConfig(),
     override val trafficConfig: SequencerTrafficConfig = SequencerTrafficConfig(),
 ) extends SequencerNodeConfigCommon(
       init,
@@ -52,9 +52,9 @@ final case class CommunitySequencerNodeXConfig(
   override def withDefaults(ports: DefaultPorts): CommunitySequencerNodeXConfig = {
     this
       .focus(_.publicApi.internalPort)
-      .modify(ports.sequencerXPublicApiPort.setDefaultPort)
+      .modify(ports.sequencerPublicApiPort.setDefaultPort)
       .focus(_.adminApi.internalPort)
-      .modify(ports.sequencerXAdminApiPort.setDefaultPort)
+      .modify(ports.sequencerAdminApiPort.setDefaultPort)
   }
 }
 

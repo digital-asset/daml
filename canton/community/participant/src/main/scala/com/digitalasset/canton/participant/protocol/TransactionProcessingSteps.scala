@@ -723,6 +723,7 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorsOfDomain,
+      submitterMetadataO: Option[SubmitterMetadata],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -741,11 +742,6 @@ class TransactionProcessingSteps(
     }
     val workflowIdO =
       IterableUtil.assertAtMostOne(fullViewTrees.forgetNE.mapFilter(_.workflowIdO), "workflow")
-    val submitterMetaO =
-      IterableUtil.assertAtMostOne(
-        fullViewTrees.forgetNE.mapFilter(_.tree.submitterMetadata.unwrap.toOption),
-        "submitterMetadata",
-      )
 
     // TODO(i12911): check that all non-root lightweight trees can be decrypted with the expected (derived) randomness
     //   Also, check that all the view's informees received the derived randomness
@@ -771,7 +767,7 @@ class TransactionProcessingSteps(
           rootViewTreesWithSignatures,
           usedAndCreated,
           workflowIdO,
-          submitterMetaO,
+          submitterMetadataO,
         )
 
       val activenessSet = usedAndCreated.activenessSet
@@ -980,7 +976,7 @@ class TransactionProcessingSteps(
         witnessedAndDivulged = usedAndCreated.contracts.witnessedAndDivulged,
         createdContracts = usedAndCreated.contracts.created,
         transient = usedAndCreated.contracts.transient,
-        successfulActivenessCheck = activenessResult.isSuccessful,
+        activenessResult = activenessResult,
         viewValidationResults = viewResults.result(),
         timeValidationResultE = parallelChecksResult.timeValidationResultE,
         hostedWitnesses = usedAndCreated.hostedWitnesses,
@@ -1032,6 +1028,7 @@ class TransactionProcessingSteps(
 
   override def constructResponsesForMalformedPayloads(
       requestId: RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
@@ -1039,6 +1036,7 @@ class TransactionProcessingSteps(
     Seq(
       confirmationResponseFactory.createConfirmationResponsesForMalformedPayloads(
         requestId,
+        rootHash,
         malformedPayloads,
       )
     )
@@ -1206,7 +1204,7 @@ class TransactionProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
     val txValidationResult = pendingRequestData.transactionValidationResult
-    val commitSet = txValidationResult.commitSet(pendingRequestData.requestId)(protocolVersion)
+    val commitSet = txValidationResult.commitSet(pendingRequestData.requestId)
 
     computeCommitAndContractsAndEvent(
       requestTime = pendingRequestData.requestTime,
@@ -1323,13 +1321,12 @@ class TransactionProcessingSteps(
       createdContracts = usedAndCreated.contracts.created
 
       commitSet = CommitSet.createForTransaction(
-        successfulActivenessCheck =
-          pendingRequestData.transactionValidationResult.successfulActivenessCheck,
+        activenessResult = pendingRequestData.transactionValidationResult.activenessResult,
         requestId = pendingRequestData.requestId,
         consumedInputsOfHostedParties = usedAndCreated.contracts.consumedInputsOfHostedStakeholders,
         transient = usedAndCreated.contracts.transient,
         createdContracts = createdContracts,
-      )(protocolVersion)
+      )
 
       commitAndContractsAndEvent <- computeCommitAndContractsAndEvent(
         requestTime = pendingRequestData.requestTime,
@@ -1349,7 +1346,7 @@ class TransactionProcessingSteps(
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -1366,7 +1363,7 @@ class TransactionProcessingSteps(
         topologySnapshot: TopologySnapshot
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
       (
-        result.verdict,
+        verdict,
         pendingRequestData.modelConformanceResultE,
       ) match {
         case (_: Verdict.Approve, _) => handleApprovedVerdict(topologySnapshot)

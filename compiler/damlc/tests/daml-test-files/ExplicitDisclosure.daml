@@ -13,8 +13,6 @@ template Box with
     content: Text
   where
     signatory s
-    key s: Party
-    maintainer key
     nonconsuming choice Open: Text with
         c: Party
       controller c
@@ -52,22 +50,7 @@ disclosuresTest = do
 
   pure content
 
-
-disclosuresByKeyTest : Script Text
-disclosuresByKeyTest = do
-  -- init
-  alice <- allocatePartyOn "alice" (ParticipantName "participant0")
-  bob <- allocatePartyOn "bob" (ParticipantName "participant1")
-  did <- alice `submit` do
-     createCmd (Box alice "my secret")
-  disclosure <- fromSome <$> queryDisclosure alice did
-
-  content <- submitWithDisclosures bob [disclosure] (exerciseByKeyCmd @Box alice (Open bob))
-
-  pure content
-
-
--- @ERROR range=72:1-72:46; Here
+-- @ERROR range=55:1-55:46; Here
 inactiveDisclosureDoesNotFailDuringSubmission: Script ()
 inactiveDisclosureDoesNotFailDuringSubmission = do
     -- init

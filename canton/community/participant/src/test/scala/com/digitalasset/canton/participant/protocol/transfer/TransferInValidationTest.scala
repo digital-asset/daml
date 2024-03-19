@@ -50,8 +50,7 @@ class TransferInValidationTest
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -222,7 +221,7 @@ class TransferInValidationTest
         targetDomain,
         targetMediator,
         transferOutResult,
-        transferCounter = transferData.transferCounter.map(_ + 1),
+        transferCounter = transferData.transferCounter + 1,
       )
       for {
         result <-
@@ -309,7 +308,7 @@ class TransferInValidationTest
       targetMediator: MediatorsOfDomain,
       transferOutResult: DeliveredTransferOutResult,
       uuid: UUID = new UUID(4L, 5L),
-      transferCounter: TransferCounterO = initialTransferCounter,
+      transferCounter: TransferCounter = initialTransferCounter,
   ): FullTransferInTree = {
     val seed = seedGenerator.generateSaltSeed()
     valueOrFail(

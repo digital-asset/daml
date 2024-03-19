@@ -21,11 +21,11 @@ import org.scalatest.wordspec.AnyWordSpec
 class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
   import scala.jdk.CollectionConverters.*
-  private val simpleConf = "examples/01-simple-topology/simple-topology-x.conf"
+  private val simpleConf = "examples/01-simple-topology/simple-topology.conf"
 
   "the example simple topology configuration" should {
     lazy val config =
-      loadFile(simpleConf).valueOrFail("failed to load simple-topology-x.conf")
+      loadFile(simpleConf).valueOrFail("failed to load simple-topology.conf")
 
     "contain a couple of participants" in {
       config.participants should have size 2

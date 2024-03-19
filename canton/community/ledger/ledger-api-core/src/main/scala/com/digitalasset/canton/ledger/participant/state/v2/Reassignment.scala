@@ -20,6 +20,7 @@ object Reassignment {
     *
     * @param contractId            Contract ID of the underlying contract.
     * @param templateId            Template ID of the underlying contract.
+    * @param packageName           Package name of the underlying contract's template.
     * @param stakeholders          Stakeholders of the underlying contract.
     * @param assignmentExclusivity Before this time (measured on the target domain), only the submitter
     *                              of the unassignment can initiate the assignment. Defined for
@@ -28,6 +29,7 @@ object Reassignment {
   final case class Unassign(
       contractId: Value.ContractId,
       templateId: Ref.Identifier,
+      packageName: Ref.PackageName,
       stakeholders: List[Ref.Party],
       assignmentExclusivity: Option[Timestamp],
   ) extends Reassignment {

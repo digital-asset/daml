@@ -18,16 +18,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//libs-scala/ledger-resources",
-        "//libs-scala/resources",
         "//observability/metrics",
-        "@maven//:io_opentelemetry_opentelemetry_api",
-        "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
-        "@maven//:io_opentelemetry_opentelemetry_sdk",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_extension_autoconfigure",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_extension_autoconfigure_spi",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
-        "@maven//:io_prometheus_simpleclient",
     ],
 )

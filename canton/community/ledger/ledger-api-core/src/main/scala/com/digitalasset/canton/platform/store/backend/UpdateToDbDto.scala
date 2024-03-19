@@ -14,7 +14,6 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationDuration,
   DeduplicationOffset,
 }
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexedUpdatesMetrics, Metrics}
@@ -69,22 +68,7 @@ object UpdateToDbDto {
             )
           )
 
-        case u: ConfigurationChanged =>
-          incrementCounterForEvent(
-            metrics.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.configurationChange,
-            IndexedUpdatesMetrics.Labels.status.accepted,
-          )
-          Iterator(
-            DbDto.ConfigurationEntry(
-              ledger_offset = offset.toHexString,
-              recorded_at = u.recordTime.micros,
-              submission_id = u.submissionId,
-              typ = JdbcLedgerDao.acceptType,
-              configuration = Configuration.encode(u.newConfiguration).toByteArray,
-              rejection_reason = None,
-            )
-          )
+        case _: Init => Iterator()
 
         case u: PartyAddedToParticipant =>
           incrementCounterForEvent(
@@ -283,6 +267,7 @@ object UpdateToDbDto {
                     event_id = EventId(u.transactionId, nodeId).toLedgerString,
                     contract_id = exercise.targetCoid.coid,
                     template_id = templateId,
+                    package_name = exercise.packageName,
                     flat_event_witnesses = flatWitnesses,
                     tree_event_witnesses = informees,
                     create_key_value = createKeyValue
@@ -364,6 +349,7 @@ object UpdateToDbDto {
                   submitter = u.reassignmentInfo.submitter,
                   contract_id = unassign.contractId.coid,
                   template_id = templateId,
+                  package_name = unassign.packageName,
                   flat_event_witnesses = flatEventWitnesses.toSet,
                   event_sequential_id = 0L, // this is filled later
                   source_domain_id = u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,

@@ -5,33 +5,32 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v2/event.proto";
 import "com/daml/ledger/api/v2/participant_offset.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
 
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "StateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to get state from the ledger.
 service StateService {
-
   // Returns a stream of the snapshot of the active contracts and incomplete reassignments at a ledger offset.
   // If there are no active contracts, the stream returns a single response message with the offset at which the snapshot has been taken.
   // Clients SHOULD use the offset in the last GetActiveContractsResponse message to continue streaming transactions with the update service.
   // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
-  rpc GetActiveContracts (GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
+  rpc GetActiveContracts(GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
 
   // Get the list of connected domains at the time of the query.
-  rpc GetConnectedDomains (GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
+  rpc GetConnectedDomains(GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
 
   // Get the current ledger end.
   // Subscriptions started with the returned offset will serve events after this RPC was called.
-  rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
+  rpc GetLedgerEnd(GetLedgerEndRequest) returns (GetLedgerEndResponse);
 
   // Get the latest successfully pruned ledger offsets
-  rpc GetLatestPrunedOffsets (GetLatestPrunedOffsetsRequest) returns (GetLatestPrunedOffsetsResponse);
+  rpc GetLatestPrunedOffsets(GetLatestPrunedOffsetsRequest) returns (GetLatestPrunedOffsetsResponse);
 }
 
 // If the given offset is different than the ledger end, and there are reassignments in-flight at the given offset,
@@ -39,7 +38,6 @@ service StateService {
 // Note that it is ok to request acs snapshots for party migration with offsets other than ledger end, because party
 // migration is not concerned with incomplete reassignments.
 message GetActiveContractsRequest {
-
   // Templates to include in the served snapshot, per party.
   // Required
   TransactionFilter filter = 1;
@@ -58,9 +56,10 @@ message GetActiveContractsRequest {
 }
 
 message GetActiveContractsResponse {
-
   // Included only in the last message.
   // The client should start consuming the transactions endpoint with this offset.
+  // On a participant that is not aware of any events in the ledger the offset returned could be the empty string.
+  // The empty string signifies that the offset returned is before the first transaction.
   // The format of this field is described in ``participant_offset.proto``.
   string offset = 1;
 
@@ -96,9 +95,8 @@ message GetActiveContractsResponse {
 }
 
 message ActiveContract {
-
   // Required
-  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
+  com.daml.ledger.api.v2.CreatedEvent created_event = 1;
 
   // A valid domain ID
   // Required
@@ -114,23 +112,19 @@ message ActiveContract {
 }
 
 message IncompleteUnassigned {
-
   // Required
-  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
+  com.daml.ledger.api.v2.CreatedEvent created_event = 1;
 
   // Required
   UnassignedEvent unassigned_event = 2;
 }
 
 message IncompleteAssigned {
-
   // Required
   AssignedEvent assigned_event = 1;
 }
 
-
 message GetConnectedDomainsRequest {
-
   // The party of interest
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
@@ -138,7 +132,6 @@ message GetConnectedDomainsRequest {
 }
 
 message GetConnectedDomainsResponse {
-
   message ConnectedDomain {
     // The alias of the domain
     // Required
@@ -158,21 +151,20 @@ message GetConnectedDomainsResponse {
 // Enum indicating the permission level that the participant has for the party
 // whose connected domains are being listed.
 enum ParticipantPermission {
+  PARTICIPANT_PERMISSION_UNSPECIFIED = 0;
 
-  Submission = 0;
+  PARTICIPANT_PERMISSION_SUBMISSION = 1;
 
   // participant can only confirm transactions
-  Confirmation = 1;
+  PARTICIPANT_PERMISSION_CONFIRMATION = 2;
 
   // participant can only observe transactions
-  Observation = 2;
+  PARTICIPANT_PERMISSION_OBSERVATION = 3;
 }
 
-message GetLedgerEndRequest {
-}
+message GetLedgerEndRequest {}
 
 message GetLedgerEndResponse {
-
   // The absolute offset of the current ledger end.
   ParticipantOffset offset = 1;
 }

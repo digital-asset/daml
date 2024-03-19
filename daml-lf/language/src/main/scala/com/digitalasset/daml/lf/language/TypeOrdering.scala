@@ -82,15 +82,15 @@ object TypeOrdering extends Ordering[Type] {
       Ast.BTOptional,
       Ast.BTList,
       Ast.BTGenMap,
-      Ast.BTTextMap,
       Ast.BTAny,
       Ast.BTAnyException,
       Ast.BTTypeRep,
       Ast.BTArrow,
       Ast.BTUpdate,
-      Ast.BTScenario,
+      Ast.BTTextMap,
       Ast.BTBigNumeric,
       Ast.BTRoundingMode,
+      Ast.BTScenario,
     ).zipWithIndex.toMap
 
   private[this] def typeRank(typ: Ast.Type): Int =

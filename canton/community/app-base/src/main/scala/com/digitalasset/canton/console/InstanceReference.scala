@@ -536,7 +536,7 @@ abstract class ParticipantReference(
   @Help.Group("Repair")
   def repair: ParticipantRepairAdministration
 
-  /** Waits until for every participant p (drawn from consoleEnvironment.participantsX.all) that is running and initialized
+  /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is running and initialized
     * and for each domain to which both this participant and p are connected
     * the vetted_package transactions in the authorized store are the same as in the domain store.
     */

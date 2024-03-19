@@ -77,7 +77,7 @@ freeVarsStep :: ExprF FreeVars -> FreeVars
 freeVarsStep = \case
     EVarF x -> freeExprVar x
     EValF _ -> mempty
-    EBuiltinF _ -> mempty
+    EBuiltinFunF _ -> mempty
     ERecConF t fs -> freeVarsInTypeConApp t <> foldMap snd fs
     ERecProjF t _ e -> freeVarsInTypeConApp t <> e
     ERecUpdF t _ e1 e2 -> freeVarsInTypeConApp t <> e1 <> e2

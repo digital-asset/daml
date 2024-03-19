@@ -18,7 +18,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     val identity = executeSql(backend.parameter.ledgerIdentity)
     val end = executeSql(backend.parameter.ledgerEnd)
     val parties = executeSql(backend.party.knownParties)
-    val config = executeSql(backend.configuration.ledgerConfiguration)
     val packages = executeSql(backend.packageBackend.lfPackages)
     val stringInterningEntries = executeSql(
       backend.stringInterning.loadStringInterningEntries(0, 1000)
@@ -28,42 +27,37 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     end shouldBe ParameterStorageBackend.LedgerEnd.beforeBegin
     parties shouldBe empty
     packages shouldBe empty
-    config shouldBe None
     stringInterningEntries shouldBe empty
   }
 
   it should "not see any data after advancing the ledger end" in {
     advanceLedgerEndToMakeOldDataVisible()
     val parties = executeSql(backend.party.knownParties)
-    val config = executeSql(backend.configuration.ledgerConfiguration)
     val packages = executeSql(backend.packageBackend.lfPackages)
 
     parties shouldBe empty
     packages shouldBe empty
-    config shouldBe None
   }
 
   it should "reset everything when using resetAll" in {
     val dtos: Vector[DbDto] = Vector(
-      // 1: config change
-      dtoConfiguration(offset(1)),
-      // 2: party allocation
-      dtoPartyEntry(offset(2)),
-      // 3: package upload
-      dtoPackage(offset(3)),
-      dtoPackageEntry(offset(3)),
-      // 4: transaction with create node
-      dtoCreate(offset(4), 1L, hashCid("#4")),
+      // 1: party allocation
+      dtoPartyEntry(offset(1)),
+      // 2: package upload
+      dtoPackage(offset(2)),
+      dtoPackageEntry(offset(2)),
+      // 3: transaction with create node
+      dtoCreate(offset(3), 1L, hashCid("#3")),
       DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, someParty.toString),
+      dtoCompletion(offset(3)),
+      // 4: transaction with exercise node and retroactive divulgence
+      dtoExercise(offset(4), 2L, true, hashCid("#3")),
       dtoCompletion(offset(4)),
-      // 5: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(5), 2L, true, hashCid("#4")),
-      dtoCompletion(offset(5)),
-      // 6: assign event
-      dtoAssign(offset(6), 4L, hashCid("#5")),
+      // 5: assign event
+      dtoAssign(offset(5), 4L, hashCid("#4")),
       DbDto.IdFilterAssignStakeholder(4L, someTemplateId.toString, someParty.toString),
-      // 7: unassign event
-      dtoUnassign(offset(7), 5L, hashCid("#6")),
+      // 6: unassign event
+      dtoUnassign(offset(6), 5L, hashCid("#5")),
       DbDto.IdFilterUnassignStakeholder(5L, someTemplateId.toString, someParty.toString),
       // String interning
       DbDto.StringInterningDto(10, "d|x:abc"),
@@ -93,8 +87,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     }
 
     def parties = executeSql(backend.party.knownParties)
-
-    def config = executeSql(backend.configuration.ledgerConfiguration)
 
     def packages = executeSql(backend.packageBackend.lfPackages)
 
@@ -152,7 +144,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     events.size shouldBe 2
     parties should not be empty
     packages should not be empty
-    config should not be None
     stringInterningEntries should not be empty
     filterIds should not be empty
     assignEvents should not be empty
@@ -173,7 +164,6 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     parties shouldBe empty
     packages shouldBe empty // Note: resetAll() does delete packages
-    config shouldBe None
     stringInterningEntries shouldBe empty
     filterIds shouldBe empty
     assignEvents shouldBe empty

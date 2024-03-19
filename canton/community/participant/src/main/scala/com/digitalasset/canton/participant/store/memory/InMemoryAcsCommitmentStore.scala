@@ -74,11 +74,10 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
           )
         } else {
           computed.update(counterParticipant, oldMap + (period -> commitment))
-          Future.unit
         }
       }
     }
-
+    Future.unit
   }
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit

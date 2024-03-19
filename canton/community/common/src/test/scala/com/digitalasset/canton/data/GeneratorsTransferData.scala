@@ -131,18 +131,16 @@ final class GeneratorsTransferData(
   ): Gen[DeliveredTransferOutResult] =
     for {
       sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
-
       requestId <- Arbitrary.arbitrary[RequestId]
       rootHash <- Arbitrary.arbitrary[RootHash]
       protocolVersion = sourceProtocolVersion.v
-
       verdict = Verdict.Approve(protocolVersion)
 
       result = ConfirmationResultMessage.create(
         sourceDomain.id,
         ViewType.TransferOutViewType,
         requestId,
-        Some(rootHash),
+        rootHash,
         verdict,
         contract.metadata.stakeholders,
         protocolVersion,
@@ -179,7 +177,7 @@ final class GeneratorsTransferData(
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
       creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       transferOutResultEvent <- deliveryTransferOutResultGen(contract, sourceProtocolVersion)
-      transferCounter <- transferCounterOGen
+      transferCounter <- transferCounterGen
 
       hashOps = TestHash // Not used for serialization
 
@@ -205,7 +203,7 @@ final class GeneratorsTransferData(
 
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
       timeProof <- Arbitrary.arbitrary[TimeProof]
-      transferCounter <- transferCounterOGen
+      transferCounter <- transferCounterGen
 
       hashOps = TestHash // Not used for serialization
 

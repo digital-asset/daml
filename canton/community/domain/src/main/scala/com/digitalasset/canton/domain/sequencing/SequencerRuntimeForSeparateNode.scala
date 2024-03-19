@@ -19,7 +19,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   Sequencer,
 }
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerAdministrationService
-import com.digitalasset.canton.domain.sequencing.traffic.SequencerTrafficControlSubscriber
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -191,9 +190,14 @@ class SequencerRuntimeForSeparateNode(
 
   private val topologyHandler = topologyProcessor.createHandler(domainId)
   private val trafficProcessor =
-    new TrafficControlProcessor(syncCrypto, domainId, loggerFactory)
+    new TrafficControlProcessor(
+      syncCrypto,
+      domainId,
+      sequencer.rateLimitManager.flatMap(_.balanceKnownUntil),
+      loggerFactory,
+    )
 
-  trafficProcessor.subscribe(new SequencerTrafficControlSubscriber(loggerFactory))
+  sequencer.rateLimitManager.foreach(_.balanceUpdateSubscriber.foreach(trafficProcessor.subscribe))
 
   // TODO(i17434): Use topologyHandler.combineWith(trafficProcessorHandler)
   private def handler(domainId: DomainId): UnsignedProtocolEventHandler =
@@ -275,6 +279,7 @@ class SequencerRuntimeForSeparateNode(
 
   override def onClosed(): Unit = {
     Lifecycle.close(
+      Lifecycle.toCloseableOption(sequencer.rateLimitManager),
       timeTracker,
       syncCrypto,
       topologyClient,

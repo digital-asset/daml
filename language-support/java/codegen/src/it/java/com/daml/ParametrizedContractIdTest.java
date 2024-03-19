@@ -6,7 +6,7 @@ package com.daml;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
@@ -39,10 +39,11 @@ public class ParametrizedContractIdTest {
                                                     .setContractId("SomeID"))))))
             .build();
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
-    FixedContractId fromValue = FixedContractId.fromValue(dataRecord);
+    FixedContractId fromValue = FixedContractId.valueDecoder().decode(dataRecord);
     FixedContractId fromConstructor =
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
-    FixedContractId fromRoundTrip = FixedContractId.fromValue(fromConstructor.toValue());
+    FixedContractId fromRoundTrip =
+        FixedContractId.valueDecoder().decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);

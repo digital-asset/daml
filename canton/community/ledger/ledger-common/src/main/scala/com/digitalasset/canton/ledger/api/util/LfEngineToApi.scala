@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.util
 
-import com.daml.ledger.api.v1.value as api
+import com.daml.ledger.api.v2.value as api
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.value.Value as Lf
 import com.google.protobuf.empty.Empty
@@ -101,12 +101,12 @@ object LfEngineToApi {
         )
       case Lf.ValueTextMap(m) =>
         m.toImmArray.reverse
-          .foldLeft[Either[String, List[api.Map.Entry]]](Right(List.empty)) {
+          .foldLeft[Either[String, List[api.TextMap.Entry]]](Right(List.empty)) {
             case (Right(list), (k, v)) =>
-              lfValueToApiValue(verbose, v).map(w => api.Map.Entry(k, Some(w)) :: list)
+              lfValueToApiValue(verbose, v).map(w => api.TextMap.Entry(k, Some(w)) :: list)
             case (left, _) => left
           }
-          .map(list => api.Value(api.Value.Sum.Map(api.Map(list))))
+          .map(list => api.Value(api.Value.Sum.TextMap(api.TextMap(list))))
       case Lf.ValueGenMap(entries) =>
         entries.reverseIterator
           .foldLeft[Either[String, List[api.GenMap.Entry]]](Right(List.empty)) {

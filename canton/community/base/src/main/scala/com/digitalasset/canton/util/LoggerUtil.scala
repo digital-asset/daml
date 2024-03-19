@@ -46,13 +46,15 @@ object LoggerUtil {
     }
   }
 
-  /** Log the time taken by a task `run` */
-  def clue[T](message: => String)(run: => T)(implicit loggingContext: ErrorLoggingContext): T = {
+  /** Log the time taken by a task `run` and optionally non-fatal throwable */
+  def clue[T](message: => String, logNonFatalThrowable: Boolean = false)(
+      run: => T
+  )(implicit loggingContext: ErrorLoggingContext): T = {
     val logger = loggingContext.logger
     implicit val traceContext: TraceContext = loggingContext.traceContext
     logger.debug(s"Starting $message")
     val st = System.nanoTime()
-    val ret = run
+    val ret = if (logNonFatalThrowable) logOnThrow(run) else run
     val end = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
     logger.debug(s"Finished $message after $end")
     ret

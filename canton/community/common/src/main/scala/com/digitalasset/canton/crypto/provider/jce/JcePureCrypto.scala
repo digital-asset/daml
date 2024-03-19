@@ -21,7 +21,7 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
-import com.google.crypto.tink.subtle.EllipticCurves.{CurveType, EcdsaEncoding}
+import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
 import com.google.crypto.tink.subtle.*
 import com.google.crypto.tink.{Aead, PublicKeySign, PublicKeyVerify}
@@ -247,78 +247,76 @@ class JcePureCrypto(
     }
   }
 
-  private def toJavaEcDsa(
-      privateKey: PrivateKey,
-      curveType: CurveType,
-  ): Either[JavaKeyConversionError, JPrivateKey] =
-    for {
-      _ <- CryptoKeyValidation.ensureFormat(
-        privateKey.format,
-        Set(CryptoKeyFormat.Der),
-        _ => JavaKeyConversionError.UnsupportedKeyFormat(privateKey.format, CryptoKeyFormat.Der),
-      )
-      ecPrivateKey <- Either
-        .catchOnly[GeneralSecurityException](
-          EllipticCurves.getEcPrivateKey(curveType, privateKey.key.toByteArray)
-        )
-        .leftMap(JavaKeyConversionError.GeneralError)
-      _ =
-        // There exists a race condition in ECPrivateKey before java 15
-        if (Runtime.version.feature < 15)
-          ecPrivateKey match {
-            case pk: ECPrivateKeyImpl =>
-              /* Force the initialization of the private key's internal array data structure.
-               * This prevents concurrency problems later on during decryption, while generating the shared secret,
-               * due to a race condition in getArrayS.
-               */
-              pk.getArrayS.discard
-            case _ => ()
-          }
-    } yield ecPrivateKey
-
   private def toJava(privateKey: PrivateKey): Either[JavaKeyConversionError, JPrivateKey] = {
 
-    def convert(
-        format: CryptoKeyFormat,
+    def convertFromPkcs8(
         pkcs8PrivateKey: Array[Byte],
         keyInstance: String,
-    ): Either[JavaKeyConversionError, JPrivateKey] =
+    ): Either[JavaKeyConversionError, JPrivateKey] = {
+      val pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
       for {
-        _ <- CryptoKeyValidation.ensureFormat(
-          privateKey.format,
-          Set(format),
-          _ => JavaKeyConversionError.UnsupportedKeyFormat(privateKey.format, format),
-        )
-        pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
         keyFactory <- Either
           .catchOnly[NoSuchAlgorithmException](KeyFactory.getInstance(keyInstance, "BC"))
           .leftMap(JavaKeyConversionError.GeneralError)
         javaPrivateKey <- Either
           .catchOnly[InvalidKeySpecException](keyFactory.generatePrivate(pkcs8KeySpec))
           .leftMap(err => JavaKeyConversionError.InvalidKey(show"$err"))
+        _ =
+          // There exists a race condition in ECPrivateKey before java 15
+          if (Runtime.version.feature < 15)
+            javaPrivateKey match {
+              case pk: ECPrivateKeyImpl =>
+                /* Force the initialization of the private key's internal array data structure.
+                 * This prevents concurrency problems later on during decryption, while generating the shared secret,
+                 * due to a race condition in getArrayS.
+                 */
+                pk.getArrayS.discard
+              case _ => ()
+            }
       } yield javaPrivateKey
+    }
 
     (privateKey: @unchecked) match {
       case sigKey: SigningPrivateKey =>
         sigKey.scheme match {
-          case SigningKeyScheme.Ed25519 =>
+          case SigningKeyScheme.Ed25519 if sigKey.format == CryptoKeyFormat.Raw =>
             val privateKeyInfo = new PrivateKeyInfo(
               new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519),
               new DEROctetString(privateKey.key.toByteArray),
             )
-            convert(CryptoKeyFormat.Raw, privateKeyInfo.getEncoded, "Ed25519")
-
-          case SigningKeyScheme.EcDsaP256 => toJavaEcDsa(privateKey, CurveType.NIST_P256)
-          case SigningKeyScheme.EcDsaP384 => toJavaEcDsa(privateKey, CurveType.NIST_P384)
+            convertFromPkcs8(privateKeyInfo.getEncoded, "Ed25519")
+          case SigningKeyScheme.EcDsaP256 if sigKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case SigningKeyScheme.EcDsaP384 if sigKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case _ =>
+            Either.left[JavaKeyConversionError, JPrivateKey](
+              JavaKeyConversionError.UnsupportedKeyFormat(
+                sigKey.format, {
+                  sigKey.scheme match {
+                    case SigningKeyScheme.Ed25519 => CryptoKeyFormat.Raw
+                    case SigningKeyScheme.EcDsaP256 => CryptoKeyFormat.Der
+                    case SigningKeyScheme.EcDsaP384 => CryptoKeyFormat.Der
+                  }
+                },
+              )
+            )
         }
       case encKey: EncryptionPrivateKey =>
         encKey.scheme match {
-          case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-            toJavaEcDsa(privateKey, CurveType.NIST_P256)
-          case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc =>
-            convert(CryptoKeyFormat.Der, privateKey.key.toByteArray, "EC")
-          case EncryptionKeyScheme.Rsa2048OaepSha256 =>
-            convert(CryptoKeyFormat.Der, privateKey.key.toByteArray, "RSA")
+          case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm
+              if encKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc
+              if encKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "EC")
+          case EncryptionKeyScheme.Rsa2048OaepSha256 if encKey.format == CryptoKeyFormat.Der =>
+            convertFromPkcs8(privateKey.key.toByteArray, "RSA")
+          case _ =>
+            Either.left[JavaKeyConversionError, JPrivateKey](
+              JavaKeyConversionError.UnsupportedKeyFormat(encKey.format, CryptoKeyFormat.Der)
+            )
+
         }
     }
   }

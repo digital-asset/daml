@@ -7,14 +7,15 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.sequencing.integrations.state.InMemorySequencerStateManagerStore
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.{
   MemberCounters,
@@ -149,6 +150,8 @@ class InMemorySequencerBlockStore(
   )(implicit traceContext: TraceContext): Source[OrdinarySerializedEvent, NotUsed] =
     sequencerStore.readRange(member, startInclusive, endExclusive)
 
+  // TODO(#17726) Andreas: Figure out whether we can pull the readAtBlockTimestamp out
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
     blocking(blockToTimestampMap.synchronized {
       blockToTimestampMap.keys.maxOption match {
@@ -207,6 +210,11 @@ class InMemorySequencerBlockStore(
       traceContext: TraceContext
   ): Future[InternalSequencerPruningStatus] =
     sequencerStore.status()
+
+  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] =
+    Future.successful(sequencerStore.locatePruningTimestamp(skip))
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

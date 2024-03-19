@@ -28,6 +28,7 @@ import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.{
   DomainConnectivityService,
+  MutablePackageNameMapResolver,
   PackageDependencyResolver,
   PackageOps,
   PackageService,
@@ -63,7 +64,7 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseProtocolVersion}
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
@@ -92,6 +93,7 @@ class CantonLedgerApiServerFactory(
       httpApiMetrics: HttpApiMetrics,
       tracerProvider: TracerProvider,
       adminToken: CantonAdminToken,
+      packageNameMapResolver: MutablePackageNameMapResolver,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
@@ -152,10 +154,18 @@ class CantonLedgerApiServerFactory(
             metrics = metrics,
             jsonApiMetrics = httpApiMetrics,
             meteringReportKey = meteringReportKey,
+            maxDeduplicationDuration = participantNodePersistentState
+              .map(_.settingsStore.settings.maxDeduplicationDuration)
+              .value
+              .getOrElse(
+                throw new IllegalArgumentException(s"Unknown maxDeduplicationDuration")
+              )
+              .toConfig,
           ),
           // start ledger API server iff participant replica is active
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
+          packageNameMapResolver = packageNameMapResolver,
         )(executionContext, actorSystem)
         .leftMap { err =>
           // The MigrateOnEmptySchema exception is private, thus match on the expected message
@@ -314,19 +324,16 @@ trait ParticipantNodeBootstrapCommon {
         participantId,
         persistentState,
         clock,
-        maxDeduplicationDuration = persistentState.map(
-          _.settingsStore.settings.maxDeduplicationDuration
-            .getOrElse(
-              ErrorUtil.internalError(
-                new RuntimeException("Max deduplication duration is not available")
-              )
-            )
-        ),
         timeouts = parameterConfig.processingTimeouts,
         futureSupervisor,
         loggerFactory,
       )
 
+      // TODO(#17635): Remove this inverse dependency between the PackageService and the LedgerAPI IndexService
+      //               with the unification of the Ledger API and Admin API package services.
+      //               This is a temporary solution for allowing exposure of the package-map contained in the [[InMemoryState]]
+      //               to the Admin API PackageService for package upload validation.
+      packageNameMapResolver = new MutablePackageNameMapResolver()
       // Package Store and Management
       packageService =
         new PackageService(
@@ -336,6 +343,8 @@ trait ParticipantNodeBootstrapCommon {
           syncCrypto.pureCrypto,
           componentFactory.createPackageOps(syncDomainPersistentStateManager, syncCrypto),
           arguments.metrics,
+          parameterConfig.disableUpgradeValidation,
+          packageNameMapResolver,
           parameterConfig.processingTimeouts,
           loggerFactory,
         )
@@ -461,6 +470,7 @@ trait ParticipantNodeBootstrapCommon {
           arguments.metrics.httpApiServer,
           tracerProvider,
           adminToken,
+          packageNameMapResolver,
         )
 
     } yield {

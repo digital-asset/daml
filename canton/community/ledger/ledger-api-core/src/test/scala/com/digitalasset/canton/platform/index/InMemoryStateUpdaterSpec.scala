@@ -25,7 +25,6 @@ import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
-import com.digitalasset.canton.platform.indexer.ha.EndlessReadService.configuration
 import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
   InMemoryFanoutBuffer,
@@ -305,6 +304,7 @@ object InMemoryStateUpdaterSpec {
           Reassignment.Unassign(
             contractId = someCreateNode.coid,
             templateId = templateId2,
+            packageName = packageName,
             stakeholders = List(party2),
             assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
           )
@@ -510,11 +510,8 @@ object InMemoryStateUpdaterSpec {
       domainId = domainId1,
     )
   )
-  private val rawMetadataChangedUpdate = offset(2L) -> Update.ConfigurationChanged(
-    Timestamp.Epoch,
-    someSubmissionId,
-    participantId,
-    configuration,
+  private val rawMetadataChangedUpdate = offset(2L) -> Update.Init(
+    Timestamp.Epoch
   )
   private val metadataChangedUpdate = rawMetadataChangedUpdate.bimap(identity, Traced[Update])
   private val update3 = offset(3L) -> Traced[Update](
@@ -614,6 +611,7 @@ object InMemoryStateUpdaterSpec {
       reassignment = Reassignment.Unassign(
         contractId = someCreateNode.coid,
         templateId = templateId2,
+        packageName = packageName,
         stakeholders = List(party2),
         assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
       ),

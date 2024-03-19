@@ -12,6 +12,7 @@ module DA.Test.Sandbox
     , createCantonSandbox
     , destroySandbox
     , makeSignedJwt
+    , makeSignedAdminJwt
     ) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
@@ -112,18 +113,23 @@ destroySandbox SandboxResource {..} = do
   cleanupProcess sandboxProcess
   traverse_ FreePort.unlock sandboxPortLocks
 
-makeSignedJwt :: String -> [String] -> String
-makeSignedJwt sharedSecret actAs = do
+makeSignedJwt :: String -> String -> String
+makeSignedJwt sharedSecret user = do
     let urc =
             JWT.ClaimsMap $
             Map.fromList
-                [ ("admin", Aeson.Bool True)
-                , ("actAs", Aeson.Array $ Vector.fromList $ map (Aeson.String . T.pack) actAs)
+                [ ("scope", Aeson.String "daml_ledger_api")
                 ]
-    let cs = mempty {JWT.unregisteredClaims = urc}
+    let cs = mempty {
+        JWT.sub = JWT.stringOrURI $ T.pack user
+        , JWT.unregisteredClaims = urc
+    }
     let key = JWT.hmacSecret $ T.pack sharedSecret
     let text = JWT.encodeSigned key mempty cs
     T.unpack text
+
+makeSignedAdminJwt :: String -> String
+makeSignedAdminJwt sharedSecret = makeSignedJwt sharedSecret "participant_admin"
 
 withCantonSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
 withCantonSandbox = withGeneralSandbox createCantonSandbox
@@ -161,7 +167,7 @@ getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars
         , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
         , "`" <> getParticipantName conf <> "`.domains.connect_local(sequencer1, \"mydomain\")"
         ]
-    upload dar = "participantsX.all.dars.upload(" <> show dar <> ")"
+    upload dar = "participants.all.dars.upload(" <> show dar <> ")"
     -- We copy out the port file after bootstrap is finished to get a true setup marker
     -- As the normal portfile is created before the bootstrap command is run
     cpPortFile = "os.copy(os.Path(" <> show portFile <> "), os.Path(" <> show (portFile <> "-bootstrapped") <> "))"

@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
-import com.daml.ledger.api.v2.event_query_service.*
+import com.daml.ledger.api.v2.event_query_service.{GetEventsByContractIdRequest, *}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService

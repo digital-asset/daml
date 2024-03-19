@@ -149,7 +149,7 @@ private[lf] final class ValueTranslator(
                     } else {
                       SValue.SMap(
                         isTextMap = true,
-                        entries = entries.iterator.map { case (k, v) =>
+                        entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
                           SValue.SText(k) -> go(typeArg0, v, newNesting)
                         },
                       )
@@ -165,7 +165,7 @@ private[lf] final class ValueTranslator(
                     } else {
                       SValue.SMap(
                         isTextMap = false,
-                        entries = entries.iterator.map { case (k, v) =>
+                        entries = entries.toSeq.view.map { case (k, v) =>
                           go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)
                         },
                       )

@@ -49,9 +49,8 @@ object ArbitraryConfig {
     duration.map(NonNegativeFiniteDuration.tryFromJavaDuration)
 
   val versionRange: Gen[VersionRange[LanguageVersion]] = for {
-    // TODO(#14706): Revert to LanguageVersion.All once V2 is the only major version
-    min <- Gen.oneOf(LanguageVersion.All.filter(_.major == LanguageVersion.Major.V2))
-    max <- Gen.oneOf(LanguageVersion.All.filter(_.major == LanguageVersion.Major.V2))
+    min <- Gen.oneOf(LanguageVersion.All)
+    max <- Gen.oneOf(LanguageVersion.All)
     if LanguageVersion.Ordering.compare(max, min) >= 0
   } yield VersionRange[LanguageVersion](min, max)
 
@@ -113,7 +112,6 @@ object ArbitraryConfig {
     keyCertChainFile.map(fileName => new File(fileName)),
     keyFile.map(fileName => new File(fileName)),
     trustCertCollectionFile.map(fileName => new File(fileName)),
-    None,
     clientAuth,
     enableCertRevocationChecking,
     minimumServerProtocolVersion,

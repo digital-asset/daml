@@ -13,6 +13,11 @@ import "google/protobuf/timestamp.proto";
 service SequencerAdministrationService {
   // fetch the current status of the sequencer
   rpc PruningStatus(PruningStatusRequest) returns (PruningStatusResponse);
+
+  /* Return the status of the specified members. If the list is empty, return the status of all members.
+   * Requested members who are not registered or disabled in the Sequencer will not be in the response.
+   * Registered members with no sent or received event will return an empty status.
+   */
   rpc TrafficControlState(TrafficControlStateRequest) returns (TrafficControlStateResponse);
 
   // Update the traffic balance of a member

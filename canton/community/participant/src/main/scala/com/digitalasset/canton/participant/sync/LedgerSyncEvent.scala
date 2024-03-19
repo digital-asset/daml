@@ -35,10 +35,10 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.{
-  LedgerConfiguration,
   LedgerParticipantId,
   LedgerSubmissionId,
   LedgerTransactionId,
+  LfPackageName,
   LfPartyId,
   LfTimestamp,
   LfWorkflowId,
@@ -69,7 +69,7 @@ sealed trait LedgerSyncEvent extends Product with Serializable with PrettyPrinti
       case ev: LedgerSyncEvent.CommandRejected => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.PartyAddedToParticipant => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.PartyAllocationRejected => ev.copy(recordTime = timestamp)
-      case ev: LedgerSyncEvent.ConfigurationChanged => ev.copy(recordTime = timestamp)
+      case ev: LedgerSyncEvent.Init => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.TransferredOut => ev.updateRecordTime(newRecordTime = timestamp)
       case ev: LedgerSyncEvent.TransferredIn => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.ContractsAdded => ev.copy(recordTime = timestamp)
@@ -87,24 +87,20 @@ object LedgerSyncEvent {
   def noOpSeed: LfHash =
     LfHash.assertFromString("00" * LfHash.underlyingHashLength)
 
-  final case class ConfigurationChanged(
-      recordTime: LfTimestamp,
-      submissionId: LedgerSubmissionId,
-      participantId: LedgerParticipantId,
-      newConfiguration: LedgerConfiguration,
+  // This is an event which only causes the increment of the participant's offset in the initialization stage
+  // (in order to be after the ledger begin).
+  final case class Init(
+      recordTime: LfTimestamp
   ) extends LedgerSyncEvent {
     override def description: String =
-      s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
+      s"Initialize the participant."
 
-    override def pretty: Pretty[ConfigurationChanged] =
+    override def pretty: Pretty[Init] =
       prettyOfClass(
-        param("participantId", _.participantId),
-        param("recordTime", _.recordTime),
-        param("submissionId", _.submissionId),
-        param("newConfiguration", _.newConfiguration),
+        param("recordTime", _.recordTime)
       )
     override def toDamlUpdate: Option[Update] = Some(
-      this.transformInto[Update.ConfigurationChanged]
+      this.transformInto[Update.Init]
     )
   }
 
@@ -435,6 +431,7 @@ object LedgerSyncEvent {
       submitter: Option[LfPartyId],
       contractId: LfContractId,
       templateId: Option[LfTemplateId],
+      packageName: LfPackageName,
       contractStakeholders: Set[LfPartyId],
       transferId: TransferId,
       targetDomain: TargetDomainId,
@@ -461,6 +458,7 @@ object LedgerSyncEvent {
       param("transferId", _.transferId),
       param("contractId", _.contractId),
       paramIfDefined("templateId", _.templateId),
+      param("packageName", _.packageName),
       param("target", _.targetDomain),
       paramIfDefined("transferInExclusivity", _.transferInExclusivity),
       paramIfDefined("workflowId", _.workflowId),
@@ -488,6 +486,7 @@ object LedgerSyncEvent {
               s"templateId should not be empty in transfer-id: $transferId"
             )
           ),
+          packageName = packageName,
           stakeholders = contractStakeholders.toList,
           assignmentExclusivity = transferInExclusivity,
         ),

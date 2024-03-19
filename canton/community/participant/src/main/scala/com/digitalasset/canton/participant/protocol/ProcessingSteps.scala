@@ -362,6 +362,8 @@ trait ProcessingSteps[
     *                                     and their respective signatures
     * @param malformedPayloads The decryption errors and decrypted views with a wrong root hash
     * @param snapshot Snapshot of the topology state at the request timestamp
+    * @param submitterMetadataO Optional ViewSubmitterMetadata, in case fullViewsWithSignatures
+    *                           might not contain unblinded ViewSubmitterMetadata
     * @return The activeness set and
     *         the contracts to store with the [[com.digitalasset.canton.participant.store.ContractStore]] in Phase 7,
     *         and the arguments for step 2.
@@ -376,6 +378,7 @@ trait ProcessingSteps[
       malformedPayloads: Seq[MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorsOfDomain,
+      submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, RequestError, CheckActivenessAndWritePendingContracts]
@@ -463,6 +466,7 @@ trait ProcessingSteps[
     */
   def constructResponsesForMalformedPayloads(
       requestId: RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
@@ -503,7 +507,7 @@ trait ProcessingSteps[
     */
   def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: requestType.PendingRequestData,
       pendingSubmissions: PendingSubmissions,
       hashOps: HashOps,
@@ -606,6 +610,8 @@ object ProcessingSteps {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
     def mediator: MediatorsOfDomain
+
+    def rootHashO: Option[RootHash]
   }
 
   object PendingRequestData {

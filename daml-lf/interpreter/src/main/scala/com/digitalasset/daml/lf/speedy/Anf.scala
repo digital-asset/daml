@@ -122,7 +122,7 @@ private[lf] object Anf {
     case source.SELocA(x) => Left(target.SELocA(x))
     case source.SELocF(x) => Left(target.SELocF(x))
     case source.SEValue(x) => Left(target.SEValue(x))
-    case source.SEBuiltin(x) => Left(target.SEBuiltin(x))
+    case source.SEBuiltin(x) => Left(target.SEBuiltinFun(x))
   }
 
   private def makeRelativeA(depth: DepthA)(atom: AbsAtom): target.SExprAtomic = atom match {

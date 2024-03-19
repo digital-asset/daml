@@ -21,6 +21,10 @@ final case class Endpoint(host: String, port: Port) {
 }
 
 object Endpoint {
+
+  implicit val endpointOrdering: Ordering[Endpoint] =
+    Ordering.by(_.toString)
+
   val ATTR_ENDPOINT: Attributes.Key[Endpoint] =
     Attributes.Key.create("com.digitalasset.canton.networking.Endpoint")
 

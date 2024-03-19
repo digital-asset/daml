@@ -3,10 +3,12 @@
 
 package com.daml;
 
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromBool;
+import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromText;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
@@ -77,7 +79,7 @@ public class RecordTest {
     fieldsList.add(new DamlRecord.Field("nestedRecord", nestedRecord));
     fieldsList.add(new DamlRecord.Field("nestedVariant", nestedVariant));
     DamlRecord myDataRecord = new DamlRecord(fieldsList);
-    MyRecord myRecord = MyRecord.fromValue(myDataRecord);
+    MyRecord myRecord = MyRecord.valueDecoder().decode(myDataRecord);
     checkRecord(myRecord);
     assertTrue(
         "to value uses original Daml-LF names for fields",
@@ -212,17 +214,14 @@ public class RecordTest {
 
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     OuterRecord<String, Boolean> fromValue =
-        OuterRecord.fromValue(
-            dataRecord, f -> f.asText().get().getValue(), f -> f.asBool().get().getValue());
+        OuterRecord.valueDecoder(fromText, fromBool).decode(dataRecord);
     OuterRecord<String, Boolean> fromConstructor =
         new OuterRecord<>(
             new ParametricRecord<String, Boolean>("Text1", "Text2", true, 42L),
             new ParametricRecord<Long, String>(42L, 69L, "Text2", 69L));
     OuterRecord<String, Boolean> fromRoundTrip =
-        OuterRecord.fromValue(
-            fromConstructor.toValue(Text::new, Bool::of),
-            f -> f.asText().get().getValue(),
-            f -> f.asBool().get().getValue());
+        OuterRecord.valueDecoder(fromText, fromBool)
+            .decode(fromConstructor.toValue(Text::new, Bool::of));
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Text::new, Bool::of), dataRecord);

@@ -6,6 +6,7 @@ package com.digitalasset.canton.admin.api.client.commands
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.admin
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerPruningStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
@@ -70,21 +71,14 @@ object SequencerAdminCommands {
         .map(SequencerTrafficStatus)
   }
 
-  final case class SetTrafficControlBalance(
-      member: Member,
-      newTrafficBalance: NonNegativeLong,
-      serial: PositiveInt,
-  ) extends BaseSequencerAdministrationCommands[
+  final case class SetTrafficBalance(member: Member, serial: PositiveInt, balance: NonNegativeLong)
+      extends BaseSequencerAdministrationCommands[
         admin.v30.SetTrafficBalanceRequest,
         admin.v30.SetTrafficBalanceResponse,
-        Unit,
+        Option[CantonTimestamp],
       ] {
     override def createRequest(): Either[String, admin.v30.SetTrafficBalanceRequest] = Right(
-      admin.v30.SetTrafficBalanceRequest(
-        member = member.toProtoPrimitive,
-        serial = serial.value,
-        totalTrafficBalance = newTrafficBalance.value,
-      )
+      admin.v30.SetTrafficBalanceRequest(member.toProtoPrimitive, serial.value, balance.value)
     )
     override def submitRequest(
         service: admin.v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
@@ -93,6 +87,10 @@ object SequencerAdminCommands {
       service.setTrafficBalance(request)
     override def handleResponse(
         response: admin.v30.SetTrafficBalanceResponse
-    ): Either[String, Unit] = Right(())
+    ): Either[String, Option[CantonTimestamp]] = {
+      response.maxSequencingTimestamp
+        .traverse(CantonTimestamp.fromProtoTimestamp)
+        .leftMap(_.message)
+    }
   }
 }

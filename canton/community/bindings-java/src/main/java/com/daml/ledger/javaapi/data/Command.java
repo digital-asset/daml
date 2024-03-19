@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.CommandsOuterClass;
+import com.daml.ledger.api.v2.CommandsOuterClass;
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import java.util.List;
 import java.util.Optional;
@@ -23,9 +23,9 @@ public abstract class Command implements HasCommands {
         return CreateCommand.fromProto(command.getCreate());
       case EXERCISE:
         return ExerciseCommand.fromProto(command.getExercise());
-      case CREATEANDEXERCISE:
+      case CREATE_AND_EXERCISE:
         return CreateAndExerciseCommand.fromProto(command.getCreateAndExercise());
-      case EXERCISEBYKEY:
+      case EXERCISE_BY_KEY:
         return ExerciseByKeyCommand.fromProto(command.getExerciseByKey());
       case COMMAND_NOT_SET:
       default:

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.store.db
 
-import cats.syntax.foldable.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -147,16 +146,16 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   override def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Set[TopologyMappingX.MappingHash],
+      removeMapping: Map[TopologyMappingX.MappingHash, PositiveInt],
       removeTxs: Set[TopologyTransactionX.TxHash],
       additions: Seq[GenericValidatedTopologyTransactionX],
   )(implicit traceContext: TraceContext): Future[Unit] = {
 
     val effectiveTs = effective.value
 
-    val transactionRemovals = removeMapping.toList.map(mappingHash =>
-      sql"mapping_key_hash=${mappingHash.hash.toLengthLimitedHexString}"
-    ) ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
+    val transactionRemovals = removeMapping.toList.map { case (mappingHash, serial) =>
+      sql"mapping_key_hash=${mappingHash.hash.toLengthLimitedHexString} and serial_counter <= $serial"
+    } ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
 
     lazy val updateRemovals =
       (sql"UPDATE common_topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
@@ -249,13 +248,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       timeQuery: TimeQuery,
       recentTimestampO: Option[CantonTimestamp],
       op: Option[TopologyChangeOpX],
-      typ: Option[TopologyMappingX.Code],
-      idFilter: String,
-      namespaceOnly: Boolean,
+      types: Seq[TopologyMappingX.Code],
+      idFilter: Option[String],
+      namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]] = {
-    logger.debug(s"Inspecting store for type=$typ, filter=$idFilter, time=$timeQuery")
+    logger.debug(s"Inspecting store for types=$types, filter=$idFilter, time=$timeQuery")
 
     val timeFilter: SQLActionBuilderChain = timeQuery match {
       case TimeQuery.HeadState =>
@@ -271,21 +270,15 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
           .intercalate(sql" AND "))
     }
 
-    val operationAndPreviousFilter = op match {
-      case Some(value) =>
-        timeFilter ++ sql" AND operation = $value"
-      case None => timeFilter
-    }
+    val operationFilter = op.map(value => sql" AND operation = $value").getOrElse(sql"")
 
-    val idAndPreviousFilter = andIdFilter(operationAndPreviousFilter, idFilter, namespaceOnly)
+    val mappingIdFilter = getIdFilter(idFilter)
+    val mappingNameSpaceFilter = getNamespaceFilter(namespaceFilter)
 
-    val mappingTypeAndPreviousFilter = typ match {
-      case Some(value) => idAndPreviousFilter ++ sql" AND transaction_type = $value"
-      case None => idAndPreviousFilter
-    }
+    val mappingTypeFilter = typeFilter(types.toSet)
 
     val mappingProposalsAndPreviousFilter =
-      mappingTypeAndPreviousFilter ++ sql" AND is_proposal = $proposals"
+      timeFilter ++ operationFilter ++ mappingIdFilter ++ mappingNameSpaceFilter ++ mappingTypeFilter ++ sql" AND is_proposal = $proposals"
 
     queryForTransactions(mappingProposalsAndPreviousFilter, "inspect")
   }
@@ -663,10 +656,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       val timeRangeFilter = asOfQuery(asOf, asOfInclusive)
       val isProposalFilter = sql" AND is_proposal = $isProposal"
       val changeOpFilter = filterOp.fold(sql"")(op => sql" AND operation = $op")
-      val mappingTypeFilter =
-        sql" AND transaction_type IN (" ++ types.toSeq
-          .map(t => sql"$t")
-          .intercalate(sql", ") ++ sql")"
+      val mappingTypeFilter = typeFilter(types)
       val uidNamespaceFilter =
         if (hasUidFilter) {
           val namespaceFilter = filterNamespace.toList.flatMap(_.map(ns => sql"namespace = $ns"))
@@ -682,6 +672,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
         operation = "singleBatch",
       )
     }
+  }
+
+  private def typeFilter(types: Set[TopologyMappingX.Code]): SQLActionBuilderChain = {
+    if (types.isEmpty) sql""
+    else
+      sql" AND transaction_type IN (" ++ types.toSeq
+        .map(t => sql"$t")
+        .intercalate(sql", ") ++ sql")"
   }
 
   private def findAsOfExclusive(
@@ -730,6 +728,7 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
       sql"SELECT instance, sequenced, valid_from, valid_until FROM common_topology_transactions WHERE store_id = $transactionStoreIdName" ++
         subQuery ++ (if (!includeRejected) sql" AND rejection_reason IS NULL"
                      else sql"") ++ sql" #${orderBy} #${limit}"
+
     storage
       .query(
         query.as[
@@ -791,13 +790,13 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
 
   }
 
-  protected def asOfQuery(asOf: CantonTimestamp, asOfInclusive: Boolean): SQLActionBuilder =
+  private def asOfQuery(asOf: CantonTimestamp, asOfInclusive: Boolean): SQLActionBuilder =
     if (asOfInclusive)
       sql" AND valid_from <= $asOf AND (valid_until is NULL OR $asOf < valid_until)"
     else
       sql" AND valid_from < $asOf AND (valid_until is NULL OR $asOf <= valid_until)"
 
-  protected def getHeadStateQuery(
+  private def getHeadStateQuery(
       recentTimestampO: Option[CantonTimestamp]
   ): SQLActionBuilderChain = recentTimestampO match {
     case Some(value) => asOfQuery(value, asOfInclusive = false)
@@ -805,21 +804,20 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
   }
 
   @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
-  protected def andIdFilter(
-      previousFilter: SQLActionBuilderChain,
-      idFilter: String,
-      namespaceOnly: Boolean,
-  ): SQLActionBuilderChain = if (idFilter.isEmpty) previousFilter
-  else if (namespaceOnly) {
-    previousFilter ++ sql" AND namespace LIKE ${idFilter + "%"}"
-  } else {
-    val (prefix, suffix) = UniqueIdentifier.splitFilter(idFilter, "%")
-    val tmp = previousFilter ++ sql" AND identifier like $prefix "
-    if (suffix.sizeCompare(1) > 0) {
-      tmp ++ sql" AND namespace like $suffix "
-    } else
-      tmp
-  }
+  private def getIdFilter(
+      idFilter: Option[String]
+  ): SQLActionBuilderChain =
+    idFilter match {
+      case Some(value) if value.nonEmpty => sql" AND identifier like ${value + "%"}"
+      case _ => sql""
+    }
+
+  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
+  private def getNamespaceFilter(namespaceFilter: Option[String]): SQLActionBuilderChain =
+    namespaceFilter match {
+      case Some(value) if value.nonEmpty => sql" AND namespace LIKE ${value + "%"}"
+      case _ => sql""
+    }
 
 }
 

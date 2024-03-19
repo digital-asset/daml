@@ -20,59 +20,6 @@ import scala.jdk.CollectionConverters._
 
 private[inner] object FromValueGenerator extends StrictLogging {
 
-  // TODO #15120 delete
-  def generateDeprecatedFromValueForRecordLike(
-      className: TypeName,
-      typeParameters: IndexedSeq[String],
-  ): MethodSpec = {
-    logger.debug("Generating fromValue method")
-
-    val converterParams = FromValueExtractorParameters
-      .generate(typeParameters)
-      .functionParameterSpecs
-
-    val method = MethodSpec
-      .methodBuilder("fromValue")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(className)
-      .addTypeVariables(className.typeParameters)
-      .addParameter(TypeName.get(classOf[javaapi.data.Value]), "value$")
-      .addParameters(converterParams.asJava)
-      .addException(classOf[IllegalArgumentException])
-      .addAnnotation(classOf[Deprecated])
-      .addJavadoc(
-        "@deprecated since Daml $L; $L",
-        "2.5.0",
-        s"use {@code valueDecoder} instead",
-      )
-
-    val fromValueParams = CodeBlock.join(
-      converterParams.map { param =>
-        CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
-      }.asJava,
-      ",$W",
-    )
-
-    val classStaticAccessor = if (className.typeParameters.size > 0) {
-      val typeParameterList = CodeBlock.join(
-        className.typeParameters.asScala.map { param =>
-          CodeBlock.of("$T", param)
-        }.asJava,
-        ",$W",
-      )
-      CodeBlock.of("$T.<$L>", className.rawType, typeParameterList)
-    } else CodeBlock.of("")
-
-    method
-      .addStatement(
-        "return $LvalueDecoder($>$Z$L$<$Z)$Z.decode($L)",
-        classStaticAccessor,
-        fromValueParams,
-        "value$",
-      )
-      .build
-  }
-
   def generateValueDecoderForRecordLike(
       fields: Fields,
       className: TypeName,

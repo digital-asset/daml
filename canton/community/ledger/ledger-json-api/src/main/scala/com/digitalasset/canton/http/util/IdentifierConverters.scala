@@ -5,7 +5,7 @@ package com.digitalasset.canton.http.util
 
 import com.daml.lf
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.v1 as lav1
+import com.daml.ledger.api.{v2 as lav2}
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters as FC
 import com.digitalasset.canton.http
 
@@ -14,7 +14,7 @@ object IdentifierConverters {
   def lfIdentifier(a: lar.TemplateId): lf.data.Ref.Identifier =
     lfIdentifier(lar.TemplateId.unwrap(a))
 
-  def lfIdentifier(a: lav1.value.Identifier): lf.data.Ref.Identifier = {
+  def lfIdentifier(a: lav2.value.Identifier): lf.data.Ref.Identifier = {
     import lf.data.Ref
     Ref.Identifier(
       Ref.PackageId.assertFromString(a.packageId),

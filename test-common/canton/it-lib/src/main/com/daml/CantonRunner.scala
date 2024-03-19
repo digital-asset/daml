@@ -101,6 +101,7 @@ object CantonRunner {
          |        enable-engine-stack-traces = true
          |        enable-contract-upgrading = ${config.enableUpgrade}
          |        dev-version-support = ${config.devMode}
+         |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
          |    }""".stripMargin
@@ -147,7 +148,7 @@ object CantonRunner {
         .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>
-        s"participantsX.all.dars.upload(\"${darFile.toString.replace("\\", "\\\\")}\", true, true)"
+        s"participants.all.dars.upload(\"${darFile.toString.replace("\\", "\\\\")}\", true, true)"
       )
       .mkString("\n")
     // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on

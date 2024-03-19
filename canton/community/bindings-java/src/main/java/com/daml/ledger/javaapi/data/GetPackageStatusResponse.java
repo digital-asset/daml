@@ -12,8 +12,8 @@ public final class GetPackageStatusResponse {
 
   // Clone of the PackageServiceOuterClass.PackageStatus enumeration
   public enum PackageStatus {
-    UNKNOWN(0),
-    REGISTERED(1),
+    PACKAGE_STATUS_UNSPECIFIED(0),
+    PACKAGE_STATUS_REGISTERED(1),
     UNRECOGNIZED(-1),
     ;
 
@@ -43,7 +43,7 @@ public final class GetPackageStatusResponse {
   }
 
   public static GetPackageStatusResponse fromProto(
-      com.daml.ledger.api.v1.PackageServiceOuterClass.GetPackageStatusResponse p) {
+      com.daml.ledger.api.v2.PackageServiceOuterClass.GetPackageStatusResponse p) {
     return new GetPackageStatusResponse(PackageStatus.valueOf(p.getPackageStatusValue()));
   }
 }

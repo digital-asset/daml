@@ -34,6 +34,10 @@ da_scala_library(
 daml_compile(
     name = "JsonEncodingTest",
     srcs = ["src/test/daml/JsonEncodingTest.daml"],
+    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys or split the
+    #  the test into two parts, one with contract keys and one without, then delete the explicit
+    #  target.
+    target = "2.dev",
 )
 
 da_scala_test(

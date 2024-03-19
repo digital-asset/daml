@@ -21,7 +21,7 @@ sealed trait SimplestPingXCommunityIntegrationTest
     with SharedCommunityEnvironment {
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
-    CommunityEnvironmentDefinition.simpleTopologyX
+    CommunityEnvironmentDefinition.simpleTopology
       .addConfigTransforms(CommunityConfigTransforms.uniquePorts)
       .withManualStart
 

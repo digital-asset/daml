@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api
 
 import com.daml.error.NoLogging
-import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value as api
+import com.daml.ledger.api.v2.value.Value.Sum
+import com.daml.ledger.api.v2.value as api
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
@@ -59,7 +59,7 @@ class ValueConversionRoundTripTest
         Sum.List(api.List((0 to 10).map(i => api.Value(Sum.Int64(i.toLong))))),
         Sum.Optional(api.Optional(None)),
         Sum.Optional(api.Optional(Some(DomainMocks.values.validApiParty))),
-        Sum.Map(api.Map(List.empty)),
+        Sum.TextMap(api.TextMap(List.empty)),
         Sum.GenMap(api.GenMap(List.empty)),
         Sum.GenMap(
           api.GenMap(
@@ -94,15 +94,15 @@ class ValueConversionRoundTripTest
 
     "should sort the entries of a map" in {
       val entries = List("‱", "1", "😂", "😃", "a").zipWithIndex.map { case (k, v) =>
-        api.Map.Entry(k, Some(api.Value(Sum.Int64(v.toLong))))
+        api.TextMap.Entry(k, Some(api.Value(Sum.Int64(v.toLong))))
       }
       val sortedEntries = entries.sortBy(_.key)
 
       // just to be sure we did not write the entries sorted
       assert(entries != sortedEntries)
 
-      val input = api.Value(Sum.Map(api.Map(entries)))
-      val expected = api.Value(Sum.Map(api.Map(sortedEntries)))
+      val input = api.Value(Sum.TextMap(api.TextMap(entries)))
+      val expected = api.Value(Sum.TextMap(api.TextMap(sortedEntries)))
 
       roundTrip(input) shouldNot equal(Right(input))
       roundTrip(input) shouldEqual Right(expected)

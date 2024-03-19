@@ -32,7 +32,6 @@ private[inner] object EnumClass extends StrictLogging {
         .addField(generateValuesArray(enumeration))
         .addMethod(generateEnumsMapBuilder(className, enumeration))
         .addField(generateEnumsMap(className))
-        .addMethod(generateDeprecatedFromValue(className, enumeration))
         .addMethod(generateValueDecoder(className, enumeration))
         .addMethod(generateToValue)
         .addMethods(FromJsonGenerator.forEnum(className, "__enums$").asJava)
@@ -86,31 +85,6 @@ private[inner] object EnumClass extends StrictLogging {
     )
     builder.addStatement("return m")
     builder.build()
-  }
-
-  // TODO #15120 delete
-  private def generateDeprecatedFromValue(
-      className: ClassName,
-      enumeration: typesig.Enum,
-  ): MethodSpec = {
-    logger.debug(s"Generating deprecated fromValue static method for $enumeration")
-
-    MethodSpec
-      .methodBuilder("fromValue")
-      .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
-      .returns(className)
-      .addParameter(classOf[javaapi.data.Value], "value$")
-      .addAnnotation(classOf[Deprecated])
-      .addJavadoc(
-        "@deprecated since Daml $L; $L",
-        "2.5.0",
-        s"use {@code valueDecoder} instead",
-      )
-      .addStatement(
-        "return valueDecoder().decode($L)",
-        "value$",
-      )
-      .build()
   }
 
   private def generateValueDecoder(

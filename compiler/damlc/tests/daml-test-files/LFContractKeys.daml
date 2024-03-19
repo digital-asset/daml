@@ -3,6 +3,8 @@
 
 {- DLINT ignore -}
 
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
 module LFContractKeys where
 
 import Daml.Script

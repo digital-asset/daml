@@ -184,7 +184,7 @@ class ProtocolProcessorTest
   private val trm = mock[ConfirmationResultMessage]
   when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[ConfirmationResultMessage])
   when(trm.verdict).thenAnswer(Verdict.Approve(testedProtocolVersion))
-  when(trm.rootHashO).thenAnswer(Some(rootHash))
+  when(trm.rootHash).thenAnswer(rootHash)
   when(trm.domainId).thenAnswer(DefaultTestIdentities.domainId)
 
   private val requestId = RequestId(CantonTimestamp.Epoch)
@@ -229,13 +229,14 @@ class ProtocolProcessorTest
     val multiDomainEventLog = mock[MultiDomainEventLog]
     val clock = new WallClock(timeouts, loggerFactory)
     val persistentState =
-      new InMemorySyncDomainPersistentStateX(
+      new InMemorySyncDomainPersistentState(
         clock,
         crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
         testedProtocolVersion,
         enableAdditionalConsistencyChecks = true,
         enableTopologyTransactionValidation = false,
+        new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
         loggerFactory,
         timeouts,
         futureSupervisor,
@@ -285,7 +286,6 @@ class ProtocolProcessorTest
       Eval.now(nodePersistentState.participantEventLog),
       Eval.now(mdel),
       clock,
-      Eval.now(Duration.ofDays(1L)),
       timeouts,
       futureSupervisor,
       loggerFactory,

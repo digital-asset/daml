@@ -14,7 +14,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.LocalOffset
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper
 import com.digitalasset.canton.participant.store.MultiDomainEventLog.PublicationData
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.TimestampedEvent.{
@@ -26,10 +25,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.{LedgerConfiguration, LedgerSubmissionId}
 import com.google.common.annotations.VisibleForTesting
 
-import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Helper to publish participant events in a thread-safe way. For "regular" SingleDimensionEventLogs representing
@@ -41,7 +38,6 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param participantEventLog  participant-local event log
   * @param multiDomainEventLog  multi domain event log for registering participant event log
   * @param participantClock     clock for the current time to stamp published events with
-  * @param maxDeduplicationDuration maximum deduplication time window to request ledger api server to enforce
   * @param loggerFactory        named logger factory
   */
 class ParticipantEventPublisher(
@@ -49,7 +45,6 @@ class ParticipantEventPublisher(
     private val participantEventLog: Eval[ParticipantEventLog],
     multiDomainEventLog: Eval[MultiDomainEventLog],
     participantClock: Clock,
-    maxDeduplicationDuration: Eval[Duration],
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -158,7 +153,7 @@ class ParticipantEventPublisher(
     }
   }
 
-  def publishTimeModelConfigNeededUpstreamOnlyIfFirst(implicit
+  def publishInitNeededUpstreamOnlyIfFirst(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     executionQueue.execute(
@@ -166,22 +161,15 @@ class ParticipantEventPublisher(
         maybeFirstOffset <- multiDomainEventLog.value.locateOffset(1).value
         _ <-
           if (maybeFirstOffset.isEmpty) {
-            logger.debug("Attempt to publish ledger configuration update")
-            val event = LedgerSyncEvent.ConfigurationChanged(
-              recordTime = participantClock.uniqueTime().toLf,
-              submissionId = LedgerSubmissionId.assertFromString("TimeModel config"),
-              participantId = participantId.toLf,
-              newConfiguration = LedgerConfiguration(
-                generation = 1L,
-                timeModel = CantonLedgerApiServerWrapper.maximumToleranceTimeModel,
-                maxDeduplicationDuration = maxDeduplicationDuration.value,
-              ),
+            logger.debug("Attempt to publish init update")
+            val event = LedgerSyncEvent.Init(
+              recordTime = participantClock.uniqueTime().toLf
             )
             // Do not call `publish` because this is already running inside the execution queue
             publishInternal(event)
           } else Future.unit
       } yield (),
-      "publish first TimeModel configuration",
+      "publish Init message",
     )
   }
 

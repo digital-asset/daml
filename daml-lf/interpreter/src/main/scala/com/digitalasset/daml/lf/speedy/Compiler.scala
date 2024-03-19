@@ -7,21 +7,16 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{
-  LanguageMajorVersion,
-  LanguageVersion,
-  LookupError,
-  PackageInterface,
-  StablePackages,
-}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, LookupError, PackageInterface}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.ClosureConversion.closureConvert
 import com.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.daml.lf.speedy.Profile.LabelModule
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
 import com.daml.lf.speedy.{SExpr0 => s}
+import com.daml.lf.stablepackages.StablePackages
 import com.daml.lf.validation.{Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory

@@ -35,13 +35,11 @@ object Main {
   final case class GenerateToken(
       output: Option[File] = None,
       signingKey: Option[File] = None,
-      ledgerId: Option[String] = None,
-      applicationId: Option[String] = None,
+      issuer: Option[String] = None,
+      userId: String = "",
+      participantId: Option[String] = None,
       exp: Option[Instant] = None,
       kid: Option[String] = None,
-      parties: List[String] = List(),
-      readOnly: Boolean = false,
-      admin: Boolean = false,
   ) extends Command
 
   /** By default, RSA key Ids are generated from their file name. */
@@ -85,27 +83,25 @@ object Main {
                 GenerateToken(
                   Some(outputFile),
                   Some(signingKeyFile),
-                  ledgerIdO,
-                  applicationIdO,
+                  issuerO,
+                  userId,
+                  participantIdO,
                   exp,
                   kid,
-                  parties,
-                  readOnly @ _,
-                  admin,
                 )
               )
             )
           ) =>
         val keyId = kid.getOrElse(defaultKeyId(signingKeyFile))
 
-        val payload = CustomDamlJWTPayload(
-          ledgerIdO,
-          None,
-          applicationIdO,
+        val payload = StandardJWTPayload(
+          issuerO,
+          userId,
+          participantIdO,
           exp,
-          admin,
-          parties,
-          parties,
+          StandardJWTTokenFormat.Scope,
+          List.empty,
+          Some(AuthServiceJWTCodec.scopeLedgerApiFull),
         )
         val signingKey = KeyUtils
           .readRSAPrivateKeyFromDer(signingKeyFile)
@@ -206,29 +202,28 @@ object Main {
               command = c.command.map(_.asInstanceOf[GenerateToken].copy(signingKey = Some(x)))
             )
           ),
-        opt[Seq[String]]("parties")
+        opt[String]("issuer")
           .required()
-          .text("Parties to generate tokens for")
-          .valueName("<list of parties>")
+          .text("Issuer emitting the token")
+          .valueName("<issuer>")
           .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(parties = x.toList)))
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(issuer = Some(x))))
           ),
-        opt[String]("ledgerId")
+        opt[String]("user")
+          .required()
+          .text("User to generate tokens for")
+          .valueName("<user>")
+          .action((x, c) =>
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(userId = x)))
+          ),
+        opt[String]("participantId")
           .optional()
           .text(
-            "Restrict validity of the token to this ledger ID. Default: None, token is valid for all ledgers."
-          )
-          .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(ledgerId = Some(x))))
-          ),
-        opt[String]("applicationId")
-          .optional()
-          .text(
-            "Restrict validity of the token to this application ID. Default: None, token is valid for all applications."
+            "Restrict validity of the token to this participant ID. Default: None, token is valid for all participants."
           )
           .action((x, c) =>
             c.copy(command =
-              c.command.map(_.asInstanceOf[GenerateToken].copy(applicationId = Some(x)))
+              c.command.map(_.asInstanceOf[GenerateToken].copy(participantId = Some(x)))
             )
           ),
         opt[String]("exp")
@@ -246,18 +241,6 @@ object Main {
             c.copy(command =
               c.command.map(_.asInstanceOf[GenerateToken].copy(exp = Some(Instant.parse(x))))
             )
-          ),
-        opt[Boolean]("admin")
-          .optional()
-          .text("If set, authorizes the bearer to use admin endpoints. Default: false")
-          .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(admin = x)))
-          ),
-        opt[Boolean]("readonly")
-          .optional()
-          .text("If set, prevents the bearer from acting on the ledger. Default: false")
-          .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(admin = x)))
           ),
       )
       .discard

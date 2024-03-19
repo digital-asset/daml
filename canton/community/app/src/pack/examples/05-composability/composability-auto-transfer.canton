@@ -46,7 +46,7 @@ participant3.parties.await_topology_observed(partyAssignment)
 
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
-participantsX.all.dars.upload(darPath)
+participants.all.dars.upload(darPath)
 
 import com.digitalasset.canton.BigDecimalImplicits._
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}

@@ -83,6 +83,7 @@ class ParticipantNodeBootstrapX(
       _ => Future.successful(SchedulersWithParticipantPruning.noop),
     private[canton] val persistentStateFactory: ParticipantNodePersistentStateFactory,
     ledgerApiServerFactory: CantonLedgerApiServerFactory,
+    setInitialized: () => Unit,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -156,7 +157,7 @@ class ParticipantNodeBootstrapX(
           storage,
           indexedStringStore,
           parameters,
-          config.topologyX,
+          config.topology,
           crypto,
           clock,
           futureSupervisor,
@@ -335,6 +336,9 @@ class ParticipantNodeBootstrapX(
           )
           addCloseable(node)
           Some(new RunningNode(bootstrapStageCallback, node))
+      }.map { node =>
+        setInitialized()
+        node
       }
     }
   }
@@ -387,6 +391,7 @@ object ParticipantNodeBootstrapX {
         createReplicationServiceFactory(arguments),
         persistentStateFactory = ParticipantNodePersistentStateFactory,
         ledgerApiServerFactory = ledgerApiServerFactory,
+        setInitialized = () => (),
       )
     }
   }

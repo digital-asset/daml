@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.validation
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
-import com.digitalasset.canton.protocol.{RequestId, TransactionId}
+import com.digitalasset.canton.protocol.{RequestId, RootHash, TransactionId}
 import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.{RequestCounter, SequencerCounter, WorkflowId}
 
@@ -28,4 +28,6 @@ final case class PendingTransaction(
 ) extends PendingRequestData {
 
   val requestId: RequestId = RequestId(requestTime)
+
+  override def rootHashO: Option[RootHash] = Some(txId.toRootHash)
 }

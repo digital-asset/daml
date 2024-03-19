@@ -54,7 +54,6 @@ object IndexedUpdatesMetrics {
 
       val key = "event_type"
 
-      val configurationChange = "configuration_change"
       val partyAllocation = "party_allocation"
       val packageUpload = "package_upload"
       val transaction = "transaction"

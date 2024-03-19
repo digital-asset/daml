@@ -147,6 +147,8 @@ class ManagedNodes[
       )
       .flatMap(startNode(name, _).map(_ => ()))
 
+  // TODO(#17726) Ratko, Thibault: The access to `nodes` in runStartup is not covered by the synchronized block. Are there concurrency issues here?
+  @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   private def startNode(
       name: InstanceName,
       config: NodeConfig,

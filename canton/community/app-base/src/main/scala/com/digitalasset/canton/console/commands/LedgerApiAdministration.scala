@@ -8,13 +8,12 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1.admin.package_management_service.PackageDetails
-import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails as ProtoPartyDetails
-import com.daml.ledger.api.v1.commands.{Command, DisclosedContract}
-import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction_filter.Filters
+import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
+import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
 import com.daml.ledger.api.v2.checkpoint.Checkpoint
+import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
@@ -27,7 +26,10 @@ import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeProto,
 }
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter as TransactionFilterProto
+import com.daml.ledger.api.v2.transaction_filter.{
+  Filters,
+  TransactionFilter as TransactionFilterProto,
+}
 import com.daml.ledger.javaapi.data.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
@@ -41,16 +43,15 @@ import com.daml.lf.data.Ref
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.CompletionWrapper
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedContractEntry,
   WrappedIncompleteAssigned,
   WrappedIncompleteUnassigned,
 }
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.CompletionWrapper
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiV2Commands.UpdateService.*
 import com.digitalasset.canton.admin.api.client.commands.{
   LedgerApiCommands,
-  LedgerApiV2Commands,
   ParticipantAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.*
@@ -72,11 +73,7 @@ import com.digitalasset.canton.console.{
   RemoteParticipantReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-}
+import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, StandardJWTPayload}
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
@@ -117,10 +114,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
   protected lazy val applicationId: String = token
     .flatMap { encodedToken => JwtDecoder.decode(Jwt(encodedToken)).toOption }
     .flatMap(decodedToken => AuthServiceJWTCodec.readFromString(decodedToken.payload).toOption)
-    .map {
-      case s: StandardJWTPayload => s.userId
-      case c: CustomDamlJWTPayload =>
-        c.applicationId.getOrElse(LedgerApiCommands.defaultApplicationId)
+    .map { case s: StandardJWTPayload =>
+      s.userId
     }
     .getOrElse(LedgerApiCommands.defaultApplicationId)
 
@@ -154,7 +149,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           partyIds: Set[PartyId],
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -186,7 +181,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           filter: TransactionFilterProto,
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -216,7 +211,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           observer: StreamObserver[UpdateTreeWrapper],
           filter: TransactionFilterProto,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -224,7 +219,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         check(FeatureFlag.Testing)(
           consoleEnvironment.run {
             ledgerApiCommand(
-              LedgerApiV2Commands.UpdateService.SubscribeTrees(
+              LedgerApiCommands.UpdateService.SubscribeTrees(
                 observer,
                 beginOffset,
                 endOffset,
@@ -249,7 +244,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           partyIds: Set[PartyId],
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -279,7 +274,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           filter: TransactionFilterProto,
           completeAfter: Int,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -307,7 +302,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           observer: StreamObserver[UpdateWrapper],
           filter: TransactionFilterProto,
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           endOffset: Option[ParticipantOffset] = None,
           verbose: Boolean = true,
@@ -315,7 +310,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         check(FeatureFlag.Testing)(
           consoleEnvironment.run {
             ledgerApiCommand(
-              LedgerApiV2Commands.UpdateService.SubscribeFlat(
+              LedgerApiCommands.UpdateService.SubscribeFlat(
                 observer,
                 beginOffset,
                 endOffset,
@@ -408,7 +403,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def by_id(parties: Set[PartyId], id: String): Option[TransactionTreeProto] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.UpdateService.GetTransactionById(parties.map(_.toLf), id)(
+            LedgerApiCommands.UpdateService.GetTransactionById(parties.map(_.toLf), id)(
               consoleEnvironment.environment.executionContext
             )
           )
@@ -446,7 +441,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
           domainId: Option[DomainId] = None,
           workflowId: String = "",
           commandId: String = "",
-          // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
           optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
@@ -458,7 +452,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): TransactionTreeProto = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.CommandService.SubmitAndWaitTransactionTree(
+            LedgerApiCommands.CommandService.SubmitAndWaitTransactionTree(
               actAs.map(_.toLf),
               readAs.map(_.toLf),
               commands,
@@ -497,7 +491,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
           domainId: Option[DomainId] = None,
           workflowId: String = "",
           commandId: String = "",
-          // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
           optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
@@ -509,7 +502,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): TransactionV2 = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.CommandService.SubmitAndWaitTransaction(
+            LedgerApiCommands.CommandService.SubmitAndWaitTransaction(
               actAs.map(_.toLf),
               readAs.map(_.toLf),
               commands,
@@ -549,7 +542,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.CommandSubmissionService.Submit(
+            LedgerApiCommands.CommandSubmissionService.Submit(
               actAs.map(_.toLf),
               readAs.map(_.toLf),
               commands,
@@ -743,7 +736,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.CommandSubmissionService.SubmitAssignCommand(
+            LedgerApiCommands.CommandSubmissionService.SubmitAssignCommand(
               workflowId = workflowId,
               applicationId = applicationId,
               commandId = commandId,
@@ -774,7 +767,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.CommandSubmissionService.SubmitUnassignCommand(
+            LedgerApiCommands.CommandSubmissionService.SubmitUnassignCommand(
               workflowId = workflowId,
               applicationId = applicationId,
               commandId = commandId,
@@ -797,7 +790,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def end(): ParticipantOffset =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.StateService.LedgerEnd()
+            LedgerApiCommands.StateService.LedgerEnd()
           )
         })
 
@@ -805,7 +798,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def connected_domains(partyId: PartyId): GetConnectedDomainsResponse =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.StateService.GetConnectedDomains(partyId.toLf)
+            LedgerApiCommands.StateService.GetConnectedDomains(partyId.toLf)
           )
         })
 
@@ -841,7 +834,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           mkResult(
             consoleEnvironment.run {
               ledgerApiCommand(
-                LedgerApiV2Commands.StateService.GetActiveContracts(
+                LedgerApiCommands.StateService.GetActiveContracts(
                   observer,
                   Set(party.toLf),
                   limit,
@@ -1009,7 +1002,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                     mkResult(
                       consoleEnvironment.run {
                         ledgerApiCommand(
-                          LedgerApiV2Commands.StateService.GetActiveContracts(
+                          LedgerApiCommands.StateService.GetActiveContracts(
                             observer,
                             localParties.toSet,
                             limit,
@@ -1241,7 +1234,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): Seq[CompletionWrapper] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.CommandCompletionService.CompletionRequest(
+            LedgerApiCommands.CommandCompletionService.CompletionRequest(
               partyId.toLf,
               beginOffset,
               atLeastNumCompletions,
@@ -1269,7 +1262,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): Seq[(Completion, Option[Checkpoint])] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.CommandCompletionService.CompletionCheckpointRequest(
+            LedgerApiCommands.CommandCompletionService.CompletionCheckpointRequest(
               partyId.toLf,
               beginExclusive,
               atLeastNumCompletions,
@@ -1284,7 +1277,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         """This function connects to the command completion stream and passes command completions to `observer` until
           |the stream is completed.
           |Only completions for parties in `parties` will be returned.
-          |The returned completions start at `beginOffset` (default: `PARTICIPANT_BEGIN`).
+          |The returned completions start at `beginOffset` (default: `PARTICIPANT_BOUNDARY_BEGIN`).
           |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
           |this command fails with a `NOT_FOUND` error."""
       )
@@ -1292,14 +1285,14 @@ trait BaseLedgerApiAdministration extends NoTracing {
           observer: StreamObserver[CompletionWrapper],
           parties: Seq[PartyId],
           beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+            ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
           ),
           applicationId: String = applicationId,
       ): AutoCloseable = {
         check(FeatureFlag.Testing)(
           consoleEnvironment.run {
             ledgerApiCommand(
-              LedgerApiV2Commands.CommandCompletionService.Subscribe(
+              LedgerApiCommands.CommandCompletionService.Subscribe(
                 observer,
                 parties.map(_.toLf),
                 Some(beginOffset),
@@ -1704,7 +1697,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def get(): CantonTimestamp =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.Time.Get
+            LedgerApiCommands.Time.Get
           )
         })
 
@@ -1714,7 +1707,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def set(currentTime: CantonTimestamp, nextTime: CantonTimestamp): Unit =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(LedgerApiV2Commands.Time.Set(currentTime, nextTime))
+          ledgerApiCommand(LedgerApiCommands.Time.Set(currentTime, nextTime))
         })
 
     }
@@ -1731,7 +1724,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): GetEventsByContractIdResponse =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiV2Commands.QueryService
+            LedgerApiCommands.QueryService
               .GetEventsByContractId(contractId, requestingParties.map(_.toLf))
           )
         })
@@ -1764,7 +1757,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             domainId: Option[DomainId] = None,
             workflowId: String = "",
             commandId: String = "",
-            // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
             optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
@@ -1776,7 +1768,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): TransactionTree = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
-              LedgerApiV2Commands.CommandService.SubmitAndWaitTransactionTree(
+              LedgerApiCommands.CommandService.SubmitAndWaitTransactionTree(
                 actAs.map(_.toLf),
                 readAs.map(_.toLf),
                 commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
@@ -1818,7 +1810,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
             domainId: Option[DomainId] = None,
             workflowId: String = "",
             commandId: String = "",
-            // TODO(#15280) This feature wont work after V1 is removed. Also after witness blinding is implemented, the underlying algorith will be broken. Idea: drop this feature and wait explicitly with some additional tooling.
             optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
@@ -1830,7 +1821,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         ): Transaction = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
-              LedgerApiV2Commands.CommandService.SubmitAndWaitTransaction(
+              LedgerApiCommands.CommandService.SubmitAndWaitTransaction(
                 actAs.map(_.toLf),
                 readAs.map(_.toLf),
                 commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
@@ -1980,7 +1971,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             partyIds: Set[PartyId],
             completeAfter: Int,
             beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
             ),
             endOffset: Option[ParticipantOffset] = None,
             verbose: Boolean = true,
@@ -2020,7 +2011,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             partyIds: Set[PartyId],
             completeAfter: Int,
             beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
             ),
             endOffset: Option[ParticipantOffset] = None,
             verbose: Boolean = true,
@@ -2060,7 +2051,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             filter: TransactionFilter,
             completeAfter: Int,
             beginOffset: ParticipantOffset = new ParticipantOffset().withBoundary(
-              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN
+              ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
             ),
             endOffset: Option[ParticipantOffset] = None,
             verbose: Boolean = true,

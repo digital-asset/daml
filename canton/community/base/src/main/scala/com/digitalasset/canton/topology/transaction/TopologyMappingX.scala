@@ -138,6 +138,11 @@ object TopologyMappingX {
       TrafficControlStateX,
     )
 
+    def fromString(code: String): ParsingResult[Code] =
+      all
+        .find(_.code == code)
+        .toRight(UnrecognizedEnum("TopologyMappingX.Code", code, all.map(_.code)))
+
     implicit val setParameterTopologyMappingCode: SetParameter[Code] =
       (v, pp) => pp.setInt(v.dbInt)
 

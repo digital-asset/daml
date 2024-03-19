@@ -35,6 +35,7 @@ service TopologyManagerReadService {
 
   rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
   rpc ListAll(ListAllRequest) returns (ListAllResponse);
+  rpc ExportTopologySnapshot(ExportTopologySnapshotRequest) returns (ExportTopologySnapshotResponse);
 
   rpc ListTrafficState(ListTrafficStateRequest) returns (ListTrafficStateResponse);
 }
@@ -295,8 +296,21 @@ message ListAvailableStoresResponse {
 
 message ListAllRequest {
   BaseQuery base_query = 1;
+  /** The list of topology mappings to exclude from the result.*/
+  repeated string exclude_mappings = 2;
+  string filter_namespace = 3;
+}
+
+message ExportTopologySnapshotRequest {
+  BaseQuery base_query = 1;
+  repeated string exclude_mappings = 2;
+  string filter_namespace = 3;
 }
 
 message ListAllResponse {
   com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1;
+}
+
+message ExportTopologySnapshotResponse {
+  bytes result = 1;
 }

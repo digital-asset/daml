@@ -788,6 +788,7 @@ abstract class ProtocolProcessor[
                   rc,
                   sc,
                   ts,
+                  rootHash,
                   handleRequestData,
                   mediator,
                   snapshot,
@@ -950,6 +951,7 @@ abstract class ProtocolProcessor[
             malformedPayloads,
             snapshot,
             mediator,
+            submitterMetadataO,
           )
           .mapK(FutureUnlessShutdown.outcomeK)
         _ <- trackAndSendResponses(
@@ -1141,6 +1143,7 @@ abstract class ProtocolProcessor[
       rc: RequestCounter,
       sc: SequencerCounter,
       ts: CantonTimestamp,
+      rootHash: RootHash,
       handleRequestData: Phase37Synchronizer.PendingRequestDataHandle[
         steps.requestType.PendingRequestData
       ],
@@ -1160,7 +1163,11 @@ abstract class ProtocolProcessor[
 
         _ = ephemeral.requestTracker.tick(sc, ts)
 
-        responses = steps.constructResponsesForMalformedPayloads(requestId, malformedPayloads)
+        responses = steps.constructResponsesForMalformedPayloads(
+          requestId,
+          rootHash,
+          malformedPayloads,
+        )
         recipients = Recipients.cc(mediatorGroup)
         messages <- EitherT.right(responses.parTraverse { response =>
           signResponse(snapshot, response).map(_ -> recipients)
@@ -1317,7 +1324,7 @@ abstract class ProtocolProcessor[
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, steps.ResultError, EitherT[FutureUnlessShutdown, steps.ResultError, Unit]] = {
-    val unsignedResultE = result.message
+    val unsignedResult = result.message
 
     def filterInvalidSignature(
         pendingRequestData: PendingRequestDataOrReplayData[steps.requestType.PendingRequestData]
@@ -1352,7 +1359,7 @@ abstract class ProtocolProcessor[
         )
 
         txRootHash = txId.toRootHash
-        resultRootHash <- unsignedResultE.rootHashO
+        resultRootHash = unsignedResult.rootHash
         if resultRootHash != txRootHash
       } yield {
         val cause =
@@ -1412,7 +1419,7 @@ abstract class ProtocolProcessor[
       ).flatMap { pendingRequestDataOrReplayData =>
         performResultProcessing3(
           event,
-          unsignedResultE,
+          unsignedResult.verdict,
           requestId,
           resultTs,
           sc,
@@ -1429,7 +1436,7 @@ abstract class ProtocolProcessor[
   // The processing in this method is done in the asynchronous part of the processing
   private[this] def performResultProcessing3(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
@@ -1438,8 +1445,6 @@ abstract class ProtocolProcessor[
         steps.requestType.PendingRequestData
       ],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, steps.ResultError, Unit] = {
-    val verdict = result.verdict
-
     val PendingRequestData(requestCounter, requestSequencerCounter, _) =
       pendingRequestDataOrReplayData
     val cleanReplay = isCleanReplay(requestCounter, pendingRequestDataOrReplayData)
@@ -1452,7 +1457,7 @@ abstract class ProtocolProcessor[
             commitSetAndContractsAndEvent <- steps
               .getCommitSetAndContractsToBeStoredAndEvent(
                 event,
-                result,
+                verdict,
                 pendingRequestData,
                 steps.pendingSubmissions(ephemeral),
                 crypto.pureCrypto,
@@ -1465,10 +1470,7 @@ abstract class ProtocolProcessor[
               eventO,
             ) = commitSetAndContractsAndEvent
 
-            val isApproval = verdict match {
-              case _: Approve => true
-              case _ => false
-            }
+            val isApproval = verdict.isApprove
 
             if (!isApproval && commitSetOF.isDefined)
               throw new RuntimeException("Negative verdicts entail an empty commit set")
@@ -1773,6 +1775,8 @@ object ProtocolProcessor {
     override def requestSequencerCounter: SequencerCounter = unwrap.requestSequencerCounter
     override def isCleanReplay: Boolean = false
     override def mediator: MediatorsOfDomain = unwrap.mediator
+
+    override def rootHashO: Option[RootHash] = unwrap.rootHashO
   }
 
   final case class CleanReplayData(
@@ -1781,6 +1785,8 @@ object ProtocolProcessor {
       override val mediator: MediatorsOfDomain,
   ) extends PendingRequestDataOrReplayData[Nothing] {
     override def isCleanReplay: Boolean = true
+
+    override def rootHashO: Option[RootHash] = None
   }
 
   sealed trait ProcessorError extends Product with Serializable with PrettyPrinting

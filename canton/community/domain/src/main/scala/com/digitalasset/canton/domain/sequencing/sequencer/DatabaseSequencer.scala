@@ -38,6 +38,7 @@ import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.{
   AuthenticatedMember,
   DomainId,
+  DomainMember,
   DomainTopologyManagerId,
   Member,
   UnauthenticatedMemberId,
@@ -47,7 +48,6 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.traffic.TrafficControlErrors
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
@@ -61,6 +61,7 @@ object DatabaseSequencer {
   /** Creates a single instance of a database sequencer. */
   def single(
       config: DatabaseSequencerConfig,
+      initialSnapshot: Option[SequencerSnapshot],
       timeouts: ProcessingTimeout,
       storage: Storage,
       clock: Clock,
@@ -86,6 +87,7 @@ object DatabaseSequencer {
     new DatabaseSequencer(
       SequencerWriterStoreFactory.singleInstance,
       config,
+      initialSnapshot,
       TotalNodeCountValues.SingleSequencerTotalNodeCount,
       new LocalSequencerStateEventSignaller(
         timeouts,
@@ -112,6 +114,7 @@ object DatabaseSequencer {
 class DatabaseSequencer(
     writerStorageFactory: SequencerWriterStoreFactory,
     config: DatabaseSequencerConfig,
+    initialSnapshot: Option[SequencerSnapshot],
     totalNodeCount: PositiveInt,
     eventSignaller: EventSignaller,
     keepAliveInterval: Option[NonNegativeFiniteDuration],
@@ -164,7 +167,7 @@ class DatabaseSequencer(
   // Only start pruning scheduler after `store` variable above has been initialized to avoid racy NPE
   withNewTraceContext { implicit traceContext =>
     timeouts.unbounded.await(s"Waiting for sequencer writer to fully start")(
-      writer.startOrLogError()
+      writer.startOrLogError(initialSnapshot)
     )
 
     pruningScheduler.foreach(ps =>
@@ -296,8 +299,9 @@ class DatabaseSequencer(
       store.acknowledge(_, timestamp)
     }
 
-  def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] = {
-    logger.info(show"Disabling member at the sequencer: $member")
+  protected def disableMemberInternal(
+      member: Member
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     withExpectedRegisteredMember(member, "Disable member") { memberId =>
       member match {
         // Unauthenticated members being disabled get automatically unregistered
@@ -308,6 +312,10 @@ class DatabaseSequencer(
       }
     }
   }
+
+  // For the database sequencer, the DomainTopologyManagerId serves as the local sequencer identity/member
+  // until the database and block sequencers are unified.
+  override protected def localSequencerMember: DomainMember = DomainTopologyManagerId(domainId)
 
   /** helper for performing operations that are expected to be called with a registered member so will just throw if we
     * find the member is unregistered.
@@ -328,11 +336,7 @@ class DatabaseSequencer(
     store.status(clock.now)
 
   override def healthInternal(implicit traceContext: TraceContext): Future[SequencerHealthStatus] =
-    Future.successful(
-      SequencerHealthStatus(
-        isActive = writer.isActive
-      )
-    )
+    writer.healthStatus
 
   override def prune(
       requestedTimestamp: CantonTimestamp
@@ -368,7 +372,7 @@ class DatabaseSequencer(
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, SequencerSnapshot] =
-    EitherT.rightT(SequencerSnapshot.unimplemented(protocolVersion))
+    EitherT.right[String](store.readStateAtTimestamp(timestamp))
 
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     // Database sequencers are never bootstrapped

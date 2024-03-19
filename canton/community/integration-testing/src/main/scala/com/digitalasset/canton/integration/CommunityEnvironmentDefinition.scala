@@ -94,9 +94,6 @@ object CommunityEnvironmentDefinition {
   lazy val simpleTopology: CommunityEnvironmentDefinition =
     fromResource("examples/01-simple-topology/simple-topology.conf")
 
-  lazy val simpleTopologyX: CommunityEnvironmentDefinition =
-    fromResource("examples/01-simple-topology/simple-topology-x.conf")
-
   def fromResource(path: String): CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition(
       baseConfig = loadConfigFromResource(path),

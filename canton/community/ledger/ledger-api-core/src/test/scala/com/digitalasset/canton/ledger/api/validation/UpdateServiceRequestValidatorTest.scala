@@ -4,22 +4,22 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v1.transaction_filter.{
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
+import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
+import com.daml.ledger.api.v2.state_service.GetLedgerEndRequest
+import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   InclusiveFilters,
   InterfaceFilter,
   TemplateFilter,
+  *,
 }
-import com.daml.ledger.api.v1.value.Identifier
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
-import com.daml.ledger.api.v2.state_service.GetLedgerEndRequest
-import com.daml.ledger.api.v2.transaction_filter.*
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetUpdatesRequest,
 }
+import com.daml.ledger.api.v2.value.Identifier
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.canton.ledger.api.domain
@@ -37,7 +37,9 @@ class UpdateServiceRequestValidatorTest
 
   private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
     Some(
-      ParticipantOffset(ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BEGIN))
+      ParticipantOffset(
+        ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
+      )
     ),
     Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
     Some(
@@ -76,7 +78,9 @@ class UpdateServiceRequestValidatorTest
 
   private val txTreeReq = GetUpdatesRequest(
     Some(
-      ParticipantOffset(ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BEGIN))
+      ParticipantOffset(
+        ParticipantOffset.Value.Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN)
+      )
     ),
     Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
     Some(TransactionFilter(Map(party -> Filters.defaultInstance))),

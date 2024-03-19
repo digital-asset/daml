@@ -194,7 +194,7 @@ create table common_topology_dispatching (
 create type change_type as enum ('deactivation', 'activation');
 
 -- The specific operation type that introduced a contract change.
-create type operation_type as enum ('create', 'transfer-in', 'archive', 'transfer-out');
+create type operation_type as enum ('create', 'add', 'transfer-in', 'archive', 'purge', 'transfer-out');
 
 -- Maintains the status of contracts
 create table par_active_contracts (
@@ -207,8 +207,8 @@ create table par_active_contracts (
     ts bigint not null,
     -- Request counter of the time of change
     request_counter bigint not null,
-    -- optional remote domain id in case of transfers
-    remote_domain_id int,
+    -- optional remote domain index in case of transfers
+    remote_domain_idx int,
     transfer_counter bigint default null,
     primary key (domain_id, contract_id, ts, request_counter, change)
 );
@@ -942,26 +942,8 @@ alter table seq_initial_state
 alter table seq_initial_state
     add column sequenced_timestamp bigint;
 
--- Store the top up events per member as they get sequenced in the topology state
--- Allows to efficiently query top ups without replaying the topology state
-create table seq_top_up_events (
-    -- member the traffic limit belongs to
-    member varchar(300) collate "C" not null,
-    -- timestamp at which the limit is effective
-    effective_timestamp bigint not null,
-    -- the total traffic limit at that time
-    extra_traffic_limit bigint not null,
-    -- serial number of the topology transaction effecting the top up
-    -- used to disambiguate between top ups with the same effective timestamp
-    serial bigint not null,
-    -- top ups should have unique serial per member
-    primary key (member, serial)
-);
-
-create index idx_seq_top_up_events ON seq_top_up_events (member);
-
 -- Stores the traffic balance updates
-create table sequencer_traffic_control_balance_updates (
+create table seq_traffic_control_balance_updates (
     -- member the traffic balance update is for
        member varchar(300) collate "C" not null,
     -- timestamp at which the update was sequenced
@@ -972,6 +954,13 @@ create table sequencer_traffic_control_balance_updates (
        serial bigint not null,
     -- traffic states have a unique sequencing_timestamp per member
        primary key (member, sequencing_timestamp)
+);
+
+-- Stores the initial timestamp during onboarding. Allows to survive a restart immediately after onboarding
+create table seq_traffic_control_initial_timestamp (
+        -- Timestamp used to initialize the sequencer during onboarding, and the balance manager as well
+        initial_timestamp bigint not null,
+        primary key (initial_timestamp)
 );
 
 --   BFT Ordering Tables
@@ -1016,11 +1005,10 @@ create table ord_pbft_messages(
     discriminator smallint not null,
 
     -- sender of the message
-    from_host varchar(300) collate "C" not null,
-    from_port smallint not null,
+    from_sequencer_id varchar(300) collate "C" not null,
 
     -- for each block number, we only expect one message of each kind for the same sender.
     -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
     -- we won't differentiate that at the database level.
-    primary key (block_number, from_host, from_port, discriminator)
+    primary key (block_number, from_sequencer_id, discriminator)
 );

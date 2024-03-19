@@ -3,20 +3,23 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.event as apiEvent
 import com.daml.ledger.api.v2.reassignment.{
   AssignedEvent as ApiAssignedEvent,
   Reassignment as ApiReassignment,
   UnassignedEvent as ApiUnassignedEvent,
 }
-import com.daml.ledger.api.v2.transaction.{Transaction as FlatTransaction, TransactionTree}
+import com.daml.ledger.api.v2.transaction.{
+  Transaction as FlatTransaction,
+  TransactionTree,
+  TreeEvent,
+}
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.daml.ledger.api.v2.event as apiEvent
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
@@ -237,6 +240,7 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            packageName = exercisedEvent.packageName,
             witnessParties =
               requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
           )
@@ -453,6 +457,7 @@ private[events] object TransactionLogUpdatesConversions {
             eventId = exercisedEvent.eventId.toLedgerString,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            packageName = exercisedEvent.packageName,
             interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
             choice = exercisedEvent.choice,
             choiceArgument = Some(choiceArgument),
@@ -592,6 +597,7 @@ private[events] object TransactionLogUpdatesConversions {
               reassignmentCounter = info.reassignmentCounter,
               contractId = unassign.contractId.coid,
               templateId = Some(LfEngineToApi.toApiIdentifier(unassign.templateId)),
+              packageName = unassign.packageName,
               assignmentExclusivity =
                 unassign.assignmentExclusivity.map(TimestampConversion.fromLf),
               witnessParties = reassignmentAccepted.reassignmentInfo.hostedStakeholders

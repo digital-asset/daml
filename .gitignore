@@ -80,3 +80,4 @@ out
 !.vscode/settings.json.default
 
 /.tmp-pg/
+/.canton

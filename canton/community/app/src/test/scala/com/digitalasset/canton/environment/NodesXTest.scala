@@ -65,7 +65,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
     override def clientAdminApi = adminApi.clientConfig
     override def withDefaults(ports: DefaultPorts): TestNodeConfig = this
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
-    override val topologyX: TopologyXConfig = TopologyXConfig.NotUsed
+    override val topology: TopologyConfig = TopologyConfig.NotUsed
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
       override def batching: BatchingConfig = BatchingConfig()
       override def caching: CachingConfigs = CachingConfigs()
@@ -86,10 +86,12 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       batchingConfig: BatchingConfig = BatchingConfig(),
       nonStandardConfig: Boolean = false,
       dbMigrateAndStart: Boolean = false,
+      disableUpgradeValidation: Boolean = false,
       devVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
-      override val useNewTrafficControl: Boolean = false,
+      useNewTrafficControl: Boolean = false,
+      exitOnFatalFailures: Boolean = true,
   ) extends CantonNodeParameters
 
   private val metricsFactory: CantonLabeledMetricsFactory = new InMemoryMetricsFactory

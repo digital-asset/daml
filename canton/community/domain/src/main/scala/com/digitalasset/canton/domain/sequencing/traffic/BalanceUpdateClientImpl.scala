@@ -38,4 +38,20 @@ class BalanceUpdateClientImpl(
   }
   override def lastKnownTimestamp: Option[CantonTimestamp] = manager.maxTsO
   override def close(): Unit = Lifecycle.close(manager)(logger)
+
+  override def latestKnownBalanceFor(
+      member: Member
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[TrafficBalance]] = {
+    manager
+      .getLatestKnownBalance(member)
+  }
+
+  override lazy val balanceUpdateSubscription: Option[SequencerTrafficControlSubscriber] = Some(
+    manager.subscription
+  )
+
+  override def safeForPruning(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Unit =
+    manager.setSafeToPruneBeforeExclusive(timestamp)
 }

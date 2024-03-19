@@ -5,8 +5,6 @@ package com.digitalasset.canton.domain.block.data
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.{BlockUpdates, UninitializedBlockHeight}
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.MemberTrafficSnapshot
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
   SequencerSnapshot,
@@ -68,11 +66,8 @@ final case class BlockEphemeralState(
       protocolVersion: ProtocolVersion,
       trafficBalances: Seq[TrafficBalance],
   ): SequencerSnapshot =
-    SequencerSnapshot(
+    state.toSequencerSnapshot(
       latestBlock.lastTs,
-      state.heads,
-      state.status.toSequencerPruningStatus(latestBlock.lastTs),
-      state.inFlightAggregations,
       Some(
         SequencerSnapshot.ImplementationSpecificInfo(
           "BLOCK",
@@ -80,13 +75,7 @@ final case class BlockEphemeralState(
         )
       ),
       protocolVersion,
-      trafficState = state.trafficState.map { case (member, state) =>
-        member -> MemberTrafficSnapshot(
-          member = member,
-          state = state,
-        )
-      },
-      trafficBalances = trafficBalances,
+      trafficBalances,
     )
 
   /** Checks that the class invariant holds:

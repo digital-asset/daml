@@ -153,12 +153,12 @@ object CommunityConfigValidations
       config: CantonCommunityConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val CantonCommunityConfig(
-      participantsX,
-      sequencersX,
-      mediatorsX,
-      remoteParticipantsX,
-      remoteSequencersX,
-      remoteMediatorsX,
+      participants,
+      sequencers,
+      mediators,
+      remoteParticipants,
+      remoteSequencers,
+      remoteMediators,
       _,
       _,
       _,
@@ -166,12 +166,12 @@ object CommunityConfigValidations
       config
     Validated.cond(
       Seq(
-        participantsX,
-        remoteParticipantsX,
-        mediatorsX,
-        remoteMediatorsX,
-        sequencersX,
-        remoteSequencersX,
+        participants,
+        remoteParticipants,
+        mediators,
+        remoteMediators,
+        sequencers,
+        remoteSequencers,
       )
         .exists(_.nonEmpty),
       (),

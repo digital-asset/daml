@@ -54,7 +54,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eObserverInterface |
       eChoiceController |
       eChoiceObserver |
-      (id ^? builtinFunctions) ^^ EBuiltin |
+      (id ^? builtinFunctions) ^^ EBuiltinFun |
       experimental |
       caseOf |
       id ^^ EVar |
@@ -363,7 +363,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "SHA256_TEXT" -> BSHA256Text,
     "INT64_TO_TEXT" -> BInt64ToText,
     "NUMERIC_TO_TEXT" -> BNumericToText,
-    "TEXT_TO_TEXT" -> BTextToText,
     "TIMESTAMP_TO_TEXT" -> BTimestampToText,
     "PARTY_TO_TEXT" -> BPartyToText,
     "DATE_TO_TEXT" -> BDateToText,

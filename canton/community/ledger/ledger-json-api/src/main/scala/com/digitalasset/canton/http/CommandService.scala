@@ -16,7 +16,6 @@ import com.digitalasset.canton.http.domain.{
 }
 import com.daml.jwt.domain.Jwt
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.v1 as lav1
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.lf.data.ImmArray.ImmArraySeq
@@ -72,15 +71,15 @@ class CommandService(
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg],
+      input: CreateCommand[lav2.value.Record, ContractTypeId.Template.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
+  ): Future[Error \/ domain.CreateCommandResponse[lav2.value.Value]] =
     withTemplateLoggingContext(input.templateId).run { implicit lc =>
       logger.trace(s"sending create command to ledger, ${lc.makeString}")
       val command = createCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
-      val et: ET[domain.CreateCommandResponse[lav1.value.Value]] = for {
+      val et: ET[domain.CreateCommandResponse[lav2.value.Value]] = for {
         response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)(lc))
         contract <- either(exactlyOneActiveContract(response))
       } yield domain.CreateCommandResponse(
@@ -98,12 +97,12 @@ class CommandService(
   def exercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: ExerciseCommand.RequiredPkg[lav1.value.Value, ExerciseCommandRef],
+      input: ExerciseCommand.RequiredPkg[lav2.value.Value, ExerciseCommandRef],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
+  ): Future[Error \/ ExerciseResponse[lav2.value.Value]] =
     withEnrichedLoggingContext(
-      label[lav1.value.Value],
+      label[lav2.value.Value],
       "contract_id" -> input.argument.getContractId,
     ).run(implicit lc =>
       withTemplateChoiceLoggingContext(input.reference.fold(_._1, _._1), input.choice)
@@ -113,7 +112,7 @@ class CommandService(
 
           val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
-          val et: ET[ExerciseResponse[lav1.value.Value]] =
+          val et: ET[ExerciseResponse[lav2.value.Value]] =
             for {
               response <-
                 logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
@@ -135,12 +134,12 @@ class CommandService(
       input: CreateAndExerciseCommand.LAVResolved,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
+  ): Future[Error \/ ExerciseResponse[lav2.value.Value]] =
     withTemplateChoiceLoggingContext(input.templateId, input.choice).run { implicit lc =>
       logger.trace(s"sending create and exercise command to ledger, ${lc.makeString}")
       val command = createAndExerciseCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
-      val et: ET[ExerciseResponse[lav1.value.Value]] = for {
+      val et: ET[ExerciseResponse[lav2.value.Value]] = for {
         response <- logResult(
           Symbol("createAndExercise"),
           submitAndWaitForTransactionTree(jwt, request)(lc),
@@ -184,14 +183,14 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]
-  ): lav1.commands.Command.Command.Create = {
+      input: CreateCommand[lav2.value.Record, ContractTypeId.Template.RequiredPkg]
+  ): lav2.commands.Command.Command.Create = {
     Commands.create(refApiIdentifier(input.templateId), input.payload)
   }
 
   private def exerciseCommand(
-      input: ExerciseCommand.RequiredPkg[lav1.value.Value, ExerciseCommandRef]
-  ): lav1.commands.Command.Command = {
+      input: ExerciseCommand.RequiredPkg[lav2.value.Value, ExerciseCommandRef]
+  ): lav2.commands.Command.Command = {
     val choiceSource =
       input.choiceInterfaceId getOrElse input.reference.fold(_._1, _._1)
     input.reference match {
@@ -216,7 +215,7 @@ class CommandService(
   // TODO #14549 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
       input: CreateAndExerciseCommand.LAVResolved
-  ): lav1.commands.Command.Command.CreateAndExercise =
+  ): lav2.commands.Command.Command.CreateAndExercise =
     Commands
       .createAndExercise(
         refApiIdentifier(input.templateId),
@@ -228,7 +227,7 @@ class CommandService(
   private def submitAndWaitRequest(
       jwtPayload: JwtWritePayload,
       meta: Option[domain.CommandMeta.LAV],
-      command: lav1.commands.Command.Command,
+      command: lav2.commands.Command.Command,
       commandKind: String,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -264,7 +263,7 @@ class CommandService(
 
   private def exactlyOneActiveContract(
       response: lav2.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value] =
+  ): Error \/ ActiveContract[ContractTypeId.Template.Resolved, lav2.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
@@ -278,7 +277,7 @@ class CommandService(
 
   private def activeContracts(
       response: lav2.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] =
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav2.value.Value]] =
     response.transaction
       .toRightDisjunction(
         InternalError(
@@ -290,7 +289,7 @@ class CommandService(
 
   private def activeContracts(
       tx: lav2.transaction.Transaction
-  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] = {
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav2.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.IgnoreInterface, _))
@@ -299,7 +298,7 @@ class CommandService(
 
   private def contracts(
       response: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
-  ): Error \/ List[Contract[lav1.value.Value]] =
+  ): Error \/ List[Contract[lav2.value.Value]] =
     response.transaction
       .toRightDisjunction(
         InternalError(
@@ -311,7 +310,7 @@ class CommandService(
 
   private def contracts(
       tx: lav2.transaction.TransactionTree
-  ): Error \/ List[Contract[lav1.value.Value]] =
+  ): Error \/ List[Contract[lav2.value.Value]] =
     Contract
       .fromTransactionTree(tx)
       .leftMap(e => InternalError(Some(Symbol("contracts")), e.shows))
@@ -319,11 +318,11 @@ class CommandService(
 
   private def exerciseResult(
       a: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
-  ): Error \/ lav1.value.Value = {
-    val result: Option[lav1.value.Value] = for {
+  ): Error \/ lav2.value.Value = {
+    val result: Option[lav2.value.Value] = for {
       transaction <- a.transaction: Option[lav2.transaction.TransactionTree]
-      exercised <- firstExercisedEvent(transaction): Option[lav1.event.ExercisedEvent]
-      exResult <- exercised.exerciseResult: Option[lav1.value.Value]
+      exercised <- firstExercisedEvent(transaction): Option[lav2.event.ExercisedEvent]
+      exResult <- exercised.exerciseResult: Option[lav2.value.Value]
     } yield exResult
 
     result.toRightDisjunction(
@@ -336,8 +335,8 @@ class CommandService(
 
   private def firstExercisedEvent(
       tx: lav2.transaction.TransactionTree
-  ): Option[lav1.event.ExercisedEvent] = {
-    val lookup: String => Option[lav1.event.ExercisedEvent] = id =>
+  ): Option[lav2.event.ExercisedEvent] = {
+    val lookup: String => Option[lav2.event.ExercisedEvent] = id =>
       tx.eventsById.get(id).flatMap(_.kind.exercised)
     tx.rootEventIds.collectFirst(Function unlift lookup)
   }
@@ -360,5 +359,5 @@ object CommandService {
 
   private type ET[A] = EitherT[Future, Error, A]
 
-  type ExerciseCommandRef = domain.ResolvedContractRef[lav1.value.Value]
+  type ExerciseCommandRef = domain.ResolvedContractRef[lav2.value.Value]
 }

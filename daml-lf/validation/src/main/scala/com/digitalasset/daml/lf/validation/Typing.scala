@@ -234,7 +234,6 @@ private[validation] object Typing {
       BAppendText -> tBinop(TText),
       BInt64ToText -> (TInt64 ->: TText),
       BNumericToText -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TText),
-      BTextToText -> (TText ->: TText),
       BTimestampToText -> (TTimestamp ->: TText),
       BPartyToText -> (TParty ->: TText),
       BDateToText -> (TDate ->: TText),
@@ -1420,7 +1419,7 @@ private[validation] object Typing {
         Ret(lookupExpVar(name))
       case EVal(ref) =>
         Ret(handleLookup(ctx, pkgInterface.lookupValue(ref)).typ)
-      case EBuiltin(fun) =>
+      case EBuiltinFun(fun) =>
         Ret(typeOfBuiltinFunction(fun))
       case EBuiltinCon(con) =>
         Ret(typeOfPRimCon(con))

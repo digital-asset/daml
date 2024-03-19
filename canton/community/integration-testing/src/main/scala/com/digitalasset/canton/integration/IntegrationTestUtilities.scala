@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.integration
 
-import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{Created, Exercised}
-import com.daml.ledger.api.v1.value.Value
-import com.daml.ledger.api.v2.transaction.TransactionTree as TransactionTreeV2
+import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.{Created, Exercised}
+import com.daml.ledger.api.v2.transaction.{TransactionTree as TransactionTreeV2, TreeEvent}
+import com.daml.ledger.api.v2.value.Value
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection

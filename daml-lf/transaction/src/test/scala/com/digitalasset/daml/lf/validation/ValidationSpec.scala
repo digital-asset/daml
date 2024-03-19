@@ -161,14 +161,13 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   // --[running tweaks]--
   // We dont aim for much coverage in the overal TX shape; we limit to either 0 or 1 level of nesting.
 
-  private def flatVTXs: Seq[VTX] =
+  private def flatVTXs(txVersion: TransactionVersion): Seq[VTX] =
     (someCreates ++ someFetches ++ someLookups ++ someExercises).map { node =>
       val nid = NodeId(0)
-      val version = TransactionVersion.minVersion
-      VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
+      VersionedTransaction(txVersion, HashMap(nid -> node), ImmArray(nid))
     }
 
-  private def nestedVTXs: Seq[VTX] =
+  private def nestedVTXs(txVersion: TransactionVersion): Seq[VTX] =
     for {
       exe <- someExercises
       child <- someExercises ++ someCreates ++ someLookups ++ someFetches
@@ -176,9 +175,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       val nid0 = NodeId(0)
       val nid1 = NodeId(1)
       val parent = exe.copy(children = ImmArray(nid1))
-      val version = TransactionVersion.minVersion
       VersionedTransaction(
-        version,
+        txVersion,
         HashMap(nid0 -> parent, nid1 -> child),
         ImmArray(nid0),
       )
@@ -186,7 +184,10 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   private def preTweakedVTXs: Seq[VTX] = {
     // we ensure the preTweaked txs are properly normalized.
-    (flatVTXs ++ nestedVTXs).map(Normalization.normalizeTx)
+    for {
+      txVersion <- TransactionVersion.All
+      vtx <- flatVTXs(txVersion) ++ nestedVTXs(txVersion)
+    } yield Normalization.normalizeTx(vtx)
   }
 
   private def runTweak(tweak: Tweak[VTX]): Seq[(VTX, VTX)] =

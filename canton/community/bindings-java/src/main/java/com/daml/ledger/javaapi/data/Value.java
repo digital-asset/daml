@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v2.ValueOuterClass;
 import java.util.Optional;
 
 public abstract class Value {
@@ -38,8 +38,8 @@ public abstract class Value {
         return new Date(value.getDate());
       case OPTIONAL:
         return DamlOptional.fromProto(value.getOptional());
-      case MAP:
-        return DamlTextMap.fromProto(value.getMap());
+      case TEXT_MAP:
+        return DamlTextMap.fromProto(value.getTextMap());
       case GEN_MAP:
         return DamlGenMap.fromProto(value.getGenMap());
       case SUM_NOT_SET:

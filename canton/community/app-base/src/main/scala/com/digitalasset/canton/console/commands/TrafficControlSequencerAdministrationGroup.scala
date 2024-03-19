@@ -4,6 +4,7 @@
 package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   ConsoleEnvironment,
@@ -13,6 +14,7 @@ import com.digitalasset.canton.console.{
   Helpful,
   InstanceReference,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
@@ -56,6 +58,31 @@ class TrafficControlSequencerAdministrationGroup(
       consoleEnvironment.run(
         runner.adminCommand(
           SequencerAdminCommands.GetTrafficControlState(Seq.empty)
+        )
+      )
+    )
+  }
+  @Help.Summary("Set the traffic balance of a member")
+  @Help.Description(
+    """Use this command to set the new traffic balance of a member.
+      | member: member for which the traffic balance is to be set
+      | serial: serial number of the request, must be strictly greater than the latest update made for that member
+      | newBalance: new traffic balance to be set
+      |
+      | returns: the max sequencing time used for the update
+      | After and only after that time, if the new balance still does not appear in the traffic state,
+      |  the update can be considered failed and should be retried.
+      """
+  )
+  def set_traffic_balance(
+      member: Member,
+      serial: PositiveInt,
+      newBalance: NonNegativeLong,
+  ): Option[CantonTimestamp] = {
+    check(FeatureFlag.Preview)(
+      consoleEnvironment.run(
+        runner.adminCommand(
+          SequencerAdminCommands.SetTrafficBalance(member, serial, newBalance)
         )
       )
     )

@@ -8,7 +8,9 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.data.EphemeralState
 import com.digitalasset.canton.domain.sequencing.integrations.state.SequencerStateManagerStore.PruningResult
 import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberSignedEvents
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SaveLowerBoundError
@@ -126,6 +128,11 @@ class InMemorySequencerStateManagerStore(
 
     def toStatus(member: Member): SequencerMemberStatus =
       SequencerMemberStatus(member, addedAt, lastAcknowledged, isEnabled)
+  }
+
+  def locatePruningTimestamp(skip: NonNegativeInt): Option[CantonTimestamp] = {
+    val sortedEvents = state.get().indices.values.flatMap(_.events.map(_.timestamp)).toList.sorted
+    sortedEvents.lift(skip.value)
   }
 
   private object State {
@@ -337,10 +344,13 @@ class InMemorySequencerStateManagerStore(
     result.get
   }
 
-  override protected[state] def numberOfEvents()(implicit
+  override protected[state] def numberOfEventsToBeDeletedByPruneAt(
+      requestedTimestamp: CantonTimestamp
+  )(implicit
       traceContext: TraceContext
-  ): Future[Long] = Future.successful(state.get().indices.map(_._2.events.size).sum.toLong)
-
+  ): Future[Long] = Future.successful(
+    state.get().indices.map(_._2.events.count(_.timestamp < requestedTimestamp)).sum.toLong
+  )
   override def fetchLowerBound()(implicit
       traceContext: TraceContext
   ): Future[Option[CantonTimestamp]] = Future.successful(state.get().pruningLowerBound)

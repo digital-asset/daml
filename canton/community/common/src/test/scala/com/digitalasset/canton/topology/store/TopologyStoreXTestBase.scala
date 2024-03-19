@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.store
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -27,7 +28,7 @@ private[store] trait TopologyStoreXTestBase extends BaseTest with HasExecutionCo
       store: TopologyStoreX[TopologyStoreId],
       ts: CantonTimestamp,
       add: Seq[GenericSignedTopologyTransactionX] = Seq.empty,
-      removeMapping: Set[MappingHash] = Set.empty,
+      removeMapping: Map[MappingHash, PositiveInt] = Map.empty,
       removeTxs: Set[TxHash] = Set.empty,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     store.update(
@@ -45,9 +46,9 @@ private[store] trait TopologyStoreXTestBase extends BaseTest with HasExecutionCo
       proposals: Boolean = false,
       recentTimestampO: Option[CantonTimestamp] = None,
       op: Option[TopologyChangeOpX] = None,
-      typ: Option[TopologyMappingX.Code] = None,
-      idFilter: String = "",
-      namespaceOnly: Boolean = false,
+      types: Seq[TopologyMappingX.Code] = Nil,
+      idFilter: Option[String] = None,
+      namespaceFilter: Option[String] = None,
   )(implicit
       traceContext: TraceContext
   ): Future[StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX]] =
@@ -56,9 +57,9 @@ private[store] trait TopologyStoreXTestBase extends BaseTest with HasExecutionCo
       timeQuery,
       recentTimestampO,
       op,
-      typ,
+      types,
       idFilter,
-      namespaceOnly,
+      namespaceFilter,
     )
 
   protected def inspectKnownParties(

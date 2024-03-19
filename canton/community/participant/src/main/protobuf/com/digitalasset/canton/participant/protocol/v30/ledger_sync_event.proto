@@ -7,7 +7,6 @@ package com.digitalasset.canton.participant.protocol.v30;
 
 import "com/digitalasset/canton/protocol/v30/participant_transaction.proto";
 import "com/digitalasset/canton/protocol/v30/participant_transfer.proto";
-import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 import "scalapb/scalapb.proto";
 
@@ -16,48 +15,20 @@ message LedgerSyncEvent {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
 
   oneof value {
-    ConfigurationChanged configuration_changed = 1;
-    ConfigurationChangeRejected configuration_change_rejected = 2; // this message has never been produced by canton
-    PartyAddedToParticipant party_added_to_participant = 3;
-    PublicPackageUpload public_package_upload = 4;
-    TransactionAccepted transaction_accepted = 5;
-    CommandRejected command_rejected = 6;
-    PartyAllocationRejected party_allocation_rejected = 7;
-    PublicPackageUploadRejected public_package_upload_rejected = 8;
-    TransferredOut transferred_out = 9;
-    TransferredIn transferred_in = 10;
-    ContractsAdded contracts_added = 11;
-    ContractsPurged contracts_purged = 12;
-    PartiesAddedToParticipant parties_added = 13;
-    PartiesRemovedFromParticipant parties_removed = 14;
+    PartyAddedToParticipant party_added_to_participant = 1;
+    PublicPackageUpload public_package_upload = 2;
+    TransactionAccepted transaction_accepted = 3;
+    CommandRejected command_rejected = 4;
+    PartyAllocationRejected party_allocation_rejected = 5;
+    PublicPackageUploadRejected public_package_upload_rejected = 6;
+    TransferredOut transferred_out = 7;
+    TransferredIn transferred_in = 8;
+    ContractsAdded contracts_added = 9;
+    ContractsPurged contracts_purged = 10;
+    PartiesAddedToParticipant parties_added = 11;
+    PartiesRemovedFromParticipant parties_removed = 12;
+    Init init = 13;
   }
-}
-
-message ConfigurationChanged {
-  string submission_id = 1;
-  Configuration configuration = 2;
-  string participant_id = 3;
-  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
-}
-
-message Configuration {
-  int64 generation = 1;
-  TimeModel time_model = 2;
-  google.protobuf.Duration max_deduplication_duration = 3;
-}
-
-message TimeModel {
-  google.protobuf.Duration avg_transaction_latency = 1;
-  google.protobuf.Duration min_skew = 2;
-  google.protobuf.Duration max_skew = 3;
-}
-
-message ConfigurationChangeRejected {
-  string submission_id = 1;
-  string reason = 2;
-  string participant_id = 3;
-  int64 record_time = 4; // in microseconds of UTC time since Unix epoch
-  Configuration proposed_configuration = 5;
 }
 
 message PartyAddedToParticipant {
@@ -175,6 +146,7 @@ message TransferredOut {
   bool is_transferring_participant = 12;
   repeated string hosted_stakeholders = 13;
   int64 transfer_counter = 14;
+  string package_name = 15;
 }
 
 message TransferredIn {
@@ -225,4 +197,8 @@ message PartiesRemovedFromParticipant {
   string participant_id = 2;
   int64 record_time = 3; // in microseconds of UTC time since Unix epoch
   int64 effective_time = 4; // in microseconds of UTC time since Unix epoch
+}
+
+message Init {
+  int64 record_time = 1; // in microseconds of UTC time since Unix epoch
 }

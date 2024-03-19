@@ -15,12 +15,11 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   CommitMode,
-  InFlightAggregations,
   SequencerMemberStatus,
   SequencerPruningStatus,
+  SequencerSnapshot,
 }
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -34,7 +33,7 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, UnauthenticatedMemberId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -647,7 +646,8 @@ class DbSequencerStore(
   }
 
   override def fetchWatermark(
-      instanceIndex: Int
+      instanceIndex: Int,
+      maxRetries: Int = retry.Forever,
   )(implicit traceContext: TraceContext): Future[Option[Watermark]] =
     storage
       .querySingle(
@@ -671,6 +671,7 @@ class DbSequencerStore(
           }
         },
         functionFullName,
+        maxRetries,
       )
       .value
 
@@ -834,7 +835,7 @@ class DbSequencerStore(
 
   override def readStateAtTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[EphemeralState] = {
+  )(implicit traceContext: TraceContext): Future[SequencerSnapshot] = {
     def h2PostgresQueryMemberCheckpoints(
         memberContainsBefore: String,
         memberContainsAfter: String,
@@ -902,14 +903,25 @@ class DbSequencerStore(
     } yield counters
 
     for {
-      statusAtTimestamp <- status(timestamp)
       checkpointsAtTimestamp <- storage.query(query.transactionally, functionFullName)
-    } yield EphemeralState(
-      Map(): InFlightAggregations,
-      statusAtTimestamp.toInternal,
-      checkpointsAtTimestamp.toMap,
-      Map(),
-    )
+      lastTs = checkpointsAtTimestamp
+        .map(_._2.timestamp)
+        .maxOption
+        .getOrElse(CantonTimestamp.MinValue)
+      statusAtTimestamp <- status(lastTs)
+    } yield {
+      val checkpoints = checkpointsAtTimestamp.toMap
+      SequencerSnapshot(
+        lastTs,
+        checkpoints.fmap(_.counter),
+        statusAtTimestamp,
+        Map.empty,
+        None,
+        protocolVersion,
+        Map.empty,
+        Seq.empty,
+      )
+    }
   }
 
   override def deleteEventsPastWatermark(

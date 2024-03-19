@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.{
   ConnectionAllocation,
   DbParametersConfig,
   ProcessingTimeout,
+  QueryCostMonitoringConfig,
   StorageConfig,
 }
 import com.digitalasset.canton.data.CantonTimestamp
@@ -64,6 +65,8 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
       deriveReader[CommunityDbConfig.Postgres]
     implicit val communityStorageConfigReader: ConfigReader[CommunityStorageConfig] =
       deriveReader[CommunityStorageConfig]
+    implicit val queryCostMonitoringConfigReader: ConfigReader[QueryCostMonitoringConfig] =
+      deriveReader[QueryCostMonitoringConfig]
     deriveReader[ConfigType]
   }
 
@@ -94,6 +97,8 @@ class CommunityReferenceBlockOrdererFactory extends BlockOrdererFactory {
       deriveWriter[CommunityDbConfig.Postgres]
     implicit val communityStorageConfigWriter: ConfigWriter[CommunityStorageConfig] =
       deriveWriter[CommunityStorageConfig]
+    implicit val queryCostMonitoringConfigWriter: ConfigWriter[QueryCostMonitoringConfig] =
+      deriveWriter[QueryCostMonitoringConfig]
     deriveWriter[ConfigType]
   }
 
@@ -160,7 +165,7 @@ object CommunityReferenceBlockOrdererFactory {
         new CommunityStorageFactory(communityStorageConfig)
           .tryCreate(
             connectionPoolForParticipant = false,
-            logQueryCost = None,
+            logQueryCost = config.logQueryCost,
             clock = clock,
             scheduler = None,
             metrics = new DbStorageMetrics(MetricName("none"), NoOpMetricsFactory)(

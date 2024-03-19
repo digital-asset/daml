@@ -30,7 +30,6 @@ da_scala_library(
     visibility = [
         "//canton:__subpackages__",
         "//canton-3x:__subpackages__",
-        "//compiler/repl-service:__subpackages__",
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
@@ -39,6 +38,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
@@ -99,6 +99,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",

@@ -118,14 +118,12 @@ class ValueCoderSpec
       forAll(valueOptionalGen, transactionVersionGen())(testRoundTrip)
     }
 
-    "do maps" in {
-      forAll(valueMapGen, transactionVersionGen())(testRoundTrip)
+    "do textMaps" in {
+      forAll(valueTextMapGen, transactionVersionGen(TransactionVersion.minTextMap))(testRoundTrip)
     }
 
     "do genMaps" in {
-      forAll(valueGenMapGen, transactionVersionGen())(
-        testRoundTrip
-      )
+      forAll(valueGenMapGen, transactionVersionGen())(testRoundTrip)
     }
 
     "do variant" in {

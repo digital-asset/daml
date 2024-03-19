@@ -40,7 +40,7 @@ final case class FinalizedResponse(
       sender,
       viewPositionO,
       localVerdict,
-      rootHashO,
+      rootHash,
       confirmingParties,
       _domainId,
     ) = response
@@ -49,7 +49,7 @@ final case class FinalizedResponse(
       (for {
         _ <- validateResponse(
           viewKeyO,
-          rootHashO,
+          rootHash,
           responseTimestamp,
           sender,
           localVerdict,

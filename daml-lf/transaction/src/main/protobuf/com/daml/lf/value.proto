@@ -77,15 +77,15 @@ message Value {
 
     Map map = 12;
 
-    TextMap text_map = 13;
+    TextMap text_map = 1001;  // *Available in versions >= 2.dev
 
     // user-defined datas
 
-    Record record = 14;
+    Record record = 13;
 
-    Variant variant = 15;
+    Variant variant = 14;
 
-    Enum enum = 16;
+    Enum enum = 15;
   }
 
   message Record {

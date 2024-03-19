@@ -224,6 +224,7 @@ class TestProcessingSteps(
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       snapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorsOfDomain,
+      submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TestProcessingError, CheckActivenessAndWritePendingContracts] = {
@@ -256,6 +257,7 @@ class TestProcessingSteps(
 
   override def constructResponsesForMalformedPayloads(
       requestId: com.digitalasset.canton.protocol.RequestId,
+      rootHash: RootHash,
       malformedPayloads: Seq[
         com.digitalasset.canton.participant.protocol.ProtocolProcessor.MalformedPayload
       ],
@@ -281,7 +283,7 @@ class TestProcessingSteps(
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: RequestType#PendingRequestData,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -340,7 +342,10 @@ object TestProcessingSteps {
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
       mediator: MediatorsOfDomain,
-  ) extends PendingRequestData
+  ) extends PendingRequestData {
+
+    override def rootHashO: Option[RootHash] = None
+  }
 
   case object TestPendingRequestDataType extends RequestType {
     override type PendingRequestData = TestPendingRequestData

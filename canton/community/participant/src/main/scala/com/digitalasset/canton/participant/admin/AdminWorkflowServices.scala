@@ -131,7 +131,7 @@ class AdminWorkflowServices(
   ): Future[Boolean] =
     for {
       pkgRes <- pkgs.keys.toList.parTraverse(lc.v2.packageService.getPackageStatus(_))
-    } yield pkgRes.forall(pkgResponse => pkgResponse.packageStatus.isRegistered)
+    } yield pkgRes.forall(pkgResponse => pkgResponse.packageStatus.isPackageStatusRegistered)
 
   private def handleDamlErrorDuringPackageLoading(
       res: EitherT[FutureUnlessShutdown, DamlError, Unit]

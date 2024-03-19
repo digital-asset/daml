@@ -61,7 +61,7 @@ object Ast {
   final case class EVal(value: ValueRef) extends ExprAtomic
 
   /** Reference to a builtin function. */
-  final case class EBuiltin(value: BuiltinFunction) extends ExprAtomic
+  final case class EBuiltinFun(value: BuiltinFunction) extends ExprAtomic
 
   /** Builtin constructor, e.g. True, False or Unit. */
   final case class EBuiltinCon(value: BuiltinCon) extends ExprAtomic
@@ -485,7 +485,6 @@ object Ast {
 
   final case object BInt64ToText extends BuiltinFunction //  Int64 → Text
   final case object BNumericToText extends BuiltinFunction // : ∀s. Numeric s → Text
-  final case object BTextToText extends BuiltinFunction // : Text → Text
   final case object BTimestampToText extends BuiltinFunction // : Timestamp → Text
   final case object BPartyToText extends BuiltinFunction // : Party → Text
   final case object BDateToText extends BuiltinFunction // : Date -> Text

@@ -98,56 +98,65 @@ class InMemoryMemberAuthenticationStore extends MemberAuthenticationStore {
 
   override def saveNonce(
       storedNonce: StoredNonce
-  )(implicit traceContext: TraceContext): Future[Unit] = blocking {
-    lock.synchronized {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    blocking(lock.synchronized {
       nonces += storedNonce
-      Future.unit
-    }
+      ()
+    })
+    Future.unit
   }
 
   override def fetchAndRemoveNonce(member: Member, nonce: Nonce)(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredNonce]] = blocking(lock.synchronized {
-    val storedNonce = nonces.find(n => n.member == member && n.nonce == nonce)
-
-    storedNonce.foreach(nonces.-=) // remove the nonce
-
+  ): Future[Option[StoredNonce]] = {
+    val storedNonce = blocking(lock.synchronized {
+      val storedNonce = nonces.find(n => n.member == member && n.nonce == nonce)
+      storedNonce.foreach(nonces.-=) // remove the nonce
+      storedNonce
+    })
     Future.successful(storedNonce)
-  })
+  }
 
   override def saveToken(
       token: StoredAuthenticationToken
-  )(implicit traceContext: TraceContext): Future[Unit] = blocking {
-    lock.synchronized {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    blocking(lock.synchronized {
       tokens += token
-      Future.unit
-    }
+      ()
+    })
+    Future.unit
   }
 
   override def fetchTokens(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Seq[StoredAuthenticationToken]] = blocking(lock.synchronized {
-    val memberTokens = tokens.filter(_.member == member)
-
-    Future.successful(memberTokens.toSeq)
-  })
+  ): Future[Seq[StoredAuthenticationToken]] = {
+    val memberTokens = blocking(lock.synchronized {
+      tokens.filter(_.member == member).toSeq
+    })
+    Future.successful(memberTokens)
+  }
 
   override def expireNoncesAndTokens(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = blocking {
-    lock.synchronized {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    blocking(lock.synchronized {
       nonces --= nonces.filter(_.expireAt <= timestamp)
       tokens --= tokens.filter(_.expireAt <= timestamp)
-      Future.unit
-    }
+      ()
+    })
+    Future.unit
   }
 
-  override def invalidateMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] =
+  override def invalidateMember(
+      member: Member
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     blocking(lock.synchronized {
       nonces --= nonces.filter(_.member == member)
       tokens --= tokens.filter(_.member == member)
-      Future.unit
+      ()
     })
+    Future.unit
+  }
 
   override def close(): Unit = ()
 }

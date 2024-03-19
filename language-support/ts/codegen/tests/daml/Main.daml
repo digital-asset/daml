@@ -1,6 +1,8 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 module Main where
 
 import DA.TextMap
@@ -26,7 +28,11 @@ template AllTypes with
     optionalOptionalInt2: Optional (Optional Int)
     optionalOptionalInt3: Optional (Optional Int)
     list: [Bool]
-    textMap: TextMap Int
+#ifndef DAML_TEXMAP
+    textMap : TextMap Int
+#else 
+    textMap : Unit 
+#endif
     monoRecord: Person
     polyRecord: Pair Int Text
     imported: Lib.Mod.Imported
@@ -148,7 +154,7 @@ template U with
 data Recursive = Recursive with
     recOptional : Optional Recursive
     recList: [Recursive]
-    recTextMap : TextMap Recursive
+    recGenMap : DA.Map.Map Text Recursive
   deriving (Eq, Show)
 
 data VoidRecord = VoidRecord with

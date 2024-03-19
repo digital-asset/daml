@@ -4,16 +4,15 @@
 package com.digitalasset.canton.demo
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v1.transaction_filter.Filters
-import com.daml.ledger.api.v1.value.{Record, Value}
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
   GetUpdatesResponse,
   UpdateServiceGrpc,
 }
+import com.daml.ledger.api.v2.value.{Record, Value}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.ParticipantReference
@@ -538,7 +537,9 @@ class ParticipantTab(
 
 object ParticipantTab {
   val LedgerBegin: ParticipantOffset = ParticipantOffset(
-    ParticipantOffset.Value.Boundary(ParticipantOffset.ParticipantBoundary.PARTICIPANT_BEGIN)
+    ParticipantOffset.Value.Boundary(
+      ParticipantOffset.ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN
+    )
   )
 }
 

@@ -1,9 +1,11 @@
--- @ERROR range=44:1-44:22; Attempt to create a contract key with an empty set of maintainers
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=46:1-46:22; Attempt to create a contract key with an empty set of maintainers
 -- @TODO queryContractKey loses errors, ideally below is: Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
--- @ERROR range=48:1-48:18; Couldn't see contract with key 'Alice'
--- @ERROR range=52:1-52:19; Attempt to create a contract key with an empty set of maintainers
--- @ERROR range=56:1-56:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
--- @ERROR range=60:1-60:19; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=50:1-50:18; Couldn't see contract with key 'Alice'
+-- @ERROR range=54:1-54:19; Attempt to create a contract key with an empty set of maintainers
+-- @ERROR range=58:1-58:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=62:1-62:19; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
 
 module EmptyContractKeyMaintainers where
 

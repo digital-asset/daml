@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.jwt.{Error, JwtFromBearerHeader, JwtVerifier, JwtVerifierBase}
-import com.daml.lf.data.Ref
 import com.digitalasset.canton.ledger.api.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -13,7 +12,6 @@ import io.grpc.Metadata
 import spray.json.*
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
@@ -112,31 +110,6 @@ class AuthServiceJWT(
     } yield parsed
 
   private[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
-    case payload: CustomDamlJWTPayload =>
-      val claims = ListBuffer[Claim]()
-
-      // Any valid token authorizes the user to use public services
-      claims.append(ClaimPublic)
-
-      if (payload.admin)
-        claims.append(ClaimAdmin)
-
-      payload.actAs
-        .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
-
-      payload.readAs
-        .foreach(party => claims.append(ClaimReadAsParty(Ref.Party.assertFromString(party))))
-
-      ClaimSet.Claims(
-        claims = claims.toList,
-        ledgerId = payload.ledgerId,
-        participantId = payload.participantId,
-        applicationId = payload.applicationId,
-        expiration = payload.exp,
-        resolvedFromUser = false,
-        identityProviderId = IdentityProviderId.Default,
-      )
-
     case payload: StandardJWTPayload =>
       ClaimSet.AuthenticatedUser(
         identityProviderId = IdentityProviderId.Default,

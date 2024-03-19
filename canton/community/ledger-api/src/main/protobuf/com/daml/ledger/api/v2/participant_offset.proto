@@ -5,10 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "ParticipantOffsetOuterClass";
 option java_package = "com.daml.ledger.api.v2";
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Describes a specific point on the participant. This is a participant local value:
 // a participant offset is meaningful only in the context of its participant. Different
@@ -39,7 +38,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 // The server implementation ensures internally that offsets
 // are lexicographically comparable.
 message ParticipantOffset {
-
   oneof value {
     // The format of this string is specific to the participant and opaque to the client.
     string absolute = 1;
@@ -48,9 +46,9 @@ message ParticipantOffset {
 
   enum ParticipantBoundary {
     // Refers to the first transaction.
-    PARTICIPANT_BEGIN = 0;
+    PARTICIPANT_BOUNDARY_BEGIN = 0;
 
     // Refers to the currently last transaction, which is a moving target.
-    PARTICIPANT_END = 1;
+    PARTICIPANT_BOUNDARY_END = 1;
   }
 }

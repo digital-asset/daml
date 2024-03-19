@@ -12,7 +12,6 @@ import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
 import java.lang
 import java.nio.file.Files
 import scala.jdk.CollectionConverters.*
-import scala.util.control.NonFatal
 
 // Interacting with java libraries makes null a necessity
 @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.AsInstanceOf"))
@@ -21,7 +20,6 @@ final case class TlsConfiguration(
     certChainFile: Option[File] = None, // mutual auth is disabled if null
     privateKeyFile: Option[File] = None,
     trustCollectionFile: Option[File] = None, // System default if null
-    secretsUrl: Option[SecretsUrl] = None,
     clientAuth: ClientAuth =
       ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
     enableCertRevocationChecking: Boolean = false,
@@ -177,24 +175,9 @@ final case class TlsConfiguration(
   }
 
   private[tls] def prepareKeyInputStream(keyFile: File): InputStream = {
-    val bytes = if (keyFile.getName.endsWith(".enc")) {
-      try {
-        val params = DecryptionParameters.fromSecretsServer(secretsUrlOrFail)
-        params.decrypt(encrypted = keyFile)
-      } catch {
-        case NonFatal(e) => throw new PrivateKeyDecryptionException(e)
-      }
-    } else {
-      Files.readAllBytes(keyFile.toPath)
-    }
+    val bytes = Files.readAllBytes(keyFile.toPath)
     new ByteArrayInputStream(bytes)
   }
-
-  private def secretsUrlOrFail: SecretsUrl = secretsUrl.getOrElse(
-    throw new IllegalStateException(
-      s"Unable to convert ${this.toString} to SSL Context: cannot decrypt keyFile without secretsUrl."
-    )
-  )
 
   private def keyCertChainInputStreamOrFail: InputStream = {
     val msg =

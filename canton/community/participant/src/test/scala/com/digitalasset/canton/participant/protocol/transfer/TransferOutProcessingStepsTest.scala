@@ -40,6 +40,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -60,11 +61,11 @@ import com.digitalasset.canton.{
   LedgerApplicationId,
   LedgerCommandId,
   LfPackageId,
+  LfPackageName,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
   TransferCounter,
-  TransferCounterO,
 }
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -106,9 +107,10 @@ final class TransferOutProcessingStepsTest
 
   private val templateId =
     LfTemplateId.assertFromString("transferoutprocessingstepstestpackage:template:id")
+  private val packageName =
+    LfPackageName.assertFromString("transferoutprocessingstepstestpackagename")
 
-  private val initialTransferCounter: TransferCounterO =
-    Some(TransferCounter.Genesis)
+  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
 
   private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata = {
     TransferSubmitterMetadata(
@@ -125,16 +127,18 @@ final class TransferOutProcessingStepsTest
 
   private val crypto = TestingIdentityFactoryX.newCrypto(loggerFactory)(submittingParticipant)
 
-  private val multiDomainEventLog = mock[MultiDomainEventLog]
+  private lazy val multiDomainEventLog = mock[MultiDomainEventLog]
   private val clock = new WallClock(timeouts, loggerFactory)
-  private val persistentState =
-    new InMemorySyncDomainPersistentStateX(
+  private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
+  private lazy val persistentState =
+    new InMemorySyncDomainPersistentState(
       clock,
       crypto,
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
       testedProtocolVersion,
       enableAdditionalConsistencyChecks = true,
       enableTopologyTransactionValidation = false,
+      indexedStringStore = indexedStringStore,
       loggerFactory,
       timeouts,
       futureSupervisor,
@@ -578,7 +582,7 @@ final class TransferOutProcessingStepsTest
           contract,
         )
         _ <- persistentState.activeContractStore
-          .markContractsActive(
+          .markContractsCreated(
             Seq(contractId -> initialTransferCounter),
             TimeOfChange(RequestCounter(1), timeEvent.timestamp),
           )
@@ -681,6 +685,7 @@ final class TransferOutProcessingStepsTest
             Seq.empty,
             cryptoSnapshot,
             MediatorsOfDomain(MediatorGroupIndex.one),
+            None,
           )
         )("compute activeness set failed")
       } yield {
@@ -781,7 +786,7 @@ final class TransferOutProcessingStepsTest
           sourceDomain.id,
           TransferOutViewType,
           RequestId(CantonTimestamp.Epoch),
-          Some(rootHash),
+          rootHash,
           Verdict.Approve(testedProtocolVersion),
           Set(),
           testedProtocolVersion,
@@ -830,6 +835,7 @@ final class TransferOutProcessingStepsTest
           WithContractHash(contractId, contractHash),
           TransferCounter.Genesis,
           templateId = templateId,
+          packageName = packageName,
           transferringParticipant = false,
           submitterMetadata = submitterMetadata(submitter),
           transferId,
@@ -844,7 +850,7 @@ final class TransferOutProcessingStepsTest
           outProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(signedContent),
-              transferResult,
+              transferResult.verdict,
               pendingOut,
               state.pendingTransferOutSubmissions,
               crypto.pureCrypto,

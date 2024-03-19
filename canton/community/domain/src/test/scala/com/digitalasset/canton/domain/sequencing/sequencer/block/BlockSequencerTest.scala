@@ -13,12 +13,13 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.BlockSequencerStateManager.ChunkState
+import com.digitalasset.canton.domain.block.BlockSequencerStateManager.{ChunkState, HeadState}
 import com.digitalasset.canton.domain.block.data.memory.InMemorySequencerBlockStore
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   BlockUpdateClosureWithHeight,
+  EphemeralState,
 }
 import com.digitalasset.canton.domain.block.{
   BlockSequencerStateManager,
@@ -27,12 +28,12 @@ import com.digitalasset.canton.domain.block.{
   SequencerDriverHealthStatus,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   RegisterMemberError,
   SequencerWriteError,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.RateLimitManagerTesting
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.InMemoryTrafficBalanceStore
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.TracedLogger
@@ -69,7 +70,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future, Promise}
 
-class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+class BlockSequencerTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with RateLimitManagerTesting {
 
   "BlockSequencer" should {
     "process a lot of blocks during catch up" in withEnv() { implicit env =>
@@ -104,7 +109,7 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
       .update(
         SequencedTime(CantonTimestamp.Epoch),
         EffectiveTime(CantonTimestamp.Epoch),
-        removeMapping = Set.empty,
+        removeMapping = Map.empty,
         removeTxs = Set.empty,
         additions = Seq(
           topologyTransactionFactory.ns1k1_k1,
@@ -169,7 +174,7 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
         health = None,
         new SimClock(loggerFactory = loggerFactory),
         testedProtocolVersion,
-        rateLimitManager = None,
+        blockRateLimitManager = defaultRateLimiter,
         OrderingTimeFixMode.MakeStrictlyIncreasing,
         processingTimeouts = BlockSequencerTest.this.timeouts,
         logEventDetails = true,
@@ -233,11 +238,10 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
     override val maybeLowerTopologyTimestampBound: Option[CantonTimestamp] = None
 
     override def handleBlock(
-        updateClosure: BlockUpdateClosureWithHeight
-    ): FutureUnlessShutdown[BlockEphemeralState] =
-      FutureUnlessShutdown.pure(
-        BlockEphemeralState(BlockInfo.initial, EphemeralState.empty)
-      ) // Discarded anyway
+        priorState: HeadState,
+        updateClosure: BlockUpdateClosureWithHeight,
+    ): FutureUnlessShutdown[HeadState] =
+      FutureUnlessShutdown.pure(priorState) // Discarded anyway
 
     override def getHeadState: BlockSequencerStateManager.HeadState =
       BlockSequencerStateManager.HeadState(
@@ -257,10 +261,11 @@ class BlockSequencerTest extends AsyncWordSpec with BaseTest with HasExecutionCo
     override private[domain] def firstSequencerCounterServableForSequencer
         : com.digitalasset.canton.SequencerCounter = ???
     override def handleLocalEvent(
-        event: com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
+        priorHead: HeadState,
+        event: com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent,
     )(implicit
         traceContext: com.digitalasset.canton.tracing.TraceContext
-    ): scala.concurrent.Future[Unit] = ???
+    ): scala.concurrent.Future[HeadState] = ???
     override def isMemberEnabled(member: com.digitalasset.canton.topology.Member): Boolean = ???
     override def pruneLocalDatabase(timestamp: com.digitalasset.canton.data.CantonTimestamp)(
         implicit traceContext: com.digitalasset.canton.tracing.TraceContext

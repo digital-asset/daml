@@ -12,7 +12,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import scala.concurrent.Future
 
 /** Serves as a backend to implement
-  * [[com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc]]
+  * [[com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc]]
   */
 trait IndexPartyManagementService {
   def getParticipantId(): Future[ParticipantId]

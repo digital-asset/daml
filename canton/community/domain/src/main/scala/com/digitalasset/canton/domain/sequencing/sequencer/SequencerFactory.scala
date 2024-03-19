@@ -9,8 +9,7 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.domain.block.SequencerDriver
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficBalanceStore
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
@@ -38,7 +37,7 @@ trait SequencerFactory extends AutoCloseable {
       driverClock: Clock, // this clock is only used in tests, otherwise can the same clock as above can be passed
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      mkRateLimitManager: TrafficBalanceStore => Option[SequencerRateLimitManager],
+      trafficConfig: SequencerTrafficConfig,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -77,7 +76,7 @@ class CommunityDatabaseSequencerFactory(
       driverClock: Clock,
       domainSyncCryptoApi: DomainSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
-      mkRateLimitManager: TrafficBalanceStore => Option[SequencerRateLimitManager],
+      trafficConfig: SequencerTrafficConfig,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -86,6 +85,7 @@ class CommunityDatabaseSequencerFactory(
   ): Future[Sequencer] = {
     val sequencer = DatabaseSequencer.single(
       config,
+      None,
       nodeParameters.processingTimeouts,
       storage,
       clock,

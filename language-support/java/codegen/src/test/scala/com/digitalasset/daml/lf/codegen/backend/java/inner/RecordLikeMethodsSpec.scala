@@ -81,39 +81,6 @@ final class RecordLikeMethodsSpec
     toValue.annotations shouldBe empty
   }
 
-  behavior of "RecordMethods.deprecatedFromValueSpec"
-
-  it should "be correctly named" in {
-    deprecatedFromValue.name shouldBe "fromValue"
-  }
-
-  it should "be public static" in {
-    deprecatedFromValue.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
-  }
-
-  it should "return the outer class" in {
-    deprecatedFromValue.returnType shouldEqual name
-  }
-
-  it should "take a single parameter 'value$' of type Value" in {
-    val parameters = deprecatedFromValue.parameters.asScala.map(p => p.name -> p.`type`)
-    parameters should contain only "value$" -> TypeName.get(classOf[javaapi.data.Value])
-  }
-
-  it should "throw an IllegalArgumentException" in {
-    deprecatedFromValue.exceptions should contain only TypeName.get(
-      classOf[IllegalArgumentException]
-    )
-  }
-
-  it should "declare deprecated annotation" in {
-    deprecatedFromValue.annotations should contain only AnnotationSpec
-      .builder(
-        classOf[Deprecated]
-      )
-      .build
-  }
-
   behavior of "RecordMethods.valueDecoderSpec"
 
   it should "be correctly named" in {
@@ -155,6 +122,6 @@ final class RecordLikeMethodsSpec
       IndexedSeq.empty,
     )
   }
-  private val Vector(constructor, deprecatedFromValue, valueDecoder, toValue) = methods.take(4)
+  private val Vector(constructor, valueDecoder, toValue) = methods.take(3)
 
 }

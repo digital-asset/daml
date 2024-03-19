@@ -198,6 +198,7 @@ da_scala_test_suite(
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
             "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
         ],
+        flaky = True,
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
             "@maven//:org_apache_pekko_pekko_stream",

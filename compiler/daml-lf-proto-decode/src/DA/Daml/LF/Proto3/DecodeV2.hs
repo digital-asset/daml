@@ -255,9 +255,7 @@ decodeDefValueNameWithType LF2.DefValue_NameWithType{..} = (,)
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF2.DefValue -> Decode DefValue
-decodeDefValue (LF2.DefValue mbBinder mbBody noParties isTest mbLoc) = do
-  when (not noParties) $
-    throwError (ParseError "DefValue uses unsupported no_party_literals flag")
+decodeDefValue (LF2.DefValue mbLoc mbBinder mbBody isTest) = do
   DefValue
     <$> traverse decodeLocation mbLoc
     <*> mayDecode "defValueName" mbBinder decodeDefValueNameWithType
@@ -317,52 +315,14 @@ decodeChoice LF2.TemplateChoice{..} =
 
 decodeBuiltinFunction :: LF2.BuiltinFunction -> Decode BuiltinExpr
 decodeBuiltinFunction = \case
-  LF2.BuiltinFunctionEQUAL -> pure BEEqualGeneric
-  LF2.BuiltinFunctionLESS -> pure BELessGeneric
-  LF2.BuiltinFunctionLESS_EQ -> pure BELessEqGeneric
-  LF2.BuiltinFunctionGREATER -> pure BEGreaterGeneric
-  LF2.BuiltinFunctionGREATER_EQ -> pure BEGreaterEqGeneric
-
-  LF2.BuiltinFunctionEQUAL_INT64 -> pure (BEEqual BTInt64)
-  LF2.BuiltinFunctionEQUAL_NUMERIC -> pure BEEqualNumeric
-  LF2.BuiltinFunctionEQUAL_TEXT -> pure (BEEqual BTText)
-  LF2.BuiltinFunctionEQUAL_TIMESTAMP -> pure (BEEqual BTTimestamp)
-  LF2.BuiltinFunctionEQUAL_DATE -> pure (BEEqual BTDate)
-  LF2.BuiltinFunctionEQUAL_PARTY -> pure (BEEqual BTParty)
-  LF2.BuiltinFunctionEQUAL_BOOL -> pure (BEEqual BTBool)
-  LF2.BuiltinFunctionEQUAL_TYPE_REP -> pure (BEEqual BTTypeRep)
-
-  LF2.BuiltinFunctionLEQ_INT64 -> pure (BELessEq BTInt64)
-  LF2.BuiltinFunctionLEQ_NUMERIC -> pure BELessEqNumeric
-  LF2.BuiltinFunctionLEQ_TEXT -> pure (BELessEq BTText)
-  LF2.BuiltinFunctionLEQ_TIMESTAMP -> pure (BELessEq BTTimestamp)
-  LF2.BuiltinFunctionLEQ_DATE -> pure (BELessEq BTDate)
-  LF2.BuiltinFunctionLEQ_PARTY -> pure (BELessEq BTParty)
-
-  LF2.BuiltinFunctionLESS_INT64 -> pure (BELess BTInt64)
-  LF2.BuiltinFunctionLESS_NUMERIC -> pure BELessNumeric
-  LF2.BuiltinFunctionLESS_TEXT -> pure (BELess BTText)
-  LF2.BuiltinFunctionLESS_TIMESTAMP -> pure (BELess BTTimestamp)
-  LF2.BuiltinFunctionLESS_DATE -> pure (BELess BTDate)
-  LF2.BuiltinFunctionLESS_PARTY -> pure (BELess BTParty)
-
-  LF2.BuiltinFunctionGEQ_INT64 -> pure (BEGreaterEq BTInt64)
-  LF2.BuiltinFunctionGEQ_NUMERIC -> pure BEGreaterEqNumeric
-  LF2.BuiltinFunctionGEQ_TEXT -> pure (BEGreaterEq BTText)
-  LF2.BuiltinFunctionGEQ_TIMESTAMP -> pure (BEGreaterEq BTTimestamp)
-  LF2.BuiltinFunctionGEQ_DATE -> pure (BEGreaterEq BTDate)
-  LF2.BuiltinFunctionGEQ_PARTY -> pure (BEGreaterEq BTParty)
-
-  LF2.BuiltinFunctionGREATER_INT64 -> pure (BEGreater BTInt64)
-  LF2.BuiltinFunctionGREATER_NUMERIC -> pure BEGreaterNumeric
-  LF2.BuiltinFunctionGREATER_TEXT -> pure (BEGreater BTText)
-  LF2.BuiltinFunctionGREATER_TIMESTAMP -> pure (BEGreater BTTimestamp)
-  LF2.BuiltinFunctionGREATER_DATE -> pure (BEGreater BTDate)
-  LF2.BuiltinFunctionGREATER_PARTY -> pure (BEGreater BTParty)
+  LF2.BuiltinFunctionEQUAL -> pure BEEqual
+  LF2.BuiltinFunctionLESS -> pure BELess
+  LF2.BuiltinFunctionLESS_EQ -> pure BELessEq
+  LF2.BuiltinFunctionGREATER -> pure BEGreater
+  LF2.BuiltinFunctionGREATER_EQ -> pure BEGreaterEq
 
   LF2.BuiltinFunctionINT64_TO_TEXT -> pure (BEToText BTInt64)
   LF2.BuiltinFunctionNUMERIC_TO_TEXT -> pure BENumericToText
-  LF2.BuiltinFunctionTEXT_TO_TEXT -> pure (BEToText BTText)
   LF2.BuiltinFunctionTIMESTAMP_TO_TEXT -> pure (BEToText BTTimestamp)
   LF2.BuiltinFunctionPARTY_TO_TEXT -> pure (BEToText BTParty)
   LF2.BuiltinFunctionDATE_TO_TEXT -> pure (BEToText BTDate)
@@ -373,7 +333,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionTEXT_TO_INT64 -> pure BETextToInt64
   LF2.BuiltinFunctionTEXT_TO_NUMERIC -> pure BETextToNumeric
   LF2.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
-  LF2.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> pure BEPartyToQuotedText
 
   LF2.BuiltinFunctionADD_NUMERIC   -> pure BEAddNumeric
   LF2.BuiltinFunctionSUB_NUMERIC   -> pure BESubNumeric
@@ -426,7 +385,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionNUMERIC_TO_INT64 -> pure BENumericToInt64
 
   LF2.BuiltinFunctionTRACE -> pure BETrace
-  LF2.BuiltinFunctionEQUAL_CONTRACT_ID -> pure BEEqualContractId
   LF2.BuiltinFunctionCOERCE_CONTRACT_ID -> pure BECoerceContractId
 
   LF2.BuiltinFunctionTYPE_REP_TYCON_NAME -> pure BETypeRepTyConName
@@ -440,29 +398,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> pure BEShiftRightBigNumeric
   LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> pure BEBigNumericToNumeric
   LF2.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> pure BENumericToBigNumeric
-
-  LF2.BuiltinFunctionADD_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionSUB_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionMUL_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionDIV_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionROUND_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionLEQ_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionLESS_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionGEQ_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionGREATER_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionDECIMAL_TO_TEXT -> unsupportedDecimal
-  LF2.BuiltinFunctionINT64_TO_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionDECIMAL_TO_INT64 -> unsupportedDecimal
-  LF2.BuiltinFunctionEQUAL_DECIMAL -> unsupportedDecimal
-  LF2.BuiltinFunctionTEXT_TO_DECIMAL -> unsupportedDecimal
-
-  LF2.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY -> error "The builin TEXT_TO_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionMUL_NUMERIC_LEGACY -> error "The builin MUL_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionDIV_NUMERIC_LEGACY -> error "The builin DIV_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionCAST_NUMERIC_LEGACY -> error "The builin CAST_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionSHIFT_NUMERIC_LEGACY -> error "The builin SHIFT_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionINT64_TO_NUMERIC_LEGACY -> error "The builin INT64_TO_NUMERIC_LEGACY is not supported by LF 2.x"
-  LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> error "The builin BIGNUMERIC_TO_NUMERIC_LEGACY is not supported by LF 2.x"
 
 decodeLocation :: LF2.Location -> Decode SourceLoc
 decodeLocation (LF2.Location mbModRef mbRange) = do
@@ -482,16 +417,16 @@ decodeExprSum :: Maybe LF2.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumVarInternedStr strId -> EVar <$> decodeNameId ExprVarName strId
   LF2.ExprSumVal val -> EVal <$> decodeValName val
-  LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
+  LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltinFun <$> decodeBuiltinFunction bi
   LF2.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
-  LF2.ExprSumBuiltinCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
+  LF2.ExprSumBuiltinCon (Proto.Enumerated (Right con)) -> pure $ EBuiltinFun $ case con of
     LF2.BuiltinConCON_UNIT -> BEUnit
     LF2.BuiltinConCON_TRUE -> BEBool True
     LF2.BuiltinConCON_FALSE -> BEBool False
 
   LF2.ExprSumBuiltinCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltinCon" num)
   LF2.ExprSumBuiltinLit lit ->
-    EBuiltin <$> decodeBuiltinLit lit
+    EBuiltinFun <$> decodeBuiltinLit lit
   LF2.ExprSumRecCon (LF2.Expr_RecCon mbTycon fields) ->
     ERecCon
       <$> mayDecode "Expr_RecConTycon" mbTycon decodeTypeConApp
@@ -945,6 +880,3 @@ decodeSet mkDuplicateError decode1 xs = do
         if S.member item accum
           then throwError (mkDuplicateError item)
           else pure (S.insert item accum)
-
-unsupportedDecimal :: Decode a
-unsupportedDecimal = throwError (ParseError "Decimal is unsupported in LF >= 1.8")

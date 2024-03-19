@@ -50,7 +50,9 @@ import DA.Semigroup
 import DA.Set
 import DA.Stack
 import DA.Text
+#ifdef DAML_TEXTMAP
 import DA.TextMap
+#endif
 import DA.Time
 import DA.Traversable
 import DA.Tuple

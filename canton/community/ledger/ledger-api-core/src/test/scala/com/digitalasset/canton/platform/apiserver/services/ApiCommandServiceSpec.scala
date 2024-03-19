@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitForUpdateIdResponse,
   SubmitAndWaitRequest,
 }
+import com.daml.ledger.api.v2.commands.{Command, CreateCommand}
+import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Ref
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.BaseTest
@@ -51,7 +51,7 @@ class ApiCommandServiceSpec
         commandsValidator = commandsValidator,
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
-        maxDeduplicationDuration = () => Some(Duration.ZERO),
+        maxDeduplicationDuration = Duration.ZERO,
         generateSubmissionId = () =>
           Ref.SubmissionId.assertFromString(
             s"$submissionIdPrefix${submissionCounter.incrementAndGet()}"
@@ -104,7 +104,7 @@ class ApiCommandServiceSpec
         commandsValidator = commandsValidator,
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
-        maxDeduplicationDuration = () => Some(Duration.ZERO),
+        maxDeduplicationDuration = Duration.ZERO,
         generateSubmissionId = () => Ref.SubmissionId.assertFromString(s"submissionId"),
         telemetry = telemetry,
         loggerFactory = loggerFactory,

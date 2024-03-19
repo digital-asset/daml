@@ -31,18 +31,7 @@ import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 const LEDGER_ID = "build-and-lint-test";
 const APPLICATION_ID = "build-and-lint-test";
 const SECRET_KEY = "secret";
-const computeToken = (party: string) =>
-  encode(
-    {
-      "https://daml.com/ledger-api": {
-        ledgerId: LEDGER_ID,
-        applicationId: APPLICATION_ID,
-        actAs: [party],
-      },
-    },
-    SECRET_KEY,
-    "HS256",
-  );
+const DAML_TEXTMAP = false;
 
 const computeUserToken = (name: string) =>
   encode(
@@ -67,10 +56,13 @@ const ADMIN_TOKEN = encode(
 );
 // Further setup required after canton is started
 let ALICE_PARTY = "Alice";
+let ALICE_USER = "alice";
 let ALICE_TOKEN = "";
 let BOB_PARTY = "Bob";
+let BOB_USER = "bob";
 let BOB_TOKEN = "";
 let CHARLIE_PARTY = "Charlie";
+let CHARLIE_USER = "charlie";
 let CHARLIE_TOKEN = "";
 // Will be `build-and-lint-test::[somehash]`
 let PARTICIPANT_PARTY_DETAILS: PartyInfo | undefined = undefined;
@@ -156,14 +148,26 @@ beforeAll(async () => {
     return party.identifier;
   }
 
+  async function createUser(userName: string, party: string): Promise<string> {
+    const userRights = [UserRightHelper.canActAs(party)];
+    await ledger.createUser(userName, userRights, party);
+    const user = await ledger.getUser(userName);
+    return user.userId;
+  }
+
   console.log("Explicitly allocating parties");
   ALICE_PARTY = await allocateParty(ALICE_PARTY);
   BOB_PARTY = await allocateParty(BOB_PARTY);
   CHARLIE_PARTY = await allocateParty(CHARLIE_PARTY);
 
-  ALICE_TOKEN = computeToken(ALICE_PARTY);
-  BOB_TOKEN = computeToken(BOB_PARTY);
-  CHARLIE_TOKEN = computeToken(CHARLIE_PARTY);
+  console.log("Creating users");
+  ALICE_USER = await createUser(ALICE_USER, ALICE_PARTY);
+  BOB_USER = await createUser(BOB_USER, BOB_PARTY);
+  CHARLIE_USER = await createUser(CHARLIE_USER, CHARLIE_PARTY);
+
+  ALICE_TOKEN = computeUserToken(ALICE_USER);
+  BOB_TOKEN = computeUserToken(BOB_USER);
+  CHARLIE_TOKEN = computeUserToken(CHARLIE_USER);
 
   console.log("JSON API listening on port " + jsonApiPort.toString());
 }, 300_000);
@@ -503,7 +507,7 @@ test("create + fetch & exercise", async () => {
     optionalOptionalInt2: [], // Some (None)
     optionalOptionalInt3: null, // None
     list: [true, false],
-    textMap: { alice: "2", "bob & carl": "3" },
+    textMap: DAML_TEXTMAP ? { alice: "2", "bob & carl": "3" } : {},
     monoRecord: alice5,
     polyRecord: { one: "10", two: "XYZ" },
     imported: { field: { something: "pqr" } },
@@ -549,7 +553,7 @@ test("create + fetch & exercise", async () => {
     n0: "3.0", // Numeric 0
     n5: "3.14159", // Numeric 5
     n10: "3.1415926536", // Numeric 10
-    rec: { recOptional: null, recList: [], recTextMap: {} },
+    rec: { recOptional: null, recList: [], recGenMap: emptyMap() },
     voidRecord: null,
     voidEnum: null,
     genMap: map,
@@ -623,8 +627,8 @@ test("exercise using explicit disclosure", async () => {
             },
           },
         },
-        beginExclusive: { boundary: "PARTICIPANT_BEGIN" },
-        endInclusive: { boundary: "PARTICIPANT_END" },
+        beginExclusive: { boundary: "PARTICIPANT_BOUNDARY_BEGIN" },
+        endInclusive: { boundary: "PARTICIPANT_BOUNDARY_END" },
       }),
       "localhost:5011",
       "com.daml.ledger.api.v2.UpdateService/GetUpdates",
@@ -1153,6 +1157,8 @@ test("user API", async () => {
     UserRightHelper.participantAdmin,
   ]);
 
+  const allUserIds = (await ledger.listUsers()).map(it => it.userId);
+
   const niceUser = "nice.user";
   const niceUserRights = [UserRightHelper.canActAs(ALICE_PARTY)];
   await ledger.createUser(niceUser, niceUserRights, ALICE_PARTY);
@@ -1175,12 +1181,12 @@ test("user API", async () => {
     UserRightHelper.canActAs(ALICE_PARTY),
   ]);
 
-  const allUserIds = (await ledger.listUsers()).map(it => it.userId);
-  expect(_.sortBy(allUserIds)).toEqual([niceUser, "participant_admin"]);
+  const allUserIdsPlusNice = (await ledger.listUsers()).map(it => it.userId);
+  const newUserIds = allUserIdsPlusNice.filter(id => !allUserIds.includes(id));
+  expect(newUserIds).toEqual([niceUser]);
   await ledger.deleteUser(niceUser);
-  expect((await ledger.listUsers()).map(it => it.userId)).toEqual([
-    "participant_admin",
-  ]);
+  const allUserIdsEnd = (await ledger.listUsers()).map(it => it.userId);
+  expect(_.sortBy(allUserIdsEnd)).toEqual(_.sortBy(allUserIds));
 });
 
 test("package API", async () => {

@@ -12,15 +12,15 @@ import org.junit.runners.Suite;
  */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-  ContractKeysTest.class,
   DecoderTest.class,
+  GenMapTest.class,
   ListTest.class,
+  NumericTest.class,
   OptionalTest.class,
   ParametrizedContractIdTest.class,
   RecordTest.class,
   TemplateMethodTest.class,
-  TextMapTest.class,
-  VariantTest.class,
   UpgradeTest.class,
+  VariantTest.class,
 })
 public class AllGenericTests {}

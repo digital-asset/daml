@@ -45,9 +45,14 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
-import com.digitalasset.canton.traffic.{MemberTrafficStatus, TrafficBalanceSubmissionHandler}
+import com.digitalasset.canton.traffic.{
+  MemberTrafficStatus,
+  TrafficBalanceSubmissionHandler,
+  TrafficControlErrors,
+}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.{EitherTUtil, OptionUtil, PekkoUtil}
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -71,7 +76,7 @@ class BlockSequencer(
     health: Option[SequencerHealthConfig],
     clock: Clock,
     protocolVersion: ProtocolVersion,
-    rateLimitManager: Option[SequencerRateLimitManager],
+    blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
@@ -91,64 +96,63 @@ class BlockSequencer(
 
   override def timeouts: ProcessingTimeout = processingTimeouts
 
+  override lazy val rateLimitManager: Option[SequencerRateLimitManager] = Some(
+    blockRateLimitManager
+  )
+
   private val trafficBalanceSubmissionHandler =
     new TrafficBalanceSubmissionHandler(clock, loggerFactory)
   override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
     stateManager.firstSequencerCounterServableForSequencer
 
-  noTracingLogger.info(
-    s"Subscribing to block source from ${stateManager.getHeadState.block.height}"
-  )
   private val (killSwitch, localEventsQueue, done) = {
+    val headState = stateManager.getHeadState
+    noTracingLogger.info(s"Subscribing to block source from ${headState.block.height}")
+
     val updateGenerator = new BlockUpdateGenerator(
       domainId,
       protocolVersion,
       cryptoApi,
       sequencerId,
       stateManager.maybeLowerTopologyTimestampBound,
-      rateLimitManager,
+      blockRateLimitManager,
       orderingTimeFixMode,
       loggerFactory,
     )(CloseContext(cryptoApi))
+
+    val driverSource = blockSequencerOps
+      .subscribe()(TraceContext.empty)
+      .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+    val localSource = Source
+      .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
+      .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+    val combinedSource = Source
+      .combineMat(
+        driverSource,
+        localSource,
+      )(Merge(_))(Keep.both)
+    implicit val traceContext = TraceContext.empty
+    val combinedSourceWithBlockHandling =
+      combinedSource.statefulMapAsyncUSAndDrain(headState) { (headState, next) =>
+        next match {
+          case Right(blockEvents) =>
+            stateManager
+              .handleBlock(headState, updateGenerator.asBlockUpdate(blockEvents))
+              .map { nextHead =>
+                metrics.sequencerClient.handler.delay
+                  .updateValue((clock.now - nextHead.block.lastTs).toMillis)
+                nextHead -> ()
+              }
+          case Left(localEvent) =>
+            FutureUnlessShutdown.outcomeF(
+              stateManager
+                .handleLocalEvent(headState, localEvent)
+                .map(_ -> ())
+            )
+        }
+      }
     val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
-        val driverSource = blockSequencerOps
-          .subscribe()(TraceContext.empty)
-          .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
-        val localSource = Source
-          .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
-          .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
-        val combinedSource = Source
-          .combineMat(
-            driverSource,
-            localSource,
-          )(Merge(_))(Keep.both)
-        val combinedSourceWithBlockHandling = combinedSource
-          .mapAsync(
-            // `stateManager.handleBlock` in `handleBlockContents` must execute sequentially.
-            parallelism = 1
-          ) {
-            case Right(blockEvents) =>
-              implicit val tc: TraceContext =
-                blockEvents.events.headOption.map(_.traceContext).getOrElse(TraceContext.empty)
-              logger.debug(
-                s"Handle block with height=${blockEvents.blockHeight} with num-events=${blockEvents.events.length}"
-              )
-              stateManager
-                .handleBlock(
-                  updateGenerator.asBlockUpdate(blockEvents)
-                )
-                .map { state =>
-                  metrics.sequencerClient.handler.delay
-                    .updateValue((clock.now - state.latestBlock.lastTs).toMillis)
-                }
-                .onShutdown(
-                  logger.debug(
-                    s"Block with height=${blockEvents.blockHeight} wasn't handled because sequencer is shutting down"
-                  )
-                )
-            case Left(localEvent) => stateManager.handleLocalEvent(localEvent)(TraceContext.empty)
-          }
         combinedSourceWithBlockHandling.toMat(Sink.ignore)(Keep.both)
       },
     )
@@ -160,23 +164,8 @@ class BlockSequencer(
     case Failure(ex) => noTracingLogger.error("Sequencer flow has failed", ex)
   }
 
-  private object TopologyTimestampCheck
-
-  private def ensureTopologyTimestampPresentForAggregationRuleAndSignatures(
-      submission: SubmissionRequest
-  ): EitherT[Future, SendAsyncError, TopologyTimestampCheck.type] =
-    EitherT.cond[Future](
-      submission.aggregationRule.isEmpty || submission.topologyTimestamp.isDefined ||
-        submission.batch.envelopes.forall(_.signatures.isEmpty),
-      TopologyTimestampCheck,
-      SendAsyncError.RequestInvalid(
-        s"Submission id ${submission.messageId} has `aggregationRule` set and envelopes contain signatures, but `topologyTimestamp` is not defined. Please set the `topologyTimestamp` for the submission."
-      ): SendAsyncError,
-    )
-
   private def validateMaxSequencingTime(
-      _topologyTimestampCheck: TopologyTimestampCheck.type,
-      submission: SubmissionRequest,
+      submission: SubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     val estimatedSequencingTimestamp = clock.now
     submission.aggregationRule match {
@@ -242,9 +231,9 @@ class BlockSequencer(
     )
 
     for {
-      topologyTimestampCheck <-
-        ensureTopologyTimestampPresentForAggregationRuleAndSignatures(submission)
-      _ <- validateMaxSequencingTime(topologyTimestampCheck, submission)
+      // TODO(i17584): revisit the consequences of no longer enforcing that
+      //  aggregated submissions with signed envelopes define a topology snapshot
+      _ <- validateMaxSequencingTime(submission)
       memberCheck <- EitherT.right[SendAsyncError](
         cryptoApi.currentSnapshotApproximation.ipsSnapshot
           .allMembers()
@@ -315,7 +304,9 @@ class BlockSequencer(
     * purely local operations that do not affect other block sequencers that share the same source of
     * events.
     */
-  override def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] = {
+  protected def disableMemberInternal(
+      member: Member
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     if (!stateManager.isMemberRegistered(member)) {
       logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
       Future.unit
@@ -333,6 +324,8 @@ class BlockSequencer(
       } yield ()
     }
   }
+
+  override protected def localSequencerMember: DomainMember = sequencerId
 
   override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -430,7 +423,7 @@ class BlockSequencer(
     for {
       ledgerStatus <- blockSequencerOps.health
       isStorageActive = storage.isActive
-      _ = logger.debug(s"Storage active: ${storage.isActive}")
+      _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {
       if (!ledgerStatus.isActive) SequencerHealthStatus(isActive = false, ledgerStatus.description)
       else
@@ -481,43 +474,50 @@ class BlockSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, TrafficStateUpdateResult]] = {
     // Get the parameters for the traffic control
-    OptionUtil.zipWithFDefaultValue(
-      rateLimitManager,
-      FutureUnlessShutdown.outcomeF(
-        cryptoApi.headSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
-      ),
-      Map.empty[Member, TrafficStateUpdateResult],
-    ) { case (rlm, parameters) =>
-      // Use the head ephemeral state to get the known traffic states
-      val headEphemeral = stateManager.getHeadState.chunk.ephemeral
-      val requestedMembersSet = requestedMembers.toSet
+    cryptoApi.headSnapshot.ipsSnapshot
+      .trafficControlParameters(protocolVersion)
+      .flatMap {
+        case Some(parameters) =>
+          // Use the head ephemeral state to get the known traffic states
+          val headEphemeral = stateManager.getHeadState.chunk.ephemeral
+          val requestedMembersSet = requestedMembers.toSet
 
-      // Filter by authenticated, enabled members that have been requested
-      val knownValidMembers = headEphemeral.status.members.collect {
-        case SequencerMemberStatus(m @ (_: ParticipantId | _: MediatorId), _, _, true)
-            if m.isAuthenticated && Option
-              .when(requestedMembersSet.nonEmpty)(requestedMembersSet)
-              .forall(_.contains(m)) =>
-          m
+          // Filter by authenticated, enabled members that have been requested
+          val knownValidMembers = headEphemeral.status.members.collect {
+            case SequencerMemberStatus(m @ (_: ParticipantId | _: MediatorId), _, _, true)
+                if m.isAuthenticated && Option
+                  .when(requestedMembersSet.nonEmpty)(requestedMembersSet)
+                  .forall(_.contains(m)) =>
+              m
+          }
+          // Log if we're missing any states
+          val missingMembers = requestedMembersSet.diff(knownValidMembers.toSet)
+          if (missingMembers.nonEmpty)
+            logger.info(
+              s"No traffic state found for the following members: ${missingMembers.mkString(", ")}"
+            )
+
+          val knownStates =
+            headEphemeral.trafficState.view.filterKeys(knownValidMembers.contains).toMap
+
+          updateTimestamp
+            .map { ts =>
+              blockRateLimitManager.getUpdatedTrafficStatesAtTimestamp(
+                partialTrafficStates = knownStates,
+                updateTimestamp = ts,
+                trafficControlParameters = parameters,
+                lastBalanceUpdateTimestamp = None,
+                warnIfApproximate = false,
+              )
+            }
+            .getOrElse {
+              blockRateLimitManager.getLatestTrafficStates(
+                partialTrafficStates = knownStates,
+                trafficControlParameters = parameters,
+              )
+            }
+        case _ => FutureUnlessShutdown.pure(Map.empty)
       }
-      // Log if we're missing any states
-      val missingMembers = requestedMembersSet.diff(knownValidMembers.toSet)
-      if (missingMembers.nonEmpty)
-        logger.info(
-          s"No traffic state found for the following members: ${missingMembers.mkString(", ")}"
-        )
-
-      val knownStates = headEphemeral.trafficState.view.filterKeys(knownValidMembers.contains).toMap
-
-      // Update the sates and return them
-      rlm.updateTrafficStates(
-        partialTrafficStates = knownStates,
-        updateTimestamp = updateTimestamp,
-        trafficControlParameters = parameters,
-        lastBalanceUpdateTimestamp = None,
-        warnIfApproximate = false,
-      )
-    }
   }
 
   override def setTrafficBalance(
@@ -528,15 +528,25 @@ class BlockSequencer(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TrafficControlError, CantonTimestamp] = {
-    trafficBalanceSubmissionHandler.sendTrafficBalanceRequest(
-      member,
-      domainId,
-      protocolVersion,
-      serial,
-      totalTrafficBalance,
-      sequencerClient,
-      cryptoApi,
-    )
+    for {
+      latestBalanceO <- EitherT.right(blockRateLimitManager.lastKnownBalanceFor(member))
+      maxSerialO = latestBalanceO.map(_.serial)
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        maxSerialO.forall(_ < serial),
+        TrafficControlErrors.TrafficControlSerialTooLow.Error(
+          s"The provided serial value $serial is too low. Latest serial used by this member is $maxSerialO"
+        ),
+      )
+      timestamp <- trafficBalanceSubmissionHandler.sendTrafficBalanceRequest(
+        member,
+        domainId,
+        protocolVersion,
+        serial,
+        totalTrafficBalance,
+        sequencerClient,
+        cryptoApi,
+      )
+    } yield timestamp
   }
 
   override def trafficStatus(requestedMembers: Seq[Member])(implicit

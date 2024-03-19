@@ -73,7 +73,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
         .update(
           sequenced,
           effective,
-          removeMapping = Set.empty,
+          removeMapping = Map.empty,
           removeTxs = Set.empty,
           txs.map(ValidatedTopologyTransactionX(_, None)).toList,
         )

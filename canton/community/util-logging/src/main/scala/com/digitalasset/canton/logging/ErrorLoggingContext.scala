@@ -49,19 +49,17 @@ abstract class ErrorLoggingContextBase(
       "err-context" -> ("{" + ContextualizedErrorLogger.formatContextAsString(mergedContext) + "}"),
     ) ++ properties
     val message = err.code.toMsg(err.cause, correlationId)
-    arguments.foreach { case (name, value) =>
-      MDC.put(name, value)
+    withContext(arguments) {
+      (err.code.logLevel, err.throwableO) match {
+        case (Level.INFO, None) => logger.info(message)
+        case (Level.INFO, Some(tr)) => logger.info(message, tr)
+        case (Level.WARN, None) => logger.warn(message)
+        case (Level.WARN, Some(tr)) => logger.warn(message, tr)
+        // an error that is logged with < INFO is not an error ...
+        case (_, None) => logger.error(message)
+        case (_, Some(tr)) => logger.error(message, tr)
+      }
     }
-    (err.code.logLevel, err.throwableO) match {
-      case (Level.INFO, None) => logger.info(message)
-      case (Level.INFO, Some(tr)) => logger.info(message, tr)
-      case (Level.WARN, None) => logger.warn(message)
-      case (Level.WARN, Some(tr)) => logger.warn(message, tr)
-      // an error that is logged with < INFO is not an error ...
-      case (_, None) => logger.error(message)
-      case (_, Some(tr)) => logger.error(message, tr)
-    }
-    arguments.keys.foreach(key => MDC.remove(key))
   }
 
   override def info(message: String): Unit = logger.info(message)(traceContext)
@@ -80,6 +78,14 @@ abstract class ErrorLoggingContextBase(
   def trace(message: String): Unit = logger.trace(message)(traceContext)
   def trace(message: String, throwable: Throwable): Unit =
     logger.trace(message, throwable)(traceContext)
+
+  def withContext[A](context: Map[String, String])(body: => A): A = {
+    context.foreach { case (name, value) =>
+      MDC.put(name, value)
+    }
+    try body
+    finally context.keys.foreach(key => MDC.remove(key))
+  }
 }
 
 final case class ErrorLoggingContext(

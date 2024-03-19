@@ -7,7 +7,7 @@ package ledgerinteraction
 
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.{Identifier, Name}
-import com.daml.lf.language.{Ast, StablePackagesV2}
+import com.daml.lf.language.{Ast}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.GlobalKey
@@ -17,6 +17,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
+import com.daml.lf.stablepackages.StablePackagesV2
 
 import scala.util.control.NoStackTrace
 

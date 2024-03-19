@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.mediator
 
 import cats.data.OptionT
-import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -55,7 +54,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
   protected def validateResponse[VKEY: ViewKey](
       viewKeyO: Option[VKEY],
-      rootHashO: Option[RootHash],
+      rootHash: RootHash,
       responseTimestamp: CantonTimestamp,
       sender: ParticipantId,
       localVerdict: LocalVerdict,
@@ -129,7 +128,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
     }
 
     for {
-      _ <- OptionT.fromOption[Future](rootHashO.traverse_ { rootHash =>
+      _ <- OptionT.fromOption[Future](
         if (request.rootHash == rootHash) Some(())
         else {
           val cause =
@@ -139,7 +138,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
 
           None
         }
-      })
+      )
 
       viewKeysAndParties <- {
         viewKeyO match {

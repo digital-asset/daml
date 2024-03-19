@@ -547,7 +547,7 @@ class ParticipantPruningAdministrationGroup(
   def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] = {
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
-        ledgerApiCommand(LedgerApiV2Commands.StateService.LedgerEnd())
+        ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
       )
       consoleEnvironment
         .run(
@@ -1533,7 +1533,7 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
             timeout,
             0,
             domainId,
-            workflowId,
+            "",
             id,
           )
       )
@@ -1547,11 +1547,10 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
       domainId: Option[DomainId] = None,
-      workflowId: String = "",
       id: String = "",
   ): Duration = {
     val adminApiRes: Either[String, Duration] =
-      ping_internal(participantId, timeout, domainId, workflowId, id)
+      ping_internal(participantId, timeout, domainId, "", id)
     consoleEnvironment.runE(
       adminApiRes.leftMap { reason =>
         s"Unable to ping $participantId within ${LoggerUtil
@@ -1569,10 +1568,9 @@ trait ParticipantHealthAdministrationCommon extends FeatureFlagFilter {
       participantId: ParticipantId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ping,
       domainId: Option[DomainId] = None,
-      workflowId: String = "",
       id: String = "",
   ): Option[Duration] = check(FeatureFlag.Testing) {
-    ping_internal(participantId, timeout, domainId, workflowId, id).toOption
+    ping_internal(participantId, timeout, domainId, "", id).toOption
   }
 }
 

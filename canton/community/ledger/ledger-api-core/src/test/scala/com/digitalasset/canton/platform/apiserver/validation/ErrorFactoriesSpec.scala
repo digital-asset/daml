@@ -159,7 +159,7 @@ class ErrorFactoriesSpec
 
     "return queueClosed" in {
       val msg =
-        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down."
+        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service is not running."
       assertStatus(
         CommonErrors.ServiceNotRunning
           .Reject("Some service")(
@@ -477,28 +477,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a missingLedgerConfig error" in {
-      val msg =
-        s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved."
-      assertError(
-        RequestValidationErrors.NotFound.LedgerConfiguration
-          .Reject()(contextualizedErrorLogger)
-      )(
-        code = Code.NOT_FOUND,
-        message = msg,
-        details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "LEDGER_CONFIGURATION_NOT_FOUND",
-            Map("category" -> "11", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
-          ),
-          expectedCorrelationIdRequestInfo,
-        ),
-        logLevel = Level.INFO,
-        logMessage = msg,
-        logErrorContextRegEx = expectedLocationRegex,
-      )
-    }
-
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
       val maxDeduplicationDuration = Duration.ofSeconds(5)
@@ -622,7 +600,7 @@ class ErrorFactoriesSpec
       val serviceName = "Some API Service"
 
       val msg =
-        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down."
+        s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName is not running."
       assertError(CommonErrors.ServiceNotRunning.Reject(serviceName)(contextualizedErrorLogger))(
         code = Code.UNAVAILABLE,
         message = msg,

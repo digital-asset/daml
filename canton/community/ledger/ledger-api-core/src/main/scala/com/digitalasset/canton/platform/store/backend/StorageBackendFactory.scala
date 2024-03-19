@@ -20,7 +20,6 @@ trait StorageBackendFactory {
   def createIngestionStorageBackend: IngestionStorageBackend[_]
   def createParameterStorageBackend: ParameterStorageBackend
   def createMeteringParameterStorageBackend: MeteringParameterStorageBackend
-  def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
   def createPartyRecordStorageBackend: PartyRecordStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
@@ -53,7 +52,6 @@ trait StorageBackendFactory {
       loggerFactory: NamedLoggerFactory,
   ): ReadStorageBackend =
     ReadStorageBackend(
-      configurationStorageBackend = createConfigurationStorageBackend(ledgerEndCache),
       partyStorageBackend = createPartyStorageBackend(ledgerEndCache),
       packageStorageBackend = createPackageStorageBackend(ledgerEndCache),
       completionStorageBackend = createCompletionStorageBackend(stringInterning, loggerFactory),
@@ -74,7 +72,6 @@ object StorageBackendFactory {
 }
 
 final case class ReadStorageBackend(
-    configurationStorageBackend: ConfigurationStorageBackend,
     partyStorageBackend: PartyStorageBackend,
     packageStorageBackend: PackageStorageBackend,
     completionStorageBackend: CompletionStorageBackend,

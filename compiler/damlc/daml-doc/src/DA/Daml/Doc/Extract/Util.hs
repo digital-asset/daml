@@ -30,18 +30,9 @@ tyVarText arg = case arg of
                   XTyVarBndr _
                     -> error "unexpected X thing"
 
--- | Same as 'docToText' but for module headers (deals with HAS_DAML_VERSION_HEADER).
-moduleDocToText :: HsDocString -> DocText
-moduleDocToText = docToText' . removeVersionHeaderAnnotation . T.pack . unpackHDS
-
 -- | Converts and trims the bytestring of a doc. decl to Text.
 docToText :: HsDocString -> DocText
 docToText = docToText' . T.pack . unpackHDS
-
--- | Remove the HAS_DAML_VERSION_HEADER annotation inserted by our patched ghc parser.
-removeVersionHeaderAnnotation :: T.Text -> T.Text
-removeVersionHeaderAnnotation doc
-    = maybe doc T.stripStart (T.stripPrefix "HAS_DAML_VERSION_HEADER" doc)
 
 docToText' :: T.Text -> DocText
 docToText' = DocText . T.strip . T.unlines . go . T.lines

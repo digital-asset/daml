@@ -269,11 +269,18 @@ class SyncDomain(
   )
 
   private val trafficProcessor =
-    new TrafficControlProcessor(domainCrypto, domainId, loggerFactory)
+    new TrafficControlProcessor(
+      domainCrypto,
+      domainId,
+      Option.empty[CantonTimestamp],
+      loggerFactory,
+    )
 
-  trafficProcessor.subscribe(
-    new ParticipantTrafficControlSubscriber(participantId, loggerFactory)
-  )
+  if (parameters.useNewTrafficControl) {
+    trafficProcessor.subscribe(
+      new ParticipantTrafficControlSubscriber(trafficStateController, participantId, loggerFactory)
+    )
+  }
 
   private val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor =
     new BadRootHashMessagesRequestProcessor(
@@ -331,8 +338,8 @@ class SyncDomain(
       traceContext: TraceContext
   ): Unit = journalGarbageCollector.removeOneLock()
 
-  def getTrafficControlState(implicit tc: TraceContext): Future[Option[MemberTrafficStatus]] =
-    trafficStateController.getState
+  def getTrafficControlState: Future[Option[MemberTrafficStatus]] =
+    trafficStateController.getState()
 
   def authorityOfInSnapshotApproximation(requestingAuthority: Set[LfPartyId])(implicit
       traceContext: TraceContext
@@ -430,8 +437,8 @@ class SyncDomain(
           val changeWithAdjustedTransferCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
             change.deactivations.fmap {
-              case StateChangeType(ContractChange.Unassigned, transferCounter) =>
-                StateChangeType(ContractChange.Unassigned, transferCounter.map(_ - 1))
+              case StateChangeType(ContractChange.TransferredOut, transferCounter) =>
+                StateChangeType(ContractChange.TransferredOut, transferCounter - 1)
               case change => change
             },
           )

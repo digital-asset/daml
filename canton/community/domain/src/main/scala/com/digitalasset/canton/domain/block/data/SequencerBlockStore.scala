@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore.InvalidTimestamp
 import com.digitalasset.canton.domain.block.data.db.DbSequencerBlockStore
@@ -26,7 +27,12 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.TrafficState
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfDomain,
+  Deliver,
+  SequencersOfDomain,
+  TrafficState,
+}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -89,6 +95,13 @@ trait SequencerBlockStore extends AutoCloseable {
 
   def pruningStatus()(implicit traceContext: TraceContext): Future[InternalSequencerPruningStatus]
 
+  /** Locate a timestamp relative to the earliest available event based on a skip index starting at 0.
+    * Useful to monitor the progress of pruning and for pruning in batches.
+    * @return The timestamp of the (skip+1)'th event if it exists, None otherwise.
+    */
+  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]]
   def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[String]
@@ -254,7 +267,18 @@ trait SequencerBlockStore extends AutoCloseable {
         )
     }
 
-    val topologyEventsInBlock = allEventsInBlock.get(topologyClientMember)
+    // Keep only the events addressed to the sequencer that advance `latestSequencerEventTimestamp`.
+    // TODO(i17741): write a security test that checks proper behavior when a sequencer is targeted directly
+    val topologyEventsInBlock = allEventsInBlock
+      .get(topologyClientMember)
+      .map(_.filter(_.signedEvent.content match {
+        case Deliver(_, _, _, _, batch, _) =>
+          val recipients = batch.allRecipients
+          recipients.contains(SequencersOfDomain) || recipients.contains(AllMembersOfDomain)
+        case _ => false
+      }))
+      .flatMap(NonEmpty.from)
+
     topologyEventsInBlock match {
       case None =>
         // For the initial state, the latest topology client timestamp
@@ -267,6 +291,7 @@ trait SequencerBlockStore extends AutoCloseable {
         }
       case Some(topologyEvents) =>
         val lastEvent = topologyEvents.toNEF.maximumBy(_.timestamp)
+
         ErrorUtil.requireState(
           currentBlock.latestSequencerEventTimestamp.contains(lastEvent.timestamp),
           s"The latest topology client timestamp for block ${currentBlock.height} is ${currentBlock.latestSequencerEventTimestamp}, but the last event in the block to $topologyClientMember is at ${lastEvent.timestamp}",

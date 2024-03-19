@@ -15,6 +15,7 @@ import cats.syntax.traverse.*
 import com.daml.error.BaseError
 import com.daml.nonempty.catsinstances.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.crypto.{
   DomainSyncCryptoClient,
@@ -28,8 +29,8 @@ import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
   BlockUpdateClosureWithHeight,
+  EphemeralState,
 }
-import com.digitalasset.canton.domain.sequencing.integrations.state.EphemeralState
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
@@ -53,16 +54,8 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{
-  EitherTUtil,
-  ErrorUtil,
-  MapsUtil,
-  MonadUtil,
-  OptionUtil,
-  SeqUtil,
-}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, IterableUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{SequencerCounter, checked}
 import monocle.macros.syntax.lens.*
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -94,7 +87,7 @@ class BlockUpdateGenerator(
     domainSyncCryptoApi: DomainSyncCryptoClient,
     sequencerId: SequencerId,
     maybeLowerTopologyTimestampBound: Option[CantonTimestamp],
-    rateLimitManager: Option[SequencerRateLimitManager],
+    rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val closeContext: CloseContext)
@@ -181,12 +174,11 @@ class BlockUpdateGenerator(
       case Send(_, signedSubmissionRequest) =>
         val allRecipients = signedSubmissionRequest.content.batch.allRecipients
         allRecipients.contains(AllMembersOfDomain) ||
-        allRecipients.contains(MemberRecipient(sequencerId)) ||
         allRecipients.contains(SequencersOfDomain)
       case _ => false
     }
 
-    SeqUtil.splitAfter(blockEvents)(event => possibleEventToThisSequencer(event.value))
+    IterableUtil.splitAfter(blockEvents)(event => possibleEventToThisSequencer(event.value))
   }
 
   private def processChunk(
@@ -222,44 +214,9 @@ class BlockUpdateGenerator(
       }
     val fixedTsChanges: Seq[(CantonTimestamp, Traced[LedgerBlockEvent])] = revFixedTsChanges.reverse
 
-    val membersToDisable = fixedTsChanges.collect { case (_, Traced(DisableMember(member))) =>
-      member
-    }
     val submissionRequests = fixedTsChanges.collect { case (ts, ev @ Traced(sendEvent: Send)) =>
       // Discard the timestamp of the `Send` event as this one is obsolete
       (ts, ev.map(_ => sendEvent.signedSubmissionRequest))
-    }
-
-    /* Pruning requests should only specify pruning timestamps that were safe at the time
-     * they were submitted for sequencing. A safe pruning timestamp never becomes unsafe,
-     * so it should still be safe. We nevertheless double-check this here and error on unsafe pruning requests.
-     * Since the safe pruning timestamp is before or at the last acknowledgement of each enabled member,
-     * and both acknowledgements and member enabling/disabling take effect only when they are part of a block,
-     * the safe pruning timestamp must be at most the last event of the previous block.
-     * If it is later, then the sequencer node that submitted the pruning request is buggy
-     * and it is better to crash.
-     */
-    // TODO(M99) Gracefully deal with buggy sequencer nodes
-    val safePruningTimestamp = lastBlockSafePruning.min(lastBlockTs)
-    val allPruneRequests = fixedTsChanges.collect { case (_, traced @ Traced(Prune(ts))) =>
-      Traced(ts)(traced.traceContext)
-    }
-    val (pruneRequests, invalidPruneRequests) = allPruneRequests.partition(
-      _.value <= safePruningTimestamp
-    )
-    if (invalidPruneRequests.nonEmpty) {
-      invalidPruneRequests.foreach(_.withTraceContext { implicit traceContext => pruneTimestamp =>
-        logger.error(
-          s"Unsafe pruning request at $pruneTimestamp. The latest safe pruning timestamp is $safePruningTimestamp for block $height"
-        )
-      })
-      val alarm = SequencerError.InvalidPruningRequestOnChain.Error(
-        height,
-        lastBlockTs,
-        lastBlockSafePruning,
-        invalidPruneRequests.map(_.value),
-      )
-      throw alarm.asGrpcError
     }
 
     for {
@@ -277,65 +234,66 @@ class BlockUpdateGenerator(
       // Warn if we use an approximate snapshot but only after we've read at least one
       warnIfApproximate = state.ephemeral.headCounterAboveGenesis(sequencerId)
       newMembersTraffic <-
-        OptionUtil.zipWithFDefaultValue(
-          rateLimitManager,
+        if (newMembers.nonEmpty) {
           // We are using the snapshot at lastTs for all new members in this chunk rather than their registration times.
           // In theory, a parameter change could have become effective in between, but we deliberately ignore this for now.
           // Moreover, a member is effectively registered when it appears in the topology state with the relevant certificate,
           // but the traffic state here is created only when the member sends or receives the first message.
-          SyncCryptoClient
-            .getSnapshotForTimestampUS(
-              client = domainSyncCryptoApi,
-              desiredTimestamp = lastTs,
-              previousTimestampO = state.latestSequencerEventTimestamp,
-              protocolVersion = protocolVersion,
-              warnIfApproximate = warnIfApproximate,
-            )
-            .flatMap(s =>
-              FutureUnlessShutdown.outcomeF(s.ipsSnapshot.trafficControlParameters(protocolVersion))
-            ),
-          Map.empty[Member, TrafficState],
-        ) { case (rlm, parameters) =>
-          newMembers.toList
-            .parTraverse { case (member, timestamp) =>
-              rlm
-                .createNewTrafficStateAt(
-                  member,
-                  timestamp.immediatePredecessor,
-                  parameters,
+          for {
+            snapshot <- SyncCryptoClient
+              .getSnapshotForTimestampUS(
+                client = domainSyncCryptoApi,
+                desiredTimestamp = lastTs,
+                previousTimestampO = state.latestSequencerEventTimestamp,
+                protocolVersion = protocolVersion,
+                warnIfApproximate = warnIfApproximate,
+              )
+            parameters <- snapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
+            updatedStates <- parameters match {
+              case Some(params) =>
+                newMembers.toList
+                  .parTraverse { case (member, timestamp) =>
+                    rateLimitManager
+                      .createNewTrafficStateAt(
+                        member,
+                        timestamp.immediatePredecessor,
+                        params,
+                      )
+                      .map(member -> _)
+                  }
+                  .map(_.toMap)
+              case _ =>
+                FutureUnlessShutdown.pure(
+                  newMembers.view.mapValues { timestamp =>
+                    TrafficState.empty(timestamp)
+                  }.toMap
                 )
-                .map(member -> _)
             }
-            .map(_.toMap)
-        }
+          } yield updatedStates
+        } else FutureUnlessShutdown.pure(Map.empty)
       stateWithNewMembers = {
         val newMemberStatus = newMembers.map { case (member, ts) =>
           member -> SequencerMemberStatus(member, ts, None)
         }
 
-        val membersWithDisablements =
-          membersToDisable.foldLeft(state.ephemeral.status.membersMap ++ newMemberStatus) {
-            case (membersMap, memberToDisable) =>
-              membersMap.updated(memberToDisable, membersMap(memberToDisable).copy(enabled = false))
-          }
-
-        val newMembersWithDisablementsAndAcknowledgements =
-          acksByMember.foldLeft(membersWithDisablements) { case (membersMap, (member, timestamp)) =>
-            membersMap
-              .get(member)
-              .fold {
-                logger.debug(
-                  s"Ack at $timestamp for $member being ignored because the member has not yet been registered."
-                )
-                membersMap
-              } { memberStatus =>
-                membersMap.updated(member, memberStatus.copy(lastAcknowledged = Some(timestamp)))
-              }
+        val newMembersWithAcknowledgements =
+          acksByMember.foldLeft(state.ephemeral.status.membersMap ++ newMemberStatus) {
+            case (membersMap, (member, timestamp)) =>
+              membersMap
+                .get(member)
+                .fold {
+                  logger.debug(
+                    s"Ack at $timestamp for $member being ignored because the member has not yet been registered."
+                  )
+                  membersMap
+                } { memberStatus =>
+                  membersMap.updated(member, memberStatus.copy(lastAcknowledged = Some(timestamp)))
+                }
           }
 
         state
           .focus(_.ephemeral.status.membersMap)
-          .replace(newMembersWithDisablementsAndAcknowledgements)
+          .replace(newMembersWithAcknowledgements)
           .focus(_.ephemeral.trafficState)
           .modify(_ ++ newMembersTraffic)
       }
@@ -344,24 +302,23 @@ class BlockUpdateGenerator(
           Seq.empty[SignedEvents],
           Map.empty[AggregationId, InFlightAggregationUpdate],
           stateWithNewMembers.ephemeral,
+          Option.empty[CantonTimestamp],
         ),
         submissionRequestsWithSnapshots,
       )(validateSubmissionRequestAndAddEvents(height, state.latestSequencerEventTimestamp))
     } yield result match {
-      case (reversedSignedEvents, inFlightAggregationUpdates, finalEphemeralState) =>
-        val lastSequencerEventTimestamp: Option[CantonTimestamp] =
-          reversedSignedEvents.iterator.collectFirst {
-            case memberEvents if memberEvents.contains(sequencerId) =>
-              checked(memberEvents(sequencerId)).timestamp
-          }
+      case (
+            reversedSignedEvents,
+            inFlightAggregationUpdates,
+            finalEphemeralState,
+            lastSequencerEventTimestamp,
+          ) =>
         val chunkUpdate = ChunkUpdate(
           newMembers,
-          membersToDisable,
           acksByMember,
           invalidAcks,
           reversedSignedEvents.reverse,
           inFlightAggregationUpdates,
-          pruneRequests,
           lastSequencerEventTimestamp,
           finalEphemeralState,
         )
@@ -543,12 +500,14 @@ class BlockUpdateGenerator(
       height: Long,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
   )(
-      acc: (Seq[SignedEvents], InFlightAggregationUpdates, EphemeralState),
+      acc: (Seq[SignedEvents], InFlightAggregationUpdates, EphemeralState, Option[CantonTimestamp]),
       sequencedSubmissionRequest: SequencedSubmission,
   )(implicit
       ec: ExecutionContext
-  ): FutureUnlessShutdown[(Seq[SignedEvents], InFlightAggregationUpdates, EphemeralState)] = {
-    val (reversedEvents, inFlightAggregationUpdates, stFromAcc) = acc
+  ): FutureUnlessShutdown[
+    (Seq[SignedEvents], InFlightAggregationUpdates, EphemeralState, Option[CantonTimestamp])
+  ] = {
+    val (reversedEvents, inFlightAggregationUpdates, stFromAcc, sequencerEventTimestampSoFarO) = acc
     val SequencedSubmission(
       sequencingTimestamp,
       signedSubmissionRequest,
@@ -557,14 +516,21 @@ class BlockUpdateGenerator(
     ) = sequencedSubmissionRequest
     implicit val traceContext = sequencedSubmissionRequest.traceContext
 
+    ErrorUtil.requireState(
+      sequencerEventTimestampSoFarO.isEmpty,
+      "Only the last event in a chunk could be addressed to the sequencer",
+    )
+
     def processSubmissionOutcome(
         st: EphemeralState,
         outcome: SubmissionRequestOutcome,
+        sequencerEventTimestampO: Option[CantonTimestamp],
     ): FutureUnlessShutdown[
       (
           Seq[SignedEvents],
           InFlightAggregationUpdates,
           EphemeralState,
+          Option[CantonTimestamp],
       )
     ] = outcome match {
       case SubmissionRequestOutcome(deliverEvents, newAggregationO, signingSnapshotO) =>
@@ -619,6 +585,7 @@ class BlockUpdateGenerator(
               signedEvents +: reversedEvents,
               newInFlightAggregationUpdates,
               trafficUpdatedState,
+              sequencerEventTimestampO,
             )
         }
     }
@@ -632,8 +599,8 @@ class BlockUpdateGenerator(
         signingSnapshotO,
         latestSequencerEventTimestamp,
       )
-      (newState, outcome) = newStateAndOutcome
-      result <- processSubmissionOutcome(newState, outcome)
+      (newState, outcome, sequencerEventTimestampO) = newStateAndOutcome
+      result <- processSubmissionOutcome(newState, outcome, sequencerEventTimestampO)
     } yield {
       logger.debug(
         s"At block $height, the submission request ${signedSubmissionRequest.content.messageId} at $sequencingTimestamp created the following counters: \n" ++ outcome.eventsByMember
@@ -671,28 +638,6 @@ class BlockUpdateGenerator(
         }
     }
   }
-
-  private def ensureTopologyTimestampPresentForAggregationRuleWithSignatures(
-      submissionRequest: SubmissionRequest,
-      topologySnapshot: SyncCryptoApi,
-      sequencingTimestamp: CantonTimestamp,
-      st: EphemeralState,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, SubmissionRequestOutcome, Unit] =
-    EitherTUtil.condUnitET(
-      submissionRequest.aggregationRule.isEmpty || submissionRequest.topologyTimestamp.isDefined ||
-        submissionRequest.batch.envelopes.forall(_.signatures.isEmpty),
-      invalidSubmissionRequest(
-        submissionRequest,
-        sequencingTimestamp,
-        SequencerErrors.TopologyTimestampMissing(
-          "`topologyTimestamp` is not defined for a submission with an `aggregationRule` and signatures on the envelopes present. Please set `topologyTimestamp` for the submission."
-        ),
-        st.tryNextCounter(submissionRequest.sender),
-      ),
-    )
 
   private def validateMaxSequencingTimeForAggregationRule(
       submissionRequest: SubmissionRequest,
@@ -758,7 +703,7 @@ class BlockUpdateGenerator(
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[(EphemeralState, SubmissionRequestOutcome)] = {
+  ): FutureUnlessShutdown[(EphemeralState, SubmissionRequestOutcome, Option[CantonTimestamp])] = {
     val submissionRequest = signedSubmissionRequest.content
 
     // In the following EitherT, Lefts are used to stop processing the submission request and immediately produce the sequenced events
@@ -779,10 +724,10 @@ class BlockUpdateGenerator(
       _ <- EitherT.cond[FutureUnlessShutdown](
         sequencingTimestamp <= submissionRequest.maxSequencingTime,
         (),
-        // the sequencer is beyond the timestamp allowed for sequencing this request so it is silently dropped
-        // a correct sender should be monitoring their sequenced events and noticed that the max-sequencing-time has been
-        // exceeded and trigger a timeout
-        // we don't log this as a warning as it is expected behaviour. within a distributed network, the source of
+        // The sequencer is beyond the timestamp allowed for sequencing this request so it is silently dropped.
+        // A correct sender should be monitoring their sequenced events and notice that the max-sequencing-time has been
+        // exceeded and trigger a timeout.
+        // We don't log this as a warning as it is expected behaviour. Within a distributed network, the source of
         // a delay can come from different nodes and we should only log this as a warning in a way where we can
         // attribute the delay to a specific node.
         {
@@ -819,12 +764,8 @@ class BlockUpdateGenerator(
         st.tryNextCounter,
       )
       topologySnapshot = signingSnapshotO.getOrElse(sequencingSnapshot)
-      _ <- ensureTopologyTimestampPresentForAggregationRuleWithSignatures(
-        submissionRequest,
-        topologySnapshot,
-        sequencingTimestamp,
-        st,
-      ).mapK(FutureUnlessShutdown.outcomeK)
+      // TODO(i17584): revisit the consequences of no longer enforcing that
+      //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTimeForAggregationRule(
         submissionRequest,
         topologySnapshot,
@@ -916,14 +857,46 @@ class BlockUpdateGenerator(
         case (aggregationId, inFlightAggregationUpdate, _) =>
           aggregationId -> inFlightAggregationUpdate
       }
-      stateAfterTrafficConsume -> SubmissionRequestOutcome(
-        events,
-        aggregationUpdate,
-        signingSnapshotO,
+
+      // We need to know whether the group of sequencers was addressed in order to update `latestSequencerEventTimestamp`.
+      // Simply checking whether this sequencer is within the resulting event recipients opens up
+      // the door for a malicious participant to target a single sequencer, which would result in the
+      // various sequencers reaching a different value.
+      //
+      // Currently, the only use cases of addressing a sequencer are:
+      //   * via AllMembersOfDomain for topology transactions
+      //   * via SequencersOfDomain for traffic control top-up messages
+      //
+      // Therefore, we check whether this sequencer was addressed via a group address to avoid the above
+      // case.
+      //
+      // NOTE: Pruning concerns
+      // ----------------------
+      // `latestSequencerEventTimestamp` is relevant for pruning.
+      // For the traffic top-ups, we can use the block's last timestamp to signal "safe-to-prune", because
+      // the logic to compute the balance based on `latestSequencerEventTimestamp` sits inside the manager
+      // and we can make it work together with pruning.
+      // For topology, pruning is not yet implemented. However, the logic to compute snapshot timestamps
+      // sits outside of the topology processor and so from the topology processor's point of view,
+      // `latestSequencerEventTimestamp` should be part of a "safe-to-prune" timestamp calculation.
+      //
+      // See https://github.com/DACH-NY/canton/pull/17676#discussion_r1515926774
+      val sequencerIsAddressed =
+        groupToMembers.contains(AllMembersOfDomain) || groupToMembers.contains(SequencersOfDomain)
+      val sequencerEventTimestampO = Option.when(sequencerIsAddressed)(sequencingTimestamp)
+
+      (
+        stateAfterTrafficConsume,
+        SubmissionRequestOutcome(
+          events,
+          aggregationUpdate,
+          signingSnapshotO,
+        ),
+        sequencerEventTimestampO,
       )
     }
     resultET.value.map {
-      case Left(outcome) => st -> outcome
+      case Left(outcome) => (st, outcome, None)
       case Right(newStateAndOutcome) => newStateAndOutcome
     }
   }
@@ -992,8 +965,8 @@ class BlockUpdateGenerator(
   ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Unit] = {
     val submissionRequest = signedSubmissionRequest.content
 
-    // if we haven't seen any topology transactions yet, then we cannot verify signatures, so we skip it.
-    // in practice this should only happen for the first ever transaction, which contains the initial topology data.
+    // If we haven't seen any topology transactions yet, then we cannot verify signatures, so we skip it.
+    // In practice this should only happen for the first ever transaction, which contains the initial topology data.
     val skipCheck =
       latestSequencerEventTimestamp.isEmpty || !submissionRequest.sender.isAuthenticated
     if (skipCheck) {
@@ -1082,10 +1055,7 @@ class BlockUpdateGenerator(
           )
         }
 
-        // Block sequencers keep track of the latest topology client timestamp
-        // only after protocol version 3 has been released,
-        // so silence the warning if we are running on a higher protocol version
-        // or have not delivered anything to the sequencer's topology client.
+        // Silence the warning if we have not delivered anything to the sequencer's topology client.
         val warnIfApproximate = sequencersSequencerCounter.exists(_ > SequencerCounter.Genesis)
         SequencedEventValidator
           .validateTopologyTimestampUS(
@@ -1488,29 +1458,29 @@ class BlockUpdateGenerator(
       snapshot: SyncCryptoApi,
       latestTopologyTimestamp: Option[CantonTimestamp],
   )(implicit ec: ExecutionContext, tc: TraceContext) = {
-    OptionUtil.zipWithFDefaultValue(
-      rateLimitManager,
-      FutureUnlessShutdown.outcomeF(snapshot.ipsSnapshot.trafficControlParameters(protocolVersion)),
-      ephemeralState,
-    ) { case (rlm, parameters) =>
-      val states = members
-        .flatMap(member => ephemeralState.trafficState.get(member).map(member -> _))
-        .toMap
-      rlm
-        .updateTrafficStates(
-          states,
-          Some(sequencingTimestamp),
-          parameters,
-          latestTopologyTimestamp,
-          warnIfApproximate = ephemeralState.headCounterAboveGenesis(sequencerId),
-        )
-        .map { trafficStateUpdates =>
-          ephemeralState
-            .copy(trafficState =
-              ephemeralState.trafficState ++ trafficStateUpdates.view.mapValues(_.state).toMap
+    snapshot.ipsSnapshot
+      .trafficControlParameters(protocolVersion)
+      .flatMap {
+        case Some(parameters) =>
+          val states = members
+            .flatMap(member => ephemeralState.trafficState.get(member).map(member -> _))
+            .toMap
+          rateLimitManager
+            .getUpdatedTrafficStatesAtTimestamp(
+              states,
+              sequencingTimestamp,
+              parameters,
+              latestTopologyTimestamp,
+              warnIfApproximate = ephemeralState.headCounterAboveGenesis(sequencerId),
             )
-        }
-    }
+            .map { trafficStateUpdates =>
+              ephemeralState
+                .copy(trafficState =
+                  ephemeralState.trafficState ++ trafficStateUpdates.view.mapValues(_.state).toMap
+                )
+            }
+        case _ => FutureUnlessShutdown.pure(ephemeralState)
+      }
   }
 
   private def updateRateLimiting(
@@ -1526,11 +1496,8 @@ class BlockUpdateGenerator(
       tc: TraceContext,
   ): FutureUnlessShutdown[EphemeralState] = {
     val newStateOF = for {
-      rlm <- OptionT.fromOption[FutureUnlessShutdown](rateLimitManager)
       parameters <- OptionT(
-        FutureUnlessShutdown.outcomeF(
-          sequencingSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
-        )
+        sequencingSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
       )
       sender = request.sender
       // Get the traffic from the ephemeral state
@@ -1543,7 +1510,7 @@ class BlockUpdateGenerator(
           }
           OptionT(
             statusO.traverse(status =>
-              rlm.createNewTrafficStateAt(
+              rateLimitManager.createNewTrafficStateAt(
                 status.member,
                 status.registeredAt.immediatePredecessor,
                 parameters,
@@ -1569,7 +1536,7 @@ class BlockUpdateGenerator(
         } else OptionT.some[FutureUnlessShutdown](())
       // Consume traffic for the sender
       newSenderTrafficState <- OptionT.liftF(
-        rlm
+        rateLimitManager
           .consume(
             request.sender,
             request.batch,
@@ -1581,6 +1548,11 @@ class BlockUpdateGenerator(
             warnIfApproximate = warnIfApproximate,
           )
           .valueOr {
+            case error: SequencerRateLimitError.EventOutOfOrder =>
+              logger.warn(
+                s"Consumed an event out of order for member ${error.member} with traffic state '$trafficState'. Current traffic state timestamp is ${error.currentTimestamp} but event timestamp is ${error.eventTimestamp}. The traffic state will not be updated."
+              )
+              trafficState
             case error: SequencerRateLimitError.AboveTrafficLimit =>
               logger.info(
                 s"Submission from member ${error.member} with traffic state '${error.trafficState.toString}' was above traffic limit. Submission cost: ${error.trafficCost.value}. The message will still be delivered."

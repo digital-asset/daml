@@ -21,29 +21,6 @@ CREATE TABLE lapi_parameters (
 );
 
 ---------------------------------------------------------------------------------------------------
--- Configuration entries
---
--- Table for storing a log of ledger configuration changes and rejections.
--- It includes id to track the submissions and their resulting statuses
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_configuration_entries (
-    ledger_offset VARCHAR(4000) PRIMARY KEY NOT NULL,
-    recorded_at BIGINT NOT NULL,
-    submission_id VARCHAR(1000) NOT NULL,
-    typ VARCHAR(1000) NOT NULL,
-    configuration BINARY LARGE OBJECT NOT NULL,
-    rejection_reason VARCHAR(1000),
-
-    CONSTRAINT lapi_configuration_entries_check_reason
-        CHECK (
-          (typ = 'accept' AND rejection_reason IS NULL) OR
-          (typ = 'reject' AND rejection_reason IS NOT NULL)
-        )
-);
-
-CREATE INDEX lapi_configuration_submission_idx ON lapi_configuration_entries (submission_id);
-
----------------------------------------------------------------------------------------------------
 -- List of packages
 --
 -- A table for tracking DAML-LF packages.
@@ -235,6 +212,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     -- * shared event information
     contract_id VARCHAR(4000) NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -294,6 +272,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     -- * shared event information
     contract_id VARCHAR(4000) NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -350,6 +329,7 @@ CREATE TABLE lapi_events_unassign (
     -- * shared event information
     contract_id VARCHAR(4000) NOT NULL,
     template_id INTEGER NOT NULL,
+    package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
 
     -- * common reassignment

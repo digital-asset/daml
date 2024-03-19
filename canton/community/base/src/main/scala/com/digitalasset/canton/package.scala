@@ -8,7 +8,6 @@ import com.daml.lf.data.{IdString, Ref, Time}
 import com.daml.lf.transaction.{ContractStateMachine, Versioned}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.data.{Counter, CounterCompanion}
-import com.digitalasset.canton.ledger.configuration
 import com.digitalasset.canton.serialization.DeterministicEncoding.encodeLong
 import com.google.protobuf.ByteString
 
@@ -41,10 +40,6 @@ package object canton {
   type LedgerApplicationId = Ref.ApplicationId
   val LedgerApplicationId: Ref.ApplicationId.type = Ref.ApplicationId
 
-  // Ledger configuration
-  type LedgerConfiguration = configuration.Configuration
-  val LedgerConfiguration: configuration.Configuration.type = configuration.Configuration
-
   // Ledger transaction id
   type LedgerTransactionId = Ref.TransactionId
   val LedgerTransactionId: Ref.TransactionId.type = Ref.TransactionId
@@ -58,6 +53,9 @@ package object canton {
 
   type LfPackageName = Ref.PackageName
   val LfPackageName: Ref.PackageName.type = Ref.PackageName
+
+  type LfPackageVersion = Ref.PackageVersion
+  val LfPackageVersion: Ref.PackageVersion.type = Ref.PackageVersion
 
   type LfInterfaceId = Ref.TypeConName
   val LfInterfaceId: Ref.TypeConName.type = Ref.TypeConName
@@ -120,10 +118,6 @@ package object canton {
       transferCounter.unwrap
     )
   }
-
-  /** A transfer counter.
-    */
-  type TransferCounterO = Option[TransferCounter]
 
   object RequestCounter extends CounterCompanion[RequestCounterDiscriminator]
 

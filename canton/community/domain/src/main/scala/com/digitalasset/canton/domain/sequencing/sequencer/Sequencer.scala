@@ -10,9 +10,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   CreateSubscriptionError,
   RegisterMemberError,
+  SequencerAdministrationError,
   SequencerWriteError,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+  SequencerRateLimitManager,
+  SequencerTrafficStatus,
+}
 import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
@@ -116,7 +120,9 @@ trait Sequencer
     * Their unread data can also be pruned.
     * Effectively disables all instances of this member.
     */
-  def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit]
+  def disableMember(member: Member)(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SequencerAdministrationError, Unit]
 
   /** The first [[com.digitalasset.canton.SequencerCounter]] that this sequencer can serve for its sequencer client
     * when the sequencer topology processor's [[com.digitalasset.canton.store.SequencedEventStore]] is empty.
@@ -129,6 +135,8 @@ trait Sequencer
   private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter
 
   /** Return the status of the specified members. If the list is empty, return the status of all members.
+    * Requested members who are not registered in the Sequencer will not be in the response.
+    * Registered members with no sent or received event will return an empty status.
     */
   def trafficStatus(members: Seq[Member])(implicit
       traceContext: TraceContext
@@ -150,6 +158,10 @@ trait Sequencer
   def trafficStates(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, TrafficState]]
+
+  /** Return the rate limit manager for this sequencer, if it exists.
+    */
+  def rateLimitManager: Option[SequencerRateLimitManager] = None
 }
 
 /** Sequencer pruning interface.

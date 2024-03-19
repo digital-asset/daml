@@ -1,0 +1,68 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "LF_DEV_VERSIONS",
+    "mangle_for_damlc",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+
+da_scala_library(
+    name = "stable-packages",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = [
+        "//compiler/damlc/stable-packages",
+        "//compiler/damlc/stable-packages:gen-stable-packages-manifest-v2",
+    ],
+    scala_deps = [
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-stable-packages:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+    ],
+)
+
+[
+    daml_compile(
+        name = "Simple-{}".format(mangle_for_damlc(version)),
+        srcs = ["src/test/daml/Simple.daml"],
+        target = version,
+    )
+    for version in LF_DEV_VERSIONS
+]
+
+da_scala_test_suite(
+    name = "stable-packages-test",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    data = [
+        ":Simple-{}.dar".format(mangle_for_damlc(version))
+        for version in LF_DEV_VERSIONS
+    ],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    deps = [
+        ":stable-packages",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+    ],
+)

@@ -43,10 +43,10 @@ abstract class SequencerApiTest
 
   protected trait Env extends AutoCloseable with NamedLogging {
 
-    private[SequencerApiTest] implicit lazy val actorSystem: ActorSystem =
+    implicit lazy val actorSystem: ActorSystem =
       PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
 
-    private[SequencerApiTest] lazy val sequencer: CantonSequencer =
+    lazy val sequencer: CantonSequencer =
       SequencerApiTest.this.createSequencer(
         topologyFactory.forOwnerAndDomain(owner = mediatorId, domainId)
       )
@@ -77,6 +77,15 @@ abstract class SequencerApiTest
 
   def createClock(): Clock = new SimClock(loggerFactory = loggerFactory)
 
+  def simClockOrFail(clock: Clock): SimClock = {
+    clock match {
+      case simClock: SimClock => simClock
+      case _ =>
+        fail(
+          "This test case is only compatible with SimClock for `clock` and `driverClock` fields"
+        )
+    }
+  }
   def domainId: DomainId = DefaultTestIdentities.domainId
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorIdX
   def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
@@ -330,16 +339,6 @@ abstract class SequencerApiTest
           import env.*
           sequencer.discard // This is necessary to init the lazy val in the Env before manipulating the clocks
 
-          def simClockOrFail(clock: Clock): SimClock = {
-            clock match {
-              case simClock: SimClock => simClock
-              case _ =>
-                fail(
-                  "This test case is only compatible with SimClock for `clock` and `driverClock` fields"
-                )
-            }
-          }
-
           val messageContent = "bounce-read-path-message"
           // TODO(i10412): See above
           val aggregationRule =
@@ -352,8 +351,8 @@ abstract class SequencerApiTest
             messageContent,
             Recipients.cc(p10),
             // Note:  write side clock is at 100s, which lets the request pass,
-            //        read side clock is at 0s, which should produce an error due to the MST bound at 5m(=300s)
-            maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(350)),
+            //        read side clock is at 0s, which should produce an error due to the MST bound at 6m(=360s)
+            maxSequencingTime = CantonTimestamp.Epoch.add(Duration.ofSeconds(370)),
             aggregationRule = Some(aggregationRule),
             topologyTimestamp = Some(CantonTimestamp.Epoch),
           )

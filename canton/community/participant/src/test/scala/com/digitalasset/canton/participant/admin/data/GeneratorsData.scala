@@ -22,7 +22,7 @@ final class GeneratorsData(
     Arbitrary(for {
       domainId <- Arbitrary.arbitrary[DomainId]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
-      transferCounter <- transferCounterOGen
+      transferCounter <- transferCounterGen
 
       ac = ActiveContract.create(domainId, contract, transferCounter)(protocolVersion)
 

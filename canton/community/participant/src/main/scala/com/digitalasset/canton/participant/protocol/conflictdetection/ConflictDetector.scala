@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.Monad
-import cats.data.NonEmptyChain
+import cats.data.{Chain, NonEmptyChain}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
@@ -115,7 +115,7 @@ private[participant] class ConflictDetector(
   private[this] val directExecutionContext: DirectExecutionContext =
     DirectExecutionContext(noTracingLogger)
 
-  private[this] val initialTransferCounter = Some(TransferCounter.Genesis)
+  private[this] val initialTransferCounter = TransferCounter.Genesis
 
   /** Registers a pending activeness set.
     * This marks all contracts and keys in the `activenessSet` with a pending activeness check.
@@ -398,24 +398,36 @@ private[participant] class ConflictDetector(
 
         lockedContracts.foreach { coid =>
           val isActivation = creations.contains(coid) || transferIns.contains(coid)
-          val optTargetDomain = transferOuts.get(coid).map(_.unwrap.targetDomainId)
-          val isDeactivation = optTargetDomain.isDefined || archivals.contains(coid)
+          val transferOutO = transferOuts.get(coid).map(_.unwrap)
+          val isDeactivation = transferOutO.isDefined || archivals.contains(coid)
           if (isDeactivation) {
             if (isActivation) {
               logger.trace(withRC(rc, s"Activating and deactivating transient contract $coid."))
             } else {
               logger.trace(withRC(rc, s"Deactivating contract $coid."))
             }
-            val transferCounter = transferOuts.get(coid).flatMap(_.unwrap.transferCounter)
-            val newStatus = optTargetDomain.fold[Status](Archived) { targetDomain =>
-              TransferredAway(targetDomain, transferCounter)
+            val newStatus = transferOutO.fold[Status](Archived) { transferOut =>
+              TransferredAway(
+                transferOut.targetDomainId,
+                transferOut.transferCounter,
+              )
             }
             contractStates.setStatusPendingWrite(coid, newStatus, toc)
             pendingContractWrites += coid
           } else if (isActivation) {
             val transferCounter = transferIns.get(coid) match {
               case Some(value) => value.unwrap.transferCounter
-              case None => creations.get(coid).flatMap(_.unwrap.transferCounter)
+              case None =>
+                creations
+                  .get(coid)
+                  .map(_.unwrap.transferCounter)
+                  .getOrElse(
+                    ErrorUtil.internalError(
+                      new IllegalStateException(
+                        s"We did not find active contract $coid in $creations"
+                      )
+                    )
+                  )
             }
 
             logger.trace(withRC(rc, s"Activating contract $coid."))
@@ -461,7 +473,7 @@ private[participant] class ConflictDetector(
            */
           logger.trace(withRC(rc, s"About to write commit set to the conflict detection stores"))
           val archivalWrites = acs.archiveContracts(archivals.keySet.to(LazyList), toc)
-          val creationWrites = acs.markContractsActive(
+          val creationWrites = acs.markContractsCreated(
             creations.keySet.map(cid => cid -> initialTransferCounter).to(LazyList),
             toc,
           )
@@ -526,7 +538,9 @@ private[participant] class ConflictDetector(
               )
             )
             runSequentially(s"evict states for request $rc") {
-              val result = results.sequence_.toEither
+              val result = results.sequence_.toEither.leftMap { chainNE =>
+                NonEmptyChain.fromChainUnsafe(Chain.fromSeq(chainNE.toList.distinct))
+              }
               logger.debug(withRC(rc, "Evicting states"))
               // Schedule evictions only if no shutdown is happening. (ecForCd is shut down before ecForAcs.)
               pendingContractWrites.foreach(contractStates.signalWriteAndTryEvict(rc, _))

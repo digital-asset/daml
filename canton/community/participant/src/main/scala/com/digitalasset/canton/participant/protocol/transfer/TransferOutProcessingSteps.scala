@@ -33,6 +33,12 @@ import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcesso
 }
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{ProcessingSteps, ProtocolProcessor}
+import com.digitalasset.canton.participant.store.ActiveContractStore.{
+  Active,
+  Archived,
+  Purged,
+  TransferredAway,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, TimestampedEvent}
 import com.digitalasset.canton.participant.util.DAMLe
@@ -48,6 +54,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
+  LfPackageName,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
@@ -132,16 +139,20 @@ class TransferOutProcessingSteps(
         ephemeralState.tracker
           .getApproximateStates(Seq(contractId))
           .map(_.get(contractId) match {
-            case Some(state) if state.status.isActive => Right(state.status.transferCounter)
             case Some(state) =>
-              Left(TransferOutProcessorError.DeactivatedContract(contractId, status = state.status))
+              state.status match {
+                case Active(tc) => Right(tc)
+                case Archived | Purged | _: TransferredAway =>
+                  Left(
+                    TransferOutProcessorError.DeactivatedContract(contractId, status = state.status)
+                  )
+              }
             case None => Left(TransferOutProcessorError.UnknownContract(contractId))
           })
       ).mapK(FutureUnlessShutdown.outcomeK)
 
       newTransferCounter <- EitherT.fromEither[FutureUnlessShutdown](
-        transferCounter
-          .traverse(_.increment)
+        transferCounter.increment
           .leftMap(_ => TransferOutProcessorError.TransferCounterOverflow)
       )
 
@@ -305,6 +316,8 @@ class TransferOutProcessingSteps(
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       sourceSnapshot: DomainSnapshotSyncCryptoApi,
       mediator: MediatorsOfDomain,
+      // not actually used here, because it's available in the only fully unblinded view
+      submitterMetadataO: Option[ViewSubmitterMetadata],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, CheckActivenessAndWritePendingContracts] = {
@@ -452,6 +465,7 @@ class TransferOutProcessingSteps(
         WithContractHash.fromContract(contract, fullTree.contractId),
         fullTree.transferCounter,
         contract.rawContractInstance.contractInstance.unversioned.template,
+        contract.rawContractInstance.contractInstance.unversioned.packageName,
         transferringParticipant,
         fullTree.submitterMetadata,
         transferId,
@@ -527,7 +541,7 @@ class TransferOutProcessingSteps(
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
-      result: ConfirmationResultMessage,
+      verdict: Verdict,
       pendingRequestData: PendingTransferOut,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
@@ -542,6 +556,7 @@ class TransferOutProcessingSteps(
       WithContractHash(contractId, contractHash),
       transferCounter,
       templateId,
+      packageName,
       transferringParticipant,
       submitterMetadata,
       transferId,
@@ -555,14 +570,24 @@ class TransferOutProcessingSteps(
 
     val pendingSubmissionData = pendingSubmissionMap.get(rootHash)
 
-    result.verdict match {
+    def rejected(
+        reason: TransactionRejection
+    ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
+      _ <- ifThenET(transferringParticipant) { deleteTransfer(targetDomain, requestId) }
+
+      eventO <- EitherT.fromEither[Future](
+        createRejectionEvent(RejectionArgs(pendingRequestData, reason))
+      )
+    } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+
+    verdict match {
       case _: Verdict.Approve =>
         val commitSet = CommitSet(
           archivals = Map.empty,
           creations = Map.empty,
           transferOuts = Map(
             contractId -> WithContractHash(
-              CommitSet.TransferOutCommit(targetDomain, stakeholders, Some(transferCounter)),
+              CommitSet.TransferOutCommit(targetDomain, stakeholders, transferCounter),
               contractHash,
             )
           ),
@@ -588,6 +613,7 @@ class TransferOutProcessingSteps(
           transferOutEvent <- createTransferredOut(
             contractId,
             templateId,
+            packageName,
             stakeholders,
             submitterMetadata,
             transferId,
@@ -610,30 +636,16 @@ class TransferOutProcessingSteps(
           ),
         )
 
-      case reasons: Verdict.ParticipantReject =>
-        for {
-          _ <- ifThenET(transferringParticipant) {
-            deleteTransfer(targetDomain, requestId)
-          }
+      case reasons: Verdict.ParticipantReject => rejected(reasons.keyEvent)
 
-          tsEventO <- EitherT
-            .fromEither[Future](
-              createRejectionEvent(RejectionArgs(pendingRequestData, reasons.keyEvent))
-            )
-        } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, tsEventO)
-
-      case _: MediatorReject =>
-        for {
-          _ <- ifThenET(transferringParticipant) {
-            deleteTransfer(targetDomain, requestId)
-          }
-        } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, None)
+      case rejection: MediatorReject => rejected(rejection)
     }
   }
 
   private def createTransferredOut(
       contractId: LfContractId,
       templateId: LfTemplateId,
+      packageName: LfPackageName,
       contractStakeholders: Set[LfPartyId],
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
@@ -666,6 +678,7 @@ class TransferOutProcessingSteps(
       submitter = Option(submitterMetadata.submitter),
       contractId = contractId,
       templateId = Some(templateId),
+      packageName = packageName,
       contractStakeholders = contractStakeholders,
       transferId = transferId,
       targetDomain = targetDomain,
@@ -712,7 +725,7 @@ class TransferOutProcessingSteps(
       rootHash: RootHash,
   ): Option[ConfirmationResponse] = {
     val expectedPriorTransferCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
-      contractId -> Some(ActiveContractStore.Active(Some(declaredTransferCounter - 1)))
+      contractId -> Some(ActiveContractStore.Active(declaredTransferCounter - 1))
     )
 
     val successful =
@@ -736,7 +749,7 @@ class TransferOutProcessingSteps(
           participantId,
           Some(ViewPosition.root),
           localVerdict,
-          Some(rootHash),
+          rootHash,
           confirmingParties,
           domainId.unwrap,
           sourceDomainProtocolVersion.v,
@@ -771,6 +784,7 @@ object TransferOutProcessingSteps {
       contractIdAndHash: WithContractHash[LfContractId],
       transferCounter: TransferCounter,
       templateId: LfTemplateId,
+      packageName: LfPackageName,
       transferringParticipant: Boolean,
       submitterMetadata: TransferSubmitterMetadata,
       transferId: TransferId,
@@ -781,7 +795,10 @@ object TransferOutProcessingSteps {
       transferInExclusivity: Option[CantonTimestamp],
       mediator: MediatorsOfDomain,
   ) extends PendingTransfer
-      with PendingRequestData
+      with PendingRequestData {
+
+    override def rootHashO: Option[RootHash] = Some(rootHash)
+  }
 
   final case class PendingDataAndResponseArgs(
       txOutRequest: FullTransferOutTree,

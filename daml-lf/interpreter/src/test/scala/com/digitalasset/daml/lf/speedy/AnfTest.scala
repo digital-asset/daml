@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SBuiltinFun._
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Pretty.SExpr._
 import com.daml.lf.data.Ref._
@@ -143,7 +143,7 @@ class AnfTest extends AnyWordSpec with Matchers {
     "be transformed to ANF as expected" in {
       val expected = lam(
         2,
-        appa(target.SEBuiltin(SBUserError), arg0, arg1),
+        appa(target.SEBuiltinFun(SBUserError), arg0, arg1),
       )
       testTransform(original, expected)
     }

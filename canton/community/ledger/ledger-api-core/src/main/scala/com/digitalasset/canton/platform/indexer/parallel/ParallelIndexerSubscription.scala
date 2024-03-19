@@ -268,7 +268,6 @@ object ParallelIndexerSubscription {
               .tap(_ => lastTransactionMetaEventSeqId = eventSeqId)
 
           case unChanged: DbDto.CommandCompletion => unChanged
-          case unChanged: DbDto.ConfigurationEntry => unChanged
           case unChanged: DbDto.Package => unChanged
           case unChanged: DbDto.PackageEntry => unChanged
           case unChanged: DbDto.PartyEntry => unChanged

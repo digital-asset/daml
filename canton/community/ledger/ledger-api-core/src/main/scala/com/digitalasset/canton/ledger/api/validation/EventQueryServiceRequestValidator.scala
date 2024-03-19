@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdRequest
+import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdRequest
 import com.digitalasset.canton.ledger.api.messages.event
 import io.grpc.StatusRuntimeException
 

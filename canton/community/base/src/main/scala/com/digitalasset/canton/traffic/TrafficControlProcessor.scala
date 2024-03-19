@@ -6,6 +6,7 @@ package com.digitalasset.canton.traffic
 import cats.Monoid
 import cats.data.EitherT
 import cats.syntax.functorFilter.*
+import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -35,14 +36,16 @@ import com.digitalasset.canton.traffic.TrafficControlErrors.{
   TrafficControlError,
 }
 import com.digitalasset.canton.traffic.TrafficControlProcessor.TrafficControlSubscriber
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 class TrafficControlProcessor(
     cryptoApi: DomainSyncCryptoClient,
     domainId: DomainId,
+    maxFromStoreO: => Option[CantonTimestamp],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
@@ -58,9 +61,9 @@ class TrafficControlProcessor(
   ): FutureUnlessShutdown[Unit] = {
     import SubscriptionStart.*
 
+    logger.debug(s"subscriptionStartsAt called with start $start")
     val tsStart = start match {
       case FreshSubscription =>
-        val maxFromStoreO: Option[CantonTimestamp] = None // TODO(i17479): get from actual store
         // Use the max timestamp from the store. If the store is empty, use a minimum value
         maxFromStoreO.getOrElse(CantonTimestamp.MinValue)
 
@@ -111,11 +114,20 @@ class TrafficControlProcessor(
 
   private def notifyListenersOfTimestamp(ts: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Unit = listeners.get().foreach { _.observedTimestamp(ts) }
+  ): Unit = {
+    logger.debug(s"Notifying listeners that timestamp $ts was observed")
+    listeners.get().foreach { _.observedTimestamp(ts) }
+  }
 
-  private def notifyListenersOfBalanceUpdate(update: SetTrafficBalanceMessage)(implicit
+  private def notifyListenersOfBalanceUpdate(
+      update: SetTrafficBalanceMessage,
+      sequencingTimestamp: CantonTimestamp,
+  )(implicit
       traceContext: TraceContext
-  ): Unit = listeners.get().foreach { _.balanceUpdate(update) }
+  ): Future[Unit] = {
+    logger.debug(s"Notifying listeners that balance update $update was observed")
+    listeners.get().parTraverse_ { _.balanceUpdate(update, sequencingTimestamp) }
+  }
 
   def processSetTrafficBalanceEnvelopes(
       ts: CantonTimestamp,
@@ -148,7 +160,7 @@ class TrafficControlProcessor(
             snapshot <- FutureUnlessShutdown.outcomeF(cryptoApi.awaitSnapshot(ts))
 
             listenersNotified <- MonadUtil.sequentialTraverseMonoid(trafficEnvelopesNE) { env =>
-              processSetTrafficBalance(env, snapshot)
+              processSetTrafficBalance(env, snapshot, ts)
             }
           } yield listenersNotified
         } else {
@@ -177,6 +189,7 @@ class TrafficControlProcessor(
   private def processSetTrafficBalance(
       envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficBalanceMessage]],
       snapshot: DomainSnapshotSyncCryptoApi,
+      sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] = {
@@ -185,7 +198,11 @@ class TrafficControlProcessor(
 
       signedMessage = envelope.protocolMessage
       message = signedMessage.message
-      _ = notifyListenersOfBalanceUpdate(message)
+      _ <- EitherT
+        .liftF[Future, TrafficControlError, Unit](
+          notifyListenersOfBalanceUpdate(message, sequencingTimestamp)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield true
 
     result.valueOr { err =>
@@ -243,8 +260,8 @@ object TrafficControlProcessor {
         traceContext: TraceContext
     ): Unit
 
-    def balanceUpdate(update: SetTrafficBalanceMessage)(implicit
-        traceContext: TraceContext
-    ): Unit
+    def balanceUpdate(update: SetTrafficBalanceMessage, sequencingTimestamp: CantonTimestamp)(
+        implicit traceContext: TraceContext
+    ): Future[Unit]
   }
 }

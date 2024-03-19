@@ -48,6 +48,7 @@ class DriverBlockSequencerFactory[C](
       nodeParameters,
       loggerFactory,
       testingInterceptor,
+      metrics,
     ) {
 
   override protected final lazy val name: String = sequencerDriverFactory.name
@@ -68,7 +69,7 @@ class DriverBlockSequencerFactory[C](
       clock: Clock,
       driverClock: Clock,
       protocolVersion: ProtocolVersion,
-      rateLimitManager: Option[SequencerRateLimitManager],
+      rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       domainLoggerFactory: NamedLoggerFactory,

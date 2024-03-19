@@ -50,7 +50,6 @@ class DamlLfEncoderTest
         "BuiltinMod",
         "TemplateMod",
         "OptionMod",
-        "TextMapMod",
         "EnumMod",
         "NumericMod",
         "AnyMod",
@@ -61,6 +60,7 @@ class DamlLfEncoderTest
         "InterfaceMod0",
       )
       val modules_2_dev = modules_2_1 ++ Set[DottedName](
+        "TextMapMod",
         "BigNumericMod",
         "InterfaceExtMod",
       )
@@ -131,7 +131,7 @@ class DamlLfEncoderTest
             .modules(builtinMod)
             .definitions
             .values
-            .collect { case Ast.DValue(_, Ast.EBuiltin(builtin), _) => builtin }
+            .collect { case Ast.DValue(_, Ast.EBuiltinFun(builtin), _) => builtin }
             .toSet
           val builtinsInVersion = DecodeV2.builtinFunctionInfos.collect {
             case DecodeV2.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)

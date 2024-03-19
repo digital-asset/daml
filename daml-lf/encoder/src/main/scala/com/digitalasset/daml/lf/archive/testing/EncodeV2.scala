@@ -541,7 +541,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           setString(value, builder.setVarInternedStr)
         case EVal(value) =>
           builder.setVal(value)
-        case EBuiltin(value) =>
+        case EBuiltinFun(value) =>
           builder.setBuiltin(value)
         case EBuiltinCon(builtinCon) =>
           builder.setBuiltinCon(builtinCon)
@@ -593,7 +593,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case ETyApps(expr: Expr, typs0) =>
           expr match {
-            case EBuiltin(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
+            case EBuiltinFun(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
               val typs = typs0.toSeq.toList
               builder.setBuiltin(indirectBuiltinFunctionMap(builtin)(typs).proto)
             case _ =>
@@ -635,7 +635,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case ENone(typ) =>
           builder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
+          builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setValue(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr, builder).setLocation(loc)
         case EUpdate(u) =>
@@ -852,11 +852,13 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
 
     private implicit def encodeValueDef(nameWithDef: (DottedName, DValue)): PLF.DefValue = {
       val (dottedName, value) = nameWithDef
+      if (value.isTest) {
+        assertSince(LV.Features.scenarios, "Value.isTest")
+      }
       PLF.DefValue
         .newBuilder()
         .setNameWithType(dottedName -> value.typ)
         .setExpr(value.body)
-        .setNoPartyLiterals(true)
         .setIsTest(value.isTest)
         .build()
     }

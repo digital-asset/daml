@@ -21,13 +21,8 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{
-  ConfigurationEntry,
-  ParticipantOffset,
-  TransactionId,
-}
+import com.digitalasset.canton.ledger.api.domain.{ParticipantOffset, TransactionId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
@@ -167,21 +162,6 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       startExclusive: Option[ParticipantOffset.Absolute]
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Timed.source(metrics.services.index.partyEntries, delegate.partyEntries(startExclusive))
-
-  override def lookupConfiguration()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[(ParticipantOffset.Absolute, Configuration)]] =
-    Timed.future(metrics.services.index.lookupConfiguration, delegate.lookupConfiguration())
-
-  override def configurationEntries(
-      startExclusive: Option[ParticipantOffset.Absolute]
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(ParticipantOffset.Absolute, ConfigurationEntry), NotUsed] =
-    Timed.source(
-      metrics.services.index.configurationEntries,
-      delegate.configurationEntries(startExclusive),
-    )
 
   override def prune(
       pruneUpToInclusive: Offset,

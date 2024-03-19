@@ -117,7 +117,7 @@ object SValue {
 
   /** "Primitives" that can be applied. */
   sealed abstract class Prim
-  final case class PBuiltin(b: SBuiltin) extends Prim
+  final case class PBuiltin(b: SBuiltinFun) extends Prim
 
   /** A closure consisting of an expression together with the values the
     * expression is closing over.
@@ -231,15 +231,25 @@ object SValue {
   final case class SList(list: FrontStack[SValue]) extends SValue
 
   // We make the constructor private to ensure entries are sorted using `SMap Ordering`
+  // and all value are comparable.
   final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
       with NoCopy {
 
-    def insert(key: SValue, value: SValue): SMap =
+    def insert(key: SValue, value: SValue): SMap = {
+      SMap.comparable(key)
       SMap(isTextMap, entries.updated(key, value))
+    }
 
-    def delete(key: SValue): SMap =
+    def delete(key: SValue): SMap = {
+      SMap.comparable(key)
       SMap(isTextMap, entries - key)
+    }
+
+    def get(key: SValue): Option[SValue] = {
+      SMap.comparable(key)
+      entries.get(key)
+    }
 
   }
 
@@ -260,25 +270,30 @@ object SValue {
     def fromOrderedEntries(
         isTextMap: Boolean,
         entries: Iterable[(SValue, SValue)],
-    ): SMap = SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
+    ): SMap = {
+      entries.foreach { case (k, _) => comparable(k) }
+      SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
+    }
 
     /** Build an SMap from an iterator over SValue key/value pairs.
       *
       * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
       * If keys are duplicate, the last overrides the firsts
       */
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap =
+    def apply(isTextMap: Boolean, entries: Iterable[(SValue, SValue)]): SMap = {
+      entries.foreach { case (k, _) => comparable(k) }
       SMap(
         isTextMap,
-        entries.map { case p @ (k, _) => comparable(k); p }.to(TreeMap),
+        entries.to(TreeMap),
       )
+    }
 
     /** Build an SMap from a vararg sequence of SValue key/value pairs.
       *
       * SValue keys are not assumed to be ordered - hence the SMap will be built in time O(n log(n)).
       */
     def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
-      SMap(isTextMap: Boolean, entries.iterator)
+      SMap(isTextMap: Boolean, entries)
   }
 
   // represents Any And AnyException

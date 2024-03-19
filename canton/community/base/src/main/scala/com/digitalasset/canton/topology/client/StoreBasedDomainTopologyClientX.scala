@@ -197,9 +197,9 @@ class StoreBasedTopologySnapshotX(
       timeQuery = TimeQuery.Range(None, Some(timestamp)),
       recentTimestampO = None,
       op = Some(TopologyChangeOpX.Replace),
-      typ = Some(TopologyMappingX.Code.DomainParametersStateX),
-      idFilter = "",
-      namespaceOnly = false,
+      types = Seq(TopologyMappingX.Code.DomainParametersStateX),
+      idFilter = None,
+      namespaceFilter = None,
     )
     .map {
       _.collectOfMapping[DomainParametersStateX].result
@@ -473,15 +473,16 @@ class StoreBasedTopologySnapshotX(
       filterOwnerType: Option[MemberCode],
       limit: Int,
   )(implicit traceContext: TraceContext): Future[Map[Member, KeyCollection]] = {
+    val (idFilter, namespaceFilter) = UniqueIdentifier.splitFilter(filterOwner)
     store
       .inspect(
         proposals = false,
         timeQuery = TimeQuery.Snapshot(timestamp),
         recentTimestampO = None,
         op = Some(TopologyChangeOpX.Replace),
-        typ = Some(TopologyMappingX.Code.OwnerToKeyMappingX),
-        idFilter = filterOwner,
-        namespaceOnly = false,
+        types = Seq(TopologyMappingX.Code.OwnerToKeyMappingX),
+        idFilter = Some(idFilter),
+        namespaceFilter = Some(namespaceFilter),
       )
       .map(
         _.collectOfMapping[OwnerToKeyMappingX]

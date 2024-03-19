@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.service
 
-import com.daml.ledger.api.v1.package_service.GetPackageResponse
+import com.daml.ledger.api.v2.package_service.GetPackageResponse
 import com.daml.lf.archive
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId}

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
-import com.daml.ledger.api.v1.admin.metering_report_service.{
+import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
+import com.daml.ledger.api.v2.admin.metering_report_service.{
   GetMeteringReportRequest,
   GetMeteringReportResponse,
   MeteringReportServiceGrpc,

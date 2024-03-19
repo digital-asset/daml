@@ -8,8 +8,7 @@ import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Sour
 import org.apache.pekko.stream.{FanOutShape2, Graph}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
-import com.daml.ledger.api.v1 as lav1
-import com.daml.ledger.api.v1.transaction_filter.TemplateFilter
+import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.scalautil.Statement.discard
@@ -29,11 +28,11 @@ object AcsTxStreams extends NoTracing {
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private[this] def partitionInsertsDeletes(
-      txes: Iterable[lav1.event.Event]
+      txes: Iterable[lav2.event.Event]
   ): InsertDeleteStep.LAV1 = {
-    val csb = Vector.newBuilder[lav1.event.CreatedEvent]
-    val asb = Map.newBuilder[String, lav1.event.ArchivedEvent]
-    import lav1.event.Event
+    val csb = Vector.newBuilder[lav2.event.CreatedEvent]
+    val asb = Map.newBuilder[String, lav2.event.ArchivedEvent]
+    import lav2.event.Event
     import Event.Event.*
     txes foreach {
       case Event(Created(c)) => discard { csb += c }
@@ -85,7 +84,7 @@ object AcsTxStreams extends NoTracing {
     */
   private[this] def acsAndBoundary
       : Graph[FanOutShape2[lav2.state_service.GetActiveContractsResponse, Seq[
-        lav1.event.CreatedEvent,
+        lav2.event.CreatedEvent,
       ], BeginBookmark[domain.Offset]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits.*
@@ -153,7 +152,7 @@ object AcsTxStreams extends NoTracing {
       parties: domain.PartySet,
       contractTypeIds: List[ContractTypeId.Resolved],
   ): lav2.transaction_filter.TransactionFilter = {
-    import lav1.transaction_filter.{Filters, InterfaceFilter, InclusiveFilters}
+    import lav2.transaction_filter.{Filters, InterfaceFilter, InclusiveFilters}
 
     val (templateIds, interfaceIds) = ResolvedQuery.partition(contractTypeIds)
     val filters = Filters(

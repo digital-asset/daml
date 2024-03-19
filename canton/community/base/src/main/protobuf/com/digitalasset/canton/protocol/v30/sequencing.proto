@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.protocol.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/domain/api/v30/sequencer_service.proto";
 import "com/digitalasset/canton/protocol/v30/domain_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/signed_content.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
@@ -20,6 +21,7 @@ message PossiblyIgnoredSequencedEvent {
   com.digitalasset.canton.v30.TraceContext trace_context = 3;
   bool is_ignored = 4;
   v30.SignedContent underlying = 5; // Optional if is_ignored == true, required otherwise
+  com.digitalasset.canton.domain.api.v30.SequencedEventTrafficState traffic_state = 6; // Optional
 }
 
 // Protobuf has a hard limit on the nesting depth of messages, so this message could potentially hit

@@ -29,10 +29,8 @@ import monocle.macros.GenLens
   *                      May be empty if the [[localVerdict]] is [[com.digitalasset.canton.protocol.LocalRejectError.Malformed]].
   *                      Must be empty if the protoVersion is strictly lower than 2.
   * @param localVerdict The participant's verdict on the request's view.
-  * @param rootHash The root hash of the request if the local verdict is [[com.digitalasset.canton.protocol.messages.LocalApprove]]
-  *                 or [[com.digitalasset.canton.protocol.messages.LocalReject]]. [[scala.None$]] otherwise.
-  * @param confirmingParties   The non-empty set of confirming parties of the view hosted by the sender if the local verdict is [[com.digitalasset.canton.protocol.messages.LocalApprove]]
-  *                          or [[com.digitalasset.canton.protocol.messages.LocalReject]]. Empty otherwise.
+  * @param rootHash The root hash of the request.
+  * @param confirmingParties   The set of confirming parties. Empty, if the verdict is malformed.
   * @param domainId The domain ID over which the request is sent.
   */
 
@@ -55,7 +53,7 @@ case class ConfirmationResponse private (
     sender: ParticipantId,
     viewPositionO: Option[ViewPosition],
     localVerdict: LocalVerdict,
-    rootHash: Option[RootHash],
+    rootHash: RootHash,
     confirmingParties: Set[LfPartyId],
     override val domainId: DomainId,
 )(
@@ -74,7 +72,7 @@ case class ConfirmationResponse private (
       sender: ParticipantId = sender,
       viewPositionO: Option[ViewPosition] = viewPositionO,
       localVerdict: LocalVerdict = localVerdict,
-      rootHash: Option[RootHash] = rootHash,
+      rootHash: RootHash = rootHash,
       confirmingParties: Set[LfPartyId] = confirmingParties,
       domainId: DomainId = domainId,
   ): ConfirmationResponse = ConfirmationResponse(
@@ -97,10 +95,6 @@ case class ConfirmationResponse private (
       throw InvalidConfirmationResponse(
         show"Confirming parties must not be empty for verdict $localVerdict"
       )
-    if (rootHash.isEmpty)
-      throw InvalidConfirmationResponse(
-        show"Root hash must not be empty for verdict $localVerdict"
-      )
     if (viewPositionO.isEmpty)
       throw InvalidConfirmationResponse(
         show"View position must not be empty for verdict $localVerdict"
@@ -121,7 +115,7 @@ case class ConfirmationResponse private (
       sender = sender.toProtoPrimitive,
       viewPosition = viewPositionO.map(_.toProtoV30),
       localVerdict = Some(localVerdict.toProtoV30),
-      rootHash = rootHash.fold(ByteString.EMPTY)(_.toProtoPrimitive),
+      rootHash = rootHash.toProtoPrimitive,
       confirmingParties = confirmingParties.toList,
       domainId = domainId.toProtoPrimitive,
     )
@@ -140,7 +134,7 @@ case class ConfirmationResponse private (
       param("domainId", _.domainId),
       param("requestId", _.requestId),
       paramIfDefined("viewPosition", _.viewPositionO),
-      paramIfDefined("rootHash", _.rootHash),
+      param("rootHash", _.rootHash),
       param("representativeProtocolVersion", _.representativeProtocolVersion),
     )
 }
@@ -167,7 +161,7 @@ object ConfirmationResponse
       sender: ParticipantId,
       viewPositionO: Option[ViewPosition],
       localVerdict: LocalVerdict,
-      rootHash: Option[RootHash],
+      rootHash: RootHash,
       confirmingParties: Set[LfPartyId],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
@@ -203,7 +197,7 @@ object ConfirmationResponse
       sender: ParticipantId,
       viewPositionO: Option[ViewPosition],
       localVerdict: LocalVerdict,
-      rootHash: Option[RootHash],
+      rootHash: RootHash,
       confirmingParties: Set[LfPartyId],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
@@ -240,7 +234,7 @@ object ConfirmationResponse
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting
-  val rootHashUnsafe: Lens[ConfirmationResponse, Option[RootHash]] =
+  val rootHashUnsafe: Lens[ConfirmationResponse, RootHash] =
     GenLens[ConfirmationResponse](_.rootHash)
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
@@ -267,7 +261,7 @@ object ConfirmationResponse
       localVerdict <- ProtoConverter
         .required("ConfirmationResponse.local_verdict", localVerdictPO)
         .flatMap(LocalVerdict.fromProtoV30)
-      rootHashO <- RootHash.fromProtoPrimitiveOption(rootHashP)
+      rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       confirmingParties <- confirmingPartiesP.traverse(ProtoConverter.parseLfPartyId)
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
       viewPositionO = viewPositionPO.map(ViewPosition.fromProtoV30)
@@ -279,7 +273,7 @@ object ConfirmationResponse
             sender,
             viewPositionO,
             localVerdict,
-            rootHashO,
+            rootHash,
             confirmingParties.toSet,
             domainId,
           )(rpv, Some(bytes))

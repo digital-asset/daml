@@ -63,7 +63,7 @@ class PollingChecker(
   })
 
   private def scheduledCheck(): Unit = blocking(synchronized {
-    logger.debug(s"Scheduled checking...")
+    logger.trace(s"Scheduled checking...")
     // Timer can fire at most one additional TimerTask after being cancelled. This is to safeguard that corner case.
     if (!closed) {
       checkInternal()
@@ -73,7 +73,7 @@ class PollingChecker(
   private def checkInternal(): Unit = blocking(synchronized {
     Try(checkBody) match {
       case Success(_) =>
-        logger.debug(s"Check successful.")
+        logger.trace(s"Check successful.")
 
       case Failure(ex) =>
         logger.info(s"Check failed (${ex.getMessage}). Calling KillSwitch/abort.")

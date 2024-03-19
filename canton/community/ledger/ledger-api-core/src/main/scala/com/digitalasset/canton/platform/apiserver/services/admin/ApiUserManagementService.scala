@@ -4,15 +4,15 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v1.admin.user_management_service.{
+import com.daml.ledger.api.v2.admin.user_management_service.{
   CreateUserResponse,
   GetUserResponse,
-  UpdateUserIdentityProviderRequest,
-  UpdateUserIdentityProviderResponse,
+  UpdateUserIdentityProviderIdRequest,
+  UpdateUserIdentityProviderIdResponse,
   UpdateUserRequest,
   UpdateUserResponse,
 }
-import com.daml.ledger.api.v1.admin.user_management_service as proto
+import com.daml.ledger.api.v2.admin.user_management_service as proto
 import com.daml.lf.data.Ref
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
@@ -86,7 +86,7 @@ private[apiserver] final class ApiUserManagementService(
           pUser <- requirePresence(request.user, "user")
           pUserId <- requireUserId(pUser.id, "id")
           pMetadata = pUser.metadata.getOrElse(
-            com.daml.ledger.api.v1.admin.object_meta.ObjectMeta()
+            com.daml.ledger.api.v2.admin.object_meta.ObjectMeta()
           )
           _ <- requireEmptyString(
             pMetadata.resourceVersion,
@@ -145,7 +145,7 @@ private[apiserver] final class ApiUserManagementService(
           pUser <- requirePresence(request.user, "user")
           pUserId <- requireUserId(pUser.id, "user.id")
           pMetadata = pUser.metadata.getOrElse(
-            com.daml.ledger.api.v1.admin.object_meta.ObjectMeta()
+            com.daml.ledger.api.v2.admin.object_meta.ObjectMeta()
           )
           pFieldMask <- requirePresence(request.updateMask, "update_mask")
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)
@@ -406,8 +406,8 @@ private[apiserver] final class ApiUserManagementService(
     }
   }
   override def updateUserIdentityProviderId(
-      request: UpdateUserIdentityProviderRequest
-  ): Future[UpdateUserIdentityProviderResponse] = {
+      request: UpdateUserIdentityProviderIdRequest
+  ): Future[UpdateUserIdentityProviderIdResponse] = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
     withValidation {
@@ -433,7 +433,7 @@ private[apiserver] final class ApiUserManagementService(
             id = userId,
           )
           .flatMap(handleResult("update user identity provider"))
-          .map(_ => proto.UpdateUserIdentityProviderResponse())
+          .map(_ => proto.UpdateUserIdentityProviderIdResponse())
       } yield result
     }
   }
