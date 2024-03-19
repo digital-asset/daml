@@ -137,6 +137,7 @@ def install_java_deps():
             "io.circe:circe-generic-extras_{}:{}".format(scala_major_version, circe_version),
             "io.circe:circe-generic_{}:{}".format(scala_major_version, circe_version),
             "io.circe:circe-parser_{}:{}".format(scala_major_version, circe_version),
+            "io.circe:circe-optics_{}:{}".format(scala_major_version, "0.15.0"),
             "io.circe:circe-yaml_{}:{}".format(scala_major_version, "0.15.0-RC1"),
             #            "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
             #            "io.gatling:gatling-app:{}".format(gatling_version),
