@@ -6,7 +6,7 @@ package com.digitalasset.canton.metrics
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.metrics.InstrumentType
 import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
-import io.opentelemetry.sdk.metrics.`export`.{MetricProducer, CollectionRegistration, MetricReader}
+import io.opentelemetry.sdk.metrics.export.{CollectionRegistration, MetricReader}
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference
@@ -24,9 +24,7 @@ object OnDemandMetricsReader {
 
 }
 
-class OpenTelemetryOnDemandMetricsReader
-    extends MetricReader
-    with OnDemandMetricsReader {
+class OpenTelemetryOnDemandMetricsReader extends MetricReader with OnDemandMetricsReader {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -37,7 +35,8 @@ class OpenTelemetryOnDemandMetricsReader
 
   override def forceFlush(): CompletableResultCode = CompletableResultCode.ofSuccess()
 
-  override def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality = AggregationTemporality.CUMULATIVE
+  override def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality =
+    AggregationTemporality.CUMULATIVE
 
   override def shutdown(): CompletableResultCode = {
     optionalProducer.set(None)
@@ -55,6 +54,5 @@ class OpenTelemetryOnDemandMetricsReader
         Seq.empty
       }
   }
-
 
 }

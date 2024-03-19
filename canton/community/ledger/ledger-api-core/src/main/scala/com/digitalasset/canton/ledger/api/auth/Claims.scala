@@ -29,7 +29,7 @@ case object ClaimIdentityProviderAdmin extends Claim
 
 /** Authorized to use all "public" services, i.e.,
   * those that do not require admin rights and do not depend on any Daml party.
-  * Examples include the LedgerIdentityService or the PackageService.
+  * Examples include the VersionService or the PackageService.
   */
 case object ClaimPublic extends Claim
 
@@ -67,7 +67,6 @@ object ClaimSet {
     * Please use that file when writing or reviewing tests; and keep it up to date when adding new endpoints.
     *
     * @param claims         List of [[Claim]]s describing the authorization this object describes.
-    * @param ledgerId       If set, the claims will only be valid on the given ledger identifier.
     * @param participantId  If set, the claims will only be valid on the given participant identifier.
     * @param applicationId  If set, the claims will only be valid on the given application identifier.
     * @param expiration     If set, the claims will cease to be valid at the given time.
@@ -77,19 +76,12 @@ object ClaimSet {
     */
   final case class Claims(
       claims: Seq[Claim],
-      ledgerId: Option[String],
       participantId: Option[String],
       applicationId: Option[String],
       expiration: Option[Instant],
       identityProviderId: IdentityProviderId,
       resolvedFromUser: Boolean,
   ) extends ClaimSet {
-
-    def validForLedger(id: String): Either[AuthorizationError, Unit] =
-      ledgerId match {
-        case Some(l) if l != id => Left(AuthorizationError.InvalidLedger(l, id))
-        case _ => Right(())
-      }
 
     def validForParticipant(id: String): Either[AuthorizationError, Unit] =
       participantId match {
@@ -181,7 +173,6 @@ object ClaimSet {
     /** A set of [[Claims]] that does not have any authorization */
     val Empty: Claims = Claims(
       claims = List.empty[Claim],
-      ledgerId = None,
       participantId = None,
       applicationId = None,
       expiration = None,

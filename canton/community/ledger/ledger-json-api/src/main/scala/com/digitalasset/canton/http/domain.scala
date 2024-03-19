@@ -48,10 +48,6 @@ package object domain {
   type ResolvedContractRef[LfV] =
     (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
 
-  type LedgerIdTag = lar.LedgerIdTag
-  type LedgerId = lar.LedgerId
-  val LedgerId = lar.LedgerId
-
   type ApplicationIdTag = lar.ApplicationIdTag
   type ApplicationId = lar.ApplicationId
   val ApplicationId = lar.ApplicationId

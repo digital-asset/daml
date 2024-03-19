@@ -61,7 +61,7 @@ object CantonGrpcUtil {
   ): EitherT[Future, StatusRuntimeException, C] =
     value.leftMap(_.asGrpcError)
 
-  def mapErrNewETUS[T <: CantonError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
+  def mapErrNewETUS[T <: BaseCantonError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
       ec: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
   ): EitherT[Future, StatusRuntimeException, C] =
@@ -78,7 +78,7 @@ object CantonGrpcUtil {
   ): Future[C] =
     EitherTUtil.toFuture(value.leftMap(_.asGrpcError))
 
-  def mapErrNewEUS[T <: CantonError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
+  def mapErrNewEUS[T <: BaseCantonError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
       ec: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
   ): Future[C] =

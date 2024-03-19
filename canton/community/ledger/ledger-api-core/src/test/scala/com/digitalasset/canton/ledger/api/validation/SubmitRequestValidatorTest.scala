@@ -222,15 +222,6 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "allow missing ledgerId" in {
-        testedCommandValidator.validateCommands(
-          api.commands,
-          internal.ledgerTime,
-          internal.submittedAt,
-          internal.maxDeduplicationDuration,
-        ) shouldEqual Right(internal.emptyCommands)
-      }
-
       "tolerate a missing workflowId" in {
         testedCommandValidator.validateCommands(
           api.commands.withWorkflowId(""),

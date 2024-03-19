@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.service
 
-import com.digitalasset.canton.domain.admin.v30.SequencerVersion
-import com.digitalasset.canton.domain.admin.v30.SequencerVersionServiceGrpc.SequencerVersionService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencer.admin.v30.SequencerVersion
+import com.digitalasset.canton.sequencer.admin.v30.SequencerVersionServiceGrpc.SequencerVersionService
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.Future

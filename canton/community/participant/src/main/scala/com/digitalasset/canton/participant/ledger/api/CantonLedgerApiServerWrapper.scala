@@ -15,7 +15,6 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -45,7 +44,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
     * @param jsonApiConfig            JSON API configuration
     * @param indexerConfig            indexer configuration
     * @param indexerLockIds           Optional lock IDs to be used for indexer HA
-    * @param ledgerId                 unique ledger id used by the ledger API server
     * @param participantId            unique participant id used e.g. for a unique ledger API server index db name
     * @param engine                   daml engine shared with Canton for performance reasons
     * @param syncService              canton sync service implementing both read and write services
@@ -63,7 +61,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       jsonApiConfig: Option[JsonApiConfig],
       indexerConfig: IndexerConfig,
       indexerHaConfig: HaConfig,
-      ledgerId: LedgerId,
       participantId: LedgerParticipantId,
       engine: Engine,
       syncService: CantonSyncService,

@@ -10,7 +10,6 @@ import com.daml.lf.engine.Engine
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
@@ -44,7 +43,6 @@ import scala.util.control.NoStackTrace
 final class IndexServiceOwner(
     config: IndexServiceConfig,
     dbSupport: DbSupport,
-    ledgerId: LedgerId,
     servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     engine: Engine,
@@ -109,7 +107,6 @@ final class IndexServiceOwner(
       )(inMemoryFanOutExecutionContext)
 
       indexService = new IndexServiceImpl(
-        ledgerId = ledgerId,
         participantId = participantId,
         ledgerDao = ledgerDao,
         transactionsReader = bufferedTransactionsReader,

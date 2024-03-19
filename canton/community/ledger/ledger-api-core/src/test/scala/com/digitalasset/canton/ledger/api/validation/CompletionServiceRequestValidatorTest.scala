@@ -25,7 +25,6 @@ class CompletionServiceRequestValidatorTest
     Some(ParticipantOffset(ParticipantOffset.Value.Absolute(absoluteOffset))),
   )
   private val completionReq = CompletionStreamRequest(
-    None,
     Ref.ApplicationId.assertFromString(expectedApplicationId),
     List(party).toSet,
     Some(domain.ParticipantOffset.Absolute(Ref.LedgerString.assertFromString(absoluteOffset))),
@@ -43,7 +42,7 @@ class CompletionServiceRequestValidatorTest
         inside(
           validator.validateGrpcCompletionStreamRequest(grpcCompletionReq)
         ) { case Right(req) =>
-          req shouldBe completionReq.copy(ledgerId = None)
+          req shouldBe completionReq
         }
       }
 
@@ -90,7 +89,7 @@ class CompletionServiceRequestValidatorTest
         inside(
           validator.validateCompletionStreamRequest(completionReq, ledgerEnd)
         ) { case Right(req) =>
-          req shouldBe completionReq.copy(ledgerId = None)
+          req shouldBe completionReq
         }
 
       }

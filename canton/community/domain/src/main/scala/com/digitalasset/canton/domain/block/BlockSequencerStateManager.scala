@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.block
 
-import cats.Monad
+import cats.data.Nested
 import cats.syntax.functor.*
 import com.daml.error.BaseError
 import com.daml.nameof.NameOf.functionFullName
@@ -13,10 +13,10 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block
 import com.digitalasset.canton.domain.block.BlockSequencerStateManager.HeadState
+import com.digitalasset.canton.domain.block.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
-  BlockUpdateClosureWithHeight,
   EphemeralState,
   SequencerBlockStore,
 }
@@ -26,25 +26,21 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.error.SequencerBaseError
-import com.digitalasset.canton.lifecycle.{
-  AsyncCloseable,
-  AsyncOrSyncCloseable,
-  CloseContext,
-  FlagCloseableAsync,
-  FutureUnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.{AsyncCloseable, AsyncOrSyncCloseable, FlagCloseableAsync}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import org.apache.pekko.Done
+import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.stream.KillSwitches
-import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.{Flow, Keep}
+import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
@@ -76,19 +72,18 @@ trait BlockSequencerStateManagerBase extends FlagCloseableAsync {
   /** Check whether a member is currently enabled based on the latest state. */
   def isMemberEnabled(member: Member): Boolean
 
-  def handleBlock(
-      currentHeadState: HeadState,
-      updateClosure: BlockUpdateClosureWithHeight,
-  ): FutureUnlessShutdown[HeadState]
+  /** Flow to turn [[com.digitalasset.canton.domain.block.BlockEvents]] of one block
+    * into a series of [[com.digitalasset.canton.domain.block.OrderedBlockUpdate]]s
+    * that are to be persisted subsequently using [[applyBlockUpdate]].
+    */
+  def processBlock(
+      bug: BlockUpdateGenerator
+  ): Flow[BlockEvents, Traced[OrderedBlockUpdate], NotUsed]
 
-  def handleLocalEvent(
-      currentHeadState: HeadState,
-      event: BlockSequencer.LocalEvent,
-  )(implicit traceContext: TraceContext): Future[HeadState]
-
-  def updateInitialMemberCounters(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit]
+  /** Persists the [[com.digitalasset.canton.domain.block.BlockUpdate]]s and completes the waiting RPC calls
+    * as necessary.
+    */
+  def applyBlockUpdate: Flow[Traced[BlockUpdate], Traced[CantonTimestamp], NotUsed]
 
   /** Wait for a member to be disabled on the underlying ledger */
   def waitForMemberToBeDisabled(member: Member): Future[Unit]
@@ -117,7 +112,7 @@ class BlockSequencerStateManager(
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
     rateLimitManager: SequencerRateLimitManager,
-)(implicit executionContext: ExecutionContext, closeContext: CloseContext)
+)(implicit executionContext: ExecutionContext)
     extends BlockSequencerStateManagerBase
     with NamedLogging {
 
@@ -168,40 +163,90 @@ class BlockSequencerStateManager(
     headStatus.membersMap.contains(member) && !headStatus.disabledMembers.contains(member)
   }
 
-  override def handleBlock(
-      currentHeadState: HeadState,
-      updateClosure: BlockUpdateClosureWithHeight,
-  ): FutureUnlessShutdown[HeadState] = {
-    implicit val traceContext: TraceContext = updateClosure.blockTraceContext
-    closeContext.context.performUnlessClosingUSF("handleBlock") {
+  override def processBlock(
+      bug: BlockUpdateGenerator
+  ): Flow[BlockEvents, Traced[OrderedBlockUpdate], NotUsed] = {
+    val head = getHeadState
+    val bugState = {
+      import TraceContext.Implicits.Empty.*
+      bug.internalStateFor(head.blockEphemeralState)
+    }
+    Flow[BlockEvents]
+      .via(checkBlockHeight(head.block.height))
+      .via(chunkBlock(bug))
+      .via(processChunk(bug)(bugState))
+  }
 
-      val blockEphemeralState = currentHeadState.blockEphemeralState
-      checkInvariantIfEnabled(blockEphemeralState)
-      val height = updateClosure.height
-      val lastBlockHeight = blockEphemeralState.latestBlock.height
+  private def checkBlockHeight(
+      initialHeight: Long
+  ): Flow[BlockEvents, Traced[BlockEvents], NotUsed] =
+    Flow[BlockEvents].statefulMapConcat(() => {
+      @SuppressWarnings(Array("org.wartremover.warts.Var"))
+      var currentBlockHeight = initialHeight
+      blockEvents => {
+        val height = blockEvents.height
 
-      // TODO(M98 Tech-Debt Collection): consider validating that blocks with the same block height have the same contents
-      // Skipping blocks we have processed before. Can occur when the read-path flowable is re-started but not all blocks
-      // in the pipeline of the BlockSequencerStateManager have already been processed.
-      if (height <= lastBlockHeight) {
-        logger.debug(s"Skipping update with height $height since it was already processed. ")(
-          traceContext
-        )
-        FutureUnlessShutdown.pure(currentHeadState)
-      } else if (lastBlockHeight > block.UninitializedBlockHeight && height > lastBlockHeight + 1) {
-        val msg =
-          s"Received block of height $height while the last processed block only had height $lastBlockHeight. " +
-            s"Expected to receive one block higher only."
-        logger.error(msg)
-        FutureUnlessShutdown.failed(new SequencerUnexpectedStateChange(msg))
-      } else
-        updateClosure
-          .updateGenerator(blockEphemeralState)
-          .flatMap(handleUpdate(currentHeadState, _))
+        // TODO(M98 Tech-Debt Collection): consider validating that blocks with the same block height have the same contents
+        // Skipping blocks we have processed before. Can occur when the read-path flowable is re-started but not all blocks
+        // in the pipeline of the BlockSequencerStateManager have already been processed.
+        if (height <= currentBlockHeight) {
+          noTracingLogger.debug(
+            s"Skipping update with height $height since it was already processed. "
+          )
+          Seq.empty
+        } else if (
+          currentBlockHeight > block.UninitializedBlockHeight && height > currentBlockHeight + 1
+        ) {
+          val msg =
+            s"Received block of height $height while the last processed block only had height $currentBlockHeight. " +
+              s"Expected to receive one block higher only."
+          noTracingLogger.error(msg)
+          throw new SequencerUnexpectedStateChange(msg)
+        } else {
+          implicit val traceContext: TraceContext = TraceContext.ofBatch(blockEvents.events)(logger)
+          // Set the current block height to the new block's height instead of + 1 of the previous value
+          // so that we support starting from an arbitrary block height
+          currentBlockHeight = height
+          Seq(Traced(blockEvents))
+        }
+      }
+    })
+
+  private def chunkBlock(
+      bug: BlockUpdateGenerator
+  ): Flow[Traced[BlockEvents], Traced[BlockChunk], NotUsed] =
+    Flow[Traced[BlockEvents]].mapConcat(_.withTraceContext { implicit traceContext => blockEvents =>
+      bug.chunkBlock(blockEvents).map(Traced(_))
+    })
+
+  private def processChunk(bug: BlockUpdateGenerator)(
+      initialState: bug.InternalState
+  ): Flow[Traced[BlockChunk], Traced[OrderedBlockUpdate], NotUsed] = {
+    implicit val traceContext = TraceContext.empty
+    Flow[Traced[BlockChunk]].statefulMapAsyncUSAndDrain(initialState) { (state, tracedChunk) =>
+      implicit val traceContext: TraceContext = tracedChunk.traceContext
+      tracedChunk.traverse(blockChunk => Nested(bug.processBlockChunk(state, blockChunk))).value
     }
   }
 
-  override def handleLocalEvent(
+  override def applyBlockUpdate: Flow[Traced[BlockUpdate], Traced[CantonTimestamp], NotUsed] = {
+    implicit val traceContext = TraceContext.empty
+    Flow[Traced[BlockUpdate]].statefulMapAsync(getHeadState) { (priorHead, update) =>
+      implicit val traceContext = update.traceContext
+      val fut = update.value match {
+        case LocalBlockUpdate(local) =>
+          handleLocalEvent(priorHead, local)(TraceContext.todo)
+        case chunk: ChunkUpdate =>
+          handleChunkUpdate(priorHead, chunk)(TraceContext.todo)
+        case complete: CompleteBlockUpdate =>
+          handleComplete(priorHead, complete.block)(TraceContext.todo)
+      }
+      fut.map(newHead => newHead -> Traced(newHead.block.lastTs))
+    }
+  }
+
+  @VisibleForTesting
+  private[domain] def handleLocalEvent(
       priorHead: HeadState,
       event: BlockSequencer.LocalEvent,
   )(implicit traceContext: TraceContext): Future[HeadState] = event match {
@@ -213,7 +258,7 @@ class BlockSequencerStateManager(
       }
   }
 
-  override def updateInitialMemberCounters(
+  private def updateInitialMemberCounters(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Unit] = for {
     initialCounters <- store.initialMemberCounters
@@ -441,66 +486,40 @@ class BlockSequencerStateManager(
     }
   }
 
-  private def handleUpdate(priorHeadState: HeadState, update: BlockUpdates)(implicit
+  private def handleComplete(priorHead: HeadState, newBlock: BlockInfo)(implicit
       blockTraceContext: TraceContext
-  ): FutureUnlessShutdown[HeadState] = {
+  ): Future[HeadState] = {
+    val chunkState = priorHead.chunk
+    assert(
+      chunkState.lastTs <= newBlock.lastTs,
+      s"The block's last timestamp must be at least the last timestamp of the last chunk",
+    )
+    assert(
+      chunkState.latestSequencerEventTimestamp <= newBlock.latestSequencerEventTimestamp,
+      s"The block's latest topology client timestamp must be at least the last chunk's latest topology client timestamp",
+    )
 
-    def handleComplete(priorHead: HeadState, newBlock: BlockInfo): Future[HeadState] = {
-      val chunkState = priorHead.chunk
-
-      assert(
-        chunkState.lastTs <= newBlock.lastTs,
-        s"The block's last timestamp must be at least the last timestamp of the last chunk",
-      )
-      assert(
-        chunkState.latestSequencerEventTimestamp <= newBlock.latestSequencerEventTimestamp,
-        s"The block's latest topology client timestamp must be at least the last chunk's latest topology client timestamp",
-      )
-
-      val newState = BlockEphemeralState(
-        newBlock,
-        // We can expire the cached in-memory in-flight aggregations,
-        // but we must not expire the persisted aggregations
-        // because we still need them for computing a snapshot
-        chunkState.ephemeral.evictExpiredInFlightAggregations(newBlock.lastTs),
-      )
-      checkInvariantIfEnabled(newState)
-      val newHead = HeadState.fullyProcessed(newState)
-      for {
-        _ <- store.finalizeBlockUpdate(newBlock)
-      } yield {
-        updateHeadState(priorHead, newHead)
-        // Use lastTs here under the following assumptions:
-        // 1. lastTs represents the timestamp of the last sequenced "send" event of the last block successfully processed
-        //    Specifically, it is the last of the timestamps in the block passed to the rate limiter in the B.U.G for consumed and traffic updates methods.
-        //    After setting safeForPruning to this timestamp, we will not be able to request balances from the balance manager prior to this timestamp.
-        // 2. This does not impose restrictions on the use of lastSequencerEventTimestamp when calling the rate limiter.
-        //    Meaning it should be possible to use an old lastSequencerEventTimestamp when calling the rate limiter, even if it is older than lastTs here.
-        //    If this changes, we we will need to use lastSequencerEventTimestamp here instead.
-        // 3. TODO(i15837): Under some HA failover scenarios, this may not be sufficient. Mainly because finalizeBlockUpdate above does not
-        //    use synchronous commits for DB replicas. This has for consequence that theoretically a block could be finalized but not appear
-        //    in the DB replica, while the pruning will be visible in the replica. This would lead the BUG to requesting balances for that block when
-        //    reprocessing it, which would fail because the balances have been pruned. This needs to be considered when implementing HA for the BlockSequencer.
-        rateLimitManager.safeForPruning(newHead.block.lastTs)
-        newHead
-      }
+    val newState = BlockEphemeralState(newBlock, chunkState.ephemeral)
+    checkInvariantIfEnabled(newState)
+    val newHead = HeadState.fullyProcessed(newState)
+    for {
+      _ <- store.finalizeBlockUpdate(newBlock)
+    } yield {
+      updateHeadState(priorHead, newHead)
+      // Use lastTs here under the following assumptions:
+      // 1. lastTs represents the timestamp of the last sequenced "send" event of the last block successfully processed
+      //    Specifically, it is the last of the timestamps in the block passed to the rate limiter in the B.U.G for consumed and traffic updates methods.
+      //    After setting safeForPruning to this timestamp, we will not be able to request balances from the balance manager prior to this timestamp.
+      // 2. This does not impose restrictions on the use of lastSequencerEventTimestamp when calling the rate limiter.
+      //    Meaning it should be possible to use an old lastSequencerEventTimestamp when calling the rate limiter, even if it is older than lastTs here.
+      //    If this changes, we we will need to use lastSequencerEventTimestamp here instead.
+      // 3. TODO(i15837): Under some HA failover scenarios, this may not be sufficient. Mainly because finalizeBlockUpdate above does not
+      //    use synchronous commits for DB replicas. This has for consequence that theoretically a block could be finalized but not appear
+      //    in the DB replica, while the pruning will be visible in the replica. This would lead the BUG to requesting balances for that block when
+      //    reprocessing it, which would fail because the balances have been pruned. This needs to be considered when implementing HA for the BlockSequencer.
+      rateLimitManager.safeForPruning(newHead.block.lastTs)
+      newHead
     }
-
-    def step(
-        headAndUpdates: (HeadState, BlockUpdates)
-    ): FutureUnlessShutdown[Either[(HeadState, BlockUpdates), HeadState]] = {
-      val (priorHead, updates) = headAndUpdates
-      updates match {
-        case PartialBlockUpdate(chunk, continuation) =>
-          FutureUnlessShutdown
-            .outcomeF(handleChunkUpdate(priorHead, chunk))
-            .flatMap(nextHead => continuation.map(upds => Left(nextHead -> upds)))
-        case CompleteBlockUpdate(block) =>
-          FutureUnlessShutdown.outcomeF(handleComplete(priorHead, block)).map(Right(_))
-      }
-    }
-
-    Monad[FutureUnlessShutdown].tailRecM(priorHeadState -> update)(step)
   }
 
   private def updateHeadState(prior: HeadState, next: HeadState)(implicit
@@ -687,7 +706,6 @@ object BlockSequencerStateManager {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-      closeContext: CloseContext,
   ): Future[BlockSequencerStateManager] =
     for {
       counters <- store.initialMemberCounters

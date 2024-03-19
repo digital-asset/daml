@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX

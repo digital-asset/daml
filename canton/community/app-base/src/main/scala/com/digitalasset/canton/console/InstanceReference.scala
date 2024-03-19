@@ -19,12 +19,10 @@ import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc
-import com.digitalasset.canton.domain.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.domain.mediator.{
+  MediatorNode,
   MediatorNodeBootstrapX,
   MediatorNodeConfigCommon,
-  MediatorNodeX,
   RemoteMediatorConfig,
 }
 import com.digitalasset.canton.domain.sequencing.config.{
@@ -51,6 +49,8 @@ import com.digitalasset.canton.participant.{
   ParticipantNodeCommon,
   ParticipantNodeX,
 }
+import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
+import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.topology.*
@@ -1280,7 +1280,7 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
     extends MediatorReference(consoleEnvironment, name)
     with LocalInstanceReference
     with SequencerConnectionAdministration
-    with BaseInspection[MediatorNodeX] {
+    with BaseInspection[MediatorNode] {
 
   override protected[canton] def executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext

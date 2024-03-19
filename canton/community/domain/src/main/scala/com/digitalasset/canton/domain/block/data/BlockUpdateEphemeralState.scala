@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.block.data
 
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoint
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregations,
@@ -41,6 +42,13 @@ final case class BlockUpdateEphemeralState(
 
     headCounter(member).fold(SequencerCounter.Genesis)(_ + 1)
   }
+
+  def evictExpiredInFlightAggregations(upToInclusive: CantonTimestamp): BlockUpdateEphemeralState =
+    this.copy(
+      inFlightAggregations = inFlightAggregations.filterNot { case (_, inFlightAggregation) =>
+        inFlightAggregation.expired(upToInclusive)
+      }
+    )
 
   override def pretty: Pretty[BlockUpdateEphemeralState] = prettyOfClass(
     param("checkpoints", _.checkpoints),

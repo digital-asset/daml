@@ -5,7 +5,6 @@ package com.daml.http
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixtureWithResource
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
@@ -38,8 +37,6 @@ trait ToxicSandboxFixture
   protected def proxy: Proxy = additional._4
 
   override protected def beforeEach() = proxyClient.reset()
-
-  protected def ledgerId: LedgerId = LedgerId(config.ledgerIds.headOption.value)
 
   protected def makeToxiproxyResource(ledger: Port): ResourceOwner[(Port, ToxiproxyClient, Proxy)] =
     new ResourceOwner[(Port, ToxiproxyClient, Proxy)] {

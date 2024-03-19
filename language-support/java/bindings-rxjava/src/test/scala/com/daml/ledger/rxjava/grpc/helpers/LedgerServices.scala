@@ -60,7 +60,6 @@ final class LedgerServices(val name: String) {
   val authorizer: Authorizer =
     new Authorizer(
       now = () => Clock.systemUTC().instant(),
-      ledgerId = name,
       participantId = participantId,
       userManagementStore = new InMemoryUserManagementStore(createAdmin = false, loggerFactory),
       ec = executionContext,

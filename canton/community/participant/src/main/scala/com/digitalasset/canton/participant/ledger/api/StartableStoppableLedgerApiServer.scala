@@ -16,7 +16,6 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout}
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
-import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{Filters, TransactionFilter}
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -263,7 +262,6 @@ class StartableStoppableLedgerApiServer(
       }
       indexService <- new IndexServiceOwner(
         dbSupport = dbSupport,
-        ledgerId = domain.LedgerId(config.ledgerId),
         config = indexServiceConfig,
         participantId = config.participantId,
         metrics = config.metrics,
@@ -316,7 +314,6 @@ class StartableStoppableLedgerApiServer(
           loggerFactory,
         ),
         partyRecordStore = partyRecordStore,
-        ledgerId = config.ledgerId,
         participantId = config.participantId,
         apiStreamShutdownTimeout = config.serverConfig.apiStreamShutdownTimeout,
         command = config.serverConfig.commandService,

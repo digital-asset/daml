@@ -4,7 +4,7 @@
 package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.lf
-import com.daml.ledger.api.{v2 as lav2}
+import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.domain.ContractTypeId
 
  object IdentifierConverters {

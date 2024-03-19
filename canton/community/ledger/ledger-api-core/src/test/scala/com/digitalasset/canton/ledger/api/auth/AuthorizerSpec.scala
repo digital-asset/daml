@@ -77,7 +77,6 @@ class AuthorizerSpec
 
   private def authorizer() = new Authorizer(
     () => Instant.ofEpochSecond(1337L),
-    "some-ledger-id",
     "participant-id",
     mock[UserManagementStore],
     mock[ExecutionContext],

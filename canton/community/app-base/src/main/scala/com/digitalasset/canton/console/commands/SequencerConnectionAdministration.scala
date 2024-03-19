@@ -7,7 +7,11 @@ import cats.syntax.either.*
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerConnectionAdminCommands
 import com.digitalasset.canton.console.{AdminCommandRunner, Help, Helpful, InstanceReference}
-import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
+import com.digitalasset.canton.sequencing.{
+  SequencerConnection,
+  SequencerConnectionValidation,
+  SequencerConnections,
+}
 
 import scala.util.Try
 
@@ -34,9 +38,12 @@ trait SequencerConnectionAdministration extends Helpful {
         "This will replace any pre-configured connection details. " +
         "This command will only work after the node has been initialized."
     )
-    def set(connections: SequencerConnections): Unit = consoleEnvironment.run {
+    def set(
+        connections: SequencerConnections,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+    ): Unit = consoleEnvironment.run {
       adminCommand(
-        EnterpriseSequencerConnectionAdminCommands.SetConnection(connections)
+        EnterpriseSequencerConnectionAdminCommands.SetConnection(connections, validation)
       )
     }
 
@@ -46,10 +53,14 @@ trait SequencerConnectionAdministration extends Helpful {
         "This will replace any pre-configured connection details. " +
         "This command will only work after the node has been initialized."
     )
-    def set(connection: SequencerConnection): Unit = consoleEnvironment.run {
+    def set_single(
+        connection: SequencerConnection,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+    ): Unit = consoleEnvironment.run {
       adminCommand(
         EnterpriseSequencerConnectionAdminCommands.SetConnection(
-          SequencerConnections.single(connection)
+          SequencerConnections.single(connection),
+          validation,
         )
       )
     }
@@ -68,7 +79,8 @@ trait SequencerConnectionAdministration extends Helpful {
         "by passing a modifier function that operates on the existing connection configuration. "
     )
     def modify_connections(
-        modifier: SequencerConnections => SequencerConnections
+        modifier: SequencerConnections => SequencerConnections,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit =
       consoleEnvironment.runE {
         for {
@@ -78,7 +90,7 @@ trait SequencerConnectionAdministration extends Helpful {
           conn <- connOption.toRight("Node not yet initialized")
           newConn <- Try(modifier(conn)).toEither.leftMap(_.getMessage)
           _ <- adminCommand(
-            EnterpriseSequencerConnectionAdminCommands.SetConnection(newConn)
+            EnterpriseSequencerConnectionAdminCommands.SetConnection(newConn, validation)
           ).toEither
 
         } yield ()

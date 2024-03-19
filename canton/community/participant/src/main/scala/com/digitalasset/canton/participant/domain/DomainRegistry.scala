@@ -59,6 +59,8 @@ object DomainRegistryError extends DomainRegistryErrorGroup {
           .Error(cause)
       case SequencerInfoLoaderError.FailedToConnectToSequencers(cause) =>
         DomainRegistryError.ConnectionErrors.FailedToConnectToSequencers.Error(cause)
+      case SequencerInfoLoaderError.InconsistentConnectivity(cause) =>
+        DomainRegistryError.ConnectionErrors.FailedToConnectToSequencers.Error(cause)
     }
   }
 

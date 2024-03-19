@@ -353,7 +353,12 @@ class ParticipantNodeBootstrapX(
       criticalDependencies = Seq(storage),
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
-      Seq(syncDomainHealth, syncDomainEphemeralHealth, syncDomainSequencerClientHealth),
+      Seq(
+        syncDomainHealth,
+        syncDomainEphemeralHealth,
+        syncDomainSequencerClientHealth,
+        syncDomainAcsCommitmentProcessorHealth,
+      ),
     )
 
   override protected def setPostInitCallbacks(

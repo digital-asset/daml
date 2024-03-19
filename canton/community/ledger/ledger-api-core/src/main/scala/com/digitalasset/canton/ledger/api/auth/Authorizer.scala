@@ -30,7 +30,6 @@ import scala.util.{Failure, Success, Try}
   */
 final class Authorizer(
     now: () => Instant,
-    ledgerId: String,
     participantId: String,
     userManagementStore: UserManagementStore,
     ec: ExecutionContext,
@@ -53,7 +52,6 @@ final class Authorizer(
         jwtTimestampLeeway,
         None,
       ) // Don't use the grace period for the initial check
-      _ <- claims.validForLedger(ledgerId)
       _ <- claims.validForParticipant(participantId)
     } yield {
       ()

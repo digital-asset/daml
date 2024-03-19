@@ -12,9 +12,9 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
+import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel

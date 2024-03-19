@@ -35,7 +35,7 @@ object TopologyChangeOpX {
   /** Adds or replaces an existing record */
   final case object Replace extends TopologyChangeOpX {
     override def toProto: v30.Enums.TopologyChangeOp =
-      v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE_UNSPECIFIED
+      v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE
   }
   final case object Remove extends TopologyChangeOpX {
     override def toProto: v30.Enums.TopologyChangeOp =
@@ -56,8 +56,10 @@ object TopologyChangeOpX {
       protoOp: v30.Enums.TopologyChangeOp
   ): ParsingResult[TopologyChangeOpX] =
     protoOp match {
+      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED =>
+        Left(FieldNotSet(protoOp.name))
       case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REMOVE => Right(Remove)
-      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_REPLACE_UNSPECIFIED => Right(Replace)
+      case v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE => Right(Replace)
       case v30.Enums.TopologyChangeOp.Unrecognized(x) => Left(UnrecognizedEnum(protoOp.name, x))
     }
 

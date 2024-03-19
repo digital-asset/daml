@@ -78,4 +78,5 @@ message DynamicDomainParameters {
 
   google.protobuf.Duration sequencer_aggregate_submission_timeout = 15;
   com.digitalasset.canton.protocol.v30.TrafficControlParameters traffic_control_parameters = 16;
+  AcsCommitmentsCatchUpConfig acs_commitments_catchup_config = 17;
 }

@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,
@@ -35,6 +34,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServiceGrpc
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessorX}

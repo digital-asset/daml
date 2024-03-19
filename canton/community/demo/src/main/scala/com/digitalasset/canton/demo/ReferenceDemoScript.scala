@@ -189,7 +189,7 @@ class ReferenceDemoScript(
       name: String,
       connection: SequencerConnection,
   ): Unit = {
-    participant.domains.connect(
+    participant.domains.connect_by_config(
       DomainConnectionConfig(
         name,
         SequencerConnections.single(connection),

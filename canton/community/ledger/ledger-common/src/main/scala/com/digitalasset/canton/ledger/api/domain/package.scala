@@ -29,12 +29,6 @@ package object domain {
   implicit val eventIdOrdering: Ordering[EventId] =
     Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
-  type LedgerId = String @@ LedgerIdTag
-  val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
-
-  def optionalLedgerId(raw: String): Option[LedgerId] =
-    if (raw.isEmpty) None else Some(LedgerId(raw))
-
   type ParticipantId = Ref.ParticipantId @@ ParticipantIdTag
   val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
 
@@ -47,7 +41,6 @@ package domain {
   sealed trait CommandIdTag
   sealed trait TransactionIdTag
   sealed trait EventIdTag
-  sealed trait LedgerIdTag
   sealed trait ParticipantIdTag
   sealed trait SubmissionIdTag
 

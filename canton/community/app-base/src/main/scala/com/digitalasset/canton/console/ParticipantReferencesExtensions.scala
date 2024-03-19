@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
+import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 
 class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
@@ -97,10 +98,14 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         .discard
 
     @Help.Summary("Register and potentially connect to domain")
-    def register(config: DomainConnectionConfig, handshakeOnly: Boolean = false): Unit =
+    def register(
+        config: DomainConnectionConfig,
+        handshakeOnly: Boolean = false,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+    ): Unit =
       ConsoleCommandResult
         .runAll(participants)(
-          ParticipantCommands.domains.register(_, config, handshakeOnly = handshakeOnly)
+          ParticipantCommands.domains.register(_, config, handshakeOnly = handshakeOnly, validation)
         )
         .discard
 

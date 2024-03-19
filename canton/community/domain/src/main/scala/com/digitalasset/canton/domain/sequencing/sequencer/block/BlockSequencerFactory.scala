@@ -202,19 +202,16 @@ abstract class BlockSequencerFactory(
 
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-    val stateManagerF = {
-      implicit val closeContext = CloseContext(domainSyncCryptoApi)
-      BlockSequencerStateManager(
-        protocolVersion,
-        domainId,
-        sequencerId,
-        store,
-        nodeParameters.enableAdditionalConsistencyChecks,
-        nodeParameters.processingTimeouts,
-        domainLoggerFactory,
-        rateLimitManager,
-      )
-    }
+    val stateManagerF = BlockSequencerStateManager(
+      protocolVersion,
+      domainId,
+      sequencerId,
+      store,
+      nodeParameters.enableAdditionalConsistencyChecks,
+      nodeParameters.processingTimeouts,
+      domainLoggerFactory,
+      rateLimitManager,
+    )
 
     for {
       _ <- balanceManager.initialize

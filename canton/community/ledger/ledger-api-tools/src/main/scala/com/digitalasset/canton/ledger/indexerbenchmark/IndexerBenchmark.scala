@@ -179,7 +179,3 @@ class IndexerBenchmark extends NamedLogging {
     sys.exit(0)
   }
 }
-
-object IndexerBenchmark {
-  private val LedgerId = "IndexerBenchmarkLedger"
-}

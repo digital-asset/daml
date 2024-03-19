@@ -47,7 +47,7 @@ abstract class FailureTests
   protected override final def testId = getClass.getSimpleName
 
   private def headersWithParties(actAs: List[domain.Party]) =
-    Future successful headersWithPartyAuth(actAs, List(), Some(ledgerId.unwrap))
+    Future successful headersWithPartyAuth(actAs, List())
 
   val availabilitySecurity: SecurityTest =
     SecurityTest(property = Availability, asset = "Ledger Service HTTP JSON")
@@ -389,7 +389,7 @@ abstract class FailureTests
         )
         _ = status shouldBe a[StatusCodes.Success]
         cid = getContractId(getResult(r))
-        jwt <- jwtForParties(uri)(List(p), List(), ledgerId.unwrap)
+        jwt <- jwtForParties(uri)(List(p), List())
         r <- (singleClientQueryStream(
           jwt,
           uri,
@@ -411,7 +411,7 @@ abstract class FailureTests
         )
         cid = getContractId(getResult(r))
         _ = status shouldBe a[StatusCodes.Success]
-        jwt <- jwtForParties(uri)(List(p), List(), ledgerId.unwrap)
+        jwt <- jwtForParties(uri)(List(p), List())
         (stop, source) = singleClientQueryStream(
           jwt,
           uri,

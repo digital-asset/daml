@@ -183,13 +183,11 @@ class StreamAuthorizationComponentSpec
   val partyId1 = Ref.Party.assertFromString("party1")
 
   private def test(body: Fixture => Future[Any]): Future[Assertion] = {
-    val ledgerId = "ledger-id"
     val participantId = "participant-id"
     val nowRef = new AtomicReference(Instant.now())
     val partyId2 = Ref.Party.assertFromString("party2")
     val claimSetFixture = ClaimSet.Claims(
       claims = List[Claim](ClaimPublic, ClaimReadAsParty(partyId1), ClaimReadAsParty(partyId2)),
-      ledgerId = Some(ledgerId),
       participantId = Some(participantId),
       applicationId = Some(userId),
       expiration = Some(nowRef.get().plusSeconds(10)),
@@ -224,7 +222,6 @@ class StreamAuthorizationComponentSpec
       .isRight shouldBe true
     val authorizer = new Authorizer(
       now = () => nowRef.get(),
-      ledgerId = ledgerId,
       participantId = participantId,
       userManagementStore = userManagementStore,
       ec = ec,

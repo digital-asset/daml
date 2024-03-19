@@ -3,12 +3,12 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.admin.v30;
+package com.digitalasset.canton.mediator.admin.v30;
 
 import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
 
 // service used by sequencer clients to manage connection to the sequencer
-// used by the mediator and domain manager nodes
+// used by the mediator
 service SequencerConnectionService {
   rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
   rpc SetConnection(SetConnectionRequest) returns (SetConnectionResponse);
@@ -22,6 +22,7 @@ message GetConnectionResponse {
 
 message SetConnectionRequest {
   com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 1; // required
+  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 2; // required
 }
 
 message SetConnectionResponse {}

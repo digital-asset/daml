@@ -31,6 +31,7 @@ class ConsoleEnvironmentBinding {
        |import com.digitalasset.canton.SequencerAlias
        |import com.digitalasset.canton.sequencing.SequencerConnection
        |import com.digitalasset.canton.sequencing.SequencerConnections
+       |import com.digitalasset.canton.sequencing.SequencerConnectionValidation._
        |import com.digitalasset.canton.sequencing.GrpcSequencerConnection
        |$consoleMacrosImport
        |import com.digitalasset.canton.console.commands.DomainChoice

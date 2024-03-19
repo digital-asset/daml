@@ -3,79 +3,68 @@
 
 package com.digitalasset.canton.metrics
 
-import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.metrics.InstrumentType
 import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
-import io.opentelemetry.sdk.metrics.`export`.{MetricExporter, MetricReader, PeriodicMetricReader}
+import io.opentelemetry.sdk.metrics.`export`.MetricExporter
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.util
-import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.blocking
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
-class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLoggerFactory)(implicit
-    scheduledExecutorService: ScheduledExecutorService
-) extends MetricExporter
+class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLoggerFactory)
+    extends MetricExporter
     with NamedLogging
     with NoTracing {
-
-  val reader: MetricReader =
-    PeriodicMetricReader.builder(this).setExecutor(scheduledExecutorService).setInterval(config.interval.asJava).build()
 
   private val running = new AtomicBoolean(true)
   private val files = new TrieMap[String, (FileWriter, BufferedWriter)]
   private val lock = new Object()
 
-  def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality = AggregationTemporality.CUMULATIVE
-
-  private def includeMetric(data: MetricData): Boolean = {
-    data.getName.nonEmpty && (config.filters.isEmpty || config.filters.exists(
-      _.matches(data.getName)
-    ))
-  }
+  def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality =
+    AggregationTemporality.CUMULATIVE
 
   override def flush(): CompletableResultCode = {
-    (new CompletableResultCode()).whenComplete(() => {
-      tryOrStop {
-        files.foreach { case (_, (_, bufferedWriter)) =>
-          bufferedWriter.flush()
-        }
+    tryOrStop {
+      files.foreach { case (_, (_, bufferedWriter)) =>
+        bufferedWriter.flush()
       }
-    })
+    }
+    CompletableResultCode.ofSuccess()
   }
 
   override def shutdown(): CompletableResultCode = {
-    (new CompletableResultCode()).whenComplete(() => {
-      running.set(false)
-      tryOrStop {
-        files.foreach { case (_, (file, bufferedWriter)) =>
-          bufferedWriter.close()
-          file.close()
-        }
-      }
-    })
-  }
-
-  def export(metrics: util.Collection[MetricData]): CompletableResultCode =
-    (new CompletableResultCode()).whenComplete(() => {
-    lock.synchronized {
-      if (running.get()) {
-        val ts = CantonTimestamp.now()
-        val filtered = metrics.asScala.filter(includeMetric).flatMap { data =>
-          MetricValue.fromMetricData(data).map { value => (value, data) }
-        }
-        filtered.foreach { case (value, metadata) => writeRow(ts, value, metadata) }
+    running.set(false)
+    tryOrStop {
+      files.foreach { case (_, (file, bufferedWriter)) =>
+        bufferedWriter.close()
+        file.close()
       }
     }
-  })
+    CompletableResultCode.ofSuccess()
+  }
+
+  def `export`(metrics: util.Collection[MetricData]): CompletableResultCode = {
+    blocking {
+      lock.synchronized {
+        if (running.get()) {
+          val ts = CantonTimestamp.now()
+          val converted = metrics.asScala.flatMap { data =>
+            MetricValue.fromMetricData(data).map { value => (value, data) }
+          }
+          converted.foreach { case (value, metadata) => writeRow(ts, value, metadata) }
+        }
+      }
+    }
+    CompletableResultCode.ofSuccess()
+  }
 
   private def tryOrStop(res: => Unit): Unit = {
     Try(res) match {

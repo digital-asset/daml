@@ -9,12 +9,7 @@ import com.daml.lf.data.Ref.{PackageRef, Party, TypeConRef}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{
-  IdentityProviderId,
-  JwksUrl,
-  LedgerId,
-  TemplateFilter,
-}
+import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl, TemplateFilter}
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
   AnnotationsSizeExceededError,
@@ -23,7 +18,6 @@ import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.DomainId
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
@@ -31,21 +25,6 @@ import io.grpc.StatusRuntimeException
 import scala.util.{Failure, Success, Try}
 
 object FieldValidator {
-  def matchLedgerId(
-      ledgerId: LedgerId
-  )(receivedO: Option[LedgerId])(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[LedgerId]] = receivedO match {
-    case None => Right(None)
-    case Some(`ledgerId`) => Right(Some(ledgerId))
-    case Some(mismatching) =>
-      import scalaz.syntax.tag.*
-      Left(
-        RequestValidationErrors.LedgerIdMismatch
-          .Reject(ledgerId.unwrap, mismatching.unwrap)
-          .asGrpcError
-      )
-  }
 
   def requireNonEmptyString(s: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
