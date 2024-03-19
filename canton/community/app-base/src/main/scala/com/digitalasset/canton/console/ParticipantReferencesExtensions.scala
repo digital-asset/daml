@@ -26,7 +26,8 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     @Help.Summary("Upload DARs to participants")
     @Help.Description(
       """If vetAllPackages is true, the participants will vet the package on all domains they are registered.
-        If synchronizeVetting is true, the command will block until the package vetting transaction has been registered with all connected domains."""
+        If synchronizeVetting is true, the command will block until the package vetting transaction has been registered with all connected domains.
+        If dryRun is true, the participant will not upload the DAR, even if all validation steps pass"""
     )
     def upload(
         darPath: String,
