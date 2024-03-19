@@ -95,6 +95,11 @@ case class ProjectConfig(
       .as[Option[List[String]]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+  def environmentVariableInterpolation: Result[Boolean] =
+    content.hcursor
+      .downField("environment-variable-interpolation")
+      .as[Option[Boolean]]
+      .fold(e => Left(ConfigParseError(e.getMessage())), r => Right(r.getOrElse(true)))
 }
 
 object ProjectConfig {
@@ -162,8 +167,14 @@ object ProjectConfig {
   ): Either[ConfigLoadingError, ProjectConfig] = {
     for {
       json <- yaml.parser.parse(content).left.map(e => ConfigParseError(e.getMessage))
-      interpolatedJson <- Try(interpolateEnvironmentVariables(json, env))
-        .fold(e => Left(ConfigParseError(e.getMessage)), Right(_))
+      shouldInterpolate <- ProjectConfig(json, projectPath).environmentVariableInterpolation
+
+      interpolatedJson <-
+        if (shouldInterpolate)
+          Try(interpolateEnvironmentVariables(json, env))
+            .fold(e => Left(ConfigParseError(e.getMessage)), Right(_))
+        else
+          Right(json)
     } yield ProjectConfig(interpolatedJson, projectPath)
   }
 
