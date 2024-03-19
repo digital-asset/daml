@@ -329,6 +329,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                     }
                 , optPackageImports = packageFlags
                 , optDetailLevel = PrettyLevel (-1)
+                , optEnableScenarios = EnableScenarios True
                 }
 
               mkIde options = do
