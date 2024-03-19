@@ -341,7 +341,8 @@ checkDefDataType origin datatype = do
           (existing, _new) <- checkDeleted (\_ -> EUpgradeError (VariantRemovedVariant origin)) (fmap HMS.fromList upgrade)
           when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
               throwWithContextF present (EUpgradeError (VariantVariantsOrderChanged origin))
-          when (not (all (foldU alphaType) existing)) $
+          different <- filterHashMapM (fmap not . isSameType) existing
+          when (not (null different)) $
               throwWithContextF present $ EUpgradeError (VariantChangedVariantType origin)
       Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
           let upgrade = Upgrading{..}
@@ -356,11 +357,16 @@ checkDefDataType origin datatype = do
       _ ->
           throwWithContextF present (EUpgradeError (MismatchDataConsVariety (dataTypeCon (_past datatype))))
 
+filterHashMapM :: (Applicative m) => (a -> m Bool) -> HMS.HashMap k a -> m (HMS.HashMap k a)
+filterHashMapM pred t =
+    fmap fst . HMS.filter snd <$> traverse (\x -> (x,) <$> pred x) t
+
 checkFields :: UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> TcUpgradeM ()
 checkFields origin fields = do
     (existing, new) <- checkDeleted (\_ -> EUpgradeError (RecordFieldsMissing origin)) (fmap HMS.fromList fields)
     -- If a field from the upgraded package has had its type changed
-    when (any matchingFieldDifferentType existing) $
+    different <- filterHashMapM (fmap not . isSameType) existing
+    when (not (HMS.null different)) $
         throwWithContextF present (EUpgradeError (RecordFieldsExistingChanged origin))
     when (not (all newFieldOptionalType new)) $
         case origin of
@@ -373,12 +379,33 @@ checkFields origin fields = do
     when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) fields) $
         throwWithContextF present (EUpgradeError (RecordFieldsOrderChanged origin))
     where
-        matchingFieldDifferentType Upgrading{..} = _past /= _present
         newFieldOptionalType (TOptional _) = True
         newFieldOptionalType _ = False
 
 -- Check type upgradability
 checkUpgradeType :: Upgrading Type -> Error -> TcUpgradeM ()
 checkUpgradeType type_ err = do
+    sameType <- isSameType type_
+    unless sameType $ throwWithContextF present err
+
+isSameType :: Upgrading Type -> TcUpgradeM Bool
+isSameType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
-    unless (foldU alphaType expandedTypes) (throwWithContextF present err)
+    let strippedIdentifiers = fmap unifyTypes expandedTypes
+    pure (foldU alphaType strippedIdentifiers)
+
+unifyIdentifier :: Qualified a -> Qualified a
+unifyIdentifier q = q { qualPackage = PRSelf }
+
+unifyTypes :: Type -> Type
+unifyTypes typ =
+    case typ of
+      TNat n -> TNat n
+      TSynApp n args -> TSynApp (unifyIdentifier n) (map unifyTypes args)
+      TVar n -> TVar n
+      TCon con -> TCon (unifyIdentifier con)
+      TBuiltin bt -> TBuiltin bt
+      TApp fun arg -> TApp (unifyTypes fun) (unifyTypes arg)
+      TForall v body -> TForall v (unifyTypes body)
+      TStruct fields -> TStruct ((map . fmap) unifyTypes fields)
+
