@@ -317,6 +317,7 @@ def daml_compile(
         project_name = None,
         ghc_options = default_damlc_opts,
         enable_scenarios = False,
+        enable_interfaces = False,
         dependencies = [],
         data_dependencies = [],
         module_prefixes = None,
@@ -349,7 +350,8 @@ def daml_compile(
         dar = name + ".dar",
         ghc_options =
             ghc_options +
-            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []),
+            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []) +
+            (["--enable-interfaces=yes"] if enable_interfaces else []),
         damlc = damlc_for_target(target),
         **kwargs
     )
