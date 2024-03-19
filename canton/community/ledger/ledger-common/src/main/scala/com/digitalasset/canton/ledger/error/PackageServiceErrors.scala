@@ -308,7 +308,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          uploadedPackage: Ref.PackageId,
+          uploadedPackageId: Ref.PackageId,
           existingPackage: Ref.PackageId,
           packageVersion: Ref.PackageVersion,
       )(implicit
@@ -316,7 +316,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       ) extends DamlError(
           cause = "A DAR with the same version number has previously been uploaded.",
           extraContext = Map(
-            "uploadedPackage" -> uploadedPackage,
+            "uploadedPackageId" -> uploadedPackageId,
             "existingPackage" -> existingPackage,
             "packageVersion" -> packageVersion.toString,
           ),
@@ -333,14 +333,14 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          uploadedPackage: Ref.PackageId,
+          uploadedPackageId: Ref.PackageId,
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
           cause =
             "The DAR will not be uploaded because dry run is set in UploadDarRequest",
           extraContext = Map(
-            "uploadedPackage" -> uploadedPackage,
+            "uploadedPackageId" -> uploadedPackageId,
           ),
         )
     }
