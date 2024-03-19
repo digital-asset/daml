@@ -109,7 +109,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             "CantonExamples",
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
           .value
           .map(_.valueOrFail("append dar"))
@@ -136,7 +135,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             "some/path/CantonExamples.dar",
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
           .value
           .map(_.valueOrFail("should be right"))
@@ -162,7 +160,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             "some/path/CantonExamples.dar",
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
           .valueOrFail("appending dar")
           .failOnShutdown
@@ -192,7 +189,6 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest {
             badDarPath,
             vetAllPackages = false,
             synchronizeVetting = false,
-            dryRun = false,
           )
         )("append illformed.dar").failOnShutdown
       } yield {

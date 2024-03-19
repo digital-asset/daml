@@ -87,7 +87,7 @@ class ApiPackageManagementServiceSpec
       val span = testTelemetrySetup.anEmptySpan()
       val scope = span.makeCurrent()
       apiService
-        .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId, false))
+        .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
         .andThen { case _ =>
           scope.close()
           span.end()
@@ -106,7 +106,7 @@ class ApiPackageManagementServiceSpec
       loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(DEBUG))(
         within = {
           apiService
-            .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId, false))
+            .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
             .map(_ => succeed)
         },
         { logEntries =>
@@ -164,7 +164,7 @@ class ApiPackageManagementServiceSpec
 
       apiPackageManagementService
         .uploadDarFile(
-          UploadDarFileRequest(ByteString.EMPTY, aSubmissionId, false)
+          UploadDarFileRequest(ByteString.EMPTY, aSubmissionId)
         )
         .transform {
           case Success(_) =>

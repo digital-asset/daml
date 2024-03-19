@@ -200,7 +200,6 @@ class AdminWorkflowServices(
           AdminWorkflowServices.AdminWorkflowDarResourceName,
           vetAllPackages = true,
           synchronizeVetting = false,
-          dryRun = false,
         )
         .void
     )

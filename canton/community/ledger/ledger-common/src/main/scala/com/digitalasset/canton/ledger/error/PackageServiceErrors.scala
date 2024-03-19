@@ -308,41 +308,19 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          uploadedPackageId: Ref.PackageId,
+          uploadedPackage: Ref.PackageId,
           existingPackage: Ref.PackageId,
           packageVersion: Ref.PackageVersion,
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
-          cause = "A DAR with the same version number has previously been uploaded.",
-          extraContext = Map(
-            "uploadedPackageId" -> uploadedPackageId,
-            "existingPackage" -> existingPackage,
-            "packageVersion" -> packageVersion.toString,
-          ),
-        )
-    }
-
-    @Explanation(
-      """This error indicates that the dry run flag was set in UploadDarRequest, so the uploaded Dar must not be uploaded."""
-    )
-    @Resolution("Upload with `dry_run: false` in the UploadDarRequest")
-    object DryRun
-        extends ErrorCode(
-          id = "DAR_DONT_UPLOAD_DUE_TO_DRY_RUN",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(
-          uploadedPackageId: Ref.PackageId,
-      )(implicit
-          val loggingContext: ContextualizedErrorLogger
-      ) extends DamlError(
-          cause =
-            "The DAR will not be uploaded because dry run is set in UploadDarRequest",
-          extraContext = Map(
-            "uploadedPackageId" -> uploadedPackageId,
-          ),
-        )
+            cause = "A DAR with the same version number has previously been uploaded.",
+            extraContext = Map(
+              "uploadedPackage" -> uploadedPackage,
+              "existingPackage" -> existingPackage,
+              "packageVersion" -> packageVersion.toString,
+            ),
+          )
     }
   }
 }
