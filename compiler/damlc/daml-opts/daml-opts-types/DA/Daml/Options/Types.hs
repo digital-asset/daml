@@ -8,6 +8,7 @@ module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
     , EnableScenarios(..)
+    , EnableInterfaces(..)
     , AllowLargeTuples(..)
     , StudioAutorunAllScenarios(..)
     , SkipScenarioValidation(..)
@@ -90,6 +91,8 @@ data Options = Options
   , optEnableScenarios :: EnableScenarios
     -- ^ Whether old-style scenarios should be run by the scenario service.
     -- This will be switched to False by default once scenarios are no longer supported in 2.0.
+  , optEnableInterfaces :: EnableInterfaces
+    -- ^ Whether interfaces should be allowed as a language feature. Off by default.
   , optTestFilter :: T.Text -> Bool
     -- ^ Only execute tests with a name for which the given predicate holds.
   , optSkipScenarioValidation :: SkipScenarioValidation
@@ -187,6 +190,9 @@ newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
 newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
     deriving Show
 
+newtype EnableInterfaces = EnableInterfaces { getEnableInterfaces :: Bool }
+    deriving Show
+
 damlArtifactDir :: FilePath
 damlArtifactDir = ".daml"
 
@@ -251,6 +257,7 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optEnableScenarios = EnableScenarios False
+        , optEnableInterfaces = EnableInterfaces False
         , optTestFilter = const True
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
