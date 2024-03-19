@@ -358,7 +358,15 @@ class PackageService(
       dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))
         .mapK(FutureUnlessShutdown.outcomeK)
       // Validate the packages before storing them in the DAR store or the package store
-      _ <- validateArchives(dar, dryRun).mapK(FutureUnlessShutdown.outcomeK)
+      packageId <- validateArchives(dar).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- if (dryRun)
+              EitherT
+                .leftT[FutureUnlessShutdown, Unit](
+                  PackageServiceErrors.Validation.DryRun.Error(packageId)
+                )
+                .leftWiden[DamlError]
+           else
+             EitherT.rightT[FutureUnlessShutdown, DamlError](Future { () })
       _ <- storeValidatedPackagesAndSyncEvent(
         dar.all,
         lengthValidatedName.asString1GB,
@@ -396,9 +404,9 @@ class PackageService(
         .map(_.toRight(s"No such dar ${darId}").flatMap(PackageService.darToLf))
     )
 
-  private def validateArchives(archives: archive.Dar[DamlLf.Archive], dryRun: Boolean)(implicit
+  private def validateArchives(archives: archive.Dar[DamlLf.Archive])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DamlError, Unit] =
+  ): EitherT[Future, DamlError, PackageId] =
     for {
       mainPackage <- catchUpstreamErrors(Decode.decodeArchive(archives.main))
       dependencies <- archives.dependencies
@@ -421,15 +429,7 @@ class PackageService(
                 LoggingContextWithTrace(loggerFactory)
               )
             )
-      _ <- if (dryRun)
-              EitherT
-                .leftT[Future, Unit](
-                  PackageServiceErrors.Validation.DryRun.Error(mainPackage._1)
-                )
-                .leftWiden[DamlError]
-           else
-             EitherT.rightT[Future, DamlError](Future { () })
-    } yield ()
+    } yield mainPackage._1
 
   def vetPackages(packages: Seq[PackageId], syncVetting: Boolean)(implicit
       traceContext: TraceContext
