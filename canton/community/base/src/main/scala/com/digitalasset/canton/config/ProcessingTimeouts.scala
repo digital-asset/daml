@@ -74,8 +74,6 @@ object DefaultProcessingTimeouts {
 
   val activeInitRetryDelay: NonNegativeDuration = NonNegativeDuration.tryFromDuration(50.millis)
 
-  val warnUnbounded: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)
-
   val slowFutureWarn: NonNegativeDuration = NonNegativeDuration.tryFromDuration(5.seconds)
 
   val sequencerInfo: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)

@@ -407,7 +407,6 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     protocolVersion = protocolVersion,
-    acsCommitmentsCatchUp = acsCommitmentsCatchUp,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =

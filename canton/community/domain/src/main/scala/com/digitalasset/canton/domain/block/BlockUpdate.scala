@@ -11,28 +11,15 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.BlockUpdateGenerator.SignedEvents
 import com.digitalasset.canton.domain.block.data.{BlockInfo, BlockUpdateEphemeralState}
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregationUpdates
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.util.MapsUtil
 
-/** A series of changes from processing the chunks of updates within a block. */
-sealed trait BlockUpdates extends Product with Serializable
+/** Summarizes the updates that are to be persisted and signalled individually */
+sealed trait BlockUpdate extends Product with Serializable
 
-/** A chunk of updates within a block. The updates can be delivered to
-  * [[com.digitalasset.canton.sequencing.client.SequencerClient]]s immediately,
-  * before fully processing the block.
-  *
-  * The next partial block update may depend on the events in the current chunk,
-  * e.g., by the topology processor processing them via its sequencer client subscription.
-  * For this reason, the next partial block update is wrapped in its own future,
-  * which can sync the topology updates via the topology client.
-  *
-  * @param continuation Computes the remainder of updates in a given block
-  */
-final case class PartialBlockUpdate(
-    chunk: ChunkUpdate,
-    continuation: FutureUnlessShutdown[BlockUpdates],
-) extends BlockUpdates
+/** Denotes an update that is generated from a block that went through ordering */
+sealed trait OrderedBlockUpdate extends BlockUpdate
 
 /** Signals that all updates in a block have been delivered as chunks.
   * The [[com.digitalasset.canton.domain.block.data.BlockInfo]] must be consistent with
@@ -43,11 +30,9 @@ final case class PartialBlockUpdate(
   *   must be at least the one from the last chunk or previous block.
   * - [[com.digitalasset.canton.domain.block.data.BlockInfo.height]] must be exactly one higher
   *   than the previous block
-  * The consistency conditions are checked in `handleUpdate`
+  * The consistency conditions are checked in [[com.digitalasset.canton.domain.block.BlockSequencerStateManager]]'s `handleComplete`.
   */
-final case class CompleteBlockUpdate(
-    block: BlockInfo
-) extends BlockUpdates
+final case class CompleteBlockUpdate(block: BlockInfo) extends OrderedBlockUpdate
 
 /** Changes from processing a consecutive part of updates within a block from the blockchain.
   * We expect all values to be consistent with one another:
@@ -62,7 +47,7 @@ final case class CompleteBlockUpdate(
   * @param invalidAcknowledgements All invalid acknowledgement timestamps in the block for each member.
   * @param signedEvents New sequenced events for members.
   * @param inFlightAggregationUpdates The updates to the in-flight aggregation states.
-  *                             Does not include the clean-up of expired aggregations.
+  *                             Includes the clean-up of expired aggregations.
   * @param lastSequencerEventTimestamp The highest timestamp of an event in `events` addressed to the sequencer, if any.
   * @param state Updated ephemeral state to be used for processing subsequent chunks.
   */
@@ -74,7 +59,7 @@ final case class ChunkUpdate(
     inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
     lastSequencerEventTimestamp: Option[CantonTimestamp],
     state: BlockUpdateEphemeralState,
-) {
+) extends OrderedBlockUpdate {
   // ensure that all new members appear in the ephemeral state
   require(
     newMembers.keys.forall(state.registeredMembers.contains),
@@ -108,3 +93,6 @@ final case class ChunkUpdate(
   }
   // The other consistency conditions are checked in `BlockSequencerStateManager.handleChunkUpdate`
 }
+
+/** Denotes an update to the persisted state that is caused by a local event that has not gone through ordering */
+final case class LocalBlockUpdate(local: LocalEvent) extends BlockUpdate

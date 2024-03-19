@@ -31,7 +31,6 @@ class CompletionServiceRequestValidator(
         "offset",
       )
     } yield CompletionStreamRequest(
-      None,
       appId,
       parties,
       convertedOffset,

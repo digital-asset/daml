@@ -36,10 +36,6 @@ object ApiTypes {
   type ApplicationId = String @@ ApplicationIdTag
   val ApplicationId = Tag.of[ApplicationIdTag]
 
-  sealed trait LedgerIdTag
-  type LedgerId = String @@ LedgerIdTag
-  val LedgerId = Tag.of[LedgerIdTag]
-
   sealed trait ContractIdTag
   type ContractId = String @@ ContractIdTag
   val ContractId = Tag.of[ContractIdTag]

@@ -8,16 +8,12 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
+import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.domain.admin.v30
-import com.digitalasset.canton.domain.admin.v30.SequencerConnectionServiceGrpc.SequencerConnectionService
-import com.digitalasset.canton.lifecycle.{
-  CloseContext,
-  FlagCloseable,
-  FutureUnlessShutdown,
-  PromiseUnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.mediator.admin.v30.SequencerConnectionServiceGrpc.SequencerConnectionService
 import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.{
@@ -27,7 +23,7 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
-  SequencerConnection,
+  SequencerConnectionValidation,
   SequencerConnections,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -46,7 +42,7 @@ class GrpcSequencerConnectionService(
     fetchConnection: () => EitherT[Future, String, Option[
       SequencerConnections
     ]],
-    setConnection: SequencerConnections => EitherT[
+    setConnection: (SequencerConnectionValidation, SequencerConnections) => EitherT[
       Future,
       String,
       Unit,
@@ -69,8 +65,16 @@ class GrpcSequencerConnectionService(
     EitherTUtil.toFuture(for {
       existing <- getConnection
       requestedReplacement <- parseConnection(request)
-      _ <- validateReplacement(existing, requestedReplacement)
-      _ <- setConnection(requestedReplacement)
+      _ <- validateReplacement(
+        existing,
+        requestedReplacement,
+      )
+      validation <- EitherT.fromEither[Future](
+        SequencerConnectionValidation
+          .fromProtoV30(request.sequencerConnectionValidation)
+          .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.message).asException())
+      )
+      _ <- setConnection(validation, requestedReplacement)
         .leftMap(error => Status.FAILED_PRECONDITION.withDescription(error).asException())
     } yield v30.SetConnectionResponse())
 
@@ -93,8 +97,7 @@ class GrpcSequencerConnectionService(
   private def parseConnection(
       request: v30.SetConnectionRequest
   ): EitherT[Future, StatusException, SequencerConnections] = {
-    val v30.SetConnectionRequest(sequencerConnectionsPO) = request
-
+    val v30.SetConnectionRequest(sequencerConnectionsPO, validation) = request
     ProtoConverter
       .required("sequencerConnections", sequencerConnectionsPO)
       .flatMap(SequencerConnections.fromProtoV30)
@@ -141,7 +144,6 @@ object GrpcSequencerConnectionService {
       executionServiceFactory: ExecutionSequencerFactory,
       materializer: Materializer,
       traceContext: TraceContext,
-      errorLoggingContext: ErrorLoggingContext,
       closeContext: CloseContext,
   ): UpdateSequencerClient = {
     val clientO = new AtomicReference[Option[RichSequencerClient]](None)
@@ -149,7 +151,7 @@ object GrpcSequencerConnectionService {
       SequencerConnectionService.bindService(
         new GrpcSequencerConnectionService(
           fetchConnection = () => fetchConfig().map(_.map(sequencerConnectionLens.get)),
-          setConnection = newSequencerConnection =>
+          setConnection = (sequencerConnectionValidation, newSequencerConnection) =>
             for {
               currentConfig <- fetchConfig()
               newConfig <- currentConfig.fold(
@@ -159,17 +161,14 @@ object GrpcSequencerConnectionService {
               )(config =>
                 EitherT.rightT(sequencerConnectionLens.replace(newSequencerConnection)(config))
               )
-              // validate connection before making transport (as making transport will hang if the connection
-              // is invalid)
-              _ <- transportFactory
-                .validateTransport(
-                  newSequencerConnection,
-                  logWarning = false,
-                )
-                .onShutdown(Left("Aborting due to shutdown"))
 
+              // load and potentially validate the new connection
               newEndpointsInfo <- sequencerInfoLoader
-                .loadSequencerEndpoints(domainAlias, newSequencerConnection)
+                .loadAndAggregateSequencerEndpoints(
+                  domainAlias,
+                  newSequencerConnection,
+                  sequencerConnectionValidation,
+                )
                 .leftMap(_.cause)
 
               sequencerTransportsMap <- transportFactory
@@ -210,7 +209,7 @@ object GrpcSequencerConnectionService {
   }
 
   def waitUntilSequencerConnectionIsValid(
-      factory: SequencerClientTransportFactory,
+      sequencerInfoLoader: SequencerInfoLoader,
       flagCloseable: FlagCloseable,
       futureSupervisor: FutureSupervisor,
       loadConfig: => EitherT[Future, String, Option[
@@ -220,23 +219,30 @@ object GrpcSequencerConnectionService {
       errorLoggingContext: ErrorLoggingContext,
       traceContext: TraceContext,
       executionContext: ExecutionContextExecutor,
-  ): EitherT[Future, String, SequencerConnections] = {
+  ): EitherT[Future, String, SequencerAggregatedInfo] = {
     val promise =
-      new PromiseUnlessShutdown[Either[String, SequencerConnection]](
+      new PromiseUnlessShutdown[Either[String, SequencerAggregatedInfo]](
         "wait-for-valid-connection",
         futureSupervisor,
       )
     flagCloseable.runOnShutdown_(promise)
     implicit val closeContext = CloseContext(flagCloseable)
+    val alias = DomainAlias.tryCreate("domain")
 
-    def tryNewConfig: EitherT[FutureUnlessShutdown, String, SequencerConnections] = {
-      flagCloseable
-        .performUnlessClosingEitherU("load config")(loadConfig)
+    def tryNewConfig: EitherT[Future, String, SequencerAggregatedInfo] = {
+      loadConfig
         .flatMap {
           case Some(settings) =>
-            factory
-              .validateTransport(settings, logWarning = true)
-              .map(_ => settings)
+            sequencerInfoLoader
+              .loadAndAggregateSequencerEndpoints(
+                alias,
+                settings,
+                SequencerConnectionValidation.Active,
+              )
+              .leftMap { e =>
+                errorLoggingContext.logger.warn(s"Waiting for valid sequencer connection ${e}")
+                e.toString
+              }
           case None => EitherT.leftT("No sequencer connection config")
         }
     }
@@ -250,11 +256,10 @@ object GrpcSequencerConnectionService {
           delay = 50.millis,
           operationName = "wait-for-valid-sequencer-connection",
         )
-        .unlessShutdown(
+        .apply(
           tryNewConfig.value,
           NoExnRetryable,
         )
-        .onShutdown(Left("Aborting due to shutdown"))
     )
   }
 

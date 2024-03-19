@@ -48,7 +48,6 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
     override val message = s"Field `$field` is not set"
   }
   final case class TimestampConversionError(message: String) extends ProtoDeserializationError
-  final case class TimeModelConversionError(message: String) extends ProtoDeserializationError
   final case class ValueConversionError(field: String, error: String)
       extends ProtoDeserializationError {
     override val message = s"Unable to convert field `$field`: $error"

@@ -24,11 +24,11 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.block.LedgerBlockEvent.*
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
-  BlockUpdateClosureWithHeight,
   BlockUpdateEphemeralState,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
@@ -57,18 +57,18 @@ import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, IterableUtil, MapsU
 import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Exposes functions that take the deserialized contents of a block from a blockchain integration
-  * and computes the new [[com.digitalasset.canton.domain.block.BlockUpdates]].
-  * Used by Ethereum and Fabric integrations.
+  * and computes the new [[com.digitalasset.canton.domain.block.BlockUpdate]]s.
   *
   * In particular, these functions are responsible for the final timestamp assignment of a given submission request.
   * The timestamp assignment works as follows:
   * 1. an initial timestamp is assigned to the submission request by the sequencer that writes it to the ledger
   * 2. each sequencer that reads the block potentially adapts the previously assigned timestamp
   * deterministically via `ensureStrictlyIncreasingTimestamp`
-  * 3. this timestamp is used to compute the [[com.digitalasset.canton.domain.block.BlockUpdates]]
+  * 3. this timestamp is used to compute the [[com.digitalasset.canton.domain.block.BlockUpdate]]s
   *
   * Reasoning:
   * Step 1 is done so that every sequencer sees the same timestamp for a given event.
@@ -79,7 +79,37 @@ import scala.concurrent.{ExecutionContext, Future}
   * For step 2, we assume that every sequencer observes the same stream of events from the underlying ledger
   * (and especially that events are always read in the same order).
   */
-class BlockUpdateGenerator(
+trait BlockUpdateGenerator {
+  type InternalState
+
+  def internalStateFor(state: BlockEphemeralState): InternalState
+
+  def extractBlockEvents(block: RawLedgerBlock): BlockEvents
+
+  def chunkBlock(block: BlockEvents)(implicit
+      traceContext: TraceContext
+  ): immutable.Iterable[BlockChunk]
+
+  def processBlockChunk(state: InternalState, chunk: BlockChunk)(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[(InternalState, OrderedBlockUpdate)]
+}
+
+object BlockUpdateGenerator {
+
+  type SignedEvents = NonEmpty[Map[Member, OrdinarySerializedEvent]]
+
+  sealed trait BlockChunk extends Product with Serializable
+  final case class NextChunk(
+      blockHeight: Long,
+      chunkIndex: Int,
+      events: NonEmpty[Seq[Traced[LedgerBlockEvent]]],
+  ) extends BlockChunk
+  final case class EndOfBlock(blockHeight: Long) extends BlockChunk
+}
+
+class BlockUpdateGeneratorImpl(
     domainId: DomainId,
     protocolVersion: ProtocolVersion,
     domainSyncCryptoApi: DomainSyncCryptoClient,
@@ -89,13 +119,13 @@ class BlockUpdateGenerator(
     orderingTimeFixMode: OrderingTimeFixMode,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val closeContext: CloseContext)
-    extends NamedLogging {
+    extends BlockUpdateGenerator
+    with NamedLogging {
 
   import com.digitalasset.canton.domain.block.BlockUpdateGenerator.*
+  import com.digitalasset.canton.domain.block.BlockUpdateGeneratorImpl.*
 
-  def asBlockUpdate(block: RawLedgerBlock)(implicit
-      executionContext: ExecutionContext
-  ): BlockUpdateClosureWithHeight = {
+  override def extractBlockEvents(block: RawLedgerBlock): BlockEvents = {
     val ledgerBlockEvents = block.events.mapFilter { tracedEvent =>
       implicit val traceContext: TraceContext = tracedEvent.traceContext
       LedgerBlockEvent.fromRawBlockEvent(protocolVersion)(tracedEvent.value) match {
@@ -106,65 +136,29 @@ class BlockUpdateGenerator(
           Some(Traced(value))
       }
     }
-    asBlockUpdate(BlockEvents(block.blockHeight, ledgerBlockEvents))
+    BlockEvents(block.blockHeight, ledgerBlockEvents)
   }
 
-  def asBlockUpdate(blockContents: BlockEvents)(implicit
-      executionContext: ExecutionContext
-  ): BlockUpdateClosureWithHeight = {
-    implicit val blockTraceContext: TraceContext =
-      TraceContext.ofBatch(blockContents.events)(logger)
-    BlockUpdateClosureWithHeight(
-      blockContents.height,
-      processEvents(blockContents),
-      blockTraceContext,
-    )
-  }
-
-  private case class State(
-      lastTs: CantonTimestamp,
+  override type InternalState = State
+  private[block] case class State(
+      lastBlockTs: CantonTimestamp,
+      lastChunkTs: CantonTimestamp,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       ephemeral: BlockUpdateEphemeralState,
   )
 
-  private def processEvents(blockEvents: BlockEvents)(
-      blockState: BlockEphemeralState
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[BlockUpdates] = {
-    val lastBlockTs = blockState.latestBlock.lastTs
-    val BlockEvents(height, tracedEvents) = blockEvents
+  override def internalStateFor(state: BlockEphemeralState): InternalState = State(
+    lastBlockTs = state.latestBlock.lastTs,
+    lastChunkTs = state.latestBlock.lastTs,
+    latestSequencerEventTimestamp = state.latestBlock.latestSequencerEventTimestamp,
+    ephemeral = state.state.toBlockUpdateEphemeralState,
+  )
 
-    val chunks = splitAfterEnvelopesForSequencer(tracedEvents)
-    logger.debug(s"Splitting block $height into ${chunks.length} chunks")
-    val iter = chunks.iterator
-
-    def go(state: State): FutureUnlessShutdown[BlockUpdates] = {
-      if (iter.hasNext) {
-        val nextChunk = iter.next()
-        processChunk(height, lastBlockTs, state, nextChunk).map { case (chunkUpdate, nextState) =>
-          PartialBlockUpdate(chunkUpdate, go(nextState))
-        }
-      } else {
-        val block = BlockInfo(height, state.lastTs, state.latestSequencerEventTimestamp)
-        FutureUnlessShutdown.pure(CompleteBlockUpdate(block))
-      }
-    }
-
-    val initialState = State(
-      blockState.latestBlock.lastTs,
-      blockState.latestBlock.latestSequencerEventTimestamp,
-      blockState.state.toBlockUpdateEphemeralState,
-    )
-    go(initialState)
-  }
-
-  private def splitAfterEnvelopesForSequencer(
-      blockEvents: Seq[Traced[LedgerBlockEvent]]
-  ): Seq[NonEmpty[Seq[Traced[LedgerBlockEvent]]]] = {
+  override def chunkBlock(
+      block: BlockEvents
+  )(implicit traceContext: TraceContext): immutable.Iterable[BlockChunk] = {
     // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp
-    // Otherwise the logic for retrieving a topology snapshot could deadlock
+    // Otherwise the logic for retrieving a topology snapshot or traffic state could deadlock
     def possibleEventToThisSequencer(event: LedgerBlockEvent): Boolean = event match {
       case Send(_, signedSubmissionRequest) =>
         val allRecipients = signedSubmissionRequest.content.batch.allRecipients
@@ -173,25 +167,47 @@ class BlockUpdateGenerator(
       case _ => false
     }
 
-    IterableUtil.splitAfter(blockEvents)(event => possibleEventToThisSequencer(event.value))
+    val blockHeight = block.height
+
+    IterableUtil
+      .splitAfter(block.events)(event => possibleEventToThisSequencer(event.value))
+      .zipWithIndex
+      .map { case (events, index) =>
+        NextChunk(blockHeight, index, events)
+      } ++ Seq(EndOfBlock(blockHeight))
+  }
+
+  override final def processBlockChunk(state: InternalState, chunk: BlockChunk)(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[(InternalState, OrderedBlockUpdate)] = {
+    chunk match {
+      case EndOfBlock(height) =>
+        val newState = state.copy(lastBlockTs = state.lastChunkTs)
+        val update = CompleteBlockUpdate(
+          BlockInfo(height, state.lastChunkTs, state.latestSequencerEventTimestamp)
+        )
+        FutureUnlessShutdown.pure(newState -> update)
+      case NextChunk(height, index, events) =>
+        processChunk(height, state, events)
+    }
   }
 
   private def processChunk(
       height: Long,
-      lastBlockTs: CantonTimestamp,
       state: State,
       chunk: NonEmpty[Seq[Traced[LedgerBlockEvent]]],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[(ChunkUpdate, State)] = {
+  ): FutureUnlessShutdown[(State, ChunkUpdate)] = {
     val (lastTs, revFixedTsChanges) =
       // With this logic, we assign to the initial non-Send events the same timestamp as for the last
       // block. This means that we will include these events in the ephemeral state of the previous block
       // when we re-read it from the database. But this doesn't matter given that all those events are idempotent.
       chunk.forgetNE.foldLeft[
         (CantonTimestamp, Seq[(CantonTimestamp, Traced[LedgerBlockEvent])]),
-      ]((state.lastTs, Seq.empty)) { case ((lastTs, events), event) =>
+      ]((state.lastChunkTs, Seq.empty)) { case ((lastTs, events), event) =>
         event.value match {
           case send: LedgerBlockEvent.Send =>
             val ts = ensureStrictlyIncreasingTimestamp(lastTs, send.timestamp)
@@ -223,7 +239,7 @@ class BlockUpdateGenerator(
       _ = if (newMembers.nonEmpty) {
         logger.info(s"Detected new members without sequencer counter: $newMembers")
       }
-      validatedAcks <- processAcknowledgements(lastBlockTs, state, fixedTsChanges)
+      validatedAcks <- processAcknowledgements(state, fixedTsChanges)
       (acksByMember, invalidAcks) = validatedAcks
       // Warn if we use an approximate snapshot but only after we've read at least one
       warnIfApproximate = state.ephemeral.headCounterAboveGenesis(sequencerId)
@@ -300,28 +316,31 @@ class BlockUpdateGenerator(
         ),
         submissionRequestsWithSnapshots,
       )(validateSubmissionRequestAndAddEvents(height, state.latestSequencerEventTimestamp))
-    } yield result match {
-      case (
-            reversedSignedEvents,
-            inFlightAggregationUpdates,
-            finalEphemeralState,
-            lastSequencerEventTimestamp,
-          ) =>
-        val chunkUpdate = ChunkUpdate(
-          newMembers,
-          acksByMember,
-          invalidAcks,
-          reversedSignedEvents.reverse,
-          inFlightAggregationUpdates,
-          lastSequencerEventTimestamp,
-          finalEphemeralState,
-        )
-        val newState = State(
-          lastTs,
-          lastSequencerEventTimestamp.orElse(state.latestSequencerEventTimestamp),
-          finalEphemeralState,
-        )
-        (chunkUpdate, newState)
+    } yield {
+      val (
+        reversedSignedEvents,
+        inFlightAggregationUpdates,
+        finalEphemeralState,
+        lastSequencerEventTimestamp,
+      ) = result
+      val finalEphemeralStateWithAggregationExpiry =
+        finalEphemeralState.evictExpiredInFlightAggregations(lastTs)
+      val chunkUpdate = ChunkUpdate(
+        newMembers,
+        acksByMember,
+        invalidAcks,
+        reversedSignedEvents.reverse,
+        inFlightAggregationUpdates,
+        lastSequencerEventTimestamp,
+        finalEphemeralStateWithAggregationExpiry,
+      )
+      val newState = State(
+        state.lastBlockTs,
+        lastTs,
+        lastSequencerEventTimestamp.orElse(state.latestSequencerEventTimestamp),
+        finalEphemeralStateWithAggregationExpiry,
+      )
+      (newState, chunkUpdate)
     }
   }
 
@@ -425,7 +444,6 @@ class BlockUpdateGenerator(
   }
 
   private def processAcknowledgements(
-      lastBlockTs: CantonTimestamp,
       state: State,
       fixedTsChanges: Seq[(CantonTimestamp, Traced[LedgerBlockEvent])],
   )(implicit
@@ -437,7 +455,7 @@ class BlockUpdateGenerator(
     for {
       snapshot <- SyncCryptoClient.getSnapshotForTimestampUS(
         domainSyncCryptoApi,
-        lastBlockTs,
+        state.lastBlockTs,
         state.latestSequencerEventTimestamp,
         protocolVersion,
         warnIfApproximate = false,
@@ -448,14 +466,14 @@ class BlockUpdateGenerator(
       (goodTsAcks, futureAcks) = allAcknowledgements.partition { tracedSignedAck =>
         // Intentionally use the previous block's last timestamp
         // such that the criterion does not depend on how the block events are chunked up.
-        tracedSignedAck.value.content.timestamp <= lastBlockTs
+        tracedSignedAck.value.content.timestamp <= state.lastBlockTs
       }
       invalidTsAcks = futureAcks.map(_.withTraceContext { implicit traceContext => signedAck =>
         val ack = signedAck.content
         val member = ack.member
         val timestamp = ack.timestamp
         val error =
-          SequencerError.InvalidAcknowledgementTimestamp.Error(member, timestamp, lastBlockTs)
+          SequencerError.InvalidAcknowledgementTimestamp.Error(member, timestamp, state.lastBlockTs)
         (member, timestamp, error: BaseError)
       })
       sigChecks <- FutureUnlessShutdown.outcomeF(Future.sequence(goodTsAcks.map(_.withTraceContext {
@@ -472,7 +490,7 @@ class BlockUpdateGenerator(
                 ack.member,
                 ack.timestamp,
                 SequencerError.InvalidAcknowledgementSignature
-                  .Error(signedAck, lastBlockTs, e): BaseError,
+                  .Error(signedAck, state.lastBlockTs, e): BaseError,
               )
             )
             .map(_ => (ack.member, ack.timestamp))
@@ -1568,10 +1586,7 @@ class BlockUpdateGenerator(
       .modify(_.updated(member, trafficState))
 }
 
-object BlockUpdateGenerator {
-
-  type SignedEvents = NonEmpty[Map[Member, OrdinarySerializedEvent]]
-
+object BlockUpdateGeneratorImpl {
   private type EventsForSubmissionRequest = Map[Member, SequencedEvent[ClosedEnvelope]]
 
   /** Describes the outcome of processing a submission request:

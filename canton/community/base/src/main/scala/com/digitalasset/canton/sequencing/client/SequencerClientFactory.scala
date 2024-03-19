@@ -10,12 +10,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.{Crypto, SyncCryptoApi, SyncCryptoClient}
-import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  NamedLoggerFactory,
-  NamedLoggingContext,
-}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLoggingContext}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
@@ -321,22 +316,6 @@ object SequencerClientFactory {
           domainParameters.protocolVersion,
         )
       }
-
-      def validateTransport(
-          connection: SequencerConnection,
-          logWarning: Boolean,
-      )(implicit
-          executionContext: ExecutionContextExecutor,
-          errorLoggingContext: ErrorLoggingContext,
-          closeContext: CloseContext,
-      ): EitherT[FutureUnlessShutdown, String, Unit] =
-        SequencerClientTransportFactory.validateTransport(
-          connection,
-          traceContextPropagation,
-          config,
-          logWarning,
-          loggerFactory,
-        )
 
     }
 }

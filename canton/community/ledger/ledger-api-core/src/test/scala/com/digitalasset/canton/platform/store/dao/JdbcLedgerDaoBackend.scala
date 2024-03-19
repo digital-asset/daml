@@ -11,7 +11,7 @@ import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.metrics.api.MetricName
 import com.daml.resources.PureResource
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
+import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingContext
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.metrics.CantonLabeledMetricsFactory.NoOpMetricsFactory
@@ -25,10 +25,7 @@ import com.digitalasset.canton.platform.config.{
 import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.digitalasset.canton.platform.store.backend.StorageBackendFactory
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
-import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoBackend.{
-  TestLedgerId,
-  TestParticipantId,
-}
+import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoBackend.TestParticipantId
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, ContractLoader}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, DbType, FlywayMigrations}
@@ -40,9 +37,6 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
 object JdbcLedgerDaoBackend {
-
-  private val TestLedgerId: LedgerId =
-    LedgerId("test-ledger")
 
   private val TestParticipantIdRef =
     Ref.ParticipantId.assertFromString("test-participant")
@@ -174,7 +168,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
         ).acquire()
-        _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
+        _ <- Resource.fromFuture(dao.initialize(TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
         _ = ledgerEndCache.set(initialLedgerEnd.lastOffset -> initialLedgerEnd.lastEventSeqId)
       } yield dao

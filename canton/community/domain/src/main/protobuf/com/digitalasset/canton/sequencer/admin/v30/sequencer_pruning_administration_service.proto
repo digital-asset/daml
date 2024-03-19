@@ -3,15 +3,15 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.admin.v30;
+package com.digitalasset.canton.sequencer.admin.v30;
 
 import "com/digitalasset/canton/admin/pruning/v30/pruning.proto";
 import "google/protobuf/timestamp.proto";
 
-// administration service for mediator instances
-service MediatorAdministrationService {
-  // Remove unnecessary data from the Mediator
-  rpc Prune(MediatorPruning.PruneRequest) returns (MediatorPruning.PruneResponse);
+// administration service for enterprise feature supporting sequencer instances
+service SequencerPruningAdministrationService {
+  // Remove data from the Sequencer
+  rpc Prune(SequencerPruning.PruneRequest) returns (SequencerPruning.PruneResponse);
 
   // Enable automatic pruning using the specified schedule parameters
   // The following errors may occur on the SetSchedule or Update commands:
@@ -37,11 +37,13 @@ service MediatorAdministrationService {
   rpc LocatePruningTimestamp(com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp.Request) returns (com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp.Response);
 }
 
-message MediatorPruning {
+message SequencerPruning {
   message PruneRequest {
-    // timestamp to prune for
     google.protobuf.Timestamp timestamp = 1;
   }
 
-  message PruneResponse {}
+  message PruneResponse {
+    // description of what was removed
+    string details = 1;
+  }
 }

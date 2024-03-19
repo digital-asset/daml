@@ -533,28 +533,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a ledgerIdMismatch error" in {
-      val msg =
-        s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'."
-      assertError(
-        RequestValidationErrors.LedgerIdMismatch
-          .Reject("expected", "received")(contextualizedErrorLogger)
-      )(
-        code = Code.NOT_FOUND,
-        message = msg,
-        details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "LEDGER_ID_MISMATCH",
-            Map("category" -> "11", "definite_answer" -> "true", "test" -> getClass.getSimpleName),
-          ),
-          expectedCorrelationIdRequestInfo,
-        ),
-        logLevel = Level.INFO,
-        logMessage = msg,
-        logErrorContextRegEx = expectedLocationRegex,
-      )
-    }
-
     "return a participantPrunedDataAccessed error" in {
       val msg = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$truncatedCorrelationId): my message"
       assertError(

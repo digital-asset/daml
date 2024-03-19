@@ -242,7 +242,7 @@ class SyncDomain(
     loggerFactory,
   )
 
-  private val acsCommitmentProcessor = {
+  private[canton] val acsCommitmentProcessor = {
     val listener = new AcsCommitmentProcessor(
       domainId,
       participantId,
@@ -253,7 +253,6 @@ class SyncDomain(
       journalGarbageCollector.observer,
       pruningMetrics,
       staticDomainParameters.protocolVersion,
-      staticDomainParameters.acsCommitmentsCatchUp,
       timeouts,
       futureSupervisor,
       persistent.activeContractStore,

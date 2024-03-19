@@ -10,7 +10,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.ledger.api.domain.{LedgerId, ParticipantId}
+import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.MeteringStore.ReportData
@@ -95,8 +95,7 @@ private class JdbcLedgerDao(
       )
 
   override def initialize(
-      ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: ParticipantId
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     dbDispatcher
       .executeSql(metrics.index.db.initializeLedgerParameters)(

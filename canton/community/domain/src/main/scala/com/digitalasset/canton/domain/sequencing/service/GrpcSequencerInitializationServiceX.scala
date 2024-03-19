@@ -7,13 +7,6 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.domain.Domain.FailedToInitialiseDomainNode
-import com.digitalasset.canton.domain.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService
-import com.digitalasset.canton.domain.admin.v30.{
-  InitializeSequencerFromGenesisStateRequest,
-  InitializeSequencerFromGenesisStateResponse,
-  InitializeSequencerFromOnboardingStateRequest,
-  InitializeSequencerFromOnboardingStateResponse,
-}
 import com.digitalasset.canton.domain.sequencing.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
@@ -24,6 +17,13 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.sequencer.admin.v30.SequencerInitializationServiceGrpc.SequencerInitializationService
+import com.digitalasset.canton.sequencer.admin.v30.{
+  InitializeSequencerFromGenesisStateRequest,
+  InitializeSequencerFromGenesisStateResponse,
+  InitializeSequencerFromOnboardingStateRequest,
+  InitializeSequencerFromOnboardingStateResponse,
+}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}

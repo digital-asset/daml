@@ -3,9 +3,4 @@
 
 package com.digitalasset.canton.ledger
 
-package object configuration {
-
-  /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerId = String
-
-}
+package object configuration {}

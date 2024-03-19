@@ -12,13 +12,13 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
   InitializeMediatorRequestX,
   InitializeMediatorResponseX,
 }
+import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.protocol.StaticDomainParameters
-import com.digitalasset.canton.sequencing.SequencerConnections
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.topology.DomainId
 import io.grpc.ManagedChannel
 
@@ -47,6 +47,7 @@ object EnterpriseMediatorAdministrationCommands {
       domainId: DomainId,
       domainParameters: StaticDomainParameters,
       sequencerConnections: SequencerConnections,
+      validation: SequencerConnectionValidation,
   ) extends BaseMediatorXInitializationCommand[
         v30.InitializeMediatorRequest,
         v30.InitializeMediatorResponse,
@@ -58,6 +59,7 @@ object EnterpriseMediatorAdministrationCommands {
           domainId,
           domainParameters,
           sequencerConnections,
+          validation,
         ).toProtoV30
       )
 

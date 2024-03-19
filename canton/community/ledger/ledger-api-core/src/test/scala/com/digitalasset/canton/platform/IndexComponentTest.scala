@@ -10,7 +10,6 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexService
@@ -144,7 +143,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
         )
         indexService <- new IndexServiceOwner(
           dbSupport = dbSupport,
-          ledgerId = LedgerId(IndexComponentTest.TestLedgerId),
           config = IndexServiceConfig(),
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = Metrics.ForTesting,
@@ -184,7 +182,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
 
 object IndexComponentTest {
 
-  val TestLedgerId = "index-component-test-ledger-id"
   val TestParticipantId = "index-component-test-participant-id"
 
   val maxUpdateCount = 1000000

@@ -4,7 +4,8 @@
 package com.digitalasset.canton.telemetry
 
 import com.daml.metrics.HistogramDefinition
-import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
+import com.daml.metrics.api.MetricHandle.Histogram
+import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
@@ -14,7 +15,14 @@ import io.opentelemetry.context.propagation.ContextPropagators
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter
 import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter
 import io.opentelemetry.sdk.OpenTelemetrySdk
-import io.opentelemetry.sdk.metrics.{SdkMeterProvider, SdkMeterProviderBuilder}
+import io.opentelemetry.sdk.metrics.{
+  Aggregation,
+  InstrumentSelector,
+  InstrumentType,
+  SdkMeterProvider,
+  SdkMeterProviderBuilder,
+  View,
+}
 import io.opentelemetry.sdk.trace.`export`.{
   BatchSpanProcessor,
   BatchSpanProcessorBuilder,
@@ -23,8 +31,8 @@ import io.opentelemetry.sdk.trace.`export`.{
 import io.opentelemetry.sdk.trace.samplers.Sampler
 import io.opentelemetry.sdk.trace.{SdkTracerProvider, SdkTracerProviderBuilder}
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
+import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -117,5 +125,68 @@ object OpenTelemetryFactory {
     }
     if (config.parentBased) Sampler.parentBased(sampler) else sampler
   }
+
+  def addViewsToProvider(
+      builder: SdkMeterProviderBuilder,
+      histograms: Seq[HistogramDefinition],
+  ): SdkMeterProviderBuilder = {
+    // Only one view is going to be applied, and it's in the order of it's definition
+    // therefore the config views must be registered first to be able to override the code defined views
+    // TODO(#17917) Note: the above comment does not match what is written here https://opentelemetry.io/docs/specs/otel/metrics/sdk/#measurement-processing
+    //    what happens is that we get two views that don't set their name and therefore conflict
+    //    Therefore, fix this upstream and remove the methods here again
+    val builderWithCustomViews = histograms.foldRight(builder) { case (histogram, builder) =>
+      builder.registerView(
+        histogramSelectorByName(histogram.name),
+        explicitHistogramBucketsView(histogram.bucketBoundaries),
+      )
+    }
+    builderWithCustomViews
+      // generic timing buckets
+      .registerView(
+        histogramSelectorByName(s"*${OpenTelemetryTimer.TimerUnitAndSuffix}"),
+        explicitHistogramBucketsView(
+          Seq(
+            0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2.5d,
+            5d, 10d,
+          )
+        ),
+      )
+      // use size specific buckets
+      .registerView(
+        histogramSelectorByName(s"*${Histogram.Bytes}"),
+        explicitHistogramBucketsView(
+          Seq(
+            kilobytes(10),
+            kilobytes(50),
+            kilobytes(100),
+            kilobytes(500),
+            megabytes(1),
+            megabytes(5),
+            megabytes(10),
+            megabytes(50),
+          )
+        ),
+      )
+  }
+
+  private def histogramSelectorByName(stringWithWildcards: String) = InstrumentSelector
+    .builder()
+    .setType(InstrumentType.HISTOGRAM)
+    .setName(stringWithWildcards)
+    .build()
+
+  private def explicitHistogramBucketsView(buckets: Seq[Double]) = View
+    .builder()
+    .setAggregation(
+      Aggregation.explicitBucketHistogram(
+        buckets.map(Double.box).asJava
+      )
+    )
+    .build()
+
+  private def kilobytes(value: Int): Double = value * 1024d
+
+  private def megabytes(value: Int): Double = value * 1024d * 1024d
 
 }

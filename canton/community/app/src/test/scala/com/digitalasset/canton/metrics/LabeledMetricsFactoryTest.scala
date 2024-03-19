@@ -12,7 +12,6 @@ class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
   "metrics factory" should {
     "generate valid documentation" in {
       val mf = MetricsRegistry(
-        false,
         OpenTelemetry.noop().getMeter("test"),
         MetricsFactoryType.InMemory(_ => new InMemoryMetricsFactory),
       )

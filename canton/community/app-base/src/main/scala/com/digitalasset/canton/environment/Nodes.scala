@@ -11,10 +11,10 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.domain.mediator.{
+  MediatorNode,
   MediatorNodeBootstrapX,
   MediatorNodeConfigCommon,
   MediatorNodeParameters,
-  MediatorNodeX,
 }
 import com.digitalasset.canton.domain.sequencing.config.{
   SequencerNodeConfigCommon,
@@ -425,7 +425,7 @@ class MediatorNodesX[MNC <: MediatorNodeConfigCommon](
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends ManagedNodes[
-      MediatorNodeX,
+      MediatorNode,
       MNC,
       MediatorNodeParameters,
       MediatorNodeBootstrapX,

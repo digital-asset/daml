@@ -15,7 +15,6 @@ import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.tracing.DefaultOpenTelemetry
-import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
   ValidateUpgradingPackageResolutions,
@@ -290,7 +289,6 @@ object CommandServiceImplSpec {
 
   private val OkStatus = StatusProto.of(Status.Code.OK.value, "", Seq.empty)
 
-  val ledgerId: LedgerId = LedgerId("ledger ID")
   val commandId = "command ID"
   val applicationId = "application ID"
   val submissionId = Ref.SubmissionId.assertFromString("submissionId")

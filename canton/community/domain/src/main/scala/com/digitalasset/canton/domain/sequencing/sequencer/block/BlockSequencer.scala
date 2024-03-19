@@ -14,8 +14,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.{
   BlockSequencerStateManagerBase,
-  BlockUpdateGenerator,
-  RawLedgerBlock,
+  BlockUpdateGeneratorImpl,
+  LocalBlockUpdate,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
@@ -43,7 +43,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.traffic.{
   MemberTrafficStatus,
@@ -51,7 +51,6 @@ import com.digitalasset.canton.traffic.{
   TrafficControlErrors,
 }
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
@@ -116,7 +115,7 @@ class BlockSequencer(
     val headState = stateManager.getHeadState
     noTracingLogger.info(s"Subscribing to block source from ${headState.block.height}")
 
-    val updateGenerator = new BlockUpdateGenerator(
+    val updateGenerator = new BlockUpdateGeneratorImpl(
       domainId,
       protocolVersion,
       cryptoApi,
@@ -129,34 +128,19 @@ class BlockSequencer(
 
     val driverSource = blockSequencerOps
       .subscribe()(TraceContext.empty)
-      .map(block => Right(block): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
+      // Explicit async to make sure that the block processing runs in parallel with the block retrieval
+      .async
+      .map(updateGenerator.extractBlockEvents)
+      .via(stateManager.processBlock(updateGenerator))
+
     val localSource = Source
-      .queue[BlockSequencer.LocalEvent](bufferSize = 1000, OverflowStrategy.backpressure)
-      .map(event => Left(event): Either[BlockSequencer.LocalEvent, RawLedgerBlock])
-    val combinedSource = Source
-      .combineMat(
-        driverSource,
-        localSource,
-      )(Merge(_))(Keep.both)
-    implicit val traceContext = TraceContext.empty
-    val combinedSourceWithBlockHandling =
-      combinedSource.statefulMapAsyncUSAndDrain(headState) { (headState, next) =>
-        next match {
-          case Right(blockEvents) =>
-            stateManager
-              .handleBlock(headState, updateGenerator.asBlockUpdate(blockEvents))
-              .map { nextHead =>
-                metrics.sequencerClient.handler.delay
-                  .updateValue((clock.now - nextHead.block.lastTs).toMillis)
-                nextHead -> ()
-              }
-          case Left(localEvent) =>
-            FutureUnlessShutdown.outcomeF(
-              stateManager
-                .handleLocalEvent(headState, localEvent)
-                .map(_ -> ())
-            )
-        }
+      .queue[Traced[BlockSequencer.LocalEvent]](bufferSize = 1000, OverflowStrategy.backpressure)
+      .map(_.map(event => LocalBlockUpdate(event)))
+    val combinedSource = Source.combineMat(driverSource, localSource)(Merge(_))(Keep.both)
+    val combinedSourceWithBlockHandling = combinedSource.async
+      .via(stateManager.applyBlockUpdate)
+      .map { case Traced(lastTs) =>
+        metrics.sequencerClient.handler.delay.updateValue((clock.now - lastTs).toMillis)
       }
     val ((killSwitch, localEventsQueue), done) = PekkoUtil.runSupervised(
       ex => logger.error("Fatally failed to handle state changes", ex)(TraceContext.empty), {
@@ -419,7 +403,7 @@ class BlockSequencer(
 
   private def placeLocalEvent(event: BlockSequencer.LocalEvent)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = localEventsQueue.offer(event).flatMap {
+  ): Future[Unit] = localEventsQueue.offer(Traced(event)).flatMap {
     case QueueOfferResult.Enqueued => Future.unit
     case QueueOfferResult.Dropped => // this should never happen
       Future.failed[Unit](new RuntimeException(s"Request queue is full. cannot take local $event"))
@@ -592,9 +576,7 @@ class BlockSequencer(
 }
 
 object BlockSequencer {
-  private case object CounterDiscriminator
-
-  sealed trait LocalEvent
+  sealed trait LocalEvent extends Product with Serializable
   final case class DisableMember(member: Member) extends LocalEvent
   final case class UpdateInitialMemberCounters(timestamp: CantonTimestamp) extends LocalEvent
 }

@@ -19,11 +19,6 @@ object AuthorizationError {
       s"Claims were valid until $authorizedUntil, current time is $currentTime"
   }
 
-  final case class InvalidLedger(authorized: String, actual: String) extends AuthorizationError {
-    override val reason =
-      s"Claims are only valid for ledgerId '$authorized', actual ledgerId is '$actual'"
-  }
-
   final case class InvalidParticipant(authorized: String, actual: String)
       extends AuthorizationError {
     override val reason =

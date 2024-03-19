@@ -24,6 +24,17 @@ message SequencerConnection {
   }
 }
 
+enum SequencerConnectionValidation {
+  UNKNOWN = 0;
+  // Do not validate the sequencer connection
+  DISABLED = 1;
+  // Validate only the ones we could reach
+  ACTIVE = 2;
+  // Validate all the connections
+  ALL = 3;
+
+}
+
 message SequencerConnections {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
 

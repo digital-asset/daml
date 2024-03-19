@@ -16,7 +16,6 @@ import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,
   PartyRecordStore,
@@ -74,7 +73,6 @@ object ApiServiceOwner {
       upgradingEnabled: Boolean,
       disableUpgradeValidation: Boolean,
       // immutable configuration parameters
-      ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
       meteringReportKey: MeteringReportKey = CommunityKey,
       // objects
@@ -113,7 +111,6 @@ object ApiServiceOwner {
 
     val authorizer = new Authorizer(
       Clock.systemUTC.instant _,
-      ledgerId,
       participantId,
       userManagementStore,
       servicesExecutionContext,
@@ -129,7 +126,7 @@ object ApiServiceOwner {
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
     val identityProviderConfigLoader = new IdentityProviderConfigLoader {
-      override def getIdentityProviderConfig(issuer: LedgerId)(implicit
+      override def getIdentityProviderConfig(issuer: String)(implicit
           loggingContext: LoggingContextWithTrace
       ): Future[domain.IdentityProviderConfig] =
         identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)(

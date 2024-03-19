@@ -10,18 +10,18 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.admin.v30
-import com.digitalasset.canton.domain.admin.v30.OnboardingStateRequest.Request
-import com.digitalasset.canton.domain.admin.v30.{
-  SetTrafficBalanceRequest,
-  SetTrafficBalanceResponse,
-}
 import com.digitalasset.canton.domain.sequencing.sequencer.{OnboardingStateForSequencer, Sequencer}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.sequencer.admin.v30
+import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateRequest.Request
+import com.digitalasset.canton.sequencer.admin.v30.{
+  SetTrafficBalanceRequest,
+  SetTrafficBalanceResponse,
+}
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.DomainTimeTracker

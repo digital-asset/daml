@@ -228,25 +228,6 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
   }
 
   @Explanation(
-    """Every ledger API command contains a ledger-id which is verified against the running ledger.
-          This error indicates that the provided ledger-id does not match the expected one."""
-  )
-  @Resolution("Ensure that your application is correctly configured to use the correct ledger.")
-  object LedgerIdMismatch
-      extends ErrorCode(
-        id = "LEDGER_ID_MISMATCH",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
-    final case class Reject(expectedLedgerId: String, receivedLegerId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause =
-            s"Ledger ID '${receivedLegerId}' not found. Actual Ledger ID is '${expectedLedgerId}'.",
-          definiteAnswer = true,
-        )
-  }
-
-  @Explanation(
     """This error is emitted when a mandatory field is not set in a submitted ledger API command."""
   )
   @Resolution("Inspect the reason given and correct your application.")

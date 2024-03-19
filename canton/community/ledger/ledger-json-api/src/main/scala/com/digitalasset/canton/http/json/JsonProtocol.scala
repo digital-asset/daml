@@ -22,8 +22,6 @@ import com.digitalasset.canton.daml.lf.value.json.ApiCodecCompressed
 
 object JsonProtocol extends JsonProtocolLow {
 
-  implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
-
   implicit val ApplicationIdFormat: JsonFormat[lar.ApplicationId] =
     taggedJsonFormat[String, lar.ApplicationIdTag]
 

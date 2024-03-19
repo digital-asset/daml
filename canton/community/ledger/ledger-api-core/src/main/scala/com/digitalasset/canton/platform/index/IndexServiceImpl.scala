@@ -25,7 +25,6 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.domain.{
   Filters,
   InclusiveFilters,
-  LedgerId,
   PackageEntry,
   ParticipantOffset,
   TransactionFilter,
@@ -71,7 +70,6 @@ import scala.concurrent.Future
 import scala.util.Success
 
 private[index] class IndexServiceImpl(
-    val ledgerId: LedgerId,
     participantId: Ref.ParticipantId,
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,

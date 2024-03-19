@@ -19,6 +19,9 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
+import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.{
+  LoadSequencerEndpointInformationResult
+}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -39,14 +42,7 @@ import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.v2.ReadService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.v2.*
-import com.digitalasset.canton.lifecycle.{
-  CloseContext,
-  FlagCloseable,
-  FutureUnlessShutdown,
-  HasCloseContext,
-  Lifecycle,
-  UnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.Pruning.*
@@ -74,7 +70,11 @@ import com.digitalasset.canton.participant.protocol.transfer.{
   IncompleteTransferData,
   TransferCoordination,
 }
-import com.digitalasset.canton.participant.pruning.{NoOpPruningProcessor, PruningProcessor}
+import com.digitalasset.canton.participant.pruning.{
+  AcsCommitmentProcessor,
+  NoOpPruningProcessor,
+  PruningProcessor,
+}
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.MissingConfigForAlias
 import com.digitalasset.canton.participant.store.MultiDomainEventLog.PublicationData
 import com.digitalasset.canton.participant.store.*
@@ -94,6 +94,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.Schedulers
+import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason
 import com.digitalasset.canton.store.IndexedStringStore
@@ -117,7 +118,7 @@ import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Right, Success}
@@ -160,7 +161,7 @@ class CantonSyncService(
     val isActive: () => Boolean,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
+)(implicit ec: ExecutionContextExecutor, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
     with state.v2.ReadService
@@ -178,6 +179,8 @@ class CantonSyncService(
     MutableHealthComponent(loggerFactory, SyncDomainEphemeralState.healthName, timeouts)
   val sequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
+  val acsCommitmentProcessorHealth: MutableHealthComponent =
+    MutableHealthComponent(loggerFactory, AcsCommitmentProcessor.healthName, timeouts)
 
   val maxDeduplicationDuration: NonNegativeFiniteDuration =
     participantNodePersistentState.value.settingsStore.settings.maxDeduplicationDuration
@@ -780,23 +783,45 @@ class CantonSyncService(
     * @return Error or unit.
     */
   def addDomain(
-      config: DomainConnectionConfig
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncServiceError, Unit] = {
-    domainConnectionConfigStore
-      .put(config, DomainConnectionConfigStore.Active)
-      .leftMap(e => SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias))
-  }
+      config: DomainConnectionConfig,
+      sequencerConnectionValidation: SequencerConnectionValidation,
+  )(implicit traceContext: TraceContext): EitherT[Future, SyncServiceError, Unit] =
+    for {
+      _ <- validateSequencerConnection(config, sequencerConnectionValidation)
+      _ <- domainConnectionConfigStore
+        .put(config, DomainConnectionConfigStore.Active)
+        .leftMap(e => SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias): SyncServiceError)
+    } yield ()
+
+  private def validateSequencerConnection(
+      config: DomainConnectionConfig,
+      sequencerConnectionValidation: SequencerConnectionValidation,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, SyncServiceError, Unit] =
+    sequencerInfoLoader
+      .validateSequencerConnection(
+        config.domain,
+        config.domainId,
+        config.sequencerConnections,
+        sequencerConnectionValidation,
+      )
+      .leftMap(SyncServiceError.SyncServiceInconsistentConnectivity.Error(_): SyncServiceError)
 
   /** Modifies the settings of the sync-service's configuration
     *
     * NOTE: This does not automatically reconnect the sync service.
     */
   def modifyDomain(
-      config: DomainConnectionConfig
+      config: DomainConnectionConfig,
+      sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit traceContext: TraceContext): EitherT[Future, SyncServiceError, Unit] =
-    domainConnectionConfigStore
-      .replace(config)
-      .leftMap(e => SyncServiceError.SyncServiceUnknownDomain.Error(e.alias))
+    for {
+      _ <- validateSequencerConnection(config, sequencerConnectionValidation)
+      _ <- domainConnectionConfigStore
+        .replace(config)
+        .leftMap(e => SyncServiceError.SyncServiceUnknownDomain.Error(e.alias): SyncServiceError)
+    } yield ()
 
   def migrateDomain(
       source: DomainAlias,
@@ -813,7 +838,11 @@ class CantonSyncService(
     for {
       targetDomainInfo <- performUnlessClosingEitherU(functionFullName)(
         sequencerInfoLoader
-          .loadSequencerEndpoints(target.domain, target.sequencerConnections)(
+          .loadAndAggregateSequencerEndpoints(
+            target.domain,
+            target.sequencerConnections,
+            SequencerConnectionValidation.Active,
+          )(
             traceContext,
             CloseContext(this),
           )
@@ -1331,6 +1360,7 @@ class CantonSyncService(
         _ = syncDomainHealth.set(syncDomain)
         _ = ephemeralHealth.set(syncDomain.ephemeral)
         _ = sequencerClientHealth.set(syncDomain.sequencerClient.healthComponent)
+        _ = acsCommitmentProcessorHealth.set(syncDomain.acsCommitmentProcessor.healthComponent)
         _ = syncDomain.resolveUnhealthy()
 
         _ = connectedDomainsMap += (domainId -> syncDomain)
@@ -1569,6 +1599,7 @@ class CantonSyncService(
       syncDomainHealth,
       ephemeralHealth,
       sequencerClientHealth,
+      acsCommitmentProcessorHealth,
     )
 
     Lifecycle.close(instances*)(logger)
@@ -1812,7 +1843,7 @@ object CantonSyncService {
         sequencerInfoLoader: SequencerInfoLoader,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
-    )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
+    )(implicit ec: ExecutionContextExecutor, mat: Materializer, tracer: Tracer): T
   }
 
   object DefaultFactory extends Factory[CantonSyncService] {
@@ -1842,7 +1873,7 @@ object CantonSyncService {
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
     )(implicit
-        ec: ExecutionContext,
+        ec: ExecutionContextExecutor,
         mat: Materializer,
         tracer: Tracer,
     ): CantonSyncService =
@@ -1955,6 +1986,29 @@ object SyncServiceError extends SyncServiceErrorGroup {
       ) {
     final case class Error(domain: DomainAlias)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(cause = "The domain with the given alias has already been added.")
+        with SyncServiceError
+  }
+
+  @Explanation(
+    """This error is reported in case of validation failures when attempting to register new or change existing
+       sequencer connections. This can be caused by unreachable nodes, a bad TLS configuration, or in case of
+       a mismatch of domain-ids reported by the sequencers or mismatched sequencer-ids within a sequencer group."""
+  )
+  @Resolution(
+    """Check that the connection settings provided are correct. If they are but correspond to temporarily
+       inactive sequencers, you may also turn off the validation.
+      """
+  )
+  object SyncServiceInconsistentConnectivity
+      extends ErrorCode(
+        "SYNC_SERVICE_BAD_CONNECTIVITY",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(errors: Seq[LoadSequencerEndpointInformationResult.NotValid])(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The provided sequencer connections are inconsistent: ${errors}."
+        )
         with SyncServiceError
   }
 

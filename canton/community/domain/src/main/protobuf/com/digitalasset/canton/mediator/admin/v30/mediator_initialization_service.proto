@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.domain.admin.v30;
+package com.digitalasset.canton.mediator.admin.v30;
 
 import "com/digitalasset/canton/admin/domain/v30/sequencer_connection.proto";
 import "com/digitalasset/canton/protocol/v30/sequencing.proto";
@@ -25,6 +25,9 @@ message InitializeMediatorRequest {
 
   // how should the member connect to the domain sequencer
   com.digitalasset.canton.admin.domain.v30.SequencerConnections sequencer_connections = 3; // required
+
+  // how strictly we should validate the connection to the sequencer
+  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 4; // required
 }
 
 message InitializeMediatorResponse {}

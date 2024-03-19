@@ -22,7 +22,6 @@ object MockMessages {
   val participantBegin: ParticipantOffset = ParticipantOffset(
     ParticipantOffset.Value.Boundary(PARTICIPANT_BOUNDARY_BEGIN)
   )
-  val ledgerId = "ledgerId"
   val workflowId = "workflowId"
   val applicationId = "applicationId"
   val commandId = "commandId"

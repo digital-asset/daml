@@ -7,7 +7,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   InternalStateServiceProviderImpl,
@@ -239,7 +238,6 @@ class RecoveringIndexerIntegrationSpec
       restartDelay: config.NonNegativeFiniteDuration =
         config.NonNegativeFiniteDuration.ofMillis(100),
   )(implicit traceContext: TraceContext): ResourceOwner[(WritePartyService, DbSupport)] = {
-    val ledgerId = Ref.LedgerString.assertFromString(s"ledger-$testId")
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
@@ -249,7 +247,7 @@ class RecoveringIndexerIntegrationSpec
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      participantState <- newParticipantState(ledgerId, participantId)(materializer, traceContext)
+      participantState <- newParticipantState(participantId)(materializer, traceContext)
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
         .map(ExecutionContext.fromExecutorService)
@@ -330,14 +328,14 @@ object RecoveringIndexerIntegrationSpec {
     Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
-    def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
+    def apply(participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         traceContext: TraceContext,
     ): ResourceOwner[ParticipantState]
   }
 
   private object InMemoryPartyParticipantState extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
+    override def apply(participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         traceContext: TraceContext,
     ): ResourceOwner[ParticipantState] = {
@@ -365,11 +363,11 @@ object RecoveringIndexerIntegrationSpec {
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
+    override def apply(participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         traceContext: TraceContext,
     ): ResourceOwner[ParticipantState] =
-      InMemoryPartyParticipantState(ledgerId, participantId)
+      InMemoryPartyParticipantState(participantId)
         .map { case (readingDelegate, writeDelegate) =>
           var lastFailure: Option[Offset] = None
           // This spy inserts a failure after each state update to force the indexer to restart.

@@ -5,8 +5,8 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
-import com.digitalasset.canton.domain.admin.v30
-import com.digitalasset.canton.sequencing.SequencerConnections
+import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -47,8 +47,10 @@ object EnterpriseSequencerConnectionAdminCommands {
     }
   }
 
-  final case class SetConnection(connections: SequencerConnections)
-      extends BaseSequencerConnectionAdminCommand[
+  final case class SetConnection(
+      connections: SequencerConnections,
+      validation: SequencerConnectionValidation,
+  ) extends BaseSequencerConnectionAdminCommand[
         v30.SetConnectionRequest,
         v30.SetConnectionResponse,
         Unit,
@@ -59,7 +61,10 @@ object EnterpriseSequencerConnectionAdminCommands {
     ): Future[v30.SetConnectionResponse] = service.setConnection(request)
 
     override def createRequest(): Either[String, v30.SetConnectionRequest] = Right(
-      v30.SetConnectionRequest(Some(connections.toProtoV30))
+      v30.SetConnectionRequest(
+        Some(connections.toProtoV30),
+        sequencerConnectionValidation = validation.toProtoV30,
+      )
     )
 
     override def handleResponse(response: v30.SetConnectionResponse): Either[String, Unit] =

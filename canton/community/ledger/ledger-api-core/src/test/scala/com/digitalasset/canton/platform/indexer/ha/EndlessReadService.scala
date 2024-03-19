@@ -11,7 +11,6 @@ import com.daml.lf.transaction.test.{TestNodeBuilder, TreeTransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.configuration.LedgerId
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{
   CompletionInfo,
@@ -152,7 +151,6 @@ final case class EndlessReadService(
 }
 
 object EndlessReadService {
-  val ledgerId: LedgerId = "EndlessReadService"
   val participantId: Ref.ParticipantId =
     Ref.ParticipantId.assertFromString("EndlessReadServiceParticipant")
   val party: Ref.Party = Ref.Party.assertFromString("operator")

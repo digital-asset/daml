@@ -4,7 +4,6 @@
 package com.digitalasset.canton.http.util
 
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.{v2 as lav2}
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.domain
 import com.digitalasset.canton.topology.DomainId
