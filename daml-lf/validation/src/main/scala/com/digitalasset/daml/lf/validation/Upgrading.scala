@@ -301,7 +301,6 @@ object TypecheckUpgrades {
 case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Package)]) {
   import TypecheckUpgrades._
 
-  private lazy val packageId: Upgrading[Ref.PackageId] = packagesAndIds.map(_._1)
   private lazy val _package: Upgrading[Ast.Package] = packagesAndIds.map(_._2)
 
   private def check(): Try[Unit] = {
@@ -359,13 +358,13 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   // TODO: https://github.com/digital-asset/daml/pull/18377
-  // We should strip package ids from all packages in the upgrade set, not just within the pair
+  // For simplicity's sake, we check all names against one another as if they
+  // are in the same package, because package ids do not tell us the package
+  // name - in the future we should resolve package ids to their package names
+  // so that we can rule out upgrades between packages that don't have the same
+  // name.
   private def unifyIdentifier(id: Ref.Identifier): Ref.Identifier =
-    if (id.packageId == packageId.present) {
-      Ref.Identifier(packageId.past, id.qualifiedName)
-    } else {
-      id
-    }
+    Ref.Identifier(Ref.PackageId.assertFromString("0"), id.qualifiedName)
 
   private def unifyUpgradedRecordOrigin(origin: UpgradedRecordOrigin): UpgradedRecordOrigin =
     origin match {
