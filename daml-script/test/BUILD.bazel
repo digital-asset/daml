@@ -71,6 +71,7 @@ dependencies:
   - daml{scriptVersion}-script-{target}.dar
 build-options:
   - --target={target}
+  - --enable-interfaces=yes
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script{scriptVersion}-test-v{name}.dar)
       rm -rf $$TMP_DIR

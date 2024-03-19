@@ -39,6 +39,7 @@ load("@os_info//:os_info.bzl", "is_intel")
     daml_compile(
         name = "Interfaces-v{}".format(major),
         srcs = ["Interfaces.daml"],
+        enable_interfaces = True,
         target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )
@@ -49,6 +50,7 @@ load("@os_info//:os_info.bzl", "is_intel")
     daml_compile(
         name = "InterfaceViews-v{}".format(major),
         srcs = ["InterfaceViews.daml"],
+        enable_interfaces = True,
         target = lf_version_default_or_latest(major),
         visibility = ["//daml-lf:__subpackages__"],
     )

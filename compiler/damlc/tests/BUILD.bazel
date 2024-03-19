@@ -1017,6 +1017,7 @@ daml_compile(
     dependencies = [
         "//daml-script/daml3:daml3-script-2.dev.dar",
     ],
+    enable_interfaces = True,
     project_name = "try-submit-test",
     target = "2.dev",
     visibility = ["//visibility:public"],

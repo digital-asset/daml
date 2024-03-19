@@ -22,7 +22,7 @@ import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
 import qualified DA.Daml.LF.Ast.Version as LF
-import qualified DA.Daml.Options.Types as Daml (Options (..))
+import qualified DA.Daml.Options.Types as Daml (Options (..), EnableInterfaces (..))
 import DA.Daml.LF.ScenarioServiceClient as SS
 import DA.Test.Util (withResourceCps)
 import Development.IDE.Types.Diagnostics
@@ -80,6 +80,7 @@ addScriptOpts lfVersion = maybe id $ \(packageDbPath, packageFlags) opts -> opts
     { Daml.optPackageDbs = [packageDbPath]
     , Daml.optPackageImports = packageFlags
     , Daml.optDamlLfVersion = lfVersion
+    , Daml.optEnableInterfaces = Daml.EnableInterfaces True
     }
 
 -- | Tasty test case from a ShakeTest.
