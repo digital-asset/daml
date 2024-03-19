@@ -13,14 +13,16 @@ private[scenario] trait SimulationConfig {
     Option(System.getProperty(name))
       .getOrElse(throw new RuntimeException("Missing system property " + name))
 
-  lazy val httpProtocol: HttpProtocolBuilder = http
+  lazy val httpProtocol: HttpProtocolBuilder = httpProtocolForBearer(aliceJwt)
+
+  def httpProtocolForBearer(jwt: String) = http
     .baseUrl(s"http://$hostAndPort")
     .wsBaseUrl(s"ws://$hostAndPort")
     .warmUp(s"http://$hostAndPort/v1/query")
     .inferHtmlResources()
     .acceptHeader("*/*")
     .acceptEncodingHeader("gzip, deflate")
-    .authorizationHeader(s"Bearer $aliceJwt")
+    .authorizationHeader(s"Bearer $jwt")
     .contentTypeHeader("application/json")
 
   protected[this] val defaultNumUsers = 10
@@ -34,6 +36,8 @@ private[scenario] trait SimulationConfig {
 
   protected[this] lazy val charlieParty: String = getPropertyOrFail(CharliePartyKey)
   protected[this] lazy val charlieJwt: String = getPropertyOrFail(CharlieJwtKey)
+
+  protected[this] lazy val aliceBobCharlieJwt: String = getPropertyOrFail(AliceBobCharlieJwtKey)
 }
 
 object SimulationConfig {
@@ -45,4 +49,6 @@ object SimulationConfig {
   val BobJwtKey = "com.daml.http.perf.bobJwt"
   val CharliePartyKey = "com.daml.http.perf.charlieParty"
   val CharlieJwtKey = "com.daml.http.perf.charlieJwt"
+
+  val AliceBobCharlieJwtKey = "com.daml.http.perf.aliceBobCharlieJwt"
 }

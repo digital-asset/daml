@@ -15,6 +15,7 @@ import com.daml.integrationtest.CantonRunner
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.lf.data.Ref.UserId
+import com.daml.lf.data.Ref.Party
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
@@ -55,9 +56,10 @@ object Main extends StrictLogging {
       config: Config[String],
       jsonApiHost: String,
       jsonApiPort: Int,
-      alicePartyData: (String, String),
-      bobPartyData: (String, String),
-      charliePartyData: (String, String),
+      alicePartyData: (Party, String),
+      bobPartyData: (Party, String),
+      charliePartyData: (Party, String),
+      aliceBobCharlieJwt: String,
   )(implicit
       sys: ActorSystem,
       ec: ExecutionContext,
@@ -78,6 +80,8 @@ object Main extends StrictLogging {
     // Charlie
     discard { System.setProperty(SimulationConfig.CharliePartyKey, charliePartyData._1) }
     discard { System.setProperty(SimulationConfig.CharlieJwtKey, charliePartyData._2) }
+    // Alice_Bob_Charlie
+    discard { System.setProperty(SimulationConfig.AliceBobCharlieJwtKey, aliceBobCharlieJwt) }
 
     val configBuilder = new GatlingPropertiesBuilder()
       .simulationClass(config.scenario)
@@ -133,7 +137,7 @@ object Main extends StrictLogging {
     }
 
     // Allocates a user, returns their party name and jwt
-    def allocateUserAndJwt(ledger: LedgerClient, name: String): Future[(String, String)] = for {
+    def allocateUserAndJwt(ledger: LedgerClient, name: String): Future[(Party, String)] = for {
       party <- ledger.partyManagementClient.allocateParty(Some(name), None).map(_.party)
       userPreCreate = new User(UserId.assertFromString(name), Some(party))
       user <- ledger.userManagementClient.createUser(
@@ -144,7 +148,21 @@ object Main extends StrictLogging {
         ),
       )
       jwt = CantonRunner.getToken(user.id.toString, Some("secret")).value
-    } yield (party.toString, jwt)
+    } yield (party, jwt)
+
+    // Creates a jwt for a new user, which can actAs all of the given parties
+    def jwtForParties(
+        ledger: LedgerClient,
+        parties: Seq[Party],
+    ): Future[String] = {
+      val primaryParty = parties.head
+      val userName = parties.map(_.split("::")(0)).mkString("_")
+      val user = new User(UserId.assertFromString(userName), Some(primaryParty))
+      val userRights = parties.map(UserRight.CanActAs(_))
+      ledger.userManagementClient
+        .createUser(user, userRights)
+        .map(user => CantonRunner.getToken(user.id.toString, Some("secret")).value)
+    }
 
     def runScenario(config: Config[String]) =
       resolveSimulationClass(config.scenario).flatMap { _ =>
@@ -157,9 +175,10 @@ object Main extends StrictLogging {
               None,
             ) { (uri, _, _, ledger) =>
               for {
-                alicePartyData <- allocateUserAndJwt(ledger, "Alice")
-                bobPartyData <- allocateUserAndJwt(ledger, "Bob")
-                charliePartyData <- allocateUserAndJwt(ledger, "Charlie")
+                alicePartyData @ (alice, _) <- allocateUserAndJwt(ledger, "Alice")
+                bobPartyData @ (bob, _) <- allocateUserAndJwt(ledger, "Bob")
+                charliePartyData @ (charlie, _) <- allocateUserAndJwt(ledger, "Charlie")
+                aliceBobCharlieJwt <- jwtForParties(ledger, Seq(alice, bob, charlie))
                 res <- runGatlingScenario(
                   config,
                   uri.authority.host.address,
@@ -167,6 +186,7 @@ object Main extends StrictLogging {
                   alicePartyData,
                   bobPartyData,
                   charliePartyData,
+                  aliceBobCharlieJwt,
                 )
                   .flatMap { case (exitCode, dir) =>
                     toFuture(generateReport(dir))
