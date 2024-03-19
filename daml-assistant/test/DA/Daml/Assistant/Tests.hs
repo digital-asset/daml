@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Assistant.Tests
-    ( main
+    ( module DA.Daml.Assistant.Tests
     ) where
 
 import DA.Daml.Assistant.Env
@@ -597,6 +597,8 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
     , test "fail when variable doesn't exist" [] "name: ${MY_NAME}" $ withFailure $ \case
         ConfigFileInvalid _ (Y.AesonException "Couldn't find environment variable MY_NAME in value ${MY_NAME}") -> pure ()
         e -> Tasty.assertFailure $ "Expected failed to find environment variable error, got " <> show e
+    , test "not interpolate when feature is disabled via field" [] "name: ${MY_NAME}\nenvironment-variable-interpolation: false" $ withSuccess $ \p ->
+        queryTopLevelField p "name" @?= "${MY_NAME}"
     ]
   where
     test :: String -> [(String, String)] -> String -> (Either ConfigError ProjectConfig -> IO ()) -> Tasty.TestTree

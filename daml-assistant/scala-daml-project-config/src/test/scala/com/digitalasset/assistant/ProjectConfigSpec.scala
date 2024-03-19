@@ -171,6 +171,17 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
           ConfigParseError("""Couldn't find environment variable MY_NAME in value ${MY_NAME}""")
         )
       }
+      "not interpolate when feature is disabled via field" in {
+        val name = for {
+          config <- ProjectConfig.loadFromStringWithEnv(
+            projectRoot,
+            "name: ${MY_NAME}\nenvironment-variable-interpolation: false",
+            Map(),
+          )
+          result <- config.name
+        } yield result
+        name shouldBe Right(Some("${MY_NAME}"))
+      }
     }
   }
 }
