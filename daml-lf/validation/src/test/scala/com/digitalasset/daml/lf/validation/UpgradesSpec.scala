@@ -602,7 +602,7 @@ abstract class UpgradesSpec(val suffix: String)
 
         case None if uploadSecondPackageDryRun => {
           cantonLogSrc should include regex (
-            s"The DAR will not be uploaded because dry run is set in UploadDarRequest err-context:\\{.*, uploadedPackage=$testPackageV2Id"
+            s"The DAR will not be uploaded because dry run is set in UploadDarRequest err-context:\\{.*, uploadedPackageId=$testPackageV2Id"
           )
           uploadV2Result match {
             case None =>
@@ -674,7 +674,7 @@ abstract class UpgradesSpec(val suffix: String)
       case _ => {}
     }
     cantonLogSrc should include regex (
-      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV2Id, location=.+, packageVersion=$packageVersion, uploadedPackage=$testPackageV1Id\\}"
+      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV2Id, location=.+, packageVersion=$packageVersion, uploadedPackageId=$testPackageV1Id\\}"
     )
     uploadV2Result match {
       case None =>
