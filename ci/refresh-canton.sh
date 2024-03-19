@@ -23,7 +23,7 @@ if [ "//unset" = "$CANTON_DIR" ]; then
   echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
   if ! [ -d "$CANTON_DIR" ]; then
     echo "> Cloning canton for the first time, this may take a while..." >&2
-    git clone git@github.com:DACH-NY/canton.git "$CANTON_DIR" >$LOG 2>&1
+    git clone https://$GITHUB_TOKEN@github.com/DACH-NY/canton "$CANTON_DIR" >$LOG 2>&1
   fi
   (
     cd "$CANTON_DIR"
@@ -58,6 +58,7 @@ commit_date=$(git -C "$CANTON_DIR" log -n1 --format=%cd --date=format:%Y%m%d HEA
 number_of_commits=$(git -C "$CANTON_DIR" rev-list --count HEAD)
 is_modified=$(if ! git -C "$CANTON_DIR" diff-index --quiet HEAD; then echo "-dirty"; fi)
 
+echo $commit_date.$number_of_commits.v$commit_sha_8$is_modified > canton/ref
 echo $commit_date.$number_of_commits.v$commit_sha_8$is_modified
 
 trap - EXIT
