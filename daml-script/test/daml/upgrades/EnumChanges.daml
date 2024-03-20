@@ -11,10 +11,14 @@ import DA.Text
 import qualified V1.EnumUnchanged as V1
 import qualified V1.EnumRemoved as V1
 import qualified V1.EnumAdditional as V1
+import qualified V1.EnumNonLastAdditional as V1
+import qualified V1.EnumToVariant as V1
 
 import qualified V2.EnumUnchanged as V2
 import qualified V2.EnumRemoved as V2
 import qualified V2.EnumAdditional as V2
+import qualified V2.EnumNonLastAdditional as V2
+import qualified V2.EnumToVariant as V2
 
 main : Script ()
 main = tests
@@ -23,6 +27,9 @@ main = tests
   , ("Succeeds if a nested enum is an old case when downgrading", templateEnumDowngradeFromOld)
   , ("Fails if a nested enum is a removed case", templateEnumUpgradeToRemoved)
   , ("Fails if a nested enum is an additional case when downgrading", templateEnumDowngradeFromNew)
+  , broken ("Fails if a nested enum is a non-last additional case when upgrading (unchanged rank)", templateEnumNonLastUpgradeSameRank)
+  , broken ("Fails if a nested enum is a non-last additional case when upgrading (changed rank)", templateEnumNonLastUpgradeDifferentRank)
+  , ("Fails if an additional field turns an enum into a variant", templateEnumEnumToVariant)
   ]
 
 templateInvalidChange : forall t2 t1 c2. (Template t1, HasEnsure t1, Choice t2 c2 Text) => Bool -> (Party -> t1) -> c2 -> Script ()
@@ -148,3 +155,73 @@ templateEnumDowngradeFromOld =
     True
     (`V2.EnumAdditional` V2.EnumAdditionalData1)
     V1.EnumAdditionalCall
+
+{- MODULE
+package: enum-changes
+contents: |
+  module EnumNonLastAdditional where
+
+  data EnumNonLastAdditionalData
+    = EnumNonLastAdditionalData1
+    | EnumNonLastAdditionalData2 -- @V 2
+    | EnumNonLastAdditionalData3
+    deriving (Eq, Show)
+
+  template EnumNonLastAdditional
+    with
+      party : Party
+      nestedData : EnumNonLastAdditionalData
+    where
+      signatory party
+      choice EnumNonLastAdditionalCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+templateEnumNonLastUpgradeSameRank : Script ()
+templateEnumNonLastUpgradeSameRank =
+  templateInvalidChange
+    @V2.EnumNonLastAdditional
+    False
+    (`V1.EnumNonLastAdditional` V1.EnumNonLastAdditionalData1)
+    V2.EnumNonLastAdditionalCall
+
+templateEnumNonLastUpgradeDifferentRank : Script ()
+templateEnumNonLastUpgradeDifferentRank =
+  templateInvalidChange
+    @V2.EnumNonLastAdditional
+    False
+    (`V1.EnumNonLastAdditional` V1.EnumNonLastAdditionalData3)
+    V2.EnumNonLastAdditionalCall
+
+{- MODULE
+package: enum-changes
+contents: |
+  module EnumToVariant where
+
+  data EnumToVariantData
+    = EnumToVariantData1
+    | EnumToVariantData2
+    | EnumToVariantData3 String -- @V 2
+    deriving (Eq, Show)
+
+  template EnumToVariant
+    with
+      party : Party
+      nestedData : EnumToVariantData
+    where
+      signatory party
+      choice EnumToVariantCall : Text
+        controller party
+        do pure "V1" -- @V 1
+        do pure "V2" -- @V  2
+-}
+
+templateEnumEnumToVariant : Script ()
+templateEnumEnumToVariant =
+  templateInvalidChange
+    @V2.EnumToVariant
+    False
+    (`V1.EnumToVariant` V1.EnumToVariantData1)
+    V2.EnumToVariantCall

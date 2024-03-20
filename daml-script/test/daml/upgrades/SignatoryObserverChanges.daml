@@ -8,15 +8,40 @@ module SignatoryObserverChanges (main) where
 import UpgradeTestLib
 import qualified V1.SignatoryObserverChanges as V1
 import qualified V1.SignatoryObserverOptionalExtension as V1
+import qualified V1.SignatoryRequiredOptionalExtension as V1
+import qualified V1.ObserverRequiredOptionalExtension as V1
+
 import qualified V2.SignatoryObserverChanges as V2
 import qualified V2.SignatoryObserverOptionalExtension as V2
+import qualified V2.SignatoryRequiredOptionalExtension as V2
+import qualified V2.ObserverRequiredOptionalExtension as V2
 import DA.Text
 import DA.Optional
+import DA.Exception.GeneralError
+import DA.Exception
 
 {- PACKAGE
 name: signatory-observer-changes
 versions: 2
 -}
+
+main : Script ()
+main = tests
+  [ ("Succeeds if the signatories don't change on upgrade", unchangedSignatoryUpgrade)
+  , ("Succeeds if the signatories don't change on downgrade", unchangedSignatoryDowngrade)
+  , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
+  , ("Fails if the signatories set gets smaller", smallerSignatoryUpgrade)
+  , ("Succeeds if the observers don't change on upgrade", unchangeObserverUpgrade)
+  , ("Succeeds if the observers don't change on downgrade", unchangeObserverDowngrade)
+  , ("Fails if the observers set gets larger", largerObserverUpgrade)
+  , ("Fails if the observers set gets smaller", smallerObserverUpgrade)
+  , ("Succeeds if the observer set loses parties that are already signatories on upgrade", canRemoveObserversThatAreSignatoriesUpgrade)
+  , ("Succeeds if the observer set loses parties that are already signatories on downgrade", canRemoveObserversThatAreSignatoriesDowngrade)
+  , ("Succeeds if signatories extended with new optional field on upgrade", optionalSignatoryExtensionUpgrade)
+  , ("Succeeds if observers extended with new optional field on upgrade", optionalObserverExtensionUpgrade)
+  , ("Succeeds if signatories extended with new required field on downgrade", optionalSignatoryExtensionDowngrade)
+  , ("Succeeds if observers extended with new required field on downgrade", optionalObserverExtensionDowngrade)
+  ]
 
 {- MODULE
 package: signatory-observer-changes
@@ -39,42 +64,6 @@ contents: |
         controller signatory this
         do pure ()
 -}
-
-{- MODULE
-package: signatory-observer-changes
-contents: |
-  module SignatoryObserverOptionalExtension where
-
-  template SignatoryObserverOptionalExtensionTemplate
-    with
-      signatories : [Party]
-      observers : [Party]
-      signatoryExtension : Optional Party                   -- @V  2
-      observerExtension : Optional Party                    -- @V  2
-    where
-      signatory signatories                                 -- @V 1
-      signatory signatories ++ toParties signatoryExtension -- @V  2
-      observer observers                                    -- @V 1
-      observer observers ++ toParties observerExtension     -- @V  2
-      choice SignatoryObserverOptionalExtensionCall : ()
-        controller signatory this
-        do pure ()
--}
-
-main : Script ()
-main = tests
-  [ ("Succeeds if the signatories don't change on upgrade", unchangedSignatoryUpgrade)
-  , ("Succeeds if the signatories don't change on downgrade", unchangedSignatoryDowngrade)
-  , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
-  , ("Fails if the signatories set gets smaller", smallerSignatoryUpgrade)
-  , ("Succeeds if the observers don't change on upgrade", unchangeObserverUpgrade)
-  , ("Succeeds if the observers don't change on downgrade", unchangeObserverDowngrade)
-  , ("Fails if the observers set gets larger", largerObserverUpgrade)
-  , ("Fails if the observers set gets smaller", smallerObserverUpgrade)
-  , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
-  , ("Succeeds if signatories extended with new optional field on upgrade", optionalSignatoryExtensionUpgrade)
-  , ("Succeeds if observers extended with new optional field on upgrade", optionalObserverExtensionUpgrade)
-  ]
 
 -- Given a function that maps a set of 3 parties to the pre-upgrade and post-upgrade signatory set
 -- and the same for observers
@@ -162,12 +151,40 @@ largerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alic
 smallerObserverUpgrade : Script ()
 smallerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
 
-canRemoveObserversThatAreSignatories : Script ()
-canRemoveObserversThatAreSignatories =
+canRemoveObserversThatAreSignatoriesUpgrade : Script ()
+canRemoveObserversThatAreSignatoriesUpgrade =
   signatoryObserverUpgrade
     True
     (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob, charlie])) -- signatories
     (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])) -- observers
+
+canRemoveObserversThatAreSignatoriesDowngrade : Script ()
+canRemoveObserversThatAreSignatoriesDowngrade =
+  signatoryObserverDowngrade
+    True
+    (\(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob, charlie])) -- signatories
+    (\(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])) -- observers
+
+{- MODULE
+package: signatory-observer-changes
+contents: |
+  module SignatoryObserverOptionalExtension where
+
+  template SignatoryObserverOptionalExtensionTemplate
+    with
+      signatories : [Party]
+      observers : [Party]
+      signatoryExtension : Optional Party                   -- @V  2
+      observerExtension : Optional Party                    -- @V  2
+    where
+      signatory signatories                                 -- @V 1
+      signatory signatories ++ toParties signatoryExtension -- @V  2
+      observer observers                                    -- @V 1
+      observer observers ++ toParties observerExtension     -- @V  2
+      choice SignatoryObserverOptionalExtensionCall : ()
+        controller signatory this
+        do pure ()
+-}
 
 optionalSignatoryExtensionUpgrade : Script ()
 optionalSignatoryExtensionUpgrade = do
@@ -215,3 +232,89 @@ optionalObserverExtensionUpgrade = do
   -- Test bob can see it
   res <- b `queryContractId` cid
   if isNone res then error "Bob could not see upgraded contract" else pure ()
+
+{- MODULE
+package: signatory-observer-changes
+contents: |
+  module SignatoryRequiredOptionalExtension where
+
+  import DA.Optional
+  template SignatoryRequiredOptionalExtensionTemplate
+    with
+      signatories : [Party]
+      signatoryExtension : Optional Party                   -- @V  2
+    where
+      signatory signatories                                 -- @V 1
+      signatory fromSome signatoryExtension :: signatories   -- @V  2
+      choice SignatoryRequiredOptionalExtensionCall : ()
+        controller signatory this
+        do pure ()
+-}
+
+optionalSignatoryExtensionDowngrade : Script ()
+optionalSignatoryExtensionDowngrade = do
+  a <- allocateParty "alice"
+  -- Test the old version can be created
+  cid <- a `submit` createExactCmd V1.SignatoryRequiredOptionalExtensionTemplate with signatories = [a]
+
+  -- Test that it cannot be upgraded
+  let cid2 = coerceContractId @_ @V2.SignatoryRequiredOptionalExtensionTemplate cid
+  res <- a `trySubmit` exerciseExactCmd cid2 V2.SignatoryRequiredOptionalExtensionCall
+
+  case res of
+    Left (UnhandledException (Some (fromAnyException -> Some (GeneralError "fromSome: None")))) -> pure ()
+    e -> error $ "Expected fromSome error and got " <> show e
+
+  b <- allocateParty "bob"
+  -- Test that the new version can be created
+  [a, b] `submit` createExactCmd V2.SignatoryRequiredOptionalExtensionTemplate with 
+    signatories = [a]
+    signatoryExtension = Some b
+
+  pure ()
+
+{- MODULE
+package: signatory-observer-changes
+contents: |
+  module ObserverRequiredOptionalExtension where
+
+  import DA.Optional
+  template ObserverRequiredOptionalExtensionTemplate
+    with
+      party : Party
+      observers : [Party]
+      observerExtension : Optional Party                    -- @V  2
+    where
+      signatory party
+      observer observers                                    -- @V 1
+      observer fromSome observerExtension :: observers       -- @V  2
+      choice ObserverRequiredOptionalExtensionCall : ()
+        controller signatory this
+        do pure ()
+-}
+
+optionalObserverExtensionDowngrade : Script ()
+optionalObserverExtensionDowngrade = do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  -- Test the old version can be created
+  cid <- a `submit` createExactCmd V1.ObserverRequiredOptionalExtensionTemplate with party = a, observers = [b]
+
+  -- Test that it cannot be upgraded
+  let cid2 = coerceContractId @_ @V2.ObserverRequiredOptionalExtensionTemplate cid
+  res <- a `trySubmit` exerciseExactCmd cid2 V2.ObserverRequiredOptionalExtensionCall
+
+  case res of
+    Left (UnhandledException (Some (fromAnyException -> Some (GeneralError "fromSome: None")))) -> pure ()
+    e -> error $ "Expected fromSome error and got " <> show e
+
+  c <- allocateParty "charlie"
+  -- Test that the new version can be created
+  cid <- a `submit` createExactCmd V2.ObserverRequiredOptionalExtensionTemplate with
+    party = a
+    observers = [b]
+    observerExtension = Some c
+
+  -- Test that Charlie can see the new version
+  res <- c `queryContractId` cid
+  if isNone res then error "Charlie could not see upgraded contract" else pure ()

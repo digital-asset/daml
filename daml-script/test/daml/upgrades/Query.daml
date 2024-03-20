@@ -5,14 +5,30 @@ module Query (main) where
 
 import UpgradeTestLib
 import qualified V1.Query as V1
+import qualified V1.QueryNested as V1
+
 import qualified V2.Query as V2
+import qualified V2.QueryNested as V2
 import qualified V2.QueryDelayedUpgrade as V2
+
 import qualified V3.QueryDelayedUpgrade as V3
 
 {- PACKAGE
 name: query
 versions: 2
 -}
+
+main : Script ()
+main = tests
+  [ ("Upgrade a contract when querying", queryUpgraded)
+  , ("Downgrade a contract with Nones when querying", queryDowngradedNone)
+  , ("Fail to downgrade a contract with Somes when querying", queryDowngradedSome)
+  , ("Upgrade a contract when querying (nested)", queryNestedUpgraded)
+  , ("Downgrade a contract with Nones when querying (nested)", queryNestedDowngradedNone)
+  , ("Fail to downgrade a contract with Somes when querying (nested)", queryNestedDowngradedSome)
+  , ("Succeeds adding a field to a template only defined in V2", queryDelayedUpgraded)
+  , ("Succeeds adding a field to a nested datatype only defined in V2", queryDelayedNestedUpgraded)
+  ]
 
 {- MODULE
 package: query
@@ -26,15 +42,6 @@ contents: |
     where
       signatory party
 -}
-
-main : Script ()
-main = tests
-  [ ("Upgrade a contract when querying", queryUpgraded)
-  , ("Downgrade a contract with Nones when querying", queryDowngradedNone)
-  , ("Fail to downgrade a contract with Somes when querying", queryDowngradedSome)
-  , ("Succeeds adding a field to a template only defined in V2", queryDelayedUpgraded)
-  , ("Succeeds adding a field to a nested datatype only defined in V2", queryDelayedNestedUpgraded)
-  ]
 
 queryUpgraded : Script ()
 queryUpgraded = do
@@ -57,8 +64,54 @@ queryDowngradedNone = do
 queryDowngradedSome : Script ()
 queryDowngradedSome = do
   a <- allocatePartyOn "alice" participant0
-  cid <- a `submit` createCmd V2.QueryTemplate with party = a, newField = Some("Text")
+  cid <- a `submit` createCmd V2.QueryTemplate with party = a, newField = Some "Text"
   let v1Cid = coerceContractId @V2.QueryTemplate @V1.QueryTemplate cid
+  res <- tryCommands $ queryContractId a v1Cid
+  case res of
+    Left (FailedCmd (CommandName "QueryContractId") _ _) -> pure ()
+    _ -> assertFail $ "Expected QueryContractId to error, but got " <> show res
+
+{- MODULE
+package: query
+contents: |
+  module QueryNested where
+
+  data QueryNestedData = QueryNestedData with
+      field : Int
+      newField : Optional Text -- @V 2
+    deriving (Show, Eq)
+
+  template QueryNestedTemplate
+    with
+      party : Party
+      nestedData : QueryNestedData
+    where
+      signatory party
+-}
+
+queryNestedUpgraded : Script ()
+queryNestedUpgraded = do
+  a <- allocatePartyOn "alice" participant0
+
+  cid <- a `submit` createExactCmd V1.QueryNestedTemplate with party = a, nestedData = V1.QueryNestedData 1
+  let v2Cid = coerceContractId @V1.QueryNestedTemplate @V2.QueryNestedTemplate cid
+  v2Name <- queryContractId a v2Cid
+  v2Name === Some V2.QueryNestedTemplate with party = a, nestedData = V2.QueryNestedData 1 None
+
+queryNestedDowngradedNone : Script ()
+queryNestedDowngradedNone = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.QueryNestedTemplate with party = a, nestedData = V2.QueryNestedData 1 None
+  let v1Cid = coerceContractId @V2.QueryNestedTemplate @V1.QueryNestedTemplate cid
+  v1Name <- queryContractId a v1Cid
+  v1Name === Some V1.QueryNestedTemplate with party = a, nestedData = V1.QueryNestedData 1
+  pure ()
+
+queryNestedDowngradedSome : Script ()
+queryNestedDowngradedSome = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd V2.QueryNestedTemplate with party = a, nestedData = V2.QueryNestedData 1 (Some "Text")
+  let v1Cid = coerceContractId @V2.QueryNestedTemplate @V1.QueryNestedTemplate cid
   res <- tryCommands $ queryContractId a v1Cid
   case res of
     Left (FailedCmd (CommandName "QueryContractId") _ _) -> pure ()
