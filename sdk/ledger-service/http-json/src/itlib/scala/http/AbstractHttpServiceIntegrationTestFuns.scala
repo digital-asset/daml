@@ -447,6 +447,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     object Iou {
       val Iou: TId = CtId.Template(None, "Iou", "Iou")
       val IouTransfer: TId = CtId.Template(None, "Iou", "IouTransfer")
+      val PkgName = "#quickstart-model"
     }
     object Test {
       val MultiPartyContract: TId = CtId.Template(None, "Test", "MultiPartyContract")
@@ -491,6 +492,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       currency: String = "USD",
       observers: Vector[domain.Party] = Vector.empty,
       meta: Option[domain.CommandMeta.NoDisclosed] = None,
+      usePackageName: Boolean = false,
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val arg = argToApi(iouVA)(
       ShRecord(
@@ -502,7 +504,10 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
 
-    domain.CreateCommand(TpId.Iou.Iou, arg, meta)
+    val templateId =
+      if (usePackageName) TpId.Iou.Iou.copy(packageId = Some(TpId.Iou.PkgName)) else TpId.Iou.Iou
+
+    domain.CreateCommand(templateId, arg, meta)
   }
 
   private[this] val (_, ciouVA) = {
