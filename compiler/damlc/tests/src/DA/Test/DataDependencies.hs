@@ -2252,7 +2252,7 @@ tests TestArgs{..} =
           damlYamlBody name extraDeps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
-            , "build-options: [--target="<> LF.renderVersion targetDevVersion <>"]"
+            , "build-options: [--target="<> LF.renderVersion targetDevVersion <>", --enable-interfaces=yes]"
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
@@ -2703,15 +2703,20 @@ tests TestArgs{..} =
     ]
   where
     defTestOptions :: DataDependenciesTestOptions
-    defTestOptions = DataDependenciesTestOptions [] []
+    defTestOptions = DataDependenciesTestOptions
+        { buildOptions =
+            [ "--target=" <> LF.renderVersion targetDevVersion
+            , "--enable-interfaces=yes"
+            ]
+        , extraDeps = []
+        }
 
     optionsDev :: DataDependenciesTestOptions
-    optionsDev = defTestOptions {buildOptions = ["--target=" <> LF.renderVersion targetDevVersion]}
+    optionsDev = defTestOptions
 
     optionsDevScript :: DataDependenciesTestOptions
     optionsDevScript = defTestOptions
-        { buildOptions = ["--target=" <> LF.renderVersion targetDevVersion]
-        , extraDeps = [scriptDevDar]
+        { extraDeps = [scriptDevDar]
         }
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree

@@ -317,6 +317,7 @@ def daml_compile(
         project_name = None,
         ghc_options = default_damlc_opts,
         enable_scenarios = False,
+        enable_interfaces = False,
         dependencies = [],
         data_dependencies = [],
         module_prefixes = None,
@@ -349,7 +350,8 @@ def daml_compile(
         dar = name + ".dar",
         ghc_options =
             ghc_options +
-            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []),
+            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []) +
+            (["--enable-interfaces=yes"] if enable_interfaces else []),
         damlc = damlc_for_target(target),
         **kwargs
     )
@@ -487,6 +489,7 @@ def daml_test(
         deps = [],
         data_deps = [],
         damlc = "//compiler/damlc:damlc",
+        enable_interfaces = False,
         additional_compiler_flags = [],
         target = None,
         **kwargs):
@@ -515,13 +518,14 @@ EOF
 cat $$tmpdir/daml.yaml
 {cp_srcs}
 cd $$tmpdir
-$$DAMLC test {damlc_opts} --files {files}
+$$DAMLC test {enable_interfaces} {damlc_opts} --files {files}
 """.format(
             damlc = damlc,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
             sdk_version = sdk_version,
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
+            enable_interfaces = "--enable-interfaces=yes" if enable_interfaces else "",
             damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
