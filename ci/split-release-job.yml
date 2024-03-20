@@ -117,7 +117,9 @@ jobs:
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
-        tell_slack "SDK release \`$(release_tag)\` just pushed to Artifactory." \
+        sha=$(release_sha)
+        short_sha=${sha:0:8}
+        tell_slack "SDK release \`$(release_tag)\` (\`$short_sha\`) just pushed to Artifactory." \
                    "$(Slack.team-canton)"
     - template: tell-slack-failed.yml
       parameters:
