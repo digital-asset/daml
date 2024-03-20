@@ -73,7 +73,10 @@ final class StoreBasedTopologyStateForInitializationService(
           // This is not a mistake: all transactions with `sequenced <= validFrom` need to come from this onboarding snapshot
           // because the member only receives transactions once its onboarding transaction becomes effective.
           val referenceSequencedTime = SequencedTime(effectiveFrom.value)
-          domainTopologyStore.findEssentialStateAtSequencedTime(referenceSequencedTime)
+          domainTopologyStore.findEssentialStateAtSequencedTime(
+            referenceSequencedTime,
+            excludeMappings = Nil,
+          )
         }
         // TODO(#12390) should this error out if nothing can be found?
         .getOrElse(Future.successful(StoredTopologyTransactionsX.empty))

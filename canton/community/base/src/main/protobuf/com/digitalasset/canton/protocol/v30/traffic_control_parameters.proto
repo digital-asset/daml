@@ -23,8 +23,10 @@ message TrafficControlParameters {
 
   // Window size used to compute the max sequencing time of a submission request
   // This impacts how quickly a submission is expected to be accepted before a retry should be attempted by the caller
-  // Default is 5 minutes
   google.protobuf.Duration set_balance_request_submission_window_size = 5;
+
+  // If true, submission requests without enough traffic credit will not be delivered
+  bool enforce_rate_limiting = 6;
 }
 
 message SetTrafficBalanceMessage {

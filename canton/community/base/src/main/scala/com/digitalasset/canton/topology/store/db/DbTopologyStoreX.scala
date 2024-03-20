@@ -451,14 +451,17 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     )
   }
 
-  override def findEssentialStateAtSequencedTime(asOfInclusive: SequencedTime)(implicit
+  override def findEssentialStateAtSequencedTime(
+      asOfInclusive: SequencedTime,
+      excludeMappings: Seq[TopologyMappingX.Code],
+  )(implicit
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactionsX] = {
     val timeFilter = sql" AND sequenced <= ${asOfInclusive.value}"
-
+    val mappingFilter = excludeMapping(excludeMappings.toSet)
     logger.debug(s"Querying essential state as of asOfInclusive")
 
-    queryForTransactions(timeFilter, "essentialState").map(
+    queryForTransactions(timeFilter ++ mappingFilter, "essentialState").map(
       _.asSnapshotAtMaxEffectiveTime.retainAuthorizedHistoryAndEffectiveProposals
     )
   }
@@ -705,6 +708,14 @@ class DbTopologyStoreX[StoreId <: TopologyStoreId](
     if (types.isEmpty) sql""
     else
       sql" AND transaction_type IN (" ++ types.toSeq
+        .map(t => sql"$t")
+        .intercalate(sql", ") ++ sql")"
+  }
+
+  private def excludeMapping(types: Set[TopologyMappingX.Code]): SQLActionBuilderChain = {
+    if (types.isEmpty) sql""
+    else
+      sql" AND transaction_type NOT IN (" ++ types.toSeq
         .map(t => sql"$t")
         .intercalate(sql", ") ++ sql")"
   }

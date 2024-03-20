@@ -806,17 +806,15 @@ class BlockUpdateGeneratorImpl(
         topologySnapshot,
         st,
       )
-      stateAfterTrafficConsume <- EitherT.liftF {
-        updateRateLimiting(
-          submissionRequest,
-          sequencingTimestamp,
-          sequencingSnapshot,
-          groupToMembers,
-          st,
-          latestSequencerEventTimestamp,
-          warnIfApproximate = st.headCounterAboveGenesis(sequencerId),
-        )
-      }
+      stateAfterTrafficConsume <- updateRateLimiting(
+        submissionRequest,
+        sequencingTimestamp,
+        sequencingSnapshot,
+        groupToMembers,
+        st,
+        latestSequencerEventTimestamp,
+        warnIfApproximate = st.headCounterAboveGenesis(sequencerId),
+      )
       _ <- EitherT.cond[FutureUnlessShutdown](
         SequencerValidations.checkFromParticipantToAtMostOneMediator(submissionRequest),
         (), {
@@ -1520,7 +1518,7 @@ class BlockUpdateGeneratorImpl(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): FutureUnlessShutdown[BlockUpdateEphemeralState] = {
+  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, BlockUpdateEphemeralState] = {
     val newStateOF = for {
       parameters <- OptionT(
         sequencingSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
@@ -1554,26 +1552,49 @@ class BlockUpdateGeneratorImpl(
             lastBalanceUpdateTimestamp = lastSeenTopologyTimestamp,
             warnIfApproximate = warnIfApproximate,
           )
+          .map(Right(_))
           .valueOr {
             case error: SequencerRateLimitError.EventOutOfOrder =>
               logger.warn(
                 s"Consumed an event out of order for member ${error.member} with traffic state '$trafficState'. Current traffic state timestamp is ${error.currentTimestamp} but event timestamp is ${error.eventTimestamp}. The traffic state will not be updated."
               )
-              trafficState
+              Right(trafficState)
+            case error: SequencerRateLimitError.AboveTrafficLimit
+                if parameters.enforceRateLimiting =>
+              logger.info(
+                s"Submission from member ${error.member} with traffic state '${error.trafficState.toString}' was above traffic limit. Submission cost: ${error.trafficCost.value}. The message will not be delivered."
+              )
+              Left(
+                SubmissionRequestOutcome.reject(
+                  sender,
+                  DeliverError.create(
+                    ephemeralState.tryNextCounter(sender),
+                    sequencingTimestamp,
+                    domainId,
+                    request.messageId,
+                    SequencerErrors
+                      .TrafficCredit(
+                        s"Not enough traffic credit for sender $sender to send message with ID ${request.messageId}: $error"
+                      ),
+                    protocolVersion,
+                  ),
+                )
+              )
             case error: SequencerRateLimitError.AboveTrafficLimit =>
               logger.info(
                 s"Submission from member ${error.member} with traffic state '${error.trafficState.toString}' was above traffic limit. Submission cost: ${error.trafficCost.value}. The message will still be delivered."
               )
-              error.trafficState
+              Right(error.trafficState)
             case error: SequencerRateLimitError.UnknownBalance =>
               logger.warn(
                 s"Could not obtain valid balance at $sequencingTimestamp for member ${error.member} with traffic state '$trafficState'. The message will still be delivered but the traffic state has not been updated."
               )
-              trafficState
+              Right(trafficState)
           }
       )
-    } yield updateTrafficState(ephemeralState, sender, newSenderTrafficState)
-    newStateOF.getOrElse(ephemeralState)
+    } yield newSenderTrafficState.map(updateTrafficState(ephemeralState, sender, _))
+
+    EitherT(newStateOF.getOrElse(Right(ephemeralState)))
   }
 
   private def updateTrafficState(

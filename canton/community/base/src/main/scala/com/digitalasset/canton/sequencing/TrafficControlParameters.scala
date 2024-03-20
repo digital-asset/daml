@@ -8,6 +8,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30 as protoV30
 import com.digitalasset.canton.sequencing.TrafficControlParameters.{
   DefaultBaseTrafficAmount,
+  DefaultEnforceRateLimiting,
   DefaultMaxBaseTrafficAccumulationDuration,
   DefaultReadVsWriteScalingFactor,
   DefaultSetBalanceRequestSubmissionWindowSize,
@@ -33,6 +34,7 @@ final case class TrafficControlParameters(
       DefaultMaxBaseTrafficAccumulationDuration,
     setBalanceRequestSubmissionWindowSize: PositiveFiniteDuration =
       DefaultSetBalanceRequestSubmissionWindowSize,
+    enforceRateLimiting: Boolean = DefaultEnforceRateLimiting,
 ) extends PrettyPrinting {
   lazy val baseRate: NonNegativeLong =
     NonNegativeLong.tryCreate(
@@ -44,6 +46,7 @@ final case class TrafficControlParameters(
     Some(maxBaseTrafficAccumulationDuration.toProtoPrimitive),
     readVsWriteScalingFactor.value,
     Some(setBalanceRequestSubmissionWindowSize.toProtoPrimitive),
+    enforceRateLimiting,
   )
 
   override def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
@@ -51,6 +54,7 @@ final case class TrafficControlParameters(
     param("read vs write scaling factor", _.readVsWriteScalingFactor),
     param("max base traffic accumulation duration", _.maxBaseTrafficAccumulationDuration),
     param("set balance request submission window size", _.setBalanceRequestSubmissionWindowSize),
+    param("enforce rate limiting", _.enforceRateLimiting),
   )
 }
 
@@ -63,6 +67,7 @@ object TrafficControlParameters {
     time.NonNegativeFiniteDuration.apply(time.PositiveSeconds.tryOfMinutes(10L))
   val DefaultSetBalanceRequestSubmissionWindowSize: time.PositiveFiniteDuration =
     time.PositiveFiniteDuration.tryOfMinutes(4L)
+  val DefaultEnforceRateLimiting: Boolean = true
 
   def fromProtoV30(
       proto: protoV30.TrafficControlParameters
@@ -87,6 +92,7 @@ object TrafficControlParameters {
       scalingFactor,
       maxBaseTrafficAccumulationDuration,
       setBalanceRequestSubmissionWindowSize,
+      proto.enforceRateLimiting,
     )
   }
 }

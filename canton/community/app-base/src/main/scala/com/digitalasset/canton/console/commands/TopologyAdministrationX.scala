@@ -131,11 +131,9 @@ class TopologyAdministrationGroup(
     )
     def identity_transactions()
         : Seq[SignedTopologyTransactionX[TopologyChangeOpX, TopologyMappingX]] = {
-      val excludeExceptTopologyMappings =
-        TopologyMappingX.Code.all.diff(Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code))
       instance.topology.transactions
         .list(
-          excludeMappings = excludeExceptTopologyMappings,
+          filterMappings = Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code),
           filterNamespace = instance.id.uid.namespace.filterString,
         )
         .result
@@ -147,11 +145,9 @@ class TopologyAdministrationGroup(
       "Transactions serialized this way should be loaded into another node with load_from_file"
     )
     def export_identity_transactions(file: String): Unit = {
-      val excludeExceptTopologyMappings =
-        TopologyMappingX.Code.all.diff(Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code))
       val bytes = instance.topology.transactions
         .export_topology_snapshot(
-          excludeMappings = excludeExceptTopologyMappings,
+          filterMappings = Seq(NamespaceDelegationX.code, OwnerToKeyMappingX.code),
           filterNamespace = instance.id.uid.namespace.filterString,
         )
       writeToFile(file, bytes)
@@ -210,11 +206,22 @@ class TopologyAdministrationGroup(
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
+        filterMappings: Seq[TopologyMappingX.Code] = Nil,
         excludeMappings: Seq[TopologyMappingX.Code] = Nil,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
         filterNamespace: String = "",
     ): StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] = {
+      if (filterMappings.nonEmpty && excludeMappings.nonEmpty) {
+        consoleEnvironment.run(
+          CommandErrors
+            .GenericCommandError("Cannot specify both filterMappings and excludeMappings")
+        )
+      }
+      val excludeMappingsCodes = if (filterMappings.nonEmpty) {
+        TopologyMappingX.Code.all.diff(filterMappings).map(_.code)
+      } else excludeMappings.map(_.code)
+
       consoleEnvironment
         .run {
           adminCommand(
@@ -227,7 +234,7 @@ class TopologyAdministrationGroup(
                 filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
                 protocolVersion.map(ProtocolVersion.tryCreate),
               ),
-              excludeMappings = excludeMappings.map(_.code),
+              excludeMappings = excludeMappingsCodes,
               filterNamespace = filterNamespace,
             )
           )
@@ -249,11 +256,22 @@ class TopologyAdministrationGroup(
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOpX] = None,
+        filterMappings: Seq[TopologyMappingX.Code] = Nil,
         excludeMappings: Seq[TopologyMappingX.Code] = Nil,
         filterAuthorizedKey: Option[Fingerprint] = None,
         protocolVersion: Option[String] = None,
         filterNamespace: String = "",
     ): ByteString = {
+      if (filterMappings.nonEmpty && excludeMappings.nonEmpty) {
+        consoleEnvironment.run(
+          CommandErrors
+            .GenericCommandError("Cannot specify both filterMappings and excludeMappings")
+        )
+      }
+      val excludeMappingsCodes = if (filterMappings.nonEmpty) {
+        TopologyMappingX.Code.all.diff(filterMappings).map(_.code)
+      } else excludeMappings.map(_.code)
+
       consoleEnvironment
         .run {
           adminCommand(
@@ -266,35 +284,11 @@ class TopologyAdministrationGroup(
                 filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
                 protocolVersion.map(ProtocolVersion.tryCreate),
               ),
-              excludeMappings = excludeMappings.map(_.code),
+              excludeMappings = excludeMappingsCodes,
               filterNamespace = filterNamespace,
             )
           )
         }
-    }
-    @Help.Summary("export topology snapshot to a file")
-    def export_topology_snapshot_to_file(
-        filterStore: String = AuthorizedStore.filterName,
-        proposals: Boolean = false,
-        outputFile: String = TopologyAdministrationX.exportTransactionsDefaultFile,
-        timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOpX] = None,
-        excludeMappings: Seq[TopologyMappingX.Code] = Nil,
-        filterAuthorizedKey: Option[Fingerprint] = None,
-        protocolVersion: Option[String] = None,
-        filterNamespace: String = "",
-    ): Unit = {
-      val bytes = export_topology_snapshot(
-        filterStore,
-        proposals,
-        timeQuery,
-        operation,
-        excludeMappings,
-        filterAuthorizedKey,
-        protocolVersion,
-        filterNamespace,
-      )
-      writeToFile(outputFile, bytes)
     }
 
     @Help.Summary("Find the latest transaction for a given mapping hash")

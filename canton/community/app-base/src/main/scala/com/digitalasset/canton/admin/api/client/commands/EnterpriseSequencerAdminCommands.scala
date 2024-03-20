@@ -184,6 +184,44 @@ object EnterpriseSequencerAdminCommands {
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
 
+  final case class GenesisState(
+      timestamp: Option[CantonTimestamp]
+  ) extends BaseSequencerAdministrationCommand[
+        v30.GenesisStateRequest,
+        v30.GenesisStateResponse,
+        ByteString,
+      ] {
+    override def createRequest(): Either[String, v30.GenesisStateRequest] =
+      Right(
+        v30.GenesisStateRequest(
+          timestamp = timestamp.map(_.toProtoTimestamp)
+        )
+      )
+
+    override def submitRequest(
+        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: v30.GenesisStateRequest,
+    ): Future[v30.GenesisStateResponse] = service.genesisState(request)
+
+    override def handleResponse(
+        response: v30.GenesisStateResponse
+    ): Either[String, ByteString] =
+      response.value match {
+        case v30.GenesisStateResponse.Value
+              .Failure(v30.GenesisStateResponse.Failure(reason)) =>
+          Left(reason)
+        case v30.GenesisStateResponse.Value
+              .Success(
+                v30.GenesisStateResponse.Success(genesisState)
+              ) =>
+          Right(genesisState)
+        case _ => Left("response is empty")
+      }
+
+    //  command will potentially take a long time
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+  }
+
   final case class Prune(timestamp: CantonTimestamp)
       extends BaseSequencerPruningAdministrationCommand[
         v30.SequencerPruning.PruneRequest,

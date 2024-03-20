@@ -15,6 +15,7 @@ final case class TrafficControlParameters(
     maxBaseTrafficAmount: NonNegativeLong,
     readVsWriteScalingFactor: PositiveInt,
     maxBaseTrafficAccumulationDuration: config.NonNegativeFiniteDuration,
+    enforceRateLimiting: Boolean,
 ) {
 
   private[canton] def toInternal: TrafficControlParametersInternal =
@@ -23,5 +24,6 @@ final case class TrafficControlParameters(
       readVsWriteScalingFactor = readVsWriteScalingFactor,
       maxBaseTrafficAccumulationDuration =
         InternalNonNegativeFiniteDuration.fromConfig(maxBaseTrafficAccumulationDuration),
+      enforceRateLimiting = enforceRateLimiting,
     )
 }

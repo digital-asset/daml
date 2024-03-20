@@ -45,8 +45,7 @@ enum PackageStatus {
 }
 
 enum HashFunction {
-  HASH_FUNCTION_UNSPECIFIED = 0;
-  HASH_FUNCTION_SHA256 = 1;
+  HASH_FUNCTION_SHA256 = 0;
 }
 
 // Allows clients to query the Daml-LF packages that are supported by the server.
