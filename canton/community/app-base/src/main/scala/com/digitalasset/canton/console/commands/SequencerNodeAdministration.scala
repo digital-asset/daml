@@ -14,17 +14,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransactionX,
-  StoredTopologyTransactionsX,
-}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransactionX.GenericSignedTopologyTransactionX
-import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransactionX,
-  TopologyChangeOpX,
-  TopologyMappingX,
-}
 import com.google.protobuf.ByteString
 
 class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGroup.Impl(parent) {
@@ -52,6 +41,22 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
   }
 
   @Help.Summary(
+    "Download the genesis state for a sequencer. We exclude the VettedPackages from this initial state. " +
+      "This method should be used when performing major upgrades."
+  )
+  def genesis_state_for_sequencer(
+      timestamp: Option[CantonTimestamp] = None
+  ): ByteString = {
+    consoleEnvironment.run {
+      runner.adminCommand(
+        EnterpriseSequencerAdminCommands.GenesisState(
+          timestamp = timestamp
+        )
+      )
+    }
+  }
+
+  @Help.Summary(
     "Download the onboarding state for a given sequencer"
   )
   def onboarding_state_for_sequencer(
@@ -67,29 +72,7 @@ class SequencerXSetupGroup(parent: ConsoleCommandGroup) extends ConsoleCommandGr
       "sequencer nodes being initialized at the same time as the corresponding domain node. " +
       "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
   )
-  def assign_from_beginning(
-      genesisState: Seq[GenericSignedTopologyTransactionX],
-      domainParameters: StaticDomainParameters,
-  ): InitializeSequencerResponse =
-    consoleEnvironment.run {
-      runner.adminCommand(
-        InitializeFromGenesisState(
-          StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
-            genesisState.map(signed =>
-              StoredTopologyTransactionX(
-                SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
-                EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
-                None,
-                signed,
-              )
-            )
-          ).toByteString(domainParameters.protocolVersion),
-          domainParameters.toInternal,
-        )
-      )
-    }
-
-  def assign_from_beginning(
+  def assign_from_genesis_state(
       genesisState: ByteString,
       domainParameters: StaticDomainParameters,
   ): InitializeSequencerResponse =

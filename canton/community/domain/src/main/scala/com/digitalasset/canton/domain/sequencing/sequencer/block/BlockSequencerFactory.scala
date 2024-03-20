@@ -198,7 +198,10 @@ abstract class BlockSequencerFactory(
       if (nodeParameters.useNewTrafficControl) newTrafficBalanceClient
       else topologyTrafficBalanceClient
 
-    val rateLimitManager = makeRateLimitManager(balanceUpdateClient, futureSupervisor)
+    val rateLimitManager = makeRateLimitManager(
+      balanceUpdateClient,
+      futureSupervisor,
+    )
 
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 

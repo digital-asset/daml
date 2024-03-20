@@ -25,7 +25,16 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   InitializeSequencerFromOnboardingStateResponse,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.store.StoredTopologyTransactionsX
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactionX,
+  StoredTopologyTransactionsX,
+}
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransactionX,
+  TopologyChangeOpX,
+  TopologyMappingX,
+}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,6 +58,7 @@ class GrpcSequencerInitializationServiceX(
           .fromByteString(request.topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
+
       domainParameters <- EitherT.fromEither[Future](
         ProtoConverter
           .parseRequired(
@@ -58,7 +68,23 @@ class GrpcSequencerInitializationServiceX(
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
-      initializeRequest = InitializeSequencerRequest(topologyState, domainParameters, None)
+      // TODO(i17940): Remove this when we have a method to distinguish between initialization during an upgrade and initialization during the bootstrap of a domain
+      // reset effective time and sequenced time if we are initializing the sequencer from the beginning
+      genesisState: StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] =
+        StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
+          topologyState.result.map(stored =>
+            StoredTopologyTransactionX(
+              SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+              EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+              stored.validUntil.map(_ =>
+                EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime)
+              ),
+              stored.transaction,
+            )
+          )
+        )
+
+      initializeRequest = InitializeSequencerRequest(genesisState, domainParameters, None)
       result <- handler
         .initialize(initializeRequest)
         .leftMap(FailedToInitialiseDomainNode.Failure(_))

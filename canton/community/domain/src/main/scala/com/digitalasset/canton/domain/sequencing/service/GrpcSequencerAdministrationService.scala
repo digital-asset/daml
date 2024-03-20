@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
@@ -28,7 +29,16 @@ import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
-import com.digitalasset.canton.topology.store.TopologyStoreX
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactionX,
+  StoredTopologyTransactionsX,
+  TopologyStoreX,
+}
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransactionX,
+  TopologyChangeOpX,
+  TopologyMappingX,
+}
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
@@ -162,7 +172,10 @@ class GrpcSequencerAdministrationService(
       sequencerSnapshot <- sequencer.snapshot(referenceEffective.value)
 
       topologySnapshot <- EitherT.right[String](
-        topologyStore.findEssentialStateAtSequencedTime(SequencedTime(sequencerSnapshot.lastTs))
+        topologyStore.findEssentialStateAtSequencedTime(
+          SequencedTime(sequencerSnapshot.lastTs),
+          excludeMappings = Nil,
+        )
       )
     } yield (topologySnapshot, sequencerSnapshot))
       .fold[v30.OnboardingStateResponse](
@@ -187,7 +200,69 @@ class GrpcSequencerAdministrationService(
           )
         },
       )
+  }
 
+  override def genesisState(request: v30.GenesisStateRequest): Future[v30.GenesisStateResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val result = for {
+      timestampO <- EitherT
+        .fromEither[Future](
+          request.timestamp.traverse(CantonTimestamp.fromProtoTimestamp)
+        )
+        .leftMap(_.toString)
+
+      sequencedTimestamp <- timestampO match {
+        case Some(value) => EitherT.rightT[Future, String](value)
+        case None =>
+          val sequencedTimeF = topologyStore
+            .maxTimestamp()
+            .collect {
+              case Some((sequencedTime, _)) =>
+                Right(sequencedTime.value)
+
+              case None => Left("No sequenced time found")
+            }
+
+          EitherT(sequencedTimeF)
+      }
+
+      topologySnapshot <- EitherT.right[String](
+        topologyStore.findEssentialStateAtSequencedTime(
+          SequencedTime(sequencedTimestamp),
+          // we exclude vetted packages from the genesis state because we need to upload them again anyway
+          excludeMappings = Seq(TopologyMappingX.Code.VettedPackagesX),
+        )
+      )
+      // reset effective time and sequenced time if we are initializing the sequencer from the beginning
+      genesisState: StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX] =
+        StoredTopologyTransactionsX[TopologyChangeOpX, TopologyMappingX](
+          topologySnapshot.result.map(stored =>
+            StoredTopologyTransactionX(
+              SequencedTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+              EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime),
+              stored.validUntil.map(_ =>
+                EffectiveTime(SignedTopologyTransactionX.InitialTopologySequencingTime)
+              ),
+              stored.transaction,
+            )
+          )
+        )
+
+    } yield genesisState.toByteString(staticDomainParameters.protocolVersion)
+
+    result
+      .fold[v30.GenesisStateResponse](
+        error =>
+          v30.GenesisStateResponse(
+            v30.GenesisStateResponse.Value.Failure(v30.GenesisStateResponse.Failure(error))
+          ),
+        result =>
+          v30.GenesisStateResponse(
+            v30.GenesisStateResponse.Value.Success(
+              v30.GenesisStateResponse.Success(result)
+            )
+          ),
+      )
   }
 
   override def disableMember(
