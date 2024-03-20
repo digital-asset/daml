@@ -251,13 +251,34 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   override def useTls = UseTls.NoTls
 
   protected def genSearchDataSet(
-      party: domain.Party
+      party: domain.Party,
+      usePackageName: Boolean = false,
   ): List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]] =
     List(
-      iouCreateCommand(amount = "111.11", currency = "EUR", party = party),
-      iouCreateCommand(amount = "222.22", currency = "EUR", party = party),
-      iouCreateCommand(amount = "333.33", currency = "GBP", party = party),
-      iouCreateCommand(amount = "444.44", currency = "BTC", party = party),
+      iouCreateCommand(
+        amount = "111.11",
+        currency = "EUR",
+        party = party,
+        usePackageName = usePackageName,
+      ),
+      iouCreateCommand(
+        amount = "222.22",
+        currency = "EUR",
+        party = party,
+        usePackageName = usePackageName,
+      ),
+      iouCreateCommand(
+        amount = "333.33",
+        currency = "GBP",
+        party = party,
+        usePackageName = usePackageName,
+      ),
+      iouCreateCommand(
+        amount = "444.44",
+        currency = "BTC",
+        party = party,
+        usePackageName = usePackageName,
+      ),
     )
 
   // Whether the underlying JSON query engine place unavoidable limits on the JSON queries that are supportable.
@@ -281,6 +302,20 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         searchExpectOk(
           searchDataSet,
           jsObject("""{"templateIds": ["Iou:Iou"]}"""),
+          fixture,
+          headers,
+        ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>
+          acl.size shouldBe searchDataSet.size
+        }
+      }
+    }
+
+    "single party with package name" in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        val searchDataSet = genSearchDataSet(alice, usePackageName = true)
+        searchExpectOk(
+          searchDataSet,
+          jsObject(s"""{"templateIds": ["${TpId.Iou.PkgName}:Iou:Iou"]}"""),
           fixture,
           headers,
         ).map { acl: List[domain.ActiveContract.ResolvedCtTyId[JsValue]] =>

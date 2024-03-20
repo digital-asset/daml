@@ -52,7 +52,9 @@ private class PackageService(
 
     val packageNameMap: PackageNameMap = PackageService.packageNameMap(packageStore)
 
-    def append(diff: PackageStore): State = {
+    def append(diff: PackageStore)(implicit
+        lc: LoggingContextOf[InstanceUUID]
+    ): State = {
       val newPackageStore: PackageStore = appendAndResolveRetroactiveInterfaces(
         resolveChoicesIn(diff)
       )
@@ -98,7 +100,9 @@ private class PackageService(
         Map.empty,
       )
 
-    private def updateState(diff: PackageStore): Unit = synchronized {
+    private def updateState(diff: PackageStore)(implicit
+        lc: LoggingContextOf[InstanceUUID]
+    ): Unit = synchronized {
       this._state = this._state.append(diff)
     }
 
@@ -301,6 +305,8 @@ private class PackageService(
 }
 
 object PackageService {
+  private[this] val logger = ContextualizedLogger.get(getClass)
+
   sealed trait Error
   final case class InputError(message: String) extends Error
   final case class ServerError(message: String) extends Error
@@ -414,6 +420,8 @@ object PackageService {
 
   private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID]
   ): (TemplateIdMap, InterfaceIdMap) = {
     import TemplateIds.{getTemplateIds, getInterfaceIds}
     val packageSigs = packageStore.values.toSet
@@ -433,17 +441,20 @@ object PackageService {
   def buildTemplateIdMap[CtId[T] <: ContractTypeId.Definite[T] with ContractTypeId.Ops[CtId, T]](
       idName: PackageNameMap,
       ids: Set[RequiredPkg[CtId]],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID]
   ): ContractTypeIdMap[CtId] = {
     val all = ids.view.map(k => (k, k)).toMap
     val unique = filterUniqueTemplateIs(ids)
     val nameIds = ids
-      .flatMap { case id =>
-        idName.get(id.packageId).flatMap(_.toOption).map(n => (n, id.packageId))
-      }
+      .flatMap(id => idName.get(id.packageId).flatMap(_.toOption).map(n => (n, id.packageId)))
       .groupBy(_._1)
-      .map { case (_, v) =>
-        assert(v.size == 1)
-        v.head
+      .flatMap {
+        case (_, p) if (p.size == 1) => Some(p.head)
+        case (n, p) => {
+          logger.info(s"Ignoring package name '$n' as we have ${p.size} package ids for it")
+          None
+        }
       }
       .toMap
     ContractTypeIdMap(all, unique, nameIds)

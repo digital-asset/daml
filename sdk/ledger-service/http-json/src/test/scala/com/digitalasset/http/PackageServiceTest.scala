@@ -32,7 +32,7 @@ class PackageServiceTest
     "identifiers with the same (moduleName, entityName) are not unique" in
       forAll(genDuplicateModuleEntityTemplateIds) { ids =>
         toNoPkgSet(ids) should have size 1L
-        val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
+        val map = buildTemplateIdMap(noPackageNames, ids)
         map.all.keySet shouldBe ids
         map.all.values should contain theSameElementsAs ids
         map.unique shouldBe Map.empty
@@ -41,7 +41,7 @@ class PackageServiceTest
     "2 identifiers with the same (moduleName, entityName) are not unique" in
       forAll(genDomainTemplateId) { id0 =>
         val id1 = appendToPackageId("aaaa")(id0)
-        val map = PackageService.buildTemplateIdMap(noPackageNames, Set(id0, id1))
+        val map = buildTemplateIdMap(noPackageNames, Set(id0, id1))
         map.all.keySet shouldBe Set(id0, id1)
         map.unique shouldBe Map.empty
       }
@@ -49,7 +49,7 @@ class PackageServiceTest
     "pass one specific test case that was failing" in {
       val id0 = domain.ContractTypeId.Template.fromLedgerApi(lav1.value.Identifier("a", "f4", "x"))
       val id1 = domain.ContractTypeId.Template.fromLedgerApi(lav1.value.Identifier("b", "f4", "x"))
-      val map = PackageService.buildTemplateIdMap(noPackageNames, Set(id0, id1))
+      val map = buildTemplateIdMap(noPackageNames, Set(id0, id1))
       map.all.keySet shouldBe Set(id0, id1)
       map.unique shouldBe Map.empty
     }
@@ -58,7 +58,7 @@ class PackageServiceTest
       forAll(genDomainTemplateId) { id0 =>
         val id1 = appendToPackageId("aaaa")(id0)
         val id2 = appendToPackageId("bbbb")(id1)
-        val map = PackageService.buildTemplateIdMap(noPackageNames, Set(id0, id1, id2))
+        val map = buildTemplateIdMap(noPackageNames, Set(id0, id1, id2))
         map.all.keySet shouldBe Set(id0, id1, id2)
         map.unique shouldBe Map.empty
       }
@@ -70,7 +70,7 @@ class PackageServiceTest
       ) { (xs, dups) =>
         uniqueModuleEntity(dups) shouldBe false
         whenever(uniqueModuleEntity(xs) && noModuleEntityIntersection(xs, dups)) {
-          val map = PackageService.buildTemplateIdMap(noPackageNames, (xs ++ dups))
+          val map = buildTemplateIdMap(noPackageNames, (xs ++ dups))
           map.all.keySet should ===(xs ++ dups)
           map.all.keySet should contain allElementsOf dups
           map.all.keySet should contain allElementsOf xs
@@ -82,7 +82,7 @@ class PackageServiceTest
         (xs, dups) =>
           uniqueModuleEntity(dups) shouldBe false
           whenever(uniqueModuleEntity(xs) && noModuleEntityIntersection(xs, dups)) {
-            val map = PackageService.buildTemplateIdMap(noPackageNames, (xs ++ dups))
+            val map = buildTemplateIdMap(noPackageNames, (xs ++ dups))
             map.all.keySet should ===(dups ++ xs)
             xs.foreach { x =>
               map.unique.get(PackageService.key2(x)) shouldBe Some(x)
@@ -99,7 +99,7 @@ class PackageServiceTest
     "should resolve unique Template ID by (moduleName, entityName)" in forAll(
       nonEmptySetOf(genDomainTemplateId)
     ) { ids =>
-      val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
+      val map = buildTemplateIdMap(noPackageNames, ids)
       val uniqueIds = map.unique.values.toSet
       uniqueIds.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.OptionalPkg = id.copy(packageId = None)
@@ -109,7 +109,7 @@ class PackageServiceTest
 
     "should resolve fully qualified Template ID" in forAll(nonEmptySetOf(genDomainTemplateId)) {
       ids =>
-        val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
+        val map = buildTemplateIdMap(noPackageNames, ids)
         ids.foreach { id =>
           val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
             id.copy(packageId = Some(id.packageId))
@@ -121,7 +121,7 @@ class PackageServiceTest
       nonEmptySetOf(genDomainTemplateId)
     ) { ids =>
       val idName = buildPackageNameMap(_ + "_name")(ids) // package_id:package_name is 1:1
-      val map = PackageService.buildTemplateIdMap(idName, ids)
+      val map = buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.OptionalPkg =
           id.copy(packageId = Some("#" + idName(id.packageId)))
@@ -135,6 +135,17 @@ class PackageServiceTest
       val map = TemplateIdMap.Empty[domain.ContractTypeId]
       map resolve templateId shouldBe None
     }
+  }
+
+  // Wrapper which provides logging context
+  private def buildTemplateIdMap[
+      CtId[T] <: domain.ContractTypeId.Definite[T] with domain.ContractTypeId.Ops[CtId, T]
+  ](
+      idName: PackageService.PackageNameMap,
+      ids: Set[CtId[String]],
+  ) = {
+    import com.daml.http.util.Logging.instanceUUIDLogCtx
+    instanceUUIDLogCtx { implicit lc => PackageService.buildTemplateIdMap(idName, ids) }
   }
 
   private def buildPackageNameMap(
