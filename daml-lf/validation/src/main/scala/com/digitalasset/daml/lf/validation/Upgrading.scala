@@ -429,7 +429,7 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
     } else {
       datatype.map(_.cons) match {
         case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-          checkFields(name, origin.present, Upgrading(past, present))
+          checkFields(origin.present, Upgrading(past, present))
         case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
           val upgrade = Upgrading(past, present)
           val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
@@ -486,7 +486,6 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
   }
 
   private def checkFields(
-      name: Ref.DottedName,
       origin: UpgradedRecordOrigin,
       records: Upgrading[Ast.DataRecord],
   ): Try[Unit] = {
