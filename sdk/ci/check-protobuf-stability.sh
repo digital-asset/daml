@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
-eval "$(dev-env/bin/dade assist)"
-
 # The `SYSTEM_PULLREQUEST_TARGETBRANCH` environment variable is defined by
 # Azure Pipelines; in order to run this script locally, define it beforehand
 # as the branch being targeted. For example:
