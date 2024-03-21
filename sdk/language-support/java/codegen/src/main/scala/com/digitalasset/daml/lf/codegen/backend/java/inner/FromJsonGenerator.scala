@@ -276,7 +276,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .build()
   }
 
-  private def jsonDecoderForType(
+  private[inner] def jsonDecoderForType(
       damlType: Type
   )(implicit packagePrefixes: PackagePrefixes): CodeBlock = {
     import com.daml.lf.typesig._
