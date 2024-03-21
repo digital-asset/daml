@@ -73,7 +73,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
@@ -200,7 +200,7 @@ scala_library(
     deps = [
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         "//daml-lf/data",
         "//libs-scala/nonempty",
         "@maven//:com_chuusai_shapeless_2_13",
@@ -241,7 +241,7 @@ scala_library(
     deps = [
         ":community_ledger_ledger-common_configuration_proto_java",
         ":daml-common-staging_daml-errors",
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
@@ -330,7 +330,7 @@ scala_library(
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -415,7 +415,7 @@ scala_library(
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
     ],
     deps = [
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         "//canton:bindings-java",
         "//canton:community_base",
@@ -515,7 +515,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
         "//canton:bindings-java",
@@ -616,7 +616,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         "//canton:bindings-java",
         "//canton:community_base",
@@ -712,7 +712,7 @@ scala_library(
     ],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
         "//canton:bindings-java",
@@ -891,7 +891,8 @@ scala_library(
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_java",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -976,7 +977,7 @@ scala_library(
         ":community_util-external",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
-        ":ledger_api_proto_scala",
+        ":ledger_api_proto_internal_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
         "//daml-lf/transaction",
@@ -1271,12 +1272,33 @@ ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v1/**/*.proto"]),
     grpc = True,
     java_conversions = True,
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
+    strip_import_prefix = "community/ledger-api/src/main/protobuf",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:errdetails_proto",
+        "@go_googleapis//google/rpc:status_proto",
+    ],
+)
+
+proto_jars(
+    name = "ledger_api_proto_internal",
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    grpc = True,
+    java_conversions = True,
     strip_import_prefix = "community/ledger-api/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
