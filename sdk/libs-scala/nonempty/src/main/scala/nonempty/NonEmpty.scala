@@ -203,6 +203,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
       un((self: ESelf).sortBy(f))
     def sorted[B >: A](implicit ord: Ordering[B]): NonEmpty[C] =
       un((self: ESelf).sorted[B])
+    def reversed: NonEmpty[C] = un((self: ESelf).reverse)
   }
 
   implicit final class `Seq Ops`[A, CC[_], C](

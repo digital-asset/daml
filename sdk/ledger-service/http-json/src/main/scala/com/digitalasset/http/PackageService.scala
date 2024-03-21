@@ -52,9 +52,7 @@ private class PackageService(
 
     val packageNameMap: PackageNameMap = PackageService.packageNameMap(packageStore)
 
-    def append(diff: PackageStore)(implicit
-        lc: LoggingContextOf[InstanceUUID]
-    ): State = {
+    def append(diff: PackageStore): State = {
       val newPackageStore: PackageStore = appendAndResolveRetroactiveInterfaces(
         resolveChoicesIn(diff)
       )
@@ -100,9 +98,7 @@ private class PackageService(
         Map.empty,
       )
 
-    private def updateState(diff: PackageStore)(implicit
-        lc: LoggingContextOf[InstanceUUID]
-    ): Unit = synchronized {
+    private def updateState(diff: PackageStore): Unit = synchronized {
       this._state = this._state.append(diff)
     }
 
@@ -195,7 +191,7 @@ private class PackageService(
       def withKeyPackageName[T[_]](
           pkgNames: PackageNameMap
       )(r: ResolvedOf[T]): Option[(ResolvedOf[T], KeyPackageName)] =
-        pkgNames.get(r.packageId).map(name => (r, name))
+        pkgNames.get(r.packageId).map { case (name, _) => (r, name) }
       // we use a different resolution strategy depending on the static type
       // determined by 'overload', as well as the class of 'x'.  We figure the
       // strategy exactly once so the reload is cheaper
@@ -290,10 +286,10 @@ private class PackageService(
           )
           reload(jwt, ledgerId)
         } else Future.successful(())
-      f.map(_ => state.templateIdMap.all.keySet.map(k => (k, state.packageNameMap(k.packageId))))
+      f.map(_ => state.templateIdMap.all.keySet.map(k => (k, state.packageNameMap(k.packageId)._1)))
   }
 
-  val resolvePackageName: ResolvePackageName = templateId => state.packageNameMap(templateId)
+  val resolvePackageName: ResolvePackageName = templateId => state.packageNameMap(templateId)._1
 
   // See the above comment on resolveTemplateId
   def resolveChoiceArgType: ResolveChoiceArgType =
@@ -305,8 +301,6 @@ private class PackageService(
 }
 
 object PackageService {
-  private[this] val logger = ContextualizedLogger.get(getClass)
-
   sealed trait Error
   final case class InputError(message: String) extends Error
   final case class ServerError(message: String) extends Error
@@ -375,10 +369,10 @@ object PackageService {
   final case class ContractTypeIdMap[CtId[T] <: ContractTypeId[T]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
       unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
-      nameIds: Map[Ref.PackageName, String], // TODO(ETX-451): Multiple package ids per package name
+      nameIds: Map[Ref.PackageName, NonEmpty[Seq[String]]],
   ) {
     private def packageRefToPackageId(pkgRef: String): Option[String] = pkgRef match {
-      case s"#${name}" => nameIds.get(asPackageName(name))
+      case s"#${name}" => nameIds.get(asPackageName(name)).map(pkgIds => pkgIds.head)
       case pkgId => Some(pkgId)
     }
 
@@ -406,22 +400,34 @@ object PackageService {
   type KeyTypeMap = Map[ContractTypeId.Template.Resolved, typesig.Type]
 
   type ResolvePackageName = String => KeyPackageName
-  type PackageNameMap = MapView[String, KeyPackageName]
+
+  case class PackageNameMap(
+      private val mapView: MapView[String, (KeyPackageName, Ref.PackageVersion)]
+  ) {
+    def apply(pkgId: String) = mapView(pkgId)
+    def get(pkgId: String) = mapView.get(pkgId)
+    def size = mapView.size
+  }
+  object PackageNameMap {
+    val empty = PackageNameMap(MapView.empty)
+  }
 
   private def asPackageName(name: String): Ref.PackageName = Ref.PackageName.assertFromString(name)
 
   private def packageNameMap(packageStore: PackageStore): PackageNameMap =
-    packageStore.view.mapValues(ps =>
-      KeyPackageName(
-        ps.metadata.map(m => asPackageName(m.name)),
-        ps.languageVersion,
-      )
+    PackageNameMap(
+      packageStore.view
+        .flatMap { case ((pkgId: String, p: typesig.PackageSignature)) =>
+          p.metadata.map(m =>
+            (pkgId, (KeyPackageName(Some(asPackageName(m.name)), p.languageVersion), m.version))
+          )
+        }
+        .toMap
+        .view
     )
 
   private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID]
   ): (TemplateIdMap, InterfaceIdMap) = {
     import TemplateIds.{getTemplateIds, getInterfaceIds}
     val packageSigs = packageStore.values.toSet
@@ -441,20 +447,21 @@ object PackageService {
   def buildTemplateIdMap[CtId[T] <: ContractTypeId.Definite[T] with ContractTypeId.Ops[CtId, T]](
       idName: PackageNameMap,
       ids: Set[RequiredPkg[CtId]],
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID]
   ): ContractTypeIdMap[CtId] = {
+    import com.daml.nonempty.NonEmptyReturningOps._
     val all = ids.view.map(k => (k, k)).toMap
     val unique = filterUniqueTemplateIs(ids)
     val nameIds = ids
-      .flatMap(id => idName.get(id.packageId).flatMap(_.toOption).map(n => (n, id.packageId)))
-      .groupBy(_._1)
-      .flatMap {
-        case (_, p) if (p.size == 1) => Some(p.head)
-        case (n, p) => {
-          logger.info(s"Ignoring package name '$n' as we have ${p.size} package ids for it")
-          None
-        }
+      .flatMap(id => // for each contract type id
+        idName
+          .get(id.packageId) // get the package name and version for its package id
+          .flatMap { case (kpn, v) => kpn.toOption.map((_, v)) } // ensure we have something
+          .map { case (n, v) => (n, (id.packageId, v)) } // pair name with package id and version
+      )
+      .groupBy1(_._1) // group by name
+      .map {
+        // Sort the package ids by version, descending
+        case (n, pkgIdVers) => (n, pkgIdVers.toSeq.sortBy(_._2).map(_._1).reversed)
       }
       .toMap
     ContractTypeIdMap(all, unique, nameIds)
