@@ -7,6 +7,9 @@ steps:
       var_name: bash_lib
   - bash: |
       set -euo pipefail
+      if [ -d sdk ]; then
+        cd sdk
+      fi
       if [[ $(Agent.OS) = Windows* ]]; then
         export PATH="$PATH:$(cygpath "$(powershell "./dev-env/windows/bin/dadew.ps1 enable >\$2; dadew where")/scoop/shims")"
       else

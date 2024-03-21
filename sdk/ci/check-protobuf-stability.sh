@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd $DIR/..
+
 eval "$(dev-env/bin/dade assist)"
 
 # The `SYSTEM_PULLREQUEST_TARGETBRANCH` environment variable is defined by
@@ -105,7 +108,7 @@ USAGE
     echo "unsupported target branch $TARGET" >&2
     exit 1
   fi
-  BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
+  BUF_GIT_TARGET_TO_CHECK="../.git#tag=${LATEST_STABLE_TAG}"
   check_protos
   ;;
 --target)
@@ -113,7 +116,7 @@ USAGE
   #
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
-  BUF_GIT_TARGET_TO_CHECK=".git#branch=origin/${TARGET}"
+  BUF_GIT_TARGET_TO_CHECK="../.git#branch=origin/${TARGET}"
   # The target check can be skipped by including the following trailer `Breaks-Protobuf: true` into the commit message
   if is_check_skipped; then
     echo "Skipping check for protobuf compatibility"
