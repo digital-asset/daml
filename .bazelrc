@@ -62,10 +62,10 @@ test --strategy=Scalac=worker
 #  https://github.com/grpc/grpc/pull/13929/files
 build --copt -DGRPC_BAZEL_BUILD
 
-build --java_language_version=11
-build --java_runtime_version=nixpkgs_java_11
-build --tool_java_runtime_version=nixpkgs_java_11
-build --tool_java_language_version=11
+build --java_language_version=17
+build --java_runtime_version=nixpkgs_java_17
+build --tool_java_runtime_version=nixpkgs_java_17
+build --tool_java_language_version=17
 
 # Propagate locales and the java home to the test environment.
 build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME

@@ -576,17 +576,17 @@ load("//bazel_tools:java.bzl", "dadew_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
-    dadew_path = "ojdkbuild11",
+    dadew_path = "ojdkbuild17",
 ) if is_windows else None
 
 nixpkgs_java_configure(
-    attribute_path = "jdk11.home",
+    attribute_path = "jdk17.home",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
     toolchain = True,
     toolchain_name = "nixpkgs_java",
-    toolchain_version = "11",
+    toolchain_version = "17",
 ) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin

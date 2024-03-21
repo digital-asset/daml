@@ -17,7 +17,7 @@ let shared = rec {
     grpcurl
     gzip
     imagemagick
-    jdk11
+    jdk17
     jdk8
     jekyll
     jq
