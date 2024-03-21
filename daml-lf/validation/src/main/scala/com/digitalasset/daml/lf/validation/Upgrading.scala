@@ -322,7 +322,6 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
       })
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
-    println(moduleWithMetadata.map(_.variantNameMap))
     for {
       (existingTemplates, _new) <- checkDeleted(
         module.map(_.templates),
@@ -517,11 +516,9 @@ case class TypecheckUpgrades(packagesAndIds: Upgrading[(Ref.PackageId, Ast.Packa
         newNonOptionalTypes.nonEmpty,
         origin match {
           case _: VariantConstructor => {
-            println(s"lalalalala name $name")
             UpgradeError.VariantAddedVariantField(origin)
           }
           case _ => {
-            println(s"lalalalala name $name")
             UpgradeError.RecordFieldsNewNonOptional(origin)
           }
         },
