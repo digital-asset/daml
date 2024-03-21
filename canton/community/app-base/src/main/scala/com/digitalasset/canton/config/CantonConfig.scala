@@ -491,20 +491,21 @@ private[canton] object CantonNodeParameterConverter {
 
   def general(parent: CantonConfig, node: LocalNodeConfig): CantonNodeParameters.General = {
     CantonNodeParameters.General.Impl(
-      parent.monitoring.tracing,
-      parent.monitoring.delayLoggingThreshold.toInternal,
-      parent.monitoring.logQueryCost,
-      parent.monitoring.logging,
-      parent.parameters.enableAdditionalConsistencyChecks,
-      parent.features.enablePreviewCommands,
-      parent.parameters.timeouts.processing,
-      node.sequencerClient,
-      node.parameters.caching,
-      node.parameters.batching,
-      parent.parameters.nonStandardConfig,
-      node.storage.parameters.migrateAndStart,
-      node.parameters.useNewTrafficControl,
-      parent.parameters.exitOnFatalFailures,
+      tracing = parent.monitoring.tracing,
+      delayLoggingThreshold = parent.monitoring.delayLoggingThreshold.toInternal,
+      logQueryCost = parent.monitoring.logQueryCost,
+      loggingConfig = parent.monitoring.logging,
+      enableAdditionalConsistencyChecks = parent.parameters.enableAdditionalConsistencyChecks,
+      enablePreviewFeatures = parent.features.enablePreviewCommands,
+      processingTimeouts = parent.parameters.timeouts.processing,
+      sequencerClient = node.sequencerClient,
+      cachingConfigs = node.parameters.caching,
+      batchingConfig = node.parameters.batching,
+      nonStandardConfig = parent.parameters.nonStandardConfig,
+      dbMigrateAndStart = node.storage.parameters.migrateAndStart,
+      useNewTrafficControl = node.parameters.useNewTrafficControl,
+      exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
+      useUnifiedSequencer = node.parameters.useUnifiedSequencer,
     )
   }
 

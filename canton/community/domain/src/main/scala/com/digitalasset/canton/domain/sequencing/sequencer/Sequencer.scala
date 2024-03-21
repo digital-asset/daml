@@ -30,6 +30,7 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.util.EitherTUtil
+import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
 import org.apache.pekko.stream.scaladsl.Source
@@ -162,6 +163,8 @@ trait Sequencer
   /** Return the rate limit manager for this sequencer, if it exists.
     */
   def rateLimitManager: Option[SequencerRateLimitManager] = None
+
+  def adminServices: Seq[ServerServiceDefinition] = Seq.empty
 }
 
 /** Sequencer pruning interface.

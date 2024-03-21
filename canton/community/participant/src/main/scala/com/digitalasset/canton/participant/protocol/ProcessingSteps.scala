@@ -610,6 +610,7 @@ object ProcessingSteps {
     def requestCounter: RequestCounter
     def requestSequencerCounter: SequencerCounter
     def mediator: MediatorsOfDomain
+    def locallyRejected: Boolean
 
     def rootHashO: Option[RootHash]
   }
@@ -617,8 +618,8 @@ object ProcessingSteps {
   object PendingRequestData {
     def unapply(
         arg: PendingRequestData
-    ): Some[(RequestCounter, SequencerCounter, MediatorsOfDomain)] = {
-      Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator))
+    ): Some[(RequestCounter, SequencerCounter, MediatorsOfDomain, Boolean)] = {
+      Some((arg.requestCounter, arg.requestSequencerCounter, arg.mediator, arg.locallyRejected))
     }
   }
 }

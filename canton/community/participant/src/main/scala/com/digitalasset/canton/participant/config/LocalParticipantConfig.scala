@@ -369,6 +369,7 @@ final case class ParticipantNodeParameterConfig(
       config.NonNegativeFiniteDuration.ofSeconds(0),
     override val useNewTrafficControl: Boolean = false,
     disableUpgradeValidation: Boolean = false,
+    override val useUnifiedSequencer: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

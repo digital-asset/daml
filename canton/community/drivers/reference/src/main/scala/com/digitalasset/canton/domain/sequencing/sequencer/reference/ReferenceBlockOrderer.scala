@@ -25,7 +25,7 @@ import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.SimpleExecutionQueue
 import com.google.protobuf.ByteString
-import io.grpc.BindableService
+import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 
@@ -54,7 +54,7 @@ class ReferenceBlockOrderer(
     loggerFactory,
   )
 
-  override def grpcServices: Seq[BindableService] = Seq()
+  override def grpcServices: Seq[ServerServiceDefinition] = Seq()
 
   override def sendRequest(
       tag: String,
