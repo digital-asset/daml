@@ -398,21 +398,6 @@ private[transfer] class TransferInProcessingSteps(
       activenessResult <- EitherT.right[TransferProcessorError](activenessResultFuture)
       requestId = RequestId(ts)
 
-      // construct pending data and response
-      entry = PendingTransferIn(
-        requestId,
-        rc,
-        sc,
-        txInRequest.tree.rootHash,
-        txInRequest.contract,
-        txInRequest.transferCounter,
-        txInRequest.submitterMetadata,
-        txInRequest.creatingTransactionId,
-        transferringParticipant,
-        transferId,
-        hostedStks.toSet,
-        mediator,
-      )
       responses <- validationResultO match {
         case None =>
           EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](Seq.empty)
@@ -478,6 +463,28 @@ private[transfer] class TransferInProcessingSteps(
             .map(transferResponse => Seq(transferResponse -> Recipients.cc(mediator)))
       }
     } yield {
+      // We consider that we rejected if at least one of the responses is not "approve'
+      val locallyRejected = responses.exists { case (response, _) =>
+        !response.localVerdict.isApprove
+      }
+
+      // construct pending data and response
+      val entry = PendingTransferIn(
+        requestId,
+        rc,
+        sc,
+        txInRequest.tree.rootHash,
+        txInRequest.contract,
+        txInRequest.transferCounter,
+        txInRequest.submitterMetadata,
+        txInRequest.creatingTransactionId,
+        transferringParticipant,
+        transferId,
+        hostedStks.toSet,
+        mediator,
+        locallyRejected,
+      )
+
       StorePendingDataAndSendResponseAndCreateTimeout(
         entry,
         responses,
@@ -514,6 +521,7 @@ private[transfer] class TransferInProcessingSteps(
       transferId,
       hostedStakeholders,
       _,
+      locallyRejected,
     ) = pendingRequestData
 
     def rejected(
@@ -674,6 +682,7 @@ object TransferInProcessingSteps {
       transferId: TransferId,
       hostedStakeholders: Set[LfPartyId],
       mediator: MediatorsOfDomain,
+      override val locallyRejected: Boolean,
   ) extends PendingTransfer
       with PendingRequestData {
 

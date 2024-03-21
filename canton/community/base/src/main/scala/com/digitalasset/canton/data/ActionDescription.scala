@@ -41,7 +41,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
 }
-import com.digitalasset.canton.{LfChoiceName, LfInterfaceId, LfPartyId, LfVersioned}
+import com.digitalasset.canton.{LfChoiceName, LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
 import com.google.protobuf.ByteString
 
 /** Summarizes the information that is needed in addition to the other fields of [[ViewParticipantData]] for
@@ -92,9 +92,12 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   def tryFromLfActionNode(
       actionNode: LfActionNode,
       seedO: Option[LfHash],
+      packagePreference: Set[LfPackageId],
       protocolVersion: ProtocolVersion,
   ): ActionDescription =
-    fromLfActionNode(actionNode, seedO, protocolVersion).valueOr(err => throw err)
+    fromLfActionNode(actionNode, seedO, packagePreference, protocolVersion).valueOr(err =>
+      throw err
+    )
 
   /** Extracts the action description from an LF node and the optional seed.
     * @param seedO Must be set iff `node` is a [[com.digitalasset.canton.protocol.LfNodeCreate]] or [[com.digitalasset.canton.protocol.LfNodeExercises]].
@@ -102,6 +105,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   def fromLfActionNode(
       actionNode: LfActionNode,
       seedO: Option[LfHash],
+      packagePreference: Set[LfPackageId],
       protocolVersion: ProtocolVersion,
   ): Either[InvalidActionDescription, ActionDescription] =
     actionNode match {
@@ -148,6 +152,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             Some(templateId),
             choice,
             interfaceId,
+            packagePreference,
             chosenValue,
             actors,
             byKey,
@@ -231,10 +236,12 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       failed,
       interfaceIdP,
       templateIdP,
+      packagePreferenceP,
     ) = e
     for {
       inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
       templateId <- templateIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
+      packagePreference <- packagePreferenceP.traverse(ProtoConverter.parsePackageId).map(_.toSet)
       choice <- choiceFromProto(choiceP)
       interfaceId <- interfaceIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
       version <- lfVersionFromProtoVersioned(versionP)
@@ -249,6 +256,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           templateId,
           choice,
           interfaceId,
+          packagePreference,
           chosenValue,
           actors,
           byKey,
@@ -355,6 +363,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       templateId: Option[LfTemplateId],
       choice: LfChoiceName,
       interfaceId: Option[LfInterfaceId],
+      packagePreference: Set[LfPackageId],
       chosenValue: Value,
       actors: Set[LfPartyId],
       override val byKey: Boolean,
@@ -377,6 +386,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         v30.ActionDescription.ExerciseActionDescription(
           inputContractId = inputContractId.toProtoPrimitive,
           templateId = templateId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
+          packagePreference = packagePreference.toSeq,
           choice = choice,
           interfaceId = interfaceId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
           chosenValue = serializedChosenValue,
@@ -407,6 +417,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         templateId: Option[LfTemplateId],
         choice: LfChoiceName,
         interfaceId: Option[LfInterfaceId],
+        packagePreference: Set[LfPackageId],
         chosenValue: Value,
         actors: Set[LfPartyId],
         byKey: Boolean,
@@ -419,6 +430,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       templateId,
       choice,
       interfaceId,
+      packagePreference,
       chosenValue,
       actors,
       byKey,
@@ -433,6 +445,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         templateId: Option[LfTemplateId],
         choice: LfChoiceName,
         interfaceId: Option[LfInterfaceId],
+        packagePreference: Set[LfPackageId],
         chosenValue: Value,
         actors: Set[LfPartyId],
         byKey: Boolean,
@@ -447,6 +460,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           templateId,
           choice,
           interfaceId,
+          packagePreference,
           chosenValue,
           actors,
           byKey,

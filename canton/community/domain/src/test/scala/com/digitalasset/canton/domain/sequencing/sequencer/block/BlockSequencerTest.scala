@@ -25,6 +25,7 @@ import com.digitalasset.canton.domain.block.{
   OrderedBlockUpdate,
   RawLedgerBlock,
   SequencerDriverHealthStatus,
+  SignedChunkEvents,
 }
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
@@ -178,6 +179,7 @@ class BlockSequencerTest
         ),
         SequencerMetrics.noop(this.getClass.getName),
         loggerFactory,
+        unifiedSequencer = testedUseUnifiedSequencer,
       )
 
     override def close(): Unit = {
@@ -233,11 +235,12 @@ class BlockSequencerTest
 
     override def processBlock(
         bug: BlockUpdateGenerator
-    ): Flow[BlockEvents, Traced[OrderedBlockUpdate], NotUsed] =
+    ): Flow[BlockEvents, Traced[OrderedBlockUpdate[SignedChunkEvents]], NotUsed] =
       Flow[BlockEvents].mapConcat(_ => Seq.empty)
 
-    override def applyBlockUpdate: Flow[Traced[BlockUpdate], Traced[CantonTimestamp], NotUsed] =
-      Flow[Traced[BlockUpdate]].map(_.map(_ => CantonTimestamp.MinValue))
+    override def applyBlockUpdate
+        : Flow[Traced[BlockUpdate[SignedChunkEvents]], Traced[CantonTimestamp], NotUsed] =
+      Flow[Traced[BlockUpdate[SignedChunkEvents]]].map(_.map(_ => CantonTimestamp.MinValue))
 
     override def getHeadState: BlockSequencerStateManager.HeadState =
       BlockSequencerStateManager.HeadState(

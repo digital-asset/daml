@@ -51,6 +51,7 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       crypto,
       metrics,
       loggerFactory,
+      unifiedSequencer = testedUseUnifiedSequencer,
     )(executorService, tracer, materializer)
   }
 

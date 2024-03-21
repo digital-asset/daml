@@ -53,6 +53,7 @@ import com.digitalasset.canton.traffic.{
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Keep, Merge, Sink, Source}
@@ -82,6 +83,7 @@ class BlockSequencer(
     prettyPrinter: CantonPrettyPrinter,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
+    unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BaseSequencer(
       DomainTopologyManagerId(domainId),
@@ -124,6 +126,7 @@ class BlockSequencer(
       blockRateLimitManager,
       orderingTimeFixMode,
       loggerFactory,
+      unifiedSequencer = unifiedSequencer,
     )(CloseContext(cryptoApi))
 
     val driverSource = blockSequencerOps
@@ -203,6 +206,8 @@ class BlockSequencer(
     val signedContent = SignedContent(submission, Signature.noSignature, None, protocolVersion)
     sendAsyncSignedInternal(signedContent)
   }
+
+  override def adminServices: Seq[ServerServiceDefinition] = blockSequencerOps.adminServices
 
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]

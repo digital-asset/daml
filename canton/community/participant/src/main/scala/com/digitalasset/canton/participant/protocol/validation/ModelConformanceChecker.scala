@@ -8,7 +8,7 @@ import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
-import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.data.Ref.{Identifier, PackageId, PackageName}
 import com.daml.lf.engine
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
@@ -24,7 +24,11 @@ import com.digitalasset.canton.participant.protocol.SerializableContractAuthenti
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.TransactionTreeConversionError
-import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
+import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
+  ConflictingNameBindings,
+  PackageNotFound,
+  *,
+}
 import com.digitalasset.canton.participant.store.{
   ContractLookup,
   ContractLookupAndVerification,
@@ -32,6 +36,7 @@ import com.digitalasset.canton.participant.store.{
   StoredContract,
 }
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixes,
   WithSuffixesAndMerged,
@@ -42,9 +47,8 @@ import com.digitalasset.canton.sequencing.protocol.MediatorsOfDomain
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.{
   LfCommand,
   LfCreateCommand,
@@ -74,6 +78,7 @@ class ModelConformanceChecker(
         Boolean,
         ViewHash,
         TraceContext,
+        Map[PackageName, PackageId],
     ) => EitherT[
       Future,
       DAMLeError,
@@ -86,6 +91,7 @@ class ModelConformanceChecker(
     val transactionTreeFactory: TransactionTreeFactory,
     participantId: ParticipantId,
     val serializableContractAuthenticator: SerializableContractAuthenticator,
+    val packageResolver: PackageResolver,
     val enableContractUpgrading: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -212,7 +218,7 @@ class ModelConformanceChecker(
   ): EitherT[Future, Error, Map[LfContractId, StoredContract]] = {
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
-      .parTraverse { case (cid, inputContract @ InputContract(contract, _)) =>
+      .parTraverse { case (cid, InputContract(contract, _)) =>
         validateContract(contract, traceContext)
           .leftMap {
             case DAMLeFailure(error) =>
@@ -223,6 +229,34 @@ class ModelConformanceChecker(
           .map(_ => cid -> StoredContract(contract, requestCounter, None))
       }
       .map(_.toMap)
+  }
+
+  private def buildPackageNameMap(
+      packageIds: Set[PackageId]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, Error, Map[PackageName, PackageId]] = {
+
+    EitherT(for {
+      resolvedE <- packageIds.toSeq.parTraverse(pId =>
+        packageResolver(pId)(traceContext)
+          .map({
+            case None => Left(pId)
+            case Some(ast) => Right((pId, ast.metadata.name))
+          })
+      )
+    } yield {
+      for {
+        resolved <- resolvedE.separate match {
+          case (Seq(), resolved) => Right(resolved)
+          case (unresolved, _) => Left(PackageNotFound(Map(participantId -> unresolved.toSet)))
+        }
+        resolvedNameBindings = resolved.map({ case (pId, name) => name -> pId })
+        nameBindings <- MapsUtil.toNonConflictingMap(resolvedNameBindings) leftMap { conflicts =>
+          ConflictingNameBindings(Map(participantId -> conflicts))
+        }
+      } yield nameBindings
+    })
   }
 
   private def checkView(
@@ -241,8 +275,10 @@ class ModelConformanceChecker(
       traceContext: TraceContext
   ): EitherT[Future, Error, WithRollbackScope[WellFormedTransaction[WithSuffixes]]] = {
     val viewParticipantData = view.viewParticipantData.tryUnwrap
-    val RootAction(cmd, authorizers, failed) =
+
+    val RootAction(cmd, authorizers, failed, packageIdPreference) =
       viewParticipantData.rootAction(enableContractUpgrading)
+
     val rbContext = viewParticipantData.rollbackContext
     val seed = viewParticipantData.actionDescription.seedOption
     for {
@@ -256,6 +292,9 @@ class ModelConformanceChecker(
           resolverFromView,
           serializableContractAuthenticator,
         )
+
+      packagePreference <- buildPackageNameMap(packageIdPreference)
+
       lfTxAndMetadata <- reinterpret(
         contractLookupAndVerification,
         authorizers,
@@ -266,6 +305,7 @@ class ModelConformanceChecker(
         failed,
         view.viewHash,
         traceContext,
+        packagePreference,
       )
         .leftWiden[Error]
       (lfTx, metadata, resolverFromReinterpretation) = lfTxAndMetadata
@@ -279,7 +319,7 @@ class ModelConformanceChecker(
         .fromEither[Future](
           WellFormedTransaction.normalizeAndCheck(lfTx, metadata, WithoutSuffixes)
         )
-        .leftMap[Error](err => TransactionNotWellformed(err, view.viewHash))
+        .leftMap[Error](err => TransactionNotWellFormed(err, view.viewHash))
       salts = transactionTreeFactory.saltsFromView(view)
       reconstructedViewAndTx <- checked(
         transactionTreeFactory.tryReconstruct(
@@ -349,8 +389,8 @@ object ModelConformanceChecker {
       damle: DAMLe,
       transactionTreeFactory: TransactionTreeFactory,
       serializableContractAuthenticator: SerializableContractAuthenticator,
-      protocolVersion: ProtocolVersion,
       participantId: ParticipantId,
+      packageResolver: PackageResolver,
       enableContractUpgrading: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ModelConformanceChecker = {
@@ -364,6 +404,7 @@ object ModelConformanceChecker {
         expectFailure: Boolean,
         viewHash: ViewHash,
         traceContext: TraceContext,
+        packageResolution: Map[PackageName, PackageId],
     ): EitherT[Future, DAMLeError, (LfVersionedTransaction, TransactionMetadata, LfKeyResolver)] =
       damle
         .reinterpret(
@@ -374,6 +415,7 @@ object ModelConformanceChecker {
           submissionTime,
           rootSeed,
           expectFailure,
+          packageResolution,
         )(traceContext)
         .leftMap(DAMLeError(_, viewHash))
 
@@ -383,6 +425,7 @@ object ModelConformanceChecker {
       transactionTreeFactory,
       participantId,
       serializableContractAuthenticator,
+      packageResolver,
       enableContractUpgrading,
       loggerFactory,
     )
@@ -459,24 +502,8 @@ object ModelConformanceChecker {
     override def pretty: Pretty[DAMLeError] = adHocPrettyInstance
   }
 
-  /** Indicates a different number of declared and reconstructed create nodes. */
-  final case class CreatedContractsDeclaredIncorrectly(
-      declaredCreateNodes: Seq[CreatedContract],
-      reconstructedCreateNodes: Seq[LfNodeCreate],
-      viewHash: ViewHash,
-  ) extends Error {
-    override def pretty: Pretty[CreatedContractsDeclaredIncorrectly] = prettyOfClass(
-      param("declaredCreateNodes", _.declaredCreateNodes),
-      param(
-        "reconstructedCreateNodes",
-        _.reconstructedCreateNodes.map(_.templateId),
-      ),
-      unnamedParam(_.viewHash),
-    )
-  }
-
-  final case class TransactionNotWellformed(cause: String, viewHash: ViewHash) extends Error {
-    override def pretty: Pretty[TransactionNotWellformed] = prettyOfClass(
+  final case class TransactionNotWellFormed(cause: String, viewHash: ViewHash) extends Error {
+    override def pretty: Pretty[TransactionNotWellFormed] = prettyOfClass(
       param("cause", _.cause.unquoted),
       unnamedParam(_.viewHash),
     )
@@ -510,14 +537,6 @@ object ModelConformanceChecker {
     )
   }
 
-  final case class JoinedTransactionNotWellFormed(
-      cause: String
-  ) extends Error {
-    override def pretty: Pretty[JoinedTransactionNotWellFormed] = prettyOfClass(
-      param("cause", _.cause.unquoted)
-    )
-  }
-
   final case class InvalidInputContract(
       contractId: LfContractId,
       templateId: Identifier,
@@ -543,6 +562,34 @@ object ModelConformanceChecker {
         _.unvetted
           .map { case (participant, packageIds) =>
             show"$participant has not vetted $packageIds".unquoted
+          }
+          .mkShow("\n")
+      )
+    )
+  }
+
+  final case class PackageNotFound(
+      missing: Map[ParticipantId, Set[PackageId]]
+  ) extends Error {
+    override def pretty: Pretty[PackageNotFound] = prettyOfClass(
+      unnamedParam(
+        _.missing
+          .map { case (participant, packageIds) =>
+            show"$participant can not find $packageIds".unquoted
+          }
+          .mkShow("\n")
+      )
+    )
+  }
+
+  final case class ConflictingNameBindings(
+      conflicting: Map[ParticipantId, Map[PackageName, Set[PackageId]]]
+  ) extends Error {
+    override def pretty: Pretty[ConflictingNameBindings] = prettyOfClass(
+      unnamedParam(
+        _.conflicting
+          .map { case (participant, conflicts) =>
+            show"$participant has detected conflicting package name resolutions $conflicts".unquoted
           }
           .mkShow("\n")
       )

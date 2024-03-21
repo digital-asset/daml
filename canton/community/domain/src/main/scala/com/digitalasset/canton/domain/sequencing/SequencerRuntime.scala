@@ -256,6 +256,7 @@ class SequencerRuntime(
     )
     // hook for registering enterprise administration service if in an appropriate environment
     additionalAdminServiceFactory(sequencer).foreach(register)
+    sequencer.adminServices.foreach(register)
   }
 
   def domainServices(implicit ec: ExecutionContext): Seq[ServerServiceDefinition] = Seq(

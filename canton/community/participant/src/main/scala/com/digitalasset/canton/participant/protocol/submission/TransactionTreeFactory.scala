@@ -116,12 +116,6 @@ object TransactionTreeFactory {
     )
   }
 
-  final case class CommonMetadataError(message: String) extends TransactionTreeConversionError {
-    override def pretty: Pretty[CommonMetadataError] = prettyOfClass(
-      unnamedParam(_.message.unquoted)
-    )
-  }
-
   final case class SubmitterMetadataError(message: String) extends TransactionTreeConversionError {
     override def pretty: Pretty[SubmitterMetadataError] = prettyOfClass(
       unnamedParam(_.message.unquoted)
@@ -160,6 +154,14 @@ object TransactionTreeFactory {
       prettyOfString(err => show"Some packages are not known to all informees.\n${err.unknownTo}")
   }
 
+  final case class ConflictingPackagePreferenceError(
+      conflicts: Map[LfPackageName, Set[LfPackageId]]
+  ) extends TransactionTreeConversionError {
+    override def pretty: Pretty[ConflictingPackagePreferenceError] = prettyOfString { err =>
+      show"Detected conflicting package-ids for the same package name\n${err.conflicts}"
+    }
+  }
+
   final case class PackageUnknownTo(
       packageId: LfPackageId,
       participantId: ParticipantId,
@@ -168,4 +170,5 @@ object TransactionTreeFactory {
       show"Participant $participantId has not vetted ${put.packageId}"
     }
   }
+
 }

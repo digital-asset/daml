@@ -845,6 +845,7 @@ final class TransferOutProcessingStepsTest
           timeEvent,
           Some(transferInExclusivity),
           MediatorsOfDomain(MediatorGroupIndex.one),
+          locallyRejected = false,
         )
         _ <- valueOrFail(
           outProcessingSteps

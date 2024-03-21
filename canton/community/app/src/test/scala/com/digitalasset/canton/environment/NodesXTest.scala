@@ -70,6 +70,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       override def batching: BatchingConfig = BatchingConfig()
       override def caching: CachingConfigs = CachingConfigs()
       override def useNewTrafficControl: Boolean = false
+      override def useUnifiedSequencer: Boolean = false
     }
   }
 
@@ -92,6 +93,7 @@ class NodesXTest extends FixtureAnyWordSpec with BaseTest with HasExecutionConte
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
       useNewTrafficControl: Boolean = false,
       exitOnFatalFailures: Boolean = true,
+      useUnifiedSequencer: Boolean = false,
   ) extends CantonNodeParameters
 
   private val metricsFactory: CantonLabeledMetricsFactory = new InMemoryMetricsFactory

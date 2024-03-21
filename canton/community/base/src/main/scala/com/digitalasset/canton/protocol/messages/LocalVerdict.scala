@@ -19,8 +19,9 @@ import com.digitalasset.canton.version.*
 import com.google.rpc.status.Status
 
 /** Possible verdicts on a transaction view from the participant's perspective.
-  * The verdict can be `LocalApprove`, `LocalReject` or `Malformed`.
-  * The verdicts `LocalReject` and `Malformed` include a `reason` pointing out which checks in Phase 3 have failed.
+  * The verdict can be `LocalApprove` or `LocalReject`.
+  * The verdict `LocalReject` includes a `reason` pointing out which checks in Phase 3 have failed, and
+  * a flag `isMalformed` indicating whether the rejection occurs due to malicious behavior.
   */
 sealed trait LocalVerdict
     extends Product
@@ -29,6 +30,8 @@ sealed trait LocalVerdict
     with HasProtocolVersionedWrapper[LocalVerdict] {
 
   def isMalformed: Boolean
+
+  def isApprove: Boolean
 
   private[messages] def toProtoV30: v30.LocalVerdict
 
@@ -80,6 +83,8 @@ final case class LocalApprove()(
 
   override def isMalformed: Boolean = false
 
+  override def isApprove: Boolean = true
+
   private[messages] def toProtoV30: v30.LocalVerdict =
     v30.LocalVerdict(
       code = VERDICT_CODE_LOCAL_APPROVE,
@@ -99,6 +104,7 @@ final case class LocalReject(reason: com.google.rpc.status.Status, isMalformed: 
 ) extends LocalVerdict
     with TransactionRejection
     with PrettyPrinting {
+  override def isApprove: Boolean = false
 
   override def logWithContext(
       extra: Map[String, String]

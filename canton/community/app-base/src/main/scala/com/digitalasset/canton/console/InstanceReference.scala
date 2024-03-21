@@ -7,6 +7,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.commands.{
   EnterpriseSequencerAdminCommands,
+  EnterpriseSequencerBftAdminCommands,
   GrpcAdminCommand,
   PruningSchedulerCommands,
   SequencerAdminCommands,
@@ -29,6 +30,7 @@ import com.digitalasset.canton.domain.sequencing.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.PeerNetworkStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerClients,
   SequencerPruningStatus,
@@ -39,6 +41,7 @@ import com.digitalasset.canton.health.admin.data.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.MetricValue
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.config.{
   BaseParticipantConfig,
   LocalParticipantConfig,
@@ -1149,6 +1152,26 @@ abstract class SequencerNodeReference(
     def disable_member(member: Member): Unit = consoleEnvironment.run {
       runner.adminCommand(EnterpriseSequencerAdminCommands.DisableMember(member))
     }
+  }
+
+  @Help.Summary("Methods used to manage BFT sequencers; they'll fail on non-BFT sequencers")
+  object bft {
+
+    @Help.Summary("Add a new peer endpoint")
+    def add_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
+      runner.adminCommand(EnterpriseSequencerBftAdminCommands.AddPeerEndpoint(endpoint))
+    }
+
+    @Help.Summary("Remove a peer endpoint")
+    def remove_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
+      runner.adminCommand(EnterpriseSequencerBftAdminCommands.RemovePeerEndpoint(endpoint))
+    }
+
+    @Help.Summary("Get peer network status")
+    def get_peer_network_status(endpoints: Option[Iterable[Endpoint]]): PeerNetworkStatus =
+      consoleEnvironment.run {
+        runner.adminCommand(EnterpriseSequencerBftAdminCommands.GetPeerNetworkStatus(endpoints))
+      }
   }
 }
 

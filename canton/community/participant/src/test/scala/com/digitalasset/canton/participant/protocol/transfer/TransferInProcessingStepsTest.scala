@@ -652,6 +652,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         transferId,
         contract.metadata.stakeholders,
         MediatorsOfDomain(MediatorGroupIndex.one),
+        locallyRejected = false,
       )
 
       for {

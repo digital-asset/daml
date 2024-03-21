@@ -11,9 +11,11 @@ import com.daml.lf.transaction.ContractStateMachine.KeyInactive
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate, KeyInput, NegativeKeyLookup}
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
+import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
+  ConflictingPackagePreferenceError,
   ContractKeyResolutionError,
   MissingContractKeyLookupError,
   SerializableContractOfId,
@@ -27,9 +29,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
+import com.digitalasset.canton.{LfKeyResolver, LfPackageId, LfPackageName, LfPartyId, checked}
 
 import java.util.UUID
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -54,6 +57,40 @@ class TransactionTreeFactoryImplV3(
 
   private val initialCsmState: ContractStateMachine.State[Unit] =
     ContractStateMachine.initial[Unit](ContractKeyUniquenessMode.Off)
+
+  private[submission] def buildPackagePreference(
+      decomposition: TransactionViewDecomposition
+  ): Either[ConflictingPackagePreferenceError, Set[LfPackageId]] = {
+
+    def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
+      case ex: LfNodeExercises if ex.interfaceId.isDefined =>
+        Set(ex.packageName -> ex.templateId.packageId)
+      case _ => Set.empty
+    }
+
+    @tailrec
+    def go(
+        decompositions: List[TransactionViewDecomposition],
+        resolved: Set[(LfPackageName, LfPackageId)],
+    ): Set[(LfPackageName, LfPackageId)] = {
+      decompositions match {
+        case Nil =>
+          resolved
+        case (v: SameView) :: others =>
+          go(others, resolved ++ nodePref(v.lfNode))
+        case (v: NewView) :: others =>
+          go(v.tailNodes.toList ::: others, resolved ++ nodePref(v.lfNode))
+      }
+    }
+
+    val preferences = go(List(decomposition), Set.empty)
+    MapsUtil
+      .toNonConflictingMap(preferences)
+      .bimap(
+        conflicts => ConflictingPackagePreferenceError(conflicts),
+        map => map.values.toSet,
+      )
+  }
 
   protected[submission] class State private (
       override val mediator: MediatorsOfDomain,
@@ -272,7 +309,8 @@ class TransactionTreeFactoryImplV3(
 
       // Compute the parameters of the view
       seed = view.rootSeed
-      actionDescription = createActionDescription(suffixedRootNode, seed)
+      packagePreference <- EitherT.fromEither[Future](buildPackagePreference(view))
+      actionDescription = createActionDescription(suffixedRootNode, seed, packagePreference)
       viewCommonData = createViewCommonData(view, viewCommonDataSalt)
       viewKeyInputs = state.csmState.globalKeyInputs
       resolvedK <- EitherT.fromEither[Future](

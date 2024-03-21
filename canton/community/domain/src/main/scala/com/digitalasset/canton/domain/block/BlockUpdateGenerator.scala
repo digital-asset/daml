@@ -13,7 +13,6 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.error.BaseError
-import com.daml.nonempty.catsinstances.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String73
@@ -24,7 +23,6 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.block.LedgerBlockEvent.*
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
@@ -80,6 +78,8 @@ import scala.concurrent.{ExecutionContext, Future}
   * (and especially that events are always read in the same order).
   */
 trait BlockUpdateGenerator {
+  import BlockUpdateGenerator.*
+
   type InternalState
 
   def internalStateFor(state: BlockEphemeralState): InternalState
@@ -93,12 +93,19 @@ trait BlockUpdateGenerator {
   def processBlockChunk(state: InternalState, chunk: BlockChunk)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[(InternalState, OrderedBlockUpdate)]
+  ): FutureUnlessShutdown[(InternalState, OrderedBlockUpdate[UnsignedChunkEvents])]
+
+  def signChunkEvents(events: UnsignedChunkEvents)(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[SignedChunkEvents]
 }
 
 object BlockUpdateGenerator {
 
-  type SignedEvents = NonEmpty[Map[Member, OrdinarySerializedEvent]]
+  type EventsForSubmissionRequest = Map[Member, SequencedEvent[ClosedEnvelope]]
+
+  type SignedEvents = Map[Member, OrdinarySerializedEvent]
 
   sealed trait BlockChunk extends Product with Serializable
   final case class NextChunk(
@@ -118,6 +125,7 @@ class BlockUpdateGeneratorImpl(
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     protected val loggerFactory: NamedLoggerFactory,
+    unifiedSequencer: Boolean,
 )(implicit val closeContext: CloseContext)
     extends BlockUpdateGenerator
     with NamedLogging {
@@ -180,7 +188,7 @@ class BlockUpdateGeneratorImpl(
   override final def processBlockChunk(state: InternalState, chunk: BlockChunk)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[(InternalState, OrderedBlockUpdate)] = {
+  ): FutureUnlessShutdown[(InternalState, OrderedBlockUpdate[UnsignedChunkEvents])] = {
     chunk match {
       case EndOfBlock(height) =>
         val newState = state.copy(lastBlockTs = state.lastChunkTs)
@@ -200,7 +208,7 @@ class BlockUpdateGeneratorImpl(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[(State, ChunkUpdate)] = {
+  ): FutureUnlessShutdown[(State, ChunkUpdate[UnsignedChunkEvents])] = {
     val (lastTs, revFixedTsChanges) =
       // With this logic, we assign to the initial non-Send events the same timestamp as for the last
       // block. This means that we will include these events in the ephemeral state of the previous block
@@ -309,7 +317,7 @@ class BlockUpdateGeneratorImpl(
       }
       result <- MonadUtil.foldLeftM(
         (
-          Seq.empty[SignedEvents],
+          Seq.empty[UnsignedChunkEvents],
           Map.empty[AggregationId, InFlightAggregationUpdate],
           stateWithNewMembers.ephemeral,
           Option.empty[CantonTimestamp],
@@ -513,7 +521,7 @@ class BlockUpdateGeneratorImpl(
       latestSequencerEventTimestamp: Option[CantonTimestamp],
   )(
       acc: (
-          Seq[SignedEvents],
+          Seq[UnsignedChunkEvents],
           InFlightAggregationUpdates,
           BlockUpdateEphemeralState,
           Option[CantonTimestamp],
@@ -523,7 +531,7 @@ class BlockUpdateGeneratorImpl(
       ec: ExecutionContext
   ): FutureUnlessShutdown[
     (
-        Seq[SignedEvents],
+        Seq[UnsignedChunkEvents],
         InFlightAggregationUpdates,
         BlockUpdateEphemeralState,
         Option[CantonTimestamp],
@@ -536,7 +544,7 @@ class BlockUpdateGeneratorImpl(
       sequencingSnapshot,
       signingSnapshotO,
     ) = sequencedSubmissionRequest
-    implicit val traceContext = sequencedSubmissionRequest.traceContext
+    implicit val traceContext: TraceContext = sequencedSubmissionRequest.traceContext
 
     ErrorUtil.requireState(
       sequencerEventTimestampSoFarO.isEmpty,
@@ -549,7 +557,7 @@ class BlockUpdateGeneratorImpl(
         sequencerEventTimestampO: Option[CantonTimestamp],
     ): FutureUnlessShutdown[
       (
-          Seq[SignedEvents],
+          Seq[UnsignedChunkEvents],
           InFlightAggregationUpdates,
           BlockUpdateEphemeralState,
           Option[CantonTimestamp],
@@ -595,19 +603,22 @@ class BlockUpdateGeneratorImpl(
                 sequencingSnapshot,
                 latestSequencerEventTimestamp,
               )
-              signedEvents <- signEvents(
+            } yield {
+              val unsignedEvents = UnsignedChunkEvents(
+                signedSubmissionRequest.content.sender,
                 deliverEventsNE,
                 signingSnapshot,
-                trafficUpdatedState,
                 sequencingTimestamp,
                 sequencingSnapshot,
+                trafficUpdatedState.trafficState.view.mapValues(_.toSequencedEventTrafficState),
               )
-            } yield (
-              signedEvents +: reversedEvents,
-              newInFlightAggregationUpdates,
-              trafficUpdatedState,
-              sequencerEventTimestampO,
-            )
+              (
+                unsignedEvents +: reversedEvents,
+                newInFlightAggregationUpdates,
+                trafficUpdatedState,
+                sequencerEventTimestampO,
+              )
+            }
         }
     }
 
@@ -1343,25 +1354,26 @@ class BlockUpdateGeneratorImpl(
       } yield participantsOfParty ++ mediatorsOfDomain ++ sequencersOfDomain ++ allRecipients
   }
 
-  private def signEvents(
-      events: NonEmpty[Map[Member, SequencedEvent[ClosedEnvelope]]],
-      snapshot: SyncCryptoApi,
-      ephemeralState: BlockUpdateEphemeralState,
-      // sequencingTimestamp and sequencingSnapshot used for tombstones when snapshot does not include sequencer signing keys
-      sequencingTimestamp: CantonTimestamp,
-      sequencingSnapshot: SyncCryptoApi,
-  )(implicit
+  override def signChunkEvents(unsignedEvents: UnsignedChunkEvents)(implicit
+      ec: ExecutionContext,
       traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[SignedEvents] = {
-    (if (maybeLowerTopologyTimestampBound.forall(snapshot.ipsSnapshot.timestamp >= _)) {
+  ): FutureUnlessShutdown[SignedChunkEvents] = {
+    val UnsignedChunkEvents(
+      sender,
+      events,
+      signingSnapshot,
+      sequencingTimestamp,
+      sequencingSnapshot,
+      trafficStates,
+    ) = unsignedEvents
+    (if (maybeLowerTopologyTimestampBound.forall(signingSnapshot.ipsSnapshot.timestamp >= _)) {
        FutureUnlessShutdown.outcomeF(
-         events.toSeq.toNEF
+         events.toSeq
            .parTraverse { case (member, event) =>
              SignedContent
                .create(
-                 snapshot.pureCrypto,
-                 snapshot,
+                 signingSnapshot.pureCrypto,
+                 signingSnapshot,
                  event,
                  None,
                  HashPurpose.SequencedEventSignature,
@@ -1373,10 +1385,17 @@ class BlockUpdateGeneratorImpl(
                  )
                )
                .map { signedContent =>
-                 member -> OrdinarySequencedEvent(
-                   signedContent,
-                   ephemeralState.trafficState.get(member).map(_.toSequencedEventTrafficState),
-                 )(traceContext)
+                 val trafficStateO = Option
+                   .when(!unifiedSequencer || member == sender) { // only include traffic state for the sender
+                     trafficStates
+                       .getOrElse(
+                         member,
+                         ErrorUtil.invalidState(s"Sender $sender unknown by rate limiter."),
+                       )
+                   }
+                 member -> OrdinarySequencedEvent(signedContent, trafficStateO)(
+                   traceContext
+                 )
                }
            }
        )
@@ -1386,7 +1405,7 @@ class BlockUpdateGeneratorImpl(
        // subscribers that this sequencer is not in a position to serve the events behind these sequencer counters.
        // Comparing against the lower signing timestamp bound prevents tombstones in "steady-state" sequencing beyond
        // "soon" after initial sequencer onboarding. See #13609
-       events.toSeq.toNEF.parTraverse { case (member, event) =>
+       events.toSeq.parTraverse { case (member, event) =>
          logger.info(
            s"Sequencer signing key not available on behalf of ${member.uid.id} at ${event.timestamp} and ${event.counter}. Sequencing tombstone."
          )
@@ -1424,7 +1443,7 @@ class BlockUpdateGeneratorImpl(
          }
        }
      })
-      .map(_.fromNEF.toMap)
+      .map(signedEvents => SignedChunkEvents(signedEvents.toMap))
   }
 
   private def invalidSubmissionRequest(
@@ -1520,6 +1539,13 @@ class BlockUpdateGeneratorImpl(
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, BlockUpdateEphemeralState] = {
     val newStateOF = for {
+      _ <- OptionT.when[FutureUnlessShutdown, Unit]({
+        request.sender match {
+          // Sequencers are not rate limited
+          case _: SequencerId => false
+          case _ => true
+        }
+      })(())
       parameters <- OptionT(
         sequencingSnapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
       )
@@ -1608,7 +1634,8 @@ class BlockUpdateGeneratorImpl(
 }
 
 object BlockUpdateGeneratorImpl {
-  private type EventsForSubmissionRequest = Map[Member, SequencedEvent[ClosedEnvelope]]
+
+  import BlockUpdateGenerator.*
 
   /** Describes the outcome of processing a submission request:
     *

@@ -1,0 +1,60 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.sequencer.admin.v30;
+
+service SequencerBftAdministrationService {
+  rpc AddPeerEndpoint(AddPeerEndpointRequest) returns (AddPeerEndpointResponse);
+  rpc RemovePeerEndpoint(RemovePeerEndpointRequest) returns (RemovePeerEndpointResponse);
+  rpc GetPeerNetworkStatus(GetPeerNetworkStatusRequest) returns (GetPeerNetworkStatusResponse);
+}
+
+message AddPeerEndpointRequest {
+  PeerEndpoint endpoint = 1;
+}
+
+message RemovePeerEndpointRequest {
+  PeerEndpoint endpoint = 1;
+}
+
+message PeerEndpoint {
+  string host = 1;
+  uint32 port = 2;
+}
+
+message AddPeerEndpointResponse {
+  // False if already present
+  bool added = 1;
+}
+message RemovePeerEndpointResponse {
+  // False if not found
+  bool removed = 1;
+}
+
+enum PeerEndpointHealthStatus {
+  PEER_ENDPOINT_HEALTH_STATUS_UNSPECIFIED = 0; // Required by buf lint (default value)
+  PEER_ENDPOINT_HEALTH_STATUS_UNKNOWN_ENDPOINT = 1;
+  PEER_ENDPOINT_HEALTH_STATUS_UNAUTHENTICATED = 3;
+  PEER_ENDPOINT_HEALTH_STATUS_AUTHENTICATED = 4;
+}
+
+message PeerEndpointHealth {
+  PeerEndpointHealthStatus status = 1;
+  optional string description = 2;
+}
+
+message PeerEndpointStatus {
+  PeerEndpoint endpoint = 1;
+  PeerEndpointHealth health = 2;
+}
+
+message GetPeerNetworkStatusRequest {
+  // If empty, the status of all known endpoints will be returned
+  repeated PeerEndpoint endpoints = 1;
+}
+
+message GetPeerNetworkStatusResponse {
+  repeated PeerEndpointStatus statuses = 1;
+}

@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.util
 import cats.data.EitherT
 import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.*
 import com.daml.lf.interpretation.Error as LfInterpretationError
 import com.daml.lf.language.Ast.Package
@@ -118,6 +118,7 @@ class DAMLe(
       submissionTime: CantonTimestamp,
       rootSeed: Option[LfHash],
       expectFailure: Boolean,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -176,6 +177,7 @@ class DAMLe(
         nodeSeed = rootSeed,
         submissionTime = submissionTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
+        packageResolution = packageResolution,
       )
     }
 
@@ -202,6 +204,7 @@ class DAMLe(
         nodeSeed = Some(DAMLe.zeroSeed),
         submissionTime = Time.Timestamp.Epoch, // Only used to compute contract ids
         ledgerEffectiveTime = ledgerEffectiveTime.ts.underlying,
+        packageResolution = Map.empty,
       )
       for {
         txWithMetadata <- EitherT(
