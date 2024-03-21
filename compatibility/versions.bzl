@@ -11,7 +11,7 @@ sdk_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
-    "2.7.8",
+    "2.7.9",
     "2.8.3",
     "0.0.0",
 ]
@@ -24,7 +24,7 @@ platform_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
-    "2.7.8",
+    "2.7.9",
     "2.8.3",
     "0.0.0",
 ]
@@ -37,7 +37,7 @@ stable_versions = [
     "2.5.0",
     "2.5.5",
     "2.6.5",
-    "2.7.8",
+    "2.7.9",
     "2.8.3",
     "0.0.0",
 ]
@@ -123,14 +123,14 @@ version_sha256s = {
         "daml_react": "36ad551102e95281b78b4b66f5250fc12730f145529089eb0160730287610b00",
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
     },
-    "2.7.8": {
-        "linux": "c04075ba9fdf1ed2a9783b3581f3267411b2ab56d187386eb57cb3dd5cedd562",
-        "macos": "fec097e34ceb9acc6ddad9cbd40a662ff2a81b167e5d9b24eb5cce7e4711f968",
-        "windows": "5288c9cd8d0ffd034943629d76fcea13177f496d51f2ab211e4ce09c22c0c555",
-        "test_tool": "17b7e3585a08bff984beede83335b48f1a4ff899930714b4cc58e40895f165a3",
-        "daml_types": "b163f6551e216f675b6452554c12f4da09f9b8d8ce82c2ac618f5522dc350bad",
-        "daml_ledger": "a2ef353aa06488ce01fd3c2c2df66756577cfa6eef363564cffc360006dcb408",
-        "daml_react": "370d2e252141f3115bc615d27f833ba3b077405f94df46452701b7e389d7bde5",
+    "2.7.9": {
+        "linux": "b5b680fa9a7696b1c435bbf8b84ab04687126f47ce07e2e6e297fdc3997eec26",
+        "macos": "199ed08bef894832a4f012541bb85b931eb5a4ad7e24b1c6c2d5855f8c75b4d5",
+        "windows": "18f08e79975cd371a1df5d7d2a7dd432040c416087ea34e96bb4ef1ce7eb9c3d",
+        "test_tool": "8a2bf9a3e457438fd1641bcf8506b9588236ec5638527ecb6b8089780dd0a302",
+        "daml_types": "41c57e6a76dc1bb3ada426298e3ebc8f9527912505c22162afc52bb4aae554c1",
+        "daml_ledger": "0e6245eb0d7991f6db0a0f45d858b04680341157c4d0ed36f0c54a9201c3603a",
+        "daml_react": "e41b6d7e1e6290399cedfb1731b0317d72e1db90f4ac488a95a766148e99e4cf",
         "create_daml_app_patch": "57b76fb4ed7c3bf6bc900dc70965b51434a22a30aa4229d46684a35e300bfe81",
     },
     "2.8.3": {
