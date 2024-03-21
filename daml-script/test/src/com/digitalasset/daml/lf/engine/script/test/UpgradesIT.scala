@@ -183,8 +183,6 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
 
   // Ensures no package name is defined twice across all test files
   def getTestCases(testFileDir: Path): Seq[TestCase] = {
-    import java.lang.management.ManagementFactory
-    println(ManagementFactory.getRuntimeMXBean().getInputArguments())
     val cases = getTestCasesUnsafe(testFileDir)
     val packageNameDefiners = mutable.Map[String, Seq[String]]()
     for {

@@ -6,6 +6,8 @@ module Fetch (main) where
 import UpgradeTestLib
 import qualified V1.Fetch as V1
 import qualified V2.Fetch as V2
+import qualified V2.FetchDelayedUpgrade as V2
+import qualified V3.FetchDelayedUpgrade as V3
 import DA.Text
 
 {- PACKAGE
@@ -45,6 +47,10 @@ main = tests
   , -- Fetching tests with unvetted sources (BROKEN)
     broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
   , broken ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+
+
+  , ("Succeeds adding a field to a template only defined in V2", fetchDelayedUpgraded)
+  , ("Succeeds adding a field to a nested datatype only defined in V2", fetchDelayedNestedUpgraded)
   ]
 
 exerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script r
@@ -116,3 +122,70 @@ fetchDowngradedNoneSourceUnvetted = do
       Right v1Name -> v1Name === V1.FetchTemplate with party = a
       Left err -> assertFail $ "Expected success but got " <> show err
 
+
+
+{- PACKAGE
+name: fetch-delayed-upgrade
+versions: 3
+-}
+
+{- MODULE
+package: fetch-delayed-upgrade
+contents: |
+  module FetchDelayedUpgrade where
+
+  template FetchDelayedUpgradeTemplate     -- @V 2 3
+    with                                   -- @V 2 3
+      party : Party                        -- @V 2 3
+      newField : Optional Text             -- @V   3
+    where                                  -- @V 2 3
+      signatory party                      -- @V 2 3
+  
+  template FetchDelayedUpgradeNestedTemplate
+    with
+      party : Party
+      nestedData : Optional NestedData     -- @V 2 3
+    where
+      signatory party
+    
+  data NestedData = NestedData with        -- @V 2 3
+      field1 : Int                         -- @V 2 3
+      field2 : Optional Int                -- @V   3
+    deriving (Show, Eq)                    -- @V 2 3
+
+  -- Comment out this whole block in version 1
+  {- -- @V 1
+  template FetchDelayedHelperTemplate
+    with
+      party: Party
+    where
+      signatory party
+      choice DoFetchDelayed : FetchDelayedUpgradeTemplate with
+          cid : ContractId FetchDelayedUpgradeTemplate
+        controller party
+        do fetch cid
+
+      choice DoFetchDelayedNested : FetchDelayedUpgradeNestedTemplate with
+          cid : ContractId FetchDelayedUpgradeNestedTemplate
+        controller party
+        do fetch cid
+  -} -- @V 1
+-}
+
+fetchDelayedUpgraded : Script ()
+fetchDelayedUpgraded = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd V2.FetchDelayedUpgradeTemplate with party = a
+
+  let v3Cid = coerceContractId @V2.FetchDelayedUpgradeTemplate @V3.FetchDelayedUpgradeTemplate cid
+  v3Name <- a `submit` createAndExerciseCmd (V3.FetchDelayedHelperTemplate a) V3.DoFetchDelayed with cid = v3Cid
+  v3Name === V3.FetchDelayedUpgradeTemplate with party = a, newField = None
+
+fetchDelayedNestedUpgraded : Script ()
+fetchDelayedNestedUpgraded = do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createExactCmd V2.FetchDelayedUpgradeNestedTemplate with party = a, nestedData = Some (V2.NestedData 1)
+
+  let v3Cid = coerceContractId @V2.FetchDelayedUpgradeNestedTemplate @V3.FetchDelayedUpgradeNestedTemplate cid
+  v3Name <- a `submit` createAndExerciseCmd (V3.FetchDelayedHelperTemplate a) V3.DoFetchDelayedNested with cid = v3Cid
+  v3Name === V3.FetchDelayedUpgradeNestedTemplate with party = a, nestedData = Some (V3.NestedData 1 None)
