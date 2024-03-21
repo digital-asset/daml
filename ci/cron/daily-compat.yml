@@ -210,8 +210,6 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-          AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: compat_versions_pr
     condition: or(eq(variables['Build.SourceBranchName'], 'main'),

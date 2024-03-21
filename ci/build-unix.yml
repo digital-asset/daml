@@ -83,8 +83,6 @@ steps:
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
-      ARTIFACTORY_USERNAME: $(ARTIFACTORY_USERNAME)
-      ARTIFACTORY_PASSWORD: $(ARTIFACTORY_PASSWORD)
       IS_FORK: $(System.PullRequest.IsFork)
     condition: and(succeeded(),
                    eq(variables.skip, 'false'),
