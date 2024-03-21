@@ -42,6 +42,7 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         KEY_FILE=$(mktemp)
@@ -62,6 +63,7 @@ jobs:
         GPG_KEY: $(gpg-code-signing)
     - bash: |
         set -eou pipefail
+        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         mkdir -p $(Build.StagingDirectory)/split-release
@@ -74,6 +76,7 @@ jobs:
            > $(Build.StagingDirectory)/split-release/split-release/info.json
     - bash: |
         set -euo pipefail
+        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
@@ -86,6 +89,7 @@ jobs:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
+        sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
@@ -93,6 +97,7 @@ jobs:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - bash: |
         set -euo pipefail
+        cd sdk
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
