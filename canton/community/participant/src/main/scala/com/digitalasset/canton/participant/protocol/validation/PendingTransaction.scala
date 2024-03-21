@@ -13,6 +13,7 @@ import com.digitalasset.canton.{RequestCounter, SequencerCounter, WorkflowId}
 /** Storing metadata of pending transactions required for emitting transactions on the sync API. */
 final case class PendingTransaction(
     txId: TransactionId,
+    locallyRejected: Boolean,
     freshOwnTimelyTx: Boolean,
     modelConformanceResultE: Either[
       ModelConformanceChecker.ErrorWithSubTransaction,

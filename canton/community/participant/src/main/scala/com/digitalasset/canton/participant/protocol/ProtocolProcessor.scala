@@ -1340,7 +1340,19 @@ abstract class ProtocolProcessor[
           _,
         ) <- unsignedResultE.toOption
         case WrappedPendingRequestData(pendingRequestData) <- Some(pendingRequestDataOrReplayData)
-        case PendingTransaction(txId, _, _, _, _, requestTime, _, _, _, _) <- Some(
+        case PendingTransaction(
+          txId,
+          _locallyRejected,
+          _,
+          _,
+          _,
+          _,
+          requestTime,
+          _,
+          _,
+          _,
+          _,
+        ) <- Some(
           pendingRequestData
         )
 
